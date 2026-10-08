@@ -14,13 +14,18 @@ import { resolveAuthSecret } from '@/infrastructure/auth/auth-secret'
 import { isEmailConfigured } from '@/infrastructure/process/env'
 import { isTransportRelaxed } from '@/infrastructure/process/security-posture'
 import { buildDeleteUserConfig } from './account-deletion-hooks'
-import { ACCOUNT_PREFERENCE_FIELDS, writablePreferenceLanguages } from './account-preferences'
+import { ACCOUNT_PREFERENCE_FIELDS } from './account-preferences'
 import { buildDatabaseHooks } from './auth-database-hooks'
 import { buildAuthDatabaseAdapter } from './auth-drizzle-adapter'
+import { buildAuthEventPlugin, passwordResetDispatcher } from './auth-event-hooks'
 import { buildAuthHooks } from './auth-request-hooks'
 import { createEmailHandlers } from './email-handlers'
 import { buildAdminPlugin } from './plugins/admin'
 import { buildApiKeyPlugin } from './plugins/api-key'
+import {
+  buildDeviceAuthorizationPlugin,
+  type DeviceKeyMinter,
+} from './plugins/device-authorization'
 import { buildEmailOtpPlugin } from './plugins/email-otp'
 import { buildMagicLinkPlugin } from './plugins/magic-link'
 import { buildOauthServerPlugin } from './plugins/oauth-server'
@@ -34,22 +39,33 @@ import type { AppMetaForOrg, AuthHookContext, ConnectionForSeed } from './auth-d
 import type { Auth } from '@/domain/models/app/auth'
 import type { DomainContext } from '@/infrastructure/server/domain-runtime'
 
+/** A key minter for a caller that never mints one (unit tests building the plugin list). */
+const NO_KEY_MINTER: DeviceKeyMinter = () =>
+  Promise.reject(new Error('No auth instance is bound to mint a device API key'))
+
 export const buildAuthPlugins = (
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth,
   ssoContext: ssoPlugin.SsoPluginContext = { envLookup: {}, baseURL: '' },
-  appName?: string
+  extras: {
+    readonly appName?: string
+    readonly mintDeviceKey?: DeviceKeyMinter
+    readonly hookContext?: AuthHookContext
+  } = {}
 ) => [
   openAPI({ disableDefaultReference: true }),
   ...buildAdminPlugin(authConfig),
   ...buildApiKeyPlugin(authConfig),
+  ...buildDeviceAuthorizationPlugin(authConfig, extras.mintDeviceKey ?? NO_KEY_MINTER),
   ...buildMagicLinkPlugin(handlers.magicLink, authConfig),
   ...buildEmailOtpPlugin(handlers.emailOtp, authConfig),
   ...buildOauthServerPlugin(authConfig),
   ...buildOrganizationPlugin(authConfig),
   ...buildTwoFactorPlugin(authConfig),
   ...ssoPlugin.buildSsoPlugin(authConfig, ssoContext),
-  ...buildPasskeyPlugin(authConfig, appName),
+  ...buildPasskeyPlugin(authConfig, extras.appName),
+  // Last, so `signIn` reads the session the other plugins let the request keep.
+  ...(extras.hookContext === undefined ? [] : [buildAuthEventPlugin(extras.hookContext)]),
 ]
 
 /**
@@ -76,7 +92,8 @@ export function buildRateLimitConfig() {
  */
 export function buildEmailAndPasswordConfig(
   authConfig: Auth | undefined,
-  handlers: Readonly<ReturnType<typeof createEmailHandlers>>
+  handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
+  hookContext?: AuthHookContext
 ) {
   const strategy = getStrategy(authConfig, 'emailAndPassword')
   const requireEmailVerification = strategy?.requireEmailVerification ?? false
@@ -89,6 +106,8 @@ export function buildEmailAndPasswordConfig(
     minPasswordLength: policy.minLength,
     maxPasswordLength: policy.maxLength,
     disableSignUp: authConfig?.allowSignUp === false,
+    // Fires the `passwordReset` automations once a reset has stood.
+    onPasswordReset: passwordResetDispatcher(hookContext),
   }
 }
 
@@ -98,7 +117,7 @@ export function buildEmailAndPasswordConfig(
  * `SOVRIUM_ALLOW_INSECURE` opt-out) the posture is relaxed: cookies omit the
  * `Secure` attribute (so `http://localhost` DX works) and CSRF origin-checking
  * is disabled. On a non-loopback bind — signalled by a non-loopback `BASE_URL`
- * / `HOSTNAME` — secure cookies are forced ON and CSRF is enforced.
+ * / `SOVRIUM_BIND_HOST` — secure cookies are forced ON and CSRF is enforced.
  *
  * `cookiePrefix` is Better Auth's default, pinned explicitly to the shared
  * constant the request-credential predicate recognises the session cookie by:
@@ -122,13 +141,17 @@ export function createAuthInstance(
 ) {
   const hookContext: AuthHookContext = { appMeta, domainContext }
   const handlers = createEmailHandlers(authConfig, appMeta?.name)
-  const emailAndPasswordConfig = buildEmailAndPasswordConfig(authConfig, handlers)
-  const { requireEmailVerification } = emailAndPasswordConfig
+  const emailAndPasswordConfig = buildEmailAndPasswordConfig(authConfig, handlers, hookContext)
 
   const baseURL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`
   const ssoContext = ssoPlugin.buildSsoContext(appMeta?.env, baseURL)
+  // The device flow mints its API key through this instance's own server API,
+  // which exists only once `betterAuth` returns: bound late, read per call.
+  const bound: { createApiKey?: DeviceKeyMinter } = {}
+  const mintDeviceKey: DeviceKeyMinter = (input) =>
+    bound.createApiKey === undefined ? NO_KEY_MINTER(input) : bound.createApiKey(input)
 
-  return betterAuth({
+  const instance = betterAuth({
     // Explicit `AUTH_SECRET` first, then a value derived from the root secret.
     // Passing `undefined` here would let Better Auth fall back to its own
     // publicly-documented default outside production, which is the hole
@@ -136,13 +159,12 @@ export function createAuthInstance(
     secret: resolveAuthSecret(),
     baseURL,
     database: buildAuthDatabaseAdapter(),
-    // NOTE: modelName options removed - the drizzle schema map uses standard
-    // model names and the Drizzle table definitions specify actual table names
+    // No modelName options: the Drizzle tables name the actual table names.
     trustedOrigins: [baseURL, ...ssoPlugin.ssoTrustedOrigins(authConfig, ssoContext.envLookup)],
     advanced: buildAdvancedConfig(),
     emailAndPassword: emailAndPasswordConfig,
     emailVerification: {
-      sendOnSignUp: requireEmailVerification,
+      sendOnSignUp: emailAndPasswordConfig.requireEmailVerification,
       autoSignInAfterVerification: true,
       sendVerificationEmail: handlers.verification,
     },
@@ -167,15 +189,21 @@ export function createAuthInstance(
     },
     socialProviders: buildSocialProviders(authConfig),
     session: { additionalFields: SESSION_ADDITIONAL_FIELDS },
-    plugins: buildAuthPlugins(handlers, authConfig, ssoContext, appMeta?.name),
+    plugins: buildAuthPlugins(handlers, authConfig, ssoContext, {
+      ...(appMeta?.name === undefined ? {} : { appName: appMeta.name }),
+      mintDeviceKey,
+      hookContext,
+    }),
     rateLimit: buildRateLimitConfig(),
-    // `deps` is undefined here on purpose: the admin-role guards resolve their
-    // own database access, and only the LANGUAGE guard needs anything from the
-    // app — the vocabulary a written preference has to belong to (the host's
-    // languages plus the mounted console's, a languages spec).
-    hooks: buildAuthHooks(handlers, authConfig, undefined, writablePreferenceLanguages(appMeta)),
+    // No `deps`: the role guards resolve their own database access. The app
+    // supplies a preference's languages and the sign-out automations.
+    hooks: buildAuthHooks(handlers, authConfig, undefined, { hookContext }),
     databaseHooks: buildDatabaseHooks(handlers, authConfig, connections, hookContext),
   })
+  // Only `userId` and `name`, and no headers: the API-key plugin's server path,
+  // which takes the owner from the body and its grant from that owner's role.
+  bound.createApiKey = ({ userId, name }) => instance.api.createApiKey({ body: { userId, name } })
+  return instance
 }
 
 export { buildSocialProviders } from './social-providers'

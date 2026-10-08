@@ -13,13 +13,12 @@ import {
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { findMissingRequiredFieldNames } from '@/domain/models/app/tables/required-fields-validation'
-import { isResolvableColumnName } from '@/domain/models/app/tables/system-fields'
 import { checkForExistingRecords } from '@/infrastructure/layers/table-layer'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/runtime/field-permission-validator'
 import { forbiddenCreateResponse } from './response-helpers'
 import { resolveAccessRolesFor } from './row-level-guard'
-import { enforceUpsertRowGate } from './upsert-row-gate'
+import { enforceUpsertRowGate, hiddenMatchesOf, unresolvableMergeField } from './upsert-row-gate'
 import type { App } from '@/domain/models/app'
 import type { FieldWriter } from '@/domain/models/app/tables/field-write-permission-service'
 import type { Context } from 'hono'
@@ -47,26 +46,6 @@ export async function validateUpsertRequiredFields(
       error: 'Required field is missing',
     }))
   })
-}
-
-/**
- * The first merge field that resolves to no column of `table`, or undefined when
- * every one of them does — including when the table itself is unknown, which is
- * the TABLE lookup's verdict to give, not this one's.
- *
- * System columns (`id`, the timestamps, the authorship columns) exist without
- * appearing in `fields[]`, so the shared `isResolvableColumnName` predicate is
- * used rather than a bare `fields[]` lookup — the same predicate both halves of
- * the record-filter field check already share, so the two cannot come to
- * opposite verdicts about one name.
- */
-function unresolvableMergeField(
-  table: NonNullable<App['tables']>[number] | undefined,
-  fieldsToMergeOn: readonly string[]
-): string | undefined {
-  if (!table) return undefined
-  const declaredFieldNames = new Set(table.fields.map((f) => f.name))
-  return fieldsToMergeOn.find((name) => !isResolvableColumnName(declaredFieldNames, name))
 }
 
 /**
@@ -103,6 +82,8 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   readonly accessRoles: readonly string[]
   readonly records: readonly { fields: Record<string, unknown> }[]
   readonly fieldsToMergeOn: readonly string[]
+  /** The matched rows the caller's read rule hides: none of them is a match. */
+  readonly hiddenIds: readonly string[]
   readonly c: Context
 }): Promise<{ allowed: true } | { allowed: false; response: Response }> {
   const { app, tableName, userRole, userGroups, accessRoles, records, fieldsToMergeOn, c } = config
@@ -125,7 +106,7 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   // promise on Postgres, and neither is evidence that no row matches.
   const hasExistingRecords =
     unresolvable !== undefined ||
-    (await checkForExistingRecords(tableName, records, fieldsToMergeOn))
+    (await checkForExistingRecords(tableName, records, fieldsToMergeOn, config.hiddenIds))
 
   // If records will be updated, check update permission
   if (hasExistingRecords && !hasUpdatePermissionForRoles(table, effectiveRoles, app)) {
@@ -466,9 +447,7 @@ export async function validateUpsertRequest(config: {
 
   // Single-record upsert: reject if ANY protected fields present
   const singleRecordCheck = checkSingleRecordProtectedFields(config)
-  if (!singleRecordCheck.success) {
-    return singleRecordCheck
-  }
+  if (!singleRecordCheck.success) return singleRecordCheck
 
   // For multi-record upserts, strip unwritable fields
   const strippedRecords = stripUnwritableFields(
@@ -480,9 +459,9 @@ export async function validateUpsertRequest(config: {
 
   // Check if all fields were stripped
   const stripCheck = checkAllFieldsStripped({ ...config, strippedRecords })
-  if (!stripCheck.success) {
-    return stripCheck
-  }
+  if (!stripCheck.success) return stripCheck
+
+  const hiddenIds = await hiddenMatchesOf({ ...config, table, records: strippedRecords })
 
   // Check table-level permissions (create/update)
   const permissionCheck = await checkUpsertPermissionsWithUpdateCheck({
@@ -493,6 +472,7 @@ export async function validateUpsertRequest(config: {
     accessRoles: await resolveAccessRolesFor(c, config.session, table ? [table] : []),
     records: strippedRecords,
     fieldsToMergeOn,
+    hiddenIds,
     c,
   })
   if (!permissionCheck.allowed) {
@@ -505,8 +485,13 @@ export async function validateUpsertRequest(config: {
 
   // Row-level rules: each row it merges onto is checked as it stands and as it
   // will be written, and each row it creates against `create.when`.
-  const rowError = await enforceUpsertRowGate({ ...config, table, records: strippedRecords })
+  const rowError = await enforceUpsertRowGate({
+    ...config,
+    table,
+    records: strippedRecords,
+    hiddenIds,
+  })
   if (rowError) return { success: false as const, response: rowError }
 
-  return { success: true as const, strippedRecords }
+  return { success: true as const, strippedRecords, hiddenIds }
 }

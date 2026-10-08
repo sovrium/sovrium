@@ -74,6 +74,8 @@ const pendingVariant = (successPath: string, signInPath: string): Node =>
         type: 'auth',
         method: 'declineInvitation',
         submitLabel: 'Decline',
+        // One decision leads: declining is the quieter way out
+        submitVariant: 'secondary',
         onSuccess: { navigate: signInPath },
       },
     },
@@ -93,7 +95,7 @@ export const entry = defineLibraryEntry({
   description:
     'The screen an invitation email opens: who invited the reader, to which workspace and role, and the choice to accept and join or decline — or a plain sentence when the link is not valid any more.',
   notes: [
-    'Place it on a page that declares `invitation: {}` — that is what reads the token from the address and exposes the invitation as `$invitation.*`. The built-in invitation email links to `/accept-invitation`, so give that page this path: it then replaces the built-in page.',
+    'Place it on a page that declares `invitation: {}` — that is what reads the token from the address and exposes the invitation as `$invitation.*`. The invitation email links to the first page that declares `invitation`, at whatever path you give it; with no such page, it links to the built-in `/accept-invitation` page.',
     'A link that matches no outstanding invitation — mistyped, already used, or revoked — reads "This invitation link is not valid", and an expired one says so; neither offers to accept. Nothing on the page says whether the invitation ever existed.',
     THEME_NOTE,
   ],

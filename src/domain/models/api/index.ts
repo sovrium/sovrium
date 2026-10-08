@@ -19,6 +19,7 @@
  * - analytics: Page analytics endpoints
  * - auth: Authentication and authorization endpoints
  * - automations: Automation run endpoints
+ * - buckets: Public bucket file endpoints
  * - connections: Connection authorization and per-user roster endpoints
  * - health: Health check endpoint
  * - realtime: WebSocket/SSE real-time subscription endpoints
@@ -46,6 +47,9 @@ export * from './auth'
 
 // Automation schemas
 export * from './automations'
+
+// Public bucket file schemas
+export * from './buckets'
 
 // Connection schemas
 export * from './connections'

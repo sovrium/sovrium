@@ -4,9 +4,10 @@
 
 ## Health
 
-| Method | Path          | Description                                                                                                                   |
-| ------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/api/health` | Server status. No credential required; an app with authentication answers `{ status, version }` unless the caller is an admin |
+| Method | Path                   | Description                                                                                                                                                                                                                                                  |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET`  | `/api/health`          | Server status. No credential required; an app with authentication answers `{ status, version }` unless the caller is an admin                                                                                                                                |
+| `GET`  | `/api/health?probe=db` | Readiness. Runs one database query with a 2-second budget: `200` `{ status: 'ok', checks: { db: 'ok' } }`, or `503` with `status: 'degraded'` and `db` reading `timeout` or `error`. Same short body for every caller; any other `probe` value answers `400` |
 
 ## Tables
 

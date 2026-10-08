@@ -11,6 +11,7 @@ import { LocalAiProbeLive } from '@/infrastructure/ai/local-ai-probe-live'
 import { SpeechServiceLive } from '@/infrastructure/ai/speech/speech-service-live'
 import { accountProvisionerFor } from '@/infrastructure/auth/better-auth/account-provisioner-live'
 import { NoAuthLayer } from '@/infrastructure/auth/better-auth/auth-service'
+import { invitationIssuerFor } from '@/infrastructure/auth/better-auth/invitation-issuer-live'
 import { TypeScriptValidatorLive } from '@/infrastructure/automations/typescript-validator'
 import { OAuthStateStoreLive } from '@/infrastructure/connections/oauth-state-store-live'
 import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
@@ -59,6 +60,7 @@ import { PageCacheLive } from '@/infrastructure/server/cache/page-cache-live'
 import { ServerFactoryLive } from '@/infrastructure/server/server-factory-live'
 import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-generator-live'
 import { StorageLive } from '@/infrastructure/storage/layer'
+import { TemplateEngineLive } from '@/infrastructure/templates/template-engine-live'
 import type { Auth as AuthConfig } from '@/domain/models/app/auth'
 import type { Auth } from '@/infrastructure/auth/better-auth/auth-service'
 
@@ -168,13 +170,21 @@ const DatabaseBackedRepositories = Layer.mergeAll(
 //   - `LocalAiProbe` — the local-model reachability check behind
 //     `ECO_AI_PROVIDER_PRECEDENCE=local-only`.
 //   - `SubmissionRateLimiter` — the public form-submission windows.
+//   - `TemplateEngine` — the console's read-only template preview.
 const PortAdapters = Layer.mergeAll(
   AuditLogRepositoryLive,
   EmailSenderLive,
   DatabaseMigratorLive,
   LocalAiProbeLive,
-  SubmissionRateLimiterLive
+  SubmissionRateLimiterLive,
+  TemplateEngineLive
 )
+
+// The ports built over the app's ONE auth engine: `AccountProvisioner` (the
+// first-admin bootstrap and `sovrium admin create`) and `InvitationIssuer` (the
+// pending invitations a seed run issues).
+const authPortsFor = (authLayer: Layer.Layer<Auth>) =>
+  Layer.mergeAll(accountProvisionerFor(authLayer), invitationIssuerFor(authLayer))
 
 // `Auth`, plus the `AccountProvisioner` port built over that same instance (the
 // first-admin bootstrap creates accounts through the engine, never through a
@@ -182,7 +192,7 @@ const PortAdapters = Layer.mergeAll(
 const appLayerWithAuth = (authLayer: Layer.Layer<Auth>) =>
   Layer.mergeAll(
     authLayer,
-    accountProvisionerFor(authLayer),
+    authPortsFor(authLayer),
     DatabaseLive,
     ServerFactoryLive,
     PageRendererWithDeps,

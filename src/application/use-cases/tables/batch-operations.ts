@@ -28,6 +28,7 @@ import { announceRecordWrites } from './record-change-announcement'
 import { splitManyToManyFields } from './record-link-enrichment'
 import { transformRecords, type TransformedRecord } from './record-transformer'
 import { refuseSelfLinkCycles } from './self-link-cycle-check'
+import { upsertLinkTargetWrite } from './upsert-link-target-write'
 import type { LinkReader } from './linked-row-visibility'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -320,39 +321,6 @@ const upsertCurrentUserDefaults = (
   )
 }
 
-/**
- * One upsert record as the link check sees it, holding the row it would update
- * — the one its merge fields match — read only when the check needs it (a many-to-one value it would refuse), so
- * an upsert whose links are all readable reads nothing more. A record that
- * lacks a merge value, or matches no row, is a create and holds nothing.
- */
-const upsertWrite =
-  (
-    repo: TableRepository['Service'],
-    session: Readonly<UserSession>,
-    tableName: string,
-    fieldsToMergeOn: readonly string[]
-  ) =>
-  (fields: Readonly<Record<string, unknown>>): LinkTargetWrite =>
-    fieldsToMergeOn.some((name) => fields[name] === undefined || fields[name] === null)
-      ? { fields }
-      : {
-          fields,
-          held: repo
-            .listRecords({
-              session,
-              tableName,
-              filter: {
-                and: fieldsToMergeOn.map((name) => ({
-                  field: name,
-                  operator: 'equals',
-                  value: fields[name],
-                })),
-              },
-            })
-            .pipe(Effect.map((rows) => rows[0])),
-        }
-
 /** Judge every link an upsert names, each update branch holding its matched row. */
 const refuseUpsertLinkTargets = (
   session: Readonly<UserSession>,
@@ -360,12 +328,16 @@ const refuseUpsertLinkTargets = (
   params: {
     readonly recordsData: readonly Readonly<Record<string, unknown>>[]
     readonly fieldsToMergeOn: readonly string[]
+    readonly hiddenIds?: readonly string[]
     readonly app?: App
     readonly linkReader?: LinkReader
   }
 ) =>
   Effect.gen(function* () {
-    const toWrite = upsertWrite(yield* TableRepository, session, tableName, params.fieldsToMergeOn)
+    const toWrite = upsertLinkTargetWrite(yield* TableRepository, session, tableName, {
+      fieldsToMergeOn: params.fieldsToMergeOn,
+      hiddenIds: params.hiddenIds ?? [],
+    })
     yield* refuseBatchLinkTargets({
       ...{ session, tableName, app: params.app, reader: params.linkReader },
       writes: params.recordsData.map(toWrite),
@@ -378,6 +350,8 @@ export function upsertProgram(
   params: {
     readonly recordsData: readonly Record<string, unknown>[]
     readonly fieldsToMergeOn: readonly string[]
+    /** Rows the caller's row-level read rule hides: never a match. */
+    readonly hiddenIds?: readonly string[]
     readonly returnRecords: boolean
     readonly app?: App
     /** Whose read rules judge the rows the upsert links to (none: existence only). */
@@ -419,6 +393,7 @@ export function upsertProgram(
     const result = yield* batch.upsert(session, tableName, recordsData, {
       fieldsToMergeOn: params.fieldsToMergeOn,
       insertOnlyFields,
+      hiddenIds: params.hiddenIds ?? [],
     })
 
     // The records handed back hold no more than the writer's own read of them.

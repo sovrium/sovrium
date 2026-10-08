@@ -43,7 +43,6 @@ import {
   parseAutomationIntent,
   type AutomationCandidate,
 } from '@/domain/models/app/agents/ai-chat-automation-parser'
-import { provideAutomationRuntime } from '@/infrastructure/automations/runtime-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import { recordActivityLogRow, recordChatActivity } from '@/presentation/api/ai/chat-activity-log'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
@@ -194,6 +193,8 @@ const turnToPersist = (
  * {@link admitChatTrigger} has already judged it, and the engine re-checks it.
  */
 interface RunMatchedInput {
+  /** The server's resolved services: the run uses the server's renderer, permits and assets. */
+  readonly services: DomainContext
   readonly app: App
   readonly name: string
   readonly message: string
@@ -203,7 +204,7 @@ interface RunMatchedInput {
 }
 
 const runMatchedAutomation = async (input: RunMatchedInput): Promise<TriggerTurnResult> => {
-  const { app, name, message, userId, userRole, aiReply } = input
+  const { services, app, name, message, userId, userRole, aiReply } = input
   const program = runManualAutomation({
     name,
     app,
@@ -213,7 +214,10 @@ const runMatchedAutomation = async (input: RunMatchedInput): Promise<TriggerTurn
     userId,
     byName: true,
   })
-  const outcome = await Effect.runPromise(Effect.result(provideAutomationRuntime(program)))
+  // On the server's own services, never a freshly built automation runtime: a
+  // second build would start a second set of render permits and an EMPTY
+  // asset store, so a document step run from chat could not read `{ asset }`.
+  const outcome = await Effect.runPromise(Effect.result(Effect.provide(program, services)))
   if (outcome._tag === 'Failure') {
     logError(`[ai] automation "${name}" run failed (engine error)`, outcome.failure)
     return errorToResult(outcome.failure, name)
@@ -276,6 +280,7 @@ export const evaluateTriggerTurn = async (input: TriggerTurnInput): Promise<Trig
   }
 
   return runMatchedAutomation({
+    services: input.services,
     app: input.app,
     name,
     message: input.message,

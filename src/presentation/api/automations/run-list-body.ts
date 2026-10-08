@@ -68,6 +68,7 @@ const persistedRunToApi = (app: App, run: PersistedRun, steps?: ReadonlyArray<Pe
   attempt: steps !== undefined ? computeAttemptCount(steps) : 1,
   error: run.error,
   valuesErasedAt: run.valuesErasedAt,
+  resumeAt: run.resumeAt,
 })
 
 /** Each listed run: its access, its body, and the run as the judgement reads it. */

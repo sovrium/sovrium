@@ -48,6 +48,14 @@ export const fileStorageMetadata = systemSchema.table(
      */
     bucket: text('bucket'),
     uploadedById: text('uploaded_by_id').references(() => users.id, { onDelete: 'set null' }),
+    /**
+     * The automation that generated this object (its name), or NULL when no
+     * automation did — a person's upload, a seed, a form. Recorded only when
+     * the key is new: a document output may overwrite an object only when
+     * this names its own automation, so one automation never replaces a file
+     * another one, or a person, wrote.
+     */
+    generatedBy: text('generated_by'),
     tableName: text('table_name'),
     recordId: text('record_id'),
     fieldName: text('field_name'),

@@ -8,7 +8,7 @@ A form bound to `endpoint` writes somewhere other than a table you declared, so 
 
 `endpoint` is the submit target for a form that writes somewhere other than a table you declared: the form collects its declared fields and POSTs them as a JSON body — `{ [field]: value }` — to any URL you name. Nothing goes through the records API, so the destination can be a platform route, an admin endpoint, or something of your own. Each field must then name its own `control`.
 
-`url` is required and takes any path or fully-qualified URL. `method` is `POST` by default, or `PUT` or `PATCH`. `responseEnvelope` decides how the response body is read when judging success or failure, and is `sovrium` by default. `submitLabel` overrides the button text, `onSuccess` runs on a 2xx — a toast, plus the client-state effects `status`, `refetch` and `reload` — and `onError` shows a toast when the submit fails.
+`url` is required and takes any path or fully-qualified URL. `method` is `POST` by default, or `PUT` or `PATCH`. `responseEnvelope` decides how the response body is read when judging success or failure, and is `sovrium` by default. `submitLabel` overrides the button text, `onSuccess` runs on a 2xx — a toast, plus the client-state effects `status`, `refetch` and `reload`, and the two below that only a form has — and `onError` shows a toast when the submit fails.
 
 **`submitVariant` is for a page that stacks several forms.** One form whose submit _is_ the page's main action wants the primary fill, and gets it by declaring nothing. A settings page drawing six one-row forms down a column gets six primary buttons instead, none of which is the main action — so each declares a quieter weight and the page regains a single focal point. The vocabulary is the `button` component's own: `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`, `fab`.
 
@@ -26,6 +26,37 @@ A form bound to `endpoint` writes somewhere other than a table you declared, so 
 ```
 
 Each weight is drawn by the same recipe the `button` component uses, so a submit and a standalone button asking for `secondary` cannot drift apart.
+
+## Closing the dialog and clearing the form
+
+An endpoint form placed in a dialog stays open after a successful submit unless it says otherwise, because the dialog cannot tell a request that succeeded from one that did not. Two `onSuccess` keys settle it. `close: true` closes the dialog or sheet the form sits in once the request succeeds — the same thing a dialog does after a table write — and `reset: true` puts every field back to its default value, so the next person to open the dialog does not find the last submission still filled in. Neither runs when the request fails: the dialog stays open on the values that were sent, with the `onError` toast.
+
+```yaml
+- type: button
+  content: Invite a member
+  props: { interactions: { click: { modal: invite-dialog } } }
+- type: dialog
+  props: { id: invite-dialog, title: Invite a member }
+  children:
+    - type: form
+      endpoint:
+        url: /api/auth/organization/invite-member
+        submitLabel: Send the invitation
+        onSuccess:
+          {
+            type: toast,
+            variant: success,
+            message: Invitation sent,
+            close: true,
+            reset: true,
+            refetch: members,
+          }
+        onError: { type: toast, variant: destructive, message: The invitation could not be sent }
+      fields:
+        - { field: email, control: email, label: Email }
+```
+
+Both are refused beside `reload`, which replaces the page the dialog is drawn on and brings the form back empty anyway. They belong to the endpoint form alone: a `fetch` button has no fields to clear and no dialog it was opened from.
 
 ## An on/off switch
 

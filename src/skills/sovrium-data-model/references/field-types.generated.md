@@ -109,7 +109,7 @@ Read: `sovrium docs fields`
 | Type | What it stores |
 | --- | --- |
 | `array` | Stores arrays of values with optional type and length constraints. |
-| `autonumber` | Auto-incrementing number field assigned by the database. |
+| `autonumber` | Auto-incrementing number field assigned by the database on every insert, whether or not the field is `required`, on SQLite as on PostgreSQL. |
 | `button` | Interactive button that triggers actions like opening URLs or running automations. |
 | `code` | Stores source code as plain text with syntax highlighting. Rendered with CodeMirror 6 editor in UI. |
 | `color` | Stores color values in hexadecimal format. Rendered with color picker in UI. |

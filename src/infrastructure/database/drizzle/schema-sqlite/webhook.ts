@@ -79,4 +79,50 @@ export const webhookDeliveries = systemTable(
   ]
 )
 
+/**
+ * Webhook Outbox Table — sqlite-core mirror of `schema/webhook.ts`.
+ */
+export const webhookOutbox = systemTable(
+  'webhook_outbox',
+  {
+    id: text('id').primaryKey(),
+    tableName: text('table_name').notNull(),
+    webhookName: text('webhook_name').notNull(),
+    event: text('event').notNull(),
+    recordId: text('record_id').notNull(),
+    payload: text('payload', { mode: 'json' }).notNull(),
+    status: text('status').notNull().default('pending'),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    nextAttemptAt: integer('next_attempt_at', { mode: 'timestamp_ms' }).notNull(),
+    lockedUntil: integer('locked_until', { mode: 'timestamp_ms' }),
+    lastHttpStatus: integer('last_http_status'),
+    lastError: text('last_error'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    settledAt: integer('settled_at', { mode: 'timestamp_ms' }),
+  },
+  (table) => [
+    index('webhook_outbox_status_nextAttemptAt_idx').on(table.status, table.nextAttemptAt),
+    index('webhook_outbox_tableName_recordId_idx').on(table.tableName, table.recordId),
+  ]
+)
+
+/**
+ * Webhook Outbox Subjects Table — sqlite-core mirror of `schema/webhook.ts`.
+ */
+export const webhookOutboxSubjects = systemTable(
+  'webhook_outbox_subjects',
+  {
+    outboxId: text('outbox_id')
+      .notNull()
+      .references(() => webhookOutbox.id, { onDelete: 'cascade' }),
+    userId: text('user_id').notNull(),
+  },
+  (table) => [
+    index('webhook_outbox_subjects_userId_idx').on(table.userId),
+    index('webhook_outbox_subjects_outboxId_idx').on(table.outboxId),
+  ]
+)
+
 // Type inference

@@ -22,6 +22,11 @@ import {
   authTeamMembersTable,
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import {
+  findUserContactById,
+  findUserContactsByIds,
+  findUserEmailsByIds,
+} from './user-contact-repository-live'
 
 /**
  * The most accounts one `getUserDisplayLabels` call names. A page of records is
@@ -79,22 +84,7 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       return result[0]?.email ?? undefined
     }),
 
-  findUserEmailsByIds: (userIds: readonly string[]) =>
-    Effect.gen(function* () {
-      const wanted = [...new Set(userIds)]
-      if (wanted.length === 0) return new Map<string, string>()
-      const rows = yield* wrap(async () => {
-        const users = authUsersTable()
-        return await db
-          .select({ id: users.id, email: users.email })
-          .from(users)
-          .where(inArray(users.id, wanted))
-      })
-      return new Map(
-        rows.filter((row) => row.email !== '').map((row) => [row.id, row.email] as const)
-      )
-    }),
-
+  findUserEmailsByIds,
   findUserIdsByEmails: (emails: readonly string[]) =>
     Effect.gen(function* () {
       const wanted = [...new Set(emails.map((email) => email.trim().toLowerCase()))].filter(
@@ -111,20 +101,8 @@ export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
       return new Map(rows.map((row) => [row.email.toLowerCase(), row.id] as const))
     }),
 
-  findUserContactById: (userId: string) =>
-    Effect.gen(function* () {
-      const result = yield* wrap(async () => {
-        const users = authUsersTable()
-        return await db
-          .select({ name: users.name, email: users.email })
-          .from(users)
-          .where(eq(users.id, userId))
-          .limit(1)
-      })
-      const row = result[0]
-      return row === undefined ? undefined : { name: row.name ?? '', email: row.email }
-    }),
-
+  findUserContactById,
+  findUserContactsByIds,
   getUserRole: (userId: string) =>
     Effect.gen(function* () {
       const result = yield* wrap(async () => {

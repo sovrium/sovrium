@@ -51,7 +51,7 @@
 
 import { type ReactElement } from 'react'
 import {
-  computeButtonDefaultClasses,
+  computeSubmitButtonClasses,
   type ButtonVariant,
 } from '@/presentation/design/button-default-classes'
 import { fieldDescriptionId } from '@/presentation/design/field-display'
@@ -101,30 +101,6 @@ interface SerializedEndpointConfig {
 
 /** The shared input/select/textarea surface, from the form-layout contract. */
 const CONTROL_CLASS = computeFormControlClasses()
-
-/**
- * The submit's class string, in the platform button recipe's own vocabulary.
- *
- * Two channels, because a `button` component of the same variant wears both and
- * the whole point of `submitVariant` is that a submit and a button asking for
- * the same word cannot look different. The recipe
- * ({@link computeButtonDefaultClasses}) paints it; the legacy `.btn-{variant}`
- * modifier is the token an app's own CSS and the component layer address it by,
- * and is emitted for a `button` by `buildButtonModifierClasses`
- * (`render/styling/style-processor.ts`) — which only ever sees a component of
- * `type: 'button'`, so a submit nested inside a `form` never passes through it.
- * `default` emits no modifier there and emits none here, for the same reason:
- * it is the absence of a modifier rather than one of its own.
- *
- * With no variant named this is `computeButtonDefaultClasses()` with no
- * argument, so every form that does not use the key keeps its submit's class
- * string to the byte.
- */
-function computeSubmitClasses(variant: ButtonVariant | undefined): string {
-  if (variant === undefined) return computeButtonDefaultClasses()
-  const recipe = computeButtonDefaultClasses({ variant })
-  return variant === 'default' ? recipe : `${recipe} btn-${variant}`
-}
 
 /** A `select` option as read off an endpoint-bound field (`{ value, label? }`). */
 type EndpointFieldOption = { readonly value: string; readonly label?: string }
@@ -388,7 +364,7 @@ export function renderEndpointForm(
         type="submit"
         disabled
         data-awaits-script=""
-        className={part('submit', computeSubmitClasses(endpoint.submitVariant))}
+        className={part('submit', computeSubmitButtonClasses(endpoint.submitVariant))}
       >
         {endpoint.submitLabel ?? 'Envoyer'}
       </button>

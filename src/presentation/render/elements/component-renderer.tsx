@@ -27,7 +27,7 @@ import {
   substitutePropsVariables,
   substituteChildrenVariables,
 } from '../i18n/variable-substitution'
-import { buildComponentProps } from '../props/component-builder'
+import { buildComponentProps, pickAuthoredShapeFields } from '../props/component-builder'
 import { resolveTypeSpecificInputs } from '../props/resolve-type-specific-inputs'
 import { buildResponsiveChildrenVariants } from '../props/responsive-children-builder'
 import { buildResponsiveContentVariants } from '../props/responsive-content-builder'
@@ -414,9 +414,7 @@ function RenderDirectComponent({
     currentLang: props.currentLang,
     childIndex: props.childIndex,
     interactions,
-    variant: (substitutedComponent as { variant?: string }).variant,
-    size: (substitutedComponent as { size?: string }).size,
-    badgeVariant: (substitutedComponent as { badgeVariant?: string }).badgeVariant,
+    ...pickAuthoredShapeFields(substitutedComponent),
     designStyles,
     design: props.design,
   })

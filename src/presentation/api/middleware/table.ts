@@ -132,6 +132,7 @@ const RECORDS_PATH_WORDS: ReadonlySet<string> = new Set([
   'batch',
   'bulk-delete',
   'bulk-update',
+  'import',
   'upsert',
 ])
 

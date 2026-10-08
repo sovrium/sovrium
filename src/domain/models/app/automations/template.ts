@@ -218,6 +218,7 @@ export const COLLECTION_HELPERS = [
   'get',
   'stringify',
   'json',
+  'chunk',
 ] as const
 
 /** Logic and conditional helpers */
@@ -266,6 +267,17 @@ export const TYPE_HELPERS = [
   'typeof',
 ] as const
 
+/**
+ * Document and email output helpers, for an action's own `template`.
+ *
+ * `pageBreak`, `image` and `qrcode` emit markup suited to the render target
+ * (HTML, SVG, email or Word) rather than one fixed string. `t` reads
+ * `languages.translations` in the step's locale. The list grouping helper
+ * these templates lean on, `chunk list n [pad=true]`, is a plain collection
+ * operation and is declared in `COLLECTION_HELPERS`.
+ */
+export const DOCUMENT_HELPERS = ['pageBreak', 'image', 'qrcode', 't'] as const
+
 /** All available template helper names */
 export const ALL_HELPERS = [
   ...TEXT_HELPERS,
@@ -276,6 +288,7 @@ export const ALL_HELPERS = [
   ...LOGIC_HELPERS,
   ...ENCODING_HELPERS,
   ...TYPE_HELPERS,
+  ...DOCUMENT_HELPERS,
 ] as const
 
 /** @public */
@@ -318,3 +331,8 @@ export const TemplateStringSchema = Schema.String.pipe(
 
 /** @public */
 export type TemplateString = Schema.Schema.Type<typeof TemplateStringSchema>
+
+// ─── Template Body Schema (rendered by its action, never pre-rendered) ─────
+// Declared in `template-body.ts`.
+
+export * from './template-body'

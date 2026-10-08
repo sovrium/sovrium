@@ -27,7 +27,7 @@ import {
 } from './submit-form-body'
 import { FormNotFoundError, missingRowError, refuseAsMissingRow } from './submit-form-errors'
 import { filterTableBoundFields } from './submit-form-field-shaping'
-import { fireBoundTableRecordCreateAutomations, persistSubmission } from './submit-form-persist'
+import { persistSubmission } from './submit-form-persist'
 import type { SubmitFormConfig } from './submit-form-body'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -147,6 +147,8 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       submitterIpHash,
       userAgent,
       submitterUserId,
+      // The bound row fires the table's record automations and webhooks as it is written.
+      processEnv: processEnv ?? {},
     }).pipe(
       Effect.catchTags({
         ForeignKeyViolationError: (fk) => Effect.fail(missingRowError(fk.fieldName)),
@@ -174,18 +176,6 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       form,
       submissionId,
       submitterIpHash,
-    })
-
-    // [internal ref]: fire the bound table's record/create automations for the
-    // form-created row (no-op when no bound-table row was written). See
-    // fireBoundTableRecordCreateAutomations.
-    yield* fireBoundTableRecordCreateAutomations({
-      app,
-      form,
-      mapped,
-      outcome: persisted,
-      processEnv: processEnv ?? {},
-      submitterUserId,
     })
 
     // Fire form-triggered automations AFTER the bound-table + ledger rows

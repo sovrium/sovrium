@@ -8,6 +8,7 @@
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { db } from '@/infrastructure/database'
+import * as authDeviceSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-device-tables'
 import * as authOauthResourceSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-oauth-resource-tables'
 import * as authPasskeySqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-passkey-tables'
 import * as authSchemaSqlite from '@/infrastructure/database/drizzle/schema-sqlite/auth-tables'
@@ -33,6 +34,7 @@ import {
   oauthClientResources,
   oauthClientAssertions,
   passkeys,
+  deviceCodes,
 } from './schema'
 
 /**
@@ -76,6 +78,7 @@ const drizzleSchemaPg = {
   oauthClientResource: oauthClientResources,
   oauthClientAssertion: oauthClientAssertions,
   passkey: passkeys,
+  deviceCode: deviceCodes,
 }
 
 /**
@@ -109,6 +112,7 @@ const drizzleSchemaSqlite = {
   oauthClientResource: authOauthResourceSqlite.oauthClientResources,
   oauthClientAssertion: authOauthResourceSqlite.oauthClientAssertions,
   passkey: authPasskeySqlite.passkeys,
+  deviceCode: authDeviceSqlite.deviceCodes,
 }
 
 /**

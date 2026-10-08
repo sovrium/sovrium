@@ -55,6 +55,11 @@ export const PAGE_CAPABILITIES = [
   'auth.oauth',
   'auth.sso',
   'auth.signUp',
+  // A way back in for a reader who forgot the password: the email-and-password
+  // strategy, AND a page of the app drawing the form that asks for a reset
+  // link. A "Forgot password?" link gated on it never leads to a page that is
+  // not there
+  'auth.passwordReset',
   'tables',
   'forms',
   'links',

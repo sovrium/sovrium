@@ -26,6 +26,7 @@ import {
   resolveGatedComment,
   resolveTableForListing,
 } from './comment-handler-shared'
+import { parseCreatedAtSortOrder } from './created-at-sort-param'
 import { handleRouteError } from './error-handlers'
 import { isAuthorizationError } from './error-helpers'
 import { checkRecordReadGate } from './record-read-gate'
@@ -273,22 +274,6 @@ export async function handleUpdateComment(
 }
 
 /**
- * Parse sort query parameter (e.g., "createdAt:asc" or "createdAt:desc")
- */
-function parseSortOrder(sortParam: string | undefined): 'asc' | 'desc' | undefined {
-  if (!sortParam) {
-    return undefined
-  }
-
-  const [field, order] = sortParam.split(':')
-  if (field === 'createdAt' && (order === 'asc' || order === 'desc')) {
-    return order
-  }
-
-  return undefined
-}
-
-/**
  * Handle list comments for a record
  */
 export async function handleListComments(c: Context, app: App) {
@@ -307,7 +292,7 @@ export async function handleListComments(c: Context, app: App) {
   const offsetParam = c.req.query('offset')
   const limit = limitParam ? Number(limitParam) : undefined
   const offset = offsetParam ? Number(offsetParam) : undefined
-  const sortOrder = parseSortOrder(c.req.query('sort'))
+  const sortOrder = parseCreatedAtSortOrder(c.req.query('sort'))
 
   // Moderation visibility: only an
   // admin-equivalent caller (the built-in `admin` or the app's top role) sees

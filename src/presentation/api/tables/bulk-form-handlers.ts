@@ -98,7 +98,10 @@ export async function handleFormBulkDelete(c: Context, app: App) {
 
   await runOnRequest(
     c,
-    batchDeleteWithSideEffects({ session, tableName, app, ids, permanent: false })
+    batchDeleteWithSideEffects({
+      ...{ session, tableName, app, ids, permanent: false },
+      processEnv: process.env,
+    })
   )
 
   // The path arrives in the request body, so it is only honoured once proven
@@ -327,7 +330,7 @@ export async function handleFormBulkUpdate(c: Context, app: App) {
   await runOnRequest(
     c,
     batchUpdateWithSideEffects({
-      ...{ session, tableName, app, linkReader: getLinkReader(c) },
+      ...{ session, tableName, app, linkReader: getLinkReader(c), processEnv: process.env },
       records: recordsData,
       returnRecords: false,
     })

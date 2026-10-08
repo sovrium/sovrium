@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { dirname, isAbsolute, join, relative, sep } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import { Data, Effect } from 'effect'
 import { BackupWorkspace } from '@/application/ports/services/backup-workspace'
 import {
@@ -23,6 +23,7 @@ import {
   type BackupManifest,
   type BackupManifestStorage,
 } from './backup-manifest'
+import { collectConfigEntries, toEntryPath } from './config-tree-entries'
 import type { BackupIoError } from '@/application/ports/services/backup-workspace'
 
 /** Where the database lives, as the process environment resolved it. */
@@ -72,33 +73,17 @@ export class BackupRefusal extends Data.TaggedError('BackupRefusal')<{
 const refuse = (reason: string, guidance: string) =>
   Effect.fail(new BackupRefusal({ reason, guidance }))
 
-/** `a/b/c` regardless of the platform separator. */
-const toEntryPath = (path: string): string => path.split(sep).join('/')
-
 /** The `project/<relative>` entries, or a refusal for a `$ref` outside the config directory. */
-const collectConfigEntries = (configPath: string) =>
-  Effect.gen(function* () {
-    const workspace = yield* BackupWorkspace
-    const configDir = dirname(configPath)
-    const graph = yield* workspace.loadConfigGraph(configPath)
-    const outside = graph.files.find((file) => {
-      const rel = relative(configDir, file)
-      return rel.startsWith('..') || isAbsolute(rel)
-    })
-    if (outside !== undefined) {
-      return yield* refuse(
-        `The $ref target ${outside} is outside the config directory ${configDir}, so it could not be restored to the same place`,
-        `Move it under ${configDir} and point the $ref at its new path, then run 'sovrium backup' again.`
-      )
-    }
-    const entries = yield* Effect.forEach(graph.files, (file) =>
-      Effect.map(workspace.readFileIfExists(file), (bytes) => ({
-        path: `${PROJECT_PREFIX}${toEntryPath(relative(configDir, file))}`,
-        bytes: bytes ?? new Uint8Array(),
-      }))
-    )
-    return { name: graph.name, entries }
-  })
+const collectProjectEntries = (configPath: string) =>
+  collectConfigEntries(
+    configPath,
+    PROJECT_PREFIX,
+    (outside, configDir) =>
+      new BackupRefusal({
+        reason: `The $ref target ${outside} is outside the config directory ${configDir}, so it could not be restored to the same place`,
+        guidance: `Move it under ${configDir} and point the $ref at its new path, then run 'sovrium backup' again.`,
+      })
+  )
 
 /** The one database entry, and the manifest path naming it. */
 interface DatabaseEntry {
@@ -200,7 +185,7 @@ export const createBackup = (
   Effect.gen(function* () {
     yield* preflight(request.database)
     const workspace = yield* BackupWorkspace
-    const config = yield* collectConfigEntries(request.configPath)
+    const config = yield* collectProjectEntries(request.configPath)
     const database = yield* collectDatabaseEntry(request.database)
     const keyEntries = yield* collectKeyEntries(request.encryptionKey)
     const storage = yield* collectStorage(request.storage, request.database)

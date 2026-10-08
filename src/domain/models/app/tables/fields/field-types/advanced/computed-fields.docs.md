@@ -34,7 +34,7 @@ A database-assigned auto-incrementing integer — the field type behind invoice 
 - { id: 3, name: invoice_number, type: autonumber }
 ```
 
-That produces `1`, `2`, `3`, and so on. `autonumber` takes no type-specific options at all: there is no prefix, no starting offset and no zero-padding. For a human-facing reference such as `INV-01000`, add a `formula` field that composes the number with the prefix and padding you want. That keeps presentation in one place and leaves the underlying sequence untouched, so the format can change without renumbering anything.
+That produces `1`, `2`, `3`, and so on. The number is assigned on every insert, whether or not the field is marked `required`, on SQLite as on PostgreSQL: a record created through the records API, a form or an automation never has to name it. On SQLite the next number is the largest one in the column plus one, so permanently deleting the newest record lets its number be issued again; PostgreSQL draws from a sequence and never reissues one. `autonumber` takes no type-specific options at all: there is no prefix, no starting offset and no zero-padding. For a human-facing reference such as `INV-01000`, add a `formula` field that composes the number with the prefix and padding you want. That keeps presentation in one place and leaves the underlying sequence untouched, so the format can change without renumbering anything.
 
 A sequence also does not promise to be gap-free. A transaction that allocates a number and then rolls back has still consumed it, which is correct — reusing it would let two records carry the same reference at different times.
 

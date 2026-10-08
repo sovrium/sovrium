@@ -6,11 +6,12 @@
  */
 
 import { Effect } from 'effect'
-import { batchRestoreProgram, upsertProgram } from '@/application/use-cases/tables/batch-operations'
 import {
   batchCreateWithSideEffects,
   batchDeleteWithSideEffects,
+  batchRestoreWithSideEffects,
   batchUpdateWithSideEffects,
+  upsertWithSideEffects,
 } from '@/application/use-cases/tables/record-batch-orchestration'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
@@ -27,8 +28,6 @@ import {
   upsertRecordsResponseSchema,
 } from '@/domain/models/api/tables/tables'
 import {
-  hasCreatePermissionForRoles,
-  hasReadPermissionForRoles,
   hasUpdatePermissionForRoles,
   hasDeletePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
@@ -44,7 +43,6 @@ import {
   checkRecordLimitExceeded,
   applyBatchReadFiltering,
   batchCreateAnswer,
-  checkBatchFieldPermissions,
   validateBulkFieldValues,
   validateStrippedRecordsNotEmpty,
 } from './batch-permission-helpers'
@@ -54,11 +52,11 @@ import {
   refuseNonKeyBatchDelete,
   refuseNonKeyBatchRestore,
 } from './batch-record-ids'
+import { guardBatchCreate, guardUpsert } from './batch-write-guards'
 import { handleBatchRestoreError } from './error-helpers'
+import { handleImportRecords } from './record-import-handlers'
 import { getLinkReader } from './relationship-rules'
-import { forbiddenCreateResponse } from './response-helpers'
 import {
-  enforceBulkCreateGate,
   enforceBulkMutationGate,
   enforceRestoreGate,
   passesUnguardedTableGate,
@@ -66,12 +64,7 @@ import {
   restoreRoleGateAdmits,
 } from './row-level-guard'
 import { callerReadsTable } from './table-read-gate'
-import {
-  validateReadonlyFields,
-  validateUpsertRequest,
-  applyReadFiltering,
-  stripUnwritableFields,
-} from './upsert-helpers'
+import { validateReadonlyFields, applyReadFiltering, stripUnwritableFields } from './upsert-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -145,7 +138,7 @@ async function handleBatchRestore(c: Context, app: App) {
 
   const programResult = await runOnRequest(
     c,
-    batchRestoreProgram(session, tableName, result.data.ids, app)
+    batchRestoreWithSideEffects({ session, tableName, app, ids, processEnv: process.env })
   )
 
   if (programResult._tag === 'Failure') {
@@ -209,65 +202,6 @@ async function resolveBatchMutationAuth(input: {
 }
 
 /**
- * Resolve the create-authorisation gate for batch create. Returns the
- * guard context (when the table is row-level scoped) so callers can chain
- * the per-row predicate check, or `undefined` for non-row-level tables.
- *
- * PARITY WITH THE SINGLE-RECORD PATH IS THE CONTRACT, and it is a three-part
- * contract, and omitting any part is its own defect. `checkCreateGate` (`../record/record-write-handlers.ts`) is the
- * reference implementation:
- *
- *  1. INHERITANCE. `app.tables` is the resolution set. Without it a table
- *     declaring `permissions: { inherit: '<parent>' }` resolves as if it had no
- *     create rule at all, so an inherited admin-only grant read as UNRESTRICTED
- *     on the batch path while the single-record path refused — the same request,
- *     two verdicts.
- *  2. GROUP GRANTS. A bare `userRole` can never match a `group:<name>` entry,
- *     because the group overlay exists only in the effective-role set built by
- *     `buildEffectiveRoles`. Passing the raw role leaves every group grant
- *     silently inert here while it works on the single-record route.
- *  3. S1 ANTI-ENUMERATION. A caller who also lacks READ access gets 404, not
- *     403 — a 403 confirms the table exists to someone with no business knowing
- *     it does.
- *
- * Fixing (1) alone is the trap: it closes the inheritance hole and leaves the
- * group hole open, while looking like the finding is closed.
- */
-async function resolveBatchCreateAuth(input: {
-  readonly c: Context
-  readonly app: App
-  readonly tableName: string
-  readonly userRole: string
-  /** Group names the user belongs to (un-prefixed) — group-aware RBAC. */
-  readonly userGroups: readonly string[]
-  readonly session: ReturnType<typeof getTableContext>['session']
-  readonly records: readonly { readonly fields: Record<string, unknown> }[]
-}): Promise<Response | undefined> {
-  const { c, app, tableName, userRole, userGroups, session, records } = input
-  const table = app.tables?.find((t) => t.name === tableName)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-
-  if (guard) {
-    return enforceBulkCreateGate({
-      c,
-      table,
-      guard,
-      records: records.map((r) => r.fields),
-    })
-  }
-  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
-  if (!hasCreatePermissionForRoles(table, effectiveRoles, app)) {
-    // S1 anti-enumeration, mirroring the single-record path: no read access
-    // collapses the denial to 404 so the table's existence is not disclosed.
-    if (!hasReadPermissionForRoles(table, effectiveRoles, app)) {
-      return notFound(c)
-    }
-    return forbiddenCreateResponse(c)
-  }
-  return undefined
-}
-
-/**
  * Handle batch create endpoint
  */
 async function handleBatchCreate(c: Context, app: App) {
@@ -287,44 +221,12 @@ async function handleBatchCreate(c: Context, app: App) {
   if (!result.success) return result.response
 
   const table = app.tables?.find((t) => t.name === tableName)
-
-  // Z-3: row-level role+predicate gate when the table declares it. Falls
-  // back to the group-aware hasCreatePermissionForRoles for non-row-level tables.
-  const authError = await resolveBatchCreateAuth({
-    c,
-    app,
-    tableName,
-    userRole,
-    userGroups,
-    session,
-    records: result.data.records,
-  })
-  if (authError) return authError
-
-  // Check field-level permissions
-  const fieldPermCheck = checkBatchFieldPermissions({
-    records: result.data.records,
-    app,
-    tableName,
-    userRole,
-    userGroups,
-    c,
-  })
-  if (fieldPermCheck) return fieldPermCheck
-
-  // Readonly-field and per-value enforcement. The single-record route gets the
-  // latter from `validateRecordCreation`; a bulk route has to ask for it, and
-  // until it did, an undeclared `multi-select` option reached the database —
-  // where only Postgres had a CHECK to stop it — and a relationship write past
-  // `maxLinked` reached it on both engines, since neither can carry that cap.
-  const fieldGuard =
-    validateReadonlyFields(table, result.data.records, c) ??
-    (await validateBulkFieldValues(c, app, result.data.records))
-  if (fieldGuard) return fieldGuard
+  const refusal = await guardBatchCreate(c, app, result.data.records)
+  if (refusal) return refusal
 
   // The batch create and its side effects (`record-batch-orchestration.ts`).
   const program = batchCreateWithSideEffects({
-    ...{ session, tableName, app, linkReader: getLinkReader(c) },
+    ...{ session, tableName, app, linkReader: getLinkReader(c), processEnv: process.env },
     rows: result.data.records.map((record) => record.fields),
     returnRecords: result.data.returnRecords,
     isSqlite: isSqliteRuntime(),
@@ -398,7 +300,7 @@ async function handleBatchUpdate(c: Context, app: App) {
   }))
   // The batch update and its side effects, with field-level read filtering on the response
   const filteredProgram = batchUpdateWithSideEffects({
-    ...{ session, tableName, app, linkReader: getLinkReader(c) },
+    ...{ session, tableName, app, linkReader: getLinkReader(c), processEnv: process.env },
     records: recordsData,
     returnRecords: result.data.returnRecords,
   }).pipe(
@@ -466,7 +368,7 @@ async function handleBatchDelete(c: Context, app: App) {
   const permanent = result.data.permanent === true
   if (permanent && !isAdminEquivalent(userRole, app)) return notFound(c)
   const program = batchDeleteWithSideEffects({
-    ...{ session, tableName, app, permanent },
+    ...{ session, tableName, app, permanent, processEnv: process.env },
     ids: result.data.ids,
   })
   return runEffect(c, provideDomain(c, program), batchDeleteRecordsResponseSchema)
@@ -486,48 +388,18 @@ async function handleUpsert(c: Context, app: App) {
   const result = await validateRequest(c, upsertRecordsRequestSchema)
   if (!result.success) return result.response
 
-  const table = app.tables?.find((t) => t.name === tableName)
-
-  // Check for 'id' field (always readonly) with upsert-specific message
-  const hasIdField = result.data.records.some((record) => 'id' in record.fields)
-  if (hasIdField) {
-    return c.json(
-      {
-        success: false,
-        message: 'Cannot set readonly field: id',
-        code: 'VALIDATION_ERROR',
-      },
-      400
-    )
-  }
-
-  // Readonly-field and per-value enforcement, BEFORE permission checks.
-  // Upsert is the third route onto the same column.
-  const fieldGuard =
-    validateReadonlyFields(table, result.data.records, c) ??
-    (await validateBulkFieldValues(c, app, result.data.records))
-  if (fieldGuard) return fieldGuard
-
-  // Validate permissions and required fields
-  const validation = await validateUpsertRequest({
-    c,
-    app,
-    tableName,
-    userRole,
-    userGroups,
-    session,
-    records: result.data.records,
-    fieldsToMergeOn: result.data.fieldsToMergeOn,
-  })
+  const validation = await guardUpsert(c, app, result.data.records, result.data.fieldsToMergeOn)
   if (!validation.success) return validation.response
 
   // Extract flat field objects for database layer
   const flatRecordsData = validation.strippedRecords.map((record) => record.fields)
 
-  // Execute upsert
-  const program = upsertProgram(session, tableName, {
+  // Execute upsert, with a record event per row inserted or matched
+  const program = upsertWithSideEffects({
+    ...{ session, tableName, processEnv: process.env },
     recordsData: flatRecordsData,
     fieldsToMergeOn: result.data.fieldsToMergeOn,
+    hiddenIds: validation.hiddenIds,
     returnRecords: result.data.returnRecords,
     app,
     linkReader: getLinkReader(c),
@@ -558,5 +430,6 @@ export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, resolveApp: 
       .patch('/api/tables/:tableId/records/batch', (c) => handleBatchUpdate(c, resolveApp()))
       .delete('/api/tables/:tableId/records/batch', (c) => handleBatchDelete(c, resolveApp()))
       .post('/api/tables/:tableId/records/upsert', (c) => handleUpsert(c, resolveApp()))
+      .post('/api/tables/:tableId/records/import', (c) => handleImportRecords(c, resolveApp()))
   )
 }

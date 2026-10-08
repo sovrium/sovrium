@@ -39,4 +39,6 @@ export interface ElementPropsConfig {
   readonly design: Design | undefined
   readonly childIndex?: number
   readonly interactions?: Interactions
+  /** The authored HTML element (`element: nav`), when the component names one. */
+  readonly element?: string
 }

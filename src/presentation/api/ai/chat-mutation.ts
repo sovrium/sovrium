@@ -32,8 +32,6 @@
  * through the dynamic-record repository.
  */
 
-import { Effect } from 'effect'
-import { insertDynamicRecord } from '@/application/use-cases/ai/dynamic-record-query'
 import { tableEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   hasCreatePermissionForRoles,
@@ -45,8 +43,10 @@ import { parseAiConfirmationTtlMs } from '@/domain/models/process-env/ai/ai-conf
 import { recordActivityLogRow } from '@/presentation/api/ai/chat-activity-log'
 import {
   admittedWriteIds,
+  commitChatCreate,
   commitChatDelete,
   commitChatUpdate,
+  type ChatCaller,
   type ChatWrite,
   type ChatWriteTarget,
 } from './chat-write-gate'
@@ -256,28 +256,6 @@ const findForbiddenWriteField = (
   )[0]
 
 // ---------------------------------------------------------------------------
-// SQL execution helpers — fronted by the DynamicRecordRepository port
-//
-// The raw parameterised DML lives in the infrastructure layer
-// (`dynamic-record-repository-live.ts`); these helpers consume the
-// `dynamic-record-query` use-case via `Effect.runPromise` so the presentation
-// layer holds no raw SQL literal: `INSERT … RETURNING id`, `DEFAULT VALUES`
-// for an empty payload. Updates and deletes go through the chat write gate
-// (`chat-write-gate.ts`), which decides the rows they reach.
-// ---------------------------------------------------------------------------
-
-/**
- * Insert one row and return its generated id. Columns and values are passed as
- * parameterised SQL fragments so values are never string-interpolated.
- */
-const insertRow = async (
-  services: DomainContext,
-  tableName: string,
-  data: Readonly<Record<string, unknown>>
-): Promise<number | string> =>
-  Effect.runPromise(Effect.provide(insertDynamicRecord({ table: tableName, data }), services))
-
-// ---------------------------------------------------------------------------
 // Activity logging
 // ---------------------------------------------------------------------------
 
@@ -358,7 +336,7 @@ const applyCreate = async (
   if (validationError !== undefined) {
     return { status: 'validation-error', message: validationError }
   }
-  const recordId = await insertRow(input.services, table.name, input.intent.data)
+  const recordId = await commitChatCreate(writerOf(input), table.name, input.intent.data)
   await logMutation(input.services, table.name, input.userEmail)
   const detail = Object.values(input.intent.data).filter((v) => typeof v === 'string')
   return {
@@ -424,7 +402,7 @@ const applyUpdateById = async (
   data: Readonly<Record<string, unknown>>
 ): Promise<MutationOutcome> => {
   const ids = await admitted(input, tableName, { op: 'update', change: data }, { recordId })
-  const written = await commitChatUpdate(input.services, tableName, ids, data)
+  const written = await commitChatUpdate(writerOf(input), tableName, ids, data)
   if (written.length === 0) {
     return {
       status: 'validation-error',
@@ -441,13 +419,13 @@ const applyUpdateById = async (
 
 /** Apply an update to the admitted rows (an AI chat mutate spec confirmed path). */
 const applyUpdateToIds = async (
-  services: DomainContext,
+  caller: ChatCaller,
   userEmail: string,
   tableName: string,
   change: { readonly ids: readonly string[]; readonly data: Readonly<Record<string, unknown>> }
 ): Promise<MutationOutcome> => {
-  const written = await commitChatUpdate(services, tableName, change.ids, change.data)
-  await logMutation(services, tableName, userEmail)
+  const written = await commitChatUpdate(caller, tableName, change.ids, change.data)
+  await logMutation(caller.services, tableName, userEmail)
   return updatedOutcome(
     tableName,
     written,
@@ -496,7 +474,7 @@ const applyUpdate = async (
       pendingConfirmation: stashConfirmation(input, 'bulk update', ids),
     }
   }
-  return applyUpdateToIds(input.services, input.userEmail, table.name, { ids, data })
+  return applyUpdateToIds(writerOf(input), input.userEmail, table.name, { ids, data })
 }
 
 const applyDelete = async (
@@ -576,6 +554,15 @@ export const applyMutation = async (input: ApplyMutationInput): Promise<Mutation
   }
 }
 
+/** The user a stashed confirmation was issued to, as its commit writes. */
+const storedCaller = (services: DomainContext, stored: StoredConfirmation): ChatCaller => ({
+  services,
+  app: stored.app,
+  userId: stored.userId,
+  userRole: stored.userRole,
+  userGroups: stored.userGroups,
+})
+
 /**
  * Commit a previously-stashed confirmation: write exactly the rows the write
  * gate admitted when the confirmation was issued — the rows its count quoted,
@@ -591,9 +578,7 @@ export const commitConfirmedMutation = async (
   }
   if (stored.intent.kind === 'delete') {
     const ids = await commitChatDelete({
-      services,
-      app: stored.app,
-      userId: stored.userId,
+      caller: storedCaller(services, stored),
       tableName: table.name,
       ids: stored.admittedIds,
     })
@@ -609,7 +594,7 @@ export const commitConfirmedMutation = async (
       summary: `Deleted ${String(ids.length)} record(s) from "${table.name}".`,
     }
   }
-  return applyUpdateToIds(services, stored.userEmail, table.name, {
+  return applyUpdateToIds(storedCaller(services, stored), stored.userEmail, table.name, {
     ids: stored.admittedIds,
     data: stored.intent.kind === 'update' ? stored.intent.data : {},
   })

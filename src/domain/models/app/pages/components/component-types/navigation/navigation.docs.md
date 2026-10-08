@@ -36,6 +36,23 @@ A menu that opens from a trigger button, with optional nested sub-menus.
 
 `triggerLabel` defaults to `Menu` and stays the button's accessible name even when `children` supply what is visible. `children` are drawn INSIDE the trigger, for a richer affordance than a word — an avatar over a name and an email, say; the menu itself is `menuItems`, so children can only be the trigger.
 
+### Item actions
+
+A menu item's `action` runs when the item is picked, as it would from a button: `navigate` follows its path (an `http(s)` address opens in a new tab), `auth` with `method: logout` signs the reader out, `toast` shows its message, `automation` presses the named manual automation through the same page rule a button on the page answers to, and `fetch` sends its request and shows its `onSuccess` or `onError` toast. An automation item with `await: true` waits for the run and shows `onError` when it failed.
+
+```yaml
+menuItems:
+  - { label: Export orders, action: { type: automation, name: export-orders } }
+  - label: Check for new orders
+    action:
+      {
+        type: fetch,
+        method: GET,
+        url: /api/tables/orders/records,
+        onSuccess: { type: toast, message: Orders are up to date },
+      }
+```
+
 ### Toggle items
 
 A menu item may hold a state instead of performing an action. Give it `toggle: checked` or `toggle: unchecked` and it renders as a two-state row — label on the left, switch on the right — that a reader can flip without the menu closing.
@@ -46,7 +63,7 @@ menuItems:
   - { label: Show archived, icon: archive, toggle: checked }
 ```
 
-The value is where the switch **starts**, not a binding: the state lives in the reader's browser and nothing is written when they flip it. An item that must persist what it toggles carries an `action` as well, like any other item. `toggle` is inert on a `separator` row — the divider wins.
+The value is where the switch **starts**, not a binding: the state lives in the reader's browser and nothing is written when they flip it. A toggle row does not run an `action`: one declared beside `toggle` is ignored, so flipping the switch never navigates, submits or calls an automation. `toggle` is inert on a `separator` row — the divider wins.
 
 ## `context-menu`
 
@@ -121,6 +138,10 @@ At `/automations/runs/42` that renders **Automations › Run › 42**, with `Aut
 ### Naming the current page
 
 The last crumb of a derived trail is the page the reader is on, and on a record page its segment is an id. `currentLabel` names that crumb directly — `currentLabel: $record.title` turns `Orders / 42` into `Orders / Acme — spring order` — and, like `labels` and `home`, requires `derive`.
+
+### A catch-all page
+
+On a page whose path ends in a catch-all segment, such as `/templates/:path*`, everything the catch-all captures is one value, not a set of folders. The trail gives it one crumb, named after its last segment and marked as the current page: `/templates/emails/welcome/body.html` renders **Templates › body.html**, with no crumb for `emails` or `welcome`. `labels` and `unlinked` apply only to the segments before the catch-all; a captured segment is shown as it appears in the URL, even when it shares a name with a labelled one. `currentLabel` still names that last crumb when set, and a request that captures nothing ends the trail at the last segment before the catch-all.
 
 ## `command-palette`
 

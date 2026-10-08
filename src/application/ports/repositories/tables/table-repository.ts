@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Context } from 'effect'
+import { Context, type Effect } from 'effect'
+import type { TableFileReferences } from './table-file-references'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type {
   ForeignKeyViolationError,
@@ -14,7 +15,6 @@ import type {
   UniqueConstraintViolationError,
 } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
-import type { Effect } from 'effect'
 
 /**
  * A single filter leaf clause (`field <operator> value`).
@@ -397,5 +397,5 @@ export class TableRepository extends Context.Service<
         readonly ids: readonly (string | number)[]
       }[]
     ) => Effect.Effect<Record<string, Record<string, string>>, DatabaseError>
-  }
+  } & TableFileReferences
 >()('TableRepository') {}

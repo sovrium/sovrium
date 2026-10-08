@@ -13,7 +13,10 @@ import {
   type AuthFormField,
   type AuthMethod,
 } from '@/presentation/design/auth-form-types'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeSubmitButtonClasses,
+  type ButtonVariant,
+} from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { AccountMethodBoundary } from './account-method-boundary'
@@ -46,6 +49,8 @@ interface AuthFormIslandProps {
    * shows a localized pending label instead of a hardcoded `Loading...`.
    */
   readonly pendingLabel?: string
+  /** The submit's weight (`action.submitVariant`); absent keeps the primary fill. */
+  readonly submitVariant?: ButtonVariant
   readonly redirectUrl?: string
   /**
    * Auth strategy from the action. `'oauth'` selects the social sign-in branch
@@ -154,7 +159,7 @@ function CredentialAuthForm(props: AuthFormIslandProps) {
         type="submit"
         data-component-type="button"
         disabled={state.isPending}
-        className={`${computeButtonDefaultClasses()} w-full`}
+        className={`${computeSubmitButtonClasses(props.submitVariant)} w-full`}
       >
         {state.isPending ? pendingLabel : submitLabel}
       </button>

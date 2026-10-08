@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isGroupReference, stripGroupPrefix } from '@/domain/models/app/auth/groups/group-reference'
 import {
   DENY_WHEN_UNDECLARED,
   evaluatePermission,
@@ -12,7 +13,7 @@ import {
   permits,
   type PermissionCaller,
 } from '@/domain/models/app/auth/permission-evaluation'
-import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { assignableRoleNames, isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import type { App } from '@/domain/models/app'
 import type { TablePermission } from '@/domain/models/app/tables/permissions'
 
@@ -258,3 +259,39 @@ function hasFieldReadPermission(permission: TablePermission, caller: PermissionC
     })
   )
 }
+
+/**
+ * Whether NO role and no group of the app may read `fieldName` on `tableName`
+ * — a judgement on the declaration alone, with no caller.
+ *
+ * A field qualifies when its `permissions.fields` entry has a `read` that is a
+ * role list naming no role the app defines (a built-in role, an engine role or
+ * one of `auth.roles`) and no declared group. `'all'`, `'authenticated'`, a
+ * missing entry and any list naming a defined role or group keep the field —
+ * an admin-only field included. The records API's admin bypass is deliberately
+ * not counted: counted, no field would ever qualify.
+ *
+ * Used where a value leaves the app without a caller to judge it against, so a
+ * field nobody may read never does: a webhook payload, its previous values and
+ * changed fields, and a test send's sample.
+ */
+export const isFieldReadByNoOne = (app: App, tableName: string, fieldName: string): boolean => {
+  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  const read = table?.permissions?.fields?.find((entry) => entry.field === fieldName)?.read
+  if (read === undefined || !Array.isArray(read)) return false
+  const roles = assignableRoleNames(app)
+  const groups = new Set((app.auth?.groups ?? []).map((group) => group.name))
+  return !read.some((entry: string) =>
+    isGroupReference(entry) ? groups.has(stripGroupPrefix(entry)) : roles.has(entry)
+  )
+}
+
+/** `record` without the fields of `tableName` no role or group may read. */
+export const withoutFieldsReadByNoOne = (
+  app: App,
+  tableName: string,
+  record: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> =>
+  Object.fromEntries(
+    Object.entries(record).filter(([name]) => !isFieldReadByNoOne(app, tableName, name))
+  )

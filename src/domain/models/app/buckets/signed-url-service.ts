@@ -25,9 +25,17 @@ export interface SignedUrlUploadConstraints {
 }
 
 /**
+ * The scope a download link minted by an automation step carries: the object
+ * it names is reached as the automation's own `file` actions reach it, with no
+ * bucket of its own. No sign route mints it, so a link signed for a bucket can
+ * never be turned into one.
+ */
+export type SignedUrlScope = 'automation'
+
+/**
  * Everything a signed-URL token is bound to. Changing any of these values
  * changes the token, so a holder cannot widen a URL by editing its query.
- * `constraints` only counts for an upload: a download is signed without them.
+ * `constraints` only counts for an upload, and `scope` only for a download.
  */
 export interface SignedUrlClaims {
   readonly bucket: string
@@ -35,6 +43,7 @@ export interface SignedUrlClaims {
   readonly operation: SignedUrlOperation
   readonly expires: number
   readonly constraints?: SignedUrlUploadConstraints
+  readonly scope?: SignedUrlScope
 }
 
 /**
@@ -50,6 +59,7 @@ export interface SignedUrlClaims {
  */
 export const signedUrlPayload = (claims: SignedUrlClaims): string => {
   const constraints = claims.operation === 'upload' ? claims.constraints : undefined
+  const scope = claims.operation === 'download' ? claims.scope : undefined
   return JSON.stringify([
     claims.bucket,
     claims.path,
@@ -62,6 +72,9 @@ export const signedUrlPayload = (claims: SignedUrlClaims): string => {
     // every download, an anonymous upload — keeps its exact former payload.
     // The array LENGTH then differs, so the two shapes can never collide.
     ...(constraints?.uploadedBy === undefined ? [] : [constraints.uploadedBy]),
+    // A scoped download appends its scope the same way: an unscoped download
+    // keeps its former payload, and the operation keeps the two appendices apart.
+    ...(scope === undefined ? [] : [scope]),
   ])
 }
 

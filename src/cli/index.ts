@@ -36,7 +36,7 @@
  * ## Environment Variables (start command)
  * - `APP_SCHEMA` (optional if file provided) - App schema (inline JSON, YAML, or remote URL)
  * - `PORT` (optional) - Server port (default: 3000)
- * - `HOSTNAME` (optional) - Server hostname (default: localhost)
+ * - `SOVRIUM_BIND_HOST` (optional) - Interface to bind (default: localhost)
  *
  * ## Environment Variables (build command)
  * - `APP_SCHEMA` (optional if file provided) - App schema (inline JSON, YAML, or remote URL)
@@ -55,15 +55,19 @@ import { Effect, Console } from 'effect'
 import { handleAdminCommand } from '@/cli/commands/admin'
 import { handleBackupCommand } from '@/cli/commands/backup'
 import { handleBuildCommand } from '@/cli/commands/build'
+import { handleBundleCommand } from '@/cli/commands/bundle'
 import { handleChangelogCommand } from '@/cli/commands/changelog'
+import { handleDeployCommand } from '@/cli/commands/deploy'
 import { handleDesignSystemCommand } from '@/cli/commands/design-system'
 import { handleDocsCommand } from '@/cli/commands/docs'
 import { handleInitCommand } from '@/cli/commands/init'
 import { handleLibraryCommand } from '@/cli/commands/library'
 import { handleLicensesCommand } from '@/cli/commands/licenses'
+import { handleLoginCommand } from '@/cli/commands/login'
 import { handleMcpCommand } from '@/cli/commands/mcp'
 import { handleMigrateCommand } from '@/cli/commands/migrate'
 import { handleReloadCommand } from '@/cli/commands/reload'
+import { handleRenderCommand } from '@/cli/commands/render'
 import { handleRestartCommand } from '@/cli/commands/restart'
 import { handleRestoreCommand } from '@/cli/commands/restore'
 import { handleSchemaCommand } from '@/cli/commands/schema'
@@ -112,6 +116,7 @@ const HELP_TEXT = [
   '  sovrium types                 Emit sovrium.d.ts + tsconfig.json for a .ts config',
   "  sovrium skills                Write this version's agent skills into .claude/skills/",
   '  sovrium validate <config>     Validate a config file against AppSchema',
+  '  sovrium render <asset>        Render a template asset offline, with its sample data or yours',
   '  sovrium design-system         Export the design system as an agent brief or DTCG JSON',
   '  sovrium docs [address]        Read the platform manual out of this binary',
   '  sovrium changelog [version]   Read the release notes this binary carries',
@@ -119,6 +124,7 @@ const HELP_TEXT = [
   '  sovrium library <verb>        Browse and install ready-made blocks, connections, recipes',
   '  sovrium seed [config]         Load seed/<table>.yaml data into the tables',
   '  sovrium migrate [config]      Bring the database schema forward, without booting',
+  '  sovrium bundle [config]       Package the validated config, public/ and seed/ for deployment',
   '  sovrium mcp [--project <dir>] Serve the config read tools to an AI client over stdio',
   '',
   'Operate:',
@@ -128,12 +134,14 @@ const HELP_TEXT = [
   '  sovrium backup [config]       Write database, key, config and uploads to one archive',
   '  sovrium restore <file>        Put a backup back (never over a running server)',
   '  sovrium update                Update to the latest version',
+  '  sovrium login                 Sign the CLI in to a Sovrium cloud',
+  '  sovrium deploy --app <slug>   Ship the app to your Sovrium cloud, follow it until live',
   '',
   'Options:',
   '  --help, -h                    Show this help message',
   '  --version, -v                 Show version number',
   '  --watch, -w                   Watch config file and hot reload (start)',
-  '  --output <path>               Write to a file (schema, design-system, backup) or dir (types, skills)',
+  '  --output <path>               Write to a file (schema, design-system, backup, bundle) or dir (types, skills)',
   '  --typescript                  Scaffold a typed app.ts instead of app.yaml (init)',
   '  --format <md|json|llms>       Export format (design-system, docs, changelog, licenses; default: md)',
   '  --full                        Print the whole manual (docs)',
@@ -166,6 +174,12 @@ const HELP_TEXT = [
   '  --all                         Install every operation of a provider (library add)',
   '  --yes                         Confirm --all above 50 operations (library add)',
   '  --limit <n>                   The most results to print (library search)',
+  '  --host <url>                  The Sovrium cloud (login, deploy)',
+  '  --api-key <key>               Sign in with a key you already have (login)',
+  '  --open                        Open the approval page in your browser (login)',
+  '  --status | --logout           Print or end the stored sign-in (login)',
+  '  --app <slug>                  The hosted app to deploy to (deploy)',
+  '  --no-wait                     Return once the deployment is recorded (deploy)',
   '',
   'Environment variables (all optional — Sovrium runs zero-config):',
   '  DATABASE_URL                  Postgres connection (omit → embedded SQLite)',
@@ -235,6 +249,10 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
   secret: async () => handleSecretCommand(parsed.subcommand, parsed.positionalArg),
   backup: async () =>
     handleBackupCommand({ configFile: parsed.configFile, outputPath: parsed.outputPath }),
+  bundle: async () =>
+    handleBundleCommand({ configFile: parsed.configFile, outputPath: parsed.outputPath }),
+  login: async () => handleLoginCommand(rawArgs),
+  deploy: async () => handleDeployCommand({ configFile: parsed.configFile, argv: rawArgs }),
   restore: async () =>
     handleRestoreCommand({
       archivePath: parsed.configFile,
@@ -269,6 +287,8 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       sinceRequested: parsed.changelogSinceRequested ?? false,
       since: parsed.changelogSince,
     }),
+  // An EXIT command: it renders one template and stops — no server, no database.
+  render: async () => handleRenderCommand(rawArgs),
   licenses: async () =>
     handleLicensesCommand({ format: parsed.format, outputPath: parsed.outputPath }),
   '--version': async () => showVersion(),

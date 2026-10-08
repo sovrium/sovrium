@@ -12,10 +12,12 @@ import {
   csvCell,
   decodeCsvBytes,
   dropLeadingLines,
+  parseCsvDocument,
+} from './file-csv'
+import {
   extOf,
   isSelfContainedSource,
   mimeByExt,
-  parseCsvDocument,
   resolveSource,
   tempKey,
   uploadArtifact,

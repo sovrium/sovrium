@@ -75,6 +75,19 @@ export class AuthRepository extends Context.Service<
       { readonly name: string; readonly email: string } | undefined,
       AuthDatabaseError
     >
+    /**
+     * The display name and email of each of `userIds`, in ONE query, keyed by
+     * user id — the bulk form of {@link findUserContactById}, so a list of
+     * records names its people in one lookup rather than one per row. An id no
+     * account holds, or whose account has no address, is absent from the map;
+     * an empty `userIds` answers an empty map without touching the database.
+     */
+    readonly findUserContactsByIds: (
+      userIds: readonly string[]
+    ) => Effect.Effect<
+      ReadonlyMap<string, { readonly name: string; readonly email: string }>,
+      AuthDatabaseError
+    >
     readonly getUserRole: (userId: string) => Effect.Effect<string | undefined, AuthDatabaseError>
     /**
      * Resolve the roles of MANY users in ONE query, keyed by user id.

@@ -5,20 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { parse } from 'csv-parse/sync'
 import { Data, Effect } from 'effect'
 import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { sweepAgedTempFiles } from '@/application/use-cases/storage/sweep-temp-storage'
-import { escapeCsvCell } from '@/domain/kernel/format/csv-format'
 import { FILE_SOURCE_FETCH_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
 import { guardedFetch, type GuardedFetchRefusalReason } from '@/infrastructure/egress/guarded-fetch'
-import type { BucketBinding } from '@/application/ports/services/storage-service'
+import type { UploadTarget } from '@/application/ports/services/storage-service'
 
 /**
  * Shared helpers for the `file:*` action handlers — MIME inference,
- * temp-key minting, source resolution (`data:` URI / HTTP URL / storage
- * key), and the RFC 4180 CSV codec.
+ * temp-key minting and source resolution (`data:` URI / HTTP URL / storage
+ * key). The RFC 4180 CSV codec is `file-csv.ts`.
  */
 
 // ---------------------------------------------------------------------------
@@ -72,10 +70,10 @@ const writeArtifact = (
   storage: Effect.Success<typeof StorageService>,
   key: string,
   file: ArtifactFile,
-  bucket: BucketBinding
+  target: UploadTarget
 ): Effect.Effect<boolean, never> =>
   Effect.gen(function* () {
-    const wrote = yield* Effect.result(storage.upload(key, file.bytes, file.contentType, bucket))
+    const wrote = yield* Effect.result(storage.upload(key, file.bytes, file.contentType, target))
     if (wrote._tag === 'Failure') return false
     if (key.startsWith(TEMP_STORAGE_PREFIX)) {
       yield* sweepAgedTempFiles(storage, { preserve: key })
@@ -85,8 +83,9 @@ const writeArtifact = (
 
 /**
  * Store a `file:*` action's output bytes, returning `false` when the write
- * failed so callers can shape their own `error` outcome. `bucket` is the
- * binding the write records; {@link uploadArtifact} records none.
+ * failed so callers can shape their own `error` outcome. `target` is the
+ * binding the write records (and the automation behind it, for a document
+ * output); {@link uploadArtifact} records none.
  *
  * This is the single write path for every file action, and therefore the one
  * place temp-storage reclamation hooks in: when the artifact lands under
@@ -98,9 +97,9 @@ export const uploadArtifactTo = (
   storage: Effect.Success<typeof StorageService>,
   key: string,
   file: ArtifactFile,
-  bucket: BucketBinding
+  target: UploadTarget
 ): Effect.Effect<boolean, never> =>
-  writeArtifact(storage, key, file, bucket).pipe(Effect.withSpan('automations.upload-artifact'))
+  writeArtifact(storage, key, file, target).pipe(Effect.withSpan('automations.upload-artifact'))
 
 /** {@link uploadArtifactTo} with no bucket: the write path of every artifact a step makes. */
 export const uploadArtifact = (
@@ -244,141 +243,4 @@ export const resolveSource = (
       ? { bytes: new Uint8Array(0) }
       : { bytes: downloaded.success }
   }).pipe(Effect.withSpan('automations.resolve-source'))
-}
-
-// ---------------------------------------------------------------------------
-// CSV codec — RFC 4180 via `csv-parse`, plus the three decisions a parser
-// cannot make for you: which byte encoding the document is in, how many leading
-// lines to drop, and which delimiter it uses.
-// ---------------------------------------------------------------------------
-
-/** The delimiters `FileParseCsvActionSchema` accepts, in tie-break order. */
-const DELIMITER_CANDIDATES: readonly string[] = [',', ';', '\t', '|']
-
-/**
- * Escape a value for CSV output, through the kernel's one CSV cell escaper.
- *
- * The quoting decision is driven by the delimiter ACTUALLY in use, not by a
- * fixed character class: a value containing the active delimiter MUST be quoted
- * or it silently splits into two fields on re-read. The rest of the set is RFC
- * 4180's mandatory minimum (`"`, CR, LF) — nothing else is quoted, so a `;`
- * inside a comma-delimited file stays bare, which is legal and lossless. A text
- * value starting with a formula character gains a leading `'`; a number does
- * not.
- */
-export const csvCell = (value: unknown, delimiter: string = ','): string =>
-  escapeCsvCell(value, { delimiter })
-
-/**
- * Decode CSV bytes as UTF-8, falling back to windows-1252 when the document is
- * not valid UTF-8 — what Excel FR still emits by default.
- *
- * This is an automatic FALLBACK rather than a declared `encoding` property on
- * purpose. An accented windows-1252 byte (0x80-0xFF) is never a valid
- * standalone UTF-8 sequence, so a fatal UTF-8 decode separates the two
- * encodings on its own: valid UTF-8 can never be mistaken for Latin-1, and the
- * operator never has to declare which one they were handed.
- */
-export const decodeCsvBytes = (bytes: Uint8Array): string => {
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-  } catch {
-    return new TextDecoder('windows-1252').decode(bytes)
-  }
-}
-
-/** First line with non-whitespace content, or `undefined` for a blank document. */
-const firstNonBlankLine = (text: string): string | undefined => {
-  const nl = text.indexOf('\n')
-  const line = (nl === -1 ? text : text.slice(0, nl)).replace(/\r$/, '')
-  if (line.trim() !== '') return line
-  return nl === -1 ? undefined : firstNonBlankLine(text.slice(nl + 1))
-}
-
-/**
- * Drop the first `count` non-blank PHYSICAL lines — that, and nothing else, is
- * what `skipRows` means. Header handling stays orthogonal (see `csvRows`), so
- * asking to skip a preamble can never silently change the output shape.
- *
- * The remainder is returned verbatim rather than re-joined, so a quoted field
- * further down keeps its exact bytes, CRLF included.
- */
-export const dropLeadingLines = (text: string, count: number): string => {
-  if (count <= 0) return text
-  const nl = text.indexOf('\n')
-  if (nl === -1) return ''
-  const remaining = text.slice(0, nl).trim() === '' ? count : count - 1
-  return dropLeadingLines(text.slice(nl + 1), remaining)
-}
-
-interface CountState {
-  readonly inQuotes: boolean
-  readonly count: number
-}
-
-/** Occurrences of `target` in `line` that sit outside any quoted field. */
-const countOutsideQuotes = (line: string, target: string): number =>
-  Array.from(line).reduce<CountState>(
-    (state, ch) => {
-      if (ch === '"') return { inQuotes: !state.inQuotes, count: state.count }
-      if (!state.inQuotes && ch === target) return { ...state, count: state.count + 1 }
-      return state
-    },
-    { inQuotes: false, count: 0 }
-  ).count
-
-/**
- * Detect the field delimiter by COUNT, not by first match.
- *
- * Counting is the whole point: a `;`-delimited French export whose header
- * legitimately contains one comma (`ville, pays`) must still read as
- * semicolon-delimited. First-match-wins collapsed it into a single column.
- * Occurrences inside quotes do not count; ties fall back to comma.
- *
- * ORDERING CONTRACT: `text` must ALREADY have had `skipRows` applied. A
- * preamble line such as `# Export CRM` contains none of the four candidates, so
- * sampling the raw document would fall through to the comma default and
- * mis-parse the real header underneath it. Taking post-skip text is therefore
- * deliberate, not an accident of call order — hence this takes the DOCUMENT and
- * picks its own sample line rather than trusting the caller to pass the right
- * one.
- */
-export const autoDelimiter = (text: string): string => {
-  const sample = firstNonBlankLine(text)
-  if (sample === undefined) return ','
-  const best = DELIMITER_CANDIDATES.map((d) => ({ d, n: countOutsideQuotes(sample, d) })).reduce(
-    (a, b) => (b.n > a.n ? b : a)
-  )
-  return best.n > 0 ? best.d : ','
-}
-
-/**
- * Parse a whole CSV DOCUMENT into raw cell rows, or `undefined` when it is
- * malformed beyond recovery (an unterminated quote is the only case
- * `csv-parse` still refuses under `relax_quotes`).
- *
- * Document-level parsing is the point: a quoted field may contain the record
- * separator itself, so splitting on newlines BEFORE parsing — as the previous
- * hand-rolled codec did — tears a multi-line notes column into malformed rows.
- *
- * `trim: true` implements RFC 4180 §2.5 as the spec intends: whitespace is
- * trimmed around UNQUOTED fields only, leaving quoted content verbatim, so
- * `"  007  "` survives intact while `  008  ` is still tidied to `008`.
- */
-export const parseCsvDocument = (
-  text: string,
-  delimiter: string
-): ReadonlyArray<ReadonlyArray<string>> | undefined => {
-  try {
-    return parse(text, {
-      delimiter,
-      bom: true,
-      trim: true,
-      skip_empty_lines: true,
-      relax_column_count: true,
-      relax_quotes: true,
-    }) as ReadonlyArray<ReadonlyArray<string>>
-  } catch {
-    return undefined
-  }
 }

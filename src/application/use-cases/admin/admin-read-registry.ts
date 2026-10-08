@@ -49,6 +49,7 @@ import {
 } from '@/application/use-cases/admin/people-read-operations'
 import { RELEASE_READ_OPERATIONS } from '@/application/use-cases/admin/release-read-operations'
 import { SCHEMA_READ_OPERATIONS } from '@/application/use-cases/admin/schema-read-operations'
+import { TEMPLATES_READ_OPERATIONS } from '@/application/use-cases/admin/templates-read-operations'
 import { adminReadToolName } from '@/domain/models/app/admin/admin-mcp-read-tools'
 import type { AdminReadOperation } from '@/application/use-cases/admin/admin-read-operation'
 
@@ -67,6 +68,7 @@ export const ADMIN_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
   ...AGENTS_READ_OPERATIONS,
   ...FORMS_READ_OPERATIONS,
   ...PEOPLE_READ_OPERATIONS,
+  ...TEMPLATES_READ_OPERATIONS,
 ]
 
 /**
@@ -92,6 +94,7 @@ export {
   DEVELOPER_READ_OPERATIONS,
   RELEASE_READ_OPERATIONS,
   SCHEMA_READ_OPERATIONS,
+  TEMPLATES_READ_OPERATIONS,
 }
 
 /** One registry entry, projected to the facts a parity check compares. */

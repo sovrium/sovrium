@@ -42,7 +42,8 @@ export type RowLevelFilterOperator = Schema.Schema.Type<typeof RowLevelFilterOpe
 export const RowLevelPredicateSchema = Schema.Struct({
   field: Schema.String.pipe(
     Schema.annotate({
-      description: 'Table field (or relation chain like "project.client_id") to filter on',
+      description:
+        'Table field to filter on, or a column of the row a many-to-one relationship points to, one relationship deep ("project.client_id")',
     }),
     Schema.check(Schema.isMinLength(1))
   ),

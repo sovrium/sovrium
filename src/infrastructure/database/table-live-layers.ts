@@ -7,6 +7,7 @@
 
 import { Layer } from 'effect'
 import { RecordChangeFeedLive } from '@/infrastructure/realtime/record-change-feed-live'
+import { RecordWebhookDispatcherLive } from '@/infrastructure/webhooks/record-webhook-dispatcher-live'
 import { AiComputeStatusRepositoryLive } from './repositories/ai/ai-compute-status-repository-live'
 import { ActivityRepositoryLive } from './repositories/analytics/activity-repository-live'
 import { AuthRepositoryLive } from './repositories/auth/auth-repository-live'
@@ -25,7 +26,8 @@ import { TableRepositoryLive } from './repositories/tables/table-repository-live
  * fields store (the `_display` label of a user field) — and the user
  * directory, which names the people a comment mentions and narrows them to the
  * record's readers — and the live record-change feed, so every runtime that can
- * write a record announces it on the change stream.
+ * write a record announces it on the change stream — and the webhook
+ * dispatcher, so the same runtimes fire the table's webhooks.
  *
  * @example
  * ```typescript
@@ -41,6 +43,8 @@ export const TableLive = Layer.mergeAll(
   AuthRepositoryLive,
   UserDirectoryRepositoryLive,
   RecordChangeFeedLive,
+  // The table webhooks every record write fires, through the durable outbox.
+  RecordWebhookDispatcherLive,
   // The AI-compute status store: the `_aiCompute` read projection on record
   // reads, and the write-phase signal every record write sends.
   AiComputeStatusRepositoryLive

@@ -13,9 +13,9 @@ import {
   resolveExpiresIn,
   resolveSignBucket,
 } from '@/application/use-cases/buckets/signed-url-minting'
+import { fileExists } from '@/presentation/api/buckets/signed-download'
 import {
   buildSignedUrl,
-  fileExists,
   objectStoredAt,
   refuseUnlessSignable,
 } from '@/presentation/api/buckets/signed-urls'

@@ -11,20 +11,16 @@ import {
   reportCommittedRows,
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
-import {
-  db,
-  DatabaseError,
-  ValidationError,
-  type DrizzleTransaction,
-} from '@/infrastructure/database'
+import { DatabaseError, ValidationError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
-import { withTransaction } from '@/infrastructure/database/transaction'
+import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import { rowAfterTriggers } from '../mutation-helpers/record-fetch-helpers'
 import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
 import { logCommittedRowChanges } from '../query-helpers/activity-log-helpers'
+import { excludingIds } from '../query-helpers/check-existing-records'
 import { validateColumnName, tableIdentifier, databaseTableName } from '../statement/validation'
 import { BatchValidationError, createSingleRecord } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -103,14 +99,16 @@ const withCommitted = (
 })
 
 /**
- * Check if record exists based on merge fields
+ * Check if record exists based on merge fields. A row the caller's row-level
+ * read rule hides (`hiddenIds`) is not a match: the record is created instead.
  */
 function findExistingRecord(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
   fields: Readonly<Record<string, unknown>>,
-  fieldsToMergeOn: readonly string[]
+  merge: { readonly fieldsToMergeOn: readonly string[]; readonly hiddenIds: readonly string[] }
 ): Effect.Effect<Readonly<Record<string, unknown>> | undefined, DatabaseError> {
+  const { fieldsToMergeOn, hiddenIds } = merge
   const whereConditions = fieldsToMergeOn.map((field) => {
     validateColumnName(field)
     return sql`${sql.identifier(field)} = ${fields[field]}`
@@ -121,7 +119,8 @@ function findExistingRecord(
     try: async () => {
       const result = await executeRaw(
         tx,
-        sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE ${whereClause} LIMIT 1`
+        sql`SELECT * FROM ${tableIdentifier(tableName)}
+             WHERE ${whereClause}${excludingIds(hiddenIds)} LIMIT 1`
       )
       return result[0]
     },
@@ -241,16 +240,12 @@ function processSingleUpsert(
     readonly fields: Record<string, unknown>
     readonly fieldsToMergeOn: readonly string[]
     readonly insertOnlyFields: readonly string[]
+    readonly hiddenIds: readonly string[]
     readonly acc: UpsertResult
   }
 ): Effect.Effect<UpsertResult, DatabaseError | ValidationError> {
   return Effect.gen(function* () {
-    const existing = yield* findExistingRecord(
-      tx,
-      params.tableName,
-      params.fields,
-      params.fieldsToMergeOn
-    )
+    const existing = yield* findExistingRecord(tx, params.tableName, params.fields, params)
 
     if (existing) {
       return yield* handleUpsertUpdate(tx, { ...params, existing })
@@ -358,12 +353,13 @@ export function upsertRecords(
   options: {
     readonly fieldsToMergeOn: readonly string[]
     readonly insertOnlyFields?: readonly string[]
+    readonly hiddenIds?: readonly string[]
   }
 ): Effect.Effect<
   Omit<UpsertResult, 'committed'>,
   DatabaseError | BatchValidationError | ValidationError
 > {
-  const { fieldsToMergeOn, insertOnlyFields = [] } = options
+  const { fieldsToMergeOn, insertOnlyFields = [], hiddenIds = [] } = options
   return Effect.gen(function* () {
     if (recordsData.length === 0) {
       return yield* Effect.fail(new DatabaseError('Cannot upsert batch with no records', undefined))
@@ -378,9 +374,8 @@ export function upsertRecords(
     // Validate merge fields are present in all records BEFORE processing
     yield* validateMergeFieldsPresent(recordsData, fieldsToMergeOn)
 
-    const merge = { fieldsToMergeOn, insertOnlyFields }
-    const result = yield* withTransaction(
-      db,
+    const merge = { fieldsToMergeOn, insertOnlyFields, hiddenIds }
+    const result = yield* withOutboxTransaction((upserted: UpsertResult) => upserted.committed)(
       (tx) =>
         Effect.gen(function* () {
           yield* validateAllRecordsHaveRequiredFields(tx, tableName, recordsData)

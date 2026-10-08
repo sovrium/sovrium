@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { dirname, basename, resolve } from 'node:path'
+import { dirname, basename, join, resolve } from 'node:path'
 import { Effect, Console } from 'effect'
 import { printConfigDeprecationWarnings } from '@/cli/runtime/config-deprecation-warnings'
 import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
@@ -285,7 +285,15 @@ export const validateParsedConfig = async (
     }
   }
 
-  const postDecodeErrors = await runPostDecodeChecks(decoded, refSources)
+  // The asset files, checked as the boot loads them: same function, same verdict.
+  const { assetProjectDir, assetTemplateIssues, loadPrivateAssets } =
+    await import('@/infrastructure/assets/private-assets')
+  const projectDir = assetProjectDir(configFile)
+  const assets = await loadPrivateAssets(decoded.app.assets, projectDir, join(projectDir, 'public'))
+  const postDecodeErrors = [
+    ...(await runPostDecodeChecks(decoded, refSources)),
+    ...(assets.ok ? assetTemplateIssues(decoded.app, assets.store) : assets.issues),
+  ]
   return {
     valid: postDecodeErrors.length === 0,
     name: decoded.name,

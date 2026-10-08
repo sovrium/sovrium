@@ -23,7 +23,7 @@ import {
   readErasureSubject,
   type PurgeOutcome,
 } from './account-purge-rail'
-import { collectErasedRecords, scrubRunsReading } from './account-purge-runs'
+import { collectErasedRecords } from './account-purge-runs'
 import { redactErasedSignatures } from './account-purge-signatures'
 import {
   deleteAiActivityRows,
@@ -35,6 +35,7 @@ import {
   shedGrantIssuerIdentifier,
   shedLinkAuthorIdentifier,
 } from './account-purge-steps'
+import { scrubWhatErasureReaches } from './account-purge-webhooks'
 import { executeRaw } from './sql/dialect-execute'
 import { authTableRef, systemTableRef } from './sql/dialect-sql'
 import type { PurgeTableAuthorship } from './account-purge-authorship'
@@ -165,7 +166,14 @@ async function eraseAccountRows(
   // 0. The automation runs that read her records, a record naming her, or a
   //    record removed with hers — collected BEFORE anything below deletes or
   //    empties them — keep their steps and lose every value (`account-purge-runs.ts`).
-  await scrubRunsReading(tx, await collectErasedRecords(tx, userId, erasureReach(appTables)))
+  //    The table-webhook deliveries about her (`webhook_outbox`, found by
+  //    `webhook_outbox_subjects.user_id` or by such a record) and their
+  //    delivery-log rows are hard-deleted, so a pending one is never sent.
+  await scrubWhatErasureReaches(
+    tx,
+    userId,
+    await collectErasedRecords(tx, userId, erasureReach(appTables))
+  )
 
   // 1. App-table records authored by the user, then the authorship stamps left
   //    on records authored by SOMEBODY ELSE — two deliberately different

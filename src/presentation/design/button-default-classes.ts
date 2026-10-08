@@ -50,15 +50,18 @@
  */
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
+import type { ButtonVariantSchema } from '@/domain/models/app/pages/components/button-variant'
 
 /**
- * Schema-aligned variant vocabulary. Maps 1:1 to `ButtonVariantSchema` in
- * `src/domain/models/app/pages/components/shared-schemas.ts`. The two
+ * Schema-aligned variant vocabulary, read off `ButtonVariantSchema`
+ * (`src/domain/models/app/pages/components/button-variant.ts`) rather than
+ * spelled a second time, so a member added to the schema cannot be missing
+ * from the recipe's `Record<ButtonVariant, …>` tables without a type error.
+ * The import is type-only, so no island bundle gains the schema. The two
  * fixture-vocabulary aliases (`primary` / `base`) are NOT accepted here —
  * the dispatcher in `interactive-components.ts` always passes schema values.
  */
-export type ButtonVariant =
-  'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link' | 'fab'
+export type ButtonVariant = typeof ButtonVariantSchema.Type
 
 /** Schema-aligned size vocabulary (`ComponentSizeSchema`). */
 export type ButtonSize = 'sm' | 'md' | 'lg'
@@ -306,4 +309,29 @@ export const computeButtonDefaultClasses = (input: ButtonDefaultClassesInput = {
   const size = input.size ?? 'md'
   const state = input.state ?? 'default'
   return variant === 'link' ? linkClasses(size, state) : filledClasses(variant, size, state)
+}
+
+/**
+ * A form submit's class string, in the platform button recipe's own vocabulary.
+ *
+ * Two channels, because a `button` component of the same variant wears both and
+ * the whole point of a submit naming its variant (`endpoint.submitVariant`, an
+ * auth action's `submitVariant`) is that a submit and a button asking for the
+ * same word cannot look different. The recipe ({@link computeButtonDefaultClasses})
+ * paints it; the legacy `.btn-{variant}` modifier is the token an app's own CSS
+ * and the component layer address it by, and is emitted for a `button` by
+ * `buildButtonModifierClasses` (`render/styling/style-processor.ts`) — which only
+ * ever sees a component of `type: 'button'`, so a submit nested inside a `form`
+ * never passes through it. `default` emits no modifier there and emits none here,
+ * for the same reason: it is the absence of a modifier rather than one of its own.
+ *
+ * With no variant named this is `computeButtonDefaultClasses()` with no argument,
+ * so every form that does not use the key keeps its submit's class string to the
+ * byte. Shared by the server-rendered forms and the auth-form island, so the
+ * island's live submit matches its server-drawn skeleton.
+ */
+export const computeSubmitButtonClasses = (variant: ButtonVariant | undefined): string => {
+  if (variant === undefined) return computeButtonDefaultClasses()
+  const recipe = computeButtonDefaultClasses({ variant })
+  return variant === 'default' ? recipe : `${recipe} btn-${variant}`
 }

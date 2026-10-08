@@ -18,8 +18,9 @@
  * Its steps, their statuses and its timings stay; `values_erased_at` marks it;
  * its operator-search row goes.
  *
- * Which runs read which records is the index each run writes as it finishes
- * (`system.automation_run_refs`, by id), so this is exact rather than a search
+ * Which runs read which records is the index each run writes as it finishes —
+ * or parks on a long wait — (`system.automation_run_refs`, by id), so a run
+ * still waiting is found and cancelled too; this is exact rather than a search
  * of the run history for her id. A ref of `'*'` stands for a whole table.
  *
  * The records are collected BEFORE the erasure deletes or empties anything:
@@ -219,17 +220,28 @@ const forRuns = (
   statement: (ids: Readonly<SQL>) => Readonly<SQL>
 ): Promise<unknown> => inTurn(chunksOf(runIds), (chunk) => executeRaw(tx, statement(inList(chunk))))
 
-/** The four statements that scrub a set of runs, given its `IN (…)` list. */
+/** Why a run parked on a long wait was cancelled by an erasure: it names nobody. */
+const ERASED_WAIT_ERROR = 'Cancelled: the values this run waited with were erased with an account.'
+
+/**
+ * The five statements that scrub a set of runs, given its `IN (…)` list. The
+ * first empties every run's resume cursor — a loop item's value lives there,
+ * and a resumed run that crashed keeps its cursor after it ended. The last
+ * cancels those still parked on a long wait, so the step after the wait never
+ * acts for an erased person; they hold no values to resume with anyway.
+ */
 const SCRUB_STATEMENTS: readonly ((ids: Readonly<SQL>) => Readonly<SQL>)[] = [
   (ids) =>
     // sql-literal: keyword -- the dialect's own clock expression, no caller value
-    sql`UPDATE ${systemTableRef('automation_runs')} SET trigger_data = NULL, error = NULL, values_erased_at = COALESCE(values_erased_at, ${sql.raw(nowEpochMsSqlLiteral())}) WHERE id IN (${ids})`,
+    sql`UPDATE ${systemTableRef('automation_runs')} SET trigger_data = NULL, error = NULL, resume_cursor = NULL, values_erased_at = COALESCE(values_erased_at, ${sql.raw(nowEpochMsSqlLiteral())}) WHERE id IN (${ids})`,
   (ids) =>
     sql`UPDATE ${systemTableRef('automation_run_steps')} SET input = NULL, output = NULL, error = NULL, logs = NULL, reads = NULL, nested = NULL WHERE run_id IN (${ids})`,
   (ids) =>
     sql`UPDATE ${systemTableRef('automation_approval_requests')} SET message = NULL WHERE run_id IN (${ids})`,
   (ids) =>
     sql`DELETE FROM ${systemTableRef('_admin_search_index')} WHERE type = 'run' AND entity_id IN (${ids})`,
+  (ids) =>
+    sql`UPDATE ${systemTableRef('automation_runs')} SET status = ${'cancelled'}, error = ${ERASED_WAIT_ERROR}, resume_at = NULL, resume_cursor = NULL WHERE id IN (${ids}) AND status = ${'waiting-delay'}`,
 ]
 
 /**

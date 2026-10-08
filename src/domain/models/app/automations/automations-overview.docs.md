@@ -39,28 +39,29 @@ Exactly one `trigger`, at least one entry in `actions`. Everything else is optio
 
 Every string property of an action can interpolate runtime values.
 
-| Source           | Syntax                     | Notes                                                                                                                 |
-| ---------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Trigger payload  | `{{trigger.data.field}}`   | What the trigger carried — a record row, a webhook body, form values                                                  |
-| Previous step    | `{{stepName.result}}`      | The output of any earlier action, by its `name`                                                                       |
-| Environment      | `$env.VAR_NAME`            | Resolved from the declared `env` block in the text you wrote, never in a value a template brings in; redacted in logs |
-| Connection       | `$connection.NAME`         | Resolved credentials for an external service                                                                          |
-| Helper functions | `{{helperName arg "lit"}}` | Formatting helpers for text, numbers, dates, logic and collections; nest with parentheses                             |
+| Source           | Syntax                     | Notes                                                                                                                                 |
+| ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Trigger payload  | `{{trigger.data.field}}`   | What the trigger carried — a record row, a webhook body, form values                                                                  |
+| Previous step    | `{{stepName.result}}`      | The output of any earlier action, by its `name`                                                                                       |
+| Environment      | `$env.VAR_NAME`            | Resolved from the declared `env` block in the text you wrote, never in a value a template brings in; redacted in logs                 |
+| Connection       | `$connection.NAME`         | Resolved credentials for an external service                                                                                          |
+| Helper functions | `{{helperName arg "lit"}}` | Formatting helpers for text, numbers, dates, logic and collections; nest with parentheses. Every helper is listed in Template Helpers |
 
 ### Dates
 
 `{{formatDate value pattern [timezone] [locale]}}` renders an instant and `{{parseDate text pattern [timezone]}}` reads one back. Both accept a **closed** set of tokens: anything else is an error and renders an empty string, so a mistyped pattern fails visibly rather than producing a wrong date.
 
-| Token          | Meaning                               | Example  |
-| -------------- | ------------------------------------- | -------- |
-| `yyyy`         | Year, four digits (alias `YYYY`)      | `2026`   |
-| `MM`           | Month, two digits                     | `03`     |
-| `dd`           | Day of month, two digits (alias `DD`) | `15`     |
-| `HH`           | Hour, two digits, 24-hour             | `14`     |
-| `mm`           | Minute, two digits                    | `05`     |
-| `ss`           | Second, two digits                    | `09`     |
-| `MMMM` / `MMM` | Month name, full or short, localised  | `March`  |
-| `EEEE` / `EEE` | Weekday name, full or short           | `Sunday` |
+| Token          | Meaning                                                | Example  |
+| -------------- | ------------------------------------------------------ | -------- |
+| `yyyy`         | Year, four digits (alias `YYYY`)                       | `2026`   |
+| `MM`           | Month, two digits                                      | `03`     |
+| `dd`           | Day of month, two digits (alias `DD`)                  | `15`     |
+| `d`            | Day of month, no leading zero (alias `D`), format only | `5`      |
+| `HH`           | Hour, two digits, 24-hour                              | `14`     |
+| `mm`           | Minute, two digits                                     | `05`     |
+| `ss`           | Second, two digits                                     | `09`     |
+| `MMMM` / `MMM` | Month name, full or short, localised                   | `March`  |
+| `EEEE` / `EEE` | Weekday name, full or short                            | `Sunday` |
 
 The name tokens are format-only: `parseDate` cannot read them back, because a localised month name is ambiguous across languages. The twelve-hour `h` and the AM/PM `A` of other template languages are **not** tokens. To emit a literal letter, quote it — `{{formatDate value "dd MMMM 'at' HH:mm"}}`.
 

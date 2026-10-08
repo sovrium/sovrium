@@ -232,6 +232,7 @@ const CANCELLABLE_RUN_STATUSES: ReadonlySet<string> = new Set([
   'queued',
   'running',
   'waiting-approval',
+  'waiting-delay',
   'pending',
   'retrying',
 ])
@@ -254,7 +255,10 @@ const CANCELLABLE_RUN_STATUSES: ReadonlySet<string> = new Set([
  * timed out, or cancelled before — is not cancelled: 409, saying so, and the
  * row keeps its status. Replay is the road for a finished run. A run that
  * waits for an approval has its pending request rejected FIRST, so the
- * approver no longer finds it and a later answer resumes nothing.
+ * approver no longer finds it and a later answer resumes nothing. A run that
+ * waits on a long delay is cancelled only while it still waits — a write
+ * conditional on `waiting-delay`, so a cancel racing its resume ends in exactly
+ * one of the two; a cancel that lost the race cancels the resumed, running run.
  */
 export async function handleCancelRun(c: Context, app: App) {
   const id = c.req.param('id')
@@ -283,6 +287,14 @@ export async function handleCancelRun(c: Context, app: App) {
       yield* approvals.resolvePending({ id: pendingId, status: 'rejected' })
     }
     const repo = yield* AutomationRunRepository
+    if (
+      current === 'waiting-delay' &&
+      (yield* repo.cancelWaitingRun({ id, error: 'Run cancelled' }))
+    ) {
+      return yield* repo.findById(id)
+    }
+    // A run resumed meanwhile has registered its canceller: abort it too.
+    signalCancellation(id)
     return yield* repo.updateStatus({ id, status: 'cancelled' })
   })
   const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))

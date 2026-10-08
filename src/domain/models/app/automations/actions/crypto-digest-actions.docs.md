@@ -1,14 +1,14 @@
 # Crypto & Digest Actions
 
-> Two small families solving two unrelated problems — proving a payload was not tampered with, and turning a flood of events into one message a human will read.
+> Two small families solving two unrelated problems — proving a payload was not tampered with, and who made it, and turning a flood of events into one message a human will read.
 
-## Crypto — hashing and HMAC
+## Crypto — hashing, HMAC and signatures
 
-Two operators computing digests and signatures, typically to verify an inbound webhook or sign an outbound one.
+Four operators: `hash` and `hmac` compute digests, typically to verify an inbound webhook or sign an outbound one; `sign` and `verify` make and check Ed25519 signatures.
 
 <!-- sovrium:options CryptoActionSchema -->
 
-`algorithm` is required on both operators. `encoding` is `hex` by default, or `base64`.
+`algorithm` is required on every operator. On `hash` and `hmac`, `encoding` is `hex` by default, or `base64`.
 
 ```yaml
 # Requires env: [{ key: SIGNING_SECRET }] at the top of the app
@@ -27,6 +27,37 @@ Two operators computing digests and signatures, typically to verify an inbound w
 Its algorithm vocabulary is `sha256` and `sha512` only, while `hash` still accepts `md5` for interoperating with a system that demands it. That asymmetry is deliberate: a hash may need to match somebody else's legacy choice, but a signature you rely on must not be forgeable, and MD5 is.
 
 Keep the key in the environment rather than inline. The configuration is code, and code reaches a git remote.
+
+### Signatures: `sign` and `verify`
+
+An HMAC proves a payload to whoever holds the same secret, so whoever can check it can also forge it. A signature splits the two: the signer keeps the private key, and every verifier holds only the public one. Use it when many systems must trust what one of them publishes and none may publish in its name.
+
+```yaml
+# Requires env: [{ key: RELEASE_SIGNING_KEY }] at the top of the app
+- name: signManifest
+  type: crypto
+  operator: sign
+  props:
+    data: '{{trigger.data.manifest}}'
+    privateKey: $env.RELEASE_SIGNING_KEY
+    algorithm: ed25519
+    keyId: release-2026
+```
+
+`sign` answers `{ signature, keyId }`: the standard 64-byte Ed25519 signature over the UTF-8 bytes of `data`, in base64, which any Ed25519 implementation verifies. `privateKey` must be written `$env.NAME` — a key written inline is refused when the config is read — and holds the 32-byte seed in base64 or a PKCS#8 PEM block. Resolved environment values are masked in the run history, so the key never lands there.
+
+```yaml
+- name: checkManifest
+  type: crypto
+  operator: verify
+  props:
+    data: '{{trigger.data.manifest}}'
+    signature: '{{trigger.data.signature}}'
+    keyId: release-2026
+    algorithm: ed25519
+```
+
+`verify` takes exactly one of `publicKey` — 32 raw bytes in base64, or an SPKI PEM block — and `keyId`, looked up among the keys of `SOVRIUM_BUNDLE_PUBLIC_KEYS` (`<id>:<base64>[,…]`). It answers `{ valid }`. A signature that does not verify, whatever the reason, is `valid: false` on a successful step, so the workflow branches on it; an unreadable public key or an unknown `keyId` fails the step, because that is a configuration mistake rather than a verdict.
 
 ## Digest — batch and release
 

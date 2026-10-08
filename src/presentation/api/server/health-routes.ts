@@ -19,20 +19,26 @@ import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import {
   buildAiHealthStatusWithEcoRouting,
   healthMinimalResponseSchema,
+  healthProbeResponseSchema,
   healthResponseSchema,
 } from '@/domain/models/api/health/health'
 import { buildSpeechHealthStatus } from '@/domain/models/api/health/speech-health'
 import { resolveOllamaBaseUrl } from '@/domain/models/process-env/ai/ai-eco-routing'
 import { probeOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
+import { probeDatabaseReadiness } from '@/infrastructure/database/database-readiness'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
-import { internalError } from '@/presentation/api/runtime/auth-helpers'
+import { badRequest, internalError } from '@/presentation/api/runtime/auth-helpers'
 import {
   resolveCallerTier,
   type ReadUserRole,
   type SessionReader,
 } from '@/presentation/api/runtime/caller-tier'
-import type { HealthMinimalResponse, HealthResponse } from '@/domain/models/api/health/health'
+import type {
+  HealthMinimalResponse,
+  HealthProbeResponse,
+  HealthResponse,
+} from '@/domain/models/api/health/health'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -125,8 +131,39 @@ const detailedHealthProgram = (app: App) =>
     return yield* validateHealthBody(decodeOrThrow(healthResponseSchema), response)
   })
 
+/**
+ * The readiness body: one `SELECT 1` within its budget, reported to every
+ * caller as the minimal body plus `checks`. Nothing here depends on who asks —
+ * a load balancer has no session — so nothing operator-facing is in it.
+ */
+const readinessProgram = (app: App) =>
+  Effect.gen(function* () {
+    // effect-promise: total -- `probeDatabaseReadiness` reports a failed or slow query as an outcome (`error`, `timeout`) and never rejects.
+    const db = yield* Effect.promise(() => probeDatabaseReadiness())
+    const response: HealthProbeResponse = {
+      status: db === 'ok' ? 'ok' : 'degraded',
+      ...appVersionField(app),
+      checks: { db },
+    }
+    return yield* validateHealthBody(decodeOrThrow(healthProbeResponseSchema), response)
+  })
+
+/** `GET /api/health?probe=db`: 200 when ready, 503 `degraded` when not. */
+const handleReadinessProbe = async (c: Context, app: App) => {
+  try {
+    const data = await Effect.runPromise(readinessProgram(app))
+    return c.json(data, data.status === 'ok' ? 200 : 503)
+  } catch (error) {
+    logError('[Health] Readiness response could not be built', error)
+    return internalError(c)
+  }
+}
+
 /** Build and validate the health payload for one request. */
 export const handleHealthCheck = async (c: Context, app: App, auth?: SessionReader) => {
+  const probe = c.req.query('probe')
+  if (probe === 'db') return handleReadinessProbe(c, app)
+  if (probe !== undefined) return badRequest(c, 'Unknown probe; the only probe is "db".')
   const detailed = await disclosesDetail(c, app, auth)
   const program: Effect.Effect<
     HealthResponse | HealthMinimalResponse,

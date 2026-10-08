@@ -150,6 +150,36 @@ export const healthMinimalResponseSchema = Schema.Struct({
 
 export type HealthMinimalResponse = typeof healthMinimalResponseSchema.Type
 
+/** What one readiness check found: answered, did not answer in time, or failed. */
+export const healthCheckOutcomeSchema = Schema.Literals(['ok', 'timeout', 'error']).annotate({
+  description:
+    'ok: answered within the budget; timeout: no answer within it; error: the check failed',
+})
+
+export type HealthCheckOutcome = typeof healthCheckOutcomeSchema.Type
+
+/**
+ * The readiness body `GET /api/health?probe=db` answers, to every caller.
+ *
+ * The minimal body plus `checks`: a readiness answer is read by load balancers,
+ * deploy steps and supervisors, and says whether the instance can take traffic
+ * without saying anything about how it is configured. `status` is `degraded`
+ * (served with 503) as soon as one check is not `ok`.
+ */
+export const healthProbeResponseSchema = Schema.Struct({
+  status: Schema.Literals(['ok', 'degraded']).annotate({
+    description: 'ok when every check answered; degraded (HTTP 503) otherwise',
+  }),
+  version: healthVersionField,
+  checks: Schema.Struct({
+    db: healthCheckOutcomeSchema.annotate({
+      description: 'Outcome of one SELECT 1 against the database, with a 2-second budget',
+    }),
+  }).annotate({ description: 'One outcome per probed dependency' }),
+})
+
+export type HealthProbeResponse = typeof healthProbeResponseSchema.Type
+
 /** Either health body, as the published document describes `/api/health`. */
 export const healthCheckResponseSchema = Schema.Union([
   healthResponseSchema.annotate({

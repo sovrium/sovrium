@@ -1,0 +1,115 @@
+# sovrium-library: block/record-history@0.32.0
+name: record-history
+type: container
+element: section
+props:
+  className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5
+  aria-label: History
+children:
+  - type: text
+    element: h2
+    props:
+      className: text-md font-semibold text-foreground
+    content: History
+  - type: list
+    props:
+      aria-label: Changes
+    dataSource:
+      system:
+        endpoint: /api/tables/projects/records/$record.id/history
+        rowsKey: history
+        idKey: createdAt
+        query:
+          sort: createdAt:desc
+          limit: 20
+    listDisplay:
+      emptyMessage: No change recorded yet.
+    children:
+      - type: flex
+        props:
+          className: flex items-baseline justify-between gap-4 py-2.5
+        children:
+          - type: flex
+            props:
+              className: min-w-0 text-md text-foreground
+            children:
+              - type: flex
+                visibility:
+                  record:
+                    field: userName
+                    isNotEmpty: true
+                props:
+                  className: flex min-w-0 flex-wrap gap-x-1
+                children:
+                  - type: text
+                    element: span
+                    props:
+                      className: font-medium
+                    content: $record.userName
+                  - type: text
+                    element: span
+                    visibility:
+                      record:
+                        field: action
+                        eq: create
+                    content: ' created this record'
+                  - type: text
+                    element: span
+                    visibility:
+                      record:
+                        field: action
+                        eq: update
+                    content: ' edited this record'
+                  - type: text
+                    element: span
+                    visibility:
+                      record:
+                        field: action
+                        eq: delete
+                    content: ' deleted this record'
+                  - type: text
+                    element: span
+                    visibility:
+                      record:
+                        field: action
+                        eq: restore
+                    content: ' restored this record'
+              - type: flex
+                visibility:
+                  record:
+                    field: userName
+                    isEmpty: true
+                children:
+                  - type: text
+                    element: span
+                    visibility:
+                      record:
+                        field: action
+                        eq: create
+                    content: Created
+                  - type: text
+                    element: span
+                    visibility:
+                      record:
+                        field: action
+                        eq: update
+                    content: Edited
+                  - type: text
+                    element: span
+                    visibility:
+                      record:
+                        field: action
+                        eq: delete
+                    content: Deleted
+                  - type: text
+                    element: span
+                    visibility:
+                      record:
+                        field: action
+                        eq: restore
+                    content: Restored
+          - type: record-field
+            props:
+              field: createdAt
+              className: shrink-0 text-sm text-foreground-muted
+            format: relative-date

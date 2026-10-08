@@ -27,10 +27,8 @@
  * out only to keep both files within the module-size budget.
  */
 
-import {
-  buildAcceptInvitationUrl,
-  resolveInvitationExpiryMs,
-} from '@/application/use-cases/auth/admin-invitation'
+import { buildAcceptInvitationUrl } from '@/application/use-cases/auth/admin-invitation'
+import { resolveInvitationExpiryMs } from '@/application/use-cases/auth/invitation-issuance'
 import { logError } from '@/infrastructure/logging/logger'
 import type {
   InvitationMailer,
@@ -38,6 +36,7 @@ import type {
   PendingInvitationRow,
 } from '@/application/ports/contracts/invitation-services'
 import type { Auth } from '@/domain/models/app/auth'
+import type { InvitationLinkPage } from '@/domain/models/app/pages/invitation-link-service'
 
 /**
  * Lifecycle state of one invitation, derived from `expiresAt` rather than
@@ -139,6 +138,8 @@ export const resendInvitation = async (params: {
   readonly baseURL: string
   readonly inviterName: string
   readonly id: string
+  /** The app's pages: the resent link opens its invitation page, like the first one. */
+  readonly pages?: readonly InvitationLinkPage[] | undefined
 }): Promise<InvitationActionResult<InvitationListItem>> => {
   const invitation = await params.store.findInvitationById(params.id)
   if (!invitation) {
@@ -164,7 +165,7 @@ export const resendInvitation = async (params: {
     return { status: 'internal-error', message: 'Failed to resend invitation' }
   }
 
-  const acceptUrl = buildAcceptInvitationUrl(params.baseURL, invitation.token)
+  const acceptUrl = buildAcceptInvitationUrl(params.baseURL, invitation.token, params.pages)
   // Awaited so a fixture observing the mailbox cannot race the response.
   await params.emailHandlers.invitation({
     email: listed.email,

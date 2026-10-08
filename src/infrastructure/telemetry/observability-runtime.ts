@@ -53,6 +53,7 @@ import * as OtlpMetrics from 'effect/observability/OtlpMetrics'
 import * as OtlpSerialization from 'effect/observability/OtlpSerialization'
 import * as OtlpTracer from 'effect/observability/OtlpTracer'
 import { formatClock } from '@/infrastructure/logging/cli-output'
+import { formatJsonLogRecord, isJsonLogFormat } from '@/infrastructure/logging/log-format'
 import { isDebugEnabled, isProduction } from '@/infrastructure/process/env'
 import { collectingTracer } from './span-collector'
 import { getTelemetryConfig } from './telemetry-config'
@@ -72,13 +73,10 @@ export interface LogResource {
 }
 
 /**
- * v4's OTLP layers PROVIDE `Exporter.Flusher` where v3's provided `never`.
- * That does NOT have to appear here: v4 declares `Layer<in ROut, ...>` and
- * `ManagedRuntime<in R, ...>` CONTRAVARIANT in the services they provide, so a
- * `Layer<Flusher>` is assignable to `Layer<never>` and a
- * `ManagedRuntime<Flusher>` to `ManagedRuntime<never>`. Nothing here consumes
- * the Flusher — the tees flush on scope release — so the narrower type stands
- * and the signatures below are unchanged from v3.
+ * v4's OTLP layers PROVIDE `Exporter.Flusher` (v3: `never`), but `Layer` and
+ * `ManagedRuntime` are CONTRAVARIANT in what they provide, so `Layer<Flusher>`
+ * is assignable to `Layer<never>`. Nothing here consumes the Flusher — the
+ * tees flush on scope release — so the narrower type stands.
  */
 type ObsRuntime = ManagedRuntime.ManagedRuntime<never, never>
 
@@ -114,9 +112,8 @@ const toLogLevel = (level: TelemetryLogLevel): LogLevel.Severity => {
  * {@link stdoutLogger}, extracted so both shapes are testable without capturing
  * a process stream.
  *
- * PRODUCTION keeps `[ISO] [LEVEL] msg`, byte for byte (T43). That is the format
- * journald, Scalingo and the OTLP tee already parse; reformatting it would be a
- * log-shipping outage wearing a design change. The `.toUpperCase()` below is
+ * PRODUCTION keeps `[ISO] [LEVEL] msg`, byte for byte (T43): journald, Scalingo
+ * and the OTLP tee already parse it. The `.toUpperCase()` below is
  * load-bearing for exactly that reason — v3 read `logLevel.label`, which was
  * already UPPERCASE (`'WARN'`), while v4's `logLevel` IS the string and it is
  * title-case (`'Warn'`).
@@ -126,15 +123,17 @@ const toLogLevel = (level: TelemetryLogLevel): LogLevel.Severity => {
  * in `logging/logger.ts`. Severity is the WORD, after the clock (T41) — never a
  * `[LEVEL]` bracket, which T34 exists to refuse, and never a glyph (T11).
  *
- * The `date` is the one Effect's `Logger.make` already hands the callback, so
- * the clock is the instant of the log record rather than the instant of
- * formatting.
+ * `SOVRIUM_LOG_FORMAT=json` replaces both with one JSON object (`log-format.ts`),
+ * the record's annotations as top-level keys. The `date` is the one
+ * `Logger.make` hands the callback: the instant of the record, not of formatting.
  */
 export const formatStdoutLogLine = (
   label: string,
   message: string,
-  date: Readonly<Date>
+  date: Readonly<Date>,
+  annotations: Readonly<Record<string, unknown>> = {}
 ): string => {
+  if (isJsonLogFormat()) return formatJsonLogRecord(label, message, date, annotations)
   if (isProduction()) return `[${date.toISOString()}] [${label}] ${message}`
   const severity = label === 'ERROR' ? 'Error: ' : label === 'WARN' ? 'Warning: ' : ''
   return `${formatClock(date)} ${severity}${message}`
@@ -149,9 +148,10 @@ export const formatStdoutLogLine = (
  * BOTH shapes (T31), so a development journal and a production log agree about
  * where a warning goes even though they disagree about how it reads.
  */
-const stdoutLogger: Logger.Logger<unknown, void> = Logger.make(({ logLevel, message, date }) => {
+const stdoutLogger = Logger.make(({ logLevel, message, date, fiber }) => {
   const label = logLevel.toUpperCase()
-  const line = `${formatStdoutLogLine(label, String(message), date)}\n`
+  const annotations = fiber.getRef(References.CurrentLogAnnotations)
+  const line = `${formatStdoutLogLine(label, String(message), date, annotations)}\n`
   const toStderr = label === 'ERROR' || label === 'WARN'
   ;(toStderr ? process.stderr : process.stdout).write(line)
 })

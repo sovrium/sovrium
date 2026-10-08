@@ -6,23 +6,24 @@
  */
 
 /**
- * The record handlers' side of the record-event channel: a record a
- * step writes starts the record automations of its table, as the same write
- * through the records API does. See `run/record-event-channel.ts` for the
- * depth limit and the background dispatch.
+ * The record handlers' write roads. A record a step writes goes through the
+ * records API's one write road for its operation (`record-*-orchestration.ts`),
+ * so it carries the side effects the same write through the records API
+ * carries — its activity entry, the table's webhooks (at every depth), and its
+ * record automations. Those automations start through the run's record-event
+ * channel, which keeps the depth limit and dispatches them in the background:
+ * see `run/record-event-channel.ts`.
  */
 
 import { Effect } from 'effect'
-import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
-import { deleteRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
-import { updateRecordProgram } from '@/application/use-cases/tables/write-record-programs'
-import { logError } from '@/infrastructure/logging/logger'
+import {
+  createRecordVia,
+  type RecordAutomationDispatch,
+} from '@/application/use-cases/tables/record-create-orchestration'
+import { deleteRecordVia } from '@/application/use-cases/tables/record-delete-orchestration'
+import { updateRecordVia } from '@/application/use-cases/tables/record-update-orchestration'
 import type { buildSyntheticSession, buildSystemSession } from '../build-guest-session'
 import type { ActionOutcome, ActionRunContext, RecordWriteEvent } from './shared'
-import type { UserSession } from '@/application/ports/contracts/user-session'
-import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App } from '@/domain/models/app'
 
@@ -46,99 +47,94 @@ export const announceRecordWrite = (
     Effect.withSpan('automations.announce-record-write')
   )
 
-/** A written record as the triggers read it: its id beside its fields. */
-export const flattenWrittenRecord = (
-  written: Readonly<Record<string, unknown>>
-): Readonly<Record<string, unknown>> => {
-  const nested = written['fields']
-  return nested !== null && typeof nested === 'object'
-    ? { id: written['id'], ...(nested as Record<string, unknown>) }
-    : written
-}
+/**
+ * The run's record-event channel as a write road's automation dispatch: the
+ * record automations a step's write fires start one level deeper, in the
+ * background, as `run/record-event-channel.ts` decides.
+ */
+const throughChannel =
+  (runContext: ActionRunContext | undefined): RecordAutomationDispatch =>
+  (input) =>
+    announceRecordWrite(runContext, {
+      tableName: input.tableName,
+      event: input.event,
+      record: input.record,
+      ...(input.previousRecord === undefined ? {} : { previousRecord: input.previousRecord }),
+    })
 
 /**
- * The record as it stood BEFORE a write, when a record automation watches the
- * event — the update trigger's `watchFields` compare against it, and a delete
- * trigger reads it. `undefined` when nothing watches, so an unwatched write
- * pays no extra read.
+ * What every step write hands its write road beyond the record: no caller role
+ * judges the echo (the step's own gate already ran), the env the channel
+ * passes on itself, and the engine's SQLite AI baseline left as it was for
+ * automation writes. The webhook deliveries are attempted in the background —
+ * no request waits on a run.
  */
-export const readBeforeWrite = (input: {
-  readonly runContext: ActionRunContext | undefined
-  readonly session: Readonly<UserSession>
-  readonly tableName: string
-  readonly recordId: string
-  readonly event: RecordWriteEvent['event']
-}): Effect.Effect<Readonly<Record<string, unknown>> | undefined, never, TableRepository> =>
-  Effect.gen(function* () {
-    if (input.runContext?.recordEvents?.watches(input.tableName, input.event) !== true) {
-      return undefined
-    }
-    const row = yield* rawGetRecordProgram(input.session, input.tableName, input.recordId).pipe(
-      // Logged BEFORE the swallow (E6): a failed read changes which update
-      // automations start, and that must not happen without a trace.
-      Effect.tapCause((cause) =>
-        Effect.sync(() => {
-          logError('[automation:record-event] previous row not read before a write', cause, {
-            'sovrium.table': input.tableName,
-          })
-        })
-      ),
-      // effect-swallow: the previous row only NARROWS which automations the event starts; a failed read dispatches as a first write rather than failing the step that already has to write.
-      Effect.orElseSucceed(() => undefined)
-    )
-    return row ?? undefined
-  }).pipe(Effect.withSpan('automations.read-before-write'))
+const STEP_WRITE = {
+  processEnv: {},
+  isSqlite: false,
+  deliveryMode: 'background',
+  // A step keeps the stored files its update replaced, as it always has: the
+  // attach step deletes one only once no record names it any more.
+  replacedAttachments: 'keep',
+  forgetDerivedVariants: () => undefined,
+} as const
 
-/** Update one record, then start the update automations of its table. */
+/** Create one record through the create road, its automations started through the channel. */
+export const createAndAnnounce = (input: {
+  readonly session: ReturnType<typeof buildSyntheticSession>
+  readonly app: App
+  readonly tableName: string
+  readonly fields: Readonly<Record<string, unknown>>
+  readonly runContext: ActionRunContext | undefined
+}) =>
+  createRecordVia(
+    {
+      ...STEP_WRITE,
+      session: input.session,
+      app: input.app,
+      tableName: input.tableName,
+      fields: input.fields,
+    },
+    throughChannel(input.runContext)
+  ).pipe(Effect.withSpan('automations.create-and-announce'))
+
+/** Update one record through the update road, its automations started through the channel. */
 export const updateAndAnnounce = (input: {
   readonly session: ReturnType<typeof buildSyntheticSession>
   readonly tableName: string
   readonly recordId: string
   readonly fields: Readonly<Record<string, unknown>>
   readonly runContext: ActionRunContext | undefined
-  /**
-   * The app, so a many-to-many field is written to its junction the way the
-   * records API writes it — it has no base column to update.
-   */
-  readonly app?: App
+  readonly app: App
   /** Who a cleared many-to-many field is cleared for; absent, every link goes. */
   readonly linkReader?: LinkReader
-}): Effect.Effect<
-  void,
-  Effect.Error<ReturnType<typeof updateRecordProgram>>,
-  TableRepository | DataSourceRepository | AuthRepository
-> =>
-  Effect.gen(function* () {
-    const { session, tableName, recordId, fields, runContext, app, linkReader } = input
-    const previousRecord = yield* readBeforeWrite({ ...input, event: 'update' })
-    const updated = yield* updateRecordProgram(session, tableName, recordId, {
-      fields,
-      app,
-      linkReader,
-    })
-    // An automation's update starts the update automations of its table.
-    yield* announceRecordWrite(runContext, {
-      tableName,
-      event: 'update',
-      record: flattenWrittenRecord(updated),
-      ...(previousRecord === undefined ? {} : { previousRecord }),
-    })
-  }).pipe(Effect.withSpan('automations.update-and-announce'))
+}) =>
+  Effect.asVoid(
+    updateRecordVia(
+      {
+        ...STEP_WRITE,
+        ...{ session: input.session, app: input.app, tableName: input.tableName },
+        ...{ recordId: input.recordId, fields: input.fields },
+        ...(input.linkReader === undefined ? {} : { linkReader: input.linkReader }),
+      },
+      throughChannel(input.runContext)
+    )
+  ).pipe(Effect.withSpan('automations.update-and-announce'))
 
-/** Delete one record, then start the delete automations of its table. */
+/** Delete one record through the delete road (to the trash), its automations started through the channel. */
 export const deleteAndAnnounce = (input: {
   readonly session: ReturnType<typeof buildSystemSession>
+  readonly app: App
   readonly tableName: string
   readonly recordId: string
   readonly runContext: ActionRunContext | undefined
-}): Effect.Effect<void, Effect.Error<ReturnType<typeof deleteRecordProgram>>, TableRepository> =>
-  Effect.gen(function* () {
-    const { session, tableName, recordId, runContext } = input
-    const previous = yield* readBeforeWrite({ ...input, event: 'delete' })
-    const deleted = yield* deleteRecordProgram(session, tableName, recordId)
-    // A delete trigger reads the record as it stood before — and fires
-    // only when a row was actually removed, as the records API's does.
-    if (previous !== undefined && deleted.success && !deleted.restrictViolation) {
-      yield* announceRecordWrite(runContext, { tableName, event: 'delete', record: previous })
-    }
-  }).pipe(Effect.withSpan('automations.delete-and-announce'))
+}) =>
+  deleteRecordVia(
+    {
+      ...STEP_WRITE,
+      ...{ session: input.session, app: input.app, tableName: input.tableName },
+      recordId: input.recordId,
+      mode: 'soft',
+    },
+    throughChannel(input.runContext)
+  ).pipe(Effect.withSpan('automations.delete-and-announce'))

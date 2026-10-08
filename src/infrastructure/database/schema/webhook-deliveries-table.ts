@@ -7,7 +7,12 @@
 
 import { Effect } from 'effect'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { executeSQL, type SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
+import {
+  executeSQL,
+  getExistingColumns,
+  type SQLExecutionError,
+  type TransactionLike,
+} from '../sql/sql-execution'
 
 /**
  * DDL for the engine-managed `_webhook_deliveries` delivery log.
@@ -41,6 +46,8 @@ import { executeSQL, type SQLExecutionError, type TransactionLike } from '../sql
  * | requested_at    | TIMESTAMPTZ | When the delivery attempt started           |
  * | completed_at    | TIMESTAMPTZ | When the delivery attempt finished          |
  * | created_at      | TIMESTAMPTZ | Audit                                       |
+ * | delivery_id     | TEXT        | The outbox delivery the row settles (NULL   |
+ * |                 |             | for a test send and for rows older than it) |
  */
 const WEBHOOK_DELIVERIES_TABLE_DDL_PG = `
 CREATE TABLE IF NOT EXISTS "public"."_webhook_deliveries" (
@@ -111,6 +118,20 @@ CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook_name
 `.trim()
 
 /**
+ * The retention job deletes log rows by age (`webhook-outbox-queries.ts`,
+ * `deleteSettledBefore`), so `created_at` is indexed on both engines.
+ */
+const WEBHOOK_DELIVERIES_INDEX_CREATED_AT_PG = `
+CREATE INDEX IF NOT EXISTS "idx_webhook_deliveries_created_at"
+  ON "public"."_webhook_deliveries" ("created_at")
+`.trim()
+
+const WEBHOOK_DELIVERIES_INDEX_CREATED_AT_SQLITE = `
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_created_at
+  ON _webhook_deliveries (created_at)
+`.trim()
+
+/**
  * Ensure the `_webhook_deliveries` delivery-log table exists.
  *
  * Idempotent — `CREATE TABLE / CREATE INDEX IF NOT EXISTS` are no-ops on
@@ -129,8 +150,28 @@ export const ensureWebhookDeliveriesTable = (
     if (isSqliteRuntime()) {
       yield* executeSQL(tx, WEBHOOK_DELIVERIES_TABLE_DDL_SQLITE)
       yield* executeSQL(tx, WEBHOOK_DELIVERIES_INDEX_NAME_SQLITE)
-      return
+      yield* executeSQL(tx, WEBHOOK_DELIVERIES_INDEX_CREATED_AT_SQLITE)
+    } else {
+      yield* executeSQL(tx, WEBHOOK_DELIVERIES_TABLE_DDL_PG)
+      yield* executeSQL(tx, WEBHOOK_DELIVERIES_INDEX_NAME_PG)
+      yield* executeSQL(tx, WEBHOOK_DELIVERIES_INDEX_CREATED_AT_PG)
     }
-    yield* executeSQL(tx, WEBHOOK_DELIVERIES_TABLE_DDL_PG)
-    yield* executeSQL(tx, WEBHOOK_DELIVERIES_INDEX_NAME_PG)
+    yield* ensureDeliveryIdColumn(tx)
+  })
+
+/**
+ * `delivery_id` — the outbox delivery a log row settles — added to a log
+ * created before the outbox existed. Nullable: older rows keep NULL. SQLite has
+ * no `ADD COLUMN IF NOT EXISTS`, so the column is looked up first on both.
+ */
+const ensureDeliveryIdColumn = (tx: TransactionLike): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const columns = yield* getExistingColumns(tx, '_webhook_deliveries')
+    if (columns.has('delivery_id')) return
+    yield* executeSQL(
+      tx,
+      isSqliteRuntime()
+        ? 'ALTER TABLE _webhook_deliveries ADD COLUMN delivery_id TEXT'
+        : 'ALTER TABLE "public"."_webhook_deliveries" ADD COLUMN IF NOT EXISTS "delivery_id" TEXT'
+    )
   })

@@ -9,7 +9,6 @@ import { Effect } from 'effect'
 import { TemplateEngine, type TemplateRenderer } from '@/application/ports/services/template-engine'
 import { loadPausedAutomationNames } from '@/application/use-cases/automations/paused-automation-names'
 import { buildEnvLookup } from '@/application/use-cases/automations/resolve-env-vars'
-import { resolveTriggerInValue } from '@/application/use-cases/automations/resolve-trigger-data'
 import { runWebhookAutomation } from '@/application/use-cases/automations/run-automation'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { logError } from '@/infrastructure/logging/logger'
@@ -19,8 +18,8 @@ import {
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
-import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { runWebhookAuth } from './webhook-auth'
+import { resolveWebhookCaller, sessionWebhookRefuses } from './webhook-caller'
 import { checkAndRecordDedup } from './webhook-dedup'
 import { allowedMethodsFor, isMethod, type Method, type Trigger } from './webhook-methods'
 import { isRateLimited, normalizeRateLimit } from './webhook-rate-limit'
@@ -33,12 +32,14 @@ import {
   webhookUnauthorized,
   webhookValidationFailed,
 } from './webhook-refusals'
+import { buildSyncResponse } from './webhook-sync-response'
 import { coerceQueryForSchema, validateAgainstSchema } from './webhook-validation'
 import { answerVerificationHandshake } from './webhook-verification'
 import { webhookJson } from './webhook-wire-json'
-import type { TriggerData } from '@/application/use-cases/automations/resolve-trigger-data'
-import type { RunAutomationResult } from '@/application/use-cases/automations/run-automation'
-import type { PublicRunStatus, WebhookDefaultResponse } from '@/domain/models/api/automations'
+import type {
+  TriggerData,
+  TriggerRequester,
+} from '@/application/use-cases/automations/resolve-trigger-data'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -50,7 +51,7 @@ import type { Context } from 'hono'
  *   1. Resolves the automation by name and rejects disabled / non-webhook
  *      automations with 404 (no information leakage).
  *   2. Gates by allowed HTTP method (`405 method_not_allowed`).
- *   3. Runs the configured auth scheme (delegates to `webhook-auth.ts`).
+ *   3. Runs the configured auth scheme (`webhook-auth.ts`; `session` in `webhook-caller.ts`).
  *   4. Enforces optional per-IP rate limiting (delegates to
  *      `webhook-rate-limit.ts`).
  *   5. Validates body / query against optional JSON-Schema-like shapes
@@ -122,6 +123,7 @@ interface GateContext {
   readonly rawBody: string
   readonly envLookup: Readonly<Record<string, string>>
   readonly queryRecord: Readonly<Record<string, string>>
+  readonly caller: TriggerRequester | undefined
 }
 type GateResult =
   | { readonly status: 'pass'; readonly ctx: GateContext }
@@ -196,6 +198,36 @@ const lookupAndMethodGate = (
 const readTemplateEngine = (c: Context): Promise<TemplateRenderer> =>
   runDomainPromise(c, TemplateEngine.use(Effect.succeed))
 
+/**
+ * Deduplication gate: when the trigger declares `deduplicationKey`, a second
+ * request resolving to a key seen within `deduplicationWindow` seconds is
+ * dropped silently (200 OK, no run row, no side effects). Auth, rate limit and
+ * schema validation all run BEFORE it so a malformed duplicate cannot poison
+ * the cache.
+ */
+const runDedupGate = async (
+  c: Context,
+  input: Pick<GateContext, 'name' | 'trigger' | 'method' | 'queryRecord'> & {
+    readonly body: unknown
+  }
+): Promise<Response | undefined> => {
+  if (input.trigger.deduplicationKey === undefined) return undefined
+  const dedup = checkAndRecordDedup({
+    automationName: input.name,
+    trigger: input.trigger,
+    triggerData: {
+      method: input.method,
+      path: c.req.path,
+      body: input.body,
+      headers: headersToRecord(c.req),
+      query: input.queryRecord,
+      ip: getRequestClientIp(c),
+    },
+    templates: await readTemplateEngine(c),
+  })
+  return dedup.isDuplicate ? c.json({ success: true, deduplicated: true }, 200) : undefined
+}
+
 const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
   // The operational-pause read has to happen HERE, before the lookup gate, so
   // the paused and config-disabled off-states are decided at the same point in
@@ -204,6 +236,10 @@ const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
   const initial = lookupAndMethodGate(c, app, pausedNames)
   if (initial.status === 'reject') return initial
   const { name, trigger, method } = initial
+  const caller = await resolveWebhookCaller(c, app)
+  if (sessionWebhookRefuses(trigger, app, caller)) {
+    return { status: 'reject', response: webhookNotFound(c) }
+  }
   const rawBody = method === 'GET' ? '' : await c.req.text().catch(() => '')
   const envLookup = buildEnvLookup(app.env, process.env)
   if (!runWebhookAuth(c, trigger, rawBody, envLookup).ok) {
@@ -215,34 +251,12 @@ const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
   const queryRecord = queryToRecord(c)
   const validationError = validateBodyAndQuery({ trigger, body, queryRecord }, c)
   if (validationError !== undefined) return { status: 'reject', response: validationError }
-  // Deduplication gate. An automation retry spec: when the trigger declares
-  // `deduplicationKey`, a second request that resolves to a key seen within
-  // `deduplicationWindow` seconds is dropped silently (200 OK, no run row,
-  // no side effects). Order matters — auth + rate-limit + schema validation
-  // all run BEFORE dedup so a malformed duplicate doesn't poison the cache.
-  if (trigger.deduplicationKey !== undefined) {
-    const triggerDataForDedup = {
-      method,
-      path: c.req.path,
-      body,
-      headers: headersToRecord(c.req),
-      query: queryRecord,
-      ip: getRequestClientIp(c),
-    }
-    const dedup = checkAndRecordDedup({
-      automationName: name,
-      trigger,
-      triggerData: triggerDataForDedup,
-      templates: await readTemplateEngine(c),
-    })
-    if (dedup.isDuplicate) {
-      return {
-        status: 'reject',
-        response: c.json({ success: true, deduplicated: true }, 200),
-      }
-    }
+  const duplicate = await runDedupGate(c, { name, trigger, method, body, queryRecord })
+  if (duplicate !== undefined) return { status: 'reject', response: duplicate }
+  return {
+    status: 'pass',
+    ctx: { name, trigger, method, rawBody, envLookup, queryRecord, caller },
   }
-  return { status: 'pass', ctx: { name, trigger, method, rawBody, envLookup, queryRecord } }
 }
 
 const buildTriggerData = (c: Context, gate: GateContext): TriggerData => ({
@@ -252,91 +266,8 @@ const buildTriggerData = (c: Context, gate: GateContext): TriggerData => ({
   headers: headersToRecord(c.req),
   query: gate.queryRecord,
   ip: getRequestClientIp(c),
+  ...(gate.caller === undefined ? {} : { requester: gate.caller }),
 })
-
-// ── Response building ────────────────────────────────────────────────────────
-
-interface BuildResponseInput {
-  readonly trigger: WebhookTrigger
-  readonly result: RunAutomationResult
-  readonly triggerData: TriggerData
-  readonly templates: TemplateRenderer
-}
-
-/**
- * Map the engine's internal status to the public webhook-response status.
- * `'success'`/`'completed-with-errors'` are happy-path completions (the
- * latter records that some action failed but declared `continueOnError`);
- * `'failure'`/`'exhausted'`/`'timed-out'` collapse to `'failed'` so the
- * sync response stays binary-shaped. Callers wanting the richer status
- * label should read it off the runs API.
- */
-const toWebhookResponseStatus = (status: RunAutomationResult['status']): PublicRunStatus => {
-  if (status === 'success') return 'completed'
-  if (status === 'completed-with-errors') return 'completed-with-errors'
-  if (status === 'skipped') return 'skipped'
-  if (status === 'cancelled') return 'cancelled'
-  // A paused approval run is NOT a failure — surface the non-terminal
-  // status verbatim so the response stays 200 and the caller sees the pause.
-  if (status === 'waiting-approval') return 'waiting-approval'
-  return 'failed'
-}
-
-/**
- * Default sync-webhook body: the run's id and status, nothing the run read.
- * The webhook's caller is whoever holds its URL, so no step output and no
- * step error (which can quote what the step read) is ever merged in; data
- * goes back only through a `webhook/response` action or `trigger.response`.
- * Its keys are {@link WebhookDefaultResponse}'s — the wire schema is the one
- * place they are listed. Unlike the manual trigger's answer, on purpose.
- */
-const defaultSyncBody = (result: RunAutomationResult): WebhookDefaultResponse => ({
-  id: result.runId,
-  status: toWebhookResponseStatus(result.status),
-})
-
-/**
- * Translate a `webhook/response` action's `responseOverride` payload
- * (carried in `RunAutomationResult.responseOverride` — see A-10) into
- * the (status, body, headers) tuple the dispatcher returns. Templates
- * were already substituted in the action's props at dispatch time — this
- * helper just unwraps and types the values.
- */
-const responseFromAction = (actionResponse: Readonly<Record<string, unknown>>) => {
-  const status =
-    typeof actionResponse['status'] === 'number' ? (actionResponse['status'] as number) : 200
-  const body = actionResponse['body'] ?? {}
-  const headers =
-    actionResponse['headers'] !== undefined
-      ? (actionResponse['headers'] as Record<string, string>)
-      : {}
-  return { status, body, headers }
-}
-
-const buildSyncResponse = (input: BuildResponseInput) => {
-  const { trigger, result, triggerData, templates } = input
-  // A `webhook/response` action — when present — takes precedence over both
-  // the trigger-level `response` config and the default sync body. The
-  // handler has already substituted templates in its props (the run loop
-  // does that before dispatch), so we just unwrap the override here.
-  if (result.responseOverride !== undefined) return responseFromAction(result.responseOverride)
-  const cfg = trigger.response
-  const status = cfg?.status ?? cfg?.statusCode ?? 200
-  const context = { run: { id: result.runId }, trigger: { data: triggerData } }
-  // The default body names the run and its status only. When the operator
-  // configured a `trigger.response.body`, we honour that instead — they
-  // explicitly shaped the response (its templates see `run.id` and
-  // `trigger.data` only, never a step's output).
-  const body =
-    cfg?.body !== undefined
-      ? resolveTriggerInValue(cfg.body, context, templates)
-      : defaultSyncBody(result)
-  const headers =
-    cfg?.headers !== undefined
-      ? (resolveTriggerInValue(cfg.headers, context, templates) as Record<string, string>)
-      : {}
-  return { status, body, headers }
-}
 
 // ── Dispatchers ──────────────────────────────────────────────────────────────
 
@@ -462,8 +393,7 @@ export async function handleWebhookRequest(c: Context, app: App): Promise<Respon
   if (gate.status === 'reject') return gate.response
 
   const triggerData = buildTriggerData(c, gate.ctx)
-  const session = getSessionContext(c)
-  const userId = session?.userId
+  const userId = gate.ctx.caller?.id
 
   if (gate.ctx.trigger.respondImmediately === true) {
     return dispatchAsync(c, {

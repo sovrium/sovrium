@@ -301,14 +301,16 @@ export const signalAiComputeWritePhase = (params: {
 
   // A hand-written column is `skipped` whatever its `computeOn` says, so this
   // set is resolved OUTSIDE the `firesFor` filter that produced `decisions`.
-  // Unioned with the guard's own overrides (deduplicated by field name) so the
-  // two never issue competing writes for the same field.
-  const authored = userAuthoredAiFields(table, incoming)
-  const authoredNames = new Set(authored.map((f) => f.name))
-  const overrides = [
-    ...authored,
-    ...decisions.filter((d) => d.preserved && !authoredNames.has(d.field.name)).map((d) => d.field),
-  ]
+  //
+  // Only a hand-written value is an override. The guard also answers `preserve`
+  // for an UPDATE that changed none of the field's sources, but that write left
+  // the column alone: nobody overrode anything, and the field's status (most
+  // often a refinement still in flight) is not this write's to touch. Reading
+  // that `preserve` as an override stamped `skipped` over the refinement the
+  // moment ANY write reached an unrelated column of the record (an automation
+  // step bumping a counter after the user's own edit, for instance).
+  const overrides = userAuthoredAiFields(table, incoming)
+  const authoredNames = new Set(overrides.map((f) => f.name))
   const computed = decisions.filter((d) => !d.preserved && !authoredNames.has(d.field.name))
 
   if (overrides.length === 0 && computed.length === 0) return Effect.void

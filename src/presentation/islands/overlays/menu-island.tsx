@@ -149,7 +149,8 @@ function MenuPanel({
  *
  * Provides a contextual menu with keyboard navigation (arrow keys), item icons,
  * keyboard-shortcut hints, separators, destructive variants, and config
- * `action` wiring (`navigate` link items + `auth` `logout`). The component's
+ * `action` wiring (`navigate` link items, `auth` `logout`, and `toast` /
+ * `automation` / `fetch` items run on pick). The component's
  * type is named on its SSR host, which this island mounts into, so
  * the root names nothing. Shared by both `dropdown-menu` and `context-menu`.
  */

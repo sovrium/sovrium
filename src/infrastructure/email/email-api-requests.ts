@@ -26,6 +26,16 @@ export interface OutgoingMessage {
   readonly subject: string
   readonly html?: string
   readonly text?: string
+  /** Files attached to the message, their content base64-encoded. */
+  readonly attachments?: readonly MessageAttachment[]
+}
+
+export interface MessageAttachment {
+  readonly filename: string
+  readonly contentType: string
+  readonly base64: string
+  /** Set for a picture the HTML shows through `cid:` — an inline part, not a download. */
+  readonly contentId?: string
 }
 
 /** A request ready for `fetch`, built for one provider. */
@@ -91,9 +101,33 @@ const stringOrUndefined = (value: unknown): string | undefined =>
  * MIME are SMTP-only: no caller sends them, and an HTTP API would need each
  * vendor's own encoding.
  */
+/** The attachments a Nodemailer message carries, as the HTTP APIs take them. */
+const toAttachments = (options: Readonly<SendMailOptions>): readonly MessageAttachment[] =>
+  (options.attachments ?? []).flatMap((attachment) => {
+    const { content } = attachment
+    const bytes =
+      content instanceof Uint8Array
+        ? content
+        : typeof content === 'string'
+          ? new TextEncoder().encode(content)
+          : undefined
+    if (bytes === undefined) return []
+    return [
+      {
+        filename: typeof attachment.filename === 'string' ? attachment.filename : 'attachment',
+        contentType: attachment.contentType ?? 'application/octet-stream',
+        base64: Buffer.from(bytes).toString('base64'),
+        ...(typeof attachment.cid === 'string' && attachment.cid !== ''
+          ? { contentId: attachment.cid }
+          : {}),
+      },
+    ]
+  })
+
 export const toOutgoingMessage = (options: Readonly<SendMailOptions>): OutgoingMessage => {
   const html = stringOrUndefined(options.html)
   const text = stringOrUndefined(options.text)
+  const attachments = toAttachments(options)
   return {
     from: toMailboxes(options.from)[0] ?? { address: '' },
     to: toMailboxes(options.to),
@@ -103,6 +137,7 @@ export const toOutgoingMessage = (options: Readonly<SendMailOptions>): OutgoingM
     subject: typeof options.subject === 'string' ? options.subject : '',
     ...(html !== undefined ? { html } : {}),
     ...(text !== undefined ? { text } : {}),
+    ...(attachments.length > 0 ? { attachments } : {}),
   }
 }
 
@@ -131,8 +166,32 @@ const brevoMailbox = (mailbox: Mailbox): Readonly<Record<string, string>> => ({
   ...(mailbox.name !== undefined ? { name: mailbox.name } : {}),
 })
 
+/**
+ * Brevo's transactional API takes no inline parts, so a picture the HTML shows
+ * through `cid:` is written into the HTML as a `data:` URL there, and only the
+ * files to download travel as attachments.
+ */
+const withInlinePicturesAsDataUrls = (message: OutgoingMessage): OutgoingMessage => {
+  const inline = (message.attachments ?? []).filter((a) => a.contentId !== undefined)
+  if (inline.length === 0) return message
+  const html = inline.reduce(
+    (text, a) =>
+      text.split(`cid:${a.contentId ?? ''}`).join(`data:${a.contentType};base64,${a.base64}`),
+    message.html ?? ''
+  )
+  const files = (message.attachments ?? []).filter((a) => a.contentId === undefined)
+  const { attachments: _dropped, ...rest } = message
+  return { ...rest, html, ...(files.length > 0 ? { attachments: files } : {}) }
+}
+
 /** Brevo `POST /v3/smtp/email`, keyed with the `api-key` header. */
 const brevoRequest = (
+  apiKey: string,
+  baseUrl: string,
+  original: OutgoingMessage
+): EmailApiRequest => brevoRequestOf(apiKey, baseUrl, withInlinePicturesAsDataUrls(original))
+
+const brevoRequestOf = (
   apiKey: string,
   baseUrl: string,
   message: OutgoingMessage
@@ -150,6 +209,7 @@ const brevoRequest = (
       subject: message.subject,
       htmlContent: message.html,
       textContent: message.text,
+      attachment: message.attachments?.map((a) => ({ name: a.filename, content: a.base64 })),
     })
   ),
 })
@@ -172,9 +232,52 @@ const resendRequest = (
       subject: message.subject,
       html: message.html,
       text: message.text,
+      attachments: message.attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.base64,
+        content_type: a.contentType,
+        ...(a.contentId === undefined ? {} : { content_id: a.contentId }),
+      })),
     })
   ),
 })
+
+/** The longest attachment `FileName` SES API v2 accepts, in characters. */
+const SES_FILE_NAME_MAX = 255
+
+/** The longest attachment `ContentType` SES API v2 accepts, in characters. */
+const SES_CONTENT_TYPE_MAX = 78
+
+/**
+ * A filename SES accepts: at most 255 characters, a longer one shortened in
+ * its stem so the extension — what a mail client opens it by — is kept.
+ * Counted in code points, so a cut never splits a character.
+ */
+export const fitSesFileName = (name: string): string => {
+  const chars = Array.from(name)
+  if (chars.length <= SES_FILE_NAME_MAX) return name
+  const dot = chars.lastIndexOf('.')
+  const extension = dot > 0 && chars.length - dot <= 16 ? chars.slice(dot) : []
+  return [...chars.slice(0, SES_FILE_NAME_MAX - extension.length), ...extension].join('')
+}
+
+/**
+ * Why a provider would refuse the message before it is sent, or `undefined`.
+ * Only SES bounds a part's content type (78 characters): a longer one cannot
+ * be shortened without changing what it says, so the send is refused by name.
+ */
+export const apiMessageRefusal = (
+  transport: Exclude<EmailTransport, { readonly kind: 'smtp' }>,
+  message: OutgoingMessage
+): string | undefined => {
+  if (transport.kind !== 'ses') return undefined
+  const offending = (message.attachments ?? []).find(
+    (a) => Array.from(a.contentType).length > SES_CONTENT_TYPE_MAX
+  )
+  return offending === undefined
+    ? undefined
+    : `${PROVIDER_LABEL.ses} refuses the attachment "${offending.filename}": its content type is ${String(Array.from(offending.contentType).length)} characters long, over the ${String(SES_CONTENT_TYPE_MAX)} SES accepts`
+}
 
 const sesContent = (data: string): Readonly<Record<string, string>> => ({
   Data: data,
@@ -207,6 +310,18 @@ const sesRequest = (
             Html: message.html !== undefined ? sesContent(message.html) : undefined,
             Text: message.text !== undefined ? sesContent(message.text) : undefined,
           }),
+          ...(message.attachments === undefined
+            ? {}
+            : {
+                Attachments: message.attachments.map((a) => ({
+                  FileName: fitSesFileName(a.filename),
+                  ContentType: a.contentType,
+                  RawContent: a.base64,
+                  ...(a.contentId === undefined
+                    ? {}
+                    : { ContentId: a.contentId, ContentDisposition: 'INLINE' }),
+                })),
+              }),
         },
       },
     })

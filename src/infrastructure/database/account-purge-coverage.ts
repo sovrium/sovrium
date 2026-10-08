@@ -11,23 +11,19 @@
  *
  * ── Why this file exists ─────────────────────────────────────────────────────
  *
- * `purgeAccount` enumerates the tables it sweeps as a hand-written list of SQL
- * statements. Its own docstring warns that the enumeration is invisible to
- * inspection — a table added later, with or without a cascade, is erased by
- * nobody and nothing says so — and cites `system.form_submissions` as the case
- * that already escaped once. That warning was accurate and it did not help:
- * `system.activity_logs`, `auth.oauth_access_token`,
- * `system.file_storage_metadata`, `system.ai_tool_calls` and `system.links`
- * escaped the same way afterwards.
+ * `purgeAccount` enumerates the tables it sweeps as a hand-written list of SQL statements. Its own
+ * docstring warns that the enumeration is invisible to inspection — a table added later, with or
+ * without a cascade, is erased by nobody and nothing says so — and cites `system.form_submissions`
+ * as the case that already escaped once. That warning was accurate and it did not help:
+ * `system.activity_logs`, `auth.oauth_access_token`, `system.file_storage_metadata`,
+ * `system.ai_tool_calls` and `system.links` escaped the same way afterwards.
  *
- * A prose warning cannot catch the next one. This manifest can, because it is
- * checked MECHANICALLY against the live Drizzle schema by
- * `account-purge-coverage.test.ts`: any table carrying a foreign key to
- * `auth.user`, or a bare user-shaped column, must appear here with an explicit
- * verdict — including `exempt`, whose whole point is that a deliberate decision
- * not to purge is recorded rather than being indistinguishable from an
- * oversight. Adding a user-referencing table without classifying it fails
- * `bun run quality`.
+ * A prose warning cannot catch the next one. This manifest can, because it is checked MECHANICALLY
+ * against the live Drizzle schema by `account-purge-coverage.test.ts`: any table carrying a foreign
+ * key to `auth.user`, or a bare user-shaped column, must appear here with an explicit verdict —
+ * including `exempt`, whose whole point is that a deliberate decision not to purge is recorded
+ * rather than being indistinguishable from an oversight. Adding a user-referencing table without
+ * classifying it fails `bun run quality`.
  *
  * ── The four verdicts ────────────────────────────────────────────────────────
  *
@@ -296,11 +292,10 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
     verdict: 'delete',
     columns: ['user_id'],
     reason:
-      'Row-level access grants naming the user as GRANTEE. The row is wholly ' +
-      'theirs — a grant to nobody is a dangling authorization, not a retained ' +
-      'fact — and `user_id` is NOT NULL and part of the unique index the ' +
-      'mark-read upsert conflicts on, so orphaning is not even available. ' +
-      'Config-gated, so probed for existence first. The ISSUER column gets the ' +
+      'Row-level access grants naming the user as GRANTEE. The row is wholly theirs — a grant to ' +
+      'nobody is a dangling authorization, not a retained fact — and `user_id` is NOT NULL and ' +
+      'part of the unique index the mark-read upsert conflicts on, so orphaning is not even ' +
+      'available. Config-gated, so probed for existence first. The ISSUER column gets the ' +
       'opposite verdict; see the `system.user_access.created_by` entry.',
   },
   'system.user_access.created_by': {
@@ -312,6 +307,11 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
       'account — over-deletion in the name of erasure. The identifier goes and ' +
       'the authorization stands. Keyed separately because one table carries two ' +
       'columns with opposite verdicts, exactly like `record_comments`.',
+  },
+  'system.webhook_outbox_subjects': {
+    verdict: 'delete',
+    columns: ['user_id'],
+    reason: 'Who a webhook delivery names: the delivery is deleted with its log row, never sent.',
   },
   'system.links': {
     verdict: 'shed',
@@ -389,20 +389,23 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
   },
 
   // ── Deliberately not purged ───────────────────────────────────────────────
+  'auth.device_code': {
+    verdict: 'cascade',
+    columns: ['user_id'],
+    reason: 'Pending command-line sign-ins (device flow) the user claimed: transient. Cascades.',
+  },
   'auth.oauth_client_resource': {
     verdict: 'cascade',
     columns: [],
     reason:
-      'RFC 8707 resource links. NO user column and no foreign key to `auth.user`, ' +
-      'so the schema scan does not flag it — listed anyway because its removal ' +
-      'depends on a chain worth stating. `client_id` references ' +
-      '`oauth_client.client_id` (the SEMANTIC column the provider actually ' +
-      'writes, not the row id) `ON DELETE CASCADE`, and the purge deletes ' +
-      '`auth.oauth_client WHERE user_id = ?`, so a client the erased user ' +
-      'registered takes its resource links with it. Before that reference ' +
-      'contract was corrected the key pointed at `oauth_client.id`, which the ' +
-      'plugin never writes, so this cascade did not fire and the links would ' +
-      'have outlived the client. Nothing to add to the sweep; the dependency is ' +
+      'RFC 8707 resource links. NO user column and no foreign key to `auth.user`, so the schema ' +
+      'scan does not flag it — listed anyway because its removal depends on a chain worth ' +
+      'stating. `client_id` references `oauth_client.client_id` (the SEMANTIC column the ' +
+      'provider actually writes, not the row id) `ON DELETE CASCADE`, and the purge deletes ' +
+      '`auth.oauth_client WHERE user_id = ?`, so a client the erased user registered takes its ' +
+      'resource links with it. Before that reference contract was corrected the key pointed at ' +
+      '`oauth_client.id`, which the plugin never writes, so this cascade did not fire and the ' +
+      'links would have outlived the client. Nothing to add to the sweep; the dependency is ' +
       'recorded so a future change to either key is read as touching erasure.',
   },
   'system.ai_embeddings': {
@@ -422,14 +425,12 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
     verdict: 'exempt',
     columns: [],
     reason:
-      'NO user column at all — keyed to `webhook_id`, an operator-owned config. ' +
-      'RESIDUAL, named: `payload` captures the record verbatim, so a delivery fired ' +
-      'by a change to a record the erased user authored retains that content. There ' +
-      'is no predicate on this table that identifies the subject, so purging it ' +
-      'would mean either deleting every delivery for the whole workspace ' +
-      '(over-deletion) or joining back to rows that no longer exist. The correct fix ' +
-      "is a delivery retention window, which is the F27 executor's shape, not the " +
-      "purge's.",
+      'NO user column at all — keyed to `webhook_id`, an operator-owned config. RESIDUAL, named: ' +
+      '`payload` captures the record verbatim, so a delivery fired by a change to a record the ' +
+      'erased user authored retains that content. There is no predicate on this table that ' +
+      'identifies the subject, so purging it would mean either deleting every delivery for the ' +
+      'whole workspace (over-deletion) or joining back to rows that no longer exist. The correct ' +
+      "fix is a delivery retention window, which is the F27 executor's shape, not the purge's.",
   },
   'system.file_storage_bytea': {
     verdict: 'cascade',
@@ -482,23 +483,21 @@ export type ExportStatus = 'exported' | 'withheld' | 'gap'
  *
  * ── Why a ratchet, not an assertion of zero gaps ─────────────────────────────
  *
- * The honest state today is that the export offers `profile`, `sessions`,
- * `accounts`, `authoredRecords` and `formSubmissions`, while erasure hard-deletes
- * far more — comments, chat transcripts, derived facts, favourites, recent items,
- * row-level grants, the activity feed, uploaded files. Closing that asymmetry
- * means EXPANDING the published export contract in
- * `src/domain/models/api/account/account.ts`, which is a schema-surface decision
- * and not this change's to make.
+ * The honest state today is that the export offers `profile`, `sessions`, `accounts`,
+ * `authoredRecords` and `formSubmissions`, while erasure hard-deletes far more — comments, chat
+ * transcripts, derived facts, favourites, recent items, row-level grants, the activity feed,
+ * uploaded files. Closing that asymmetry means EXPANDING the published export contract in
+ * `src/domain/models/api/account/account.ts`, which is a schema-surface decision and not this
+ * change's to make.
  *
- * What this map does make impossible is the asymmetry GROWING silently. The
- * guard asserts the set of `gap` entries equals the baseline recorded here, so
- * adding a table to one side only fails the build — which is the regression that
- * actually recurs, and the reason erasure and export drifted this far apart
- * without anyone noticing.
+ * What this map does make impossible is the asymmetry GROWING silently. The guard asserts the set
+ * of `gap` entries equals the baseline recorded here, so adding a table to one side only fails the
+ * build — which is the regression that actually recurs, and the reason erasure and export drifted
+ * this far apart without anyone noticing.
  *
- * Shrinking the set is always allowed: flipping a `gap` to `exported` when the
- * export learns to carry it fails nothing, because the guard compares against
- * this map, and this map is what the implementer edits.
+ * Shrinking the set is always allowed: flipping a `gap` to `exported` when the export learns to
+ * carry it fails nothing, because the guard compares against this map, and this map is what the
+ * implementer edits.
  */
 export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   // Offered today.
@@ -513,6 +512,7 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   'auth.oauth_refresh_token': 'withheld',
   'system.connection_tokens': 'withheld',
   'system._admin_search_index': 'withheld',
+  'system.webhook_outbox_subjects': 'withheld',
 
   // Erasure deletes these as the subject's data; the export denies they exist.
   'auth.oauth_client': 'gap',

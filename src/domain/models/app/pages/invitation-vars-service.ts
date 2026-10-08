@@ -35,38 +35,108 @@ const REFERENCES = [
   'role',
   'workspace',
   'expiresAt',
+  'expiresAt.relative',
+  'expiresAt.iso',
   'accountExists',
   'status',
 ] as const
 
 type InvitationReference = (typeof REFERENCES)[number]
 
+/** How the page prints the invitation: whose it is, in which language and zone, and when. */
+export interface InvitationVarContext {
+  /** The app's display name (`$app.label`). */
+  readonly workspace: string
+  /** The page's language tag; an unknown one reads as English. */
+  readonly lang: string
+  /** The IANA zone the date is printed in. */
+  readonly timeZone: string
+  /** The instant `.relative` counts from. */
+  readonly now: Readonly<Date>
+}
+
+const MINUTE_MS = 60_000
+const HOUR_MS = 60 * MINUTE_MS
+const DAY_MS = 24 * HOUR_MS
+
+/** `fn(lang)`, or `fn('en')` when `lang` is not a tag `Intl` accepts. */
+const inLanguage = <T>(lang: string, fn: (tag: string) => T): T => {
+  try {
+    return fn(lang)
+  } catch {
+    return fn('en')
+  }
+}
+
+/** `instant` as a long date (`14 March 2031`), in `lang` and `timeZone`. */
+export const formatInvitationDeadline = (
+  instant: Readonly<Date>,
+  lang: string,
+  timeZone: string
+): string =>
+  inLanguage(lang, (tag) =>
+    new Intl.DateTimeFormat(tag, { dateStyle: 'long', timeZone }).format(instant as Date)
+  )
+
+/**
+ * The time from `now` to `instant` (`in 3 days`, `2 days ago`), in `lang`: the
+ * largest unit — days, else hours, else minutes — that holds a whole one,
+ * counted down to whole units.
+ */
+export const formatInvitationRelative = (
+  instant: Readonly<Date>,
+  now: Readonly<Date>,
+  lang: string
+): string => {
+  const diff = instant.getTime() - now.getTime()
+  const magnitude = Math.abs(diff)
+  const [unit, size] =
+    magnitude >= DAY_MS
+      ? (['day', DAY_MS] as const)
+      : magnitude >= HOUR_MS
+        ? (['hour', HOUR_MS] as const)
+        : (['minute', MINUTE_MS] as const)
+  const count = Math.sign(diff) * Math.floor(magnitude / size)
+  return inLanguage(lang, (tag) =>
+    new Intl.RelativeTimeFormat(tag, { numeric: 'always' }).format(count === 0 ? 0 : count, unit)
+  )
+}
+
 /** The value of every `$invitation.*` reference, for `facts` (none: an invalid token). */
 export const invitationVarValues = (
   facts: InvitationFacts | undefined,
-  workspace: string
-): Readonly<Record<InvitationReference, string>> =>
-  facts === undefined
-    ? {
-        'inviter.name': '',
-        'inviter.image': '',
-        email: '',
-        role: '',
-        workspace: '',
-        expiresAt: '',
-        accountExists: '',
-        status: 'invalid',
-      }
-    : {
-        'inviter.name': facts.inviterName,
-        'inviter.image': facts.inviterImage,
-        email: facts.email,
-        role: facts.role,
-        workspace,
-        expiresAt: facts.expiresAt,
-        accountExists: String(facts.accountExists),
-        status: facts.status,
-      }
+  context: InvitationVarContext
+): Readonly<Record<InvitationReference, string>> => {
+  if (facts === undefined)
+    return {
+      'inviter.name': '',
+      'inviter.image': '',
+      email: '',
+      role: '',
+      workspace: '',
+      expiresAt: '',
+      'expiresAt.relative': '',
+      'expiresAt.iso': '',
+      accountExists: '',
+      status: 'invalid',
+    }
+  const deadline = new Date(facts.expiresAt)
+  const valid = !Number.isNaN(deadline.getTime())
+  return {
+    'inviter.name': facts.inviterName,
+    'inviter.image': facts.inviterImage,
+    email: facts.email,
+    role: facts.role,
+    workspace: context.workspace,
+    expiresAt: valid ? formatInvitationDeadline(deadline, context.lang, context.timeZone) : '',
+    'expiresAt.relative': valid
+      ? formatInvitationRelative(deadline, context.now, context.lang)
+      : '',
+    'expiresAt.iso': facts.expiresAt,
+    accountExists: String(facts.accountExists),
+    status: facts.status,
+  }
+}
 
 // Longest names first, so `inviter.name` is not read as `inviter` + `.name`.
 const REFERENCE_PATTERN = new RegExp(

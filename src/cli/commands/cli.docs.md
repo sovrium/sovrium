@@ -23,6 +23,7 @@ Each group has its own article. `sovrium --help` prints the same list, and `sovr
 - **Validation & schema generation** — `sovrium validate`, `sovrium schema`, `sovrium design-system`.
 - **Admin & maintenance** — `sovrium admin create`, `sovrium secret generate`, `sovrium secret adopt`, `sovrium update`.
 - **Back up & restore** — `sovrium backup` writes one archive holding the database, the key, the config and the uploads; `sovrium restore` puts it back.
+- **Bundling for deployment** — `sovrium bundle` packages the validated config, resolved into JSON, with the static files and the seed data into one checksummed archive a host can verify.
 - **Documentation** — `sovrium docs`, this manual; `sovrium changelog`, the release notes of this version and every earlier one.
 - **AI clients** — `sovrium mcp --project <dir>` serves a project's configuration to an AI client over stdio, read-only; **Your Config over MCP** describes the four tools it exposes.
 - **Flags & exit codes** — `sovrium --version` and `sovrium version` print the version; `sovrium --help` prints the summary.

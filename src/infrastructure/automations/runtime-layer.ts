@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Layer } from 'effect'
+import { Layer } from 'effect'
 import { AiServiceLive } from '@/infrastructure/ai/ai-service-live'
 import { SpeechServiceLive } from '@/infrastructure/ai/speech/speech-service-live'
+import { SvgRasterizerLive } from '@/infrastructure/assets/svg-rasterizer-live'
 import { ConfigAccountProvisionerLive } from '@/infrastructure/auth/better-auth/config-account-provisioner-live'
 import { OAuthTokenClientLive } from '@/infrastructure/connections/oauth-token-client-live'
 import { SentinelTokensLive } from '@/infrastructure/connections/sentinel-tokens-live'
@@ -29,6 +30,12 @@ import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links
 import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { EmailSenderLive } from '@/infrastructure/email/email-sender-live'
+import { DocumentRendererLive } from '@/infrastructure/export/document-renderer-live'
+import { OfficeConverterLive } from '@/infrastructure/export/office-converter-live'
+import { PdfEditorLive } from '@/infrastructure/export/pdf-editor-live'
+import { PdfToolkitLive } from '@/infrastructure/export/pdf-toolkit-live'
+import { ProcessRunnerLive } from '@/infrastructure/process/process-runner-live'
+import { SystemdSupervisorLive } from '@/infrastructure/process/systemd-supervisor-live'
 import { ServerOriginLive } from '@/infrastructure/server/server-origin-live'
 import { ImageTransformServiceLive } from '@/infrastructure/storage/image-transform-live'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
@@ -56,6 +63,8 @@ import { AutomationFiberBridgeLive } from './automation-fiber-bridge-live'
  * - `ImageTransformService` (via `ImageTransformServiceLive`) for the
  *   `file/transformImage` handler's composed image pipeline (resize + optional
  *   format conversion).
+ * - `DocumentRenderer` (via `DocumentRendererLive`) for the `document/*`
+ *   handlers' HTML → PDF / image renders.
  * - `AutomationApprovalRepository` (via `AutomationApprovalRepositoryLive`) for
  *   the `approval/request` handler's pending-row INSERT.
  * - `AuthRepository` (via `AuthRepositoryLive`) for the `auth/*` handlers
@@ -164,24 +173,30 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // `Bytea storage initialization failed (DATABASE_URL)`).
   Layer.orDie(StorageServiceLive),
   ImageTransformServiceLive,
+  // `DocumentRenderer` — HTML → PDF / image for the `document/*` steps
+  // (`RENDERER_*`, [internal ref]). Building it starts no browser: Chrome is spawned
+  // or connected on the first render and closed when the layer is released.
+  DocumentRendererLive,
+  // `SvgRasterizer` — SVG → PNG in the binary (resvg-wasm, loaded on first use).
+  SvgRasterizerLive,
+  // `PdfToolkit` — PDF structure for `pdf/*` (pure JS, loaded on first use).
+  PdfToolkitLive,
+  // `PdfEditor` — split, pages, marks, forms, inspect, pictures for `pdf/*`.
+  PdfEditorLive,
+  // `OfficeConverter` — Office files → PDF for `document/convert` (`OFFICE_*`).
+  OfficeConverterLive,
   AnalyticsRepositoryLive,
   DataSourceRepositoryLive,
   ServerOriginLive,
+  // `InstanceSupervisor` — the `instance/*` steps: systemd units and release
+  // directories of the other apps on this host, run through its private
+  // `ProcessRunner` (no step reaches the runner directly). Building it spawns
+  // nothing and reads no environment, so a deployment that never switches
+  // SOVRIUM_HOST_ACTIONS on pays nothing for it.
+  Layer.provide(SystemdSupervisorLive, ProcessRunnerLive),
   // `LinkRepository` — the links write use-cases (`createLink`/`updateLink`/
   // `deleteLink`) an automation step reaches for. Unlike its neighbours this
   // Layer is built from `Database`, so it is provided here rather than merged
   // bare; the admin route composes it the same way.
   Layer.provide(LinkRepositoryLive, DatabaseLive)
 )
-
-/**
- * Provide the automation runtime's required infrastructure layers.
- *
- * Used by route handlers (webhook/manual triggers), the live cron
- * scheduler, and other background dispatchers so they can run an
- * `executeAutomationRun`-shaped Effect program against the production
- * dependency graph.
- */
-export function provideAutomationRuntime<A, E, R>(program: Effect.Effect<A, E, R>) {
-  return Effect.provide(program, AutomationRuntimeLayer)
-}

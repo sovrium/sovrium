@@ -12,9 +12,9 @@ normalised out of desktop/package.json and Cargo.lock, so a release bump keeps i
 input: desktop/src-tauri/Cargo.lock sha256=7777096d9b7115ef84d8d3e3757479cce50af59a83568e875175ec1759c10c9d
 input: desktop/package.json sha256=e3d8534bcd2414cfe2a7aa093d54382581474c4db5be1d13b8f1326103f63752
 input: desktop/bun.lock sha256=11def5e3897a368a1d7dada8785311044ac786838589b0a75b52e98b56abafcc
-input: scripts/lib/third-party-license-supplements.ts sha256=770c2611cff97f2f7a2d2f3d43ac572670717f3d7bdfff54b86c0200d7f18d95
-input: scripts/lib/third-party-licenses.ts sha256=b82969c12b2fc5979f1e5e449a89debd8d67ce9ecd9d51d2a3485854be0ccb10
-input: scripts/build/generate-desktop-notices.ts sha256=58688f76beba31c5ee1d084176ddf4b21b0c728df8026dce8a62a76297dd7c93
+input: scripts/lib/third-party-license-supplements.ts sha256=efc58f8df90f4daaae8e49e67aae52fe2ff19c443e6fe5150db44bc1c97452c3
+input: scripts/lib/third-party-licenses.ts sha256=5ae408c64e224c5a1d429b4d3b00c679bc9f81d38207f7d59c0d174e0edabe71
+input: scripts/build/generate-desktop-notices.ts sha256=04f8e57cbd00bdd486b1fc9b50025a3e2931ead3c8fc3a1674782ac8c4c598a7
 
 
 Text 1 of 66 — Apache-2.0 OR MIT, Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT, MIT OR Apache-2.0

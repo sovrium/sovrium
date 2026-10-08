@@ -19,17 +19,14 @@
  */
 
 import { Effect } from 'effect'
-import { createRecordWithSideEffects } from '@/application/use-cases/tables/record-create-orchestration'
-import { deleteRecordWithSideEffects } from '@/application/use-cases/tables/record-delete-orchestration'
-import { updateRecordWithSideEffects } from '@/application/use-cases/tables/record-update-orchestration'
+import {
+  createRecordWithSideEffects,
+  deleteRecordWithSideEffects,
+  updateRecordWithSideEffects,
+} from '@/application/use-cases/tables/record-write-roads'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
-import {
-  createWebhooksFor,
-  deleteWebhooksFor,
-  updateWebhooksFor,
-} from '@/infrastructure/webhooks/table-write-webhooks'
 import { sanitizeError } from '@/presentation/api/runtime/error-sanitizer'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -77,7 +74,6 @@ export async function runMcpRecordCreate(input: McpRecordWrite): Promise<McpTool
     linkReader: input.linkReader,
     isSqlite: isSqliteRuntime(),
     processEnv: process.env,
-    dispatchWebhooks: createWebhooksFor(input.app, input.tableName),
   })
   return answerWrite(input.domainContext, program, (record) => input.formatSuccess({ ...record }))
 }
@@ -93,7 +89,6 @@ export async function runMcpRecordUpdate(
     linkReader: input.linkReader,
     isSqlite: isSqliteRuntime(),
     processEnv: process.env,
-    dispatchWebhooks: updateWebhooksFor(input.app, input.tableName),
     forgetDerivedVariants: evictTransformCacheForKey,
   })
   return answerWrite(input.domainContext, program, (updated) =>
@@ -110,7 +105,6 @@ export async function runMcpRecordDelete(
     recordId: input.recordId,
     mode: 'soft',
     processEnv: process.env,
-    dispatchWebhooks: deleteWebhooksFor(input.app, input.tableName),
     forgetDerivedVariants: evictTransformCacheForKey,
   })
   return answerWrite(input.domainContext, program, (result) => result)

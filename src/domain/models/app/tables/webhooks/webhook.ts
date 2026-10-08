@@ -68,10 +68,11 @@ export const WebhookSchema = Schema.Struct({
   ),
 
   /** Record events that trigger this webhook. At least one required. */
-  events: Schema.Array(Schema.Literals(['create', 'update', 'delete'])).pipe(
+  events: Schema.Array(Schema.Literals(['create', 'update', 'delete', 'restore'])).pipe(
     Schema.annotate({
       title: 'Webhook Events',
-      description: 'Record CRUD events that trigger webhook delivery',
+      description:
+        'Record events that trigger a delivery. `restore` is sent as `record.restore` when a deleted record is brought back from the trash, once per record; a receiver that ignores event names it does not know keeps working.',
     }),
     Schema.check(Schema.isMinLength(1))
   ),

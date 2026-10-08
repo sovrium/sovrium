@@ -6,7 +6,7 @@
  */
 
 /**
- * Application use-cases for the AI chat dynamic-record SQL paths.
+ * Application use-cases for the AI chat dynamic-record reads.
  *
  * Thin pass-throughs over the `DynamicRecordRepository` port — the presentation
  * chat routes (`chat-query.ts` / `chat-mutation.ts`) consume them via
@@ -23,9 +23,7 @@ import {
   type DynamicRecordAggregateInput,
   type DynamicRecordCountInput,
   type DynamicRecordError,
-  type DynamicRecordInsertInput,
   type DynamicRecordListInput,
-  type DynamicRecordUpdateByIdsInput,
 } from '@/application/ports/repositories/tables/dynamic-record-repository'
 
 /** Run a `COUNT(*)` over a dynamic table. */
@@ -58,21 +56,3 @@ export const listDynamicRecords = (
     const repo = yield* DynamicRecordRepository
     return yield* repo.list(input)
   }).pipe(Effect.withSpan('ai.list-dynamic-records'))
-
-/** Insert one row into a dynamic table; resolves the generated id. */
-export const insertDynamicRecord = (
-  input: DynamicRecordInsertInput
-): Effect.Effect<number | string, DynamicRecordError, DynamicRecordRepository> =>
-  Effect.gen(function* () {
-    const repo = yield* DynamicRecordRepository
-    return yield* repo.insert(input)
-  }).pipe(Effect.withSpan('ai.insert-dynamic-record'))
-
-/** Update the rows of a dynamic table named by `ids`; resolves the affected ids. */
-export const updateDynamicRecordsByIds = (
-  input: DynamicRecordUpdateByIdsInput
-): Effect.Effect<ReadonlyArray<number | string>, DynamicRecordError, DynamicRecordRepository> =>
-  Effect.gen(function* () {
-    const repo = yield* DynamicRecordRepository
-    return yield* repo.updateByIds(input)
-  }).pipe(Effect.withSpan('ai.update-dynamic-records-by-ids'))

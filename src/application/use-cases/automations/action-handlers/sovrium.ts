@@ -5,12 +5,25 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Effect, Option, Schema } from 'effect'
+import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { decodeAppConfigObject } from '@/application/use-cases/config/decode-app-config'
+import {
+  readBundleArchive,
+  type BundleArchiveReading,
+} from '@/application/use-cases/server/bundle-archive'
+import {
+  BUNDLE_CONFIG_ENTRY,
+  BUNDLE_MANIFEST_ENTRY,
+  bundleManifestSchema,
+  type BundleManifest,
+} from '@/application/use-cases/server/bundle-manifest'
+import { verifyBundle } from '@/application/use-cases/server/bundle-verification'
 import {
   findSharedReferencePath,
   sharedReferenceMessage,
 } from '@/domain/kernel/config-parsing/shared-reference-guard'
+import { BUNDLE_MAX_STORED_BYTES } from '@/domain/kernel/format/bounded-gunzip'
 import { lookupPath } from '../resolve-trigger-data'
 import { buildRunContextView, rawActionProps } from './run-context-resolution'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
@@ -18,9 +31,11 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 /**
  * `sovrium/*` handlers — operators dedicated to the engine itself, as opposed
  * to the families that transform a run's data (`data/*`) or reach the outside
- * world (`http/*`, `email/*`, …). Currently only `validateConfig`.
+ * world (`http/*`, `email/*`, …): `validateConfig` checks a candidate config,
+ * `validateBundle` a stored deployable bundle.
  *
- * Spec: [internal ref] + REGRESSION.
+ * Spec: [internal ref],
+ * [internal ref] + REGRESSION.
  */
 
 const ok = (output: Readonly<Record<string, unknown>>): ActionOutcome =>
@@ -220,3 +235,142 @@ export const handleSovriumValidateConfig: ActionHandler = (
       )
     })()
   ).pipe(Effect.withSpan('automations.handle-sovrium-validate-config'))
+
+/** The manifest facts `validateBundle` exposes, so an intake can say which app and config. */
+interface BundleManifestSummary {
+  readonly app: { readonly name: string; readonly slug: string }
+  readonly configHash: string
+  readonly engineVersion: string
+  readonly createdAt: string
+}
+
+/** The `validateBundle` verdict; `name`/`manifest` are null when no manifest could be read. */
+interface ValidateBundleResult {
+  readonly valid: boolean
+  readonly name: string | null
+  readonly manifest: BundleManifestSummary | null
+  readonly errors: readonly string[]
+}
+
+const decodeBundleManifest = Schema.decodeUnknownOption(bundleManifestSchema)
+
+/** JSON text as a value, or `undefined` when it is not JSON. */
+// @effect-diagnostics effect/preferSchemaOverJson:off
+const parseJsonEntry = (bytes: Uint8Array | undefined): unknown => {
+  if (bytes === undefined) return undefined
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes)) as unknown
+  } catch {
+    return undefined
+  }
+}
+
+const summarise = (manifest: BundleManifest): BundleManifestSummary => ({
+  app: { name: manifest.app.name, slug: manifest.app.slug },
+  configHash: manifest.configHash,
+  engineVersion: manifest.engine.minVersion,
+  createdAt: manifest.createdAt,
+})
+
+/** The errors of the config the bundle carries, decoded as `validateConfig` decodes one. */
+const configErrors = (entries: ReadonlyMap<string, Uint8Array>): readonly string[] => {
+  const bytes = entries.get(BUNDLE_CONFIG_ENTRY)
+  if (bytes === undefined) return []
+  const config = parseJsonEntry(bytes)
+  if (config === undefined) return [`${BUNDLE_CONFIG_ENTRY} is not JSON`]
+  const decoded = decodeAppConfigObject(config)
+  return decoded.valid ? [] : decoded.errors
+}
+
+/**
+ * Judge an archive's entries: its manifest against the bundle manifest rule,
+ * every entry against the manifest, then the config it carries.
+ */
+const judgeBundleEntries = (
+  objectKey: string,
+  reading: BundleArchiveReading
+): ValidateBundleResult => {
+  const invalid = (errors: readonly string[]): ValidateBundleResult => ({
+    valid: false,
+    name: null,
+    manifest: null,
+    errors,
+  })
+  if (reading.kind === 'not-an-archive') {
+    return invalid([`${objectKey} is not a bundle archive (a tar.gz written by sovrium bundle)`])
+  }
+  if (reading.kind === 'too-large') {
+    return invalid([`${objectKey} unpacks to more than 256 MiB, the most a bundle may hold`])
+  }
+  const { entries } = reading
+  const raw = entries.get(BUNDLE_MANIFEST_ENTRY)
+  if (raw === undefined) {
+    return invalid([`${objectKey} is not a bundle archive: it holds no ${BUNDLE_MANIFEST_ENTRY}`])
+  }
+  const manifest = decodeBundleManifest(parseJsonEntry(raw))
+  if (Option.isNone(manifest)) {
+    return invalid([`${BUNDLE_MANIFEST_ENTRY} is not a bundle manifest`])
+  }
+  const errors = [...verifyBundle(manifest.value, entries), ...configErrors(entries)]
+  return {
+    valid: errors.length === 0,
+    name: manifest.value.app.name,
+    manifest: summarise(manifest.value),
+    errors,
+  }
+}
+
+/** The stored archive's bytes, or the reason the step fails, naming the key. */
+const readStoredArchive = (objectKey: string) =>
+  Effect.gen(function* () {
+    const storage = yield* StorageService
+    // The catalogued size refuses an oversized object before a byte is buffered;
+    // an object whose size cannot be read is never downloaded unchecked.
+    const catalogued = yield* storage.getMetadata(objectKey, UNATTRIBUTED_BUCKET).pipe(
+      Effect.tapCause((cause) =>
+        Effect.logWarning(`sovrium.validateBundle: no size for "${objectKey}"`, cause)
+      ),
+      Effect.mapError(() => `sovrium.validateBundle: no object could be read at "${objectKey}"`)
+    )
+    if (catalogued.size > BUNDLE_MAX_STORED_BYTES) {
+      return yield* Effect.fail(
+        `sovrium.validateBundle: the object at "${objectKey}" is larger than 100 MiB`
+      )
+    }
+    return yield* storage.download(objectKey, UNATTRIBUTED_BUCKET).pipe(
+      Effect.tapCause((cause) =>
+        Effect.logWarning(`sovrium.validateBundle: could not download "${objectKey}"`, cause)
+      ),
+      Effect.mapError(() => `sovrium.validateBundle: no object could be read at "${objectKey}"`)
+    )
+  })
+
+/**
+ * `sovrium/validateBundle` — check a deployable bundle already stored in this
+ * app's storage: its manifest, every entry against its size and sha256, and
+ * the config it carries, decoded as `validateConfig` decodes one. Exposes
+ * `{ valid, name, manifest, errors }` at the top level of the step output.
+ *
+ * A bad bundle is a VERDICT (`status: 'success'`, `valid: false`), for the
+ * reasons `validateConfig` gives. The step fails only when there is nothing to
+ * judge: no `objectKey`, or no object readable under it.
+ */
+export const handleSovriumValidateBundle: ActionHandler = (action) => {
+  const { props } = action
+  const objectKey =
+    props !== null && typeof props === 'object'
+      ? (props as Readonly<Record<string, unknown>>)['objectKey']
+      : undefined
+  if (typeof objectKey !== 'string' || objectKey.trim() === '') {
+    return Effect.succeed<ActionOutcome>({
+      status: 'failure',
+      error: 'sovrium.validateBundle requires an objectKey prop',
+    })
+  }
+  return readStoredArchive(objectKey).pipe(
+    Effect.flatMap((bytes) => readBundleArchive(bytes)),
+    Effect.map((reading): ActionOutcome => ok({ ...judgeBundleEntries(objectKey, reading) })),
+    Effect.catch((error: string) => Effect.succeed<ActionOutcome>({ status: 'failure', error })),
+    Effect.withSpan('automations.handle-sovrium-validate-bundle')
+  )
+}

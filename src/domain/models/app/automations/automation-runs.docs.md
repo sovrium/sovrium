@@ -12,7 +12,7 @@ Each time a trigger fires, Sovrium records a **run**: the trigger payload, each 
 | `GET /api/automations/runs/:id`                                   | One run in detail: per-step results, logs and retries                                       |
 | `GET /api/automations/:name/runs`                                 | One automation's runs in detail, newest first; `404` for a name the config does not declare |
 | `POST /api/automations/runs/:id/replay`                           | Replay a run, resuming from the first failed step                                           |
-| `POST /api/automations/runs/:id/cancel`                           | Cancel a run that is pending or running                                                     |
+| `POST /api/automations/runs/:id/cancel`                           | Cancel a run that is queued, running or waiting                                             |
 | `POST /api/automations/runs/:runId/approvals/:approvalId/approve` | Resolve a paused approval: named approvers or an admin                                      |
 | `POST /api/automations/runs/:runId/approvals/:approvalId/reject`  | Reject a paused approval: named approvers or an admin                                       |
 | `GET /api/automations/approvals`                                  | The approval requests the caller may resolve                                                |
@@ -21,7 +21,7 @@ Each time a trigger fires, Sovrium records a **run**: the trigger payload, each 
 curl -fsS '/api/automations/runs?status=failed&automationName=welcome-email'
 ```
 
-A run's detail lists each step with its status, output and error, plus `logs` — the entries a code step wrote with `context.log`, secrets masked — and, at the run level, `attempts`: the attempt history of the last step that ran under a retry policy, each with its number, time and error. Every field the response carries is declared in the published OpenAPI document. A run waiting on an approval carries its `approvalId` in the detail.
+A run's detail lists each step with its status, output and error, plus `logs` — the entries a code step wrote with `context.log`, secrets masked — and, at the run level, `attempts`: the attempt history of the last step that ran under a retry policy, each with its number, time and error. Every field the response carries is declared in the published OpenAPI document. A run waiting on an approval carries its `approvalId` in the detail; a run waiting on a long delay (`waiting-delay`) carries `resumeAt`, when it resumes, in the detail and in the list.
 
 **Steps run inside a path or a loop.** A `path/branch` step lists the paths it ran under `paths`, in the order it ran them, each with its `name` and the `steps` executed inside it; a `loop/each` step lists the items it ran under `iterations`, each with its zero-based `index` and its `steps`. A nested step has the same shape as a top-level one — status, output, error, logs, and on the admin run detail its resolved `input` and its position inside its path or item — nests further when it is itself a path or a loop, and is masked the same way. So a failure deep inside a branch reads from the run detail alone: which path, which step, what it was given, what it logged and why it failed. Both keys are absent on every other step.
 
@@ -31,23 +31,27 @@ A run's detail lists each step with its status, output and error, plus `logs` �
 
 **What a non-admin reader sees of a run's trigger data.** A record or comment trigger captures the record that fired it — and the records its relationships link to, column by column — with the engine's authority. A named approver sees that `triggerData`, in the run lists and in the run's detail, only when she may read all of it as a record step's output is judged: every column of the trigger's table and of each linked record's table, no related value her role may not read, and every record it carries, links to or looks up through admitted by her row-level rules. Otherwise it reads `null`. The trigger data of other triggers, such as a webhook's request or a form's answers, is shown as captured.
 
+**Who sees a person's address.** When a run hands a step a person — a `user` field a record step read, the person a record trigger expanded, a comment's author — it carries the id, the name and the email address. An admin sees the address whole. Anyone else shown the run sees it masked to its first character and its domain (`l•••@example.com`), as the user picker shows it: in the run history (the run lists and the run's detail), in the response of a run started through `POST /api/automations/:name/trigger`, and in the result of an MCP automation or action tool. A comment trigger's addresses — the thread's other people, the people the comment mentions and its author — are masked the same way. The member who started a run by hand still sees the input she sent whole. The automation itself always works with the full address, so an email step can still reach the person, and the stored run is unchanged. A webhook's `respondWithStepOutput` answer, which the author chose, is not masked.
+
 **Runs started by another run.** A call (`automation:call`) and a failure handler (`automation-failure`) start a run whose trigger data is what another run handed on. Each records which run fed it, and what it was handed is judged by what that run had read before handing it on — all of it, conservatively, not only the value passed: its trigger data and every step before the call or the failure. The check follows the chain back through every run that fed it, up to 10 runs and 1 000 records; past that, the data is withheld. A value that came from outside the app — a webhook's request, a form's answers, a replay payload an admin supplied — is shown as captured wherever it is handed on. A call or failure run recorded before 0.30.0 carries no record of what fed it and is withheld from everyone who does not read every run. When a run's trigger data is withheld from a reader, so is every step's output, logs and error. A replay keeps the record of what fed the run it replays.
 
 **What a non-admin reader sees of a request.** `GET /api/automations/approvals` renders each message from what the run carries, so the message is judged as the request step's output is: it reads `null` to an approver who may not read what fed it.
 
-**Runs after an account is erased.** Every run that read one of the erased person's records, a record naming her, or a record removed with hers keeps its steps, their statuses and its timings, and loses every value it captured or produced: its trigger data, each step's input, output, error and logs, and its own error. Its detail then carries `valuesErasedAt`, the date the values were erased. A run another run fed from such a run keeps what it was handed, but withholds it from everyone who does not read every run. Values that came from outside the app — a webhook's request, an anonymous form's answers — name nobody the platform can match and are not erased.
+**Runs after an account is erased.** Every run that read one of the erased person's records, a record naming her, or a record removed with hers keeps its steps, their statuses and its timings, and loses every value it captured or produced: its trigger data, each step's input, output, error and logs, and its own error. Its detail then carries `valuesErasedAt`, the date the values were erased. A run another run fed from such a run keeps what it was handed, but withholds it from everyone who does not read every run. Values that came from outside the app — a webhook's request, an anonymous form's answers — name nobody the platform can match and are not erased. A run still parked on a long delay that captured such values is cancelled, so the step after the wait never acts for the erased person.
 
-**Cancelling a run.** Only a run that is queued, running or waiting for an approval can be cancelled. Cancelling a run that already ended — completed, failed, rejected, stopped by a filter, timed out or already cancelled — is refused with `409`, and the run keeps its status; replay it instead. Cancelling a run that waits for an approval rejects its pending request, so the approver no longer finds it and a later answer resumes nothing.
+**Cancelling a run.** Only a run that is queued, running, waiting for an approval or waiting on a long delay can be cancelled. Cancelling a run that already ended — completed, failed, rejected, stopped by a filter, timed out or already cancelled — is refused with `409`, and the run keeps its status; replay it instead. Cancelling a run that waits for an approval rejects its pending request, so the approver no longer finds it and a later answer resumes nothing; a run waiting on a delay is never resumed once cancelled.
 
 ## Run statuses
 
-Twelve values, and the list is closed — filtering `?status=` by anything else matches nothing.
+Fourteen values, and the list is closed — filtering `?status=` by anything else matches nothing.
 
 | Status                  | Meaning                                                                            |
 | ----------------------- | ---------------------------------------------------------------------------------- |
 | `queued`                | Waiting for a concurrency slot                                                     |
 | `running`               | Executing now                                                                      |
 | `waiting-approval`      | Paused on an approval step until someone decides                                   |
+| `waiting-delay`         | Parked on a wait longer than one minute until its `resumeAt`                       |
+| `rejected`              | An approval step's request was rejected, and the run stopped there                 |
 | `completed`             | Every action succeeded                                                             |
 | `completed-with-errors` | Finished, but a step failed under `continueOnError`                                |
 | `failed`                | An action errored, or the server stopped while the run was in progress (see below) |
@@ -58,7 +62,7 @@ Twelve values, and the list is closed — filtering `?status=` by anything else 
 | `pending`               | Never written by the engine; kept in the list so existing API clients keep working |
 | `retrying`              | Never written by the engine; kept in the list so existing API clients keep working |
 
-The admin console's status filter offers a deliberately narrower set — success, failed, partial, waiting for approval, rejected and cancelled — because those are the ones an operator triages by. The API accepts all twelve. Wherever the console shows a run's status — the history grid, the run page and each of its steps — it reads in words in the operator's language (`Waiting for approval`, `Rejected`, `Timed out`, `Skipped` …), and a step a filter stopped reads `Filtered out`, never the engine's raw value.
+The admin console's status filter offers a deliberately narrower set — success, failed, partial, waiting for approval, rejected and cancelled — because those are the ones an operator triages by. The API accepts all fourteen. Wherever the console shows a run's status — the history grid, the run page and each of its steps — it reads in words in the operator's language (`Waiting for approval`, `Rejected`, `Timed out`, `Skipped` …), and a step a filter stopped reads `Filtered out`, never the engine's raw value.
 
 ### Runs interrupted by a restart
 
@@ -66,20 +70,21 @@ A graceful stop does not leave a run behind: a run that an automation's own writ
 
 Runs are queued and executed in memory, so a server that stops mid-run without that chance — a crash, a killed process — leaves that run `running` or `queued` with nothing left to finish it. When the server starts again, every run that started before it and is still `running` or `queued` is closed as `failed` with the error `Interrupted: the server stopped during this run`, and the operators are emailed as for any failure. Because it is an ordinary `failed` run, every count of failures already includes it.
 
-Two kinds of run survive a restart and are left alone: a run waiting for an approval, and a run whose delayed step is still due. Both are resumed from the database rather than from memory.
+Two kinds of run survive a restart and are left alone: a run waiting for an approval, and a run parked on a long delay (`waiting-delay`). Both are resumed from the database rather than from memory — a parked run whose time passed while the server was stopped, as soon as it starts again.
 
 ## Step statuses
 
-Six values, and they are **not** the same vocabulary as the run statuses above.
+Seven values, and they are **not** the same vocabulary as the run statuses above.
 
-| Status      | Meaning                                               |
-| ----------- | ----------------------------------------------------- |
-| `pending`   | Not started yet                                       |
-| `running`   | Executing now                                         |
-| `completed` | Succeeded                                             |
-| `failed`    | Errored                                               |
-| `filtered`  | Intentionally stopped by a `filter` action            |
-| `skipped`   | Not run — downstream of a failure, or during a replay |
+| Status      | Meaning                                                              |
+| ----------- | -------------------------------------------------------------------- |
+| `pending`   | Not started yet                                                      |
+| `running`   | Executing now                                                        |
+| `completed` | Succeeded                                                            |
+| `failed`    | Errored                                                              |
+| `filtered`  | Intentionally stopped by a `filter` action                           |
+| `skipped`   | Not run — downstream of a failure, or during a replay                |
+| `waiting`   | A loop or a path the run is parked inside, completed when it resumes |
 
 `filtered` and `skipped` are separate on purpose: a filter halting the pipeline is the workflow working as written, while a skipped step is a consequence of something going wrong earlier or of a replay resuming past it. Collapsing them would make a deliberate stop indistinguishable from fallout.
 

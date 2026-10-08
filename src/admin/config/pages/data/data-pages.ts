@@ -30,6 +30,7 @@ import links from './links'
 import organisation from './organisation'
 import pages from './pages'
 import tables from './tables'
+import templates from './templates'
 import users from './users'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -56,6 +57,7 @@ export const dataPages: readonly PageConfig[] = [
   ...tables,
   ...forms,
   ...buckets,
+  ...templates,
   ...agents,
   ...links,
   // Developers

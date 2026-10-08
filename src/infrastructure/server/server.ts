@@ -23,15 +23,23 @@
  */
 
 import { Effect } from 'effect'
+import {
+  deprecatedHostnameNotice,
+  isStrictPortBoot,
+  resolveBindHost,
+  resolveListenUnix,
+} from '@/domain/models/process-env/server-lifecycle'
 import { LockFileWriteError } from '@/infrastructure/errors/lock-file-write-error'
 import { logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { registerAccountPurgeScheduler } from '@/infrastructure/scheduling/register-account-purge'
 import { registerActivityLogRetentionScheduler } from '@/infrastructure/scheduling/register-activity-log-retention'
 import { registerApprovalExpiryScheduler } from '@/infrastructure/scheduling/register-approval-expiry'
 import { registerCronAutomations } from '@/infrastructure/scheduling/register-cron-automations'
+import { registerDelayedRunResumeScheduler } from '@/infrastructure/scheduling/register-delayed-run-resume'
 import { registerFailureRollupScheduler } from '@/infrastructure/scheduling/register-failure-rollup'
 import { registerFormDraftExpiryScheduler } from '@/infrastructure/scheduling/register-form-draft-expiry'
 import { registerStuckRunSweepScheduler } from '@/infrastructure/scheduling/register-stuck-run-sweep'
+import { registerWebhookOutboxScheduler } from '@/infrastructure/scheduling/register-webhook-outbox'
 import {
   registerWeeklyDigestScheduler,
   runWeeklyDigestCatchUp,
@@ -57,6 +65,7 @@ import { runDeferredStartupMaintenance } from '@/infrastructure/server/startup-d
 import { buildStartupPhases } from '@/infrastructure/server/startup-degradation-phases'
 import { collectAllPhases, renderStartup } from '@/infrastructure/server/startup-phase-report'
 import { publishServerStatus } from '@/infrastructure/server/status-file'
+import { removeSocketFile, startUnixServer } from '@/infrastructure/server/unix-listener'
 import { validateOperatorEnv } from '@/infrastructure/server/validate-operator-env'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type {
@@ -67,6 +76,7 @@ import type { CSSCompilationError } from '@/infrastructure/errors/css-compilatio
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { ServerConfig } from '@/infrastructure/server/server-config'
+import type { Hono } from 'hono'
 
 // Re-exported so importers that name this module still resolve.
 // `apply-symbol-moves.ts` re-points the importers and deletes these.
@@ -80,12 +90,13 @@ export type { ServerConfig } from '@/infrastructure/server/server-config'
  * Includes configHash and configPath for reload/restart support.
  */
 const writeLockFile = (
-  port: number | undefined,
+  listen: ListenAddress,
   configHash: string,
   configPath: string
 ): Effect.Effect<void, never> =>
   Effect.tryPromise({
-    try: () => writeLockFileToDisk({ pid: process.pid, port: port ?? 0, configHash, configPath }),
+    try: () =>
+      writeLockFileToDisk({ pid: process.pid, ...listenFields(listen), configHash, configPath }),
     catch: (cause) => new LockFileWriteError(cause),
   }).pipe(
     Effect.tapCause((cause) =>
@@ -118,16 +129,53 @@ const writeLockFile = (
  * blind supervisor it was meant to prevent.
  */
 const writeSidecarFiles = (
-  port: number | undefined,
+  listen: ListenAddress,
   configHash: string,
   configPath: string
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    yield* writeLockFile(port, configHash, configPath)
+    yield* writeLockFile(listen, configHash, configPath)
     // effect-promise: total -- publishServerStatus catches its own write failures and resolves
     yield* Effect.promise(() =>
-      publishServerStatus({ state: 'serving', port: port ?? 0, configHash, configPath })
+      publishServerStatus({ state: 'serving', ...listenFields(listen), configHash, configPath })
     )
+  })
+
+/** Where a bound listener answers: a TCP port, or a Unix socket. */
+interface ListenAddress {
+  readonly port: number | undefined
+  readonly socketPath: string | undefined
+}
+
+/**
+ * The listener as the sidecar files record it: `socketPath` for a socket-bound
+ * instance and no port at all — inventing one would send a reader to a port
+ * nothing listens on — otherwise the bound `port`.
+ */
+const listenFields = (
+  listen: ListenAddress
+): { readonly port: number } | { readonly socketPath: string } =>
+  listen.socketPath !== undefined ? { socketPath: listen.socketPath } : { port: listen.port ?? 0 }
+
+/**
+ * Bind the listener: the Unix socket `SOVRIUM_LISTEN_UNIX` names, or a TCP port
+ * (`PORT`, else 3000; strict per `isStrictPortBoot`). `url` is what the banner
+ * prints; `origin` is what background programs mint links from, which a
+ * socket does not have — `BASE_URL` is the one to set there.
+ */
+const bindListener = (honoApp: Readonly<Hono>, config: ServerConfig, hostname: string) =>
+  Effect.gen(function* () {
+    const maxRequestBodySize = resolveMaxRequestBodySize(config.app)
+    const socketPath = resolveListenUnix(process.env)
+    if (socketPath !== undefined) {
+      const server = yield* startUnixServer(honoApp, socketPath, maxRequestBodySize)
+      return { server, url: `unix:${socketPath}`, origin: 'http://localhost', socketPath }
+    }
+    const port = config.port ?? parsePort(Bun.env.PORT) ?? 3000
+    const strict = isStrictPortBoot(process.env)
+    const server = yield* startBunServer(honoApp, { port, hostname, strict }, maxRequestBodySize)
+    const url = `http://${hostname}:${server.port}`
+    return { server, url, origin: url, socketPath: undefined }
   })
 
 /**
@@ -144,6 +192,19 @@ const warnWhenHreflangHasNoOrigin = (config: ServerConfig): void => {
   logWarning(
     '[seo] BASE_URL is not set, so pages without an absolute canonical publish no hreflang alternates. Set BASE_URL to the public origin of this multi-language app.'
   )
+}
+
+/**
+ * The interface this server binds: the caller's `hostname`, else
+ * `SOVRIUM_BIND_HOST`, else the deprecated `HOSTNAME` — said once per boot,
+ * since a `--watch` reload re-enters here with nothing new to say — else
+ * `localhost`.
+ */
+const resolveServerHostname = (config: ServerConfig): string => {
+  if (config.hostname !== undefined) return config.hostname
+  const bind = resolveBindHost(process.env)
+  if (bind.fromDeprecatedHostname && !config.reload) logWarning(deprecatedHostnameNotice(bind.host))
+  return bind.host
 }
 
 /**
@@ -176,8 +237,7 @@ export const createServer = (
     yield* validateOperatorEnv.pipe(
       Effect.tap(() => Effect.sync(() => warnWhenHreflangHasNoOrigin(config)))
     )
-    const port = config.port ?? parsePort(Bun.env.PORT) ?? 3000
-    const hostname = config.hostname ?? (Bun.env.HOSTNAME || 'localhost')
+    const hostname = resolveServerHostname(config)
     const { configHash = '', configPath = '' } = config
 
     // Initialize infrastructure and collect phases (incl. the static-asset
@@ -191,13 +251,11 @@ export const createServer = (
     // correctness requirement rather than a preference.
     const domain = yield* buildDomainRuntimeAndApp(config)
 
-    const server = yield* startBunServer(
+    const { server, url, origin, socketPath } = yield* bindListener(
       domain.honoApp,
-      port,
-      hostname,
-      resolveMaxRequestBodySize(config.app)
+      config,
+      hostname
     )
-    const url = `http://${hostname}:${server.port}`
 
     // Publish the origin the socket ACTUALLY bound to, before any armed-up
     // scheduler can mint a URL. `server.port` is not `port`: the bind retries
@@ -206,7 +264,7 @@ export const createServer = (
     // A background program has no request to read a `Host` header from, so
     // this is the only place it can learn where it lives.
 
-    publishBoundOrigin(url)
+    publishBoundOrigin(origin)
 
     // Post-bind arm-ups: cron-triggered automations, scheduled agents, and the
     // GDPR Art. 17 erasure sweep (hourly; without it, scheduled account
@@ -230,12 +288,15 @@ export const createServer = (
         registerActivityLogRetentionScheduler,
         registerFailureRollupScheduler(config.app),
         registerStuckRunSweepScheduler(config.app),
+        registerWebhookOutboxScheduler(config.app),
         // Approval timeouts: a boot sweep for the requests that expired while
         // the server was stopped — forked on the scheduler's scope, since a
         // resumed run's tail can take minutes and must not hold the banner —
         // then one every minute. Post-bind, because an `onTimeout: approve`
         // resumes its run through this runtime.
         registerApprovalExpiryScheduler(config.app, process.env),
+        // Runs parked on a long wait: at boot for those due, then every minute.
+        registerDelayedRunResumeScheduler(config.app, process.env),
         // Saved form drafts past their resume link's life: at boot, then hourly.
         registerFormDraftExpiryScheduler(config.app),
         registerWeeklyDigestScheduler(config.app),
@@ -275,7 +336,7 @@ export const createServer = (
     })
 
     if (!config.silent) {
-      yield* writeSidecarFiles(server.port, configHash, configPath)
+      yield* writeSidecarFiles({ port: server.port, socketPath }, configHash, configPath)
       registerLockFileCleanup(domain.honoApp, configPath)
       // A `--watch` reload skips the banner and nothing else. Reprinting the
       // version header, the phase list and `Server ready in …` on every save
@@ -302,7 +363,12 @@ export const createServer = (
     return {
       server,
       url,
-      stop: createStopEffect(server, domain.runtime),
+      // A clean stop also removes the socket file a socket-bound listener made.
+      stop: createStopEffect(server, domain.runtime).pipe(
+        Effect.ensuring(
+          Effect.sync(() => (socketPath === undefined ? undefined : removeSocketFile(socketPath)))
+        )
+      ),
       app: domain.honoApp,
       // The in-place `--watch` swap, bound to THIS listener and to the port it
       // actually bound to. A reload therefore cannot drift onto another port —

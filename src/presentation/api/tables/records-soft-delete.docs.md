@@ -81,7 +81,7 @@ The `delete` permission on the table governs restore as well as delete, so a rol
 POST /api/tables/orders/records/123/restore
 ```
 
-Restore clears `deletedAt`, returning the row to ordinary queries, stamps the time and the restoring user, and writes the operation to history.
+Restore clears `deletedAt`, returning the row to ordinary queries, stamps the time and the restoring user, and writes the operation to history. It fires the table's `restore` webhooks and record automations once — never its `create` ones, since the record is not new.
 
 | Status | Meaning                   |
 | ------ | ------------------------- |
@@ -90,7 +90,7 @@ Restore clears `deletedAt`, returning the row to ordinary queries, stamps the ti
 | `401`  | No session                |
 | `404`  | Absent or invisible       |
 
-Batch restore recovers many rows in one transaction: rows that are not currently deleted are skipped, while a missing id rolls the whole batch back.
+Batch restore recovers many rows in one transaction: rows that are not currently deleted are skipped, while a missing id rolls the whole batch back. Each row brought back fires its own `restore` event.
 
 On a table with row-level rules, a restore is judged on the trashed row itself: its `read` and `delete` rules must admit the caller, counting every role the caller holds, assignment roles included. A row they exclude answers `404`, exactly as a missing one, and stays in the trash; a batch naming one such row is refused whole and restores nothing.
 

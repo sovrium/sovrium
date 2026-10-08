@@ -32,7 +32,8 @@ export const FileSignUrlActionSchema = Schema.Struct({
     /** Storage key of the file */
     key: TemplateStringSchema.pipe(
       Schema.annotate({
-        description: 'Storage key of the file',
+        description:
+          'Storage key of the file. The link opens whatever file this names, so never build it from trigger, webhook or request values; take it from a record the run has already read',
       })
     ),
 
@@ -41,7 +42,7 @@ export const FileSignUrlActionSchema = Schema.Struct({
       Schema.Finite.pipe(
         Schema.annotate({
           description:
-            'URL expiration time in seconds (default: 3600); an upload URL is held between 60 seconds and 7 days',
+            'URL expiration time in seconds (default: 3600), held between 60 seconds and 7 days. Anyone holding the link can use it until then, so keep it as short as the recipient needs',
         }),
         Schema.check(Schema.isGreaterThan(0))
       )

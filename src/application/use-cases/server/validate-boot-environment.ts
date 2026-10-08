@@ -9,10 +9,15 @@ import { Effect } from 'effect'
 import { InvalidEnvVarError } from '@/application/errors/invalid-env-var-error'
 import { InvalidOperatorTimezoneError } from '@/application/errors/invalid-operator-timezone-error'
 import { validateRequiredEnvVars } from '@/application/use-cases/env/validate-required-env-vars'
+import { hostActionsBootRefusal } from '@/domain/models/app/automations/actions/instance/host-actions-gate-validation'
 import { parseApiIpRateLimit } from '@/domain/models/process-env/api-ip-rate-limit'
 import { parseSovriumAutomationDefaultTimeoutMs } from '@/domain/models/process-env/automations'
 import { parseSovriumDevClock } from '@/domain/models/process-env/dev-clock'
 import { parseEmailTransport } from '@/domain/models/process-env/email-transport'
+import {
+  parseSovriumBundlePublicKeys,
+  parseSovriumHostActions,
+} from '@/domain/models/process-env/host-actions'
 import {
   parseSovriumAutomationAutopause,
   parseSovriumNotifyAutomations,
@@ -21,6 +26,13 @@ import {
   parseSovriumNotifyTo,
 } from '@/domain/models/process-env/notifications'
 import { parseRateLimitWindowSeconds } from '@/domain/models/process-env/rate-limit-window'
+import {
+  parseSovriumBindHost,
+  parseSovriumIdleExitSeconds,
+  parseSovriumListenUnix,
+  parseSovriumLogFormat,
+  parseSovriumStrictPort,
+} from '@/domain/models/process-env/server-lifecycle'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import type { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
 import type { App } from '@/domain/models/app'
@@ -70,7 +82,25 @@ export const validateBootEnvironment = (
           parseRateLimitWindowSeconds(process.env),
           parseSovriumDevClock(process.env),
           parseEmailTransport(process.env),
+          parseSovriumBundlePublicKeys(process.env),
+          parseSovriumStrictPort(process.env),
+          parseSovriumBindHost(process.env),
+          parseSovriumListenUnix(process.env),
+          parseSovriumIdleExitSeconds(process.env),
+          parseSovriumLogFormat(process.env),
         ],
+        catch: (error) => new InvalidEnvVarError(error),
+      })
+    ),
+    // The `instance/*` operator gate, boot half: an instance step without the
+    // switch, or code with it, refuses before the port binds.
+    Effect.andThen(
+      Effect.try({
+        try: () => {
+          const refusal = hostActionsBootRefusal(validatedApp, parseSovriumHostActions(process.env))
+          // eslint-disable-next-line functional/no-throw-statements -- turned into the boot refusal by the catch below.
+          if (refusal !== undefined) throw new Error(refusal)
+        },
         catch: (error) => new InvalidEnvVarError(error),
       })
     ),

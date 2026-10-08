@@ -24,6 +24,7 @@ import {
   resolveInputDataRecordVars,
   type AutomationAction,
 } from './button-action-builders'
+import { buildNavigateClick, isNavigateAction } from './button-navigate-action'
 import { renderCrudDeleteButton } from './crud-form/crud-form-renderer'
 import { renderSpinnerMark } from './spinner-mark'
 import type { ElementProps } from './html-element-renderer'
@@ -236,6 +237,14 @@ export function renderButton(options: RenderButtonOptions): ReactElement {
 
   if (isAutomationAction(action)) {
     return renderAutomationButton({ props, content, children, action, routeParams })
+  }
+
+  // A navigate button is a plain button the always-shipped click enhancer moves
+  // the reader with — no runtime to wait for, so it is never drawn disabled.
+  if (isNavigateAction(action)) {
+    const boundRecord = (props as { _record?: Readonly<Record<string, unknown>> })._record
+    const click = buildNavigateClick(action, buildRecordContext(boundRecord, routeParams))
+    return renderPlainButton({ ...options, interactions: click && { click } })
   }
 
   const clientAttrs = clientActionAttributes(action, props, routeParams)

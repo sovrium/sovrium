@@ -306,6 +306,57 @@ export const upsertRecordsRequestSchema = preprocessed(
   })
 )
 
+/**
+ * CSV import request schema — `POST /api/tables/:table/records/import`.
+ *
+ * The grid's CSV import is a named road, not a batch call: one chunk of the
+ * file's rows, and what to do with a row whose merge field matches an existing
+ * one — `create` it anyway, `skip` it, or `overwrite` the match. `skip` and
+ * `overwrite` need `mergeOn`. 1 to 100 rows per call, the upsert's cap.
+ */
+export const importRecordsRequestSchema = Schema.Struct({
+  records: Schema.Array(
+    Schema.Struct({
+      fields: Schema.Record(Schema.String, fieldValueSchema)
+        .annotate({ description: 'Field values keyed by field name' })
+        .pipe(withDefault({})),
+    }).annotate({ description: 'One imported row.' })
+  )
+    .annotate({ description: 'The rows of one import chunk, 1 to 100 per request' })
+    .pipe(
+      Schema.check(
+        Schema.isMinLength(1).annotate({ message: 'At least one record is required' }),
+        Schema.isMaxLength(100).annotate({ message: 'Maximum 100 records per import call' })
+      )
+    ),
+  strategy: Schema.Literals(['create', 'skip', 'overwrite'])
+    .annotate({
+      description:
+        'What to do with a row whose `mergeOn` field matches an existing record: create it anyway, skip it, or overwrite the match',
+    })
+    .pipe(withDefault('create' as const)),
+  mergeOn: optionalField(
+    Schema.String.annotate({
+      description: 'The field that identifies a duplicate row; required by `skip` and `overwrite`',
+    })
+  ),
+}).pipe(
+  Schema.check(
+    Schema.makeFilter((body) =>
+      body.strategy !== 'create' && body.mergeOn === undefined
+        ? `The ${body.strategy} strategy needs a mergeOn field`
+        : undefined
+    )
+  )
+)
+
+/** CSV import response schema: what one import call did with its rows. */
+export const importRecordsResponseSchema = Schema.Struct({
+  created: Schema.Finite.annotate({ description: 'Rows created' }),
+  updated: Schema.Finite.annotate({ description: 'Existing records overwritten' }),
+  skipped: Schema.Finite.annotate({ description: 'Rows skipped as duplicates' }),
+})
+
 // ============================================================================
 // TypeScript Types
 // ============================================================================
@@ -317,3 +368,4 @@ export type BatchUpdateRecordsRequest = typeof batchUpdateRecordsRequestSchema.T
 export type BatchDeleteRecordsRequest = typeof batchDeleteRecordsRequestSchema.Type
 export type BatchRestoreRecordsRequest = typeof batchRestoreRecordsRequestSchema.Type
 export type UpsertRecordsRequest = typeof upsertRecordsRequestSchema.Type
+export type ImportRecordsRequest = typeof importRecordsRequestSchema.Type

@@ -13,7 +13,6 @@
  */
 
 import { Effect } from 'effect'
-import { createRecordProgram } from '@/application/use-cases/tables/write-record-programs'
 import {
   buildCreateAuthorshipOverrides,
   buildUpdateAuthorshipOverrides,
@@ -22,18 +21,11 @@ import { normalizeDateValuesIn } from '@/domain/models/app/tables/empty-date-ser
 import { buildSyntheticSession } from '../build-guest-session'
 import { resolveRunAsActor } from './record'
 import { callerRefusal, runLinkReader, updatesOf } from './record-caller-gate'
-import {
-  announceRecordWrite,
-  flattenWrittenRecord,
-  recordEventLoopRefusal,
-  updateAndAnnounce,
-} from './record-events'
+import { createAndAnnounce, recordEventLoopRefusal, updateAndAnnounce } from './record-events'
 import { declaredFieldNames, failureFromError, resolveActionTargetIds } from './record-filters'
 import { actionAttributes, findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
-import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import type { StepRequirements } from '../run/types'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { CallerWriteRequest } from '@/application/use-cases/tables/permissions/caller-write-authority'
 import type { App } from '@/domain/models/app'
@@ -46,26 +38,27 @@ import type { App } from '@/domain/models/app'
  */
 const upsertCreate = (config: {
   readonly actorId: string
+  readonly app: App
   readonly tableName: string
   readonly data: Readonly<Record<string, unknown>>
   readonly createOverrides: Readonly<Record<string, string>>
   readonly runContext: ActionRunContext | undefined
-}): Effect.Effect<ActionOutcome, never, TableRepository | DataSourceRepository | AuthRepository> =>
+}): Effect.Effect<ActionOutcome, never, StepRequirements> =>
   Effect.gen(function* () {
-    const { actorId, tableName, data, createOverrides, runContext } = config
+    const { actorId, app, tableName, data, createOverrides, runContext } = config
     const loop = recordEventLoopRefusal(runContext, tableName, 'create')
     if (loop !== undefined) return loop
     const created = yield* Effect.result(
-      createRecordProgram({
+      createAndAnnounce({
         session: buildSyntheticSession(actorId),
+        app,
         tableName,
         fields: { ...data, ...createOverrides },
+        runContext,
       })
     )
     if (created._tag === 'Failure') return failureFromError(created.failure)
-    const record = flattenWrittenRecord(created.success)
-    yield* announceRecordWrite(runContext, { tableName, event: 'create', record })
-    return { status: 'success', output: { operation: 'created', id: record['id'] } } as const
+    return { status: 'success', output: { operation: 'created', id: created.success.id } } as const
   })
 
 /**
@@ -83,7 +76,7 @@ const upsertUpdate = (config: {
   readonly runContext: ActionRunContext | undefined
   readonly app: App
   readonly linkReader: LinkReader | undefined
-}): Effect.Effect<ActionOutcome, never, TableRepository | DataSourceRepository | AuthRepository> =>
+}): Effect.Effect<ActionOutcome, never, StepRequirements> =>
   Effect.gen(function* () {
     const { actorId, tableName, matchedIds, data, updateOverrides, runContext } = config
     const { app, linkReader } = config
@@ -160,6 +153,7 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation, runCo
     return matchedIds.length === 0
       ? yield* upsertCreate({
           actorId,
+          app,
           tableName,
           data: normalizeDateValuesIn(app.tables, tableName, data),
           createOverrides: buildCreateAuthorshipOverrides(app.tables, tableName, actorId),

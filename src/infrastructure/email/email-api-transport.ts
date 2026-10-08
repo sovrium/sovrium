@@ -9,6 +9,7 @@ import { Data, Effect } from 'effect'
 import { withFetchStallTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import {
   PROVIDER_LABEL,
+  apiMessageRefusal,
   buildEmailApiRequest,
   providerErrorDetail,
   providerMessageId,
@@ -62,7 +63,10 @@ export const sendThroughEmailApi = (
   const secrets = transportSecrets(transport)
   const redact = (text: string): string => redactSecrets(text, secrets)
   return Effect.gen(function* () {
-    const request = buildEmailApiRequest(transport, toOutgoingMessage(options), Date.now())
+    const message = toOutgoingMessage(options)
+    const refusal = apiMessageRefusal(transport, message)
+    if (refusal !== undefined) return yield* new EmailApiError({ message: redact(refusal) })
+    const request = buildEmailApiRequest(transport, message, Date.now())
     const { response, body } = yield* Effect.tryPromise({
       // The stall-timeout variant bounds the body read too: an answer whose
       // headers arrive and whose body never does must not hold the send open.

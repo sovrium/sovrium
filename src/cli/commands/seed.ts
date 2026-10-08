@@ -156,7 +156,7 @@ const requireAccountPlan = async (
   actingAs: string | undefined
 ) => {
   const { collectAccountReferences } = await import('@/application/use-cases/seed/seed-checks')
-  const { planAccounts, readAccountIndex } = await import('./seed-accounts')
+  const { planAccounts, readAccountIndex, readPendingInvitees } = await import('./seed-accounts')
   const accountPlan = planAccounts({
     app,
     accounts: loaded.accounts,
@@ -164,6 +164,7 @@ const requireAccountPlan = async (
     references: collectAccountReferences(plan.tables),
     actingAs,
     fallbackPassword: Bun.env.SOVRIUM_SEED_PASSWORD,
+    pendingInvitees: await readPendingInvitees(),
   })
   return accountPlan.errors.length > 0
     ? refuse(`Error: seed data was refused:\n${indent(accountPlan.errors)}`)
@@ -191,12 +192,12 @@ const writeRun = async (input: {
   const { seedTablesOf } = await import('@/application/use-cases/seed/seed-config')
   const { buildSyntheticSession, buildSystemSession } =
     await import('@/application/use-cases/automations/build-guest-session')
-  const { accountReportLines, createPlannedAccounts, readAccountIndex } =
+  const { accountReportLines, createPlannedAccounts, invitationReportLines, readAccountIndex } =
     await import('./seed-accounts')
   const { executeSeedPlan } = await import('./seed-write')
 
-  const accounts = options.dryRun
-    ? await readAccountIndex()
+  const { accounts, invitations } = options.dryRun
+    ? { accounts: await readAccountIndex(), invitations: [] }
     : await createPlannedAccounts(app, accountPlan)
   const actingId = options.as === undefined ? undefined : accounts.get(options.as.toLowerCase())
   const rows = await executeSeedPlan({
@@ -208,14 +209,22 @@ const writeRun = async (input: {
     dryRun: options.dryRun,
     session: actingId === undefined ? buildSystemSession() : buildSyntheticSession(actingId),
     accounts,
+  }).catch((error: unknown) => {
+    // The invitations exist and a replay will not mint them again: hand their
+    // links over before the failure, or nobody ever can.
+    if (invitations.length > 0) report(invitationReportLines(invitations))
+    throw error
   })
-  return [...accountReportLines(accountPlan, options.dryRun), ...rows]
+  return [...accountReportLines(accountPlan, options.dryRun, invitations), ...rows]
 }
 
 /** The message a failed write phase prints, for the errors it knows by name. */
 const describeRunFailure = async (error: unknown): Promise<string> => {
   const { SeedWriteError } = await import('./seed-write')
-  const { SeedAccountError } = await import('./seed-accounts')
+  const { SeedAccountError, invitationReportLines } = await import('./seed-accounts')
+  if (error instanceof SeedAccountError && error.invitations.length > 0) {
+    report(invitationReportLines(error.invitations))
+  }
   return error instanceof SeedWriteError || error instanceof SeedAccountError
     ? `Error: ${error.message}`
     : `Error: seeding failed: ${error instanceof Error ? error.message : String(error)}`

@@ -19,13 +19,24 @@ import { sendEmail, sendEmailWithOptions } from './email-service'
 export const EmailSenderLive = Layer.succeed(
   EmailSender,
   EmailSender.of({
-    send: ({ from, fromName, cc, bcc, replyTo, ...message }) =>
+    send: ({ from, fromName, cc, bcc, replyTo, attachments, ...message }) =>
       Effect.tryPromise({
         try: () => {
           const recipients = {
             ...(cc === undefined ? {} : { cc: [...cc] }),
             ...(bcc === undefined ? {} : { bcc: [...bcc] }),
             ...(replyTo === undefined ? {} : { replyTo: [...replyTo] }),
+            ...(attachments === undefined || attachments.length === 0
+              ? {}
+              : {
+                  attachments: attachments.map((file) => ({
+                    filename: file.filename,
+                    contentType: file.contentType,
+                    content: Buffer.from(file.content),
+                    // Nodemailer sends a part with a `cid` inline, under that content id.
+                    ...(file.contentId === undefined ? {} : { cid: file.contentId }),
+                  })),
+                }),
           }
           return from !== undefined && from !== ''
             ? sendEmailWithOptions({ ...message, ...recipients, from })

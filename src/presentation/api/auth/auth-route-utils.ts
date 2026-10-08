@@ -134,6 +134,11 @@ const getAuthRateLimitConfigs = (): Readonly<Record<string, EndpointRateLimitCon
     // mounts each key with Hono's own matching and records against the key, so
     // the budget is per client address across every invitation.
     '/api/admin/invitations/:id/resend': { windowMs, maxRequests: 10 },
+    // User-code lookups of the device flow (`auth.deviceAuthorization`): the
+    // plugin's own budget, 5 per client address over a code's 30-minute life,
+    // restored here for the same reason as the mail rows. A user code is
+    // short; this cap is what keeps it from being guessed.
+    '/api/auth/device': { windowMs: 30 * 60 * 1000, maxRequests: 5 },
   }
 }
 

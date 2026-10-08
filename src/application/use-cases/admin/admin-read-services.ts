@@ -81,6 +81,7 @@ import type {
 } from '@/application/ports/repositories/tables/users-overview-repository'
 import type { AdminReadHost } from '@/application/ports/services/admin-read-host'
 import type { StorageService } from '@/application/ports/services/storage-service'
+import type { TemplateEngine } from '@/application/ports/services/template-engine'
 import type { AdminAttentionServices } from '@/application/use-cases/admin/attention'
 import type { AdminOverviewServices } from '@/application/use-cases/admin/overview'
 import type { Logger } from '@/infrastructure/logging/logger'
@@ -123,6 +124,7 @@ export type AdminReadServices =
   | ConnectionTokenRepository
   | AdminBucketFilesRepository
   | StorageService
+  | TemplateEngine
   | Logger
   | AdminAgentConversationsRepository
   | AdminFormsRepository

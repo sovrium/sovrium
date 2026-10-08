@@ -88,10 +88,24 @@ function renderStyledAggregate(
     [AGGREGATE_VALUE_FIELD]: group.value,
   }))
   const [styled] = series
+  // The value axis carries the aggregated field's currency, as the bar path's
+  // does, and the series is named after the author's label or that field —
+  // never after the internal row key it is drawn from.
+  const yAxis =
+    fields.valueCurrency === undefined
+      ? args.yAxis
+      : { ...args.yAxis, currency: fields.valueCurrency }
   return renderSeriesChart({
     ...args,
     records: rows,
     xAxis: { field: chartAggregate.groupBy },
-    series: [{ ...styled, field: AGGREGATE_VALUE_FIELD }],
+    yAxis,
+    series: [
+      {
+        ...styled,
+        field: AGGREGATE_VALUE_FIELD,
+        label: styled?.label ?? chartAggregate.field ?? chartAggregate.function,
+      },
+    ],
   })
 }

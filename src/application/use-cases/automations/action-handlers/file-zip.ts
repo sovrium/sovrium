@@ -6,8 +6,8 @@
  */
 
 /**
- * Minimal, dependency-free ZIP container writer (STORE method — no
- * compression). Used by the `file/compress` action handler.
+ * Minimal, dependency-free ZIP container writer: STORE for the `file/compress`
+ * action handler, DEFLATE (via `Bun.deflateSync`) for generated Office packages.
  *
  * The automation `compress` action only needs to produce a *valid* ZIP
  * archive (correct PK magic, listable entries) — the test corpus uses tiny
@@ -61,7 +61,10 @@ const writeU32 = (view: DataView, offset: number, value: number): void =>
 
 interface PreparedEntry {
   readonly nameBytes: Uint8Array
+  /** The payload as written: the raw bytes (STORE) or their raw DEFLATE stream. */
   readonly data: Uint8Array
+  readonly method: 0 | 8
+  readonly uncompressedSize: number
   readonly crc: number
   readonly localHeaderOffset: number
 }
@@ -76,12 +79,12 @@ const localHeaderFor = (entry: PreparedEntry): Uint8Array => {
   writeU32(view, 0, 0x04_03_4b_50) // local file header signature "PK\x03\x04"
   writeU16(view, 4, 20) // version needed to extract
   writeU16(view, 6, 0) // general purpose bit flag
-  writeU16(view, 8, 0) // compression method: STORE
+  writeU16(view, 8, entry.method) // compression method: 0 STORE, 8 DEFLATE
   writeU16(view, 10, 0) // mod time
   writeU16(view, 12, 0) // mod date
   writeU32(view, 14, entry.crc)
   writeU32(view, 18, entry.data.length) // compressed size
-  writeU32(view, 22, entry.data.length) // uncompressed size
+  writeU32(view, 22, entry.uncompressedSize)
   writeU16(view, 26, entry.nameBytes.length)
   writeU16(view, 28, 0) // extra field length
   header.set(entry.nameBytes, LOCAL_HEADER_SIZE)
@@ -98,9 +101,10 @@ const buildCentralHeaderWrites = (entry: PreparedEntry): ReadonlyArray<[number, 
     [0, 0x02_01_4b_50, 32], // central directory header signature "PK\x01\x02"
     [4, 20, 16], // version made by
     [6, 20, 16], // version needed
+    [10, entry.method, 16],
     [16, entry.crc, 32],
     [20, entry.data.length, 32],
-    [24, entry.data.length, 32],
+    [24, entry.uncompressedSize, 32],
     [28, entry.nameBytes.length, 16],
     [42, entry.localHeaderOffset, 32],
   ] as const
@@ -154,21 +158,36 @@ const concat = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 }
 
 /**
- * Build an uncompressed (STORE) ZIP archive from the supplied entries.
- * The result begins with the `PK\x03\x04` local-file-header magic.
+ * DEFLATE one payload, keeping it STORED when compression does not pay — an
+ * already-compressed image inflates under DEFLATE. `Bun.deflateSync` emits the
+ * raw DEFLATE stream (no zlib header) that ZIP method 8 expects.
  */
-export const buildStoredZip = (entries: ReadonlyArray<ZipEntry>): Uint8Array => {
+const payloadFor = (
+  bytes: Uint8Array,
+  deflate: boolean
+): { readonly data: Uint8Array; readonly method: 0 | 8 } => {
+  if (!deflate || bytes.length === 0) return { data: bytes, method: 0 }
+  const compressed = Bun.deflateSync(new Uint8Array(bytes))
+  return compressed.length < bytes.length
+    ? { data: compressed, method: 8 }
+    : { data: bytes, method: 0 }
+}
+
+const buildZip = (entries: ReadonlyArray<ZipEntry>, deflate: boolean): Uint8Array => {
   const encoder = new TextEncoder()
   const prepared = entries.reduce<{ items: PreparedEntry[]; offset: number }>(
     (state, entry) => {
       const nameBytes = encoder.encode(entry.name)
+      const payload = payloadFor(entry.bytes, deflate)
       const item: PreparedEntry = {
         nameBytes,
-        data: entry.bytes,
+        data: payload.data,
+        method: payload.method,
+        uncompressedSize: entry.bytes.length,
         crc: crc32(entry.bytes),
         localHeaderOffset: state.offset,
       }
-      const localSize = LOCAL_HEADER_SIZE + nameBytes.length + entry.bytes.length
+      const localSize = LOCAL_HEADER_SIZE + nameBytes.length + payload.data.length
       return { items: [...state.items, item], offset: state.offset + localSize }
     },
     { items: [], offset: 0 }
@@ -181,3 +200,18 @@ export const buildStoredZip = (entries: ReadonlyArray<ZipEntry>): Uint8Array => 
 
   return concat([...localSection, ...centralSection, eocd])
 }
+
+/**
+ * Build an uncompressed (STORE) ZIP archive from the supplied entries.
+ * The result begins with the `PK\x03\x04` local-file-header magic.
+ */
+export const buildStoredZip = (entries: ReadonlyArray<ZipEntry>): Uint8Array =>
+  buildZip(entries, false)
+
+/**
+ * Build a ZIP archive whose entries are DEFLATEd (method 8) wherever that makes
+ * them smaller, in the order given — what an Office package written by Sovrium
+ * uses, since its XML parts compress roughly tenfold.
+ */
+export const buildDeflatedZip = (entries: ReadonlyArray<ZipEntry>): Uint8Array =>
+  buildZip(entries, true)

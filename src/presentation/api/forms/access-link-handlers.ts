@@ -22,7 +22,6 @@ import { hashAccessToken, issueAccessToken } from '@/infrastructure/forms/access
 import { hashIp, resolveIpHashSalt } from '@/infrastructure/forms/ip-hash'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
-import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
 import { denyFormAccess, evaluateFormAccessForRequest } from '@/presentation/api/forms/access-gate'
 import { transformMultipartFiles } from '@/presentation/api/forms/file-upload-handler'
 import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
@@ -32,7 +31,6 @@ import {
   resolveSubmitRedirectTarget,
   respondSubmissionFailure,
 } from './submission-responses'
-import type { UpdateWebhookPayload } from '@/application/use-cases/tables/record-update-orchestration'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { Context } from 'hono'
@@ -112,22 +110,6 @@ export async function handleGetEditPage(
   })
 }
 
-/** Deliver the bound table's update webhooks for an edit. Total, like the records API's. */
-const editWebhooksFor =
-  (app: App, tableName: string | undefined) =>
-  (payload: UpdateWebhookPayload): Effect.Effect<void> =>
-    // effect-promise: total -- `triggerTableWebhooks` wraps its whole dispatch in a try/catch; a webhook endpoint that is down must never fail the edit that fired it.
-    Effect.promise(() =>
-      triggerTableWebhooks({
-        table: app.tables?.find((t) => t.name === tableName),
-        appEnv: app.env,
-        event: 'update',
-        record: { ...payload.record },
-        previousRecord:
-          payload.previousRecord === undefined ? undefined : { ...payload.previousRecord },
-      })
-    )
-
 /**
  * `PUT /api/forms/:name/submissions/edit/:token` (and `POST`, which a native
  * form can send) — save an edit. Refused like a first submission; an unknown
@@ -159,7 +141,6 @@ export async function handleEditSubmission(
     body: uploaded.success,
     processEnv: process.env,
     isSqlite: isSqliteRuntime(),
-    dispatchWebhooks: editWebhooksFor(app, form.submitTo.table),
     forgetDerivedVariants: evictTransformCacheForKey,
   })
   const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))

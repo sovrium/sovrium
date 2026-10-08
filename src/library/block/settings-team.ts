@@ -133,7 +133,7 @@ export const entry = defineLibraryEntry({
   notes: [
     SETTINGS_PLACE_NOTE,
     'Both lists and the Invite button are left off the page for a reader who may not administer accounts, and for a visitor, so the block can sit on a page every member reaches.',
-    'Invite sends the built-in invitation email, whose link opens `/accept-invitation`: give the page carrying the `auth-invitation-accept` block that path. Sending reloads the page, which closes the dialog and lists the new invitation.',
+    'Invite sends the built-in invitation email, whose link opens the page that declares `invitation` — the one carrying the `auth-invitation-accept` block. Sending reloads the page, which closes the dialog and lists the new invitation.',
     'The copy says invitation links work for three days, the default. If you set `auth.invitationTokenExpiry`, change the two sentences that name the duration.',
     'The role picker and the invite form offer the three built-in roles. Add your own roles to their `options`.',
     THEME_NOTE,

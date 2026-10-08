@@ -28,7 +28,6 @@
  * alias costs nothing and closes a silent-failure hole.
  */
 
-import { Result } from 'effect'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { dropOptions, isOptionsHash, optionalStr, toNumber, toStr } from './helper-coercion'
 import {
@@ -42,19 +41,21 @@ import {
   switchCase,
 } from './helper-collections'
 import {
-  boundaryOf,
   dateDiffInDays,
-  dayOfWeek,
+  dayOfWeekHelper,
+  endOfHelper,
   formatDate,
   fromTimestamp,
-  isWeekday,
-  isWeekend,
+  isWeekdayHelper,
+  isWeekendHelper,
   isoNow,
   parseDate,
   shiftDate,
+  startOfHelper,
   timestamp,
   type ShiftUnit,
 } from './helper-dates'
+import * as documents from './helper-documents'
 import { safeHtmlHelper, urlPathHelper } from './helper-encoding'
 import {
   firstEmail,
@@ -78,6 +79,8 @@ import {
   kebabCase,
   matchAll,
   numericFold,
+  padEnd,
+  padStart,
   parityOf,
   pascalCase,
   percentage,
@@ -119,11 +122,11 @@ const registerTrimHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('trimEnd', (v: unknown) => toStr(v).trimEnd())
   hbs.registerHelper('padStart', (...args: readonly unknown[]) => {
     const ops = dropOptions(args)
-    return toStr(ops[0]).padStart(toNumber(ops[1]), optionalStr(ops, 2) ?? ' ')
+    return padStart(toStr(ops[0]), toNumber(ops[1]), optionalStr(ops, 2) ?? ' ')
   })
   hbs.registerHelper('padEnd', (...args: readonly unknown[]) => {
     const ops = dropOptions(args)
-    return toStr(ops[0]).padEnd(toNumber(ops[1]), optionalStr(ops, 2) ?? ' ')
+    return padEnd(toStr(ops[0]), toNumber(ops[1]), optionalStr(ops, 2) ?? ' ')
   })
   hbs.registerHelper('repeat', (v: unknown, count: unknown) => repeat(toStr(v), toNumber(count)))
   hbs.registerHelper('reverse', (v: unknown) => reverseString(toStr(v)))
@@ -220,19 +223,9 @@ const registerNumberFormatHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('formatNumber', (...args: readonly unknown[]) => {
     const ops = dropOptions(args)
     const digits = ops.length > 1 ? toNumber(ops[1]) : undefined
-    return formatNumber(toNumber(ops[0]), digits, optionalStr(ops, 2))
+    return formatNumber(toNumber(ops[0]), digits, documents.helperLocale(args, optionalStr(ops, 2)))
   })
-  hbs.registerHelper('formatCurrency', (...args: readonly unknown[]) => {
-    const ops = dropOptions(args)
-    const n = toNumber(ops[0])
-    if (!Number.isFinite(n)) return ''
-    const code = optionalStr(ops, 1) ?? 'USD'
-    const result = Result.try({
-      try: () => new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(n),
-      catch: () => `${code} ${n.toFixed(2)}`,
-    })
-    return Result.isSuccess(result) ? result.success : result.failure
-  })
+  hbs.registerHelper('formatCurrency', documents.formatCurrencyHelper)
 }
 
 // ─── registration: dates ─────────────────────────────────────────────────
@@ -271,7 +264,8 @@ const registerDateArithmeticHelpers = (hbs: Hbs): void => {
 const registerDateFormatHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('formatDate', (...args: readonly unknown[]) => {
     const ops = dropOptions(args)
-    return formatDate(ops[0], toStr(ops[1]), optionalStr(ops, 2), optionalStr(ops, 3))
+    const locale = documents.helperLocale(args, optionalStr(ops, 3))
+    return formatDate(ops[0], toStr(ops[1]), optionalStr(ops, 2), locale)
   })
   hbs.registerHelper('parseDate', (...args: readonly unknown[]) => {
     const ops = dropOptions(args)
@@ -285,26 +279,11 @@ const registerDateFormatHelpers = (hbs: Hbs): void => {
 }
 
 const registerDateQueryHelpers = (hbs: Hbs): void => {
-  hbs.registerHelper('startOf', (...args: readonly unknown[]) => {
-    const ops = dropOptions(args)
-    return boundaryOf(ops[0], toStr(ops[1]), optionalStr(ops, 2), 'start')
-  })
-  hbs.registerHelper('endOf', (...args: readonly unknown[]) => {
-    const ops = dropOptions(args)
-    return boundaryOf(ops[0], toStr(ops[1]), optionalStr(ops, 2), 'end')
-  })
-  hbs.registerHelper('dayOfWeek', (...args: readonly unknown[]) => {
-    const ops = dropOptions(args)
-    return dayOfWeek(ops[0], optionalStr(ops, 1), optionalStr(ops, 2))
-  })
-  hbs.registerHelper('isWeekday', (...args: readonly unknown[]) => {
-    const ops = dropOptions(args)
-    return isWeekday(ops[0], optionalStr(ops, 1))
-  })
-  hbs.registerHelper('isWeekend', (...args: readonly unknown[]) => {
-    const ops = dropOptions(args)
-    return isWeekend(ops[0], optionalStr(ops, 1))
-  })
+  hbs.registerHelper('startOf', startOfHelper)
+  hbs.registerHelper('endOf', endOfHelper)
+  hbs.registerHelper('dayOfWeek', dayOfWeekHelper)
+  hbs.registerHelper('isWeekday', isWeekdayHelper)
+  hbs.registerHelper('isWeekend', isWeekendHelper)
   hbs.registerHelper('timestamp', (v: unknown) => timestamp(v))
   hbs.registerHelper('fromTimestamp', (v: unknown) => fromTimestamp(v))
 }
@@ -437,6 +416,15 @@ const registerEncodingHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('safeHtml', safeHtmlHelper)
 }
 
+/** The helpers built for an action's own document template (`helper-documents.ts`). */
+const registerDocumentHelpers = (hbs: Hbs): void => {
+  hbs.registerHelper('chunk', documents.chunkHelper)
+  hbs.registerHelper('pageBreak', documents.pageBreakHelper)
+  hbs.registerHelper('image', documents.imageHelper)
+  hbs.registerHelper('qrcode', documents.qrcodeHelper)
+  hbs.registerHelper('t', documents.translateHelper)
+}
+
 const registerCoercionHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('number', (v: unknown) => toNumber(v))
   hbs.registerHelper('toNumber', (v: unknown) => toNumber(v))
@@ -472,4 +460,5 @@ export const registerHelpers = (hbs: Hbs): void => {
   registerComparisonHelpers(hbs)
   registerEncodingHelpers(hbs)
   registerCoercionHelpers(hbs)
+  registerDocumentHelpers(hbs)
 }

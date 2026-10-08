@@ -6,11 +6,19 @@
  */
 
 import { Data, Effect } from 'effect'
-import { haltedOutcome, runNestedSequence, type SequenceRun } from './nested-sequence'
+import { changedItemRefusal, EMPTY_TALLY, resumedLoopState, type LoopTally } from './loop-tally'
+import {
+  haltedOutcome,
+  runNestedSequence,
+  type SequenceResume,
+  type SequenceRun,
+} from './nested-sequence'
+import { laterResponse } from './response-precedence'
 import {
   asArray,
   authoredActionProps,
   buildRunContextView,
+  finalNestedActionProps,
   renderNestedActionProps,
   resolveOwnProp,
 } from './run-context-resolution'
@@ -92,29 +100,6 @@ type IterationOutcome = (
   | { readonly kind: 'halted'; readonly output: unknown; readonly halt: ActionOutcome }
 ) & { readonly steps: readonly ExecutedStep[] }
 
-/** Running state across the iteration sequence. */
-interface LoopTally {
-  readonly results: readonly unknown[]
-  readonly failed: number
-  readonly firstError: string | undefined
-  readonly stopped: boolean
-  /** A `flow/stop`, a stopping filter or a pause an item reached: it ends the run. */
-  readonly halt: ActionOutcome | undefined
-  readonly responseOverride: Readonly<Record<string, unknown>> | undefined
-  /** Each item that ran, with the steps run for it. */
-  readonly iterations: NonNullable<ExecutedStep['iterations']>
-}
-
-const EMPTY_TALLY: LoopTally = {
-  iterations: [],
-  results: [],
-  failed: 0,
-  firstError: undefined,
-  stopped: false,
-  halt: undefined,
-  responseOverride: undefined,
-}
-
 /**
  * Fold one item's outcome into the tally, halting the sequence when an item
  * failed and the author did not opt into `continueOnItemError`.
@@ -143,9 +128,11 @@ const foldIteration = (
   const ran = { ...tally, iterations: [...tally.iterations, iteration] }
   if (outcome.kind === 'ok') return { ...ran, results: [...tally.results, outcome.output ?? {}] }
   if (outcome.kind === 'halted') {
+    // An item parked on a long wait has no result yet: it is added at resume.
+    const parked = outcome.halt.park !== undefined
     return {
       ...ran,
-      results: [...tally.results, outcome.output ?? {}],
+      results: parked ? tally.results : [...tally.results, outcome.output ?? {}],
       stopped: true,
       halt: outcome.halt,
     }
@@ -174,6 +161,10 @@ const foldIteration = (
 const loopOutcome = (tally: LoopTally, continueOnItemError: boolean): ActionOutcome => {
   const output = { results: tally.results, iterations: tally.results.length, failed: tally.failed }
   const nestedSteps = { iterations: tally.iterations }
+  // A park: the loop's row waits with what it has so far, the run with it.
+  if (tally.halt?.park !== undefined) {
+    return { status: 'success', output, nestedSteps, park: tally.halt.park }
+  }
   const halted =
     tally.halt === undefined
       ? undefined
@@ -210,6 +201,8 @@ interface IterationInput {
   readonly loop: { readonly item: unknown; readonly index: number }
   readonly runNested: NonNullable<ActionRunContext['runNestedStep']>
   readonly fill: FillProps
+  /** Set on the item the run resumes inside. */
+  readonly resume?: SequenceResume
 }
 
 /**
@@ -230,10 +223,11 @@ const runIteration = async (input: IterationInput): Promise<IterationOutcome> =>
       const view = buildRunContextView({ ...runContext, previousSteps })
       return fill(action, { ...view, loop })
     },
+    ...(input.resume === undefined ? {} : { resume: input.resume }),
   })
   const { steps } = run
   if (run.halt === undefined) return { kind: 'ok', output: run.last, steps }
-  if (run.halt.status === 'failure') {
+  if (run.halt.status === 'failure' && run.halt.cancelRun === undefined) {
     return { kind: 'failed', error: run.halt.error ?? 'loop.each: an item failed', steps }
   }
   return { kind: 'halted', output: run.last, halt: { ...run.halt, ...pickOverride(run) }, steps }
@@ -255,9 +249,8 @@ const runIterationSafely = (input: IterationInput): Promise<IterationOutcome> =>
     steps: [],
   }))
 
-/** Run all iterations sequentially (one Promise chain) so step order and a
- *  failing item surface deterministically. */
-const runAllIterations = (input: {
+/** The iterations to run: every item up to `limit`, or — resuming — from the paused one. */
+interface IterationsInput {
   readonly items: readonly unknown[]
   readonly limit: number
   readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
@@ -265,19 +258,70 @@ const runAllIterations = (input: {
   readonly runNested: NonNullable<ActionRunContext['runNestedStep']>
   readonly fill: FillProps
   readonly continueOnItemError: boolean
-}): Promise<LoopTally> => {
+  readonly from?: {
+    readonly item: number
+    readonly tally: LoopTally
+    readonly resume: SequenceResume
+  }
+}
+
+/** An item parked the run: its park gains where the loop stands, for the loop's own frame. */
+const withItemFrame = (outcome: IterationOutcome, index: number, items: readonly unknown[]) =>
+  outcome.kind === 'halted' && outcome.halt.park !== undefined
+    ? {
+        ...outcome,
+        halt: {
+          ...outcome.halt,
+          park: {
+            ...outcome.halt.park,
+            container: { kind: 'loop' as const, item: index, itemValue: items[index] },
+          },
+        },
+      }
+    : outcome
+
+/** Run all iterations sequentially (one Promise chain) so step order and a
+ *  failing item surface deterministically. */
+const runAllIterations = (input: IterationsInput): Promise<LoopTally> => {
   const { items, limit, actions, runContext, runNested, fill, continueOnItemError } = input
-  const indices = Array.from({ length: limit }, (_v, i) => i)
-  return indices.reduce<Promise<LoopTally>>(async (prev, i) => {
-    const tally = await prev
-    if (tally.stopped) return tally
-    const loop = { item: items[i], index: i }
-    const outcome = await runIterationSafely({ actions, runContext, loop, runNested, fill })
-    const next = foldIteration(tally, outcome, continueOnItemError)
-    return outcome.kind === 'halted'
-      ? { ...next, responseOverride: outcome.halt.responseOverride ?? tally.responseOverride }
-      : next
-  }, Promise.resolve(EMPTY_TALLY))
+  const first = input.from?.item ?? 0
+  const indices = Array.from({ length: Math.max(0, limit - first) }, (_v, i) => first + i)
+  return indices.reduce<Promise<LoopTally>>(
+    async (prev, i) => {
+      const tally = await prev
+      if (tally.stopped) return tally
+      const loop = { item: items[i], index: i }
+      const resume = i === first ? input.from?.resume : undefined
+      const iteration = { actions, runContext, loop, runNested, fill }
+      const ran = await runIterationSafely(
+        resume === undefined ? iteration : { ...iteration, resume }
+      )
+      const outcome = withItemFrame(ran, i, items)
+      const next = foldIteration(tally, outcome, continueOnItemError)
+      return outcome.kind === 'halted'
+        ? {
+            ...next,
+            responseOverride: laterResponse(tally.responseOverride, outcome.halt.responseOverride),
+          }
+        : next
+    },
+    Promise.resolve(input.from?.tally ?? EMPTY_TALLY)
+  )
+}
+
+/**
+ * Where a loop the run resumes inside starts again: the item it paused on,
+ * with the tally of the items before it — or the refusal that cancels the run
+ * when the list it walks no longer holds that item there.
+ */
+const resumeFrom = (
+  action: Readonly<Record<string, unknown>>,
+  runContext: ActionRunContext,
+  items: readonly unknown[]
+): IterationsInput['from'] | string | undefined => {
+  if (runContext.resume === undefined) return undefined
+  const refusal = changedItemRefusal(String(action['name'] ?? ''), runContext.resume, items)
+  return refusal ?? resumedLoopState(runContext.resume)
 }
 
 export const handleLoopEach: ActionHandler = (action, _app, _automation, runContext) =>
@@ -292,12 +336,15 @@ export const handleLoopEach: ActionHandler = (action, _app, _automation, runCont
     // A loop whose props a step handed over (final) runs them as given.
     const fill: FillProps =
       runContext.propsFinal === true
-        ? (nested) => ({ props: (nested['props'] ?? {}) as Record<string, unknown> })
+        ? finalNestedActionProps
         : (nested, itemContext) =>
             renderNestedActionProps(nested, itemContext, runContext.templates)
     const actions = asActionList(props['actions'])
     const limit = Math.min(items.length, maxIterationsOf(props))
     const continueOnItemError = props['continueOnItemError'] === true
+    const from = resumeFrom(action, runContext, items)
+    if (typeof from === 'string')
+      return { status: 'failure' as const, error: from, cancelRun: from }
 
     return yield* Effect.tryPromise({
       // A per-item rejection is now caught inside the sequence, so this catch
@@ -311,6 +358,7 @@ export const handleLoopEach: ActionHandler = (action, _app, _automation, runCont
           runNested,
           fill,
           continueOnItemError,
+          ...(from === undefined ? {} : { from }),
         }),
       catch: (cause) =>
         new LoopIterationError({

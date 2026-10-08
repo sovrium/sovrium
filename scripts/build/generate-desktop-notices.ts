@@ -66,6 +66,7 @@ import {
 } from '../lib/desktop-version'
 import { REPO_ROOT } from '../lib/drift/walk'
 import { CommandServiceLive, spawn } from '../lib/effect/command-service'
+import { bytesToLf, sameIgnoringCrlf } from '../lib/line-endings'
 import { LICENSE_SUPPLEMENTS } from '../lib/third-party-license-supplements'
 import {
   classifyLicense,
@@ -101,17 +102,25 @@ const VERSION_NORMALISERS: ReadonlyMap<string, (content: string) => string> = ne
 ])
 
 /**
- * The bytes of one input as they are hashed: the app's own version normalised
- * out where the input carries it, the raw bytes otherwise — and the raw bytes
- * too when the normaliser cannot anchor, so a malformed manifest reads stale.
+ * The bytes of one input as they are hashed: CRLF folded to LF first, then the
+ * app's own version normalised out where the input carries it — and the
+ * LF-folded bytes alone when the version normaliser cannot anchor, so a
+ * malformed manifest reads stale.
+ *
+ * The fold comes first and applies to every input, because a Windows checkout
+ * under `core.autocrlf` hands back all six as CRLF: unfolded, every recorded
+ * hash moves and the version rewrites (anchored on `\n`) stop matching, on a
+ * tree whose content nobody changed. On an LF tree the fold is the identity, so
+ * the hashes the committed header records do not move.
  */
 export const hashableContent = (path: string, bytes: Buffer): Buffer => {
+  const lf = bytesToLf(bytes)
   const normalise = VERSION_NORMALISERS.get(path)
-  if (normalise === undefined) return bytes
+  if (normalise === undefined) return lf
   try {
-    return Buffer.from(normalise(bytes.toString('utf8')), 'utf8')
+    return Buffer.from(normalise(lf.toString('utf8')), 'utf8')
   } catch {
-    return bytes
+    return lf
   }
 }
 
@@ -127,6 +136,15 @@ export const hashInputs = (
           .digest('hex')
       : 'missing',
   }))
+
+/**
+ * Whether the committed file matches the rendered one, its CRLF folded: the
+ * rendered side is always LF (every text it embeds is read through
+ * `readTextLf`), so a Windows checkout's line endings are not a content change,
+ * while an edited text or a moved hash still is.
+ */
+export const isDesktopNoticesCurrent = (committed: string, rendered: string): boolean =>
+  sameIgnoringCrlf(committed, rendered)
 
 /** The `input:` lines a committed file's header carries. */
 export const parseRecordedInputs = (text: string): ReadonlyMap<string, string> =>
@@ -327,7 +345,7 @@ const main = (argv: readonly string[]): Effect.Effect<number, unknown> =>
     const summary = rendered.split('\n').find((line) => line.startsWith('Rust crates:')) ?? ''
     if (argv.includes('--check')) {
       const committed = existsSync(target) ? readFileSync(target, 'utf8') : ''
-      if (committed !== rendered) {
+      if (!isDesktopNoticesCurrent(committed, rendered)) {
         console.log(
           `${DESKTOP_NOTICES_PATH} is stale — run \`bun run build:desktop-notices\` and commit it.`
         )

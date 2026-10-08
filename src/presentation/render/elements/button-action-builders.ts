@@ -66,6 +66,7 @@ export type AutomationAction = {
   await?: boolean
   inputData?: Record<string, unknown>
   onSuccess?: { toast?: { message?: string; variant?: string } }
+  onError?: { toast?: { message?: string; variant?: string } }
 }
 
 /**
@@ -119,6 +120,17 @@ export function resolveInputDataRecordVars(
   return substituteRecordInInputData(inputData, record, substituteRecordVars)
 }
 
+/** The `data-on-<outcome>-message` / `-variant` pair one outcome's toast declares. */
+function outcomeToastAttributes(
+  outcome: 'success' | 'error',
+  toast: { message?: string; variant?: string } | undefined
+): Record<string, string> {
+  return {
+    ...(toast?.message && { [`data-on-${outcome}-message`]: toast.message }),
+    ...(toast?.variant && { [`data-on-${outcome}-variant`]: toast.variant }),
+  }
+}
+
 /**
  * Build data attributes for automation actions. `data-action-input` carries
  * the JSON-serialized `inputData` (with `$record.*` already substituted) so
@@ -135,12 +147,8 @@ export function buildAutomationDataAttributes(
     ...(resolvedInputData !== undefined && {
       'data-action-input': JSON.stringify(resolvedInputData),
     }),
-    ...(action.onSuccess?.toast?.message && {
-      'data-on-success-message': action.onSuccess.toast.message,
-    }),
-    ...(action.onSuccess?.toast?.variant && {
-      'data-on-success-variant': action.onSuccess.toast.variant,
-    }),
+    ...outcomeToastAttributes('success', action.onSuccess?.toast),
+    ...outcomeToastAttributes('error', action.onError?.toast),
   }
 }
 

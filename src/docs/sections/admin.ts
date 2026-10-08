@@ -6,6 +6,7 @@
  */
 
 import adminDashboardBody from '@/admin/config/pages/admin-dashboard.docs.md' with { type: 'file' }
+import adminReadApiBody from '@/admin/config/pages/admin-read-api.docs.md' with { type: 'file' }
 import designSystemConsoleBody from '@/admin/config/pages/design-system/design-system-console.docs.md' with { type: 'file' }
 import adminCustomizationBody from '@/domain/models/app/admin/admin-customization.docs.md' with { type: 'file' }
 import { BuiltInAnalyticsSchema } from '@/domain/models/app/analytics'
@@ -16,17 +17,22 @@ import { defineArticle, defineSection } from './define'
 /**
  * Admin & Observability — the section manifest.
  *
- * ─── WHY FIVE ARTICLES SIT IN FOUR DIFFERENT TREES ─────────────────────────
+ * ─── WHY SIX ARTICLES SIT IN FOUR DIFFERENT TREES ─────────────────────────
  *
  * The obvious reading is that every `admin` article belongs under
- * `src/admin/`, and it is wrong for two of the five. The placement rule sends
+ * `src/admin/`, and it is wrong for two of the six. The placement rule sends
  * a paragraph to the narrowest thing it is TRUE of, and "the operator console"
- * is not the subject of all five:
+ * is not the subject of all six:
  *
  *   - `admin-dashboard` documents the console's own surface — every page it
- *     serves, how you sign into it, and the read API behind it. Its pages span
+ *     serves and how you sign into it. Its pages span
  *     `config/pages/{,data/,developers/}`, so the narrowest directory holding
  *     them is `src/admin/config/pages/` itself.
+ *   - `admin-read-api` documents the `/api/admin/*` read API those pages are
+ *     composed from. It was split out of `admin-dashboard` to keep each
+ *     fragment under its size ceiling, and stays beside it: the endpoints'
+ *     subject is the console's pages, and their routes span several
+ *     `src/presentation/api/` directories, none narrower than the console.
  *   - `design-system-console` documents the eight routes under
  *     `/design-system`, which are exactly the pages of
  *     `config/pages/design-system/`.
@@ -53,7 +59,7 @@ import { defineArticle, defineSection } from './define'
  * `AdminConfigSchema` is `Schema.Boolean`. The walker renders a scalar as an
  * empty table and the engine refuses to publish one, so the `admin` key is
  * prose — the same call the manual already makes for `NameSchema` and
- * `VersionSchema`. Everything else these five articles tabulate is a ROUTE or
+ * `VersionSchema`. Everything else these six articles tabulate is a ROUTE or
  * an HTTP parameter rather than a config option, and no schema node carries
  * it. `BuiltInAnalytics` is the one real option bag in the section.
  */
@@ -96,11 +102,6 @@ export const section = defineSection({
         'US-ADMIN-BUCKETS-LIST',
         'US-ADMIN-BUCKETS-OVERVIEW',
         'US-ADMIN-CONFIG-ENV',
-        'US-ADMIN-CONFIG-INSTANCE',
-        'US-ADMIN-CONFIG-MCP-TOOLS',
-        'US-ADMIN-CONFIG-REFLECTION',
-        'US-ADMIN-CONFIG-SCHEMA',
-        'US-ADMIN-CONFIG-VERSION',
         'US-ADMIN-CONNECTIONS-CONNECTIONS',
         'US-ADMIN-CONNECTIONS-CONNECTIONS-ACTIONS',
         'US-ADMIN-DASHBOARD-AUTH-ENDUSERS',
@@ -119,6 +120,38 @@ export const section = defineSection({
         'US-ADMIN-LINKS-MUTATIONS',
         'US-ADMIN-LINKS-VARIANTS',
         'US-ADMIN-RELEASES-LEDGER',
+      ],
+    }),
+    defineArticle({
+      slug: 'admin-read-api',
+      title: 'Admin Read API',
+      description:
+        'The `/api/admin/*` endpoints behind the operator console — overview and list shapes, the users and tables overviews, the developer reads and the design-system export — admin-gated, answering 404 to anyone else.',
+      keywords: [
+        'sovrium',
+        'admin API',
+        '/api/admin',
+        'read API',
+        'overview',
+        'cursor pagination',
+        'degraded',
+        'users overview',
+        'instance',
+        'MCP tools',
+        'config reflection',
+        'design tokens',
+        '404',
+      ],
+      order: 9402,
+      sidebarLabel: 'Admin Read API',
+      body: adminReadApiBody,
+      documents: [],
+      stories: [
+        'US-ADMIN-CONFIG-INSTANCE',
+        'US-ADMIN-CONFIG-MCP-TOOLS',
+        'US-ADMIN-CONFIG-REFLECTION',
+        'US-ADMIN-CONFIG-SCHEMA',
+        'US-ADMIN-CONFIG-VERSION',
         'US-ADMIN-TABLES-OVERVIEW',
         'US-ADMIN-USERS-OVERVIEW',
       ],

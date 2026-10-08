@@ -4,7 +4,7 @@
 
 Creating a user directly makes an admin choose the new password and sends the person nothing: workable for a script, unusable for onboarding a customer. An invitation closes that gap. The admin supplies an address, a name and a role with **no password**, Sovrium emails a single-use link, and the invitee sets their own password and lands authenticated.
 
-The link names this instance: `BASE_URL` when it is set, otherwise the address the request reached — the forwarded one only behind a declared proxy (`TRUSTED_PROXY_HOPS`). The `Origin` or `Referer` the inviting browser sent is never used, so nobody issuing an invitation can point it at another domain.
+The link opens the app's own invitation page — the first page declaring `invitation`, at its path, with the token under the key its `param` names — or the built-in `/accept-invitation` when the app declares none. It names this instance: `BASE_URL` when it is set, otherwise the address the request reached — the forwarded one only behind a declared proxy (`TRUSTED_PROXY_HOPS`). The `Origin` or `Referer` the inviting browser sent is never used, so nobody issuing an invitation can point it at another domain.
 
 ```yaml
 auth:

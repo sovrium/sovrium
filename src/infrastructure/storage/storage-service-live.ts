@@ -134,20 +134,7 @@ const assertBucketWritable = (
   )
 
 /** File metadata lookup shared by every provider — reads `system.file_storage_metadata`. */
-const getMetadataFromCatalog = (
-  key: string,
-  bucket: BucketBinding
-): Effect.Effect<
-  {
-    readonly key: string
-    readonly contentType: string
-    readonly size: number
-    readonly lastModified: string
-    readonly bucket?: string
-    readonly uploadedBy?: string
-  },
-  StorageError
-> =>
+const getMetadataFromCatalog: StorageService['Service']['getMetadata'] = (key, bucket) =>
   Effect.tryPromise({ try: () => readFileMetadata(key), catch: (e: unknown) => makeError(e) }).pipe(
     Effect.flatMap((meta) =>
       meta && bucketBindingMatches(bucket, meta.bucket)
@@ -158,6 +145,7 @@ const getMetadataFromCatalog = (
             lastModified: meta.lastModified,
             ...(meta.bucket === null ? {} : { bucket: meta.bucket }),
             ...(meta.uploadedBy === null ? {} : { uploadedBy: meta.uploadedBy }),
+            ...(meta.generatedBy === null ? {} : { generatedBy: meta.generatedBy }),
           })
         : Effect.fail(makeError(storageObjectNotFound(key)))
     )
@@ -188,7 +176,7 @@ export const StorageServiceLive = Layer.effect(
       yield* Effect.promise(() => warnIfS3BucketUnreachable(client, config.endpoint, s3Bucket))
       return StorageService.of({
         upload: (key: string, content: Uint8Array, mimeType: string, target: UploadTarget) => {
-          const { bucket, uploadedById } = uploadTargetParts(target)
+          const { bucket, uploadedById, generatedBy } = uploadTargetParts(target)
           return assertBucketWritable(key, bucket).pipe(
             Effect.flatMap(() =>
               Effect.tryPromise({
@@ -201,6 +189,7 @@ export const StorageServiceLive = Layer.effect(
                       storageProvider: 's3',
                       bucket,
                       uploadedById,
+                      generatedBy,
                     })
                   ),
                 catch: (e: unknown) => makeError(e),
@@ -269,7 +258,7 @@ export const StorageServiceLive = Layer.effect(
       })
       return StorageService.of({
         upload: (key: string, content: Uint8Array, mimeType: string, target: UploadTarget) => {
-          const { bucket, uploadedById } = uploadTargetParts(target)
+          const { bucket, uploadedById, generatedBy } = uploadTargetParts(target)
           return assertBucketWritable(key, bucket).pipe(
             Effect.flatMap(() =>
               Effect.tryPromise({
@@ -282,6 +271,7 @@ export const StorageServiceLive = Layer.effect(
                       storageProvider: 'local',
                       bucket,
                       uploadedById,
+                      generatedBy,
                     })
                   ),
                 catch: (e: unknown) => makeError(e),

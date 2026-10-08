@@ -8,6 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { getDb } from '@/infrastructure/database/drizzle/db-bun'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 
 /**
  * A single webhook delivery-log row, shaped for the API response.
@@ -57,6 +58,21 @@ interface RawDeliveryRow {
 const toApiStatus = (status: string): 'success' | 'failed' =>
   status === 'success' ? 'success' : 'failed'
 
+/**
+ * The stored header set as an object. The column holds JSON text on SQLite and
+ * comes back from PostgreSQL as that text too, so it is parsed here: the read
+ * routes redact a header set by name, which an unparsed string slips past.
+ * Text that does not parse is returned as it came.
+ */
+const headersOf = (stored: unknown): unknown => {
+  if (typeof stored !== 'string') return stored
+  try {
+    return JSON.parse(stored) as unknown
+  } catch {
+    return stored
+  }
+}
+
 /** Map a raw `_webhook_deliveries` row to a {@link DeliveryLogEntry}. */
 const mapRow = (row: RawDeliveryRow): DeliveryLogEntry => ({
   id: String(row.id),
@@ -73,7 +89,7 @@ const mapRow = (row: RawDeliveryRow): DeliveryLogEntry => ({
   requestedAt: new Date(row.requested_at).toISOString(),
   completedAt: new Date(row.completed_at).toISOString(),
   payload: row.payload,
-  requestHeaders: row.request_headers,
+  requestHeaders: headersOf(row.request_headers),
 })
 
 /**
@@ -126,7 +142,11 @@ export const listDeliveries = async (
   const cursorClause = cursor === undefined ? sql`` : sql` AND id < ${cursor}`
   const statusClause = status === undefined ? sql`` : sql` AND status = ${status}`
 
-  const pageResult = await getDb().execute(sql`
+  // `executeRaw` runs `.execute()` on PostgreSQL and `.all()` on SQLite, which
+  // has no `.execute()`: the log reads on both engines, as `logDelivery` writes.
+  const pageResult = await executeRaw(
+    getDb(),
+    sql`
     SELECT id, webhook_name, table_name, event, url, status, http_status,
            attempt_count, error, response_body, duration_ms,
            requested_at, completed_at, payload, request_headers
@@ -134,18 +154,22 @@ export const listDeliveries = async (
     WHERE table_name = ${tableName} AND webhook_name = ${webhookName}${cursorClause}${statusClause}
     ORDER BY id DESC
     LIMIT ${limit}
-  `)
+  `
+  )
   const rows = rowsOf<RawDeliveryRow>(pageResult)
   const deliveries = rows.map(mapRow)
 
   // COUNT(*) without the PG-only `::int` cast — both dialects return an
   // integer-typed value from COUNT(*) natively; the cast was a defensive
   // type-coercion that breaks SQLite's parser (`near "::"`).
-  const countResult = await getDb().execute(sql`
+  const countResult = await executeRaw(
+    getDb(),
+    sql`
     SELECT COUNT(*) AS count
     FROM _webhook_deliveries
     WHERE table_name = ${tableName} AND webhook_name = ${webhookName}${statusClause}
-  `)
+  `
+  )
   const countRow = rowsOf<{ count: number }>(countResult)[0]
   const totalCount = toFiniteCount(countRow?.count)
 
@@ -173,7 +197,9 @@ export const getDelivery = async (input: {
   readonly deliveryId: number
 }): Promise<DeliveryLogEntry | undefined> => {
   const { tableName, webhookName, deliveryId } = input
-  const result = await getDb().execute(sql`
+  const result = await executeRaw(
+    getDb(),
+    sql`
     SELECT id, webhook_name, table_name, event, url, status, http_status,
            attempt_count, error, response_body, duration_ms,
            requested_at, completed_at, payload, request_headers
@@ -182,7 +208,22 @@ export const getDelivery = async (input: {
       AND table_name = ${tableName}
       AND webhook_name = ${webhookName}
     LIMIT 1
-  `)
+  `
+  )
   const row = rowsOf<RawDeliveryRow>(result)[0]
   return row === undefined ? undefined : mapRow(row)
+}
+
+/**
+ * The outbox delivery id a delivery-log row settled, so a manual retry re-sends
+ * under the delivery's own `X-Sovrium-Delivery-Id`. `undefined` for a test send
+ * and for a row written before the outbox existed.
+ */
+export const getDeliveryOutboxId = async (logId: number): Promise<string | undefined> => {
+  const rows = await executeRaw(
+    getDb(),
+    sql`SELECT delivery_id FROM _webhook_deliveries WHERE id = ${logId} LIMIT 1`
+  )
+  const value = rows[0]?.['delivery_id']
+  return typeof value === 'string' && value !== '' ? value : undefined
 }

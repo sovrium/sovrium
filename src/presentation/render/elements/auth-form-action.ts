@@ -8,6 +8,7 @@
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
+import type { ButtonVariant } from '@/presentation/design/button-default-classes'
 
 /** Per-field label/placeholder override declared on an auth action. */
 export type AuthFieldOverride = {
@@ -38,6 +39,8 @@ export type AuthFormAction = {
   readonly submitLabel?: string
   /** Custom in-flight (pending) submit-button label (supports `$t:key`). */
   readonly pendingLabel?: string
+  /** The submit's weight, in the `button` component's variant vocabulary. */
+  readonly submitVariant?: ButtonVariant
   /** Per-field label/placeholder overrides (each supports `$t:key`). */
   readonly fields?: readonly AuthFieldOverride[]
   readonly onSuccess?: {

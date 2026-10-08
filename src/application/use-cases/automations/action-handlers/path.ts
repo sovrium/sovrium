@@ -11,18 +11,20 @@ import {
   EMPTY_SEQUENCE,
   haltedOutcome,
   runNestedSequence,
-  type SequenceRun,
+  type SequenceResume,
 } from './nested-sequence'
+import { resumedBranchRun, type BranchRun } from './path-resume'
+import { laterResponse } from './response-precedence'
 import {
   authoredActionProps,
   buildRunContextView,
+  finalNestedActionProps,
   renderNestedActionProps,
   resolveOwnProp,
 } from './run-context-resolution'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 import type { RenderedActionProps } from '../run/render-action-props'
-import type { ExecutedStep } from '../run/types'
 
 /**
  * `path/branch` handler — conditional branching (n8n Switch / Make router).
@@ -136,15 +138,6 @@ const pathMatches = (path: DeclaredPath, runContext: ActionRunContext): boolean 
   )
 }
 
-interface BranchRun {
-  readonly matched: readonly string[]
-  readonly results: Record<string, unknown>
-  /** Each path that ran, with the steps run inside it. */
-  readonly paths: readonly { readonly name: string; readonly steps: readonly ExecutedStep[] }[]
-  /** What every path run so far produced: the next path's actions read it. */
-  readonly sequence: SequenceRun
-}
-
 /**
  * Run every selected branch as ONE promise chain so declaration order is
  * observable in the rows each branch writes, not merely in `matched`.
@@ -159,28 +152,37 @@ const runSelectedBranches = (input: {
   readonly selected: ReadonlyArray<DeclaredPath>
   readonly runContext: ActionRunContext
   readonly runNested: NonNullable<ActionRunContext['runNestedStep']>
+  /** Resuming: what had run before the park, and how the first selected path re-enters. */
+  readonly from?: { readonly run: BranchRun; readonly resume: SequenceResume }
 }): Promise<BranchRun> => {
   const { selected, runContext, runNested } = input
   const fillProps = (
     action: Readonly<Record<string, unknown>>,
     previousSteps: ActionRunContext['previousSteps']
-  ): RenderedActionProps =>
-    runContext.propsFinal === true
-      ? { props: (action['props'] ?? {}) as Record<string, unknown> }
-      : renderNestedActionProps(
-          action,
-          buildRunContextView({ ...runContext, previousSteps }),
-          runContext.templates
-        )
+  ): RenderedActionProps => {
+    if (runContext.propsFinal === true) return finalNestedActionProps(action)
+    // A loop fills in its own body per item: rendered here, its `{{loop.*}}`
+    // references would resolve to nothing before any item exists.
+    if (action['type'] === 'loop') {
+      return { props: (action['props'] ?? {}) as Record<string, unknown>, authored: true }
+    }
+    return renderNestedActionProps(
+      action,
+      buildRunContextView({ ...runContext, previousSteps }),
+      runContext.templates
+    )
+  }
   return selected.reduce<Promise<BranchRun>>(
-    async (prev, path) => {
+    async (prev, path, position) => {
       const acc = await prev
       if (acc.sequence.halt !== undefined) return acc
+      const resume = position === 0 ? input.from?.resume : undefined
       const run = await runNestedSequence({
         actions: path.actions,
         runNested,
         previousSteps: { ...runContext.previousSteps, ...acc.sequence.outputs },
         fillProps,
+        ...(resume === undefined ? {} : { resume }),
       })
       return {
         matched: [...acc.matched, path.name],
@@ -189,16 +191,18 @@ const runSelectedBranches = (input: {
         sequence: {
           ...run,
           outputs: { ...acc.sequence.outputs, ...run.outputs },
-          responseOverride: run.responseOverride ?? acc.sequence.responseOverride,
+          responseOverride: laterResponse(acc.sequence.responseOverride, run.responseOverride),
         },
       }
     },
-    Promise.resolve<BranchRun>({ matched: [], results: {}, paths: [], sequence: EMPTY_SEQUENCE })
+    Promise.resolve<BranchRun>(
+      input.from?.run ?? { matched: [], results: {}, paths: [], sequence: EMPTY_SEQUENCE }
+    )
   )
 }
 
 /** The branch's outcome: its selection and results, and whatever ended it early. */
-const branchOutcome = (run: BranchRun): ActionOutcome => {
+const branchOutcome = (run: BranchRun, selected: readonly string[]): ActionOutcome => {
   const { outputs, halt, responseOverride } = run.sequence
   const carried = {
     output: { matched: run.matched, results: run.results },
@@ -207,6 +211,12 @@ const branchOutcome = (run: BranchRun): ActionOutcome => {
     ...(responseOverride === undefined ? {} : { responseOverride }),
   }
   if (halt === undefined) return { ...carried, status: 'success' }
+  // A park: the path's row waits with the branch it is in and every branch it chose.
+  if (halt.park !== undefined) {
+    const branch = run.matched.at(-1) ?? ''
+    const container = { kind: 'path' as const, branch, selected: [...selected] }
+    return { ...carried, status: 'success', park: { ...halt.park, container } }
+  }
   return (
     haltedOutcome(halt, carried) ?? {
       status: 'failure',
@@ -215,6 +225,32 @@ const branchOutcome = (run: BranchRun): ActionOutcome => {
       nestedSteps: { paths: run.paths },
     }
   )
+}
+
+/**
+ * The paths to run, in order. A path the run resumes inside does not decide
+ * again: it re-enters the branch it parked in, then runs the branches it had
+ * chosen after that one — each looked up by name in the current configuration.
+ */
+const selectionOf = (
+  paths: ReadonlyArray<DeclaredPath>,
+  props: Readonly<Record<string, unknown>>,
+  runContext: ActionRunContext
+): {
+  readonly selected: ReadonlyArray<DeclaredPath>
+  readonly from?: { readonly run: BranchRun; readonly resume: SequenceResume }
+} => {
+  const { resume } = runContext
+  if (resume !== undefined) {
+    const chosen = resume.frame.selected ?? []
+    const remaining = chosen.slice(Math.max(0, chosen.indexOf(resume.frame.branch ?? '')))
+    const selected = remaining.flatMap((name) => paths.filter((path) => path.name === name))
+    return { selected, from: resumedBranchRun(resume) }
+  }
+  const matching = paths.filter((path) => pathMatches(path, runContext))
+  // `first-match` is the default when `mode` is absent (schema annotation).
+  const allMatching = String(props['mode'] ?? 'first-match') === 'all-matching'
+  return { selected: allMatching ? matching : matching.slice(0, 1) }
 }
 
 export const handlePathBranch: ActionHandler = (action, _app, _automation, runContext) =>
@@ -226,13 +262,17 @@ export const handlePathBranch: ActionHandler = (action, _app, _automation, runCo
     const props = authoredActionProps(runContext)
 
     const paths = declaredPaths(props)
-    const matching = paths.filter((path) => pathMatches(path, runContext))
-    // `first-match` is the default when `mode` is absent (schema annotation).
-    const allMatching = String(props['mode'] ?? 'first-match') === 'all-matching'
-    const selected = allMatching ? matching : matching.slice(0, 1)
+    const { selected, from } = selectionOf(paths, props, runContext)
+    const names = runContext.resume?.frame.selected ?? selected.map((path) => path.name)
 
     return yield* Effect.tryPromise({
-      try: () => runSelectedBranches({ selected, runContext, runNested }),
+      try: () =>
+        runSelectedBranches({
+          selected,
+          runContext,
+          runNested,
+          ...(from === undefined ? {} : { from }),
+        }),
       catch: (cause) =>
         new PathBranchError({
           message: cause instanceof Error ? cause.message : String(cause),
@@ -240,7 +280,7 @@ export const handlePathBranch: ActionHandler = (action, _app, _automation, runCo
         }),
     }).pipe(
       Effect.match({
-        onSuccess: branchOutcome,
+        onSuccess: (run) => branchOutcome(run, names),
         onFailure: (error) => fail(error.message),
       })
     )

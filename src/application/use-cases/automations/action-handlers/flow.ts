@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { stopAnswer } from './response-precedence'
 import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import type { ActionHandler, ActionOutcome } from './shared'
 
@@ -58,7 +59,8 @@ export const handleFlowStop: ActionHandler = (_action, _app, _automation, runCon
     }
     return {
       status: 'success',
-      responseOverride: { status: 200, body, headers: {} },
+      // The stop's answer is the caller's only when no response was set before it.
+      responseOverride: stopAnswer(body),
       returnData: {},
     } as const satisfies ActionOutcome
   }).pipe(Effect.withSpan('automations.handle-flow-stop'))

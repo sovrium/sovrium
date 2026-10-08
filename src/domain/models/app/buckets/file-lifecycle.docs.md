@@ -62,7 +62,7 @@ The catalogue holds only files that still exist, so deleting one lowers the inte
 
 ## Automation temp files
 
-An automation writing scratch files puts them under a temp prefix. Those are reclaimed **opportunistically**: the next temp write sweeps anything older than the threshold. Nothing is scheduled, so the value is an age rather than an interval.
+An automation writing scratch files puts them under a temp prefix. Those are reclaimed **opportunistically**: a temp write sweeps anything older than the threshold. Nothing is scheduled, so the value is an age rather than an interval. A process sweeps at most once per minute (or once per threshold, when the threshold is shorter), so a temp file lives at least the threshold and at most the threshold plus that minute — provided something writes a temp file again.
 
 `STORAGE_TEMP_CLEANUP_AFTER` defaults to 24 hours in milliseconds. Set it to `0` to disable app-level sweeping entirely — the right choice when the object store's own lifecycle rule already reclaims the prefix.
 

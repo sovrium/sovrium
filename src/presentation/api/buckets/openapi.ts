@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { bucketUploadResponseSchema } from '@/domain/models/api/buckets'
 import { errorResponseSchema } from '@/domain/models/api/combinators/error'
 import {
   effectJsonResponse,
@@ -65,16 +66,7 @@ const routes: readonly RouteSpec[] = [
       },
     },
     responses: {
-      201: effectJsonResponse(
-        Schema.Struct({
-          success: Schema.Literal(true),
-          key: Schema.String.annotate({ description: 'Stored object key' }),
-          size: Schema.Finite.annotate({ description: 'Stored byte count' }),
-          mimeType: Schema.String,
-          filename: Schema.String.annotate({ description: 'Original filename' }),
-        }),
-        'File uploaded'
-      ),
+      201: effectJsonResponse(bucketUploadResponseSchema, 'File uploaded'),
       400: errorResponse('No file, invalid filename, or disallowed MIME type'),
       401: errorResponse('Unauthorized (private bucket)'),
       404: errorResponse('Bucket not found'),

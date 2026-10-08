@@ -134,10 +134,19 @@ export const mayRunManualAutomation = (
   automation: Automation,
   app: App,
   userRole: string | undefined
-): boolean => {
-  if (userRole === undefined) return false
-  return userRole === requiredManualTriggerRole(automation, app) || isAdminEquivalent(userRole, app)
-}
+): boolean => holdsRequiredRole(requiredManualTriggerRole(automation, app), app, userRole)
+
+/**
+ * Whether `userRole` satisfies a declared `requiredRole`: that role exactly, or
+ * an admin-equivalent role. The rule a manual trigger's `requiredRole` and a
+ * session webhook's `auth.requiredRole` share. An absent role satisfies nothing.
+ */
+export const holdsRequiredRole = (
+  requiredRole: string,
+  app: App,
+  userRole: string | undefined
+): boolean =>
+  userRole !== undefined && (userRole === requiredRole || isAdminEquivalent(userRole, app))
 
 /**
  * Whether a declared `permissions.trigger` lets a caller holding `userRole`

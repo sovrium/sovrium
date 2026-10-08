@@ -186,11 +186,32 @@ function useResolvedMatchValue(
 }
 
 /**
+ * The words an object-form gate shows: its title and message with `$record.*`
+ * filled from the row it was armed for, and its two button labels.
+ */
+function gateTexts(
+  config: ConfirmObject,
+  record: Record<string, unknown> | undefined,
+  fallbackConfirmLabel: string,
+  fallbackCancelLabel: string
+): { title: string; message: string; confirmLabel: string; cancelLabel: string } {
+  return {
+    title: resolveRecordTemplate(config.title ?? config.message, record),
+    message: resolveRecordTemplate(config.message, record),
+    confirmLabel: config.confirmLabel ?? fallbackConfirmLabel,
+    cancelLabel: config.cancelLabel ?? fallbackCancelLabel,
+  }
+}
+
+/**
  * The OBJECT-form confirm gate — the richer destructive-confirm the RGPD erasure
  * needs. A non-modal `role` surface (`dialog` / `alertdialog`) whose accessible
  * NAME is the SEPARATE `title` (distinct from the body `message`), an optional
  * type-to-confirm `input` whose confirm affordance stays DISABLED until the value
  * equals the resolved `matchValue`, and `confirmLabel` / `cancelLabel` overrides.
+ *
+ * Its title and message name the row it was armed for: `$record.*` is filled in
+ * as TEXT (React escapes it), never parsed as markup.
  */
 export function ObjectConfirmDialog({
   config,
@@ -201,9 +222,7 @@ export function ObjectConfirmDialog({
   fallbackConfirmLabel,
   fallbackCancelLabel = DEFAULT_GATE_CANCEL_LABEL,
 }: ObjectConfirmDialogProps): ReactElement {
-  const title = config.title ?? config.message
-  const confirmLabel = config.confirmLabel ?? fallbackConfirmLabel
-  const cancelLabel = config.cancelLabel ?? fallbackCancelLabel
+  const texts = gateTexts(config, record, fallbackConfirmLabel, fallbackCancelLabel)
   const rawMatch = config.input?.matchValue
 
   const [inputValue, setInputValue] = useState('')
@@ -216,11 +235,11 @@ export function ObjectConfirmDialog({
     <div
       role={config.role ?? 'alertdialog'}
       aria-modal="false"
-      aria-label={title}
+      aria-label={texts.title}
       className={OBJECT_CONTAINER_CLASS}
     >
-      <strong className="text-foreground text-md">{title}</strong>
-      <span className="text-foreground-subtle text-sm">{config.message}</span>
+      <strong className="text-foreground text-md">{texts.title}</strong>
+      <span className="text-foreground-subtle text-sm">{texts.message}</span>
       {config.input && (
         <input
           type="text"
@@ -238,15 +257,15 @@ export function ObjectConfirmDialog({
           className={OBJECT_CONFIRM_BUTTON_CLASS}
           onClick={onConfirm}
         >
-          {confirmLabel}
+          {texts.confirmLabel}
         </button>
         <button
           type="button"
-          aria-label={cancelLabel}
+          aria-label={texts.cancelLabel}
           className={OBJECT_CANCEL_BUTTON_CLASS}
           onClick={onCancel}
         >
-          {cancelLabel}
+          {texts.cancelLabel}
         </button>
       </div>
     </div>

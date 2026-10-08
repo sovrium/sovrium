@@ -41,6 +41,7 @@ Run a Sovrium app for the long haul.
 
 - **Back up and restore SQLite** — a consistent one-file backup.
 - **Upgrade and rollback** — move versions safely, forward-only migrations.
+- **Earlier upgrade notes** — what changed in older releases, when you skip several versions.
 
 ## Suggest a guide
 

@@ -81,12 +81,9 @@ import {
 } from '@/presentation/api/buckets/download-response'
 import { deleteFailureResponse, persistUpload } from '@/presentation/api/buckets/file-writes'
 import { refuseUnlessOwnerOrAdmin } from '@/presentation/api/buckets/object-ownership-gate'
+import { createHandleSignedServe } from '@/presentation/api/buckets/signed-download'
 import { createHandleBatchSign } from '@/presentation/api/buckets/signed-url-batch'
-import {
-  createHandleSign,
-  createHandleSignedServe,
-  createHandleSignedUpload,
-} from '@/presentation/api/buckets/signed-urls'
+import { createHandleSign, createHandleSignedUpload } from '@/presentation/api/buckets/signed-urls'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { rejectUpload } from '@/presentation/api/runtime/upload-rejection'

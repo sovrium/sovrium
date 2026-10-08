@@ -22,13 +22,16 @@
  */
 
 import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
+import { titleCaseAppName } from '@/domain/models/app/pages/app-vars'
 import {
   invitationConditionHolds,
   invitationVarValues,
   substituteInvitationVars,
   type InvitationCondition,
   type InvitationFacts,
+  type InvitationVarContext,
 } from '@/domain/models/app/pages/invitation-vars-service'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
@@ -128,6 +131,18 @@ const factsFor = async (
   return read(token).catch(() => undefined)
 }
 
+/**
+ * How the page prints its invitation: the workspace as `$app.label` reads it,
+ * the page's language (else the app's default, else English), and the
+ * operator's zone (`SOVRIUM_TIMEZONE`, UTC by default).
+ */
+const varContextFor = (page: Page, app: App): InvitationVarContext => ({
+  workspace: titleCaseAppName(app.name),
+  lang: page.meta?.lang ?? app.languages?.default ?? 'en',
+  timeZone: parseSovriumTimezone().zoneId,
+  now: new Date(),
+})
+
 /** Resolve one page's invitation; a page without `invitation` is returned as it was. */
 export async function resolvePageInvitation(
   page: Page,
@@ -141,7 +156,7 @@ export async function resolvePageInvitation(
   if (invitation === undefined) return page
   const param = invitation.param ?? 'token'
   const facts = await factsFor(input, input.requestQuery?.[param])
-  const values = invitationVarValues(facts, input.app.name)
+  const values = invitationVarValues(facts, varContextFor(page, input.app))
   const substitute = (text: string) => substituteInvitationVars(text, values)
   const components =
     page.components === undefined

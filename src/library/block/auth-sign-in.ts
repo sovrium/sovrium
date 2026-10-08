@@ -31,13 +31,18 @@ export const entry = defineLibraryEntry({
   notes: [
     AUTH_PLACE_NOTE,
     AUTH_GATE_NOTE,
+    '"Forgot password?" is drawn only when one of your pages sends the reset link — the `auth-password-reset` block, or any form with `action: { type: auth, method: resetPassword }`. Install that page too, or the link stays off.',
     'A wrong email or password reads as one message that never says whether the account exists. While the form is sending, its fields are inert and the button says so.',
     THEME_NOTE,
   ],
   params: [
     stringParam('iconName', 'The icon drawn as the app mark.', 'box'),
     stringParam('successPath', 'Where a signed-in reader lands.', '/'),
-    stringParam('resetPath', 'The password-reset page.', '/reset-password'),
+    stringParam(
+      'resetPath',
+      'The password-reset page, linked when one of your pages sends the reset link.',
+      '/reset-password'
+    ),
     stringParam('signUpPath', 'The sign-up page, linked when sign-up is open.', '/sign-up'),
     stringParam('ssoPath', 'The single sign-on page, linked when a provider is set.', '/sso'),
     stringParam(
@@ -67,7 +72,9 @@ export const entry = defineLibraryEntry({
             onSuccess,
           },
         },
-        quietLink('Forgot password?', p('resetPath')),
+        // Drawn only when the app has a page that sends the reset link, so it
+        // never leads to a page that is not there.
+        ifDeclared('auth.passwordReset', quietLink('Forgot password?', p('resetPath'))),
         {
           // The other ways in, each drawn only when the app offers it. The
           // rule above them disappears with them when none is offered.

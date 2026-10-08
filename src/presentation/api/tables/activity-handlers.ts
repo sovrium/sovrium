@@ -9,10 +9,31 @@ import { getRecordHistoryProgram } from '@/application/use-cases/tables/activity
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext, getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import { parseCreatedAtSortOrder } from './created-at-sort-param'
 import { handleRouteError } from './error-handlers'
 import { checkRecordReadGate } from './record-read-gate'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
+
+const intParam = (value: string | undefined): number | undefined => {
+  if (value === undefined) return undefined
+  const parsed = parseInt(value, 10)
+  return Number.isNaN(parsed) ? undefined : parsed
+}
+
+/** `limit` and `offset`, the offset falling back to a one-based `page` of `limit`. */
+function parsePagination(c: Context): {
+  readonly limit: number | undefined
+  readonly offset: number | undefined
+} {
+  const limit = intParam(c.req.query('limit'))
+  const offset = intParam(c.req.query('offset'))
+  const page = intParam(c.req.query('page'))
+  if (offset !== undefined || page === undefined || limit === undefined || page < 1) {
+    return { limit, offset }
+  }
+  return { limit, offset: (page - 1) * limit }
+}
 
 /**
  * Handle get record history request
@@ -28,11 +49,9 @@ export async function handleGetRecordHistory(c: Context, app: App) {
   const tableId = c.req.param('tableId')!
   const recordId = c.req.param('recordId')!
 
-  // Parse pagination query params
-  const limitParam = c.req.query('limit')
-  const offsetParam = c.req.query('offset')
-  const limit = limitParam !== undefined ? parseInt(limitParam, 10) : undefined
-  const offset = offsetParam !== undefined ? parseInt(offsetParam, 10) : undefined
+  // Parse pagination query params: `offset`, or a one-based `page` read as
+  // `(page - 1) × limit` when no offset is given
+  const { limit, offset } = parsePagination(c)
 
   // Find table by ID OR name, as every records route addresses it
   const table = app.tables?.find((t) => String(t.id) === String(tableId) || t.name === tableId)
@@ -50,8 +69,9 @@ export async function handleGetRecordHistory(c: Context, app: App) {
     session,
     tableName: table.name,
     recordId,
-    limit: Number.isNaN(limit) ? undefined : limit,
-    offset: Number.isNaN(offset) ? undefined : offset,
+    limit,
+    offset,
+    sortOrder: parseCreatedAtSortOrder(c.req.query('sort')),
     app,
     userRole: getTableContext(c).userRole,
     userGroups: getTableContext(c).userGroups,

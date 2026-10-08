@@ -67,30 +67,40 @@ Three operators that pause execution in different ways.
 Pause for a fixed duration, or until a specific instant.
 
 ```yaml
-- name: cooldown
+- name: waitUntilDayBefore
   type: delay
   operator: wait
-  props: { duration: 15m }
+  props: { until: '{{steps.dayBefore.instant}}' }
 ```
 
-`duration` is a number and a unit — `ms`, `s`, `m`, `h` or `d`. `until` is an ISO 8601 datetime, or a template resolving to one.
+`duration` is a number and a unit — `ms`, `s`, `m`, `h` or `d`. `until` is an ISO 8601 datetime, or a template resolving to one. An `until` with an offset or `Z` is that instant; one without — `2026-12-24T09:00`, or a bare date read as its midnight — is read in the operator time zone, `SOVRIUM_TIMEZONE` (UTC when unset), never the host's. An `until` already past continues at once.
+
+A wait of one minute or less sleeps inside the run, so a synchronous webhook still answers with what the steps after it produced. A longer wait **parks** the run: the step answers `{ resumeAt }`, the run turns `waiting-delay` with that `resumeAt`, and the trigger is answered at once with the run's id and the status `waiting-delay`. A sweep resumes the run within about a minute after `resumeAt` — at the next start for a run whose time passed while the server was stopped — and the step then also reads `resumedAt`. Nothing is promised to the second, and nothing is ever shortened.
+
+The run resumes **in its own row**. The steps before the wait never run again; their outputs are restored, so `{{steps.<earlier>.…}}` and `{{trigger.…}}` read what they read before the wait. A value a step returned that was a secret is stored masked and comes back masked: a step after the wait that needs a secret reads it from its own configuration. A waiting run holds no concurrency slot, and the automation `timeout` counts only the time it actually runs, summed over its segments.
+
+A long wait parks the run inside a `loop` or a `path` too, and the run resumes exactly where it stood: in the loop item it paused on, the items before it kept and the ones after it run in full; in the path branch it paused in, without choosing the branch again. A loop that waits once per item parks once per item — two writes and up to a minute of latency each — so for a large list, a `cron` trigger reading the records that are due is the better shape.
+
+**It resumes against the configuration of the day it resumes.** The run finds its wait step again by name, and the loop or path around it by name and kind; what follows the wait is whatever follows it then, so a reminder reworded while it waits goes out reworded. If the automation, the wait step or a loop, path or branch around it was renamed or removed, the run is cancelled, saying the automation changed while it was waiting, and nothing after the wait runs — as it is when the list a loop walks no longer holds the item it paused on. While the automation is paused, a due run keeps waiting until it is resumed. A waiting run can be cancelled (`POST /api/automations/runs/:id/cancel`), and erasing an account whose values a waiting run captured cancels that run, so the step after the wait never acts for an erased person.
+
+**Ninety days at most.** A `duration` longer than `90d` is refused when the configuration is validated; an `until` that resolves more than 90 days ahead fails the step, naming the limit. Further horizons belong to a `cron` trigger reading the records that are due, which also follows a date edited after the run started.
 
 ### `queue`
 
-Process queued items one at a time with configurable spacing, which is what a rate-limited downstream API needs.
+Space the next step of the run by a short interval, which is what a rate-limited downstream API needs.
 
 ```yaml
 - name: paceApiCalls
   type: delay
   operator: queue
-  props: { interval: 1s, maxQueueSize: 1000 }
+  props: { interval: 1s }
 ```
 
-`interval` is the minimum delay between items and is required. `maxQueueSize` caps the queue, after which new entries are refused; it is unlimited by default, which is worth setting deliberately on anything fed by an external source.
+`interval` is required and waits that long inside the run before the next step; it may be at most one minute, and a longer one is refused when the configuration is validated. Runs started together are not spaced from one another: a throttle measured in minutes is a schedule, which a `cron` trigger reading the pending records expresses durably. `maxQueueSize` is accepted and not enforced.
 
 ### `webhook`
 
-Pause until an external callback arrives — an asynchronous third-party job finishing, typically.
+Wait for an external system — an asynchronous third-party job finishing, typically — up to a timeout.
 
 ```yaml
 - name: awaitProcessing
@@ -99,7 +109,7 @@ Pause until an external callback arrives — an asynchronous third-party job fin
   props:
     callbackId: 'job-{{trigger.data.id}}'
     timeout: 2h
-    onTimeout: error
+    onTimeout: continue
 ```
 
-`callbackId` is generated when omitted; supplying one derived from the payload is what lets the caller know which run to resume. `onTimeout` is `continue`, `stop` or `error`, defaulting to `error`. `expectedData` validates the inbound payload's shape before the run resumes.
+The step answers a `callbackUrl` and a `callbackId` (generated when omitted). No route receives that callback yet, so the timeout is the outcome: once it passes, the run continues past the step, which then reads `timedOut: true` — whatever `onTimeout` says. A timeout of one minute or less waits inside the run; a longer one parks the run exactly like a long `wait`, up to the same 90 days. Without a `timeout` the run continues at once. `expectedData` is accepted for the day callbacks are received.

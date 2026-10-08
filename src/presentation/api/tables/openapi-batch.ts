@@ -11,6 +11,8 @@ import {
   batchDeleteRecordsRequestSchema,
   batchRestoreRecordsRequestSchema,
   batchUpdateRecordsRequestSchema,
+  importRecordsRequestSchema,
+  importRecordsResponseSchema,
   upsertRecordsRequestSchema,
 } from '@/domain/models/api/tables/records'
 import {
@@ -104,6 +106,22 @@ const routes: readonly RouteSpec[] = [
     request: { body: effectJsonBody(upsertRecordsRequestSchema) },
     responses: {
       200: effectJsonResponse(upsertRecordsResponseSchema, 'Records upserted'),
+      400: errorResponse('Validation error'),
+      401: errorResponse('Unauthorized'),
+      404: errorResponse('Table not found'),
+    },
+  },
+  {
+    method: 'post',
+    pathTemplate: '/api/tables/{tableSlug}/records/import',
+    summary: 'Import records',
+    description:
+      "Imports one chunk of a CSV file (up to 100 rows): `create` every row, `skip` the rows whose `mergeOn` value a readable record already holds, or `overwrite` the matching records. Fires the table's webhooks and record automations once per row, unless the table declares `import: { fireEvents: false }`.",
+    operationIdBase: 'importRecords',
+
+    request: { body: effectJsonBody(importRecordsRequestSchema) },
+    responses: {
+      200: effectJsonResponse(importRecordsResponseSchema, 'Rows imported'),
       400: errorResponse('Validation error'),
       401: errorResponse('Unauthorized'),
       404: errorResponse('Table not found'),

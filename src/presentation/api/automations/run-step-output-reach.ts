@@ -11,9 +11,12 @@
  *
  * An admin reads every run whole. Anyone else reads a run only as its
  * hand-starter or a named approver (`run-access.ts`); a run she started by
- * hand read as her, so she sees it whole too. Every other reader is shown a
- * value the run captured or produced only as far as it stays within what she
- * may read (`run-step-reach.ts`):
+ * hand read as her, so she sees every value of it — but each person a record
+ * step expanded reaches her with its address masked, as it reaches every
+ * reader who is not an admin (`run-person-address-mask.ts`), and so does each
+ * person in the trigger data of a run she did not start. Every other
+ * reader is shown a value the run captured or produced only as far as it
+ * stays within what she may read (`run-step-reach.ts`):
  *
  *  - its trigger data, unless it is withheld from her — and then every step's
  *    output, logs and error with it, since data flows forward;
@@ -27,6 +30,10 @@
 
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import {
+  stepWithMaskedAddresses,
+  triggerDataWithMaskedAddresses,
+} from '@/application/use-cases/automations/run-person-address-mask'
 import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
@@ -50,14 +57,13 @@ interface RunAccess {
 
 /**
  * The caller of this request as a run's reader: one who sees it whole (an
- * admin-equivalent, or the person who started it by hand — it read as her),
- * nobody signed in, or a reader whose reach each captured value is judged by.
+ * admin-equivalent), the person who started it by hand (every value — it read
+ * as her — with each person's address masked), nobody signed in, or a reader
+ * whose reach each captured value is judged by.
  */
-const callerOfRun = async (
-  c: Context,
-  app: App,
-  access: RunAccess
-): Promise<'whole' | 'nobody' | Reader> => {
+type RunCaller = 'whole' | 'starter' | 'nobody' | Reader
+
+const callerOfRun = async (c: Context, app: App, access: RunAccess): Promise<RunCaller> => {
   if (access.readsEveryRun) return 'whole'
   const userId = getSessionContext(c)?.userId
   if (userId === undefined) return 'nobody'
@@ -66,7 +72,8 @@ const callerOfRun = async (
     Effect.all([getUserRole(userId), getUserGroups(userId), getUserAccessRoles(userId)])
   )
   const startedItByHand = access.run.startedByHand && access.run.triggeredByUserId === userId
-  if (startedItByHand || isAdminEquivalent(role, app)) return 'whole'
+  if (isAdminEquivalent(role, app)) return 'whole'
+  if (startedItByHand) return 'starter'
   return { role, groups, accessRoles, userId }
 }
 
@@ -91,17 +98,36 @@ interface Verdict {
   readonly stepCount: number
 }
 
-/** The verdict for `caller` on `judged`: everything for a whole reader, nothing for nobody. */
+/** The verdict for `caller` on `judged`: everything for a whole reader or a starter, nothing for nobody. */
 const verdictFor = async (
   c: Context,
   app: App,
-  caller: 'whole' | 'nobody' | Reader,
+  caller: RunCaller,
   judged: JudgedRun
 ): Promise<Verdict> => {
   const stepCount = judged.steps.length
-  if (caller === 'whole') return { triggerVisible: true, visibleSteps: stepCount, stepCount }
+  if (caller === 'whole' || caller === 'starter') {
+    return { triggerVisible: true, visibleSteps: stepCount, stepCount }
+  }
   if (caller === 'nobody') return { triggerVisible: false, visibleSteps: 0, stepCount }
   return { ...(await visibleStepCount({ c, app, reader: caller, run: judged })), stepCount }
+}
+
+/**
+ * The trigger data a reader is shown: none past her reach; her own input when
+ * she started the run by hand; otherwise each person it carries — a record
+ * trigger's expanded `user` field, a comment's author, its thread and the
+ * people it mentions — with the address masked.
+ */
+const triggerDataFor = (
+  app: App,
+  input: { readonly caller: RunCaller; readonly verdict: Verdict; readonly judged: JudgedRun },
+  triggerData: unknown
+): unknown => {
+  const { caller, verdict, judged } = input
+  if (!verdict.triggerVisible) return null
+  if (caller === 'starter') return triggerData
+  return triggerDataWithMaskedAddresses(app, judged.automationName, triggerData)
 }
 
 /** True when every value of the run reaches the reader: her run error is shown. */
@@ -126,11 +152,12 @@ export const runsAsSeenByCaller = <
   Promise.all(
     input.runs.map(async ([run, body, judged]) => {
       const caller = await callerOfRun(c, app, { readsEveryRun: input.readsEveryRun, run })
-      if (caller === 'whole') return body
+      // A listed run carries no step output: a starter's own trigger input is hers.
+      if (caller === 'whole' || caller === 'starter') return body
       const verdict = await verdictFor(c, app, caller, judged)
       return {
         ...body,
-        triggerData: verdict.triggerVisible ? body.triggerData : null,
+        triggerData: triggerDataFor(app, { caller, verdict, judged }, body.triggerData),
         ...(isWhole(verdict) ? {} : { error: null }),
       }
     })
@@ -145,12 +172,13 @@ interface RunDetailLike<T> {
 
 /**
  * A run's detail as the signed-in caller of this request may see it: whole for
- * a caller who reads every run (an admin) or started it by hand; otherwise its
- * trigger data, each step's output, logs and error, and its own error withheld
- * past her reach (see the module header).
+ * a caller who reads every run (an admin); every value for the person who
+ * started it by hand; otherwise its trigger data, each step's output, logs and
+ * error, and its own error withheld past her reach. Anyone but an admin reads
+ * each expanded person with the address masked (see the module header).
  */
 export const runDetailAsSeenByCaller = async <
-  T extends { readonly name: string; readonly output: unknown; readonly logs?: unknown },
+  T extends Parameters<typeof stepWithMaskedAddresses>[2] & { readonly logs?: unknown },
   D extends RunDetailLike<T>,
 >(
   c: Context,
@@ -162,12 +190,14 @@ export const runDetailAsSeenByCaller = async <
   if (caller === 'whole') return detail
   const verdict = await verdictFor(c, app, caller, judged)
   const steps = detail.steps.map((step, index) =>
-    index < verdict.visibleSteps ? step : withheldStep(step)
+    index < verdict.visibleSteps
+      ? stepWithMaskedAddresses(app, judged.automationName, step)
+      : withheldStep(step)
   )
   return {
     ...detail,
     steps,
-    triggerData: verdict.triggerVisible ? detail.triggerData : null,
+    triggerData: triggerDataFor(app, { caller, verdict, judged }, detail.triggerData),
     ...(isWhole(verdict) ? {} : { error: null }),
   }
 }
@@ -210,7 +240,7 @@ export const approvalsAsSeenByCaller = <A extends ApprovalLike>(
       const loaded = await loadRequestRun(c, approval.runId)
       if (loaded === undefined) return { ...approval, message: null }
       const caller = await callerOfRun(c, app, { readsEveryRun: false, run: loaded.run })
-      if (caller === 'whole') return approval
+      if (caller === 'whole' || caller === 'starter') return approval
       const verdict = await verdictFor(c, app, caller, loaded.judged)
       return verdict.visibleSteps > approval.stepIndex ? approval : { ...approval, message: null }
     })

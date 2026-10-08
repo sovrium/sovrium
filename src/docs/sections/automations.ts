@@ -10,7 +10,9 @@ import automationRetryFailureBody from '@/domain/models/app/automations/automati
 import automationRunsBody from '@/domain/models/app/automations/automation-runs.docs.md' with { type: 'file' }
 import automationTriggersBody from '@/domain/models/app/automations/automation-triggers.docs.md' with { type: 'file' }
 import automationsOverviewBody from '@/domain/models/app/automations/automations-overview.docs.md' with { type: 'file' }
+import documentTemplateHelpersBody from '@/domain/models/app/automations/document-template-helpers.docs.md' with { type: 'file' }
 import { RetryConfigSchema } from '@/domain/models/app/automations/retry'
+import templateHelpersBody from '@/domain/models/app/automations/template-helpers.docs.md' with { type: 'file' }
 import {
   ApiKeyConnectionSchema,
   BasicConnectionSchema,
@@ -55,7 +57,58 @@ export const automations = defineSection({
         'US-AUTOMATIONS-AUTOMATION-DEFINITIONS-001',
         'US-AUTOMATIONS-AUTOMATION-DEFINITIONS-002',
         'US-AUTOMATIONS-RUNS-API',
-        'US-AUTOMATIONS-TEMPLATE-HELPERS',
+      ],
+    }),
+    defineArticle({
+      slug: 'template-helpers',
+      title: 'Template Helpers',
+      description:
+        'Every helper you can call in a template — text, numbers, dates, lists, logic, encoding, types — with how a value is escaped for HTML, SVG, Word, URLs and JSON.',
+      keywords: [
+        'sovrium',
+        'template helpers',
+        'handlebars',
+        'escapeHtml',
+        'safeHtml',
+        'pluralize',
+        'formatDate',
+        'formatCurrency',
+        'urlPath',
+        'chunk',
+        'escaping',
+      ],
+      order: 5005,
+      sidebarLabel: 'Template Helpers',
+      body: templateHelpersBody,
+      documents: [],
+      stories: ['US-AUTOMATIONS-TEMPLATE-HELPERS'],
+    }),
+    defineArticle({
+      slug: 'document-template-helpers',
+      title: 'Document Template Helpers',
+      description:
+        'The helpers only a document or email template has — page breaks, pictures, QR codes, translations — plus partials and layouts, Word templates, and what a template stored in a bucket may not do.',
+      keywords: [
+        'sovrium',
+        'document templates',
+        'email templates',
+        'pageBreak',
+        'image',
+        'qrcode',
+        'translations',
+        'partials',
+        'layouts',
+        'word templates',
+        'bucket templates',
+      ],
+      order: 5006,
+      sidebarLabel: 'Document Template Helpers',
+      body: documentTemplateHelpersBody,
+      documents: [],
+      stories: [
+        'US-AUTOMATIONS-TEMPLATING-HELPERS',
+        'US-AUTOMATIONS-TEMPLATING-PARTIALS-AND-LAYOUTS',
+        'US-AUTOMATIONS-TEMPLATING-TRANSLATIONS',
       ],
     }),
     defineArticle({

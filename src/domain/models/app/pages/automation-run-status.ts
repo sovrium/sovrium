@@ -35,6 +35,8 @@ export const RUN_STATUS_LABELS: Readonly<Record<string, string>> = {
   failed: 'Failed',
   'completed-with-errors': 'Partial',
   'waiting-approval': 'Waiting for approval',
+  // Parked on a wait longer than a minute; it resumes on its own at `resumeAt`.
+  'waiting-delay': 'Waiting to resume',
   rejected: 'Rejected',
   cancelled: 'Cancelled',
   exhausted: 'Retries exhausted',
@@ -44,6 +46,8 @@ export const RUN_STATUS_LABELS: Readonly<Record<string, string>> = {
   skipped: 'Skipped',
   // A step a `filter` stopped — the run itself reads `Skipped`.
   filtered: 'Filtered out',
+  // A step the run is parked inside (a wait, or the loop or path holding one).
+  waiting: 'Waiting',
 }
 
 /**

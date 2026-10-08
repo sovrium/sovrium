@@ -23,7 +23,7 @@
  *   | `SOVRIUM_ALLOW_INSECURE=1|true` | secure   | master relax: cookies + CSRF + SSRF   |
  *   | `SOVRIUM_ALLOW_PRIVATE_OUTBOUND`| SSRF on  | permit private/loopback outbound      |
  *   |                                 |          | targets (narrow)                      |
- *   | `BASE_URL` / `HOSTNAME`         | loopback | canonical origin / bind host —        |
+ *   | `BASE_URL` / `SOVRIUM_BIND_HOST`| loopback | canonical origin / bind host —        |
  *   |                                 |          | drives transport-relax + CORS         |
  *
  * `src/domain/models/process-env/dev-mode.ts` stays a PURE predicate layer (takes the env
@@ -34,11 +34,13 @@
  * bind): the E2E harness always binds the socket to loopback (PORT=0) and
  * detects startup by matching `http://localhost:` in stdout, so it cannot bind
  * a real non-loopback interface. A non-loopback CANONICAL ORIGIN — declared via
- * `BASE_URL=https://app.example.com` (or a non-loopback `HOSTNAME`) — is the
+ * `BASE_URL=https://app.example.com` (or a non-loopback `SOVRIUM_BIND_HOST`) — is the
  * "this deployment is public" signal the posture resolver keys on. Therefore a
  * non-loopback `BASE_URL` makes the posture non-loopback even though the socket
  * still binds loopback.
  */
+
+import { resolveBindHost } from '@/domain/models/process-env/server-lifecycle'
 
 const env = process.env as Record<string, string | undefined>
 
@@ -114,7 +116,7 @@ export const isPrivateOutboundOptIn = (): boolean => isFlagSet('SOVRIUM_ALLOW_PR
  * local operator can reach it". Classifying them as loopback fed
  * `isTransportRelaxed`, which drives `useSecureCookies: !relaxed` and
  * `disableCSRFCheck: relaxed` in `better-auth/auth.ts`, so an operator running
- * the ordinary container shape (`HOSTNAME=0.0.0.0`) silently got CSRF
+ * the ordinary container shape (`SOVRIUM_BIND_HOST=0.0.0.0`) silently got CSRF
  * protection disabled and session cookies served without `Secure` — on the
  * most exposed bind there is.
  *
@@ -165,7 +167,7 @@ export const resolveCanonicalHost = (): string | undefined => parseHostFromUrl(e
  * Precedence (the declared public origin first):
  *   1. the host of a configured `BASE_URL` canonical origin,
  *   2. `bindHost` (the `ServerConfig.hostname` the socket actually bound),
- *   3. the `HOSTNAME` env var,
+ *   3. `SOVRIUM_BIND_HOST`, then the deprecated `HOSTNAME` (`resolveBindHost`),
  *   4. `localhost` (the dev default).
  *
  * `BASE_URL` outranks the bind because it is what browsers reach: behind a
@@ -177,9 +179,7 @@ export const resolveBindHostname = (bindHost?: string): string => {
   const baseUrlHost = resolveCanonicalHost()
   if (baseUrlHost !== undefined) return baseUrlHost
   if (bindHost !== undefined && bindHost !== '') return bindHost
-  const hostnameEnv = env['HOSTNAME']
-  if (hostnameEnv !== undefined && hostnameEnv !== '') return hostnameEnv
-  return 'localhost'
+  return resolveBindHost(env).host
 }
 
 const parseHostFromUrl = (rawUrl: string | undefined): string | undefined => {
@@ -194,7 +194,7 @@ const parseHostFromUrl = (rawUrl: string | undefined): string | undefined => {
 /**
  * Transport posture is RELAXED (insecure cookies allowed, CSRF off) when the
  * deployment binds loopback OR the master opt-out is set. A non-loopback
- * `BASE_URL`/`HOSTNAME` → NOT relaxed (the secure default): secure cookies +
+ * `BASE_URL`/`SOVRIUM_BIND_HOST` → NOT relaxed (the secure default): secure cookies +
  * CSRF enforced.
  */
 export const isTransportRelaxed = (): boolean =>

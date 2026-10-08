@@ -7,17 +7,16 @@
 
 import { Effect } from 'effect'
 import {
-  deleteRecordWithSideEffects,
   type DeleteMode,
   type DeleteResult,
 } from '@/application/use-cases/tables/record-delete-orchestration'
-import { restoreRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
+import { restoreRecordWithSideEffects } from '@/application/use-cases/tables/record-restore-orchestration'
+import { deleteRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
-import { deleteWebhooksFor } from '@/infrastructure/webhooks/table-write-webhooks'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
@@ -84,7 +83,6 @@ function runDelete(
   const program = deleteRecordWithSideEffects({
     ...input,
     processEnv: process.env,
-    dispatchWebhooks: deleteWebhooksFor(input.app, input.tableName),
     forgetDerivedVariants: evictTransformCacheForKey,
   })
   return runRequestEffect(c, Effect.result(provideDomain(c, program)))
@@ -246,7 +244,10 @@ export async function handleRestoreRecord(c: Context, app: App) {
 
   const result = await runOnRequest(
     c,
-    restoreRecordProgram(session, tableName, recordId, { app, userRole, userGroups })
+    restoreRecordWithSideEffects({
+      ...{ session, app, tableName, recordId, userRole, userGroups },
+      processEnv: process.env,
+    })
   )
 
   if (result._tag === 'Failure') {

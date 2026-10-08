@@ -223,6 +223,13 @@ export const LICENSE_SUPPLEMENTS: readonly LicenseSupplement[] = [
     holder: 'David Mark Clements',
   },
   {
+    ecosystem: 'npm',
+    packages: ['boolbase'],
+    files: ['fb55-boolbase.txt'],
+    source:
+      'https://github.com/fb55/boolbase (repository license file, ISC; the published 1.0.0 package ships none)',
+  },
+  {
     ecosystem: 'cargo',
     packages: [
       'tauri-plugin-deep-link',

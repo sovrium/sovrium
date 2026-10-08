@@ -19,12 +19,16 @@
  */
 
 import { Effect } from 'effect'
+import {
+  AuthRepository,
+  type AuthDatabaseError,
+} from '@/application/ports/repositories/auth/auth-repository'
 import { shapeRecordsForReader } from '@/application/use-cases/tables/read-record-programs'
 import { buildGuestSession, buildSystemSession } from '../build-guest-session'
+import { singleUserFieldNames, withHydratedId } from '../hydrated-field-reference'
 import { runLinkReader, type RunReadAccess } from './record-caller-gate'
 import type { ActionOutcome, AutomationContext } from './shared'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
-import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
@@ -97,6 +101,60 @@ const selectFields = (
   }
 }
 
+type ShapedRecord = Readonly<Record<string, unknown>>
+
+/** The account ids a set of records holds in the named fields, where the reader kept them. */
+const heldUserIds = (
+  records: readonly ShapedRecord[],
+  names: readonly string[]
+): readonly string[] => {
+  const held = records.flatMap((record) => {
+    const fields = (record['fields'] ?? {}) as ShapedRecord
+    return names.flatMap((name) => [record[name], fields[name]])
+  })
+  return [
+    ...new Set(held.filter((value): value is string => typeof value === 'string' && value !== '')),
+  ]
+}
+
+/**
+ * Each single `user` field of the records as the person — `id`, `name`,
+ * `email` — exactly as a record trigger hands it over: the field itself still
+ * renders as the account id, its sub-paths read the person. Only a field the
+ * reader kept is expanded, so a run that may not read it learns nothing; the
+ * people of the whole set are read in one lookup. An id no account holds stays
+ * the bare id.
+ */
+const expandUserFields = (
+  app: App,
+  tableName: string,
+  records: readonly ShapedRecord[]
+): Effect.Effect<readonly ShapedRecord[], AuthDatabaseError, AuthRepository> =>
+  Effect.gen(function* () {
+    const names = singleUserFieldNames(app, tableName)
+    const ids = heldUserIds(records, names)
+    if (ids.length === 0) return records
+    const people = yield* (yield* AuthRepository).findUserContactsByIds(ids)
+    const expand = (source: ShapedRecord): ShapedRecord =>
+      Object.fromEntries(
+        names.flatMap((name) => {
+          const id = source[name]
+          const person = typeof id === 'string' ? people.get(id) : undefined
+          return person === undefined || typeof id !== 'string'
+            ? []
+            : [[name, withHydratedId({ id, ...person }, id)] as const]
+        })
+      )
+    return records.map((record) => {
+      const fields = (record['fields'] ?? {}) as ShapedRecord
+      return {
+        ...record,
+        ...expand(record),
+        ...(record['fields'] === undefined ? {} : { fields: { ...fields, ...expand(fields) } }),
+      }
+    })
+  })
+
 /**
  * Build the canonical read success output, SHARED by `record/read` and
  * `record/list`. Surfaces both `record` (first row or undefined) and `records`
@@ -139,8 +197,12 @@ export const buildReadOutput = (
       const { failure } = shaped
       return { status: 'failure', error: failure.message } as const
     }
+    const expanded = yield* Effect.result(expandUserFields(app, tableName, shaped.success))
+    if (expanded._tag === 'Failure') {
+      return { status: 'failure', error: 'Failed to read the people the records name' } as const
+    }
     const selected = fields === undefined ? undefined : new Set(fields)
-    const records = shaped.success.map((record) =>
+    const records = expanded.success.map((record) =>
       selected === undefined ? record : selectFields(record, selected)
     )
     return { status: 'success', output: { record: records[0] ?? undefined, records } } as const

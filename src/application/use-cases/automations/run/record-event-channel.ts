@@ -31,6 +31,7 @@
  */
 
 import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
+import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields/field'
 import { logError } from '@/infrastructure/logging/logger'
 import { triggerRecordEventAutomations } from '../trigger-record-event'
@@ -123,6 +124,8 @@ export const buildRecordEventChannel = (ctx: ChannelContext): RecordEventChannel
         ? {}
         : { previousRecord: { ...write.previousRecord } }),
       processEnv: ctx.processEnv,
+      // No person made this write: the run it starts names the system as its user.
+      requester: { id: SYSTEM_USER_ID, role: SYSTEM_USER_ID },
       ...(ctx.automation.userId === undefined ? {} : { userId: ctx.automation.userId }),
       depth: ctx.recordEventDepth + 1,
     })

@@ -6,11 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { deleteRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
-import {
-  createRecordProgram,
-  updateRecordProgram,
-} from '@/application/use-cases/tables/write-record-programs'
 import {
   buildCreateAuthorshipOverrides,
   buildUpdateAuthorshipOverrides,
@@ -22,32 +17,23 @@ import {
   CALLER_REFUSAL,
   callerMayWrite,
   callerRefusal,
-  deletesOf,
   runLinkReader,
   updatesOf,
   writerActorOf,
 } from './record-caller-gate'
 import { automationCreateFields } from './record-create-fields'
-import {
-  declaredFieldNames,
-  errorMessageOf,
-  extractIdFromFilter,
-  resolveActionTargetIds,
-  resolveIdsByFilter,
-} from './record-filters'
+import { createAndAnnounce, recordEventLoopRefusal, updateAndAnnounce } from './record-events'
+import { declaredFieldNames, errorMessageOf, resolveActionTargetIds } from './record-filters'
 import { resolveOwnProps } from './run-context-resolution'
-import { actionAttributes, findMultiSelectViolationMessage, numberProp, stringProp } from './shared'
+import { actionAttributes, findMultiSelectViolationMessage, stringProp } from './shared'
 import type { ItemResult } from './record-batch-loop'
-import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
-import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import type { ActionHandler, ActionOutcome, ActionRunContext, AutomationContext } from './shared'
+import type { StepRequirements } from '../run/types'
 import type { CallerWriteRequest } from '@/application/use-cases/tables/permissions/caller-write-authority'
-import type { DatabaseError, UnknownFilterFieldError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
-/** What an item needs once the caller gate may run: the record ports plus the caller lookups. */
-type GateRequirements = TableRepository | AuthRepository | DataSourceRepository
+/** What an item needs: the step's services, which every write road runs on. */
+export type GateRequirements = StepRequirements
 
 /**
  * The `record` batch operators: `batchCreate`, `batchUpdate`, `batchDelete` and
@@ -58,16 +44,13 @@ type GateRequirements = TableRepository | AuthRepository | DataSourceRepository
  * dispatched them to the registry's no-op fallback, recorded the step as
  * successful, and wrote nothing.
  *
- * ── Why these loop the single-record programs ────────────────────────────────
+ * ── Why these loop the single-record write roads ─────────────────────────────
  *
- * `batchUpdateProgram` / `batchDeleteProgram` in
- * `@/application/use-cases/tables/batch-operations` look like the obvious reuse,
- * but they require `BatchRepository`, which is absent from `ActionHandler`'s
- * requirement union (`./shared`). Adopting them means threading a new layer
- * through the whole automation runtime for no behavioural gain. So these follow
- * the precedent set by the original `batchCreate` handler: loop the
- * single-record program, which keeps every write on the same permission / audit
- * / cascade pipeline a single-record action uses.
+ * Each item is written through the records API's single-record write road for
+ * its operation (`record-events.ts`), exactly as the single-record operators
+ * write: the same permission / audit / cascade pipeline, the table's webhooks,
+ * and — through the run's record-event channel, under its depth limit — the
+ * table's record automations, one event per row written.
  *
  * ── continueOnItemError: ONE rule, one implementation ────────────────────────
  *
@@ -88,7 +71,7 @@ type GateRequirements = TableRepository | AuthRepository | DataSourceRepository
  */
 
 /** A batch operator's resolved `props` bag — read-only at every use site here. */
-type BatchProps = Readonly<Record<string, unknown>>
+export type BatchProps = Readonly<Record<string, unknown>>
 
 /**
  * Resolve the action's props from the AUTHORED action (or take them as given
@@ -100,7 +83,10 @@ type BatchProps = Readonly<Record<string, unknown>>
  * zero items. `resolveRunContextValue` instead unwraps a whole-string `{{path}}`
  * to the VALUE at that path, arrays intact. Shared by all four operators.
  */
-const resolvedProps = (action: BatchProps, runContext: Parameters<ActionHandler>[3]): BatchProps =>
+export const resolvedProps = (
+  action: BatchProps,
+  runContext: Parameters<ActionHandler>[3]
+): BatchProps =>
   runContext
     ? (resolveOwnProps(runContext) as Record<string, unknown>)
     : ((action['props'] as Record<string, unknown> | undefined) ?? {})
@@ -116,7 +102,7 @@ const itemsOf = (props: BatchProps): readonly unknown[] => {
   return Array.isArray(raw) ? (raw as readonly unknown[]) : []
 }
 
-const asRecord = (value: unknown): BatchProps | undefined =>
+export const asRecord = (value: unknown): BatchProps | undefined =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined
@@ -132,9 +118,10 @@ const createItem = (input: {
   readonly authorship: Readonly<Record<string, string>>
   readonly app: App
   readonly automation: AutomationContext
+  readonly runContext: ActionRunContext | undefined
 }): Effect.Effect<ItemResult, never, GateRequirements> =>
   Effect.gen(function* () {
-    const { item, tableName, session, authorship, app, automation } = input
+    const { item, tableName, session, authorship, app, automation, runContext } = input
     // A non-object item degrades to "no fields" rather than failing, preserving
     // the operator's original leniency; the create itself then fails on any
     // required column, which is where the operator's error belongs.
@@ -148,12 +135,16 @@ const createItem = (input: {
     if (multiSelectError) return failed(multiSelectError)
     const refused = yield* callerRefusal(app, automation, [{ op: 'create', tableName, fields }])
     if (refused !== undefined) return failed(refused.error)
+    const loop = recordEventLoopRefusal(runContext, tableName, 'create')
+    if (loop !== undefined) return failed(loop.error ?? 'record-event loop')
 
     const created = yield* Effect.result(
-      createRecordProgram({
+      createAndAnnounce({
         session,
+        app,
         tableName,
         fields: { ...normalizeDateValuesIn(app.tables, tableName, fields), ...authorship },
+        runContext,
       })
     )
     return created._tag === 'Failure'
@@ -186,7 +177,8 @@ export const handleRecordBatchCreate: ActionHandler = (action, app, automation, 
     const tally = yield* runBatchItems({
       items: itemsOf(props),
       continueOnItemError,
-      runItem: (item) => createItem({ item, tableName, session, authorship, app, automation }),
+      runItem: (item) =>
+        createItem({ item, tableName, session, authorship, app, automation, runContext }),
     })
     return batchOutcome({
       tally,
@@ -231,16 +223,23 @@ const writeUpdates = (input: {
   readonly data: Readonly<Record<string, unknown>>
   readonly app: App
   readonly automation: AutomationContext
+  readonly runContext: ActionRunContext | undefined
 }): Effect.Effect<ItemResult, never, GateRequirements> =>
   Effect.gen(function* () {
-    const { actorId, tableName, ids, data, app, automation } = input
+    const { actorId, tableName, ids, data, app, automation, runContext } = input
+    const loop = recordEventLoopRefusal(runContext, tableName, 'update', Object.keys(data))
+    if (loop !== undefined) return failed(loop.error ?? 'record-event loop')
     const session = buildSyntheticSession(actorId)
     const linkReader = yield* runLinkReader(automation)
     const fields = { ...data, ...buildUpdateAuthorshipOverrides(app.tables, tableName, actorId) }
     const written = yield* Effect.result(
       Effect.forEach(
         ids,
-        (id) => updateRecordProgram(session, tableName, id, { fields, app, linkReader }),
+        (recordId) =>
+          updateAndAnnounce({
+            ...{ session, tableName, recordId, fields, app, runContext },
+            ...(linkReader === undefined ? {} : { linkReader }),
+          }),
         { discard: true }
       )
     )
@@ -254,9 +253,10 @@ const applyUpdateItem = (input: {
   readonly tableName: string
   readonly app: App
   readonly automation: AutomationContext
+  readonly runContext: ActionRunContext | undefined
 }): Effect.Effect<ItemResult, never, GateRequirements> =>
   Effect.gen(function* () {
-    const { item, tableName, app, automation } = input
+    const { item, tableName, app, automation, runContext } = input
     const entry = asRecord(item)
     if (entry === undefined) return failed('batchUpdate item must be an object')
 
@@ -295,7 +295,7 @@ const applyUpdateItem = (input: {
     }
 
     const actorId = writerActorOf(automation)
-    return yield* writeUpdates({ actorId, tableName, ids, data, app, automation })
+    return yield* writeUpdates({ actorId, tableName, ids, data, app, automation, runContext })
   })
 
 export const handleRecordBatchUpdate: ActionHandler = (action, app, automation, runContext) =>
@@ -309,7 +309,7 @@ export const handleRecordBatchUpdate: ActionHandler = (action, app, automation, 
     const tally = yield* runBatchItems({
       items: itemsOf(props),
       continueOnItemError,
-      runItem: (item) => applyUpdateItem({ item, tableName, app, automation }),
+      runItem: (item) => applyUpdateItem({ item, tableName, app, automation, runContext }),
     })
     return batchOutcome({
       tally,
@@ -333,9 +333,10 @@ const upsertItem = (input: {
   readonly matchField: string
   readonly app: App
   readonly automation: AutomationContext
+  readonly runContext: ActionRunContext | undefined
 }): Effect.Effect<ItemResult, never, GateRequirements> =>
   Effect.gen(function* () {
-    const { item, tableName, matchField, app, automation } = input
+    const { item, tableName, matchField, app, automation, runContext } = input
     const data = asRecord(item)
     if (data === undefined) return failed('batchUpsert item must be an object')
 
@@ -377,8 +378,8 @@ const upsertItem = (input: {
     const actorId = writerActorOf(automation)
     const session = buildSyntheticSession(actorId)
     return ids.length === 0
-      ? yield* createUpsertRow({ session, actorId, tableName, data, app })
-      : yield* writeUpdates({ actorId, tableName, ids, data, app, automation })
+      ? yield* createUpsertRow({ session, actorId, tableName, data, app, runContext })
+      : yield* writeUpdates({ actorId, tableName, ids, data, app, automation, runContext })
   })
 
 const createUpsertRow = (input: {
@@ -387,14 +388,19 @@ const createUpsertRow = (input: {
   readonly tableName: string
   readonly data: Record<string, unknown>
   readonly app: App
-}): Effect.Effect<ItemResult, never, TableRepository | DataSourceRepository | AuthRepository> =>
+  readonly runContext: ActionRunContext | undefined
+}): Effect.Effect<ItemResult, never, GateRequirements> =>
   Effect.gen(function* () {
-    const { session, actorId, tableName, data, app } = input
+    const { session, actorId, tableName, data, app, runContext } = input
+    const loop = recordEventLoopRefusal(runContext, tableName, 'create')
+    if (loop !== undefined) return failed(loop.error ?? 'record-event loop')
     const created = yield* Effect.result(
-      createRecordProgram({
+      createAndAnnounce({
         session,
+        app,
         tableName,
         fields: automationCreateFields(app, tableName, data, actorId),
+        runContext,
       })
     )
     return created._tag === 'Failure'
@@ -417,7 +423,7 @@ export const handleRecordBatchUpsert: ActionHandler = (action, app, automation, 
     const tally = yield* runBatchItems({
       items: itemsOf(props),
       continueOnItemError,
-      runItem: (item) => upsertItem({ item, tableName, matchField, app, automation }),
+      runItem: (item) => upsertItem({ item, tableName, matchField, app, automation, runContext }),
     })
     return batchOutcome({
       tally,
@@ -430,219 +436,3 @@ export const handleRecordBatchUpsert: ActionHandler = (action, app, automation, 
       attributes: actionAttributes(action),
     })
   )
-
-// ---------------------------------------------------------------------------
-// record/batchDelete
-// ---------------------------------------------------------------------------
-
-/**
- * Resolve the rows `batchDelete` targets — STRICTLY.
- *
- * Unlike {@link resolveItemIds} this propagates a lookup failure instead of
- * reading it as an empty match set. A delete driven by a query it could not
- * run knows nothing about what it was supposed to remove, and reporting that
- * as `matched: 0` and succeeding is how a broken nightly purge stays invisible
- * for months.
- */
-const resolveTargetIds = (
-  tableName: string,
-  filter: unknown,
-  declaredFields: ReadonlySet<string> | undefined
-): Effect.Effect<readonly string[], DatabaseError | UnknownFilterFieldError, TableRepository> => {
-  const fastPath = extractIdFromFilter(filter)
-  return fastPath
-    ? Effect.succeed([fastPath] as const)
-    : resolveIdsByFilter(tableName, filter, declaredFields)
-}
-
-/**
- * An error's message plus the driver's own words underneath it.
- *
- * `DatabaseError`'s message is a wrapper — "Failed to list records from events"
- * — which tells an operator only that something failed. The `cause` carries the
- * fact they can act on (`column "knid" does not exist`). Failing loudly but
- * anonymously is only half the fix, so the lookup failure carries both. It goes
- * through the same run-history redaction seam as every other action error.
- */
-const withDriverDetail = (error: unknown): string => {
-  const head = errorMessageOf(error)
-  const cause = error instanceof Error ? error.cause : undefined
-  const detail = cause === undefined || cause === null ? '' : errorMessageOf(cause)
-  return detail === '' || head.includes(detail) ? head : `${head}: ${detail}`
-}
-
-/**
- * The cap applied when the config declares no `limit`.
- *
- * `limit` is optional, and an omitted one meaning NO cap would be strictly more
- * permissive than the largest cap an author is allowed to write, since the
- * schema bounds the declared value to `1..10_000`. Omitting the safety limit
- * would then buy more reach than asking for the maximum, which is the
- * opposite of what a safety limit is for. Defaulting to the schema's own
- * ceiling closes that hole without inventing a number: every batch an author
- * could express explicitly runs unchanged.
- */
-const DEFAULT_BATCH_DELETE_LIMIT = 10_000
-
-const declaresLimit = (props: BatchProps): boolean => props['limit'] !== undefined
-
-const effectiveLimit = (props: BatchProps): number =>
-  declaresLimit(props)
-    ? numberProp(props, 'limit', DEFAULT_BATCH_DELETE_LIMIT)
-    : DEFAULT_BATCH_DELETE_LIMIT
-
-/** Names both numbers so the fix — narrow the filter, or raise the cap — is obvious. */
-const limitExceededError = (input: {
-  readonly matched: number
-  readonly limit: number
-  readonly declared: boolean
-}): string =>
-  `record.batchDelete matched ${String(input.matched)} records, which exceeds its ` +
-  `${input.declared ? 'safety limit' : 'default safety limit'} of ${String(input.limit)}; ` +
-  `nothing was deleted`
-
-/** How far a delete loop got before it stopped. */
-interface DeleteTally {
-  readonly deleted: number
-  readonly error: string | undefined
-}
-
-/**
- * Delete each matched row, counting the ones that actually landed and halting
- * at the first failure.
- *
- * The loop is NOT atomic — each `deleteRecordProgram` commits its own
- * transaction — so a failure part-way through leaves the earlier deletes
- * committed. Reporting `deleted: 0` there (as this handler did) tells the
- * operator nothing was removed while rows are already gone, which is the same
- * class of lie the over-limit refusal exists to prevent. Counting instead is
- * the weaker but honest guarantee: `deleted` is what committed, always.
- *
- * Atomicity is reachable — `BatchRepository.batchDelete` wraps the whole set in
- * one `db.transaction` — but that port is absent from `ActionHandler`'s
- * requirement union, so adopting it means threading a new layer through the
- * entire automation runtime. Same reason the module doc gives for looping the
- * single-record programs in the first place.
- *
- * A row whose delete reports `success: false` (it vanished between the query
- * and the write) is not counted and does not abort the loop, so `deleted` can
- * legitimately come in under `matched` on an otherwise successful run.
- */
-const deleteMatchedRows = (input: {
-  readonly tableName: string
-  readonly ids: readonly string[]
-  readonly actorId: string
-}): Effect.Effect<DeleteTally, never, TableRepository> => {
-  // Soft-delete stamps `deleted_by` with the caller of a hand-started run, else
-  // the durable system actor — never NULL under the guest id.
-  const session = buildSyntheticSession(input.actorId)
-  const start = (): DeleteTally => ({ deleted: 0, error: undefined })
-  return Effect.reduce(input.ids, start, (tally, id) =>
-    tally.error !== undefined
-      ? Effect.succeed(tally)
-      : Effect.result(deleteRecordProgram(session, input.tableName, id)).pipe(
-          Effect.map((result) =>
-            result._tag === 'Failure'
-              ? { ...tally, error: withDriverDetail(result.failure) }
-              : { ...tally, deleted: tally.deleted + (result.success.success ? 1 : 0) }
-          )
-        )
-  )
-}
-
-/** A batch delete the caller may not make: refused whole, nothing removed. */
-const REFUSED_DELETE = {
-  status: 'failure',
-  error: CALLER_REFUSAL,
-  output: { matched: 0, deleted: 0 },
-} as const
-
-/**
- * `record/batchDelete` — query-then-delete. Unlike its batch siblings it takes
- * no `items` array: its props are `{ table, filter, limit }`.
- *
- * `limit` is documented in the schema as a SAFETY limit, so exceeding it
- * refuses the WHOLE operation rather than deleting the first `limit` matches.
- * A partial purge is the failure mode the cap exists to prevent: the operator
- * would see rows gone, rows remaining, and a successful run, and conclude their
- * filter was wrong rather than that the cap fired. The error therefore names
- * both numbers — how many matched and what the cap was — so the fix (raise the
- * cap, or narrow the filter) is obvious without a database query. An omitted
- * `limit` gets the schema's own ceiling rather than no cap at all; see
- * {@link DEFAULT_BATCH_DELETE_LIMIT}.
- *
- * Every path that ends in `failure` reports what it actually removed:
- * {@link resolveTargetIds} refuses on a failed lookup rather than passing it
- * off as an empty match set, and {@link deleteMatchedRows} carries the
- * committed count out of a part-way failure.
- */
-export const handleRecordBatchDelete: ActionHandler = (action, app, automation, runContext) =>
-  Effect.gen(function* () {
-    const props = resolvedProps(action, runContext)
-    const tableName = stringProp(props, 'table')
-    if (!tableName) {
-      return { status: 'failure', error: 'record.batchDelete requires a table name' } as const
-    }
-
-    const { filter } = props
-    const lookup = yield* Effect.result(
-      resolveTargetIds(tableName, filter, declaredFieldNames(app, tableName))
-    )
-    if (lookup._tag === 'Failure') {
-      return {
-        status: 'failure',
-        error: `record.batchDelete could not resolve its filter: ${withDriverDetail(lookup.failure)}`,
-      } as const
-    }
-
-    const ids = lookup.success
-    if (ids.length === 0) {
-      // Distinguish "matched nothing" (a normal outcome — nothing to clean up)
-      // from "the filter was unusable". An empty or malformed filter must never
-      // degrade to match-everything on a delete.
-      return unusableFilter(filter)
-        ? ({
-            status: 'failure',
-            error: 'record.batchDelete requires a filter with at least one condition',
-          } as const)
-        : ({ status: 'success', output: { matched: 0, deleted: 0 } } as const)
-    }
-
-    const limit = effectiveLimit(props)
-    if (ids.length > limit) {
-      return {
-        status: 'failure',
-        error: limitExceededError({
-          matched: ids.length,
-          limit,
-          declared: declaresLimit(props),
-        }),
-        output: { matched: ids.length, deleted: 0 },
-      } as const
-    }
-
-    if (!(yield* callerMayWrite(app, automation, deletesOf(tableName, ids)))) return REFUSED_DELETE
-    const tally = yield* deleteMatchedRows({ tableName, ids, actorId: writerActorOf(automation) })
-    const output = { matched: ids.length, deleted: tally.deleted }
-    return tally.error === undefined
-      ? ({ status: 'success', output } as const)
-      : ({ status: 'failure', error: tally.error, output } as const)
-  }).pipe(
-    Effect.withSpan('automations.handle-record-batch-delete', {
-      attributes: actionAttributes(action),
-    })
-  )
-
-/** True when a filter carries no condition the repository could compile. */
-const unusableFilter = (filter: unknown): boolean =>
-  extractIdFromFilter(filter) === undefined && !hasCompilableConditions(filter)
-
-const hasCompilableConditions = (filter: unknown): boolean => {
-  if (!filter || typeof filter !== 'object') return false
-  const { conditions } = filter as { readonly conditions?: unknown }
-  if (!Array.isArray(conditions)) return false
-  return conditions.some((c) => {
-    const entry = asRecord(c)
-    return typeof entry?.['field'] === 'string' && typeof entry['operator'] === 'string'
-  })
-}

@@ -6,13 +6,14 @@
  */
 
 import backupRestoreSqliteBody from '@/docs/guides/backup-restore-sqlite.md' with { type: 'file' }
+import upgradeNotesEarlierBody from '@/docs/guides/upgrade-notes-earlier.md' with { type: 'file' }
 import upgradeRollbackBody from '@/docs/guides/upgrade-rollback.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
 
 /**
  * Guides: operations — the section manifest.
  *
- * Two guides for running an app for the long haul. They are procedures, where
+ * Three guides for running an app for the long haul. They are procedures, where
  * `operations` next door is policy: this one tells you which commands to run,
  * that one tells you what the engine guarantees while you run them.
  */
@@ -62,6 +63,26 @@ export const section = defineSection({
       order: 10_610,
       sidebarLabel: 'Upgrade & rollback',
       body: upgradeRollbackBody,
+      documents: [],
+      stories: [],
+    }),
+    defineArticle({
+      slug: 'upgrade-notes-earlier',
+      title: 'Upgrade notes for earlier releases',
+      description:
+        'What changed between older Sovrium releases, for an app that moves across several versions at once.',
+      keywords: [
+        'sovrium',
+        'upgrade',
+        'release notes',
+        'breaking changes',
+        'version',
+        'migration',
+        'sovrium validate',
+      ],
+      order: 10_620,
+      sidebarLabel: 'Earlier upgrade notes',
+      body: upgradeNotesEarlierBody,
       documents: [],
       stories: [],
     }),

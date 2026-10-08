@@ -1,3 +1,131 @@
+## [0.33.0](https://github.com/sovrium/sovrium/compare/v0.32.0...v0.33.0) (2026-10-08)
+
+### BREAKING CHANGES
+
+- **tables**: fire webhooks and record automations on every road that writes a record
+- **automations**: read a user field listed or read by a step as the person
+- **automations**: remove file/generatePdf and move file/generateXlsx to document/generateXlsx
+
+### Features
+
+- **automations**: waits longer than one minute park the run and resume it later
+- **tables**: let a page list a record's history newest first with who made each change
+- **library**: add a record history block
+- **seed**: seed pending invitations from the users file
+- **auth**: print an invitation's workspace and deadline for a reader
+- **pages**: let an endpoint form close its dialog and clear its fields on success
+- **cli**: trust the 2026-10 release signing key
+- **tables**: row rules may follow one relationship hop
+- **automations**: sovrium/validateBundle checks a stored bundle
+- **cli**: sovrium deploy posts the manifest text for signing
+- **cli**: sovrium update verifies the release signature
+- **automations**: declare a sovrium/validateBundle action for stored bundle archives
+- **cli**: carry the manifest text in the deploy request and cap the app slug at 28 characters
+- **automations**: cap instance slugs at 28 characters
+- **admin**: read-only template catalogue and preview reads for the console
+- **server**: refuse instance actions without the operator switch
+- **automations**: instance actions supervise sibling Sovrium apps
+- **automations**: crypto/sign and crypto/verify with Ed25519
+- **cli**: preview a template asset offline with sovrium render
+- **automations**: convert Office, HTML and image files to PDF with document/convert
+- **automations**: fill a workbook template with document/generateXlsx
+- **automations**: declare the instance actions and Ed25519 sign and verify
+- **automations**: social cards with the og preset of document/generateImage
+- **automations**: document template helpers, partials, translations and email rendering
+- **cli**: sovrium deploy uploads a bundle and follows the deployment
+- **cli**: sovrium login signs in to a Sovrium Cloud host
+- **cli**: define the sovrium login and sovrium deploy contracts
+- **server**: JSON log format
+- **server**: Unix socket listener and idle exit
+- **cli**: add sovrium bundle to package an app for deployment
+- **server**: database readiness probe at /api/health?probe=db
+- **server**: SOVRIUM_BIND_HOST sets the interface to bind
+- **auth**: device authorization sign-in for the sovrium CLI
+- **automations**: session-authenticated webhooks with trigger.user
+- **cli**: define the sovrium bundle archive and its manifest
+- **automations**: add session authentication to the webhook trigger
+- **auth**: add the auth.deviceAuthorization option for command-line sign-in
+- **automations**: draw SVG image text with an embedded IBM Plex Sans
+- **automations**: split, rearrange, watermark, stamp, fill, inspect and build PDFs from pictures
+- **automations**: fill Word templates with document/generateDocx
+- **automations**: render HTML templates to paginated PDFs with document/generatePdf
+- **automations**: merge PDFs, or chosen pages of them, with pdf/merge
+- **automations**: send email/send messages from templates, with a text part and attachments
+- **automations**: generate images from SVG and HTML templates into temporary storage, a bucket or a record
+- **assets**: load private assets at start, check them in validate, never serve them
+- **automations**: add an HTML-to-PDF and HTML-to-image renderer engine
+- **automations**: keep web and mail hyperlinks in filled Word templates
+- **automations**: render document templates with escaping by output and a restricted tier for bucket templates
+- **automations**: fill Word templates with data inside the binary
+
+### Bug Fixes
+
+- **tables**: keep an AI refinement running when a later write touches another column
+- **tables**: resend the record a webhook delivery carried when it is retried
+- **tables**: never match an upsert on what its caller cannot read
+- **tables**: keep webhook credentials out of the delivery log
+- **tables**: list and read webhook deliveries on SQLite
+- **automations**: name a switch for hosts where Chrome cannot start its sandbox
+- **server**: stop a timed-out child's whole process group
+- **pages**: offer a password reset only when a page asks for the reset link
+- **pages**: draw an auth form's submit in the weight its action names
+- **pages**: keep the native landmark role of a header, footer or nav component
+- **library**: draw an invitation's Decline as the quieter choice
+- **library**: show the sign-in reset link only when a page sends the reset email
+- **automations**: mask comment-trigger addresses shown to a run's approvers
+- **library**: draw the record comments thread as the block's only surface
+- **automations**: mask people's addresses in MCP run results and in trigger data shown to non-admins
+- **pages**: keep a navigate button on this site when a record supplies its address
+- **auth**: send invitation emails to the app's own invitation page
+- **automations**: mask a person's address in a run shown to the member who started it
+- **auth**: fire the sign-in, sign-out and password-reset automation events
+- **pages**: make navigate buttons and toast, automation and fetch menu items act
+- **pages**: show an awaited automation button's error toast when the run fails
+- **automations**: mint download links that work on every storage provider
+- **pages**: let a shared navigation's current-item marker read its placement vars
+- **pages**: fill a row action's confirm question from the row it was armed for
+- **forms**: accept a hidden link filled from a collection page
+- **pages**: open a member's role picker only when its row action is pressed
+- **pages**: give aggregate area and line charts the field's currency and series name
+- **forms**: accept JPEGs on a file field that names image/jpg
+- **tables**: let a signed-out visitor read the figures of a public table
+- **automations**: let a loop or a path call another automation
+- **automations**: name the caller's file in office errors and keep asset errors stable
+- **automations**: bound a release bundle before instance/apply unpacks it
+- **automations**: harden office conversion, rendering and template limits
+- **forms**: stop echoing database errors to form submitters
+- **automations**: refuse a stored bundle that unpacks past 256 MiB
+- **email**: keep attachments within what Amazon SES accepts
+- **automations**: kill the whole LibreOffice process on a conversion timeout
+- **automations**: refuse oversized document inputs before reading them
+- **automations**: clean every Office relationship part and read field codes by namespace
+- **pages**: render a catch-all capture as one breadcrumb crumb
+- **automations**: record triggers carry the stored row and the acting user
+- **automations**: judge the stored file a template picture names by who chose it
+- **automations**: run a loop inside a path the same as at the top level
+- **automations**: keep an earlier webhook response when flow/stop ends the run
+- **forms**: store an unticked checkbox as false and require a ticked box when required
+- **automations**: instance slugs are at most 28 characters
+- **pages**: deny a signed-in caller without the role with 404 instead of a redirect
+- **automations**: check a literal locale only on document and email steps
+- **automations**: only a step that writes a file counts as producing one
+- **tables**: purging a record keeps a file another record still names
+- **automations**: a named template called from a path or a loop fills its inline template's variables
+- **tables**: assign autonumber values on SQLite whether or not the field is required
+- **automations**: never ask Gotenberg for an image past the size limit
+- **automations**: a generated file is attached to a record or temporary
+- **assets**: refuse a private asset that sits inside the public directory
+- **automations**: file references from run data name only what the run produced
+- **automations**: make a Gotenberg-rendered document inert before it is sent
+- **automations**: key compiled untrusted document templates by SHA-256
+- **automations**: a malformed escape in a rendered asset URL no longer stalls the render
+- **automations**: check an attachTo output bucket in action templates too
+- **storage**: sweep automation temp files at most once a minute
+- **ai**: run chat-triggered automations on the server's own services
+- **automations**: bound document renders and close the renderer's side channels
+- **cli**: restart from the installed binary
+- **server**: refuse a busy port under a supervisor
+
 ## [0.32.0](https://github.com/sovrium/sovrium/compare/v0.31.0...v0.32.0) (2026-10-08)
 
 ### Features

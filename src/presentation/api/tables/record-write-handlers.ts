@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { buildSystemSession } from '@/application/use-cases/automations/build-guest-session'
-import { createRecordWithSideEffects } from '@/application/use-cases/tables/record-create-orchestration'
+import { createRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import {
   createRecordRequestSchema,
@@ -20,7 +20,6 @@ import {
 import { isGuestSession, SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { buildCreateAuthorshipOverrides } from '@/domain/models/app/tables/authorship-fields'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { createWebhooksFor } from '@/infrastructure/webhooks/table-write-webhooks'
 import { validateRequest } from '@/presentation/api/runtime'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { flashDeclaredToast } from '@/presentation/api/runtime/form-flash'
@@ -120,7 +119,6 @@ const createResponse = (request: CreateRequest) =>
       origin: new URL(c.req.url).origin,
       isSqlite: isSqliteRuntime(),
       processEnv: process.env,
-      dispatchWebhooks: createWebhooksFor(app, tableName),
     })
     // A caller who may not read the table files the record and is handed back
     // none of it — no value, and no id to address a record she cannot read.

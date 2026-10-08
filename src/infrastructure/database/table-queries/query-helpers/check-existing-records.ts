@@ -5,11 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database/drizzle'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { tableIdentifier } from '../statement/validation'
+
+/**
+ * `AND id NOT IN (…)` for the rows a match must skip, or nothing when there are
+ * none. Shared with the upsert's own lookup (`batch-upsert.ts`), so the
+ * permission decision and the write agree on what matches.
+ */
+export const excludingIds = (ids: readonly string[]): SQL =>
+  ids.length === 0
+    ? sql``
+    : sql` AND id NOT IN (${sql.join(
+        ids.map((id) => sql`${id}`),
+        sql`, `
+      )})`
 
 /**
  * Check if any records exist in database based on merge fields
@@ -20,12 +33,14 @@ import { tableIdentifier } from '../statement/validation'
  * @param tableName - Sanitized table name
  * @param records - Records with field values to check
  * @param fieldsToMergeOn - Field names to match against
+ * @param hiddenIds - Rows the caller's row-level read rule hides: never a match
  * @returns true if any matching records exist
  */
 export async function checkForExistingRecords(
   tableName: string,
   records: readonly { fields: Record<string, unknown> }[],
-  fieldsToMergeOn: readonly string[]
+  fieldsToMergeOn: readonly string[],
+  hiddenIds: readonly string[] = []
 ): Promise<boolean> {
   // Build WHERE clause - skip records missing merge fields (will fail validation)
   const mergeConditions = records
@@ -46,7 +61,8 @@ export async function checkForExistingRecords(
   const whereClause = sql.join(mergeConditions, sql` OR `)
   const existingRecords = await executeRaw(
     db,
-    sql`SELECT COUNT(*) as count FROM ${tableIdentifier(tableName)} WHERE ${whereClause}`
+    sql`SELECT COUNT(*) as count FROM ${tableIdentifier(tableName)}
+         WHERE (${whereClause})${excludingIds(hiddenIds)}`
   )
 
   const firstRecord = existingRecords[0]

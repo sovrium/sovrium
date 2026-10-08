@@ -40,6 +40,8 @@ export interface PersistedRun {
   readonly relay: unknown
   /** When the values this run captured were erased with an account (ISO 8601), or `null`. */
   readonly valuesErasedAt: string | null
+  /** While the run waits on a long delay (`waiting-delay`): when it resumes (ISO 8601), else `null`. */
+  readonly resumeAt: string | null
 }
 
 /**
@@ -231,6 +233,55 @@ export class AutomationRunRepository extends Context.Service<
       readonly steps?: readonly CreateStepInput[]
       readonly refs?: readonly RunRecordRef[]
       readonly refsFromRuns?: readonly string[]
+      /** A run parking on a long wait: when it resumes and where. Absent, both are cleared. */
+      readonly park?: { readonly resumeAt: Date; readonly cursor: unknown }
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
+    /**
+     * Whether any run is `waiting-delay`, due or not — a probe that stops at the
+     * first row, asked once per boot to decide whether the resume sweep is needed.
+     */
+    readonly hasWaitingDelayRuns: Effect.Effect<boolean, AutomationRunDatabaseError>
+    /**
+     * The `waiting-delay` runs due at `now`, oldest resume time first, at most
+     * `limit` — leaving out the automations named in `exceptAutomations`, whose
+     * runs stay parked without taking a place in the batch.
+     */
+    readonly listDueDelayedRuns: (input: {
+      readonly now: Date
+      readonly limit: number
+      readonly exceptAutomations: readonly string[]
+    }) => Effect.Effect<
+      readonly { readonly id: string; readonly automationName: string }[],
+      AutomationRunDatabaseError
+    >
+    /**
+     * Claim a due `waiting-delay` run for its resume: a compare-and-set to
+     * `running` that only one caller wins. Answers the run and its resume cursor,
+     * or `undefined` when the run is not (or no longer) waiting and due.
+     */
+    readonly claimDelayedRun: (input: {
+      readonly id: string
+      readonly now: Date
+    }) => Effect.Effect<
+      { readonly run: PersistedRun; readonly cursor: unknown } | undefined,
+      AutomationRunDatabaseError
+    >
+    /**
+     * Cancel a run while it is still `waiting-delay`, with `error`: conditional,
+     * so a cancel racing a resume ends in exactly one of the two. Answers
+     * whether this call cancelled it.
+     */
+    readonly cancelWaitingRun: (input: {
+      readonly id: string
+      readonly error: string
+    }) => Effect.Effect<boolean, AutomationRunDatabaseError>
+    /**
+     * Rewrite one step row of a run, addressed by its position — the loop or
+     * path a resumed run completes, the wait step that gains `resumedAt`.
+     */
+    readonly updateStep: (input: {
+      readonly runId: string
+      readonly step: CreateStepInput
+    }) => Effect.Effect<boolean, AutomationRunDatabaseError>
   }
 >()('AutomationRunRepository') {}

@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every trigger an automation can start from (9) and every action a step can run (89), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
+Every trigger an automation can start from (9) and every action a step can run (114), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
 
 ## Contents
 
@@ -19,7 +19,7 @@ Read: `sovrium docs automation-triggers`
 | --- | --- |
 | `webhook` | Trigger automation via incoming HTTP webhook |
 | `cron` | Trigger automation on a schedule using cron expressions |
-| `record` | Trigger automation when records are created, updated, or deleted |
+| `record` | Trigger automation when records are created, updated, or deleted. The run reads the row as stored at trigger.data.record (id, created_at, updated_at and the stamped columns included) and, for a record created through the records API or written by an automation step, who made the write at trigger.user ({ id, role }, or system for a write no person made). |
 | `auth` | Trigger automation on authentication events (sign-up, sign-in, etc.) |
 | `form` | Trigger automation when a top-level form is submitted. The `form` property references forms[].name (HARD BREAK: was a page path). |
 | `manual` | Admin-initiated workflow execution via button or API call |
@@ -85,13 +85,24 @@ Read: `sovrium docs automation-actions`
 | `file` | `getMetadata` | Get file metadata (size, type, date) without downloading content |
 | `file` | `signUrl` | Generate a time-limited signed URL for file access |
 | `file` | `generateCsv` | Generate a CSV file from an array of data objects |
-| `file` | `generatePdf` | Generate a PDF document from an HTML template |
 | `file` | `parseCsv` | Parse a CSV file into structured JSON data |
 | `file` | `extractText` | Extract plain text content from PDF, DOCX, or HTML files |
 | `file` | `transformImage` | Resize or convert an image file |
 | `file` | `compress` | Create a ZIP archive from one or more storage files |
 | `file` | `parseXlsx` | Parse a sheet of an .xlsx workbook into structured row data |
-| `file` | `generateXlsx` | Generate an .xlsx workbook from row data |
+| `document` | `generatePdf` | Render an HTML template filled with data into a paginated PDF |
+| `document` | `generateImage` | Render an SVG or HTML template filled with data into a PNG, JPEG or WebP image |
+| `document` | `generateDocx` | Fill a Word (.docx) template with data |
+| `document` | `generateXlsx` | Generate an .xlsx workbook from row data, or fill a designed .xlsx template |
+| `document` | `convert` | Convert a Word, Excel, PowerPoint, OpenDocument, HTML or image file into a PDF |
+| `pdf` | `merge` | Merge PDFs, or chosen pages of them, into one PDF |
+| `pdf` | `split` | Split a PDF into several: by page ranges, every N pages, or one file per page |
+| `pdf` | `pages` | Delete, extract, reorder or rotate the pages of a PDF |
+| `pdf` | `watermark` | Draw a translucent text or image watermark across the pages of a PDF |
+| `pdf` | `stamp` | Stamp text, an image (a logo or a signature picture) or page numbers at a chosen spot of chosen pages of a PDF |
+| `pdf` | `fillForm` | Fill the form fields of a PDF from data, optionally flattening them |
+| `pdf` | `inspect` | Read the page count, page sizes, metadata, encryption and form fields of a PDF |
+| `pdf` | `fromImages` | Make a PDF of JPEG, PNG or WebP pictures, one page each |
 | `data` | `set` | Compute a value and expose it for downstream actions |
 | `data` | `aggregate` | Compute sum/avg/min/max/count over a numeric field of an array |
 | `data` | `sort` | Reorder an array of records by a specified field and direction |
@@ -111,6 +122,8 @@ Read: `sovrium docs automation-actions`
 | `digest` | `release` | Release all collected items from a digest bucket |
 | `crypto` | `hash` | Compute a cryptographic hash of the input string |
 | `crypto` | `hmac` | Compute an HMAC for secure message authentication |
+| `crypto` | `sign` | Make a detached Ed25519 signature with a private key from the environment |
+| `crypto` | `verify` | Check a detached Ed25519 signature and answer { valid } |
 | `date` | `format` | Render an instant as a string in a given timezone and locale |
 | `date` | `parse` | Parse a string into an instant, reporting validity as data rather than as a step failure |
 | `date` | `add` | Shift an instant forward by a calendar duration, DST-correct in a given timezone |
@@ -121,4 +134,16 @@ Read: `sovrium docs automation-actions`
 | `date` | `now` | Capture the current instant, optionally rendered in a timezone and locale |
 | `flow` | `stop` | Immediately stop automation execution with optional status and output |
 | `sovrium` | `validateConfig` | Decode a candidate app config against AppSchema and expose { valid, errors } |
+| `sovrium` | `validateBundle` | Check a stored bundle archive — its manifest, every entry against its sha256, and the config it carries — and expose { valid, name, manifest, errors } |
+| `instance` | `status` | Read a supervised app's unit state, restart count, memory use and current revision |
+| `instance` | `start` | Start a supervised app's socket, so the next request wakes the app |
+| `instance` | `stop` | Suspend a supervised app: stop its socket, its proxy and the app |
+| `instance` | `restart` | Restart a supervised app so it reads its current release and environment again |
+| `instance` | `apply` | Verify a signed bundle, write it as a new release of a supervised app, and restart the app |
+| `instance` | `rollback` | Point a supervised app back at its previous release and restart it |
+| `instance` | `remove` | Stop a supervised app for good, optionally deleting every release it has on this host |
+| `instance` | `health` | Probe a supervised app's health endpoint over loopback |
+| `instance` | `logs` | Read the last journal lines of a supervised app |
+| `instance` | `backup` | Back up a supervised app and store the archive in this app's storage |
+| `instance` | `restore` | Restore a supervised app from a backup archive in this app's storage |
 | `ref` | — | Reference to a reusable action template defined in app.actions[], with optional variable overrides |

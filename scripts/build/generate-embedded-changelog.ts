@@ -61,6 +61,7 @@ import {
 } from '@/domain/kernel/markdown/release-notes'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { REPO_ROOT } from '../lib/drift/walk'
+import { sameIgnoringCrlf, toLf } from '../lib/line-endings'
 
 /** The source and the payload, root-parameterized for tests and the build. */
 export const changelogPayloadPaths = (
@@ -194,17 +195,36 @@ export const resolveInvocation = (
   }
 }
 
+/**
+ * The payload for a changelog file's text as it was read from disk: CRLF folded
+ * BEFORE parsing, so a Windows checkout under `core.autocrlf` renders — and a
+ * write from one commits — the bytes a Linux checkout does. Unfolded, the `\r`
+ * of every line would ride into the rendered bodies. The identity on an LF file.
+ */
+export const renderChangelogSource = (
+  markdown: string,
+  minReleases: number = CHANGELOG_MIN_RELEASES
+): string => renderChangelogPayload(toLf(markdown), minReleases)
+
+/**
+ * Whether the committed payload matches the rendered one, its CRLF folded: a
+ * Windows checkout hands it back with CRLF structural newlines, which are not a
+ * content change. The rendered side is always LF, so a moved release still fails.
+ */
+export const isChangelogPayloadCurrent = (committed: string, rendered: string): boolean =>
+  sameIgnoringCrlf(committed, rendered)
+
 const main = (argv: readonly string[]): number => {
   const { check, source, payload } = resolveInvocation(argv, REPO_ROOT)
   if (!existsSync(source)) {
     throw new ChangelogPayloadError(`No changelog at ${source}.`)
   }
-  const rendered = renderChangelogPayload(readFileSync(source, 'utf8'))
+  const rendered = renderChangelogSource(readFileSync(source, 'utf8'))
   const count = (JSON.parse(rendered) as { readonly releases: readonly unknown[] }).releases.length
   const name = 'embedded-changelog.generated.json'
   if (check) {
     const committed = existsSync(payload) ? readFileSync(payload, 'utf8') : ''
-    if (committed !== rendered) {
+    if (!isChangelogPayloadCurrent(committed, rendered)) {
       console.log(
         `${name} does not match ${source} — run \`bun run build:changelog\` and commit the result.`
       )

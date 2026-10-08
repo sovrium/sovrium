@@ -6,7 +6,6 @@
  */
 
 import { escapeCsvCell } from '@/domain/kernel/format/csv-format'
-import { partitionDuplicatesForSkip } from './parser'
 import type { ColumnMapping, DuplicateStrategy, ImportResult, ValidImportRecord } from './types'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
@@ -85,39 +84,34 @@ export function buildErrorReportUrl(
   return URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
 }
 
-/**
- * Issue the upsert call for the overwrite strategy.
- *
- * Returns `{ created, updated }` from the response, or zeros if no records
- * needed to be sent or the call failed.
- */
-async function upsertRecords(
-  tableName: string,
-  validRecords: readonly ValidImportRecord[],
-  uniqueField: string
-): Promise<{ created: number; updated: number }> {
-  if (validRecords.length === 0) return { created: 0, updated: 0 }
-  const upsertRes = await fetch(`/api/tables/${tableName}/records/upsert`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ records: validRecords, fieldsToMergeOn: [uniqueField] }),
-  })
-  if (!upsertRes.ok) return { created: 0, updated: 0 }
-  return (await upsertRes.json()) as { created: number; updated: number }
+/** The most rows one import call carries; a file is sent in chunks of this size. */
+const IMPORT_CHUNK = 100
+
+/** What the import route answers for one chunk. */
+interface ChunkOutcome {
+  readonly created: number
+  readonly updated: number
+  readonly skipped: number
 }
 
-/** Issue the batch-create call for the create/skip strategies. */
-async function batchCreateRecords(
+const NOTHING: ChunkOutcome = { created: 0, updated: 0, skipped: 0 }
+
+/**
+ * Send one chunk to the table's import route. A chunk the server refuses
+ * counts as nothing written.
+ */
+async function importChunk(
   tableName: string,
-  recordsToCreate: readonly ValidImportRecord[]
-): Promise<number> {
-  if (recordsToCreate.length === 0) return 0
-  const res = await fetch(`/api/tables/${tableName}/records/batch`, {
+  records: readonly ValidImportRecord[],
+  strategy: DuplicateStrategy,
+  mergeOn: string | undefined
+): Promise<ChunkOutcome> {
+  const res = await fetch(`/api/tables/${tableName}/records/import`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ records: recordsToCreate }),
+    body: JSON.stringify({ records, strategy, ...(mergeOn === undefined ? {} : { mergeOn }) }),
   })
-  return res.ok ? recordsToCreate.length : 0
+  return res.ok ? ((await res.json()) as ChunkOutcome) : NOTHING
 }
 
 interface RunImportParams {
@@ -129,33 +123,27 @@ interface RunImportParams {
 }
 
 /**
- * Execute the configured duplicate strategy against the records API and
- * return the combined `ImportResult` (created/updated/skipped/failed +
- * optional error-report URL).
- *
- * `overwrite` uses the upsert API; `skip` partitions client-side then POSTs
- * the surviving rows; `create` always POSTs everything.
+ * Import the rows through the table's import route — the one road an operator
+ * can make silent (`import: { fireEvents: false }`) — in chunks, one after the
+ * other, and return the combined `ImportResult` (created/updated/skipped/failed
+ * + optional error-report URL). The duplicate strategy is applied by the
+ * server: `skip` against the records the user may read, `overwrite` as an
+ * upsert on the unique field. Without a unique field every row is created.
  */
 export async function runImport(params: RunImportParams): Promise<ImportResult> {
   const { tableName, validRecords, errorRows, duplicateStrategy, uniqueField } = params
-
-  const errorReportUrl = buildErrorReportUrl(errorRows)
-
-  if (duplicateStrategy === 'overwrite' && uniqueField !== undefined) {
-    const { created, updated } = await upsertRecords(tableName, validRecords, uniqueField)
-    return { created, updated, skipped: 0, failed: errorRows.length, errorReportUrl }
-  }
-
-  // Skip-duplicates is implemented client-side: fetch existing records once,
-  // filter the CSV against the chosen unique field, then only POST the new
-  // rows. v1 design — fine for the table sizes Sovrium currently supports.
-  // A server-side variant should land before this hits production-scale
-  // imports, since one fetch of all records won't scale.
-  const { keep: recordsToCreate, skipped } =
-    duplicateStrategy === 'skip' && uniqueField !== undefined
-      ? await partitionDuplicatesForSkip({ tableName, uniqueField, validRecords })
-      : { keep: validRecords, skipped: 0 }
-
-  const created = await batchCreateRecords(tableName, recordsToCreate)
-  return { created, updated: 0, skipped, failed: errorRows.length, errorReportUrl }
+  const strategy = uniqueField === undefined ? 'create' : duplicateStrategy
+  const chunks = Array.from({ length: Math.ceil(validRecords.length / IMPORT_CHUNK) }, (_, i) =>
+    validRecords.slice(i * IMPORT_CHUNK, (i + 1) * IMPORT_CHUNK)
+  )
+  const total = await chunks.reduce<Promise<ChunkOutcome>>(async (previous, chunk) => {
+    const sum = await previous
+    const outcome = await importChunk(tableName, chunk, strategy, uniqueField)
+    return {
+      created: sum.created + outcome.created,
+      updated: sum.updated + outcome.updated,
+      skipped: sum.skipped + outcome.skipped,
+    }
+  }, Promise.resolve(NOTHING))
+  return { ...total, failed: errorRows.length, errorReportUrl: buildErrorReportUrl(errorRows) }
 }

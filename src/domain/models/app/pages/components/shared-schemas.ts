@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { ActionSchema } from './action'
+import { ButtonVariantSchema } from './button-variant'
 
 // ---------------------------------------------------------------------------
 // Optional-field helpers (described primitives)
@@ -189,10 +190,11 @@ export const MenuItemSchema = Schema.Struct({
    * ─── THE VALUE IS AN INITIAL CONDITION, NOT A BINDING ────────────────────
    *
    * It maps to Base UI's `defaultChecked`, never to `checked`, so the row is
-   * UNCONTROLLED and its live state lives only in the reader's browser
-   * Nothing here reads a record or writes one back; an item that
-   * must persist what it toggles carries an `action` as well, exactly as any
-   * other item does.
+   * UNCONTROLLED and its live state lives only in the reader's browser.
+   * Nothing here reads a record or writes one back, and an `action` beside
+   * `toggle` is inert: the menu island renders the row as a toggle before it
+   * looks at `action`, because a checkbox row that navigates on every flip is
+   * not a toggle.
    *
    * ─── PRECEDENCE, STATED RATHER THAN REFUSED ──────────────────────────────
    *
@@ -399,21 +401,9 @@ export const BreadcrumbItemSchema = Schema.Struct({
 // Button variant schema
 // ---------------------------------------------------------------------------
 
-/**
- * Button visual variants matching common design system patterns
- */
-export const ButtonVariantSchema = Schema.Literals([
-  'default',
-  'destructive',
-  'outline',
-  'secondary',
-  'ghost',
-  'link',
-  'fab',
-]).annotate({
-  title: 'Button Variant',
-  description: 'Visual style variant for button components',
-})
+// The button vocabulary lives in its own leaf module so the auth action can
+// read it without an import cycle; it is re-exported here for its readers.
+export { ButtonVariantSchema }
 
 /**
  * Alert visual variants

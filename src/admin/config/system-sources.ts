@@ -180,6 +180,21 @@ export const LINKS_ENDPOINT = '/api/admin/links'
  */
 export const LINK_DETAIL_ENDPOINT = '/api/admin/links/:slug'
 
+/**
+ * The template assets the config declares, in declaration order — the Templates
+ * directory's rows (`rowsKey: 'templates'`) AND its page record, one request.
+ */
+export const TEMPLATES_ENDPOINT = '/api/admin/templates'
+
+/**
+ * ONE template rendered with its `sampleData`, bound at PAGE level by the
+ * preview so the render is in the first response. The asset path rides in the
+ * QUERY rather than a path segment, so `:path` sits after `?path=` and the
+ * route parameter is injected there, URL-encoded. A path naming no template
+ * 404s, which is what gives the preview its own not-found.
+ */
+export const TEMPLATE_PREVIEW_ENDPOINT = '/api/admin/templates/preview?path=:path'
+
 // `DESIGN_EXPORTS_ENDPOINT` (`/api/admin/design-system/exports`) stood here and
 // lost its last caller when the Overview absorbed the share-and-export section.
 // Deleted rather than ignored, on the same terms as the two above.

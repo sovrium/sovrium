@@ -9,6 +9,7 @@ import {
   findMultiSelectSelectionOverflows,
   findUndeclaredMultiSelectValues,
 } from '@/domain/models/app/tables/multi-select-values-validation'
+import type { ContainerResume, RunPark } from './run-park'
 import type { ExecutedStep, NestedStepRuns, StepRequirements } from '../run/types'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
@@ -56,16 +57,15 @@ export interface ActionOutcome {
    */
   readonly returnData?: Readonly<Record<string, unknown>>
   /**
-   * Set by the `approval/request` handler — signals the run loop to SUSPEND
-   * the run after this step. When present the run transitions to the
-   * non-terminal `waiting-approval` status and every subsequent action is
-   * withheld (the `halted` short-circuit), pending an out-of-band approve /
-   * reject decision against the run-scoped resolution endpoint. The webhook /
-   * manual dispatcher surfaces this as a 200 with `output.status: 'pending'`
-   * (not a failure → no 500). Distinct from `halt` via `returnData` — a paused
-   * run is resumable, an early-`return` run is complete.
+   * Set by `approval/request`: the run SUSPENDS as `waiting-approval` after this
+   * step, every later action withheld until the request is resolved. Unlike an
+   * early `return`, a paused run is resumable.
    */
   readonly pause?: boolean
+  /** Set by a wait longer than a minute: the run PARKS as `waiting-delay` (`run-park.ts`). */
+  readonly park?: RunPark
+  /** Set when a resumed container finds its configuration changed: the run is cancelled, why. */
+  readonly cancelRun?: string
   /**
    * What the action read as it ran, when its handler can tell more precisely
    * than its declaration: the records an agent's tool calls named. Kept OFF
@@ -234,14 +234,10 @@ export interface ActionRunContext {
    */
   readonly attempt?: number
 
-  /**
-   * 0-indexed position of this action within the automation's resolved action
-   * list. Threaded by the run loop so the `approval/request` handler can record
-   * the paused step's index on its pending row —
-   * the resolution endpoint resumes by re-running only the actions AFTER this
-   * index. Optional; the runtime always supplies it.
-   */
+  /** 0-indexed position of this action in the run's actions, recorded by `approval/request`. */
   readonly stepIndex?: number
+  /** Set on a loop or a path the run resumes inside (`run-park.ts`). */
+  readonly resume?: ContainerResume
 
   /**
    * The record-event channel of this run: a record a step writes
@@ -252,25 +248,25 @@ export interface ActionRunContext {
    */
   readonly recordEvents?: RecordEventChannel
 
-  /**
-   * Run one action of a `path` or a `loop` as a step of the run, reading `previousSteps`; resolves
-   * with its whole outcome (a stop, a filter halt and a failure included) and its step record.
-   */
+  /** Run one action of a `path`/`loop` as a step reading `previousSteps`: whole outcome + step record. */
   readonly runNestedStep?: NestedStepInvoker
 }
 
-/** See {@link ActionRunContext.runNestedStep}; the `props` are final. */
+/** See {@link ActionRunContext.runNestedStep}; the `props` are final unless `authored`. */
 export type NestedStepInvoker = (input: {
   readonly action: Readonly<Record<string, unknown>>
   readonly props: Readonly<Record<string, unknown>>
   readonly previousSteps: Readonly<Record<string, Readonly<Record<string, unknown>>>>
   readonly refusal?: string // why the props cannot be filled in safely: the step fails unrun
+  readonly templateVars?: Readonly<Record<string, unknown>> // a named template's `$vars`, filled in
+  readonly authored?: true // the props are as written, not final: the handler fills them in
+  readonly resume?: ContainerResume // a container the run resumes inside
 }) => Promise<{ readonly outcome: ActionOutcome; readonly step: ExecutedStep }>
 
 /** One write an automation step made, as the record triggers read it. */
 export interface RecordWriteEvent {
   readonly tableName: string
-  readonly event: 'create' | 'update' | 'delete'
+  readonly event: 'create' | 'update' | 'delete' | 'restore'
   readonly record: Readonly<Record<string, unknown>>
   readonly previousRecord?: Readonly<Record<string, unknown>>
 }

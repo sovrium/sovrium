@@ -16,10 +16,7 @@ import {
   replayAutomationRun,
   type ReplayAutomationRunError,
 } from '@/application/use-cases/automations/replay-automation-run'
-import {
-  type RunAutomationError,
-  type RunAutomationResult,
-} from '@/application/use-cases/automations/run-automation'
+import { type RunAutomationError } from '@/application/use-cases/automations/run-automation'
 import { runPagePressedAutomation } from '@/application/use-cases/automations/run-page-pressed-automation'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { redactTriggerDataHeaders } from '@/domain/kernel/sanitize/http-header-redaction'
@@ -49,55 +46,11 @@ import {
   replayTriggerData,
 } from './runs-handlers'
 import { selectTriggerProgram } from './trigger-program-selector'
+import { triggerResponseAsSeenByCaller } from './trigger-response-body'
 import { redactTriggerSecrets } from './trigger-secret-redaction'
 import { handleWebhookRequest } from './webhook-handler'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
-
-/**
- * Map a `RunAutomationResult` (engine-internal: `success`/`failure`) into the
- * public trigger-response body. The public contract uses `'completed' |
- * 'failed'` to align with `system.automation_runs.status` and surfaces the
- * run identifier as `id` (matches the runs API).
- *
- * Surfaces only the **last action's output** as `output`, mirroring
- * n8n's "When Last Node Finishes" mode. The previous per-action `actions` map
- * is no longer exposed — per-action visibility lives at
- * `GET /api/automations/runs/:id` instead. `output` is omitted when no action
- * produced output (filter-only / state-set-only runs).
- *
- * When the run failed, the redacted `error` string is surfaced so callers
- * can distinguish disconnected/no-token failures from upstream HTTP errors
- * without a follow-up GET.
- */
-const triggerResultBody = (result: RunAutomationResult) => {
-  // `'completed-with-errors'` is surfaced verbatim so callers can distinguish
-  // a degraded happy path (some action failed but `continueOnError` allowed
-  // the run to complete — an automation retry spec) from both a clean
-  // completion and a hard failure. `'success'` maps to `'completed'` for
-  // API alignment with `system.automation_runs.status`; the engine-internal
-  // failure/exhausted/timed-out variants collapse to `'failed'` here so the
-  // public trigger response stays small — callers needing the richer label
-  // can read it from `GET /api/automations/:name/runs`.
-  return {
-    success: true,
-    id: result.runId,
-    status: toPublicTriggerStatus(result.status),
-    ...(result.lastOutput !== undefined ? { output: result.lastOutput } : {}),
-    ...(result.error !== undefined ? { error: result.error } : {}),
-  }
-}
-
-/** Map an engine run status to the public trigger-response status enum. */
-const PUBLIC_TRIGGER_STATUS: Readonly<Record<string, string>> = {
-  success: 'completed',
-  'completed-with-errors': 'completed-with-errors',
-  skipped: 'skipped',
-  cancelled: 'cancelled',
-  'waiting-approval': 'waiting-approval',
-}
-const toPublicTriggerStatus = (s: RunAutomationResult['status']): string =>
-  PUBLIC_TRIGGER_STATUS[s] ?? 'failed'
 
 /**
  * Handle GET /api/automations — the automations the caller may act on
@@ -223,7 +176,8 @@ async function handleManualTrigger(c: Context, app: App) {
   if (result._tag === 'Failure') {
     return manualTriggerErrorResponse(c, result.failure)
   }
-  return c.json(triggerResultBody(result.success), 200)
+  const started = { automationName: name, result: result.success }
+  return c.json(await triggerResponseAsSeenByCaller(c, app, started), 200)
 }
 
 /**
@@ -391,6 +345,7 @@ const buildDbRunDetailBody = (app: App, run: PersistedRun, steps: readonly Persi
   attempts: extractAttempts(steps),
   error: run.error,
   valuesErasedAt: run.valuesErasedAt,
+  resumeAt: run.resumeAt,
   steps: steps.map((step) => ({
     name: step.actionName,
     type: '',
@@ -495,7 +450,8 @@ async function handleFormAction(c: Context, app: App, getSession?: PageSessionRe
   if (result.success === undefined) {
     return c.json({ success: false, message: 'Automation dispatch failed' }, 500)
   }
-  return c.json(triggerResultBody(result.success), 200)
+  const started = { automationName: name, result: result.success }
+  return c.json(await triggerResponseAsSeenByCaller(c, app, started), 200)
 }
 
 /**
@@ -559,7 +515,8 @@ async function handleReplayRun(c: Context, app: App) {
   if (result._tag === 'Failure') {
     return replayErrorResponse(c, result.failure)
   }
-  return c.json(triggerResultBody(result.success), 200)
+  const started = { automationName: name, result: result.success }
+  return c.json(await triggerResponseAsSeenByCaller(c, app, started), 200)
 }
 
 /**

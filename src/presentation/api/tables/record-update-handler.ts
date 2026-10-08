@@ -6,11 +6,10 @@
  */
 
 import { Effect } from 'effect'
-import { updateRecordWithSideEffects } from '@/application/use-cases/tables/record-update-orchestration'
+import { updateRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import { StaleWriteError } from '@/domain/errors'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
-import { updateWebhooksFor } from '@/infrastructure/webhooks/table-write-webhooks'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { handleRouteError } from './error-handlers'
@@ -83,7 +82,6 @@ export function updateResponse(config: {
       ...(clientUpdatedAt === undefined ? {} : { expectedUpdatedAt: clientUpdatedAt }),
       isSqlite: isSqliteRuntime(),
       processEnv: process.env,
-      dispatchWebhooks: updateWebhooksFor(app, tableName),
       forgetDerivedVariants: evictTransformCacheForKey,
     }),
     {

@@ -88,6 +88,8 @@ Validating before the upload rather than after is the part worth noticing: a vis
 
 The server's check reads the file's **content** as well as its declared type. A file whose bytes open with `<` is markup, and is judged as HTML or SVG whatever it is called; both can carry a script. So `image/*` does **not** admit SVG: a field that wants SVG names `image/svg+xml` or `.svg` explicitly, and an HTML page renamed `photo.png` is refused by `image/*` and by `.png` alike. The page's picker applies the same rule the moment a file is picked, so an SVG chosen for an `image/*` field is refused with the field's message before anything is uploaded. The size limit is inclusive: a file of exactly `maxFileSize` bytes is accepted.
 
+A legacy spelling in `accept` names its registered type, on the page and on the server alike: `image/jpg` and `image/pjpeg` mean `image/jpeg` — which is how every browser reports a `.jpg` — just as `audio/x-m4a` means `audio/mp4`. The alias admits nothing else: a PNG is still refused by `image/jpg`.
+
 When storing a file fails on the server side, the visitor gets a generic `500` (`upload_failed`) and the cause is written to the server log, naming the form.
 
 A file a **signed-in** visitor submits is recorded as uploaded by her, so it is removed with her account when it is erased. A file sent anonymously names nobody.

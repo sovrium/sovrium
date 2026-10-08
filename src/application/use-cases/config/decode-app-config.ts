@@ -51,11 +51,15 @@ import {
   messageLinesAsConfigFindings,
   toConfigFindings,
 } from '@/domain/models/app/app-excess-property-report'
+import { validateAssetReferences } from '@/domain/models/app/asset-reference-validation'
 import { validateApprovalTimeouts } from '@/domain/models/app/automations/actions/approval/approval-timeout-validation'
+import { validateDelayLimits } from '@/domain/models/app/automations/actions/delay/delay-limits-validation'
 import { validateRecordEventLoops } from '@/domain/models/app/automations/record-loop-validation'
+import { reportRetiredActionOperators } from '@/domain/models/app/automations/retired-operator-validation'
 import { validatePreviewOptionPaths } from '@/domain/models/app/design/preview-option-validation'
 import { collectProseSpacingNotices } from '@/domain/models/app/design/prose-spacing-service'
 import { collectSupersededDesignNotices } from '@/domain/models/app/design/superseded-notices'
+import { validateDocumentOutputBuckets } from '@/domain/models/app/document-output-validation'
 import { collectUnprefixedEngineKeyNotices } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { validateComponentFieldReferences } from '@/domain/models/app/pages/components/component-field-references'
 import { validateComponentXorRules } from '@/domain/models/app/pages/components/component-types/component-xor-rules'
@@ -323,21 +327,18 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     // verdict needs `tables[]`, which no drawer schema node can see. See
     // `drawer-related-validation.ts`.
     ...validateDrawerRelatedReferences(normalized),
-    // A card slot holds record components only; a data component there is
-    // refused. See `card-slot-validation.ts`.
+    // A card slot holds record components only (`card-slot-validation.ts`).
     ...validateCardSlotComponents(normalized),
-    // One `series` styles an aggregated chart; a second is refused. See
-    // `aggregate-series-validation.ts`.
+    // One `series` styles an aggregated chart (`aggregate-series-validation.ts`).
     ...validateAggregateSeries(normalized),
-    // A filter value that claims to be a relative date must be one of the
-    // grammar's tokens. See `relative-date-filter.ts`.
+    // A relative-date filter value must be one of the grammar's tokens.
     ...validateRelativeDateFilters(normalized),
-    // A record automation re-firing its own trigger is refused (`record-loop-validation.ts`).
-    ...validateRecordEventLoops(normalized),
-    // An approval `timeout` must decide approve or reject: `escalate`, or no
-    // `onTimeout` at all, is a deadline the engine could never keep. See
-    // `approval-timeout-validation.ts`.
-    ...validateApprovalTimeouts(normalized),
+    ...validateRecordEventLoops(normalized), // a record automation re-firing its own trigger
+    ...validateApprovalTimeouts(normalized), // an approval `timeout` must decide its outcome
+    ...validateDelayLimits(normalized), // over-long delays (`delay-limits-validation.ts`)
+    // Declared `{ asset }` paths, and an `attachTo` writing into its field's bucket.
+    ...validateAssetReferences(normalized),
+    ...validateDocumentOutputBuckets(decoded),
     // Mutually-exclusive component keys. Here rather than in the schema
     // because `buildComponentUnion` has no per-branch refinement hook, so a
     // rule relating an INJECTED key (`children`) to a declared one cannot be
@@ -358,9 +359,7 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
  * Never throws, never touches the filesystem, never exits the process.
  *
  * ONE sweep stays outside: the unknown-FIELD-TYPE check in `validate.ts`'s
- * `runPostDecodeChecks`. Boot already refuses an unrecognised `type` — at DDL
- * generation, inside the migration transaction — and three migration specs
- * assert both that message and the rollback it triggers. See that function.
+ * `runPostDecodeChecks` (boot refuses an unrecognised `type` at DDL time).
  *
  * @param parsed - Config object as parsed from JSON / YAML / TypeScript
  * @param options - `$ref` sources for error attribution
@@ -377,16 +376,17 @@ export const decodeAppConfigObject = (
   // Effect v4 drops the entry silently and reports success, so running this
   // afterwards would be asking a question of an object the key had already been
   // removed from. Ordering it first also keeps the top-level case reported once
-  // rather than twice.
+  // rather than twice. A removed action operator is refused here too, by name.
   //
   // This is the header's "never quietly repaired and never silently stripped"
   // clause, enforced for the one key where the strip has a security reading.
   // See `prototype-key-guard.ts` for why the other pollution-adjacent names are
   // deliberately NOT covered.
-  const pollutingKeys = reportPrototypePollutingKeys(parsed)
-  if (pollutingKeys.length > 0) {
-    return { valid: false, ...refusalFromMessages(pollutingKeys) }
-  }
+  const refusals = [
+    ...reportPrototypePollutingKeys(parsed),
+    ...reportRetiredActionOperators(parsed),
+  ]
+  if (refusals.length > 0) return { valid: false, ...refusalFromMessages(refusals) }
 
   // `reportInput: true` is NOT cosmetic and NOT the v4 default. Without it a
   // type failure renders as `Expected number` where v3 rendered

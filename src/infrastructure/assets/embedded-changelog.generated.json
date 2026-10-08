@@ -3,6 +3,499 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.33.0",
+      "date": "2026-10-08",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.32.0...v0.33.0",
+      "sections": [
+        {
+          "kind": "breaking",
+          "heading": "BREAKING CHANGES",
+          "entries": [
+            {
+              "scope": "tables",
+              "text": "fire webhooks and record automations on every road that writes a record"
+            },
+            {
+              "scope": "automations",
+              "text": "read a user field listed or read by a step as the person"
+            },
+            {
+              "scope": "automations",
+              "text": "remove file/generatePdf and move file/generateXlsx to document/generateXlsx"
+            }
+          ]
+        },
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "automations",
+              "text": "waits longer than one minute park the run and resume it later"
+            },
+            {
+              "scope": "tables",
+              "text": "let a page list a record's history newest first with who made each change"
+            },
+            {
+              "scope": "library",
+              "text": "add a record history block"
+            },
+            {
+              "scope": "seed",
+              "text": "seed pending invitations from the users file"
+            },
+            {
+              "scope": "auth",
+              "text": "print an invitation's workspace and deadline for a reader"
+            },
+            {
+              "scope": "pages",
+              "text": "let an endpoint form close its dialog and clear its fields on success"
+            },
+            {
+              "scope": "cli",
+              "text": "trust the 2026-10 release signing key"
+            },
+            {
+              "scope": "tables",
+              "text": "row rules may follow one relationship hop"
+            },
+            {
+              "scope": "automations",
+              "text": "sovrium/validateBundle checks a stored bundle"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium deploy posts the manifest text for signing"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium update verifies the release signature"
+            },
+            {
+              "scope": "automations",
+              "text": "declare a sovrium/validateBundle action for stored bundle archives"
+            },
+            {
+              "scope": "cli",
+              "text": "carry the manifest text in the deploy request and cap the app slug at 28 characters"
+            },
+            {
+              "scope": "automations",
+              "text": "cap instance slugs at 28 characters"
+            },
+            {
+              "scope": "admin",
+              "text": "read-only template catalogue and preview reads for the console"
+            },
+            {
+              "scope": "server",
+              "text": "refuse instance actions without the operator switch"
+            },
+            {
+              "scope": "automations",
+              "text": "instance actions supervise sibling Sovrium apps"
+            },
+            {
+              "scope": "automations",
+              "text": "crypto/sign and crypto/verify with Ed25519"
+            },
+            {
+              "scope": "cli",
+              "text": "preview a template asset offline with sovrium render"
+            },
+            {
+              "scope": "automations",
+              "text": "convert Office, HTML and image files to PDF with document/convert"
+            },
+            {
+              "scope": "automations",
+              "text": "fill a workbook template with document/generateXlsx"
+            },
+            {
+              "scope": "automations",
+              "text": "declare the instance actions and Ed25519 sign and verify"
+            },
+            {
+              "scope": "automations",
+              "text": "social cards with the og preset of document/generateImage"
+            },
+            {
+              "scope": "automations",
+              "text": "document template helpers, partials, translations and email rendering"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium deploy uploads a bundle and follows the deployment"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium login signs in to a Sovrium Cloud host"
+            },
+            {
+              "scope": "cli",
+              "text": "define the sovrium login and sovrium deploy contracts"
+            },
+            {
+              "scope": "server",
+              "text": "JSON log format"
+            },
+            {
+              "scope": "server",
+              "text": "Unix socket listener and idle exit"
+            },
+            {
+              "scope": "cli",
+              "text": "add sovrium bundle to package an app for deployment"
+            },
+            {
+              "scope": "server",
+              "text": "database readiness probe at /api/health?probe=db"
+            },
+            {
+              "scope": "server",
+              "text": "SOVRIUM_BIND_HOST sets the interface to bind"
+            },
+            {
+              "scope": "auth",
+              "text": "device authorization sign-in for the sovrium CLI"
+            },
+            {
+              "scope": "automations",
+              "text": "session-authenticated webhooks with trigger.user"
+            },
+            {
+              "scope": "cli",
+              "text": "define the sovrium bundle archive and its manifest"
+            },
+            {
+              "scope": "automations",
+              "text": "add session authentication to the webhook trigger"
+            },
+            {
+              "scope": "auth",
+              "text": "add the auth.deviceAuthorization option for command-line sign-in"
+            },
+            {
+              "scope": "automations",
+              "text": "draw SVG image text with an embedded IBM Plex Sans"
+            },
+            {
+              "scope": "automations",
+              "text": "split, rearrange, watermark, stamp, fill, inspect and build PDFs from pictures"
+            },
+            {
+              "scope": "automations",
+              "text": "fill Word templates with document/generateDocx"
+            },
+            {
+              "scope": "automations",
+              "text": "render HTML templates to paginated PDFs with document/generatePdf"
+            },
+            {
+              "scope": "automations",
+              "text": "merge PDFs, or chosen pages of them, with pdf/merge"
+            },
+            {
+              "scope": "automations",
+              "text": "send email/send messages from templates, with a text part and attachments"
+            },
+            {
+              "scope": "automations",
+              "text": "generate images from SVG and HTML templates into temporary storage, a bucket or a record"
+            },
+            {
+              "scope": "assets",
+              "text": "load private assets at start, check them in validate, never serve them"
+            },
+            {
+              "scope": "automations",
+              "text": "add an HTML-to-PDF and HTML-to-image renderer engine"
+            },
+            {
+              "scope": "automations",
+              "text": "keep web and mail hyperlinks in filled Word templates"
+            },
+            {
+              "scope": "automations",
+              "text": "render document templates with escaping by output and a restricted tier for bucket templates"
+            },
+            {
+              "scope": "automations",
+              "text": "fill Word templates with data inside the binary"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "tables",
+              "text": "keep an AI refinement running when a later write touches another column"
+            },
+            {
+              "scope": "tables",
+              "text": "resend the record a webhook delivery carried when it is retried"
+            },
+            {
+              "scope": "tables",
+              "text": "never match an upsert on what its caller cannot read"
+            },
+            {
+              "scope": "tables",
+              "text": "keep webhook credentials out of the delivery log"
+            },
+            {
+              "scope": "tables",
+              "text": "list and read webhook deliveries on SQLite"
+            },
+            {
+              "scope": "automations",
+              "text": "name a switch for hosts where Chrome cannot start its sandbox"
+            },
+            {
+              "scope": "server",
+              "text": "stop a timed-out child's whole process group"
+            },
+            {
+              "scope": "pages",
+              "text": "offer a password reset only when a page asks for the reset link"
+            },
+            {
+              "scope": "pages",
+              "text": "draw an auth form's submit in the weight its action names"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the native landmark role of a header, footer or nav component"
+            },
+            {
+              "scope": "library",
+              "text": "draw an invitation's Decline as the quieter choice"
+            },
+            {
+              "scope": "library",
+              "text": "show the sign-in reset link only when a page sends the reset email"
+            },
+            {
+              "scope": "automations",
+              "text": "mask comment-trigger addresses shown to a run's approvers"
+            },
+            {
+              "scope": "library",
+              "text": "draw the record comments thread as the block's only surface"
+            },
+            {
+              "scope": "automations",
+              "text": "mask people's addresses in MCP run results and in trigger data shown to non-admins"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a navigate button on this site when a record supplies its address"
+            },
+            {
+              "scope": "auth",
+              "text": "send invitation emails to the app's own invitation page"
+            },
+            {
+              "scope": "automations",
+              "text": "mask a person's address in a run shown to the member who started it"
+            },
+            {
+              "scope": "auth",
+              "text": "fire the sign-in, sign-out and password-reset automation events"
+            },
+            {
+              "scope": "pages",
+              "text": "make navigate buttons and toast, automation and fetch menu items act"
+            },
+            {
+              "scope": "pages",
+              "text": "show an awaited automation button's error toast when the run fails"
+            },
+            {
+              "scope": "automations",
+              "text": "mint download links that work on every storage provider"
+            },
+            {
+              "scope": "pages",
+              "text": "let a shared navigation's current-item marker read its placement vars"
+            },
+            {
+              "scope": "pages",
+              "text": "fill a row action's confirm question from the row it was armed for"
+            },
+            {
+              "scope": "forms",
+              "text": "accept a hidden link filled from a collection page"
+            },
+            {
+              "scope": "pages",
+              "text": "open a member's role picker only when its row action is pressed"
+            },
+            {
+              "scope": "pages",
+              "text": "give aggregate area and line charts the field's currency and series name"
+            },
+            {
+              "scope": "forms",
+              "text": "accept JPEGs on a file field that names image/jpg"
+            },
+            {
+              "scope": "tables",
+              "text": "let a signed-out visitor read the figures of a public table"
+            },
+            {
+              "scope": "automations",
+              "text": "let a loop or a path call another automation"
+            },
+            {
+              "scope": "automations",
+              "text": "name the caller's file in office errors and keep asset errors stable"
+            },
+            {
+              "scope": "automations",
+              "text": "bound a release bundle before instance/apply unpacks it"
+            },
+            {
+              "scope": "automations",
+              "text": "harden office conversion, rendering and template limits"
+            },
+            {
+              "scope": "forms",
+              "text": "stop echoing database errors to form submitters"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse a stored bundle that unpacks past 256 MiB"
+            },
+            {
+              "scope": "email",
+              "text": "keep attachments within what Amazon SES accepts"
+            },
+            {
+              "scope": "automations",
+              "text": "kill the whole LibreOffice process on a conversion timeout"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse oversized document inputs before reading them"
+            },
+            {
+              "scope": "automations",
+              "text": "clean every Office relationship part and read field codes by namespace"
+            },
+            {
+              "scope": "pages",
+              "text": "render a catch-all capture as one breadcrumb crumb"
+            },
+            {
+              "scope": "automations",
+              "text": "record triggers carry the stored row and the acting user"
+            },
+            {
+              "scope": "automations",
+              "text": "judge the stored file a template picture names by who chose it"
+            },
+            {
+              "scope": "automations",
+              "text": "run a loop inside a path the same as at the top level"
+            },
+            {
+              "scope": "automations",
+              "text": "keep an earlier webhook response when flow/stop ends the run"
+            },
+            {
+              "scope": "forms",
+              "text": "store an unticked checkbox as false and require a ticked box when required"
+            },
+            {
+              "scope": "automations",
+              "text": "instance slugs are at most 28 characters"
+            },
+            {
+              "scope": "pages",
+              "text": "deny a signed-in caller without the role with 404 instead of a redirect"
+            },
+            {
+              "scope": "automations",
+              "text": "check a literal locale only on document and email steps"
+            },
+            {
+              "scope": "automations",
+              "text": "only a step that writes a file counts as producing one"
+            },
+            {
+              "scope": "tables",
+              "text": "purging a record keeps a file another record still names"
+            },
+            {
+              "scope": "automations",
+              "text": "a named template called from a path or a loop fills its inline template's variables"
+            },
+            {
+              "scope": "tables",
+              "text": "assign autonumber values on SQLite whether or not the field is required"
+            },
+            {
+              "scope": "automations",
+              "text": "never ask Gotenberg for an image past the size limit"
+            },
+            {
+              "scope": "automations",
+              "text": "a generated file is attached to a record or temporary"
+            },
+            {
+              "scope": "assets",
+              "text": "refuse a private asset that sits inside the public directory"
+            },
+            {
+              "scope": "automations",
+              "text": "file references from run data name only what the run produced"
+            },
+            {
+              "scope": "automations",
+              "text": "make a Gotenberg-rendered document inert before it is sent"
+            },
+            {
+              "scope": "automations",
+              "text": "key compiled untrusted document templates by SHA-256"
+            },
+            {
+              "scope": "automations",
+              "text": "a malformed escape in a rendered asset URL no longer stalls the render"
+            },
+            {
+              "scope": "automations",
+              "text": "check an attachTo output bucket in action templates too"
+            },
+            {
+              "scope": "storage",
+              "text": "sweep automation temp files at most once a minute"
+            },
+            {
+              "scope": "ai",
+              "text": "run chat-triggered automations on the server's own services"
+            },
+            {
+              "scope": "automations",
+              "text": "bound document renders and close the renderer's side channels"
+            },
+            {
+              "scope": "cli",
+              "text": "restart from the installed binary"
+            },
+            {
+              "scope": "server",
+              "text": "refuse a busy port under a supervisor"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.32.0",
       "date": "2026-10-08",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.31.0...v0.32.0",

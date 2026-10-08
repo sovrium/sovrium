@@ -6,14 +6,14 @@
  */
 
 /**
- * The account methods whose value is chosen IN the row, beside their button:
- * a member's role (`setRole` with an `editSelect`) and a passkey's name
- * (`renamePasskey`). Drawn open rather than behind a first click, because the
- * value is the whole gesture — a settings list reads as a form, one per row.
+ * The account method whose value is chosen IN the row, beside its button: a
+ * passkey's name (`renamePasskey`). Drawn open rather than behind a first
+ * click, because the name is the whole gesture. A member's role is not drawn
+ * here: `setRole` opens the generic `editSelect` picker on press.
  *
- * The chosen value overrides the row's own (`role`, `name`) in the record the
- * action is dispatched with, the same way an armed `editSelect` does, so the
- * request carries what the reader picked rather than what the server held.
+ * The typed name overrides the row's own `name` in the record the action is
+ * dispatched with, the same way an armed `editSelect` does, so the request
+ * carries what the reader typed rather than what the server held.
  */
 
 import { useState, type ReactElement } from 'react'
@@ -39,39 +39,19 @@ export function InlineAccountAction({
   readonly record: TableRecord
   readonly onActionClick?: ActionClickHandler
 }): ReactElement {
-  const { editSelect } = action
-  const field = editSelect?.field ?? 'name'
+  const field = 'name'
   const [value, setValue] = useState(String(record[field] ?? ''))
   const passkeyName = useGridString('datatable.passkeyName', 'Passkey name')
   return (
     <div className={computeTableInlineConfirmClasses()}>
-      {editSelect === undefined ? (
-        <input
-          type="text"
-          data-component-type="input"
-          aria-label={passkeyName}
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          className={computeTablePanelControlClasses()}
-        />
-      ) : (
-        <select
-          data-component-type="select"
-          aria-label={editSelect.label}
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          className={computeTablePanelControlClasses()}
-        >
-          {(editSelect.options ?? []).map((option) => (
-            <option
-              key={option.value}
-              value={option.value}
-            >
-              {option.label ?? option.value}
-            </option>
-          ))}
-        </select>
-      )}
+      <input
+        type="text"
+        data-component-type="input"
+        aria-label={passkeyName}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        className={computeTablePanelControlClasses()}
+      />
       <button
         {...NAMED_BUTTON}
         data-action-type="auth"

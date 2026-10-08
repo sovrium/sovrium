@@ -118,6 +118,12 @@ const beginShutdown = (
 /** A controller owning one process' signal handlers. */
 export interface ShutdownController {
   readonly install: (server: ServerInstance) => Effect.Effect<void>
+  /**
+   * Begin the same graceful stop a signal begins, for a reason the process
+   * found itself — the idle exit. Ignored once a stop is under way, and before
+   * `install` there is nothing to stop.
+   */
+  readonly requestStop: (reason: string) => void
 }
 
 /**
@@ -183,7 +189,14 @@ export const createShutdownController = (
     beginShutdown(host, targetState, 'stdin closed')
   }
 
+  const requestStop = (reason: string): void => {
+    if (flags.get('signalled') === true || !targetState.has('server')) return
+    flags.set('signalled', true)
+    beginShutdown(host, targetState, reason)
+  }
+
   return {
+    requestStop,
     install: (server) =>
       Effect.sync(() => {
         targetState.set('server', server)
@@ -216,3 +229,9 @@ const defaultController = createShutdownController()
  */
 export const installShutdownHandlers = (server: ServerInstance): Effect.Effect<void> =>
   defaultController.install(server)
+
+/**
+ * Stop the installed server gracefully and exit, as `SIGTERM` would — the
+ * entry point the idle exit (`idle-exit.ts`) calls.
+ */
+export const requestGracefulStop = (reason: string): void => defaultController.requestStop(reason)

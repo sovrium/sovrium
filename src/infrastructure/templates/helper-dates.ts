@@ -52,6 +52,7 @@ import {
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { dropOptions, optionalStr, toStr } from './helper-coercion'
 
 // ─── failure surfacing ───────────────────────────────────────────────────
 
@@ -280,4 +281,38 @@ export const dateDiffInDays = (a: unknown, b: unknown): number => {
   const right = toInstant(b)
   if (left === undefined || right === undefined) return 0
   return Math.round((left.getTime() - right.getTime()) / 86_400_000)
+}
+
+// ─── registered forms: `(...args)` as Handlebars calls them ─────────────
+
+const operands = (args: readonly unknown[]): readonly unknown[] => dropOptions(args)
+
+/** `{{startOf value unit [timezone]}}` */
+export const startOfHelper = (...args: readonly unknown[]): string => {
+  const ops = operands(args)
+  return boundaryOf(ops[0], toStr(ops[1]), optionalStr(ops, 2), 'start')
+}
+
+/** `{{endOf value unit [timezone]}}` */
+export const endOfHelper = (...args: readonly unknown[]): string => {
+  const ops = operands(args)
+  return boundaryOf(ops[0], toStr(ops[1]), optionalStr(ops, 2), 'end')
+}
+
+/** `{{dayOfWeek value [timezone] [locale]}}` */
+export const dayOfWeekHelper = (...args: readonly unknown[]) => {
+  const ops = operands(args)
+  return dayOfWeek(ops[0], optionalStr(ops, 1), optionalStr(ops, 2))
+}
+
+/** `{{isWeekday value [timezone]}}` */
+export const isWeekdayHelper = (...args: readonly unknown[]) => {
+  const ops = operands(args)
+  return isWeekday(ops[0], optionalStr(ops, 1))
+}
+
+/** `{{isWeekend value [timezone]}}` */
+export const isWeekendHelper = (...args: readonly unknown[]) => {
+  const ops = operands(args)
+  return isWeekend(ops[0], optionalStr(ops, 1))
 }

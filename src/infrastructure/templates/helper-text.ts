@@ -163,6 +163,18 @@ export const repeat = (input: string, count: number): string => {
   return input.repeat(Math.min(Math.floor(count), MAX_REPEAT))
 }
 
+/** A pad target held to the repeat bound: a template cannot ask for gigabytes of fill. */
+const padTarget = (length: number): number =>
+  Number.isFinite(length) ? Math.min(Math.floor(length), MAX_REPEAT) : 0
+
+/** `{{padStart v n [fill]}}` — padded to `n` characters, never past {@link MAX_REPEAT}. */
+export const padStart = (input: string, length: number, fill: string): string =>
+  input.padStart(padTarget(length), fill)
+
+/** `{{padEnd v n [fill]}}` — padded to `n` characters, never past {@link MAX_REPEAT}. */
+export const padEnd = (input: string, length: number, fill: string): string =>
+  input.padEnd(padTarget(length), fill)
+
 /**
  * `{{reverse v}}` — reverses by Unicode code point, not UTF-16 code unit, so
  * astral characters (emoji) survive. `[...str]` iterates code points; a plain

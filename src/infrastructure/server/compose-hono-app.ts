@@ -14,10 +14,11 @@
  * the others.
  */
 
-import { Effect } from 'effect'
+import { Context, Effect } from 'effect'
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { requestId } from 'hono/request-id'
+import { AssetStore } from '@/application/ports/services/asset-store'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { requestedPath } from '@/domain/kernel/url/requested-path'
 import { resolvesToDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
@@ -387,7 +388,8 @@ export async function createHonoApp(
                     config.fetchSitemapRecords
                   ),
                   app,
-                  config.publicDir
+                  config.publicDir,
+                  Context.get(config.domainContext, AssetStore).realpaths
                 ),
                 config.staticRender !== true && isLiveReloadEligible()
               ),

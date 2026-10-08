@@ -58,7 +58,8 @@ const TEMPLATE_PATTERN = /\{\{[\s\S]*?\}\}/
  * marks a template that previously failed to parse, so we don't re-pay the
  * (expensive) parse-error cost on every render.
  */
-type Compiled = (
+/** A compiled template, as Handlebars runs it. */
+export type Compiled = (
   ctx: Readonly<Record<string, unknown>>,
   options?: Handlebars.RuntimeOptions
 ) => string
@@ -107,6 +108,14 @@ const hasPatternFromData = (node: TemplateNode): boolean =>
   takesPatternFromData(node) || childrenOf(node).some(hasPatternFromData)
 
 /**
+ * Handlebars' `trackIds`: each helper call gets `options.ids`, telling which
+ * argument the template wrote as a literal (`null`) — what `image` needs to
+ * tell an asset path the template names from one the data supplied. A real
+ * compile option the type definitions leave out.
+ */
+export const TRACKED_ARGUMENTS = { trackIds: true } as Parameters<typeof Handlebars.compile>[1]
+
+/**
  * Parse, refuse a data-supplied regex pattern, then compile the parsed AST.
  * Parsing eagerly (`engine.compile` alone defers it to the first call) also
  * makes a syntax error a compile failure rather than a render failure.
@@ -130,7 +139,7 @@ const compileAuthored = (template: string, encoding?: ValueEncoding): Compiled =
     encoding === undefined || (encoding === 'url' && isSingleExpression(ast))
       ? ast
       : encodeExpressions(ast, encoding, isTemplateHelper)
-  return engine.compile(encoded, { noEscape: true, strict: false })
+  return engine.compile(encoded, { noEscape: true, strict: false, ...TRACKED_ARGUMENTS })
 }
 
 /** The cache key of a template compiled for `encoding` (`''` for plain text). */
@@ -162,7 +171,9 @@ const getCompiled = (template: string, encoding?: ValueEncoding): Compiled => {
  * writes to the console. Read off a fresh environment rather than listed, so a
  * Handlebars upgrade that adds one is excluded without an edit here.
  */
-const BUILT_IN_HELPERS: ReadonlySet<string> = new Set(Object.keys(Handlebars.create().helpers))
+export const BUILT_IN_HELPERS: ReadonlySet<string> = new Set(
+  Object.keys(Handlebars.create().helpers)
+)
 
 /**
  * Whether `name` is a helper Sovrium registers (`now`, `today`, `uppercase`,
@@ -207,7 +218,7 @@ export const renderTemplate = (
 const WHOLE_EXPRESSION = /^\{\{\{?[^{}]*\}?\}\}$/
 
 /** The helpers handed to an encoded render: the value encoder the rewrite calls. */
-const ENCODED_RENDER_OPTIONS: Handlebars.RuntimeOptions = {
+export const ENCODED_RENDER_OPTIONS: Handlebars.RuntimeOptions = {
   helpers: {
     [ENCODE_VALUE_HELPER]: (value: unknown, encoding: unknown) =>
       encodeValue(value, encoding as ValueEncoding),
@@ -242,4 +253,16 @@ export const renderTemplateFor = (
     }
     return Result.succeed(template)
   }
+}
+
+/**
+ * An authored template compiled for `encoding` (plain text when omitted)
+ * through the config's compile cache, or a throw naming the failure: what a
+ * document render, which must never print a template as its own source,
+ * compiles an authored template with.
+ */
+export const compileAuthoredOrThrow = (template: string, encoding?: ValueEncoding): Compiled => {
+  const compiled = getCompiled(template, encoding)
+  if (compiled === FAILED_COMPILE) throw new Error('the template could not be compiled')
+  return compiled
 }

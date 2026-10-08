@@ -30,6 +30,8 @@ A `default: $currentUser` fills the rows an upsert creates, never the rows it up
 
 An upsert reads the table to find the rows it matches, so it requires reading the table: a caller who may not read it gets the `404` of a table that does not exist, on either branch, and nothing is written. (Answering a match `404` and a miss `200` would tell her which values are on file.)
 
+For the same reason, every field in `fieldsToMergeOn` must be one the caller may read. Merging on a field her `permissions.fields` rule hides answers `404`, the same whether a row holds the value or not, and nothing is written. A row a row-level rule hides from her is not a match either: a record whose key matches only such rows is created, answering what a create of it would answer, and the hidden rows are left alone.
+
 A relationship value naming a row the caller may not read — a related table their role may not read, or a row a row-level rule hides from them — counts as a foreign-key failure on both branches, exactly as a row that does not exist: `400`, the same body, and the whole upsert rolls back with nothing written. As on an update, a many-to-one value equal to the key the matched row already holds is not a new link and is accepted.
 
 ## Delete
@@ -42,13 +44,13 @@ DELETE /api/tables/contacts/records/42?permanent=true
 DELETE /api/tables/contacts/records/42?purge=true
 ```
 
-| Mode              | Behaviour                                                                           | Success        |
-| ----------------- | ----------------------------------------------------------------------------------- | -------------- |
-| Default           | Trashes the row; recoverable by restore                                             | `204`, no body |
-| `?permanent=true` | Removes the row irreversibly. **Admin-equivalent only**                             | `200`          |
-| `?purge=true`     | Deletes the attached storage files, then removes the row. **Admin-equivalent only** | `200`          |
+| Mode              | Behaviour                                                                                                 | Success        |
+| ----------------- | --------------------------------------------------------------------------------------------------------- | -------------- |
+| Default           | Trashes the row; recoverable by restore                                                                   | `204`, no body |
+| `?permanent=true` | Removes the row irreversibly. **Admin-equivalent only**                                                   | `200`          |
+| `?purge=true`     | Deletes the attached storage files no other record names, then removes the row. **Admin-equivalent only** | `200`          |
 
-Both irreversible modes are reserved for an admin-equivalent role (see Roles & RBAC). Any other caller, even one the table grants `delete`, receives **404** rather than `403` — the same anti-enumeration rule the rest of the records path follows — and nothing is deleted. `?purge=true` is the mode to reach for when the row owns uploaded files that should not be left orphaned. Both flags are read from the query string, and `permanent` is tested first, so sending both takes the permanent path.
+Both irreversible modes are reserved for an admin-equivalent role (see Roles & RBAC). Any other caller, even one the table grants `delete`, receives **404** rather than `403` — the same anti-enumeration rule the rest of the records path follows — and nothing is deleted. `?purge=true` is the mode to reach for when the row owns uploaded files that should not be left orphaned. A file another record still names — in any table, in a single or a multiple attachments field, trashed records included — is kept; so is a file whose references could not be checked. Both flags are read from the query string, and `permanent` is tested first, so sending both takes the permanent path.
 
 **A soft delete answers `204` with no body, except when a `set-null` cascade ran** — that case answers `200` with a body, because dependent rows were rewritten and the call did more than trash one row. A client must therefore treat both as success on the same route rather than matching on `204`. A `restrict` policy blocking the delete answers `400`.
 

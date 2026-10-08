@@ -41,6 +41,7 @@ Render an instant, read one back out of a string, shift it, measure between two,
 | `yyyy` | Calendar year, four digits     | yes       |
 | `MM`   | Month, two digits              | yes       |
 | `dd`   | Day of month, two digits       | yes       |
+| `d`    | Day of month, no leading zero  | no        |
 | `HH`   | Hour, two digits, 24-hour      | yes       |
 | `mm`   | Minute, two digits             | yes       |
 | `ss`   | Second, two digits             | yes       |
@@ -50,12 +51,13 @@ Render an instant, read one back out of a string, shift it, measure between two,
 | `EEE`  | Weekday name, short, localised | no        |
 | `YYYY` | Legacy alias of `yyyy`         | yes       |
 | `DD`   | Legacy alias of `dd`           | yes       |
+| `D`    | Legacy alias of `d`            | no        |
 
 An unrecognised token is an **error**, not a pass-through. Every ASCII letter outside a quoted literal must belong to a token above, which is the format's own rule — letters are reserved. Quote a literal letter: `"yyyy-MM-dd'T'HH:mm:ss"`. Non-letters pass through untouched.
 
 Closing the set is what keeps this surface finite and testable. The moment a forty-token vocabulary is implied, all forty are owed.
 
-The four **name** tokens are not parseable, so `parse` takes no `locale` and a pattern containing `MMMM` or `EEEE` is refused on the parse side. A localised month name is ambiguous across languages and abbreviation styles, and accepting it would be guesswork rather than parsing.
+The four **name** tokens are not parseable, so `parse` takes no `locale` and a pattern containing `MMMM` or `EEEE` is refused on the parse side; nor is `d`, whose width varies (read a day with `dd`). A localised month name is ambiguous across languages and abbreviation styles, and accepting it would be guesswork rather than parsing.
 
 ## `parse` reports validity as data
 

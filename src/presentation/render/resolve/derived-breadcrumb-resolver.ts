@@ -35,15 +35,13 @@ export function resolveDerivedBreadcrumbs(
   basePath?: string
 ): Page {
   if (!hasDerivedBreadcrumb(page.components) && !hasDerivedBreadcrumb(page.layout)) return page
-  const base = basePath ?? ''
+  const at: CrumbContext = { requestPath, basePath: basePath ?? '', pattern: page.path }
   return {
     ...page,
     ...(page.components !== undefined
-      ? { components: transform(page.components, requestPath, base) as Page['components'] }
+      ? { components: transform(page.components, at) as Page['components'] }
       : {}),
-    ...(page.layout !== undefined
-      ? { layout: transform(page.layout, requestPath, base) as Page['layout'] }
-      : {}),
+    ...(page.layout !== undefined ? { layout: transform(page.layout, at) as Page['layout'] } : {}),
   }
 }
 
@@ -58,12 +56,22 @@ function hasDerivedBreadcrumb(value: unknown): boolean {
   return Object.values(value).some(hasDerivedBreadcrumb)
 }
 
-function transform(value: unknown, requestPath: string, basePath: string): unknown {
-  if (Array.isArray(value)) return value.map((entry) => transform(entry, requestPath, basePath))
+/**
+ * What every derived trail on one page is built against. `pattern` is the
+ * page's DECLARED path, so a catch-all capture can collapse into one crumb.
+ */
+interface CrumbContext {
+  readonly requestPath: string
+  readonly basePath: string
+  readonly pattern: string
+}
+
+function transform(value: unknown, at: CrumbContext): unknown {
+  if (Array.isArray(value)) return value.map((entry) => transform(entry, at))
   if (!isRecord(value)) return value
 
   const mapped = Object.fromEntries(
-    Object.entries(value).map(([key, child]) => [key, transform(child, requestPath, basePath)])
+    Object.entries(value).map(([key, child]) => [key, transform(child, at)])
   )
   if (value['type'] !== 'breadcrumb' || value['derive'] !== 'path') return mapped
 
@@ -78,10 +86,11 @@ function transform(value: unknown, requestPath: string, basePath: string): unkno
   const currentLabel = readCurrentLabel(value['currentLabel'])
   return {
     ...rest,
-    breadcrumbItems: buildDerivedCrumbs(requestPath, readLabels(value['labels']), {
+    breadcrumbItems: buildDerivedCrumbs(at.requestPath, readLabels(value['labels']), {
       ...(readHome(value['home']) !== undefined ? { home: readHome(value['home'])! } : {}),
       ...(currentLabel !== undefined ? { currentLabel } : {}),
-      basePath,
+      basePath: at.basePath,
+      pattern: at.pattern,
       unlinked: readUnlinked(value['unlinked']),
     }),
   }

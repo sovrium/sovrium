@@ -24,6 +24,8 @@ interface GetRecordHistoryConfig {
   readonly recordId: string
   readonly limit?: number
   readonly offset?: number
+  /** `desc` reads newest first; absent (or `asc`) keeps oldest first. */
+  readonly sortOrder?: 'asc' | 'desc'
   /**
    * The app and the caller's role, which decide the fields a history entry may
    * show. A history entry IS the record's values, before and after, so it is
@@ -90,6 +92,8 @@ function formatActivityEntry(entry: ActivityHistoryEntry, readable: FieldReader)
     createdAt: entry.createdAt.toISOString(),
     changes: projectChanges(entry.changes, readable),
     user: toHistoryActor(entry.user),
+    // Flat, so a page's row template can print it; null when no person made it
+    userName: entry.user?.name ?? null,
   }
 }
 
@@ -103,7 +107,9 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
       readonly createdAt: string
       readonly changes: unknown
       readonly user: HistoryActor | undefined
+      readonly userName: string | null
     }[]
+    readonly total: number
     readonly pagination: {
       readonly limit: number
       readonly offset: number
@@ -130,6 +136,7 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
       recordId,
       limit,
       offset,
+      sortOrder: config.sortOrder,
     })
 
     // If record doesn't exist in table AND has no activity logs, it truly doesn't exist
@@ -144,6 +151,7 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
     // Format response
     return {
       history: entries.map((entry) => formatActivityEntry(entry, readable)),
+      total,
       pagination: {
         limit: resolvedLimit,
         offset: resolvedOffset,

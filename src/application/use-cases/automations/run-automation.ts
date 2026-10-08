@@ -260,10 +260,7 @@ const enqueueAndAdmit = (
     // The run's id, actor, hand-start marker and relay, all read off the input.
     const persistedQueuedId = yield* persistQueuedRun(input)
     const runId = persistedQueuedId ?? cryptoRandomId()
-    // The returned AbortController is intentionally discarded — the cancel
-    // endpoint reads it back via `signalCancellation(runId)` rather than
-    // receiving it here. The explicit suppression is needed because
-    // `functional/no-expression-statements` flags the unused-value call.
+    // The controller is read back by the cancel endpoint, not threaded here.
     // eslint-disable-next-line functional/no-expression-statements -- void-style call: the controller is read back via signalCancellation(runId), not threaded directly
     registerCancellation(runId)
     if (input.onPersisted !== undefined) {
@@ -321,6 +318,7 @@ const finaliseAndRelease = (input: {
       steps: effectiveState.steps,
       userId: input.userId,
       source: input.run,
+      ...(effectiveState.runStatus === 'waiting-delay' ? { park: effectiveState.park } : {}),
     })
     yield* Ref.set(input.finalised, true)
     const observedRunId = finalisedId ?? input.runId
@@ -428,7 +426,7 @@ const boundAutomationInvoker = buildAutomationInvoker({
 })
 
 /**
- * Post-run failure fan-out, for a run that is not itself an
+ * Post-run failure fan-out (exported for a resumed run's segment), for a run that is not itself an
  * `automation-failure` handler:
  *
  * - a run that failed (or exhausted its retries) dispatches the user-configured
@@ -441,7 +439,7 @@ const boundAutomationInvoker = buildAutomationInvoker({
  * Extracted from `executeAutomationRun` to keep that generator below the
  * per-function line cap.
  */
-const dispatchPostRunFailureEffects = (input: {
+export const dispatchPostRunFailureEffects = (input: {
   readonly app: App
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly automation: NonNullable<App['automations']>[number]
@@ -474,7 +472,7 @@ const dispatchPostRunFailureEffects = (input: {
     // AFTER the alert, so the operator reads why it failed before reading that
     // it was paused. A no-op unless `SOVRIUM_AUTOMATION_AUTOPAUSE` is set.
     yield* autoPauseOnFailures({ app, automationName: name })
-  })
+  }).pipe(Effect.withSpan('automations.dispatch-post-run-failure-effects'))
 
 /** Dispatch the user-configured `automation-failure` handlers for a failed run. */
 const cascadeToFailureHandlers = (input: {

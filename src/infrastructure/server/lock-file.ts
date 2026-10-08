@@ -24,10 +24,17 @@ const getLockDir = (): string => process.env.SOVRIUM_LOCK_DIR || defaultLockDir(
  */
 export interface LockFileData {
   readonly pid: number
-  readonly port: number | undefined
+  /** The bound TCP port; absent when the instance serves on a Unix socket. */
+  readonly port?: number | undefined
+  /** The Unix socket the instance serves on (`SOVRIUM_LISTEN_UNIX`), in place of `port`. */
+  readonly socketPath?: string
   readonly configHash: string
   readonly configPath: string
 }
+
+/** How a lock names its listener in a message: `port: 3000` or `socket: /run/app.sock`. */
+export const listenLabel = (lock: Readonly<Pick<LockFileData, 'port' | 'socketPath'>>): string =>
+  lock.socketPath !== undefined ? `socket: ${lock.socketPath}` : `port: ${String(lock.port)}`
 
 /**
  * Compute a SHA-256 hash of a string and return first 12 hex characters

@@ -104,6 +104,11 @@ export class BatchRepository extends Context.Service<
          * created once, so an update must not rewrite either.
          */
         readonly insertOnlyFields?: readonly string[]
+        /**
+         * Rows the caller's row-level read rule hides. None is ever a match: a
+         * record matching only these is created, and they are left untouched.
+         */
+        readonly hiddenIds?: readonly string[]
       }
     ) => Effect.Effect<UpsertResult, DatabaseError | BatchValidationError | ValidationError>
   }

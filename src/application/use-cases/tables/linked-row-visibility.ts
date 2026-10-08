@@ -26,7 +26,7 @@ import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { rowPassesRule } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
-import { loadCurrentUserContext } from './permissions/row-level-enforcement'
+import { loadCurrentUserContext, rowRuleScopeOf } from './permissions/row-level-enforcement'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
@@ -93,7 +93,8 @@ export const readableRows = (
     if (keys.length === 0) return new Map<string, Readonly<Record<string, unknown>>>()
     const ctx = yield* loadCurrentUserContext(
       { userId: reader.session.userId, role: reader.role, isUnrestricted },
-      rlp
+      rlp,
+      rowRuleScopeOf(relatedTable, app.tables)
     )
     const repo = yield* TableRepository
     const rows = yield* repo.listRecords({

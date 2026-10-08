@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { CsvPreview, ValidImportRecord } from './types'
+import type { CsvPreview } from './types'
 
 /**
  * Parse the first 10 data rows of a CSV string for the preview step.
@@ -86,49 +86,4 @@ export function matchHeaderToField(
   }, undefined)
 
   return best?.field
-}
-
-/**
- * Partition CSV records against existing table rows by a unique field.
- *
- * Fetches the first page of existing records (capped server-side at 100) and
- * splits the inbound batch into two buckets: rows whose unique-field value
- * already exists (skipped) and rows that should be POSTed (keep). Errors and
- * empty responses are treated as "no existing rows", in which case nothing is
- * skipped — matching the user's mental model of "skip duplicates" failing
- * open rather than blocking the whole import.
- *
- * The records list endpoint enforces a max page size of 100 in its response
- * schema; a server-side variant of skip/overwrite must land before this is
- * used against tables larger than that.
- */
-export async function partitionDuplicatesForSkip(args: {
-  tableName: string
-  uniqueField: string
-  validRecords: readonly ValidImportRecord[]
-}): Promise<{ keep: readonly ValidImportRecord[]; skipped: number }> {
-  const { tableName, uniqueField, validRecords } = args
-  const existingRes = await fetch(`/api/tables/${tableName}/records?page=1&limit=100`)
-  const parsed = existingRes.ok
-    ? ((await existingRes.json()) as {
-        records?: readonly { fields?: Record<string, unknown> }[]
-      })
-    : { records: [] }
-  // Records use Airtable-style shape: { id, fields: { ... }, createdAt, ... }
-  const existingValues = new Set<string>(
-    (parsed.records ?? [])
-      .map((r) => r.fields?.[uniqueField])
-      .filter((v): v is string | number => v !== undefined && v !== null)
-      .map((v) => String(v))
-  )
-  return validRecords.reduce<{ keep: readonly ValidImportRecord[]; skipped: number }>(
-    (acc, record) => {
-      const key = record.fields[uniqueField]
-      if (key !== undefined && existingValues.has(key)) {
-        return { keep: acc.keep, skipped: acc.skipped + 1 }
-      }
-      return { keep: [...acc.keep, record], skipped: acc.skipped }
-    },
-    { keep: [], skipped: 0 }
-  )
 }

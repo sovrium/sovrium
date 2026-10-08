@@ -33,9 +33,12 @@ import {
 } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { logError } from '@/infrastructure/logging'
+import { withChainMatches, type RowRuleScope } from './row-rule-chain-matches'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { RowLevelPermissions, RowLevelWhen } from '@/domain/models/app/tables/permissions'
+
+export { rowRuleScopeOf, type RowRuleScope } from './row-rule-chain-matches'
 
 /**
  * Lightweight projection of a Better Auth session that the row-level
@@ -61,14 +64,20 @@ export interface SessionProjection {
  */
 export const loadCurrentUserContext = (
   session: SessionProjection,
-  rlp: RowLevelPermissions | undefined
+  rlp: RowLevelPermissions | undefined,
+  scope?: RowRuleScope
 ): Effect.Effect<CurrentUserContext, never, DataSourceRepository | AuthRepository> =>
   Effect.gen(function* () {
-    if (isGuestSession(session.userId)) return signedOutContext(session.userId, session.role)
+    if (isGuestSession(session.userId)) {
+      return yield* withChainMatches(signedOutContext(session.userId, session.role), rlp, scope)
+    }
     const email =
       session.email ??
       (rulesNameCurrentUser(rlp, 'email') ? yield* findUserEmailById(session.userId) : undefined)
-    return yield* loadContextWithKnownEmail({ ...session, email }, rlp)
+    const ctx = yield* loadContextWithKnownEmail({ ...session, email }, rlp)
+    // A rule reading through a relationship (`app_ref.created_by`) needs the
+    // related rows it admits; without `scope` such a rule admits no row.
+    return yield* withChainMatches(ctx, rlp, scope)
   }).pipe(Effect.withSpan('tables.load-current-user-context'))
 
 /**

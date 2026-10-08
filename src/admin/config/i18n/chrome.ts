@@ -112,6 +112,7 @@ export default {
   // history. The id after it prints verbatim, and names the run.
   'admin.crumb.automationRun': 'Run',
   'admin.crumb.links': 'Links',
+  'admin.crumb.templates': 'Templates',
   'admin.crumb.footprint': 'Footprint',
   // `/decisions/:id` gets NO entry of its own, deliberately: the id segment is
   // the record's own identifier, and the derived trail prints an unlabelled
@@ -150,6 +151,7 @@ export default {
   'admin.meta.automations': 'Sovrium — Data · Runs',
   'admin.meta.automationRun': 'Sovrium — Data · Run',
   'admin.meta.links': 'Sovrium — Data · Links',
+  'admin.meta.templates': 'Sovrium — Data · Templates',
   'admin.meta.footprint': 'Sovrium — Footprint',
   'admin.meta.decisions': 'Sovrium — Decisions',
   'admin.meta.decision': 'Sovrium — Decision',

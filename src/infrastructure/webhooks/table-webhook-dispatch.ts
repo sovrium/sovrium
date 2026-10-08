@@ -6,42 +6,27 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { redactHeadersNamed } from '@/domain/kernel/sanitize/http-header-redaction'
 import { buildEnvLookup } from '@/domain/models/app/env-reference-service'
-import {
-  relationshipFieldNames,
-  withStringRecordId,
-  withStringRelationshipValues,
-} from '@/domain/models/app/tables/record-id-service'
-import {
-  computeRetryDelay,
-  customizeWebhookData,
-  resolveRetryPolicy,
-  type CustomizedWebhookData,
-  type ResolvedRetryPolicy,
-  type Webhook,
-} from '@/domain/models/app/tables/webhooks'
+import { type CustomizedWebhookData, type Webhook } from '@/domain/models/app/tables/webhooks'
 import { getDb } from '@/infrastructure/database/drizzle/db-bun'
+import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { buildAuthHeaders } from './auth-headers'
-import { rowsOf } from './delivery-log-queries'
 import { deliverWebhook } from './dispatcher'
 import type { EnvVar } from '@/domain/models/app/env'
-import type { Table } from '@/domain/models/app/tables'
 
 /**
  * The app's `env` declarations. Webhook credentials resolve `$env` against the
  * lookup built from them, so only DECLARED variables are readable — the same
  * rule as every other `$env` in the configuration.
  */
-type AppEnv = ReadonlyArray<EnvVar> | undefined
+export type AppEnv = ReadonlyArray<EnvVar> | undefined
 
 /** The lookup a webhook's `$env` credentials resolve against. */
 type EnvLookup = Readonly<Record<string, string>>
 
 /** Build the declared-variables lookup for one dispatch, read at send time. */
-const envLookupFor = (appEnv: AppEnv): EnvLookup => buildEnvLookup(appEnv, process.env)
-
-/** CRUD events a table webhook can subscribe to. */
-type WebhookEvent = 'create' | 'update' | 'delete'
+export const envLookupFor = (appEnv: AppEnv): EnvLookup => buildEnvLookup(appEnv, process.env)
 
 /**
  * The payload delivered to a table webhook. Mirrors the standard webhook
@@ -57,36 +42,6 @@ export type TableWebhookPayload = {
   readonly table: string
   readonly timestamp: string
   readonly data: CustomizedWebhookData
-}
-
-/**
- * A webhook is active unless `enabled` is explicitly `false`. Omitting the
- * field (the schema makes it optional) means the webhook fires — the
- * default-true contract.
- */
-const isEnabled = (webhook: Webhook): boolean => webhook.enabled !== false
-
-/**
- * Build the JSON request body for a webhook delivery, applying the webhook's
- * `payload` customization (field selection, metadata, previous-value
- * tracking). The record's `id` plus its (possibly filtered) field values are
- * surfaced under `data.record`, flattened so receivers read
- * `data.record.<column>` directly.
- */
-const buildPayload = (input: {
-  readonly webhook: Webhook
-  readonly table: string
-  readonly event: WebhookEvent
-  readonly record: Record<string, unknown>
-  readonly previousRecord: Record<string, unknown> | undefined
-}): TableWebhookPayload => {
-  const { webhook, table, event, record, previousRecord } = input
-  return {
-    event: `record.${event}`,
-    table,
-    timestamp: new Date().toISOString(),
-    data: customizeWebhookData({ record, payload: webhook.payload, event, previousRecord }),
-  }
 }
 
 interface LogDeliveryInput {
@@ -108,6 +63,8 @@ interface LogDeliveryInput {
   readonly attemptCount?: number
   /** Retry backoff strategy in effect (NULL when no retry policy applied). */
   readonly retryStrategy?: string | undefined
+  /** The outbox delivery this row settles (NULL for a test or a manual retry of an older row). */
+  readonly deliveryId?: string | undefined
 }
 
 /**
@@ -130,11 +87,12 @@ const toNullableParams = (input: LogDeliveryInput) => ({
   error: input.error ?? null,
   responseBody: input.responseBody ?? null,
   retryStrategy: input.retryStrategy ?? null,
+  deliveryId: input.deliveryId ?? null,
   attemptCount: Math.max(1, input.attemptCount ?? 1),
   isTest: input.isTest ?? false,
 })
 
-const logDelivery = async (input: LogDeliveryInput): Promise<number | undefined> => {
+export const logDelivery = async (input: LogDeliveryInput): Promise<number | undefined> => {
   const { webhookName, tableName, event, url, payload, requestHeaders } = input
   const { status, durationMs, requestedAt, completedAt } = input
   const p = toNullableParams(input)
@@ -146,11 +104,15 @@ const logDelivery = async (input: LogDeliveryInput): Promise<number | undefined>
   // `requested_at`/`completed_at` as INTEGER `timestamp_ms`. The plain bound
   // values land in both schemas without an explicit cast — and the casts
   // crash SQLite at the `::` parser token.
-  const result = await getDb().execute(sql`
+  // `executeRaw` runs `.execute()` on PostgreSQL and `.all()` on SQLite, which
+  // has no `.execute()`: the log is written on both engines.
+  const result = await executeRaw(
+    getDb(),
+    sql`
     INSERT INTO _webhook_deliveries
       (webhook_name, table_name, event, url, payload, request_headers, status,
        http_status, attempt_count, retry_strategy, error, response_body,
-       duration_ms, requested_at, completed_at, is_test)
+       duration_ms, requested_at, completed_at, is_test, delivery_id)
     VALUES (
       ${webhookName},
       ${tableName},
@@ -167,11 +129,13 @@ const logDelivery = async (input: LogDeliveryInput): Promise<number | undefined>
       ${Math.round(durationMs)},
       ${requestedAt},
       ${completedAt},
-      ${p.isTest}
+      ${p.isTest},
+      ${p.deliveryId}
     )
     RETURNING id
-  `)
-  const id = rowsOf<Record<string, unknown>>(result)[0]?.['id']
+  `
+  )
+  const id = result[0]?.['id']
   return typeof id === 'number' ? id : undefined
 }
 
@@ -192,7 +156,7 @@ const BASE_HEADERS: Readonly<Record<string, string>> = {
 const DELIVERY_TIMEOUT_MS = 3000
 
 /** The result-derived fields persisted to a delivery-log row. */
-interface DeliveryOutcomeFields {
+export interface DeliveryOutcomeFields {
   readonly requestHeaders: Record<string, string>
   readonly status: 'success' | 'failed'
   readonly httpStatus: number | undefined
@@ -252,17 +216,22 @@ const describeTransportError = (err: unknown): string => {
 /**
  * Perform a single webhook delivery over the wire (no logging).
  *
- * Auth headers are recomputed per attempt over the exact body string.
+ * Auth headers are recomputed per attempt over the exact body string, and
+ * come back in the outcome's `requestHeaders` with their values redacted.
  * Transport failures (SSRF guard, timeout, connection refused) are folded
  * into a synthetic failure envelope so the outcome path stays branch-free.
  */
-const attemptDelivery = async (
+export const attemptDelivery = async (
   webhook: Webhook,
   payload: TableWebhookPayload,
-  envLookup: EnvLookup
+  envLookup: EnvLookup,
+  deliveryId: string
 ): Promise<DeliveryOutcomeFields> => {
   const body = JSON.stringify(payload)
-  const authHeaders = await buildAuthHeaders(webhook, body, envLookup)
+  const credentials = await buildAuthHeaders(webhook, body, envLookup)
+  // The delivery id rides beside the auth headers: the same on every attempt
+  // of one delivery, so a receiver deduplicates on it.
+  const authHeaders = { ...credentials, 'X-Sovrium-Delivery-Id': deliveryId }
   // The header set we expect to send — base headers plus any auth headers.
   // `deliverWebhook` echoes the actual set back; we fall back to this if it
   // does not (e.g. transport failure before headers are assembled).
@@ -274,14 +243,14 @@ const attemptDelivery = async (
     success: false,
     error: describeTransportError(err),
   }))
-  return outcomeFromResult(result, expectedHeaders)
+  const outcome = outcomeFromResult(result, expectedHeaders)
+  // Every header the webhook's `auth` produced is logged by name only, whatever
+  // that name is: the receiver got the value, the delivery log never holds it.
+  return {
+    ...outcome,
+    requestHeaders: redactHeadersNamed(outcome.requestHeaders, Object.keys(credentials)),
+  }
 }
-
-/** Sleep for `ms` milliseconds. Used to space out webhook retry attempts. */
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
 
 /**
  * Deliver a webhook for a pre-built payload and record the attempt in
@@ -299,10 +268,18 @@ export const deliverAndLog = async (input: {
   readonly tableName: string
   readonly payload: TableWebhookPayload
   readonly appEnv: AppEnv
+  /** The outbox delivery being re-sent: its id rides on the retry, as on every attempt. */
+  readonly outboxDeliveryId: string | undefined
 }): Promise<{ readonly deliveryId: number | undefined; readonly success: boolean }> => {
   const { webhook, tableName, payload } = input
   const requestedAt = new Date().toISOString()
-  const outcome = await attemptDelivery(webhook, payload, envLookupFor(input.appEnv))
+  const outboxDeliveryId = input.outboxDeliveryId ?? crypto.randomUUID()
+  const outcome = await attemptDelivery(
+    webhook,
+    payload,
+    envLookupFor(input.appEnv),
+    outboxDeliveryId
+  )
   const deliveryId = await logDelivery({
     webhookName: webhook.name,
     tableName,
@@ -311,57 +288,10 @@ export const deliverAndLog = async (input: {
     payload,
     requestedAt,
     completedAt: new Date().toISOString(),
+    deliveryId: input.outboxDeliveryId,
     ...outcome,
   })
   return { deliveryId, success: outcome.status === 'success' }
-}
-
-/**
- * Deliver a webhook for a pre-built payload, applying the webhook's retry
- * policy on failure, then record a single delivery-log row carrying the
- * FINAL outcome and the total `attempt_count`.
- *
- * The retry policy ({@link resolveRetryPolicy}) governs how many extra
- * attempts follow the initial delivery and the backoff between them. A 2xx
- * response stops retrying immediately; any failure (4xx/5xx, transport error,
- * timeout) triggers the next attempt until `maxAttempts` retries are
- * exhausted. `maxAttempts: 0` disables retries entirely (a single attempt).
- */
-const deliverWithRetryAndLog = async (input: {
-  readonly webhook: Webhook
-  readonly tableName: string
-  readonly payload: TableWebhookPayload
-  readonly envLookup: EnvLookup
-}): Promise<void> => {
-  const { webhook, tableName, payload, envLookup } = input
-  const policy: ResolvedRetryPolicy = resolveRetryPolicy(webhook.retry)
-  const requestedAt = new Date().toISOString()
-
-  // Initial delivery (attempt 1), then up to `maxAttempts` retries. A 2xx
-  // stops the loop; the loop also stops once retries are exhausted.
-  let outcome = await attemptDelivery(webhook, payload, envLookup)
-  let attempts = 1
-
-  while (outcome.status === 'failed' && attempts <= policy.maxAttempts) {
-    await sleep(computeRetryDelay(policy, attempts))
-    outcome = await attemptDelivery(webhook, payload, envLookup)
-    attempts = attempts + 1
-  }
-
-  await logDelivery({
-    webhookName: webhook.name,
-    tableName,
-    event: payload.event,
-    url: webhook.url,
-    payload,
-    requestedAt,
-    completedAt: new Date().toISOString(),
-    attemptCount: attempts,
-    // `retry_strategy` records the backoff in effect only when retries are
-    // actually enabled (maxAttempts > 0); a no-retry webhook leaves it NULL.
-    retryStrategy: policy.maxAttempts > 0 ? policy.backoff : undefined,
-    ...outcome,
-  })
 }
 
 /**
@@ -408,7 +338,13 @@ export const deliverTestWebhook = async (input: {
     data: { record: sampleRecord },
   }
   const requestedAt = new Date().toISOString()
-  const outcome = await attemptDelivery(webhook, payload, envLookupFor(input.appEnv))
+  // A test send is a delivery of its own: a fresh id, never an outbox row's.
+  const outcome = await attemptDelivery(
+    webhook,
+    payload,
+    envLookupFor(input.appEnv),
+    crypto.randomUUID()
+  )
   await logDelivery({
     webhookName: webhook.name,
     tableName,
@@ -425,79 +361,5 @@ export const deliverTestWebhook = async (input: {
     httpStatus: outcome.httpStatus ?? 0,
     duration: Math.round(outcome.durationMs),
     error: outcome.error,
-  }
-}
-
-/**
- * Deliver a single webhook (applying its retry policy) and record the final
- * attempt in `_webhook_deliveries`. The webhook's `payload` customization is
- * applied while building the request body.
- */
-const dispatchOne = async (input: {
-  readonly webhook: Webhook
-  readonly tableName: string
-  readonly event: WebhookEvent
-  readonly record: Record<string, unknown>
-  readonly previousRecord: Record<string, unknown> | undefined
-  readonly envLookup: EnvLookup
-}): Promise<void> => {
-  const { webhook, tableName, event, record, previousRecord, envLookup } = input
-  const payload = buildPayload({ webhook, table: tableName, event, record, previousRecord })
-  await deliverWithRetryAndLog({ webhook, tableName, payload, envLookup })
-}
-
-/**
- * Fire all enabled webhooks declared on `table` that subscribe to `event`.
- *
- * Table webhooks are syntactic sugar over automations — this dispatcher is
- * the runtime that delivers each one and logs the attempt. Disabled webhooks
- * (`enabled: false`) are skipped without a delivery row.
- *
- * Fire-and-forget: every failure (transport error, logging error) is
- * swallowed so a webhook problem can never turn a successful record
- * create/update/delete into an HTTP error for the caller.
- *
- * @public
- */
-export const triggerTableWebhooks = async (input: {
-  readonly table: Table | undefined
-  readonly event: WebhookEvent
-  readonly record: Record<string, unknown>
-  /**
-   * The pre-update record values, used to populate `previousValues` and
-   * `changedFields` for webhooks with `payload.includePreviousValues`. Only
-   * meaningful for `'update'` events; ignored otherwise.
-   */
-  readonly previousRecord?: Record<string, unknown> | undefined
-  /** `app.env` — the variables a webhook credential's `$env` may read. */
-  readonly appEnv: AppEnv
-}): Promise<void> => {
-  const { table, event } = input
-  if (!table) return
-  // `data.record.id` is the record's id as the records API returns it — a
-  // string, on every event. The create path hands over the API record, while
-  // update and delete hand over a driver row whose serial id is a number.
-  // A relationship value is the related record's id, and reads as a string too.
-  const links = relationshipFieldNames(table)
-  const record = { ...withStringRelationshipValues(withStringRecordId(input.record), links) }
-  const previousRecord =
-    input.previousRecord === undefined
-      ? undefined
-      : { ...withStringRelationshipValues(withStringRecordId(input.previousRecord), links) }
-  const webhooks = table.webhooks ?? []
-  const matching = webhooks.filter(
-    (webhook) => isEnabled(webhook) && webhook.events.includes(event)
-  )
-  if (matching.length === 0) return
-  const envLookup = envLookupFor(input.appEnv)
-
-  try {
-    await Promise.all(
-      matching.map((webhook) =>
-        dispatchOne({ webhook, tableName: table.name, event, record, previousRecord, envLookup })
-      )
-    )
-  } catch {
-    // Fire-and-forget: webhook failures never surface to the caller.
   }
 }

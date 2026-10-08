@@ -174,5 +174,7 @@ export const runWebhookAuth = (
   if (auth.type === 'apiKey') return checkApiKey(c, auth, envLookup)
   if (auth.type === 'basic') return checkBasic(c, auth, envLookup)
   if (auth.type === 'hmac') return checkHmac(c, rawBody, auth, envLookup)
+  // A session webhook checks an identity, judged earlier by `sessionWebhookRefuses`.
+  if (auth.type === 'session') return { ok: true }
   return { ok: false }
 }

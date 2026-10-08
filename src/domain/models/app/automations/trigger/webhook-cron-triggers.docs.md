@@ -73,9 +73,17 @@ The manual trigger (`POST /api/automations/{name}/trigger`) answers differently,
 
 ### Inbound authentication
 
-`auth.type` is one of `bearer`, `apiKey`, `hmac` or `basic`. The credential fields — `token`, `prefix`, `key`, `header`, `secret`, `algorithm`, `username`, `password` — are optional and, with one exception below, unconditioned by `type`; `algorithm` is a free string rather than a closed set.
+`auth.type` is one of `bearer`, `apiKey`, `hmac`, `basic` or `session`. The first four check a secret you share with one sender; `session` checks who is calling (below). The credential fields — `token`, `prefix`, `key`, `header`, `secret`, `algorithm`, `username`, `password` — are optional and, with one exception below, unconditioned by `type`; `algorithm` is a free string rather than a closed set.
 
 Nothing validates that a `bearer` block actually carries a `token`, so an incomplete block passes `sovrium validate` and fails at request time instead. Check an inbound auth block by sending a request at it, not by validating the configuration. Every credential value supports `$env.VAR`.
+
+#### Signed-in callers: `type: session`
+
+```yaml
+trigger: { type: webhook, method: POST, auth: { type: session, requiredRole: member } }
+```
+
+The caller must present a Sovrium session cookie or a user's API key in `x-api-key` (`auth.apiKeys`). A caller with neither, or without `requiredRole` — judged as for a manual trigger, so an admin satisfies any role — is answered `404`, as if the webhook did not exist, and no run is created. The run knows who called: `{{trigger.user.id}}` and `{{trigger.user.role}}`, and a record action with `runAs: triggering-user` writes as that person. `session` needs an `auth` block on the app.
 
 ### Signature schemes
 
@@ -153,7 +161,7 @@ A handshake presenting the verify token you entered in the provider console is a
 
 ### What the payload looks like
 
-The body is **not** at `{{trigger.body}}`. The available paths are `{{trigger.data.body.*}}`, `{{trigger.data.headers.*}}` and `{{trigger.data.query.*}}`, plus `{{trigger.data.method}}`, `{{trigger.data.path}}` and `{{trigger.data.ip}}`. Scalar body fields are additionally flattened to `{{trigger.data.<field>}}`, which is a convenience rather than the contract — a nested object is only reachable through the full path.
+The body is **not** at `{{trigger.body}}`. The available paths are `{{trigger.data.body.*}}`, `{{trigger.data.headers.*}}` and `{{trigger.data.query.*}}`, plus `{{trigger.data.method}}`, `{{trigger.data.path}}` and `{{trigger.data.ip}}`. Scalar body fields are additionally flattened to `{{trigger.data.<field>}}`, which is a convenience rather than the contract — a nested object is only reachable through the full path. When the request carries a session cookie or a user's API key, `{{trigger.user.id}}` and `{{trigger.user.role}}` name that caller; the body cannot set them, so a posted `user` field only ever lands under `{{trigger.data.*}}`.
 
 ## Cron trigger
 

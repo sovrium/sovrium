@@ -86,6 +86,7 @@ export const automationTriggers = defineSection({
         'US-AUTOMATIONS-TRIGGERS-WEBHOOK',
         'US-AUTOMATIONS-TRIGGERS-WEBHOOK-SIGNATURES',
         'US-AUTOMATIONS-TRIGGERS-WEBHOOK-VERIFICATION',
+        'US-AUTOMATIONS-TRIGGERS-WEBHOOK-SESSION',
       ],
     }),
     defineArticle({

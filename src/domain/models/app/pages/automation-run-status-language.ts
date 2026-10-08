@@ -16,7 +16,8 @@
  * translation keys the grid names, and a French operator reads « Ignorée » on
  * the page as in the history.
  *
- * A step's `filtered` has no grid column, so its key is the run page's own. An
+ * A step's `filtered` and `waiting` have no grid column, so their keys are the
+ * run page's own. An
  * app that translates none of these keys reads the English label.
  *
  * Kept apart from `automation-run-status.ts` because that module ships in the
@@ -33,6 +34,7 @@ export const RUN_STATUS_LABEL_KEYS: Readonly<Record<string, string>> = {
   failed: 'admin.automations.runs.status.failed',
   'completed-with-errors': 'admin.automations.runs.status.partial',
   'waiting-approval': 'admin.automations.runs.status.waitingApproval',
+  'waiting-delay': 'admin.automations.runs.status.waitingDelay',
   rejected: 'admin.automations.runs.status.rejected',
   cancelled: 'admin.automations.runs.status.cancelled',
   exhausted: 'admin.automations.runs.status.retriesExhausted',
@@ -41,6 +43,7 @@ export const RUN_STATUS_LABEL_KEYS: Readonly<Record<string, string>> = {
   running: 'admin.automations.runs.status.running',
   skipped: 'admin.automations.runs.status.skipped',
   filtered: 'admin.automations.runs.step.filtered',
+  waiting: 'admin.automations.runs.step.waiting',
 }
 
 /**

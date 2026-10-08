@@ -38,7 +38,9 @@ import {
   type RunAutomationResult,
 } from '@/application/use-cases/automations/run-automation'
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
+import { lastOutputAsSeenBy } from '@/application/use-cases/automations/run-person-address-mask'
 import { isAiAccessEnabled } from '@/domain/models/app/auth/ai-access'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { mayStartAutomationByName } from '@/domain/models/app/automations/manual-trigger-role-service'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
@@ -159,6 +161,13 @@ const automationErrorToJsonRpc = (error: RunAutomationError): never => {
 }
 
 /**
+ * True when the MCP caller reads every run whole: her account role is the
+ * app's admin-equivalent. A caller whose account role is unknown is not one.
+ */
+export const mcpCallerReadsWhole = (app: App, caller: McpCaller): boolean =>
+  caller.accountRole !== undefined && isAdminEquivalent(caller.accountRole, app)
+
+/**
  * Build the success body returned in the MCP tool result. Mirrors the public
  * trigger-response body from the HTTP route (`triggerResultBody`) so callers
  * that consume both surfaces see a consistent shape:
@@ -168,13 +177,29 @@ const automationErrorToJsonRpc = (error: RunAutomationError): never => {
  *   - `output` — last action's output, omitted when no action
  *     produced output
  *   - `error` — present when the run ended in failure
+ *
+ * `output` is read as the HTTP trigger response reads it: whole for an
+ * admin-equivalent, each expanded person's address masked for anyone else.
  */
-const buildAutomationResultBody = (result: RunAutomationResult) => {
+const buildAutomationResultBody = (
+  app: App,
+  input: {
+    readonly caller: McpCaller
+    readonly automationName: string
+    readonly result: RunAutomationResult
+  }
+) => {
+  const { caller, automationName, result } = input
   const publicStatus: 'completed' | 'failed' = result.status === 'success' ? 'completed' : 'failed'
+  const output = lastOutputAsSeenBy(app, {
+    automationName,
+    readsWhole: mcpCallerReadsWhole(app, caller),
+    result,
+  })
   return {
     id: result.runId,
     status: publicStatus,
-    ...(result.lastOutput !== undefined ? { output: result.lastOutput } : {}),
+    ...(output !== undefined ? { output } : {}),
     ...(result.error !== undefined ? { error: result.error } : {}),
   }
 }
@@ -224,5 +249,11 @@ export const handleAutomationCall = async (
   if (outcome._tag === 'Failure') {
     return automationErrorToJsonRpc(outcome.failure)
   }
-  return toolSuccess(buildAutomationResultBody(outcome.success))
+  return toolSuccess(
+    buildAutomationResultBody(app, {
+      caller,
+      automationName: automation.name,
+      result: outcome.success,
+    })
+  )
 }

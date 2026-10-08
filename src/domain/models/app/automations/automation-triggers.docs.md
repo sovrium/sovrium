@@ -16,21 +16,21 @@ automations:
 
 ## The catalogue
 
-| `type`               | Fires when                                                 | Key context exposed                         |
-| -------------------- | ---------------------------------------------------------- | ------------------------------------------- |
-| `webhook`            | An inbound HTTP request hits the automation's endpoint     | `{{trigger.data.body.*}}`, headers, query   |
-| `cron`               | A cron schedule elapses                                    | the scheduled time                          |
-| `record`             | A record is created, updated or deleted in a watched table | `{{trigger.data.record.*}}`                 |
-| `auth`               | An authentication event occurs                             | the auth event and the user                 |
-| `form`               | A top-level form is submitted                              | `{{trigger.data.*}}`, the form values       |
-| `manual`             | An operator presses a button, or the trigger API is called | `{{trigger.input.*}}`                       |
-| `automation-call`    | Another automation invokes this one                        | `{{trigger.input.*}}`, `{{trigger.caller}}` |
-| `automation-failure` | A watched automation fails                                 | the failed run and its error                |
-| `comment`            | A comment is created on a record                           | the comment and its record                  |
+| `type`               | Fires when                                                 | Key context exposed                                           |
+| -------------------- | ---------------------------------------------------------- | ------------------------------------------------------------- |
+| `webhook`            | An inbound HTTP request hits the automation's endpoint     | `{{trigger.data.body.*}}`, headers, query                     |
+| `cron`               | A cron schedule elapses                                    | the scheduled time                                            |
+| `record`             | A record is created, updated or deleted in a watched table | `{{trigger.data.record.*}}`                                   |
+| `auth`               | An authentication event occurs                             | the auth event and the user                                   |
+| `form`               | A top-level form is submitted                              | `{{trigger.data.*}}`, the form values                         |
+| `manual`             | An operator presses a button, or the trigger API is called | `{{trigger.data.*}}`; a page press also `{{trigger.input.*}}` |
+| `automation-call`    | Another automation invokes this one                        | `{{trigger.input.*}}`, `{{trigger.caller}}`                   |
+| `automation-failure` | A watched automation fails                                 | the failed run and its error                                  |
+| `comment`            | A comment is created on a record                           | the comment and its record                                    |
 
 ## The trigger namespace is an allowlist
 
-`{{trigger.body}}` and `{{trigger.inputData}}` do not resolve. What lives under `trigger.*` is fixed: a webhook payload is at `{{trigger.data.body.*}}` and caller input at `{{trigger.input.*}}`. `inputData` is the property name on the **calling** side only, which is why it reads as though it should work from inside the callee and does not.
+`{{trigger.body}}` and `{{trigger.inputData}}` do not resolve. What lives under `trigger.*` is fixed: a webhook payload is at `{{trigger.data.body.*}}`, a manual run started over the API reads its body at `{{trigger.data.*}}`, and input handed over by a calling automation or a page press is at `{{trigger.input.*}}`. `inputData` is the property name on the **calling** side only, which is why it reads as though it should work from inside the callee and does not.
 
 Everything a trigger carries is reachable under `{{trigger.data.*}}`. Eight keys are additionally lifted to the shorter `{{trigger.*}}` — `record`, `comment`, `threadParticipants`, `mentions`, `mentionedEmails`, `input`, `caller` and `depth` — so a record trigger answers to both `{{trigger.record.name}}` and `{{trigger.data.record.name}}`. The short form exists for the triggers whose payload is the point; nothing else is lifted, which is why `{{trigger.body}}` fails while `{{trigger.record}}` works.
 

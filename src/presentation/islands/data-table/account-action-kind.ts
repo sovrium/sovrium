@@ -14,10 +14,11 @@ const authMethodOf = (action: ActionColumnItem): string | undefined => {
 }
 
 /**
- * Whether an action draws its value control in the row, open: a member's role
- * (`setRole` with an `editSelect`) or a passkey's name (`renamePasskey`).
+ * Whether an action draws its value control in the row, open: a passkey's name
+ * (`renamePasskey`). A member's role (`setRole` with an `editSelect`) is NOT one:
+ * it opens its picker on press, like every other `editSelect`, so a members list
+ * reads as a list rather than as one open form per row.
  */
 export function isInlineAccountAction(action: ActionColumnItem): boolean {
-  const method = authMethodOf(action)
-  return method === 'renamePasskey' || (method === 'setRole' && action.editSelect !== undefined)
+  return authMethodOf(action) === 'renamePasskey'
 }

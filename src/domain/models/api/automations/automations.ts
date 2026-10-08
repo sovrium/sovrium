@@ -16,8 +16,9 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
 /**
  * Every status a run row can carry.
  *
- * `queued` (waiting for a concurrency slot) and `waiting-approval` (paused on
- * an approval step) are written by the engine, so the list must admit them:
+ * `queued` (waiting for a concurrency slot), `waiting-approval` (paused on
+ * an approval step) and `waiting-delay` (parked on a long wait until its
+ * `resumeAt`) are written by the engine, so the list must admit them:
  * a run in either state would otherwise fail to encode and turn the whole
  * runs listing into a server error.
  *
@@ -34,6 +35,7 @@ export const runStatusSchema = Schema.Literals([
   'queued',
   'running',
   'waiting-approval',
+  'waiting-delay',
   'completed',
   'failed',
   'skipped',
@@ -45,7 +47,7 @@ export const runStatusSchema = Schema.Literals([
   'completed-with-errors',
 ]).annotate({
   description:
-    "Automation run status. 'queued' waits for a concurrency slot and 'waiting-approval' waits on an approval step. 'rejected' is written when an approval step's request is rejected and the run stops there. 'pending' and 'retrying' are never written by the engine and are kept for API compatibility.",
+    "Automation run status. 'queued' waits for a concurrency slot, 'waiting-approval' waits on an approval step and 'waiting-delay' waits on a delay longer than one minute until its resumeAt. 'rejected' is written when an approval step's request is rejected and the run stops there. 'pending' and 'retrying' are never written by the engine and are kept for API compatibility.",
 })
 
 export type RunStatus = typeof runStatusSchema.Type
@@ -75,8 +77,10 @@ const stepResultBaseSchema = Schema.Struct({
     'failed',
     'skipped',
     'filtered',
+    'waiting',
   ]).annotate({
-    description: 'Step execution status (filtered = intentionally stopped by filter action)',
+    description:
+      'Step execution status (filtered = intentionally stopped by filter action; waiting = a loop or a path the run is parked inside, completed when it resumes)',
   }),
   startedAt: Schema.NullOr(looseIsoDateTime({ description: 'Step start timestamp' })),
   completedAt: Schema.NullOr(looseIsoDateTime({ description: 'Step completion timestamp' })),
@@ -186,6 +190,14 @@ export const runSchema = Schema.Struct({
       looseIsoDateTime({
         description:
           'When the values this run captured were erased with the account of a person they named (ISO 8601); null otherwise. Steps, statuses and timings are kept.',
+      })
+    )
+  ),
+  resumeAt: optionalField(
+    Schema.NullOr(
+      looseIsoDateTime({
+        description:
+          'While the run is waiting-delay: when it resumes (ISO 8601, UTC), within about a minute. Null otherwise.',
       })
     )
   ),
@@ -387,9 +399,10 @@ export const publicRunStatusSchema = Schema.Literals([
   'skipped',
   'cancelled',
   'waiting-approval',
+  'waiting-delay',
 ]).annotate({
   description:
-    'Run status. `completed` = every action succeeded; `completed-with-errors` = an action failed under `continueOnError` and the run went on; `failed` = an action failed and the run stopped (the run still records); `skipped`, `cancelled`, and `waiting-approval` (paused on an approval request) surface as such.',
+    'Run status. `completed` = every action succeeded; `completed-with-errors` = an action failed under `continueOnError` and the run went on; `failed` = an action failed and the run stopped (the run still records); `skipped`, `cancelled`, `waiting-approval` (paused on an approval request) and `waiting-delay` (parked on a wait longer than one minute) surface as such.',
 })
 
 export type PublicRunStatus = typeof publicRunStatusSchema.Type
@@ -458,3 +471,153 @@ export const cancelRunResponseSchema = Schema.Struct({
 })
 
 export type CancelRunResponse = typeof cancelRunResponseSchema.Type
+
+// ─── Deploy Intake (sovrium deploy ↔ a Sovrium Cloud app) ────────────────────
+
+/**
+ * The deploy contract `sovrium deploy` speaks to a hosting app.
+ *
+ * No route of the engine serves it: the host is an ordinary Sovrium app whose
+ * config declares the intake, so every endpoint is one the engine already
+ * ships. The contract fixes the SHAPES both sides agree on:
+ *
+ * 1. the archive is uploaded first, to the host's `deployments` bucket
+ *    (`POST /api/buckets/deployments/files`, multipart, `application/gzip`);
+ * 2. then a small request is posted to the host's `deploy` webhook
+ *    (`POST /api/automations/deploy/webhook`, `auth: { type: session }`) —
+ *    {@link deployRequestSchema}, with an `Idempotency-Key` header — and the
+ *    webhook answers {@link deployResponseSchema};
+ * 3. progress is read from the host's `deployments` table
+ *    (`GET /api/tables/deployments/records/:id`), whose `fields` carry
+ *    {@link deploymentRecordFieldsSchema}.
+ *
+ * Every call carries the user's API key as `x-api-key`. The bundle itself never
+ * travels in a webhook body: a body is persisted with the run.
+ */
+
+const DEPLOY_SHA256_HEX = /^[0-9a-f]{64}$/
+
+const deploySha256 = (description: string) =>
+  Schema.String.annotate({ description }).check(Schema.isPattern(DEPLOY_SHA256_HEX))
+
+/**
+ * Every state a deployment moves through, in order, plus `failed`.
+ * `waking-up` is the host starting the app's process after the switch: a cold
+ * start takes a few seconds, and the CLI says so rather than looking stuck.
+ *
+ * @public
+ */
+export const deploymentStatusValues = [
+  'queued',
+  'validating',
+  'applying',
+  'waking-up',
+  'live',
+  'failed',
+] as const
+
+export const deploymentStatusSchema = Schema.Literals(deploymentStatusValues).annotate({
+  description:
+    "Where the deployment stands: 'queued' (recorded, not started), 'validating' (the host checks the archive and its config), 'applying' (the new revision is being switched in), 'waking-up' (the app is starting), 'live' (serving), or 'failed' (stopped; see report)",
+})
+
+/** @public */
+export type DeploymentStatus = Schema.Schema.Type<typeof deploymentStatusSchema>
+
+/**
+ * Body of the deploy webhook call, posted after the archive is stored.
+ *
+ * Sent with the header `Idempotency-Key`: the lowercase hex sha256 of the
+ * target app slug, a newline, and the bundle manifest serialised without its
+ * `createdAt` — so deploying unchanged content to the same app twice is
+ * recognised as the same deployment, whenever the archive was written.
+ *
+ * @public
+ */
+export const deployRequestSchema = Schema.Struct({
+  app: Schema.String.annotate({
+    description:
+      "Slug of the hosted app to deploy to (the CLI's --app): 2 to 28 lowercase letters, digits and '-', starting and ending with a letter or digit. 28 is the longest name the host can run: each app runs as the system user sa-<slug>, and a system user name is at most 31 characters",
+  }).check(Schema.isPattern(/^[a-z0-9][a-z0-9-]{0,26}[a-z0-9]$/)),
+  objectKey: Schema.String.annotate({
+    description: "Key the host's deployments bucket returned when the archive was uploaded",
+  }).check(Schema.isMinLength(1)),
+  sha256: deploySha256('Lowercase hex SHA-256 of the uploaded archive bytes'),
+  configHash: deploySha256(
+    "The bundle manifest's configHash: lowercase hex SHA-256 of project/app.json"
+  ),
+  engineVersion: Schema.String.annotate({
+    description:
+      "The bundle manifest's engine.minVersion: the version of the engine that validated the config",
+  }).check(Schema.isPattern(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/)),
+  manifest: Schema.String.annotate({
+    description:
+      "The exact UTF-8 text of the archive's manifest.json, byte for byte as it sits in the archive. The host signs these bytes for the machine that applies the release, which verifies a detached signature over them, so the text is sent as is rather than re-serialised: two serialisations of the same manifest need not be the same bytes",
+  }).check(Schema.isMinLength(1)),
+})
+
+/** @public */
+export type DeployRequest = Schema.Schema.Type<typeof deployRequestSchema>
+
+/**
+ * The deploy webhook's answer: 201 for a deployment it just recorded, 200 with
+ * `replayed: true` for a known `Idempotency-Key` — the deployment recorded the
+ * first time, unchanged.
+ *
+ * @public
+ */
+export const deployResponseSchema = Schema.Struct({
+  deploymentId: Schema.String.annotate({
+    description:
+      'Id of the deployment record; also its revision, and the id read back at GET /api/tables/deployments/records/:id',
+  }).check(Schema.isMinLength(1)),
+  status: deploymentStatusSchema,
+  url: Schema.String.annotate({
+    description: 'Address the app is served at once the deployment is live',
+  }),
+  replayed: Schema.Boolean.annotate({
+    description:
+      'true when the Idempotency-Key was already recorded and this is that earlier deployment; nothing new was recorded',
+  }),
+})
+
+/** @public */
+export type DeployResponse = Schema.Schema.Type<typeof deployResponseSchema>
+
+/**
+ * The deploy webhook's refusal of a malformed request (422): nothing is
+ * recorded.
+ *
+ * @public
+ */
+export const deployRefusalSchema = Schema.Struct({
+  error: Schema.String.annotate({ description: 'Machine-readable refusal code' }),
+  message: Schema.String.annotate({ description: 'What the request is missing, for a person' }),
+})
+
+/** @public */
+export type DeployRefusal = Schema.Schema.Type<typeof deployRefusalSchema>
+
+/**
+ * The `fields` of a deployment record the CLI reads while it waits. Other
+ * fields the host keeps (the object key, the hashes, who deployed) are ignored.
+ *
+ * @public
+ */
+export const deploymentRecordFieldsSchema = Schema.Struct({
+  status: deploymentStatusSchema,
+  url: optionalField(
+    Schema.NullOr(Schema.String).annotate({
+      description: 'Address the app is served at once live; null or absent before the host sets it',
+    })
+  ),
+  report: optionalField(
+    Schema.NullOr(Schema.String).annotate({
+      description:
+        "Why a 'failed' deployment stopped — for a config the host refused, the validation report, printed as is; null or absent otherwise",
+    })
+  ),
+})
+
+/** @public */
+export type DeploymentRecordFields = Schema.Schema.Type<typeof deploymentRecordFieldsSchema>

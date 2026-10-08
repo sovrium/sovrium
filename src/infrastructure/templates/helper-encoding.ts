@@ -68,16 +68,37 @@ const toText = (value: unknown): string => {
 }
 
 /** The encodings a value can be placed under. */
-export type ValueEncoding = 'html' | 'url' | 'json'
+export type ValueEncoding = 'html' | 'xml' | 'url' | 'json'
+
+const XML_ESCAPES: Readonly<Record<string, string>> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&apos;',
+}
+
+/**
+ * XML-escape text (an OOXML part), and drop the characters XML 1.0 cannot
+ * carry at all (C0 controls other than tab, newline, carriage return), which
+ * would make the part unreadable.
+ */
+export const escapeXmlText = (text: string): string =>
+  text
+    // eslint-disable-next-line no-control-regex -- the characters XML 1.0 forbids
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/[&<>"']/g, (char) => XML_ESCAPES[char] ?? char)
 
 /**
  * Encode one value for where it lands. `html` passes a `SafeString` through
- * (it is `safeHtml`'s sanitized output); `url` percent-encodes it as one
+ * (it is `safeHtml`'s sanitized output); `xml` escapes everything; `url` percent-encodes it as one
  * component; `json` escapes it as the content of a JSON string.
  */
 export const encodeValue = (value: unknown, encoding: ValueEncoding): string => {
   if (encoding === 'html')
     return isSafeString(value) ? value.toHTML() : escapeHtmlText(toText(value))
+  // In XML even `safeHtml` output is text: markup from data never enters a part.
+  if (encoding === 'xml') return escapeXmlText(toText(value))
   if (encoding === 'url') return encodeURIComponent(toText(value))
   return JSON.stringify(toText(value)).slice(1, -1)
 }

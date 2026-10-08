@@ -68,6 +68,8 @@ export class ActivityRepository extends Context.Service<
       readonly recordId: string
       readonly limit?: number
       readonly offset?: number
+      /** `desc` reads newest first; absent (or `asc`) keeps oldest first. */
+      readonly sortOrder?: 'asc' | 'desc'
     }) => Effect.Effect<
       {
         readonly entries: readonly ActivityHistoryEntry[]

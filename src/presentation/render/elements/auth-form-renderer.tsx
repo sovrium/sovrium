@@ -18,7 +18,7 @@ import {
   withAuthFieldHints,
   type AuthFormField,
 } from '@/presentation/design/auth-form-types'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeSubmitButtonClasses } from '@/presentation/design/button-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeFormFieldClasses,
@@ -172,6 +172,7 @@ function buildIslandPropsJson(config: {
     fields: config.fields,
     submitLabel: config.submitLabel,
     pendingLabel: config.pendingLabel,
+    submitVariant: config.action.submitVariant,
     redirectUrl: config.redirectUrl,
     successToast: config.action.onSuccess?.toast,
     successPage: successPageOf(config.action),
@@ -303,9 +304,9 @@ function renderAuthFormSkeleton(config: {
   readonly props: ElementProps
   readonly formDataAttrs: Record<string, unknown>
   readonly fields: readonly AuthFormField[]
-  readonly submitLabel: string
+  readonly submit: Pick<AuthFormAction, 'submitLabel' | 'submitVariant'>
 }): ReactElement {
-  const { props, formDataAttrs, fields, submitLabel } = config
+  const { props, formDataAttrs, fields, submit } = config
   return (
     <form
       {...authSkeletonFormProps(props)}
@@ -330,9 +331,9 @@ function renderAuthFormSkeleton(config: {
         type="submit"
         disabled
         data-component-type="button"
-        className={`${computeButtonDefaultClasses()} w-full`}
+        className={`${computeSubmitButtonClasses(submit.submitVariant)} w-full`}
       >
-        {submitLabel}
+        {submit.submitLabel}
       </button>
     </form>
   )
@@ -393,7 +394,7 @@ export function renderAuthForm(
       style={wrapperStyle}
     >
       {/* SSR skeleton — used as Suspense fallback and progressive enhancement */}
-      {renderAuthFormSkeleton({ props, formDataAttrs, fields, submitLabel })}
+      {renderAuthFormSkeleton({ props, formDataAttrs, fields, submit: { ...action, submitLabel } })}
     </div>
   )
 }

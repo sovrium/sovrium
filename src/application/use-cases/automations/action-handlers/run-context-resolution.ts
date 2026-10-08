@@ -178,15 +178,44 @@ export const renderNestedActionProps = (
   action: Readonly<Record<string, unknown>>,
   context: Readonly<Record<string, unknown>>,
   templates: TemplateRenderer
-): RenderedActionProps =>
-  renderActionProps({
+): RenderedActionProps => ({
+  ...renderActionProps({
     type: String(action['type'] ?? ''),
     operator: String(action['operator'] ?? ''),
     authored: action['props'] ?? {},
     context,
     templates,
     renderValue: (value) => resolveRunContextValue(value, context, templates),
-  })
+  }),
+  ...nestedTemplateVars(action, (vars) => resolveRunContextValue(vars, context, templates)),
+})
+
+/** The props of a nested action a step handed over, final: run as given, `$vars` included. */
+export const finalNestedActionProps = (
+  action: Readonly<Record<string, unknown>>
+): RenderedActionProps => ({
+  props: (action['props'] ?? {}) as Record<string, unknown>,
+  ...nestedTemplateVars(action, (vars) => vars),
+})
+
+/**
+ * The variables a named template called from a path or a loop carries
+ * (`$vars`, see `../expand-action-refs`), filled in against the same context
+ * as its props: an inline template inside it reads them as `{{$vars.name}}`,
+ * exactly as it does when the template is a top-level step.
+ */
+const nestedTemplateVars = (
+  action: Readonly<Record<string, unknown>>,
+  fill: (vars: Readonly<Record<string, unknown>>) => unknown
+): Pick<RenderedActionProps, 'templateVars'> => {
+  const vars = action['$vars']
+  if (vars === null || typeof vars !== 'object' || Array.isArray(vars)) return {}
+  return {
+    templateVars: fill(vars as Readonly<Record<string, unknown>>) as Readonly<
+      Record<string, unknown>
+    >,
+  }
+}
 
 /** Narrow an `unknown` to an array, else `[]`. */
 export const asArray = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : [])

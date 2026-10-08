@@ -8,17 +8,15 @@
 import { redactSecretHeaders } from '@/domain/kernel/sanitize/http-header-redaction'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { isAdminEquivalent } from '@/domain/models/app'
+import { isFieldReadByNoOne } from '@/domain/models/app/tables/field-read-filter-service'
+import { rebuildRetryPayload } from '@/domain/models/app/tables/webhooks/delivery-retry-service'
 import {
   getDelivery,
+  getDeliveryOutboxId,
   listDeliveries,
-  type DeliveryLogEntry,
 } from '@/infrastructure/webhooks/delivery-log-queries'
 import { buildSampleRecord, type SampleFieldShape } from '@/infrastructure/webhooks/sample-record'
-import {
-  deliverAndLog,
-  deliverTestWebhook,
-  type TableWebhookPayload,
-} from '@/infrastructure/webhooks/table-webhook-dispatch'
+import { deliverAndLog, deliverTestWebhook } from '@/infrastructure/webhooks/table-webhook-dispatch'
 import {
   errorBody,
   notFound as notFoundResponse,
@@ -169,26 +167,6 @@ export async function handleGetDelivery(c: Context, app: App): Promise<Response>
 }
 
 /**
- * Rebuild a webhook payload envelope from a stored delivery row.
- *
- * The stored `payload` already carries the canonical envelope shape; this
- * refreshes the `timestamp` so the retry is delivered as a fresh attempt.
- */
-const rebuildPayload = (delivery: DeliveryLogEntry): TableWebhookPayload => {
-  const stored = (delivery.payload ?? {}) as Partial<TableWebhookPayload>
-  const record =
-    stored.data && typeof stored.data === 'object'
-      ? ((stored.data as { record?: Record<string, unknown> }).record ?? {})
-      : {}
-  return {
-    event: typeof stored.event === 'string' ? stored.event : delivery.event,
-    table: typeof stored.table === 'string' ? stored.table : delivery.tableName,
-    timestamp: new Date().toISOString(),
-    data: { record },
-  }
-}
-
-/**
  * POST /api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId/retry
  *
  * Re-sends the original payload of a stored delivery. The retry produces a
@@ -217,8 +195,21 @@ export async function handleRetryDelivery(c: Context, app: App): Promise<Respons
     return notFound(c, 'Delivery')
   }
 
-  const payload = rebuildPayload(delivery)
-  const outcome = await deliverAndLog({ webhook, tableName, payload, appEnv: app.env })
+  // The stored envelope, re-read from its JSON text, under a fresh timestamp.
+  const payload = rebuildRetryPayload({
+    app,
+    tableName: delivery.tableName,
+    event: delivery.event,
+    stored: delivery.payload,
+    timestamp: new Date().toISOString(),
+  })
+  const outcome = await deliverAndLog({
+    webhook,
+    tableName,
+    payload,
+    appEnv: app.env,
+    outboxDeliveryId: await getDeliveryOutboxId(deliveryId),
+  })
 
   return c.json(
     {
@@ -236,7 +227,10 @@ export async function handleRetryDelivery(c: Context, app: App): Promise<Respons
  */
 const findTableFields = (app: App, tableName: string): ReadonlyArray<SampleFieldShape> => {
   const table = app.tables?.find((t) => t.name === tableName)
-  return (table?.fields ?? []) as ReadonlyArray<SampleFieldShape>
+  // A field no role may read is left out of a sample, as out of every payload.
+  return ((table?.fields ?? []) as ReadonlyArray<SampleFieldShape>).filter(
+    (field) => !isFieldReadByNoOne(app, tableName, field.name)
+  )
 }
 
 /**

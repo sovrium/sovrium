@@ -14,24 +14,32 @@ toolbar:
 
 ## CSV import
 
-Import is a **wizard in the grid, not an endpoint**. The file is parsed in the browser, previewed, mapped, and then committed through the ordinary Records write endpoints. There is no import route to call — anything the wizard does, a script can do by posting to those same endpoints.
+Import is a **wizard in the grid** over one named route. The file is parsed in the browser, previewed and mapped, then sent to `POST /api/tables/:tableId/records/import` in chunks of up to 100 rows. A script can post to the same route.
 
-| Step               | What happens                                                                             | Underlying request                        |
-| ------------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Upload             | A `.csv` is parsed in the browser and the first ten rows previewed with their columns    | none                                      |
-| Mapping            | Each column is auto-matched to a field by header name; unmatched columns default to skip | none                                      |
-| Duplicate handling | A unique field is chosen, plus skip, overwrite or create                                 | none                                      |
-| Import             | Rows are written and a summary reports created, updated, skipped and failed separately   | batch create, or upsert for **overwrite** |
+| Step               | What happens                                                                             | Underlying request                         |
+| ------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Upload             | A `.csv` is parsed in the browser and the first ten rows previewed with their columns    | none                                       |
+| Mapping            | Each column is auto-matched to a field by header name; unmatched columns default to skip | none                                       |
+| Duplicate handling | A unique field is chosen, plus skip, overwrite or create                                 | none                                       |
+| Import             | Rows are written and a summary reports created, updated, skipped and failed separately   | `POST /records/import`, one call per chunk |
 
-| Duplicate mode | Effect                                                |
-| -------------- | ----------------------------------------------------- |
-| Skip           | Rows whose unique field already exists are left alone |
-| Overwrite      | The matching record is updated, through upsert        |
-| Create         | A new record is inserted regardless                   |
+| Duplicate mode | Effect                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------- |
+| Skip           | Rows whose unique field matches a record you can read are left alone, checked on the server |
+| Overwrite      | The matching record is updated, as an upsert                                                |
+| Create         | A new record is inserted regardless                                                         |
+
+```
+POST /api/tables/:tableId/records/import
+{ "records": [{ "fields": { "email": "ada@example.com" } }], "strategy": "skip", "mergeOn": "email" }
+→ { "created": 0, "updated": 0, "skipped": 1 }
+```
+
+`strategy` defaults to `create`; `skip` and `overwrite` need `mergeOn`, the field that identifies a duplicate. Overwrite matches the way an upsert does: `mergeOn` must be a field the importer may read, or the import answers `404` and writes nothing, and a record she may not read is never a duplicate — a row matching only such records is imported as a new one.
 
 **Import is the one bulk path that is not all-or-nothing.** Valid rows are committed and invalid ones are not, which is the opposite of the batch endpoints' single transaction — and it is the right default for a human pasting a spreadsheet, who wants the 900 good rows in and a report on the 100 bad ones. Failed rows download as a CSV carrying the original data plus an `error` column, so fixing it and re-uploading retries exactly those rows.
 
-Imported records pass the same field-type validation and the same field-level permissions as any other create, because they are ordinary creates.
+Imported records pass the same field-type validation and the same field-level permissions as a batch create — or an upsert, for overwrite — and fire the table's webhooks and record automations once per row, like any other write. A table that declares `import: { fireEvents: false }` makes its imports silent: no webhook, no record automation, while every other way of writing to it still fires. Open grids still refresh.
 
 ## Export
 

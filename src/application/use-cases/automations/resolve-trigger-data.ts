@@ -136,6 +136,19 @@ export interface TriggerData {
    * the dynamic envelope pass-through in `buildAutomationContext`.
    */
   readonly event?: string
+  /**
+   * The signed-in caller of a webhook (session cookie or `x-api-key`), as
+   * `{ id, role }`. Surfaces at `{{trigger.user.<field>}}` — a TOP-LEVEL key,
+   * never under `trigger.data`, so a request body cannot shadow it. Undefined
+   * for an anonymous call and for every other trigger.
+   */
+  readonly requester?: TriggerRequester
+}
+
+/** The identity a credentialed webhook call was made with. */
+export interface TriggerRequester {
+  readonly id: string
+  readonly role: string
 }
 
 /**
@@ -235,7 +248,7 @@ export const buildAutomationContext = (
   // already-flattened scalar children would otherwise duplicate.
   const envelopeAdditions = Object.fromEntries(
     Object.keys(td)
-      .filter((key) => td[key] !== undefined && !(key in fromBody))
+      .filter((key) => key !== 'requester' && td[key] !== undefined && !(key in fromBody))
       .map((key) => [key, td[key]] as const)
   )
   // Top-level keys exposed at `trigger.X` (in addition to `trigger.data.X`)
@@ -264,6 +277,8 @@ export const buildAutomationContext = (
     trigger: {
       data: { ...fromBody, ...envelopeAdditions },
       ...triggerTopLevel,
+      // The caller identity is read from the request's credential, never the body.
+      ...(triggerData.requester === undefined ? {} : { user: triggerData.requester }),
     },
   }
 }

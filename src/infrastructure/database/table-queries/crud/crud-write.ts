@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
   reportCommittedRows,
@@ -14,14 +13,13 @@ import {
 import { StaleWriteError } from '@/domain/errors'
 import { findConstraintFieldName } from '@/domain/errors/driver-failure'
 import {
-  db,
   ForeignKeyViolationError,
   DatabaseError,
   UniqueConstraintViolationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
-import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
+import { tryTransactionWithOutbox } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import {
@@ -50,8 +48,6 @@ import {
 } from '../mutation-helpers/update-transaction'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../statement/error-handling'
-import { typedExecute } from '../statement/typed-execute'
-import { tableIdentifier, databaseTableName } from '../statement/validation'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -176,11 +172,10 @@ export function createRecord(
     const record = yield* traceDbQuery(
       'insert',
       tableName,
-      Effect.tryPromise({
-        try: () =>
-          db.transaction((tx) =>
-            executeCreateRecordWithLinksTx(tx, { session, tableName, fields, links })
-          ),
+      tryTransactionWithOutbox({
+        transaction: (tx) =>
+          executeCreateRecordWithLinksTx(tx, { session, tableName, fields, links }),
+        changesOf: (row) => [{ tableName, event: 'insert', recordId: String(row['id']), row }],
         // The caller's own keys, taken BEFORE authorship injection: only a
         // column they submitted may be named back to them (S4).
         catch: (error) => wrapCreateRecordFailure(error, tableName, Object.keys(fields)),
@@ -224,6 +219,30 @@ function logRecordUpdateActivity(config: {
   })
 }
 
+/** The row an update wrote, when it wrote one — reported to the change stream and the outbox. */
+const updatedRowChanges = (
+  tableName: string,
+  recordId: string,
+  outcome: {
+    readonly updatedRecord: Row
+    readonly recordBefore: Row | undefined
+    readonly rowWritten?: boolean
+  }
+): readonly CommittedRowChange[] =>
+  outcome.rowWritten === false || outcome.updatedRecord['id'] === undefined
+    ? []
+    : [
+        {
+          tableName,
+          event: 'update',
+          recordId,
+          row: outcome.updatedRecord,
+          previous: outcome.recordBefore,
+        },
+      ]
+
+type Row = Record<string, unknown>
+
 /**
  * Update a record and its many-to-many links, all in one transaction.
  *
@@ -246,11 +265,10 @@ export function updateRecord(
     const { recordBefore, updatedRecord, rowWritten } = yield* traceDbQuery(
       'update',
       tableName,
-      Effect.tryPromise({
-        try: () =>
-          db.transaction((tx) =>
-            runUpdateRecordTransaction(tx, { session, tableName, recordId }, params)
-          ),
+      tryTransactionWithOutbox({
+        transaction: (tx) =>
+          runUpdateRecordTransaction(tx, { session, tableName, recordId }, params),
+        changesOf: (outcome) => updatedRowChanges(tableName, recordId, outcome),
         catch: (error) => (error instanceof StaleWriteError ? error : wrap(error)),
       })
     )
@@ -263,11 +281,9 @@ export function updateRecord(
       changes: updateActivityChanges(params, recordBefore, updatedRecord),
       app: params.app,
     })
-    if (updatedRecord['id'] !== undefined) {
-      yield* reportCommittedRows([
-        { tableName, event: 'update', recordId, row: updatedRecord, previous: recordBefore },
-      ])
-    }
+    yield* reportCommittedRows(
+      updatedRowChanges(tableName, recordId, { updatedRecord, recordBefore })
+    )
 
     return updatedRecord
   })
@@ -414,9 +430,9 @@ export function deleteRecord(
     const result = yield* traceDbQuery(
       'delete',
       tableName,
-      Effect.tryPromise({
-        try: () =>
-          db.transaction((tx) => runDeleteTransaction({ tx, session, tableName, recordId, app })),
+      tryTransactionWithOutbox({
+        transaction: (tx) => runDeleteTransaction({ tx, session, tableName, recordId, app }),
+        changesOf: (outcome) => outcome.committed,
         catch: wrapDatabaseError(`Failed to delete record from ${tableName}`),
       })
     )
@@ -462,17 +478,15 @@ export function permanentlyDeleteRecord(
     const result = yield* traceDbQuery(
       'delete',
       tableName,
-      Effect.tryPromise({
-        try: () =>
-          db.transaction(async (tx) => {
-            // Fetch record before deletion for activity logging
-            const recordBeforeData = await fetchRecordById(tx, tableName, recordId)
-
-            // Execute hard delete
-            const success = await executeHardDelete(tx, tableName, recordId)
-
-            return { success, recordBeforeData: success ? recordBeforeData : undefined }
-          }),
+      tryTransactionWithOutbox({
+        transaction: async (tx) => {
+          // Fetch record before deletion for activity logging
+          const recordBeforeData = await fetchRecordById(tx, tableName, recordId)
+          const success = await executeHardDelete(tx, tableName, recordId)
+          return { success, recordBeforeData: success ? recordBeforeData : undefined }
+        },
+        changesOf: ({ recordBeforeData: previous }) =>
+          previous === undefined ? [] : [{ tableName, event: 'delete', recordId, previous }],
         catch: wrapDatabaseError(`Failed to permanently delete record from ${tableName}`),
       })
     )
@@ -492,89 +506,5 @@ export function permanentlyDeleteRecord(
     }
 
     return result.success
-  })
-}
-
-/**
- * Restore a soft-deleted record
- *
- * Clears the deleted_at timestamp to restore a soft-deleted record.
- * Returns error if record doesn't exist or is not soft-deleted.
- * Permissions applied via application layer.
- *
- * @param session - Better Auth session
- * @param tableName - Name of the table
- * @param recordId - Record ID
- * @returns Effect resolving to restored record or null
- */
-export function restoreRecord(
-  session: Readonly<Session>,
-  tableName: string,
-  recordId: string
-): Effect.Effect<Record<string, unknown> | null, DatabaseError> {
-  return Effect.gen(function* () {
-    const restoredRecord = yield* traceDbQuery(
-      'update',
-      tableName,
-      Effect.tryPromise({
-        try: () =>
-          db.transaction(async (tx) => {
-            const tableIdent = tableIdentifier(tableName)
-
-            // Check if record exists (including soft-deleted records)
-            const checkResult = await typedExecute(
-              tx,
-              sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-            )
-
-            if (checkResult.length === 0) {
-              return null // Record not found
-            }
-
-            const record = checkResult[0]
-
-            // Check if record is soft-deleted
-            if (!record?.deleted_at) {
-              // Record exists but is not deleted - return error via special marker
-              return { _error: 'not_deleted' } as Record<string, unknown>
-            }
-
-            // Check if table has deleted_by column (dialect-aware introspection)
-            const hasDeletedBy = await columnExists(tx, databaseTableName(tableName), 'deleted_by')
-
-            // Restore record by clearing deleted_at and deleted_by (if column exists)
-            const result = hasDeletedBy
-              ? await typedExecute(
-                  tx,
-                  sql`UPDATE ${tableIdent} SET deleted_at = NULL, deleted_by = NULL WHERE id = ${recordId} RETURNING *`
-                )
-              : await typedExecute(
-                  tx,
-                  sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
-                )
-
-            return result[0] ?? {}
-          }),
-        catch: wrapDatabaseError(`Failed to restore record ${recordId} from ${tableName}`),
-      })
-    )
-
-    // Log activity for record restoration (outside transaction)
-    if (restoredRecord && !('_error' in restoredRecord)) {
-      yield* logActivity({
-        session,
-        tableName,
-        action: 'restore',
-        recordId,
-        changes: { after: restoredRecord },
-      })
-      // A restored row comes back into view: announced as an insert, the
-      // inverse of the delete that took it out.
-      if (restoredRecord['id'] !== undefined) {
-        yield* reportCommittedRows([{ tableName, event: 'insert', recordId, row: restoredRecord }])
-      }
-    }
-
-    return restoredRecord
   })
 }

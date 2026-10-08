@@ -13,6 +13,26 @@ import {
 } from '@/infrastructure/database'
 import { buildInsertClauses, insertAndResolveRow } from '../mutation-helpers/create-record-helpers'
 import { wrapWriteStatementError } from '../statement/error-handling'
+import type { CommittedRowChange } from '@/application/ports/services/record-change-feed'
+
+type Row = Record<string, unknown>
+
+/** The rows a batch inserted — or restored, which reads as an insert — as committed changes. */
+export const insertedRowChanges =
+  (tableName: string) =>
+  (rows: readonly Row[]): readonly CommittedRowChange[] =>
+    rows.map((row) => ({ tableName, event: 'insert', recordId: String(row['id']), row }))
+
+/** The rows a batch deleted, as they stood, as committed changes. */
+export const deletedRowChanges =
+  (tableName: string) =>
+  (rows: readonly Row[]): readonly CommittedRowChange[] =>
+    rows.map((previous) => ({
+      tableName,
+      event: 'delete',
+      recordId: String(previous['id']),
+      previous,
+    }))
 
 /**
  * Batch validation error - returned when batch validation fails

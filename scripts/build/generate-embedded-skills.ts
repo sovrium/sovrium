@@ -53,6 +53,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { REPO_ROOT, walkSync } from '../lib/drift/walk'
 import { generatedModuleHeader, renderFileImports } from '../lib/embedded-file-module'
+import { sameIgnoringCrlf } from '../lib/line-endings'
 import { posixRelative } from '../lib/posix-path'
 
 /** The module this generator writes, root-parameterized for tests and the build. */
@@ -152,6 +153,15 @@ ${entries}
 `
 }
 
+/**
+ * Whether the committed module matches the rendered one, its CRLF folded. The
+ * rendered module is derived from paths alone, so the only way a Windows
+ * checkout under `core.autocrlf` can differ is the committed file's own
+ * newlines — not a content change. A path added or removed still fails.
+ */
+export const isSkillsModuleCurrent = (committed: string, rendered: string): boolean =>
+  sameIgnoringCrlf(committed, rendered)
+
 if (import.meta.main) {
   const check = process.argv.includes('--check')
   const { manifest } = skillsPayloadPaths(REPO_ROOT)
@@ -160,7 +170,7 @@ if (import.meta.main) {
   const skills = new Set(paths.map((path) => path.split('/')[2])).size
   if (check) {
     const committed = existsSync(manifest) ? readFileSync(manifest, 'utf8') : ''
-    if (committed !== rendered) {
+    if (!isSkillsModuleCurrent(committed, rendered)) {
       console.log(
         'embedded-skills.generated.ts is stale — run `bun run build:skills` and commit the result.'
       )

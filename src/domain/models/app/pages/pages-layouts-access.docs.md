@@ -139,6 +139,8 @@ The vocabulary is the same closed set `requires` uses, so the two levels cannot 
 
 The set includes the sign-in ways — `auth.passkeys`, `auth.magicLink`, `auth.oauth`, `auth.sso` — and `auth.signUp`, which holds unless `allowSignUp: false`. A sign-in page gates each alternative on the one it needs, so an app shows only the ways it actually offers, and a "Create an account" link disappears from an app that closed sign-up.
 
+`auth.passwordReset` holds when the app signs in with email and password and one of its pages draws the form that asks for a reset link (`action: { type: auth, method: resetPassword }`), written on the page or placed through a template — so a "Forgot password?" link gated on it never leads to a page that is not there.
+
 The two keys compose by AND, so declaring one capability and excluding another means "for apps that do the first and not the second". Naming the SAME capability in both is refused: it could never render on any instance.
 
 **The unmet half is EXCLUDED from the HTML, not hidden.** A body that alternates is not a style — shipping both and hiding one with CSS tells anyone reading the page source that the instance has a capability it does not have.
@@ -174,7 +176,7 @@ The set of runtime capabilities is closed and currently has one member, `ai`. A 
 
 ## What a denial returns
 
-An `access` block carrying `redirectTo` answers an anonymous or unauthorized visitor with a `302` to that path, with the original path appended as a `redirect` query parameter. Without `redirectTo` the answer is `404`, so the page's existence is not disclosed.
+An `access` block carrying `redirectTo` answers a visitor who has not signed in with a `302` to that path, with the original path appended as a `redirect` query parameter. A person who is signed in but lacks the role is never redirected: signing in again would not help her, and the redirect would tell her the page exists. She gets `404`, as she does on a page without `redirectTo`, so the page's existence is not disclosed.
 
 **`access` never answers `401`.** It redirects or hides. The only source of a `401` on a page is an unresolvable `$currentUser` reference in a data source — two different mechanisms with two different answers.
 

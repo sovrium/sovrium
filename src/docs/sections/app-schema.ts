@@ -7,6 +7,8 @@
 
 import { AppSchema } from '@/domain/models/app'
 import appMetadataBody from '@/domain/models/app/app-metadata.docs.md' with { type: 'file' }
+import { AssetSchema } from '@/domain/models/app/assets'
+import assetsBody from '@/domain/models/app/assets/assets.docs.md' with { type: 'file' }
 import { DecisionSchema } from '@/domain/models/app/decisions'
 import decisionsBody from '@/domain/models/app/decisions/decisions.docs.md' with { type: 'file' }
 import { LanguagesSchema } from '@/domain/models/app/languages'
@@ -177,6 +179,26 @@ export const section = defineSection({
         'US-LINKS-SHORT-LINKS',
         'US-LINKS-UTM-BUILDER',
       ],
+    }),
+    defineArticle({
+      slug: 'assets',
+      title: 'Private Assets',
+      description:
+        'Ship templates, fonts, images and sample data beside the config as private files that actions read and no route ever serves.',
+      keywords: [
+        'sovrium',
+        'assets',
+        'private files',
+        'templates',
+        'fonts',
+        'document templates',
+        'never served',
+      ],
+      order: 9045,
+      sidebarLabel: 'Private Assets',
+      body: assetsBody,
+      documents: [AssetSchema],
+      stories: ['US-ASSETS-ASSETS', 'US-ASSETS-SAMPLE-DATA'],
     }),
     defineArticle({
       slug: 'decisions',

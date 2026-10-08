@@ -9,6 +9,9 @@
  * The ONE path a records-API update takes, from the row as it stood to the
  * last side effect of the write.
  *
+ * Every door that updates one record — the records API's PATCH, the native
+ * form, a form edit link, the MCP tool, the AI chat (once per row) and an
+ * automation step — runs this program, each behind its own authorization.
  * Whether or not a record-update automation watches the table, an update runs
  * this one program, so the side effects cannot differ between the two cases —
  * a replaced attachment's stored file, for one, is deleted in both; keeping it
@@ -19,9 +22,10 @@
  *  1. read the operational pauses — is a record-update automation armed?
  *  2. read the row as it stands (it feeds steps 3, 5, 6 and 8)
  *  3. stamp `published_at` on first publication, merge the SQLite AI baseline
- *  4. write (the optimistic-lock token is compared INSIDE the write)
+ *  4. write (the optimistic-lock token is compared INSIDE the write), recording
+ *     the table's update webhook deliveries in the same transaction
  *  5. dispatch the armed automations, with the previous row for `watchFields`
- *  6. dispatch the table's webhooks
+ *  6. deliver the webhook deliveries the write recorded
  *  7. signal the AI-compute write phase, detached — it outlives the request
  *  8. delete the stored files the write replaced
  *
@@ -32,17 +36,22 @@ import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { signalAiComputeWritePhase } from '@/application/use-cases/ai-compute/enqueue-refinement'
 import { loadPausedAutomationNames } from '@/application/use-cases/automations/paused-automation-names'
-import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { applyAiComputeBaseline } from '@/domain/models/app/tables/ai-compute-apply-baseline'
 import { logError } from '@/infrastructure/logging/logger'
 import { rawGetRecordProgram } from './read-record-programs'
-import { serializeDriverRow } from './record-transformer'
+import { storedRowOf } from './record-stored-row'
+import { deliverRecordWebhooks, withRecordWebhooks } from './record-webhook-outbox'
 import { updateRecordProgram } from './write-record-programs'
 import type { LinkReader } from './linked-row-visibility'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type {
+  DeliveryMode,
+  OutboxedWrite,
+  RecordWebhookDispatcher,
+} from '@/application/ports/services/record-webhook-dispatcher'
 import type { TriggerRecordEventInput } from '@/application/use-cases/automations/trigger-record-event'
 import type { App } from '@/domain/models/app'
 
@@ -58,13 +67,6 @@ export interface ReplacedAttachment {
   readonly bucket: string
 }
 
-/** What a table's update webhooks are handed. */
-export interface UpdateWebhookPayload {
-  readonly record: StoredRow
-  /** The pre-update row, its dates read as the record's are. */
-  readonly previousRecord: StoredRow | undefined
-}
-
 /** Everything one update needs to know about the caller and the change. */
 export interface RecordUpdateInput {
   readonly session: Readonly<UserSession>
@@ -73,11 +75,12 @@ export interface RecordUpdateInput {
   readonly recordId: string
   /** The fields the caller may write, as they asked to write them. */
   readonly fields: StoredRow
-  readonly userRole: string
+  /** The caller's role, which judges the echo; absent for a write no person made. */
+  readonly userRole?: string
   /** The caller's groups: a field read grant may name a group. */
-  readonly userGroups: readonly string[]
+  readonly userGroups?: readonly string[]
   /** The reader the write's echo judges link targets as. */
-  readonly linkReader: LinkReader
+  readonly linkReader?: LinkReader
   /** The `updatedAt` the caller last read, when it sent one. */
   readonly expectedUpdatedAt?: string
   /** The surface the change is recorded as made through (a form edit link). */
@@ -86,8 +89,14 @@ export interface RecordUpdateInput {
   readonly isSqlite: boolean
   /** Process env captured at the route boundary, for the automations' `$env` lookups. */
   readonly processEnv: Readonly<Record<string, string | undefined>>
-  /** Delivers the table's update webhooks. Must not fail: a down endpoint never fails the write. */
-  readonly dispatchWebhooks: (payload: UpdateWebhookPayload) => Effect.Effect<void>
+  /** Whether the request waits for its webhook deliveries (it does, by default). */
+  readonly deliveryMode?: DeliveryMode
+  /**
+   * Whether the stored files the write replaced are deleted (`delete`, the
+   * default). An automation step keeps them: its own attach step deletes a
+   * replaced file only once no record names it any more.
+   */
+  readonly replacedAttachments?: 'delete' | 'keep'
   /**
    * Forgets every derived variant (resized, converted) of a stored file the
    * write replaced, once the file itself is deleted — or a variant would keep
@@ -101,12 +110,12 @@ export interface RecordUpdateInput {
  * {@link updateRecordWithSideEffects}. Separated so the ORDER is a unit-testable
  * property rather than a reading of the code.
  */
-export interface RecordUpdateSteps<E, R> {
+export interface RecordUpdateSteps<E, R, RD = never, RA = never> {
   readonly loadPausedNames: Effect.Effect<ReadonlySet<string>, never, R>
   readonly readRow: Effect.Effect<StoredRow | undefined, never, R>
-  readonly write: (fields: StoredRow) => Effect.Effect<UpdatedRecord, E, R>
-  readonly dispatchAutomations: (input: TriggerRecordEventInput) => Effect.Effect<void, never, R>
-  readonly dispatchWebhooks: (payload: UpdateWebhookPayload) => Effect.Effect<void, never, R>
+  readonly write: (fields: StoredRow) => Effect.Effect<OutboxedWrite<UpdatedRecord>, E, R | RD>
+  readonly dispatchAutomations: (input: TriggerRecordEventInput) => Effect.Effect<void, never, RA>
+  readonly deliverWebhooks: (deliveryIds: readonly string[]) => Effect.Effect<void, never, RD>
   readonly signalAiCompute: (
     record: StoredRow,
     old: StoredRow | undefined
@@ -217,49 +226,39 @@ export function flattenUpdatedRecord(updated: WrittenRecord): StoredRow {
   return { id: updated.id, ...updated.fields }
 }
 
-/** The flat record plus its system timestamps, for `payload.includeMetadata` webhooks. */
-function webhookRecordOf(updated: WrittenRecord): StoredRow {
-  return {
-    ...flattenUpdatedRecord(updated),
-    createdAt: updated.createdAt,
-    updatedAt: updated.updatedAt,
-  }
-}
-
 /**
  * The update, in the order the module header documents, over abstract steps.
  * Resolves to the written record, or `undefined` when the write touched no row.
  */
-export function orchestrateRecordUpdate<E, R>(
+export function orchestrateRecordUpdate<E, R, RD = never, RA = never>(
   input: Pick<RecordUpdateInput, 'app' | 'tableName' | 'fields' | 'isSqlite' | 'processEnv'> & {
     readonly userId: string
     /** When the update happens, as an ISO 8601 instant. */
     readonly nowIso: string
   },
-  steps: RecordUpdateSteps<E, R>
-): Effect.Effect<WrittenRecord | undefined, E, R> {
+  steps: RecordUpdateSteps<E, R, RD, RA>
+): Effect.Effect<WrittenRecord | undefined, E, R | RD | RA> {
   const { app, tableName } = input
   return Effect.gen(function* () {
     const armed = hasArmedUpdateTrigger(input, yield* steps.loadPausedNames)
     const previous = yield* steps.readRow
     const published = applyPublishedAtConvention(input, previous, input.fields, input.nowIso)
     const fields = mergeAiBaseline(input, published, previous, input.isSqlite)
-    const updated = yield* steps.write(fields)
+    const written = yield* steps.write(fields)
+    const updated = written.value
     if (armed) {
       yield* steps.dispatchAutomations({
         app,
         tableName,
         event: 'update',
-        record: isWritten(updated) ? { ...flattenUpdatedRecord(updated) } : {},
+        record: isWritten(updated) ? storedRowOf(updated) : {},
         ...(previous === undefined ? {} : { previousRecord: { ...previous } }),
         processEnv: input.processEnv,
         userId: input.userId,
       })
     }
     if (!isWritten(updated)) return undefined
-    const previousRecord =
-      previous === undefined ? undefined : serializeDriverRow(previous, { app, tableName })
-    yield* steps.dispatchWebhooks({ record: webhookRecordOf(updated), previousRecord })
+    yield* steps.deliverWebhooks(written.deliveryIds)
     // The incoming map for override detection is the caller's own, pre-baseline.
     yield* steps.signalAiCompute(flattenUpdatedRecord(updated), previous)
     if (previous !== undefined) {
@@ -297,44 +296,63 @@ const deleteStoredFiles = (
     { discard: true }
   )
 
+/** What the update's own steps run on — the automations' dispatch aside. */
+type UpdateRequirements =
+  | Effect.Services<ReturnType<typeof updateRecordProgram>>
+  | Effect.Services<typeof loadPausedAutomationNames>
+  | Effect.Services<ReturnType<typeof signalAiComputeWritePhase>>
+  | StorageService
+
 /**
- * Update one record and run every side effect the update carries, on the
- * caller's services. Fails with the write's own errors (`StaleWriteError` for
- * a stale token, the repository's for an RLS refusal).
+ * The row an update replaces. It only feeds the conventions and the cleanup:
+ * a failed read leaves them without a previous row, and the write reports its
+ * own error.
  */
-export function updateRecordWithSideEffects(input: RecordUpdateInput) {
+const readReplacedRow = ({ session, tableName, recordId }: RecordUpdateInput) =>
+  rawGetRecordProgram(session, tableName, recordId).pipe(
+    Effect.map((row) => row ?? undefined),
+    Effect.tapCause((cause) =>
+      Effect.sync(() =>
+        logError('[tables] could not read the row an update replaces', cause, { tableName })
+      )
+    ),
+    // effect-swallow: the read only feeds the conventions and the cleanup;
+    // logged above, and the write that follows reports its own failure.
+    Effect.orElseSucceed(() => undefined)
+  )
+
+/**
+ * One update with every side effect it carries, its record automations started by
+ * `dispatchAutomations`: the records API's own dispatch for every road but an
+ * automation step, which hands its run's record-event channel (see
+ * `record-write-roads.ts`). Fails with the write's own errors.
+ */
+export function updateRecordVia<RA>(
+  input: RecordUpdateInput,
+  dispatchAutomations: (input: TriggerRecordEventInput) => Effect.Effect<void, never, RA>
+) {
   const { session, app, tableName, recordId } = input
-  return orchestrateRecordUpdate(
+  type WriteError = Effect.Error<ReturnType<typeof updateRecordProgram>>
+  return orchestrateRecordUpdate<WriteError, UpdateRequirements, RecordWebhookDispatcher, RA>(
     { ...input, userId: session.userId, nowIso: new Date().toISOString() },
     {
       loadPausedNames: loadPausedAutomationNames,
-      // The pre-read only feeds conventions and cleanup: a failed read leaves
-      // them without a previous row, and the write reports its own error.
-      readRow: rawGetRecordProgram(session, tableName, recordId).pipe(
-        Effect.map((row) => row ?? undefined),
-        Effect.tapCause((cause) =>
-          Effect.sync(() =>
-            logError('[tables] could not read the row an update replaces', cause, { tableName })
-          )
-        ),
-        // effect-swallow: the read only feeds the conventions and the cleanup;
-        // logged above, and the write that follows reports its own failure.
-        Effect.orElseSucceed(() => undefined)
-      ),
+      readRow: readReplacedRow(input),
       write: (fields) =>
         updateRecordProgram(session, tableName, recordId, {
           fields,
           app,
-          userRole: input.userRole,
-          userGroups: input.userGroups,
-          linkReader: input.linkReader,
+          ...(input.userRole === undefined ? {} : { userRole: input.userRole }),
+          ...(input.userGroups === undefined ? {} : { userGroups: input.userGroups }),
+          ...(input.linkReader === undefined ? {} : { linkReader: input.linkReader }),
           ...(input.expectedUpdatedAt === undefined
             ? {}
             : { expectedUpdatedAt: input.expectedUpdatedAt }),
           ...(input.auditContext === undefined ? {} : { auditContext: input.auditContext }),
-        }),
-      dispatchAutomations: triggerRecordEventAutomations,
-      dispatchWebhooks: input.dispatchWebhooks,
+        }).pipe(withRecordWebhooks(app, tableName)),
+      dispatchAutomations,
+      deliverWebhooks: (deliveryIds) =>
+        deliverRecordWebhooks(app, deliveryIds, input.deliveryMode ?? 'await'),
       // Detached: the enqueue and its status writes outlive the request, and
       // read the same `AiService` this program was provided.
       signalAiCompute: (record, old) =>
@@ -351,7 +369,10 @@ export function updateRecordWithSideEffects(input: RecordUpdateInput) {
             })
           )
         ),
-      deleteAttachments: (refs) => deleteStoredFiles(refs, input.forgetDerivedVariants),
+      deleteAttachments: (refs) =>
+        input.replacedAttachments === 'keep'
+          ? Effect.void
+          : deleteStoredFiles(refs, input.forgetDerivedVariants),
     }
   ).pipe(Effect.withSpan('tables.update-record-with-side-effects', { attributes: { tableName } }))
 }

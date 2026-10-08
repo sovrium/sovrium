@@ -8,14 +8,13 @@
 /**
  * Shared types and small pure helpers for the automation run loop.
  *
- * Extracted from `run-automation.ts` (P1.2 decomposition) so the
- * orchestrator, step-executor, prop-substitution, run-status and
- * run-persistence modules can all import a single source of truth for
- * the run-loop type contract without re-declaring it.
+ * One source of truth for the run-loop type contract, imported by the
+ * orchestrator, step-executor, prop-substitution, run-status and run-persistence.
  */
 
 import { Duration, Effect, Schedule } from 'effect'
 import type { ActionHandler, ActionKey, AutomationContext } from '../action-handlers'
+import type { ContainerResume } from '../action-handlers/run-park'
 import type { RecordEventChannel, StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
@@ -39,16 +38,24 @@ import type { TableRepository } from '@/application/ports/repositories/tables/ta
 import type { ConfigAccountProvisioner } from '@/application/ports/services/account-provisioner'
 import type { AiService } from '@/application/ports/services/ai-service'
 import type { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
+import type { DocumentRenderer } from '@/application/ports/services/document-renderer'
 import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
+import type { InstanceSupervisor } from '@/application/ports/services/instance-supervisor'
 import type { OAuthTokenClient } from '@/application/ports/services/oauth-token-client'
+import type { OfficeConverter } from '@/application/ports/services/office-converter'
+import type { PdfEditor } from '@/application/ports/services/pdf-editor'
+import type { PdfToolkit } from '@/application/ports/services/pdf-toolkit'
+import type { RecordWebhookDispatcher } from '@/application/ports/services/record-webhook-dispatcher'
 import type { SentinelTokens } from '@/application/ports/services/sentinel-tokens'
 import type { ServerOrigin } from '@/application/ports/services/server-origin'
 import type { SpeechService } from '@/application/ports/services/speech-service'
 import type { StorageService } from '@/application/ports/services/storage-service'
+import type { SvgRasterizer } from '@/application/ports/services/svg-rasterizer'
 import type { TemplateEngine, TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
 import type { RunRelay } from '@/domain/models/app/automations/run-relay-service'
+import type { ResumeFrame } from '@/domain/models/app/automations/run-resume-cursor-service'
 import type { StepRead } from '@/domain/models/app/automations/step-read-service'
 
 /**
@@ -64,17 +71,15 @@ export interface ExecutedStep {
    *  - `'success'` — handler returned `outcome.status === 'success'`
    *  - `'failure'` — handler returned `outcome.status === 'failure'` (whether or
    *    not the action declared `continueOnError`)
-   *  - `'filtered'` — a `filter`/`continue` action evaluated false and halted
-   *    the run via `onFalse: 'stop'`. The filter step itself is recorded with
-   *    this status so the runs-API surface (`GET /api/automations/runs/:id`)
-   *    can observe the filter outcome; subsequent steps remain omitted from
-   *    `steps[]`.
+   *  - `'filtered'` — a `filter`/`continue` evaluated false and halted the run via
+   *    `onFalse: 'stop'`; recorded so the runs API sees it, later steps omitted from `steps[]`.
    *  - `'skipped'` — the run loop short-circuited before this step ran because
    *    an earlier step propagated a failure (no `continueOnError`). The step
    *    is still recorded in `steps[]` so callers can observe which actions
    *    were intentionally not executed.
+   *  - `'waiting'` — a loop or a path the run parked inside, until it resumes.
    */
-  readonly status: 'success' | 'failure' | 'filtered' | 'skipped'
+  readonly status: 'success' | 'failure' | 'filtered' | 'skipped' | 'waiting'
   readonly error?: string
   readonly props?: Record<string, unknown>
   readonly output?: Record<string, unknown>
@@ -97,14 +102,8 @@ export type NestedStepRuns = Pick<ExecutedStep, 'paths' | 'iterations'>
 export interface RunAccumulator {
   readonly steps: ReadonlyArray<ExecutedStep>
   /**
-   * Engine-internal run status. The terminal variants are
-   * `'success'|'failure'|'timed-out'|'exhausted'|'completed-with-errors'|'skipped'|'cancelled'`.
-   * The transient variants `'queued'`/`'running'` are observable in the
-   * persisted runs table only — the reduce-loop accumulator itself never
-   * carries them (the scheduler updates `system.automation_runs.status`
-   * directly before/while the loop runs). They are listed in the union so
-   * the status mappers (toApiStatus, toApiStepStatus, etc.) can propagate
-   * them verbatim when reading rows back from the DB.
+   * Engine-internal run status. `'queued'`/`'running'` appear on persisted rows
+   * only (the scheduler writes them), listed so the status mappers pass them on.
    */
   readonly runStatus:
     | 'success'
@@ -115,6 +114,7 @@ export interface RunAccumulator {
     | 'skipped'
     | 'cancelled'
     | 'waiting-approval'
+    | 'waiting-delay'
     | 'queued'
     | 'running'
   readonly runError: string | undefined
@@ -150,6 +150,8 @@ export interface RunAccumulator {
    * Surfaces as `RunAutomationResult.returnData`.
    */
   readonly returnData: Readonly<Record<string, unknown>> | undefined
+  /** Set when a wait parked the run: when it resumes, and where (its resume cursor). */
+  readonly park?: { readonly resumeAt: number; readonly frames: readonly ResumeFrame[] }
 }
 
 /**
@@ -213,16 +215,14 @@ export interface StepContext {
   readonly recordEvents: RecordEventChannel
   /** See `ExecuteAutomationRunInput.propsFinal`. */
   readonly propsFinal?: true
+  /** A resumed segment: its first action's index in the run, and the container it re-enters. */
+  readonly resume?: { readonly base: number; readonly container?: ContainerResume }
 }
 
 /**
- * Normalised retry config the run loop acts on. `delayMs` is resolved to a
- * concrete number (a per-action override like `{ maxAttempts: 1 }`
- * deliberately drops the automation-level `delayMs`, resolving to a small
- * default). `strategy` decides how the inter-attempt delay grows:
- *
- *   - `'fixed'` (default): every retry waits `delayMs`.
- *   - `'exponential'`: retry N (1-indexed) waits `delayMs * 2^(N-1)`.
+ * Normalised retry config the run loop acts on. `delayMs` is concrete (a per-action
+ * `{ maxAttempts: 1 }` drops the automation-level one for a small default). `strategy`:
+ * `'fixed'` (default) waits `delayMs` each retry, `'exponential'` `delayMs * 2^(N-1)` before N.
  */
 export interface ResolvedRetryConfig {
   readonly maxAttempts: number
@@ -230,11 +230,11 @@ export interface ResolvedRetryConfig {
   readonly strategy: 'fixed' | 'exponential'
 }
 
-/**
- * Service requirement set shared by the step executor and the retry loop.
- */
+/** Service requirement set shared by the step executor and the retry loop. */
 export type StepRequirements =
   | TableRepository
+  | RecordWebhookDispatcher
+  | AutomationPauseRepository
   // The caller gate a hand-started run's record actions run before writing.
   | DataSourceRepository
   | AutomationStateRepository
@@ -250,6 +250,11 @@ export type StepRequirements =
   | AiEmbeddingRepository
   | StorageService
   | ImageTransformService
+  | DocumentRenderer
+  | SvgRasterizer
+  | PdfToolkit
+  | PdfEditor
+  | OfficeConverter
   | SpeechService
   | LinkRepository
   | ServerOrigin
@@ -258,18 +263,16 @@ export type StepRequirements =
   | AiComputeStatusRepository
   | OAuthTokenClient
   | ConfigAccountProvisioner
+  | InstanceSupervisor
 
 /** Combined service requirement for the run-loop entry points. */
 export type RunRequirements =
   | StepRequirements
   | AutomationRepository
   | AutomationRunRepository
-  // The failure history the post-run alert and the automatic pause read, and
-  // the pause the latter writes.
+  // The failure history the post-run alert and the automatic pause read.
   | AutomationRunOutcomeRepository
-  | AutomationPauseRepository
-  // A record a step writes starts the record automations of its table, whose
-  // trigger data hydrates user and relationship fields (with `DataSource…`).
+  // Record automations a step's write starts hydrate user and relationship fields.
   | CommentRepository
   // The sandbox's Promise boundary and the background record-event registry.
   | AutomationFiberBridge
@@ -325,6 +328,7 @@ export interface RunAutomationResult {
     | 'skipped'
     | 'cancelled'
     | 'waiting-approval'
+    | 'waiting-delay'
   readonly actions: Readonly<Record<string, Record<string, unknown>>>
   readonly lastOutput?: Record<string, unknown>
   readonly error?: string
@@ -441,9 +445,7 @@ export type AutomationInvoker = (input: {
   readonly onRun?: (runId: string) => void
 }) => Promise<{ readonly result: Readonly<Record<string, unknown>> }>
 
-/**
- * Empty starting accumulator for the action-reduce loop.
- */
+/** Empty starting accumulator for the action-reduce loop. */
 export const EMPTY_RUN_ACCUMULATOR: RunAccumulator = {
   steps: [],
   runStatus: 'success',
@@ -463,10 +465,7 @@ export const EMPTY_RUN_ACCUMULATOR: RunAccumulator = {
  */
 const DEFAULT_RETRY_DELAY_MS = 50
 
-/**
- * Cap on any single inter-attempt sleep — guards against a misconfigured
- * `delayMs` plus exponential growth wedging a request handler for minutes.
- */
+/** Cap on any single inter-attempt sleep, so exponential growth cannot wedge a handler. */
 const MAX_RETRY_DELAY_MS = 30_000
 
 /**

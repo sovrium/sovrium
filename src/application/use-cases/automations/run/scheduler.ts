@@ -134,6 +134,20 @@ export const registerCancellation = (runId: string): AbortController => {
 }
 
 /**
+ * Register a run's canceller BEFORE claiming it, unless one is registered
+ * already — `undefined` then: another caller in this process holds the run. A
+ * resume registers before its claim, so a cancel that loses the claim's
+ * compare-and-set still finds the controller to abort.
+ */
+export const registerCancellationIfAbsent = (runId: string): AbortController | undefined =>
+  cancellers.has(runId) ? undefined : registerCancellation(runId)
+
+/** Drop `controller` if it is still the run's registered one. */
+export const unregisterCancellationOf = (runId: string, controller: AbortController): void => {
+  if (cancellers.get(runId) === controller) cancellers.delete(runId)
+}
+
+/**
  * Drop a registered controller (run terminated normally or aborted).
  */
 export const unregisterCancellation = (runId: string): void => {

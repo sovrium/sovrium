@@ -109,6 +109,7 @@ const LOADERS: ReadonlyArray<() => Promise<LibraryEntry>> = [
   async () => import('../block/record-edit-sections').then(({ entry }) => entry),
   async () => import('../block/record-form-two-column').then(({ entry }) => entry),
   async () => import('../block/record-header').then(({ entry }) => entry),
+  async () => import('../block/record-history').then(({ entry }) => entry),
   async () => import('../block/record-meta-sidebar').then(({ entry }) => entry),
   async () => import('../block/record-related-list').then(({ entry }) => entry),
   async () => import('../block/section-heading-tabs').then(({ entry }) => entry),

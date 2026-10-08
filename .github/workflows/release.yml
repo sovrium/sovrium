@@ -204,6 +204,22 @@ jobs:
             rm -f sovrium
           done
 
+      # Detached Ed25519 signatures (`<archive>.sig`, base64). Unlike the `.sha256`
+      # beside it, a signature proves WHO built the archive, once `sovrium update`
+      # embeds the public key (ADR-041 D6). FAIL CLOSED: no key, no release — the
+      # key's custody is ADR-036 D8 (a repository secret plus the founder's offline
+      # copy); generation recipe in docs/infrastructure/release/verifying-downloads.md.
+      - name: Sign the archives
+        env:
+          SOVRIUM_RELEASE_SIGNING_KEY: ${{ secrets.SOVRIUM_RELEASE_SIGNING_KEY }}
+        run: |
+          if [ -z "${SOVRIUM_RELEASE_SIGNING_KEY}" ]; then
+            echo "::error::SOVRIUM_RELEASE_SIGNING_KEY secret is not set — refusing to publish unsigned archives. The key is held per ADR-036 D8 (repository secret + the founder's offline copy); generate it before cutting a release."
+            exit 1
+          fi
+          VERSION="${{ steps.version.outputs.version }}"
+          bun run scripts/build/sign-asset.ts "sovrium-${VERSION}-darwin-arm64.tar.gz" "sovrium-${VERSION}-darwin-x64.tar.gz"
+
       # The `.sha256` beside an archive comes from the same release a tamperer
       # would edit, so it proves integrity and never authenticity. The
       # attestation is what does: `gh attestation verify <archive> -R
@@ -226,6 +242,7 @@ jobs:
             gh release upload "${TAG}" \
               "sovrium-${VERSION}-${TARGET}.tar.gz" \
               "sovrium-${VERSION}-${TARGET}.sha256" \
+              "sovrium-${VERSION}-${TARGET}.tar.gz.sig" \
               --clobber
           done
 
@@ -344,6 +361,22 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           sha256sum "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" > "sovrium-${VERSION}-${{ matrix.target }}.sha256"
 
+      # Detached Ed25519 signatures (`<archive>.sig`, base64). Unlike the `.sha256`
+      # beside it, a signature proves WHO built the archive, once `sovrium update`
+      # embeds the public key (ADR-041 D6). FAIL CLOSED: no key, no release — the
+      # key's custody is ADR-036 D8 (a repository secret plus the founder's offline
+      # copy); generation recipe in docs/infrastructure/release/verifying-downloads.md.
+      - name: Sign the archives
+        env:
+          SOVRIUM_RELEASE_SIGNING_KEY: ${{ secrets.SOVRIUM_RELEASE_SIGNING_KEY }}
+        run: |
+          if [ -z "${SOVRIUM_RELEASE_SIGNING_KEY}" ]; then
+            echo "::error::SOVRIUM_RELEASE_SIGNING_KEY secret is not set — refusing to publish unsigned archives. The key is held per ADR-036 D8 (repository secret + the founder's offline copy); generate it before cutting a release."
+            exit 1
+          fi
+          VERSION="${{ steps.version.outputs.version }}"
+          bun run scripts/build/sign-asset.ts "sovrium-${VERSION}-${{ matrix.target }}.tar.gz"
+
       # See the macOS job: the attestation is the authenticity proof the
       # same-channel `.sha256` cannot be.
       - name: Attest the archive
@@ -360,6 +393,7 @@ jobs:
           gh release upload "${TAG}" \
             "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" \
             "sovrium-${VERSION}-${{ matrix.target }}.sha256" \
+            "sovrium-${VERSION}-${{ matrix.target }}.tar.gz.sig" \
             --clobber
 
   # ── Build Windows binary (NATIVE on windows-latest) ─────────
@@ -484,6 +518,22 @@ jobs:
           sha256sum "sovrium-${VERSION}-windows-x64.zip" > "sovrium-${VERSION}-windows-x64.sha256"
           cat "sovrium-${VERSION}-windows-x64.sha256"
 
+      # Detached Ed25519 signatures (`<archive>.sig`, base64). Unlike the `.sha256`
+      # beside it, a signature proves WHO built the archive, once `sovrium update`
+      # embeds the public key (ADR-041 D6). FAIL CLOSED: no key, no release — the
+      # key's custody is ADR-036 D8 (a repository secret plus the founder's offline
+      # copy); generation recipe in docs/infrastructure/release/verifying-downloads.md.
+      - name: Sign the archives
+        env:
+          SOVRIUM_RELEASE_SIGNING_KEY: ${{ secrets.SOVRIUM_RELEASE_SIGNING_KEY }}
+        run: |
+          if [ -z "${SOVRIUM_RELEASE_SIGNING_KEY}" ]; then
+            echo "::error::SOVRIUM_RELEASE_SIGNING_KEY secret is not set — refusing to publish unsigned archives. The key is held per ADR-036 D8 (repository secret + the founder's offline copy); generate it before cutting a release."
+            exit 1
+          fi
+          VERSION="${{ steps.version.outputs.version }}"
+          bun run scripts/build/sign-asset.ts "sovrium-${VERSION}-windows-x64.zip"
+
       # See the macOS job: the attestation is the authenticity proof the
       # same-channel `.sha256` cannot be.
       - name: Attest the archive
@@ -500,6 +550,7 @@ jobs:
           gh release upload "${TAG}" \
             "sovrium-${VERSION}-windows-x64.zip" \
             "sovrium-${VERSION}-windows-x64.sha256" \
+            "sovrium-${VERSION}-windows-x64.zip.sig" \
             --clobber
 
   # ── Build the desktop installers ────────────────────────────
@@ -1503,14 +1554,14 @@ jobs:
           echo "OK: all template mirrors at ${VERSION}"
 
   # ── Auto-deploy the demo fleet to this release ──────────────
-  # Runs after mirrors verify. SSHes to sovrium-demos-01 and runs
+  # Runs after mirrors verify. SSHes to sovrium-fleet-01 and runs
   # upgrade-fleet.sh (sha256-verified binary install + per-app tag checkout +
   # staggered restart + per-app health check + binary auto-rollback). Fails red
   # if any demo does not come back (no continue-on-error). ubuntu-latest has open
   # egress; the demo host's security group already allows inbound SSH.
   #
   # upgrade-fleet.sh is executed HOST-RESIDENT (/usr/local/bin/upgrade-fleet.sh
-  # on sovrium-demos-01), never read from this job's checkout. That path is an
+  # on sovrium-fleet-01), never read from this job's checkout. That path is an
   # entry wrapper: as root it runs the real script
   # (/usr/local/bin/upgrade-fleet-root.sh) directly; as the unprivileged
   # `deploy` user (DEMO_FLEET_SSH_USER=deploy) it re-enters it through the one
@@ -1518,9 +1569,9 @@ jobs:
   # `deploy` cannot traverse /root. The checkout cannot hold it: docs/ is excluded
   # from the public GitHub mirror (scripts/filtered-mirror.sh), so a checkout of
   # this repo on GitHub can never contain it — piping it from `< docs/...` here
-  # 404s every single run. The host copy (+ /root/manifest.json) is provisioned
+  # 404s every single run. The host copy (+ /etc/sovrium/manifest.json) is provisioned
   # and refreshed by the scaleway-infra-maintainer agent straight from the
-  # Forgejo repo; see docs/development/demo-fleet/operations.md for the
+  # Forgejo repo; see docs/development/cloud-fleet/operations.md for the
   # "any script/manifest change must be scp'd before the next release" runbook.
   deploy-demos:
     name: Deploy demo fleet
@@ -1540,6 +1591,11 @@ jobs:
           TAG="${{ github.ref_name }}"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
+      # TODO(founder): DEMO_FLEET_KNOWN_HOSTS must pin sovrium-fleet-01's host key
+      # (78.232.50.251), not the retired sovrium-demos-01's — refresh it with
+      # `ssh-keyscan -t ed25519 78.232.50.251` checked against the key read on the
+      # host's console, then `gh secret set DEMO_FLEET_KNOWN_HOSTS`. Until then this
+      # job fails closed at the SSH host-key check, which is the intended failure.
       - name: Verify demo fleet SSH key and host key are configured
         env:
           DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
@@ -1591,12 +1647,12 @@ jobs:
           ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts" \
-            "${DEMO_USER}@163.172.175.246" "
+            "${DEMO_USER}@78.232.50.251" "
             set -e
             test -x /usr/local/bin/upgrade-fleet.sh || {
               echo 'upgrade-fleet.sh missing (or not executable) on the host at /usr/local/bin/upgrade-fleet.sh —'
-              echo 'install docs/development/demo-fleet/host/upgrade-fleet-entry.sh there on sovrium-demos-01 first.'
-              echo 'See: docs/development/demo-fleet/operations.md'
+              echo 'install docs/development/cloud-fleet/host/upgrade-fleet-entry.sh there on sovrium-fleet-01 first.'
+              echo 'See: docs/development/cloud-fleet/operations.md'
               exit 1
             }
             VERSION='${VERSION}' /usr/local/bin/upgrade-fleet.sh
@@ -1720,6 +1776,12 @@ jobs:
             "sovrium-${VERSION}-linux-x64.tar.gz"
             "sovrium-${VERSION}-linux-arm64.tar.gz"
             "sovrium-${VERSION}-windows-x64.zip"
+            # Each archive's detached signature (sign-asset.ts in its build lane).
+            "sovrium-${VERSION}-darwin-x64.tar.gz.sig"
+            "sovrium-${VERSION}-darwin-arm64.tar.gz.sig"
+            "sovrium-${VERSION}-linux-x64.tar.gz.sig"
+            "sovrium-${VERSION}-linux-arm64.tar.gz.sig"
+            "sovrium-${VERSION}-windows-x64.zip.sig"
           )
           if [ "${DESKTOP_RESULT}" = "success" ]; then
             REQUIRED+=(

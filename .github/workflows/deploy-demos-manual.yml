@@ -1,7 +1,7 @@
 name: Manual demo fleet deploy (upgrade / rollback)
 
 # Manually-triggered companion to release.yml's deploy-demos job. Runs
-# host/upgrade-fleet.sh on sovrium-demos-01 for the given version. Use it to:
+# host/upgrade-fleet.sh on sovrium-fleet-01 for the given version. Use it to:
 #   - re-run a demo deploy whose automatic run failed,
 #   - roll the fleet BACK to a prior version (pass the older version),
 #   - stage a specific release onto the demos out of band.
@@ -14,7 +14,7 @@ name: Manual demo fleet deploy (upgrade / rollback)
 # the entry wrapper that works as root and as the sudo-limited `deploy` user —
 # see release.yml's deploy-demos job), never
 # read from this job's checkout — docs/ is excluded from the public GitHub
-# mirror, so it can never exist there. See docs/development/demo-fleet/
+# mirror, so it can never exist there. See docs/development/cloud-fleet/
 # operations.md for the "scp before the next release" contract.
 
 on:
@@ -37,6 +37,11 @@ jobs:
       - name: Checkout sovrium repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # TODO(founder): DEMO_FLEET_KNOWN_HOSTS must pin sovrium-fleet-01's host key
+      # (78.232.50.251), not the retired sovrium-demos-01's — refresh it with
+      # `ssh-keyscan -t ed25519 78.232.50.251` checked against the key read on the
+      # host's console, then `gh secret set DEMO_FLEET_KNOWN_HOSTS`. Until then this
+      # job fails closed at the SSH host-key check, which is the intended failure.
       - name: Verify demo fleet SSH key and host key are configured
         env:
           DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
@@ -87,12 +92,12 @@ jobs:
           ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts" \
-            "${DEMO_USER}@163.172.175.246" "
+            "${DEMO_USER}@78.232.50.251" "
             set -e
             test -x /usr/local/bin/upgrade-fleet.sh || {
               echo 'upgrade-fleet.sh missing (or not executable) on the host at /usr/local/bin/upgrade-fleet.sh —'
-              echo 'install docs/development/demo-fleet/host/upgrade-fleet-entry.sh there on sovrium-demos-01 first.'
-              echo 'See: docs/development/demo-fleet/operations.md'
+              echo 'install docs/development/cloud-fleet/host/upgrade-fleet-entry.sh there on sovrium-fleet-01 first.'
+              echo 'See: docs/development/cloud-fleet/operations.md'
               exit 1
             }
             VERSION='${VERSION}' /usr/local/bin/upgrade-fleet.sh

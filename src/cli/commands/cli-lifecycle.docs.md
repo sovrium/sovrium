@@ -20,13 +20,13 @@ sovrium start app.yaml --watch  # reload on config change
 PORT=8080 sovrium start app.yaml
 ```
 
-The port comes from `PORT` and defaults to `3000`. If that port is already taken Sovrium does **not** fail — it binds an OS-assigned free port and prints the real URL in the startup banner:
+The port comes from `PORT` and defaults to `3000`, and the interface from `SOVRIUM_BIND_HOST`, defaulting to `localhost`. When `PORT` is unset and `3000` is already taken, Sovrium binds an OS-assigned free port and prints the real URL in the startup banner, so two apps can run side by side:
 
 ```text
 13:19:04 Warning: [server] Port 3000 in use; using an OS-assigned port (see URL below).
 ```
 
-Starting while another instance holds the lock is refused:
+When the port was chosen on purpose — `PORT` set, `SOVRIUM_STRICT_PORT=1`, or running under systemd — a busy port refuses to start instead, exits `1` and changes nothing: a supervised server that quietly moved would leave its proxy pointing at nothing (**Env Vars: Hosting**). Starting while another instance holds the lock is refused too:
 
 ```text
 Error: Server already running (PID: 12345, port: 3000)
@@ -77,7 +77,7 @@ sovrium restart app.yaml # swap in a different config
 
 Restart waits for the old process exactly as `stop` does, and **refuses to launch a replacement** if it is still alive after 5 seconds, so you never end up with two servers running side by side. The refusal is the same `did not exit within 5s` message, and the old server keeps running and keeps its lock.
 
-Restart is a full process replacement: the port is reassigned and connections are dropped. Prefer `reload` when the only thing that changed is the configuration.
+Restart relaunches the same program that is running — the installed binary starts the installed binary, wherever you run the command from — and hands the new server the environment `restart` itself runs in. A `PORT` set there is the port the new server binds; with `PORT` unset it binds a free port, and `restart` prints where it landed. It is a full process replacement, so connections are dropped. Prefer `reload` when the only thing that changed is the configuration.
 
 ## `sovrium reload`
 
@@ -125,7 +125,7 @@ Just after boot:
 | `seq`        | A counter incremented on every write. A successful save begins and ends at `serving`, so a poller comparing `state` alone sees no change — `seq` is what tells it something happened |
 | `state`      | `serving`, `rejected` or `down` — see below                                                                                                                                          |
 | `pid`        | The instance's process id, the same value the lock file carries, so a reader can check the process is alive before trusting `port`                                                   |
-| `port`       | The bound port. This is how a shell finds the app again after a restart-class reload rebinds it                                                                                      |
+| `port`       | The bound port. This is how a shell finds the app again after a restart-class reload rebinds it. Replaced by `socketPath` when the server listens on a Unix socket                   |
 | `configHash` | Exactly the value the server sends as the `X-Sovrium-Config` response header, so a page in a browser and the file on disk can be compared directly                                   |
 | `configPath` | Absolute path of the config root. Empty for an inline `APP_SCHEMA` config, which has no file                                                                                         |
 | `updatedAt`  | ISO 8601 instant of this write                                                                                                                                                       |

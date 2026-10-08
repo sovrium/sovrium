@@ -49,6 +49,25 @@ export const invitationStore: InvitationStore = {
 }
 
 /**
+ * The engine's account creation over one Better Auth API: the role is widened
+ * here because Better Auth types it as its closed `'user' | 'admin'` union while
+ * Sovrium permits custom roles via `auth.roles[]`.
+ */
+export const createUserThrough =
+  (api: Pick<AuthInstance['api'], 'createUser'>): InvitationAuthEngine['createUser'] =>
+  async (input) => {
+    const created = await api.createUser({
+      body: {
+        email: input.email,
+        name: input.name,
+        role: input.role as 'user' | 'admin',
+        password: input.password,
+      },
+    })
+    return 'user' in created && created.user?.id ? created.user.id : undefined
+  }
+
+/**
  * {@link InvitationAuthEngine} over one Better Auth instance.
  *
  * The role is widened at this boundary because Better Auth's plugin types
@@ -58,17 +77,7 @@ export const invitationStore: InvitationStore = {
  * is verifiable by the engine's standard sign-in.
  */
 const createInvitationAuthEngine = (authInstance: AuthInstance): InvitationAuthEngine => ({
-  createUser: async (input) => {
-    const created = await authInstance.api.createUser({
-      body: {
-        email: input.email,
-        name: input.name,
-        role: input.role as 'user' | 'admin',
-        password: input.password,
-      },
-    })
-    return 'user' in created && created.user?.id ? created.user.id : undefined
-  },
+  createUser: createUserThrough(authInstance.api),
   hashPassword: async (password) => {
     const ctx = await authInstance.$context
     return ctx.password.hash(password)

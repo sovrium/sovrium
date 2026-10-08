@@ -55,9 +55,34 @@ const signatureHeaderKey = (description: string, example: string) =>
   )
 
 const WebhookAuthSchema = Schema.Struct({
-  /** Authentication type */
-  type: Schema.Literals(['bearer', 'apiKey', 'hmac', 'basic']).pipe(
-    Schema.annotate({ description: 'Authentication mechanism for incoming webhooks' })
+  /**
+   * Authentication type. `bearer`, `apiKey`, `hmac` and `basic` check a STATIC
+   * secret the operator shares with one sender. `session` checks an IDENTITY:
+   * the caller must present a Sovrium session cookie or an `x-api-key` minted
+   * through `auth.apiKeys`, and the run knows who called (`trigger.user`).
+   * A caller without one is answered 404, as if the webhook did not exist.
+   */
+  type: Schema.Literals(['bearer', 'apiKey', 'hmac', 'basic', 'session']).pipe(
+    Schema.annotate({
+      description:
+        "Authentication mechanism for incoming webhooks. 'bearer', 'apiKey', 'hmac' and 'basic' check a shared secret. 'session': the caller must present a Sovrium session cookie or a user's API key in the x-api-key header (auth.apiKeys); the run sees the caller as trigger.user, and an anonymous caller is answered 404 with no run.",
+    })
+  ),
+
+  /**
+   * The role a `session` caller must hold, read exactly as a manual trigger's
+   * `requiredRole` is (an admin-equivalent role satisfies any requirement).
+   * Omitted, any signed-in user may call. Refused with any other `type`.
+   */
+  requiredRole: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          "With type 'session': the role the caller must hold, judged as for a manual trigger's requiredRole (an admin satisfies any role). A caller without it is answered 404 with no run. Omitted, any signed-in user may call. Only for the session type.",
+        examples: ['admin', 'member'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
   ),
 
   /** Token or secret value (supports template references like $env.SECRET) */

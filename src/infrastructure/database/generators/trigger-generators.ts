@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { SQLITE_ISO_NOW } from '@/infrastructure/database/sql/dialect-ddl'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
@@ -23,7 +24,9 @@ import type { Table } from '@/domain/models/app/tables'
  *     on UPDATE" trigger is **skipped**. Immutability of `created_at` is not
  *     enforced at the DB level on SQLite (a low-risk degradation — the column
  *     still defaults correctly on INSERT).
- *   - `autonumber`     — immutability trigger **skipped** on SQLite.
+ *   - `autonumber`     — the value is assigned by a **native SQLite `AFTER
+ *     INSERT` trigger** (next value = largest assigned number + 1), since the
+ *     column cannot be a `SERIAL`; the immutability trigger is **skipped**.
  *   - `updated-by`     — the PL/pgSQL `set_updated_by()` function is a no-op
  *     stub on Postgres too (it just `RETURN NEW`); **skipped** on SQLite.
  *   - `updated_at`     — emitted as a **native SQLite `AFTER UPDATE` trigger**
@@ -92,17 +95,66 @@ EXECUTE FUNCTION ${preventFunctionName}()`,
 }
 
 /**
- * Generate trigger to prevent updates to autonumber fields (immutability)
+ * SQLite: assign every autonumber left empty by an insert.
+ *
+ * PostgreSQL fills an autonumber from its `SERIAL` sequence whatever the field
+ * declares; SQLite has no sequence for a column that is not the primary key, so
+ * this `AFTER INSERT` trigger writes the next number — the largest one already
+ * assigned in the column, plus one — onto the row just inserted. An insert that
+ * names a number keeps it, as `SERIAL` does.
+ *
+ * Concurrency: SQLite serialises writers (one write transaction holds the
+ * database at a time) and the trigger runs inside the inserting statement, so
+ * no other insert can read the same maximum before this row carries its
+ * number. Unlike a sequence, a number freed by hard-deleting the latest row
+ * can be issued again.
+ */
+const generateSqliteAutonumberAssignment = (
+  tableName: string,
+  fieldNames: readonly string[]
+): readonly string[] => {
+  const table = quoteSqlIdentifier(tableName)
+  const triggerName = quoteSqlIdentifier(`a_trigger_${tableName}_autonumber_assign`)
+  const columns = fieldNames.map(quoteSqlIdentifier)
+  const whenClause = columns.map((column) => `NEW.${column} IS NULL`).join(' OR ')
+  const setClause = columns
+    .map(
+      (column) =>
+        `${column} = COALESCE(${column}, (SELECT COALESCE(MAX(${column}), 0) + 1 FROM ${table}))`
+    )
+    .join(', ')
+  return [
+    `DROP TRIGGER IF EXISTS ${triggerName}`,
+    `CREATE TRIGGER ${triggerName}
+AFTER INSERT ON ${table}
+FOR EACH ROW
+WHEN ${whenClause}
+BEGIN
+  UPDATE ${table} SET ${setClause} WHERE rowid = NEW.rowid;
+END`,
+  ]
+}
+
+/**
+ * Generate the autonumber triggers: assignment on SQLite (see
+ * {@link generateSqliteAutonumberAssignment}), immutability on PostgreSQL
+ * (where `SERIAL` already assigns the value).
  */
 export const generateAutonumberTriggers = (table: Table): readonly string[] => {
-  // SQLite: the autonumber-immutability guard is a PL/pgSQL trigger; skipped.
-  if (isSqliteRuntime()) return []
-
   const autonumberFields = table.fields.filter((field) => field.type === 'autonumber')
 
   if (autonumberFields.length === 0) return []
 
   const sanitized = sanitizeTableName(table.name)
+
+  // SQLite: the immutability guard is a PL/pgSQL trigger and is skipped; the
+  // value itself still has to be assigned, which SERIAL does on PostgreSQL.
+  if (isSqliteRuntime()) {
+    return generateSqliteAutonumberAssignment(
+      sanitized,
+      autonumberFields.map((f) => f.name)
+    )
+  }
   const fieldNames = autonumberFields.map((f) => f.name)
   const triggerFunctionName = `prevent_${sanitized}_autonumber_update`
   const triggerName = `trigger_${sanitized}_autonumber_immutable`

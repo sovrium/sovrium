@@ -106,61 +106,36 @@ export interface PurgeScope {
 }
 
 /**
- * Whether a file key is still referenced by any record OTHER than the one
- * being purged. Includes soft-deleted records so a key shared between a live
- * record and a deleted record is preserved. A failed lookup answers `false`.
+ * Whether a file key is still named by any record OTHER than the one being
+ * purged: in any attachment field of ANY table, a single cell or a list, a
+ * bare key or a metadata object, trashed records included — the question
+ * {@link TableRepository.isFileNamedByAnyRecord} answers for a replaced file
+ * too. A generated file attached to one record is often reused by another (a
+ * badge that becomes a sponsor's logo, a picture added to a gallery), so
+ * looking only at the purged table's single-attachment columns deleted a file
+ * another record still served.
  *
- * ONE query, whatever the table's width: the fields are folded into a single
- * `or` filter. One unbounded, unprojected `listRecords` PER attachment field
- * would make a purge cost |keys| x |fields| reads against a ten-connection
- * pool — 419 queries for a 14-field record, the shape behind a production 504.
- *
- * `limit: 2` and not `limit: 1`: the purged record is itself a match, so one
- * row cannot distinguish "only this record references the key" from "another
- * record does too". Two rows can — at most one of them is the excluded id, so
- * a second row is by definition a different record. `columns: ['id']` because
- * the id is the whole question; the rest of the row was never read.
+ * Fails closed: a lookup that could not answer keeps the file. A file left
+ * behind is recoverable; a file deleted from under a record is not.
  */
-const isFileKeyReferencedElsewhere = (
+export const isFileKeyReferencedElsewhere = (
   scope: PurgeScope,
-  fileKey: string,
-  attachmentFieldNames: readonly string[]
+  fileKey: string
 ): Effect.Effect<boolean, never, TableRepository> => {
-  if (attachmentFieldNames.length === 0) return Effect.succeed(false)
-  const { session, tableName, recordId } = scope
+  const { app, tableName, recordId } = scope
   return Effect.gen(function* () {
     const repo = yield* TableRepository
-    const rows = yield* repo.listRecords({
-      session,
-      tableName,
-      // `QueryFilter` exposes only a top-level `and`, whose entries may
-      // themselves be `or` groups — so "this key in ANY attachment field" is
-      // an `and` wrapping one `or`, not a bare `or`.
-      filter: {
-        and: [
-          {
-            or: attachmentFieldNames.map((fieldName) => ({
-              field: fieldName,
-              operator: 'eq',
-              value: fileKey,
-            })),
-          },
-        ],
-      },
-      includeDeleted: true,
-      columns: ['id'],
-      limit: 2,
-    })
-    return rows.some((r) => String(r['id']) !== String(recordId))
+    return yield* repo.isFileNamedByAnyRecord(app, fileKey, { tableName, recordId })
   }).pipe(
     Effect.tapCause((cause) =>
       Effect.sync(() =>
         logError('[tables] could not check who else references a purged file', cause, { tableName })
       )
     ),
-    // effect-swallow: an unanswered reference check reads as "not referenced",
-    // as it always has; the purge goes on and the failure is logged above.
-    Effect.orElseSucceed(() => false)
+    // effect-swallow: an unanswered reference check keeps the file — the purge
+    // goes on without deleting it, and the failure is logged above.
+    Effect.orElseSucceed(() => true),
+    Effect.withSpan('tables.is-file-key-referenced-elsewhere')
   )
 }
 
@@ -195,18 +170,14 @@ const deleteStoredObjects = (
 
 /**
  * Remove the stored files a record names before the record itself is purged,
- * keeping every file another record — trashed ones included — still names.
+ * keeping every file another record — of any table, trashed ones included —
+ * still names.
  * Total: a row that cannot be read leaves its files in place, logged.
  */
 export function purgeStoredAttachments(
   scope: PurgeScope & { readonly forgetDerivedVariants: (key: string) => void }
 ) {
   const { session, app, tableName, recordId } = scope
-  const attachmentFieldNames =
-    app.tables
-      ?.find((t) => t.name === tableName)
-      ?.fields?.filter((f) => f.type === 'single-attachment')
-      .map((f) => f.name) ?? []
   return Effect.gen(function* () {
     const row = yield* rawGetRecordProgram(session, tableName, recordId).pipe(
       Effect.tapCause((cause) =>
@@ -221,16 +192,14 @@ export function purgeStoredAttachments(
       Effect.orElseSucceed(() => null)
     )
     if (!row) return
-    // Bounded: one reference check is one pooled query, and a record carries
-    // as many as the table has attachment fields — see
-    // [internal ref].
+    // Bounded: one reference check runs one pooled query at a time (one per
+    // attachment column of the app, stopping at the first that names the
+    // key), and a record carries as many keys as its table has attachment
+    // fields —.
     const unshared = yield* Effect.filter(
       collectAttachmentKeys(row, app, tableName),
       (ref) =>
-        Effect.map(
-          isFileKeyReferencedElsewhere(scope, ref.key, attachmentFieldNames),
-          (referenced) => !referenced
-        ),
+        Effect.map(isFileKeyReferencedElsewhere(scope, ref.key), (referenced) => !referenced),
       { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
     yield* deleteStoredObjects(unshared, scope.forgetDerivedVariants)

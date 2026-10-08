@@ -30,7 +30,7 @@ export interface StoredLogEntry {
 export interface StoredNestedStep extends StoredNested {
   readonly name: string
   readonly type: string
-  readonly status: 'completed' | 'failed' | 'filtered' | 'skipped'
+  readonly status: 'completed' | 'failed' | 'filtered' | 'skipped' | 'waiting'
   readonly input?: unknown
   readonly output?: unknown
   readonly error?: string
@@ -82,7 +82,13 @@ const asRecord = (value: unknown): Readonly<Record<string, unknown>> | undefined
     : undefined
 
 const LOG_LEVELS: ReadonlySet<string> = new Set(['debug', 'info', 'warn', 'error'])
-const STATUSES: ReadonlySet<string> = new Set(['completed', 'failed', 'filtered', 'skipped'])
+const STATUSES: ReadonlySet<string> = new Set([
+  'completed',
+  'failed',
+  'filtered',
+  'skipped',
+  'waiting',
+])
 
 const readLogs = (value: unknown): readonly StoredLogEntry[] | undefined =>
   Array.isArray(value)
@@ -144,6 +150,72 @@ export const readStoredNested = (value: unknown): StoredNested => {
     ...(iterations === undefined ? {} : { iterations }),
   }
 }
+
+/** The engine status of a stored step. */
+const ENGINE_STATUS: Readonly<Record<StoredNestedStep['status'], ExecutedStep['status']>> = {
+  completed: 'success',
+  failed: 'failure',
+  filtered: 'filtered',
+  skipped: 'skipped',
+  waiting: 'waiting',
+}
+
+/**
+ * A stored step back as a step record, with what it ran inside — how a run
+ * resumed inside a path or a loop carries the steps that ran before it parked.
+ * Its values were masked when it was first recorded and stay masked.
+ */
+export const executedFromStored = (step: StoredNestedStep): ExecutedStep => ({
+  name: step.name,
+  type: step.type,
+  status: ENGINE_STATUS[step.status],
+  ...(step.input === undefined ? {} : { props: step.input as Record<string, unknown> }),
+  ...(step.output === undefined ? {} : { output: step.output as Record<string, unknown> }),
+  ...(step.error === undefined ? {} : { error: step.error }),
+  ...(step.logs === undefined ? {} : { logs: step.logs }),
+  ...(step.paths === undefined
+    ? {}
+    : {
+        paths: step.paths.map((path) => ({
+          name: path.name,
+          steps: path.steps.map(executedFromStored),
+        })),
+      }),
+  ...(step.iterations === undefined
+    ? {}
+    : {
+        iterations: step.iterations.map((item) => ({
+          index: item.index,
+          steps: item.steps.map(executedFromStored),
+        })),
+      }),
+})
+
+const asOutput = (value: unknown): Readonly<Record<string, unknown>> | undefined =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+
+/**
+ * The outputs stored steps produced, by step name, the ones run inside a path
+ * or a loop included — as later steps read them (`{{<step>.*}}`), the last
+ * one of a name winning. What a resumed run reads of the steps before its park.
+ */
+export const outputsOfStored = (
+  steps: readonly (StoredNested & { readonly name: string; readonly output?: unknown })[]
+): Readonly<Record<string, Record<string, unknown>>> =>
+  steps.reduce<Readonly<Record<string, Record<string, unknown>>>>((outputs, step) => {
+    const inner = [
+      ...(step.paths ?? []).flatMap((path) => path.steps),
+      ...(step.iterations ?? []).flatMap((item) => item.steps),
+    ]
+    const own = asOutput(step.output)
+    return {
+      ...outputs,
+      ...outputsOfStored(inner),
+      ...(own === undefined ? {} : { [step.name]: own }),
+    }
+  }, {})
 
 /** A stored tree with each step projected to a run detail's step shape. */
 export interface ProjectedNested<T> {

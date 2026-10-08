@@ -139,3 +139,33 @@ export const signUploadLink = (
       output: { url: signedUrl, key, operation: 'upload', expiresIn, expiresAt },
     } as const
   }).pipe(Effect.withSpan('automations.file.sign-upload-link'))
+
+/**
+ * Mint a download link for `file.signUrl`: Sovrium's own signed link to the
+ * key, served by `GET /api/buckets/system/signed`, so it works on every storage
+ * provider rather than only where the store can presign. The link carries the
+ * `automation` scope bound into its token: it reaches the key as the
+ * automation's own `file` actions do, and no link a sign route hands out can
+ * be altered into one. Its lifetime is held to the range of any signed URL.
+ */
+export const signDownloadLink = (key: string, expiresIn: number): ActionOutcome => {
+  const lifetime = clampUploadLinkLifetime(expiresIn)
+  const { signedUrl, expiresAt } = mintSignedUrl(
+    {
+      bucket: SYSTEM_BUCKET_NAME,
+      path: key,
+      operation: 'download',
+      expiresInSeconds: lifetime,
+      scope: 'automation',
+    },
+    {
+      secret: resolveStorageSigningSecret(process.env),
+      now: Date.now(),
+      origin: linkOrigin(process.env),
+    }
+  )
+  return {
+    status: 'success',
+    output: { url: signedUrl, key, operation: 'download', expiresIn: lifetime, expiresAt },
+  }
+}

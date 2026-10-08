@@ -29,6 +29,7 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 
 # ── Core ──────────────────────────────────────────────────────────────
 # PORT=3000
+# SOVRIUM_BIND_HOST=localhost           # interface: localhost or an IP literal (0.0.0.0 in a container); replaces HOSTNAME
 # BASE_URL=http://localhost:3000
 # DATABASE_URL=postgresql://user:password@localhost:5432/dbname   # omit → SQLite
 # SOVRIUM_TIMEZONE=UTC                   # IANA zone for schedules and displayed dates; TZ is ignored
@@ -46,12 +47,28 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # SOVRIUM_CONFIG_FILE=app.yaml            # the config file WITHIN that root
 # SOVRIUM_SHUTDOWN_ON_STDIN_CLOSE=1       # stop on end-of-file; Windows has no SIGTERM
 # SOVRIUM_INSTALL_METHOD=desktop          # binary | homebrew | scoop | docker | desktop
+#
+# Hosting many apps on one machine, each behind a systemd unit or a socket proxy:
+# SOVRIUM_STRICT_PORT=1                   # a busy port refuses to start (implied under systemd)
+# SOVRIUM_LISTEN_UNIX=/run/sovrium/app.sock   # serve on a Unix socket (mode 0660) instead of PORT
+# SOVRIUM_IDLE_EXIT_SECONDS=900           # exit cleanly once idle this long; at least 30
+# SOVRIUM_LOG_FORMAT=json                 # one JSON object per log line, for a log collector
 
 # ── Letting your AI client edit the config ────────────────────────────
 # Read by \`sovrium mcp\` alone, and only when the project directory was named
 # explicitly — by --project or SOVRIUM_PROJECT_DIR above. Off by default; set on
 # a deployed server it does nothing, and the boot says so.
 # MCP_CONFIG_WRITE=1                      # offer the config write + undo tools
+
+# ── Supervising other Sovrium apps (fleet agent only) ─────────────────
+# Read by the instance automation actions, which drive the systemd units of the
+# other Sovrium apps on this machine. Every other app leaves them unset. With
+# SOVRIUM_HOST_ACTIONS on, an app that can run code/runTypescript refuses to boot.
+# SOVRIUM_HOST_ACTIONS=1                  # 1 or true enables instance/*; unset = off
+# SOVRIUM_INSTANCES_DIR=/srv/sovrium/instances   # one folder per supervised app
+# SOVRIUM_BUNDLE_PUBLIC_KEYS=cloud-2026:<base64>  # <id>:<32-byte Ed25519 key>[,…]
+# SOVRIUM_SYSTEMCTL_PATH=/usr/bin/systemctl      # default: systemctl on the PATH
+# SOVRIUM_JOURNALCTL_PATH=/usr/bin/journalctl    # default: journalctl on the PATH
 
 # ── Auth (only when app.auth is enabled) ──────────────────────────────
 # Generate both with: sovrium secret generate
@@ -81,6 +98,19 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # STT_MODEL_ACCURATE=              # recordings you keep (automations)
 # STT_TIMEOUT_MS=600000            # upper bound on one transcription
 # STT_MAX_FILE_BYTES=104857600     # largest recording sent
+
+# ── Document rendering (HTML → PDF / image) ───────────────────────────
+# Needs a browser Sovrium does not ship. Unset: an installed Chrome or Edge
+# is used when found, else rendering is off (renderer_unavailable).
+# RENDERER_PROVIDER=webview         # webview | gotenberg | off
+# RENDERER_CHROME_PATH=/usr/bin/chromium   # a Chrome to start, or…
+# RENDERER_CDP_URL=http://renderer:9222    # …a running Chrome (not both)
+# RENDERER_URL=http://gotenberg:3000       # RENDERER_PROVIDER=gotenberg
+# RENDERER_TIMEOUT_MS=30000         # longest render
+# RENDERER_MAX_PAGES=200            # largest PDF, in pages
+# RENDERER_MAX_OUTPUT_BYTES=52428800   # largest output (50 MB)
+# RENDERER_CONCURRENCY=2            # renders at once
+# RENDERER_NO_SANDBOX=1             # only where Chrome cannot start its sandbox
 
 # ── Storage (auto: local files with SQLite, Postgres bytea otherwise) ──
 # STORAGE_PROVIDER=s3         # s3 | local   (omit → auto)

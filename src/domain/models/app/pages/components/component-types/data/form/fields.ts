@@ -10,8 +10,9 @@ import { CssLengthSchema } from '../../../../../css-length'
 import { FormNameSchema } from '../../../../../forms/name'
 import {
   FetchResponseEnvelopeSchema,
-  FetchSuccessResponseSchema,
   FetchToastResponseSchema,
+  fetchSuccessReloadConflict,
+  fetchSuccessResponseFields,
 } from '../../../action'
 import { DataSourceSchema } from '../../../data-source'
 import { ButtonVariantSchema } from '../../../shared-schemas'
@@ -120,6 +121,69 @@ export const InlinePrefillSchema = Schema.Struct({
   description:
     'Prefill fields of a form placed with `formRef` from the host page record — typically the parent link (`$parent.id`) of a record added from inside that record. Only on a `formRef` embed.',
 })
+
+/**
+ * Success handler of an endpoint form — the fetch success slot, plus the two
+ * effects only a FORM can honour.
+ *
+ * ─── WHY THE FORM GETS ITS OWN SLOT ────────────────────────────────────────
+ *
+ * The success slot of a `fetch` action is shared with the file upload and every
+ * standalone button, and none of those has fields to clear or a dialog it was
+ * opened in. So `close` and `reset` live HERE, on the one surface that has
+ * both, rather than on the shared slot where they would validate and do
+ * nothing for every other consumer. A table-bound form already closes the
+ * dialog it sits in after a write and resets through `FormOnSuccess`'s `reset`
+ * variant; an endpoint form had neither, so a dialog that invites a member or
+ * creates an API key stayed open over the values just sent.
+ *
+ * ─── THE SAME REFUSAL AS THE SHARED SLOT, WIDENED ──────────────────────────
+ *
+ * `reload` replaces the document, so the dialog and the fields it would close or
+ * clear are gone before either effect could run: declaring `close` or `reset`
+ * beside it is refused, exactly as `status` and `refetch` are.
+ *
+ * The check is piped after the annotation, for the reason given on
+ * `FetchSuccessResponseSchema`.
+ */
+export const FormEndpointSuccessResponseSchema = Schema.Struct({
+  ...fetchSuccessResponseFields,
+  /** Close the dialog or sheet the form sits in once the request succeeds. */
+  close: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'When true, closes the dialog or sheet the form sits in once the request succeeds, the way a dialog closes after a table write. A form that sits in no dialog has nothing to close.',
+      examples: [true],
+    })
+  ),
+  /** Clear the form back to its defaults once the request succeeds. */
+  reset: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'When true, puts every field back to its default value once the request succeeds, so the next submission starts from a clean form instead of the values just sent.',
+      examples: [true],
+    })
+  ),
+}).pipe(
+  Schema.annotate({
+    title: 'Form Endpoint Success Response',
+    description:
+      'Success handler for an endpoint form: the fetch success slot (toast, status, refetch, reload) plus close, which closes the dialog the form sits in, and reset, which clears the fields. reload is mutually exclusive with status, refetch, close and reset.',
+  }),
+  Schema.check(
+    Schema.makeFilter((response) => {
+      const shared = fetchSuccessReloadConflict(response)
+      if (shared !== true || response.reload !== true) return shared
+      if (response.close !== undefined) {
+        return "onSuccess declares both 'reload' and 'close' — the reload replaces the page the dialog is drawn on, so there is nothing left to close. Keep one: 'reload' to recompose the page server-side, or 'close' to close the dialog and stay on the page."
+      }
+      if (response.reset !== undefined) {
+        return "onSuccess declares both 'reload' and 'reset' — the reload replaces the form along with the page, so its fields come back empty anyway. Keep one: 'reload' to recompose the page server-side, or 'reset' to clear the fields and stay on the page."
+      }
+      return true
+    })
+  )
+)
 
 /**
  * Custom-endpoint submit target for a `form` component.
@@ -238,9 +302,11 @@ export const FormEndpointSchema = Schema.Struct({
   /**
    * Success handler on a 2xx submit. The toast slot PLUS the shipped client-state
    * effects — a persistent inline `status` region and a sibling `refetch` (so a
-   * sibling directory grid refreshes after the create).
+   * sibling directory grid refreshes after the create) — and the two only a form
+   * honours: `close` the dialog it sits in, `reset` its fields. See
+   * {@link FormEndpointSuccessResponseSchema}.
    */
-  onSuccess: Schema.optional(FetchSuccessResponseSchema),
+  onSuccess: Schema.optional(FormEndpointSuccessResponseSchema),
   /** Toast shown when the submit resolves non-2xx or rejects. */
   onError: Schema.optional(FetchToastResponseSchema),
 }).annotate({

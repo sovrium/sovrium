@@ -35,6 +35,7 @@ import type {
 export * from './schema-sqlite/auth-tables'
 export * from './schema-sqlite/auth-oauth-resource-tables'
 export * from './schema-sqlite/auth-passkey-tables'
+export * from './schema-sqlite/auth-device-tables'
 
 // System / application tables (sqlite-core mirrors)
 export * from './schema-sqlite/activity-log'

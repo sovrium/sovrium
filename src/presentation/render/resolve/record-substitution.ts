@@ -27,6 +27,7 @@ import {
   substituteRecordVars,
   substituteScopedVars,
 } from '@/domain/models/app/pages/substitute-record-vars'
+import { fillRecordIntoTypedField } from '@/presentation/render/elements/button-navigate-action'
 import { substituteRecordInProps, withDescriptionFieldValues } from './record-template-substitution'
 import { filterChildrenForRecord } from './record-visibility'
 import type { RowSubstitutionDepth } from './data-source-rows'
@@ -332,7 +333,7 @@ function substituteRecordInTypedFields(
   return Object.fromEntries(
     Object.entries(component)
       .filter(([key]) => !(RECORD_SUBSTITUTION_OWN_KEYS as readonly string[]).includes(key))
-      .map(([key, value]) => [key, mapStringsDeep(value, substitute)])
+      .map(([key, value]) => [key, fillRecordIntoTypedField(key, value, substitute)])
   ) as Partial<Component>
 }
 

@@ -61,12 +61,12 @@ const buildCodeTriggerView = (
     body !== undefined && body !== null && typeof body === 'object'
       ? { ...(body as Record<string, unknown>) }
       : {}
-  // Pass through every non-body key on triggerData (only those NOT already
-  // present in the flattened body — body wins on collision so
-  // `context.trigger.data.X` refers to the request-body field).
+  // Pass through every non-body key on triggerData NOT already in the flattened
+  // body (body wins, so `context.trigger.data.X` is the body field), except the
+  // caller identity, which is `context.trigger.user` only.
   const envelopeAdditions = Object.fromEntries(
     Object.keys(triggerData)
-      .filter((key) => triggerData[key] !== undefined && !(key in fromBody))
+      .filter((key) => key !== 'requester' && triggerData[key] !== undefined && !(key in fromBody))
       .map((key) => [key, triggerData[key]] as const)
   )
   return { ...fromBody, ...envelopeAdditions }
@@ -173,7 +173,7 @@ const buildResolutionContext = (input: {
     // below. Reserved keys (`trigger`, `steps`, `env`, …) are written AFTER
     // the spread so a step named `trigger`/`steps`/`env` cannot shadow them.
     ...input.previousSteps,
-    trigger: { data: triggerView },
+    trigger: { data: triggerView, user: input.triggerData['requester'] },
     steps: input.previousSteps,
     env: input.env,
     inputData: input.inputData,

@@ -18,19 +18,23 @@ import { DataActionSchema } from './data'
 import { DateActionSchema } from './date'
 import { DelayActionSchema } from './delay'
 import { DigestActionSchema } from './digest'
+import { DocumentActionSchema } from './document'
 import { EmailActionSchema } from './email'
 import { FileActionSchema } from './file'
 import { FilterActionSchema } from './filter'
 import { FlowActionSchema } from './flow'
 import { HttpActionSchema } from './http'
+import { InstanceActionSchema } from './instance'
 import { LinkActionSchema } from './link'
 import { LoopActionSchema } from './loop'
 import { PathActionSchema } from './path'
+import { PdfActionSchema } from './pdf'
 import { RecordActionSchema } from './record'
 import { ActionRefSchema } from './ref'
 import { SovriumActionSchema } from './sovrium'
 import { StateActionSchema } from './state'
 import { WebhookActionSchema } from './webhook'
+import type { DocumentOutput, FileRef } from './document'
 import type { ConditionGroup } from '../conditions'
 import type { RetryConfig } from '../retry'
 
@@ -61,6 +65,18 @@ type Props<T> = { readonly props: T }
 
 /** One value of an HTTP action's `query` object, encoded by the engine. */
 type HttpQueryValue = string | number | boolean
+
+/**
+ * Where a `document/*` / `email/send` template is read from. `inline` is template
+ * text rendered by the action (never by the run's generic pass).
+ */
+type TemplateSourceDef =
+  | { readonly asset: string }
+  | { readonly key: string; readonly bucket?: string }
+  | { readonly inline: string }
+
+/** A list of file references, or one template resolving to such a list at run time. */
+type FileRefListDef<Item> = readonly Item[] | string
 
 /** Column definition shared by the `generateXlsx` single- and multi-sheet forms. */
 type XlsxColumnDef = {
@@ -245,13 +261,23 @@ export type Action =
       readonly operator: 'send'
     } & Props<{
         readonly to: string
-        readonly subject: string
-        readonly body: string
+        // A string is filled by the run; a template source (with `template`)
+        // is rendered from `data`.
+        readonly subject: string | TemplateSourceDef
+        // Exactly one of `body` and `template`.
+        readonly body?: string
         readonly from?: string
         // Single recipient or array — handler normalises to array.
         readonly cc?: string | readonly string[]
         readonly bcc?: string | readonly string[]
         readonly replyTo?: string | readonly string[]
+        // `data` and `text` require `template`.
+        readonly template?: TemplateSourceDef
+        readonly data?: { readonly [key: string]: unknown }
+        readonly text?: TemplateSourceDef
+        readonly inlineCss?: boolean
+        readonly locale?: string
+        readonly attachments?: FileRefListDef<FileRef>
       }>)
   // ── auth (4 operator variants) ──
   | (ActionBase & {
@@ -562,24 +588,6 @@ export type Action =
         readonly expiresIn?: number
         readonly operation?: 'download' | 'upload'
       }>)
-  // Phase 1 — Generation (enhanced with destination)
-  | (ActionBase & {
-      readonly type: 'file'
-      readonly operator: 'generatePdf'
-    } & Props<{
-        readonly template: string
-        readonly filename: string
-        readonly data?: { readonly [key: string]: unknown }
-        readonly pageSize?: 'A4' | 'A3' | 'Letter' | 'Legal'
-        readonly orientation?: 'portrait' | 'landscape'
-        readonly margins?: {
-          readonly top?: string
-          readonly right?: string
-          readonly bottom?: string
-          readonly left?: string
-        }
-        readonly destination?: string
-      }>)
   | (ActionBase & {
       readonly type: 'file'
       readonly operator: 'generateCsv'
@@ -649,11 +657,63 @@ export type Action =
         readonly range?: string
         readonly skipRows?: number
       }>)
+  // ── document (5 operator variants) ──
   | (ActionBase & {
-      readonly type: 'file'
+      readonly type: 'document'
+      readonly operator: 'generatePdf'
+    } & Props<{
+        readonly template: TemplateSourceDef
+        readonly data?: { readonly [key: string]: unknown }
+        readonly pageSize?: 'A3' | 'A4' | 'A5' | 'Letter' | 'Legal'
+        readonly orientation?: 'portrait' | 'landscape'
+        readonly margins?: {
+          readonly top?: string
+          readonly right?: string
+          readonly bottom?: string
+          readonly left?: string
+        }
+        readonly header?: TemplateSourceDef
+        readonly footer?: TemplateSourceDef
+        readonly allowRemoteAssets?: boolean
+        readonly locale?: string
+        readonly output: DocumentOutput
+      }>)
+  | (ActionBase & {
+      readonly type: 'document'
+      readonly operator: 'generateImage'
+    } & Props<{
+        readonly template: TemplateSourceDef
+        readonly templateType?: 'svg' | 'html'
+        readonly data?: { readonly [key: string]: unknown }
+        readonly format?: 'png' | 'jpeg' | 'webp'
+        readonly quality?: number
+        readonly width?: number
+        readonly height?: number
+        readonly allowRemoteAssets?: boolean
+        readonly preset?: 'og'
+        readonly locale?: string
+        readonly output: DocumentOutput
+      }>)
+  | (ActionBase & {
+      readonly type: 'document'
+      readonly operator: 'generateDocx'
+    } & Props<{
+        readonly template:
+          { readonly asset: string } | { readonly key: string; readonly bucket?: string }
+        readonly data?: { readonly [key: string]: unknown }
+        readonly locale?: string
+        readonly output: DocumentOutput
+      }>)
+  | (ActionBase & {
+      readonly type: 'document'
       readonly operator: 'generateXlsx'
     } & Props<{
-        readonly data?: string
+        // With `template`, `data` is the template's values and the from-data
+        // props are refused (the schema's filters).
+        readonly template?:
+          { readonly asset: string } | { readonly key: string; readonly bucket?: string }
+        readonly data?: string | { readonly [key: string]: unknown }
+        readonly locale?: string
         readonly sheets?: readonly {
           readonly name: string
           readonly data: string
@@ -661,8 +721,137 @@ export type Action =
         }[]
         readonly columns?: readonly XlsxColumnDef[]
         readonly sheetName?: string
-        readonly filename: string
-        readonly destination?: string
+        readonly output: DocumentOutput
+      }>)
+  | (ActionBase & {
+      readonly type: 'document'
+      readonly operator: 'convert'
+    } & Props<{
+        readonly input: FileRef
+        readonly inputType?: 'docx' | 'xlsx' | 'pptx' | 'odt' | 'ods' | 'odp' | 'html' | 'image'
+        readonly output: DocumentOutput
+      }>)
+  // ── pdf (8 operator variants) ──
+  | (ActionBase & {
+      readonly type: 'pdf'
+      readonly operator: 'merge'
+    } & Props<{
+        readonly inputs: FileRefListDef<
+          FileRef | { readonly file: FileRef; readonly pages?: string }
+        >
+        readonly output: DocumentOutput
+      }>)
+  // P1 pdf operators — `ranges`/`every` and the one-mark rules are the schema's
+  // filters; TypeScript keeps them optional rather than splitting each arm.
+  | (ActionBase & {
+      readonly type: 'pdf'
+      readonly operator: 'split'
+    } & Props<{
+        readonly file: FileRef
+        readonly ranges?: readonly string[]
+        readonly every?: number
+        readonly output: DocumentOutput
+      }>)
+  | (ActionBase & {
+      readonly type: 'pdf'
+      readonly operator: 'pages'
+    } & Props<
+        | {
+            readonly file: FileRef
+            readonly operation: 'delete' | 'extract' | 'reorder'
+            readonly pages: string
+            readonly output: DocumentOutput
+          }
+        | {
+            readonly file: FileRef
+            readonly operation: 'rotate'
+            readonly angle: 90 | 180 | 270
+            readonly pages?: string
+            readonly output: DocumentOutput
+          }
+      >)
+  | (ActionBase & {
+      readonly type: 'pdf'
+      readonly operator: 'watermark'
+    } & Props<{
+        readonly file: FileRef
+        readonly text?: string
+        readonly image?: FileRef
+        readonly opacity?: number
+        readonly angle?: number
+        readonly position?:
+          | 'top-left'
+          | 'top-center'
+          | 'top-right'
+          | 'center-left'
+          | 'center'
+          | 'center-right'
+          | 'bottom-left'
+          | 'bottom-center'
+          | 'bottom-right'
+        readonly fontSize?: number
+        readonly color?: string
+        readonly width?: number
+        readonly pages?: string
+        readonly output: DocumentOutput
+      }>)
+  | (ActionBase & {
+      readonly type: 'pdf'
+      readonly operator: 'stamp'
+    } & Props<{
+        readonly file: FileRef
+        readonly text?: string
+        readonly image?: FileRef
+        readonly pageNumbers?: { readonly format?: string; readonly startAt?: number }
+        readonly position?:
+          | 'top-left'
+          | 'top-center'
+          | 'top-right'
+          | 'center-left'
+          | 'center'
+          | 'center-right'
+          | 'bottom-left'
+          | 'bottom-center'
+          | 'bottom-right'
+        readonly at?: { readonly x: number; readonly y: number }
+        readonly margin?: number
+        readonly fontSize?: number
+        readonly color?: string
+        readonly opacity?: number
+        readonly angle?: number
+        readonly width?: number
+        readonly pages?: string
+        readonly output: DocumentOutput
+      }>)
+  | (ActionBase & {
+      readonly type: 'pdf'
+      readonly operator: 'fillForm'
+    } & Props<{
+        readonly file: FileRef
+        readonly fields:
+          | {
+              readonly [name: string]: string | number | boolean | readonly string[]
+            }
+          | string
+        readonly flatten?: boolean
+        readonly output: DocumentOutput
+      }>)
+  | (ActionBase & {
+      readonly type: 'pdf'
+      readonly operator: 'inspect'
+    } & Props<{
+        readonly file: FileRef
+      }>)
+  | (ActionBase & {
+      readonly type: 'pdf'
+      readonly operator: 'fromImages'
+    } & Props<{
+        readonly images: FileRefListDef<FileRef>
+        readonly pageSize?: 'A4' | 'A3' | 'A5' | 'Letter' | 'Legal' | 'image'
+        readonly orientation?: 'auto' | 'portrait' | 'landscape'
+        readonly fit?: 'contain' | 'cover' | 'stretch'
+        readonly margin?: number
+        readonly output: DocumentOutput
       }>)
   // ── data (9 operator variants) ──
   | (ActionBase & {
@@ -801,7 +990,7 @@ export type Action =
         readonly sort?: { readonly field: string; readonly direction?: 'asc' | 'desc' }
         readonly limit?: number
       }>)
-  // ── crypto (2 operator variants) ──
+  // ── crypto (4 operator variants) ──
   | (ActionBase & {
       readonly type: 'crypto'
       readonly operator: 'hash'
@@ -818,6 +1007,25 @@ export type Action =
         readonly secret: string
         readonly algorithm: 'sha256' | 'sha512'
         readonly encoding?: 'hex' | 'base64'
+      }>)
+  | (ActionBase & {
+      readonly type: 'crypto'
+      readonly operator: 'sign'
+    } & Props<{
+        readonly data: string
+        readonly privateKey: string
+        readonly algorithm: 'ed25519'
+        readonly keyId?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'crypto'
+      readonly operator: 'verify'
+    } & Props<{
+        readonly data: string
+        readonly signature: string
+        readonly publicKey?: string
+        readonly keyId?: string
+        readonly algorithm: 'ed25519'
       }>)
   // ── date (8 operator variants) ──
   | (ActionBase & {
@@ -916,6 +1124,49 @@ export type Action =
         readonly config: string | { readonly [key: string]: unknown }
         readonly format?: 'json' | 'yaml' | 'auto'
       }>)
+  | (ActionBase & {
+      readonly type: 'sovrium'
+      readonly operator: 'validateBundle'
+    } & Props<{ readonly objectKey: string }>)
+  // ── instance (11 operator variants) ──
+  | (ActionBase & {
+      readonly type: 'instance'
+      readonly operator: 'status' | 'start' | 'stop' | 'restart' | 'rollback'
+    } & Props<{ readonly slug: string }>)
+  | (ActionBase & {
+      readonly type: 'instance'
+      readonly operator: 'apply'
+    } & Props<{
+        readonly slug: string
+        readonly bundle: { readonly objectKey: string } | { readonly base64: string }
+        readonly signature: {
+          readonly keyId: string
+          readonly algorithm: 'ed25519'
+          readonly value: string
+        }
+        readonly revision: string
+        readonly env: { readonly [key: string]: string } | string
+      }>)
+  | (ActionBase & {
+      readonly type: 'instance'
+      readonly operator: 'remove'
+    } & Props<{ readonly slug: string; readonly purge: boolean }>)
+  | (ActionBase & {
+      readonly type: 'instance'
+      readonly operator: 'health'
+    } & Props<{ readonly slug: string; readonly timeoutMs?: number }>)
+  | (ActionBase & {
+      readonly type: 'instance'
+      readonly operator: 'logs'
+    } & Props<{ readonly slug: string; readonly lines?: number; readonly since?: string }>)
+  | (ActionBase & {
+      readonly type: 'instance'
+      readonly operator: 'backup'
+    } & Props<{ readonly slug: string; readonly destination: { readonly objectKey: string } }>)
+  | (ActionBase & {
+      readonly type: 'instance'
+      readonly operator: 'restore'
+    } & Props<{ readonly slug: string; readonly source: { readonly objectKey: string } }>)
   // ── delay:webhook (new operator) ──
   | (ActionBase & {
       readonly type: 'delay'
@@ -971,6 +1222,8 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   AiActionSchema,
   ApprovalActionSchema,
   FileActionSchema,
+  DocumentActionSchema,
+  PdfActionSchema,
   DataActionSchema,
   StateActionSchema,
   DigestActionSchema,
@@ -978,6 +1231,7 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   DateActionSchema,
   FlowActionSchema,
   SovriumActionSchema,
+  InstanceActionSchema,
   ActionRefSchema,
 ]).pipe(
   Schema.annotate({
@@ -986,7 +1240,7 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
     // Schema `$defs` by `identifier`, so two schemas sharing one identifier
     // collapse into a single `$def`: one union is published and the other is
     // erased. That is what happened here — every automation action
-    // (`file/generatePdf`, `http/request`, `email/send`, …) was missing from
+    // (`file/upload`, `http/request`, `email/send`, …) was missing from
     // the public schema at https://sovrium.com/schema/app.json that config
     // authors are told to validate against. Guarded by the identifier
     // collision + action-coverage tests in

@@ -7,6 +7,10 @@
 
 import { Effect } from 'effect'
 import {
+  boundCheckboxColumns,
+  coerceCheckboxAnswers,
+} from '@/application/use-cases/forms/coerce-checkbox-columns'
+import {
   FormFieldFormatError,
   validateFieldFormats,
 } from '@/application/use-cases/forms/submit-form-format-validation'
@@ -48,13 +52,17 @@ import type { Form } from '@/domain/models/app/forms'
  * a `required: true` field that is hidden by `visibleWhen` does not block
  * submission because the submitter can't fill it in.
  *
+ * A required checkbox is a consent: it must be TICKED, so an unticked answer
+ * (already coerced to `false`, see `coerce-checkbox-columns.ts`) is missing.
+ *
  * Runs BEFORE the bound-table write so attachment-required forms surface
  * a single 400 instead of a confusing column-level error chain.
  */
 const checkFormRequiredFields = (
   form: Readonly<Form>,
   body: Readonly<Record<string, unknown>>,
-  hiddenGroupFields: ReadonlySet<string>
+  hiddenGroupFields: ReadonlySet<string>,
+  checkboxColumns: ReadonlySet<string>
 ): Effect.Effect<void, FormFieldRequiredError, never> => {
   const values = buildConditionValueMap(form, body)
   const offending = form.fields.find((field) => {
@@ -65,6 +73,7 @@ const checkFormRequiredFields = (
     if (!isFieldVisible(field, values)) return false
     if (!isFieldRequired(field, values)) return false
     if (!(identifier in body)) return true
+    if (checkboxColumns.has(identifier)) return body[identifier] !== true
     return isAbsentValue(body[identifier])
   })
   if (offending === undefined) return Effect.void
@@ -235,15 +244,19 @@ export const processSubmissionBody = (
     // declared-fields filter so hidden-only identifiers survive. Mapping is
     // applied last so form-field name → table-column rename still works.
     const withDefaults = applyFieldDefaults(body, form, query)
+    // Every bound checkbox holds `true` or `false` from here on — a box the
+    // browser left out of the post is unticked, never an empty value.
+    const checkboxColumns = boundCheckboxColumns(app, form)
+    const answered = coerceCheckboxAnswers(withDefaults, checkboxColumns)
     // Drop values for fields hidden by `visibleWhen`.
-    const fieldVisibilityFiltered = stripHiddenFields(form, withDefaults)
+    const fieldVisibilityFiltered = stripHiddenFields(form, answered)
     // Drop values for steps skipped by `visibleWhen`.
     const stepFiltered = stripSkippedStepFields(form, fieldVisibilityFiltered)
     // Drop values for hidden single-page fieldGroups.
     const hiddenGroupFields = hiddenGroupFieldSet(form, stepFiltered)
     const visibilityFiltered = stripHiddenGroupFields(stepFiltered, hiddenGroupFields)
     // Enforce form-level required fields before any write so a missing field surfaces a focused 400.
-    yield* checkFormRequiredFields(form, visibilityFiltered, hiddenGroupFields)
+    yield* checkFormRequiredFields(form, visibilityFiltered, hiddenGroupFields, checkboxColumns)
     // Server-side format validation (email, etc.) before any DB write so garbage never lands in the bound table.
     yield* validateFieldFormats(app, form, visibilityFiltered)
     // Calculations are recomputed from the inputs in dependency order: an

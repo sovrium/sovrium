@@ -12,8 +12,6 @@ import { FileDeleteActionSchema } from './delete'
 import { FileDownloadActionSchema } from './download'
 import { FileExtractTextActionSchema } from './extract-text'
 import { FileGenerateCsvActionSchema } from './generate-csv'
-import { FileGeneratePdfActionSchema } from './generate-pdf'
-import { FileGenerateXlsxActionSchema } from './generate-xlsx'
 import { FileGetMetadataActionSchema } from './get-metadata'
 import { FileListActionSchema } from './list'
 import { FileMoveActionSchema } from './move'
@@ -27,8 +25,10 @@ import { FileUploadActionSchema } from './upload'
  * File Action — union of all file operation operators
  *
  * Phase 1 (Core): upload, download, delete, copy, move, list, getMetadata, signUrl,
- *                 generateCsv (enhanced), generatePdf (enhanced)
+ *                 generateCsv
  * Phase 2 (Advanced): parseCsv, extractText, transformImage, compress
+ * Phase 3 (Spreadsheets): parseXlsx. Generated documents (PDF, image, Word,
+ * workbook) are the `document` family.
  */
 export const FileActionSchema = Schema.Union(
   // Phase 1 — Storage Operations
@@ -42,14 +42,12 @@ export const FileActionSchema = Schema.Union(
     FileGetMetadataActionSchema,
     FileSignUrlActionSchema,
     FileGenerateCsvActionSchema,
-    FileGeneratePdfActionSchema,
     FileParseCsvActionSchema,
     FileExtractTextActionSchema,
     FileTransformImageActionSchema,
     FileCompressActionSchema,
-    // Phase 3 — Spreadsheets (closed OOXML subset)
+    // Phase 3 — Spreadsheets (closed OOXML subset); writing one is document/generateXlsx
     FileParseXlsxActionSchema,
-    FileGenerateXlsxActionSchema,
   ]
 ).pipe(
   Schema.annotate({

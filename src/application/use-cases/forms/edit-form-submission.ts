@@ -11,7 +11,7 @@ import {
   buildSyntheticSession,
   buildSystemSession,
 } from '@/application/use-cases/automations/build-guest-session'
-import { updateRecordWithSideEffects } from '@/application/use-cases/tables/record-update-orchestration'
+import { updateRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import {
   answersFromLedgerData,
   keptFileAnswers,
@@ -24,7 +24,6 @@ import { processSubmissionBody } from './submit-form-body'
 import { constraintRefusalForField } from './submit-form-constraint-errors'
 import { filterTableBoundFields } from './submit-form-field-shaping'
 import type { AccessibleFormSubmissionRow } from '@/application/ports/repositories/forms/form-submission-repository'
-import type { UpdateWebhookPayload } from '@/application/use-cases/tables/record-update-orchestration'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
@@ -52,7 +51,6 @@ const updateBoundRow = (input: {
   readonly mapped: Readonly<Record<string, unknown>>
   readonly processEnv: EditConfig['processEnv']
   readonly isSqlite: boolean
-  readonly dispatchWebhooks: EditConfig['dispatchWebhooks']
   readonly forgetDerivedVariants: EditConfig['forgetDerivedVariants']
 }) => {
   const { app, form, row, tableName, mapped } = input
@@ -76,7 +74,6 @@ const updateBoundRow = (input: {
     auditContext: { form: form.name, submission: row.id },
     isSqlite: input.isSqlite,
     processEnv: input.processEnv,
-    dispatchWebhooks: input.dispatchWebhooks,
     forgetDerivedVariants: input.forgetDerivedVariants,
   }).pipe(
     // A value refused by a unique, CHECK or NOT NULL rule is reported against its field.
@@ -104,7 +101,6 @@ export const editFormSubmissionProgram = (config: {
   readonly body: Readonly<Record<string, unknown>>
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly isSqlite: boolean
-  readonly dispatchWebhooks: (payload: UpdateWebhookPayload) => Effect.Effect<void>
   readonly forgetDerivedVariants: (key: string) => void
 }) =>
   Effect.gen(function* () {

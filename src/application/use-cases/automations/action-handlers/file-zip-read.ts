@@ -81,12 +81,17 @@ const findEocdOffset = (view: DataView, length: number): number | undefined => {
   )
 }
 
-interface CentralEntry {
+/** One central-directory record, read without touching the entry's payload. */
+export interface ZipDirectoryEntry {
   readonly name: string
   readonly method: number
   readonly compressedSize: number
+  /** As DECLARED by the archive — a reader that trusts it must bound the inflate to it. */
+  readonly uncompressedSize: number
   readonly localHeaderOffset: number
 }
+
+type CentralEntry = ZipDirectoryEntry
 
 /**
  * Read one central-directory header, returning it plus the offset of the next.
@@ -113,6 +118,7 @@ const readCentralEntry = (
       // data-descriptor flag (general-purpose bit 3) is set, the local header
       // carries zeros and only the central directory has the real values.
       compressedSize: view.getUint32(offset + 20, true),
+      uncompressedSize: view.getUint32(offset + 24, true),
       localHeaderOffset: view.getUint32(offset + 42, true),
     },
     next: nameStart + nameLength + extraLength + commentLength,
@@ -144,7 +150,8 @@ const readCentralDirectory = (
 const readEntryBytes = (
   bytes: Uint8Array,
   view: DataView,
-  entry: CentralEntry
+  entry: CentralEntry,
+  bounded: boolean
 ): Uint8Array | undefined => {
   const offset = entry.localHeaderOffset
   if (offset + LOCAL_HEADER_SIZE > bytes.length) return undefined
@@ -155,31 +162,64 @@ const readEntryBytes = (
   const end = start + entry.compressedSize
   if (end > bytes.length) return undefined
   const payload = bytes.subarray(start, end)
-  if (entry.method === METHOD_STORE) return payload
+  if (entry.method === METHOD_STORE) {
+    return bounded && payload.length !== entry.uncompressedSize ? undefined : payload
+  }
   if (entry.method !== METHOD_DEFLATE) return undefined
   try {
-    return new Uint8Array(inflateRawSync(payload))
+    // Bounded: an entry that inflates past the size its directory DECLARED is
+    // refused mid-stream (`maxOutputLength` throws), so a caller that vetted the
+    // declared sizes never allocates more than it vetted. `Bun.inflateSync` has
+    // no such cap, which is why this reader stays on `node:zlib`.
+    return bounded
+      ? new Uint8Array(
+          inflateRawSync(payload, { maxOutputLength: Math.max(1, entry.uncompressedSize) })
+        )
+      : new Uint8Array(inflateRawSync(payload))
   } catch {
     return undefined
   }
 }
 
 /**
- * Read every entry of a ZIP container, or `undefined` when the bytes are not a
- * readable archive.
+ * Read the central directory alone — names, methods and DECLARED sizes, no
+ * payload inflated — or `undefined` when the bytes are not a readable archive.
+ * This is what a zip-bomb guard inspects before deciding to read anything.
  */
-export const readZipEntries = (bytes: Uint8Array): ReadonlyArray<ZipReadEntry> | undefined => {
+export const readZipDirectory = (
+  bytes: Uint8Array
+): ReadonlyArray<ZipDirectoryEntry> | undefined => {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const eocd = findEocdOffset(view, bytes.length)
   if (eocd === undefined) return undefined
-
   const count = view.getUint16(eocd + 10, true)
   const centralOffset = view.getUint32(eocd + 16, true)
-  const central = readCentralDirectory(bytes, view, centralOffset, count)
+  return readCentralDirectory(bytes, view, centralOffset, count)
+}
+
+export interface ZipReadOptions {
+  /**
+   * Hold every entry to the uncompressed size its directory declares: an entry
+   * that inflates further is refused instead of read. Set it whenever the
+   * declared sizes were checked against a limit (`readZipDirectory`).
+   */
+  readonly boundByDeclaredSize?: boolean
+}
+
+/**
+ * Read every entry of a ZIP container, or `undefined` when the bytes are not a
+ * readable archive.
+ */
+export const readZipEntries = (
+  bytes: Uint8Array,
+  options: ZipReadOptions = {}
+): ReadonlyArray<ZipReadEntry> | undefined => {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const central = readZipDirectory(bytes)
   if (central === undefined) return undefined
 
   const entries = central.map((entry) => {
-    const payload = readEntryBytes(bytes, view, entry)
+    const payload = readEntryBytes(bytes, view, entry, options.boundByDeclaredSize === true)
     return payload === undefined ? undefined : { name: entry.name, bytes: payload }
   })
   return entries.every((e): e is ZipReadEntry => e !== undefined) ? entries : undefined

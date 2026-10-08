@@ -32,9 +32,22 @@ type Mustache = hbs.AST.MustacheStatement
 type Block = hbs.AST.BlockStatement
 type PathNode = hbs.AST.PathExpression
 
-/** Helpers whose output is already encoded for the place, so not encoded twice. */
+/**
+ * Helpers whose output is already encoded for the place, so not encoded twice.
+ *
+ * `xml` trusts none, deliberately — `escapeHtml` included, although its five
+ * entities are valid XML. It keeps the C0 control characters XML 1.0 cannot
+ * carry, which would make a Word part unreadable, and an author's
+ * `{{escapeHtml name}}` in an SVG or Word template is escaped twice: `&`
+ * becomes `&amp;amp;` in the part, and the reader shows `&amp;`. The value
+ * is escaped already, so the helper is redundant there and should be dropped
+ * from the template rather than trusted.
+ */
 const ALREADY_ENCODED: Readonly<Record<ValueEncoding, ReadonlySet<string>>> = {
-  html: new Set(['escapeHtml', 'safeHtml']),
+  // `pageBreak`, `image` and `qrcode` print their own markup or a picture
+  // marker, never a value from data.
+  html: new Set(['escapeHtml', 'safeHtml', 'pageBreak', 'image', 'qrcode']),
+  xml: new Set(),
   url: new Set(['urlEncode', 'encodeUri', 'encodeUriComponent', 'urlPath']),
   json: new Set(),
 }
@@ -136,6 +149,16 @@ export const encodeExpressions = (
       return keepsAsWritten(mustache, encoding, isHelper)
         ? node
         : wrap(mustache, encoding, isHelper)
+    }
+    if (node.type === 'PartialBlockStatement') {
+      // The content a layout wraps (`{{#> layouts/letter}}…{{/layouts/letter}}`)
+      // is the including template's own text: encoded like the rest of it.
+      const block = node as hbs.AST.PartialBlockStatement
+      const rewritten: hbs.AST.PartialBlockStatement = {
+        ...block,
+        program: visitProgram(block.program) as Program,
+      }
+      return rewritten
     }
     if (node.type === 'BlockStatement') {
       const block = node as Block

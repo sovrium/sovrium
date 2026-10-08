@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { ActionResponseSchema } from './action-response'
+import { ButtonVariantSchema } from './button-variant'
 
 /**
  * Auth action - authentication operations
@@ -138,6 +139,44 @@ export const AuthActionSchema = Schema.Struct({
       description:
         'Submit-button label for the form this action embeds. Defaults to the localized built-in label for the method or operation. Supports $t:key translation references.',
       examples: ['Sign In', 'Se connecter', '$t:auth.submit'],
+    })
+  ),
+  /**
+   * The WEIGHT of the auth form's submit button, in the button vocabulary.
+   *
+   * An auth page can hold two forms side by side whose answers are not equal:
+   * an invitation is accepted or declined, a device is trusted or not. Drawn
+   * with the same primary fill, the two buttons read as two equally main
+   * actions, and the one the reader is meant to weigh twice looks exactly like
+   * the one they are invited to take.
+   *
+   * The same key, with the same members, that `endpoint.submitVariant` gives a
+   * custom-endpoint form ({@link ButtonVariantSchema}, the list a `button`
+   * component accepts) — so an auth submit and a button asking for `secondary`
+   * cannot look different. Omitting it keeps the primary fill every auth form
+   * has today, to the byte.
+   *
+   * It weighs the forms drawn as fields plus a submit: every credential method
+   * (by password or magic link), the second factor, the invitations, and the
+   * account methods. It has NO effect on the single-control sign-ins —
+   * `strategy: oauth`, `strategy: sso`, `strategy: passkey` and
+   * `method: registerPasskey` — whose button is drawn by its own branch of the
+   * auth-form island and ignores the key.
+   *
+   * @example
+   * ```yaml
+   * action:
+   *   type: auth
+   *   method: declineInvitation
+   *   submitLabel: Decline
+   *   submitVariant: secondary
+   * ```
+   */
+  submitVariant: Schema.optional(
+    ButtonVariantSchema.annotate({
+      description:
+        "Visual weight of the auth form's submit button, from the platform button vocabulary (the same members a `button` component accepts). Omit for the primary 'default' fill, unchanged. Set 'secondary' for the lesser of two answers drawn side by side, such as declining an invitation beside accepting it. Applies to the forms drawn as fields plus a submit (credential methods, the second factor, invitations, account methods); ignored by `strategy: oauth`, `strategy: sso`, `strategy: passkey` and `method: registerPasskey`, which draw their own sign-in button.",
+      examples: ['secondary', 'outline', 'destructive'],
     })
   ),
   /**

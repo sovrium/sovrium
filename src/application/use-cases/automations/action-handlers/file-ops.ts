@@ -12,7 +12,7 @@ import {
   UNATTRIBUTED_BUCKET,
 } from '@/application/ports/services/storage-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { signUploadLink } from './file-sign-upload'
+import { signDownloadLink, signUploadLink } from './file-sign-upload'
 import { mimeByExt, uploadArtifactTo } from './file-support'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
@@ -221,7 +221,8 @@ export const handleFileDelete: ActionHandler = (action) =>
 // ---------------------------------------------------------------------------
 
 /**
- * A download link is the store's own presign for the key. An upload link is
+ * Both links are Sovrium's own, served by the app on every storage provider. A
+ * download link names the key ({@link signDownloadLink}). An upload link is
  * Sovrium's signed upload into the `system` bucket ({@link signUploadLink}), so
  * every rule of that road — catalogue, type, size, never over a stored key —
  * holds for what lands through it.
@@ -234,23 +235,9 @@ export const handleFileSignUrl: ActionHandler = (action, app) =>
     const expiresIn = optionalNumber(p, 'expiresIn') ?? 3600
     const contentType = p['contentType'] !== undefined ? stringProp(p, 'contentType') : undefined
 
+    if (p['operation'] !== 'upload') return signDownloadLink(key, expiresIn)
     const storage = yield* StorageService
-    if (p['operation'] === 'upload') {
-      return yield* signUploadLink(storage, app, { key, expiresIn, contentType })
-    }
-    const signed = yield* Effect.result(storage.getSignedUrl(key, expiresIn))
-    if (signed._tag === 'Failure') return softError(`failed to sign url for ${key}`)
-
-    return {
-      status: 'success',
-      output: {
-        url: signed.success,
-        key,
-        operation: 'download',
-        expiresIn,
-        expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
-      },
-    } as const
+    return yield* signUploadLink(storage, app, { key, expiresIn, contentType })
   }).pipe(
     Effect.withSpan('automations.handle-file-sign-url', { attributes: actionAttributes(action) })
   )

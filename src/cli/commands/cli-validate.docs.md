@@ -196,7 +196,7 @@ automations:
           format: auto
 ```
 
-The step exposes `{{steps.check.valid}}` and `{{steps.check.errors}}`. `config` takes the config object or a serialized string; `format` reads the string arm — `json` (the default), `yaml`, or `auto` to try JSON then YAML.
+The step exposes `{{steps.check.valid}}` and `{{steps.check.errors}}`. `config` takes the config object or a serialized string; `format` reads the string arm — `json` (the default), `yaml`, or `auto` to try JSON then YAML. To check an archive written by `sovrium bundle` instead, use the `validateBundle` operator described in **Bundle an App**.
 
 Two behaviours are worth knowing before you build on it:
 

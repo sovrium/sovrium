@@ -48,6 +48,8 @@ children:
           href: /reset-password
           className: self-start text-md text-foreground-muted underline underline-offset-4
         content: Forgot password?
+        visibility:
+          declares: auth.passwordReset
       - type: flex
         props:
           className: flex flex-col gap-3 border-t border-border pt-6 empty:hidden

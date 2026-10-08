@@ -42,7 +42,7 @@ import {
 } from '@/domain/models/app/tables/lookup-link-service'
 import { projectWhenToFilter } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { relatedReaderOf, type LinkReader } from './linked-row-visibility'
-import { loadCurrentUserContext } from './permissions/row-level-enforcement'
+import { loadCurrentUserContext, rowRuleScopeOf } from './permissions/row-level-enforcement'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type {
@@ -138,7 +138,8 @@ const projectedRuleOf = (
         role: reader.role,
         isUnrestricted: isAdminEquivalent(reader.role, app),
       },
-      rlp
+      rlp,
+      rowRuleScopeOf(table, app.tables)
     )
     return projectWhenToFilter(when, ctx) as QueryFilterNode
   }).pipe(Effect.withSpan('tables.projected-lookup-rule'))

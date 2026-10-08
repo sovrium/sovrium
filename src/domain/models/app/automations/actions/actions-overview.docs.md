@@ -46,32 +46,38 @@ Keeping this in actions rather than as a field on every action is what makes a r
 
 ## The families
 
-| Family       | Operators                                                                                                                                                            |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data`       | set, aggregate, sort, limit, deduplicate, merge, split, compare, lookup                                                                                              |
-| `state`      | get, set, increment, delete, list, filterNew                                                                                                                         |
-| `filter`     | continue                                                                                                                                                             |
-| `crypto`     | hash, hmac                                                                                                                                                           |
-| `digest`     | collect, release                                                                                                                                                     |
-| `date`       | format, parse, add, subtract, diff, startOf, endOf, now                                                                                                              |
-| `http`       | request, get, post, put, patch, delete                                                                                                                               |
-| `webhook`    | send, response                                                                                                                                                       |
-| `record`     | create, read, list, update, delete, upsert, batchCreate, batchUpdate, batchDelete, batchUpsert                                                                       |
-| `file`       | upload, download, delete, copy, move, list, getMetadata, signUrl, generatePdf, generateCsv, parseCsv, generateXlsx, parseXlsx, extractText, transformImage, compress |
-| `path`       | branch                                                                                                                                                               |
-| `loop`       | each                                                                                                                                                                 |
-| `automation` | call, return                                                                                                                                                         |
-| `flow`       | stop                                                                                                                                                                 |
-| `email`      | send                                                                                                                                                                 |
-| `analytics`  | track                                                                                                                                                                |
-| `link`       | create, update, delete                                                                                                                                               |
-| `ai`         | generate, classify, extract, agent                                                                                                                                   |
-| `approval`   | request                                                                                                                                                              |
-| `delay`      | wait, queue, webhook                                                                                                                                                 |
-| `auth`       | createUser, assignRole, banUser, unbanUser                                                                                                                           |
-| `code`       | runTypescript                                                                                                                                                        |
-| `sovrium`    | validateConfig                                                                                                                                                       |
-| `ref`        | none — it is the one action with no operator                                                                                                                         |
+One row per family the schema accepts. The `instance` family supervises other apps on the same machine and is off unless the operator enables it — see **Instance Actions**.
+
+| Family       | Operators                                                                                                                                 |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `data`       | set, aggregate, sort, limit, deduplicate, merge, split, compare, lookup                                                                   |
+| `state`      | get, set, increment, delete, list, filterNew                                                                                              |
+| `filter`     | continue                                                                                                                                  |
+| `crypto`     | hash, hmac, sign, verify                                                                                                                  |
+| `digest`     | collect, release                                                                                                                          |
+| `date`       | format, parse, add, subtract, diff, startOf, endOf, now                                                                                   |
+| `http`       | request, get, post, put, patch, delete                                                                                                    |
+| `webhook`    | send, response                                                                                                                            |
+| `record`     | create, read, list, update, delete, upsert, batchCreate, batchUpdate, batchDelete, batchUpsert                                            |
+| `file`       | upload, download, delete, copy, move, list, getMetadata, signUrl, generateCsv, parseCsv, parseXlsx, extractText, transformImage, compress |
+| `document`   | generatePdf, generateImage, generateDocx, generateXlsx                                                                                    |
+| `pdf`        | merge                                                                                                                                     |
+| `path`       | branch                                                                                                                                    |
+| `loop`       | each                                                                                                                                      |
+| `automation` | call, return                                                                                                                              |
+| `flow`       | stop                                                                                                                                      |
+| `email`      | send                                                                                                                                      |
+| `analytics`  | track                                                                                                                                     |
+| `link`       | create, update, delete                                                                                                                    |
+| `ai`         | generate, classify, extract, agent                                                                                                        |
+| `approval`   | request                                                                                                                                   |
+| `delay`      | wait, queue, webhook                                                                                                                      |
+| `auth`       | createUser, assignRole, banUser, unbanUser                                                                                                |
+| `connection` | call                                                                                                                                      |
+| `code`       | runTypescript                                                                                                                             |
+| `sovrium`    | validateConfig, validateBundle                                                                                                            |
+| `instance`   | status, start, stop, restart, apply, rollback, remove, health, logs, backup, restore                                                      |
+| `ref`        | none — it is the one action with no operator                                                                                              |
 
 ## A step used twice
 

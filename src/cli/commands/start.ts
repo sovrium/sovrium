@@ -11,9 +11,26 @@ import { getCurrentVersion, checkForUpdatesInBackground } from '@/cli/commands/u
 import { START_HELP_TEXT } from '@/cli/runtime/command-help'
 import { warnDeprecatedKeys } from '@/cli/runtime/config-deprecation-warnings'
 import { formatConfigRejection, isConfigRejectedError } from '@/domain/errors/config-rejected'
+import {
+  isStrictPortBoot,
+  resolveBindHost,
+  resolveListenUnix,
+  resolveSovriumLogFormat,
+} from '@/domain/models/process-env/server-lifecycle'
 import { printStderr, renderStderr } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
-import { isProcessRunning, readLockFile, removeLockFile } from '@/infrastructure/server/lock-file'
+import { activateLogFormat } from '@/infrastructure/logging/log-format'
+import {
+  isProcessRunning,
+  listenLabel,
+  readLockFile,
+  removeLockFile,
+} from '@/infrastructure/server/lock-file'
+import {
+  findPortHolderPid,
+  isPortFree,
+  portInUseMessage,
+} from '@/infrastructure/server/port-availability'
 import { isPublicDirOptOut, readPublicDirEnv, resolveDefaultPublicDir } from './option-parsing'
 import { watchConfigGraph } from './start-watch'
 import { lazyImportIndex, lazyImportLogger, lazyImportCli, resolveConfigAnchor } from './utils'
@@ -35,10 +52,10 @@ const showStartHelp = (): void => {
  */
 const parseStartOptions = (): StartOptions => {
   const port = Bun.env.PORT
-  const hostname = Bun.env.HOSTNAME
   // The public-assets directory may be configured purely via the env var,
-  // with no PORT/HOSTNAME set, so it must be read independently of the
-  // early-return guard below.
+  // with no PORT set, so it must be read independently of the port. The bind
+  // host is not read here: `createServer` resolves it (`resolveBindHost`), so
+  // the deprecated-`HOSTNAME` notice is printed by the one place that binds.
   const publicDir = readPublicDirEnv()
 
   const parsedPort = port ? parseInt(port, 10) : undefined
@@ -52,9 +69,28 @@ const parseStartOptions = (): StartOptions => {
 
   return {
     ...(parsedPort !== undefined && { port: parsedPort }),
-    ...(hostname && { hostname }),
     ...(publicDir && { publicDir }),
   }
+}
+
+/** The port a boot with no `PORT` binds, as `createServer` resolves it. */
+const DEFAULT_PORT = 3000
+
+/**
+ * Refuse a strict boot (`isStrictPortBoot`) whose port another process holds,
+ * BEFORE the boot touches anything: no migration has run and no lock or status
+ * file exists, which is what lets the refusal say it changed nothing. The real
+ * bind refuses too (`startBunServer`), closing the window after this probe.
+ */
+const refuseBusyStrictPort = (options: StartOptions): void => {
+  const port = options.port ?? DEFAULT_PORT
+  // A socket-bound boot (`SOVRIUM_LISTEN_UNIX`) opens no port to collide on.
+  if (port === 0 || !isStrictPortBoot() || resolveListenUnix() !== undefined) return
+  const hostname = options.hostname ?? resolveBindHost(process.env).host
+  if (isPortFree(hostname, port)) return
+  const holderPid = findPortHolderPid(port)
+  printStderr(portInUseMessage({ hostname, port, holderPid, changedNothing: true }))
+  process.exit(1)
 }
 
 /**
@@ -75,6 +111,8 @@ export const handleStartCommand = async (
     showStartHelp()
     return
   }
+  // Before anything prints: every line this server writes follows the format.
+  activateLogFormat(resolveSovriumLogFormat(process.env))
 
   const { start } = await lazyImportIndex()
   const { logDebug } = await lazyImportLogger()
@@ -133,14 +171,16 @@ export const handleStartCommand = async (
 
   // Check for existing lock file (stale or active)
   const existingLock = await readLockFile()
+  if (existingLock && isProcessRunning(existingLock.pid)) {
+    // Active server — refuse to start
+    printStderr(
+      `Error: Server already running (PID: ${existingLock.pid}, ${listenLabel(existingLock)})`
+    )
+    process.exit(1)
+  }
+  // Before the stale-lock cleanup, so a refusal really leaves the disk untouched.
+  refuseBusyStrictPort(options)
   if (existingLock) {
-    if (isProcessRunning(existingLock.pid)) {
-      // Active server — refuse to start
-      printStderr(
-        `Error: Server already running (PID: ${existingLock.pid}, port: ${existingLock.port})`
-      )
-      process.exit(1)
-    }
     // Stale lock — clean up and continue
     printStderr(`Removing stale lock file (PID ${existingLock.pid} is not running)`)
     await removeLockFile()

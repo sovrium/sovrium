@@ -28,41 +28,30 @@
  * The richer enum (pending/running/skipped/cancelled/etc.) is reserved
  * for future migration specs that grow more execution states.
  */
-export const toApiStatus = (
-  engineStatus:
-    | 'success'
-    | 'failure'
-    | 'timed-out'
-    | 'exhausted'
-    | 'completed-with-errors'
-    | 'skipped'
-    | 'cancelled'
-    | 'waiting-approval'
-    | 'queued'
-    | 'running'
-):
-  | 'completed'
-  | 'failed'
+/** An engine run status, as the run loop and the persisted rows carry it. */
+export type EngineRunStatus =
+  | 'success'
+  | 'failure'
   | 'timed-out'
   | 'exhausted'
   | 'completed-with-errors'
   | 'skipped'
   | 'cancelled'
   | 'waiting-approval'
+  | 'waiting-delay'
   | 'queued'
-  | 'running' => {
+  | 'running'
+
+/** The public label of a run status: every engine label but two passes verbatim. */
+export type ApiRunStatus = Exclude<EngineRunStatus, 'success' | 'failure'> | 'completed' | 'failed'
+
+export const toApiStatus = (engineStatus: EngineRunStatus): ApiRunStatus => {
   if (engineStatus === 'success') return 'completed'
-  if (engineStatus === 'timed-out') return 'timed-out'
-  if (engineStatus === 'exhausted') return 'exhausted'
-  if (engineStatus === 'completed-with-errors') return 'completed-with-errors'
-  if (engineStatus === 'skipped') return 'skipped'
-  if (engineStatus === 'cancelled') return 'cancelled'
-  // `waiting-approval`: a paused approval run propagates verbatim so
-  // the runs API surfaces the non-terminal pause alongside the terminal labels.
-  if (engineStatus === 'waiting-approval') return 'waiting-approval'
-  if (engineStatus === 'queued') return 'queued'
-  if (engineStatus === 'running') return 'running'
-  return 'failed'
+  // `failure` is `failed`; every other label — the timed-out and exhausted
+  // terminals, the waits for an approval (`waiting-approval`) or a long delay
+  // (`waiting-delay`), the scheduler's `queued`/`running` — propagates verbatim.
+  if (engineStatus === 'failure') return 'failed'
+  return engineStatus
 }
 
 /**
@@ -73,9 +62,11 @@ export const toApiStatus = (
  * an API automation runs spec surfaces the filter halt as `'filtered'`).
  */
 export const toApiStepStatus = (
-  engineStatus: 'success' | 'failure' | 'filtered' | 'skipped'
-): 'completed' | 'failed' | 'filtered' | 'skipped' => {
+  engineStatus: 'success' | 'failure' | 'filtered' | 'skipped' | 'waiting'
+): 'completed' | 'failed' | 'filtered' | 'skipped' | 'waiting' => {
   if (engineStatus === 'success') return 'completed'
+  // A loop or a path the run parked inside: its row is completed at resume.
+  if (engineStatus === 'waiting') return 'waiting'
   if (engineStatus === 'skipped') return 'skipped'
   if (engineStatus === 'filtered') return 'filtered'
   return 'failed'

@@ -13,7 +13,6 @@ import {
 } from '@/application/ports/services/image-transform-service'
 import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { extractTextFromBytes, type ExtractTextFormat } from './file-extract'
-import { renderHtmlToPdf } from './file-pdf'
 import { extOf, mimeByExt, tempKey, uploadArtifact } from './file-support'
 import { buildStoredZip } from './file-zip'
 import { actionAttributes, numberProp, stringProp } from './shared'
@@ -21,13 +20,12 @@ import type { ActionHandler, ActionOutcome } from './shared'
 
 /**
  * Advanced `file:*` action handlers — `compress`, `extractText`,
- * `transformImage`, `generatePdf`. These complement `file.ts` (upload /
+ * `transformImage`. These complement `file.ts` (upload /
  * download / CSV) and `file-ops.ts` (list / move / copy / sign); kept in a
  * sibling module so neither file outgrows the per-file line cap.
  *
- * The heavy lifting (ZIP container, PDF wrapper, text extraction) lives in
- * the small sibling pure modules `file-zip.ts`, `file-pdf.ts`,
- * `file-extract.ts`, plus the `ImageTransformService` port (the composed image
+ * The heavy lifting (ZIP container, text extraction) lives in the small
+ * sibling pure modules `file-zip.ts`, `file-extract.ts`, plus the `ImageTransformService` port (the composed image
  * pipeline in `infrastructure/storage/image-transform-live.ts`), so each
  * concern stays individually testable and the handler stays a thin
  * storage-port glue.
@@ -264,36 +262,6 @@ export const handleFileTransformImage: ActionHandler = (action) =>
     } as const
   }).pipe(
     Effect.withSpan('automations.handle-file-transform-image', {
-      attributes: actionAttributes(action),
-    })
-  )
-
-// ---------------------------------------------------------------------------
-// generatePdf
-// ---------------------------------------------------------------------------
-
-export const handleFileGeneratePdf: ActionHandler = (action) =>
-  Effect.gen(function* () {
-    const p = props(action)
-    const template = stringProp(p, 'template')
-    if (!template) return softError('file.generatePdf requires a template')
-
-    const filename = stringProp(p, 'filename') || 'document.pdf'
-    const pdf = renderHtmlToPdf(template)
-
-    const destination = optionalString(p, 'destination')
-    const key = destination ?? tempKey('.pdf')
-    const storage = yield* StorageService
-    const wrote = yield* uploadArtifact(storage, key, pdf, 'application/pdf')
-    if (!wrote) return softError(`failed to write pdf to ${key}`)
-
-    const base = { key, filename, contentType: 'application/pdf', size: pdf.length }
-    return {
-      status: 'success',
-      output: destination ? { ...base, path: destination } : { ...base, temporary: true },
-    } as const
-  }).pipe(
-    Effect.withSpan('automations.handle-file-generate-pdf', {
       attributes: actionAttributes(action),
     })
   )

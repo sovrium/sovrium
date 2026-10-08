@@ -5,11 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { realpath } from 'node:fs/promises'
-import { join, sep } from 'node:path'
 import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
-import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { searchIndexDir } from '@/domain/models/process-env/data-dir'
 import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
@@ -30,7 +27,7 @@ import {
   parseVersionedCssHash,
   VERSIONED_CSS_FILE_PATTERN,
 } from '@/infrastructure/css/versioned-css-path'
-import { logError, logDebug } from '@/infrastructure/logging/logger'
+import { logError } from '@/infrastructure/logging/logger'
 import { adminMountsFor, scopedAppForMount } from '../admin-mounts'
 import {
   ENTRY_CACHE_CONTROL,
@@ -41,7 +38,7 @@ import {
 import { setupClientChunkRoutes } from './client-chunk-routes'
 import { setupBrandMarkRoute, setupDesignSystemSampleRoute } from './embedded-asset-routes'
 import { setupIslandRoutes } from './island-assets'
-import { PUBLIC_DIR_SECRET_BLOCKLIST } from './public-dir-blocklist'
+import { setupPublicDirRoute } from './public-dir-route'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -275,93 +272,6 @@ export async function setupHashedEntryRoutes(honoApp: Readonly<Hono>): Promise<R
 }
 
 /**
- * Setup public directory file serving for development
- *
- * Serves files from a local directory at their relative path.
- * e.g., `publicDir/logos/escp.png` is served at `/logos/escp.png`
- *
- * Hardening (S1 / S4 of the Pre-Launch Security checklist):
- *   1. Realpath the publicDir ONCE at mount time so all comparisons are against
- *      the canonical absolute root. If the directory does not exist at mount,
- *      do NOT register the route — boot stays silent, the framework 404
- *      handler takes any matching request.
- *   2. Per-request: reject any path that matches PUBLIC_DIR_SECRET_BLOCKLIST
- *      with a fall-through to `next()` (→ 404). No log line, no 403, so an
- *      attacker cannot enumerate which secrets exist (anti-enumeration S1).
- *   3. Per-request: resolve the realpath of the joined file path. If the
- *      resolved path does not sit under the publicDir root (symlink escape,
- *      `..` traversal that Hono normalized, etc.), fall through to 404 —
- *      never follow a link out of the bound directory.
- *
- * @param honoApp - Hono application instance
- * @param publicDir - Directory path to serve files from
- * @returns Hono app with public dir route configured (or the same app if the
- *          directory does not exist at mount time)
- */
-export async function setupPublicDirRoute(
-  honoApp: Readonly<Hono>,
-  publicDir: string
-): Promise<Readonly<Hono>> {
-  // Resolve the canonical absolute root once. If the directory is missing or
-  // not a real directory, log debug and skip registration — the framework 404
-  // handler picks up any incoming request unchanged.
-  const rootRealpath = await realpath(publicDir).catch(() => {
-    logDebug('[assets] publicDir not mounted', { publicDir })
-    return undefined
-  })
-  if (rootRealpath === undefined) return honoApp
-
-  // Boundary marker to enforce "under root" check (rules out e.g. `/var/foo`
-  // matching `/var/foo-evil`). `path.sep` cross-platform.
-  const rootPrefix = rootRealpath + sep
-
-  return honoApp.get('/*', async (c, next) => {
-    const { path } = c.req
-
-    // 1) Blocklist match → 404 fall-through. Silent (anti-enumeration).
-    if (PUBLIC_DIR_SECRET_BLOCKLIST.test(path)) {
-      await next()
-      return
-    }
-
-    // 2) Symlink-escape guard: resolve the target's realpath and verify it
-    // sits under the publicDir root. Any failure (ENOENT, EACCES, broken
-    // symlink) falls through to 404 — never propagate.
-    const joinedPath = join(rootRealpath, path)
-    const targetRealpath = await realpath(joinedPath).catch(() => undefined)
-    if (
-      targetRealpath === undefined ||
-      (targetRealpath !== rootRealpath && !targetRealpath.startsWith(rootPrefix))
-    ) {
-      await next()
-      return
-    }
-
-    // 3) Serve the file with an EXPLICIT Content-Type derived from the
-    // extension. Deferring to Bun's implicit inference yields
-    // `application/octet-stream` for extensionless/unknown files, and — because
-    // the platform sets `X-Content-Type-Options: nosniff` — a browser then
-    // hard-refuses any such response loaded as a `<script>`/`<link>`
-    // ("not a valid JavaScript/CSS MIME type"). `inferMimeFromKey` maps the web
-    // static-asset extensions explicitly and only falls back to octet-stream for
-    // genuinely-unknown types. These are trusted, app-authored public files, so
-    // (unlike untrusted bucket uploads) SVG is served inline with its real type;
-    // the upload path's attachment/CSP gate is intentionally NOT applied here.
-    const file = Bun.file(targetRealpath)
-    if (await file.exists()) {
-      return new Response(file, {
-        headers: {
-          'Content-Type': inferMimeFromKey(targetRealpath),
-          'Cache-Control': getCacheControlHeader(),
-        },
-      })
-    }
-
-    await next()
-  })
-}
-
-/**
  * Mount the static asset routes: CSS, JavaScript, islands, and optionally a public directory.
  *
  * The page-search index (`/sovrium-search/*`) is served from the data
@@ -378,7 +288,8 @@ export async function setupPublicDirRoute(
 export async function setupStaticAssets(
   honoApp: Readonly<Hono>,
   app: App,
-  publicDir?: string
+  publicDir?: string,
+  privateRealpaths?: ReadonlySet<string>
 ): Promise<Readonly<Hono>> {
   const withHashed = await setupHashedEntryRoutes(
     setupClientBundleRoute(setupJavaScriptRoutes(setupCSSRoute(honoApp, app)))
@@ -387,13 +298,10 @@ export async function setupStaticAssets(
   const withAssets = setupBrandMarkRoute(
     setupDesignSystemSampleRoute(setupIslandRoutes(setupAnalyticsScriptRoute(withEntries, app)))
   )
-  // `setupPublicDirRoute` is async because it realpath()s the directory once
-  // at mount time (security hardening — see its docstring). If the directory
-  // does not exist, the helper returns `withAssets` unchanged so the framework
-  // 404 handler picks up matching requests; no behavioral regression vs. the
-  // sync past.
+  // `setupPublicDirRoute` is async: it realpath()s the directory once at mount
+  // (see its docstring); a missing directory returns the app unchanged.
   const withSearch = hasPageSearchComponent(app)
     ? await setupPublicDirRoute(withAssets, searchIndexDir())
     : withAssets
-  return publicDir ? setupPublicDirRoute(withSearch, publicDir) : withSearch
+  return publicDir ? setupPublicDirRoute(withSearch, publicDir, privateRealpaths) : withSearch
 }

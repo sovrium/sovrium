@@ -137,21 +137,28 @@ function setupFilterFormHandlers(): void {
   })
 }
 
+/** Show the toast a button's `data-on-<outcome>-*` attributes declare, if any. */
+function showOutcomeToast(button: Element, outcome: 'success' | 'error'): void {
+  const message = button.getAttribute(`data-on-${outcome}-message`)
+  if (message) {
+    showToast(message, { variant: button.getAttribute(`data-on-${outcome}-variant`) ?? undefined })
+  }
+}
+
+/**
+ * The automation button. The press route answers 200 whatever the run did and
+ * carries the run's outcome in its body, so an awaited press reads the body:
+ * `onSuccess` unless the run `failed`, `onError` when it did. A refused press
+ * (non-2xx) or a network failure shows `onError` in either mode; a
+ * fire-and-forget press shows `onSuccess` on the press itself.
+ */
 function setupAutomationButtonHandlers(): void {
   bindActionButtons('automation', async (button) => {
     const name = button.getAttribute('data-action-name')
     if (!name) return
     const awaitValue = button.getAttribute('data-action-await') === 'true'
-    const successMessage = button.getAttribute('data-on-success-message')
-    const successVariant = button.getAttribute('data-on-success-variant') ?? undefined
     const inputData = parseActionInput(button.getAttribute('data-action-input'))
-
-    // Fire-and-forget: surface the onSuccess toast immediately, before the
-    // automation completes (await: false). The awaited path shows it only
-    // after a successful response.
-    if (!awaitValue && successMessage) {
-      showToast(successMessage, { variant: successVariant })
-    }
+    if (!awaitValue) showOutcomeToast(button, 'success')
 
     try {
       const response = await fetch(`/api/automations/${encodeURIComponent(name)}/form-action`, {
@@ -159,13 +166,16 @@ function setupAutomationButtonHandlers(): void {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inputData }),
       })
-      if (response.ok && awaitValue && successMessage) {
-        showToast(successMessage, { variant: successVariant })
+      const body = (await response.json().catch(() => undefined)) as
+        { readonly status?: unknown } | undefined
+      if (!response.ok || (awaitValue && body?.status === 'failed')) {
+        showOutcomeToast(button, 'error')
+      } else if (awaitValue) {
+        showOutcomeToast(button, 'success')
       }
     } catch {
-      // Network/dispatch failure: the automation did not run. The
-      // fire-and-forget toast (if any) was already shown; an awaited
-      // success toast is intentionally suppressed on failure.
+      // Network/dispatch failure: the automation did not run.
+      showOutcomeToast(button, 'error')
     }
   })
 }

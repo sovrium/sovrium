@@ -19,10 +19,10 @@ import {
 import { logError } from '@/infrastructure/logging/logger'
 import { buildSyntheticSession } from './build-guest-session'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
-import { withHydratedId } from './hydrated-field-reference'
+import { singleUserFieldNames, withHydratedId } from './hydrated-field-reference'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import { evaluateRecordTriggerCondition, watchFieldsChanged } from './record-trigger-filters'
-import type { TriggerData } from './resolve-trigger-data'
+import type { TriggerData, TriggerRequester } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
@@ -44,20 +44,18 @@ import type { App } from '@/domain/models/app'
 export interface TriggerRecordEventInput {
   readonly app: App
   readonly tableName: string
-  readonly event: 'create' | 'update' | 'delete'
+  readonly event: 'create' | 'update' | 'delete' | 'restore'
   readonly record: Record<string, unknown>
   readonly previousRecord?: Record<string, unknown>
   /**
-   * Process env captured at the route boundary. Threaded through to
-   * `executeAutomationRun` so action handlers can resolve `$env.VAR_NAME`
-   * references and so secrets get redacted from run-history. Mirrors the
-   * pattern used by `runWebhookAutomation` and `runManualAutomation` —
-   * keeps this use case free of `process.env` reads inside the application
-   * layer.
+   * Process env captured at the route boundary, so action handlers resolve `$env.VAR_NAME`
+   * and secrets are redacted from run-history (no `process.env` read in this layer).
    */
   readonly processEnv: Readonly<Record<string, string | undefined>>
   /** The user who triggered the record event (creator/updater). */
   readonly userId?: string
+  /** Who made the write, as `{{trigger.user}}`: absent for a guest's write. */
+  readonly requester?: TriggerRequester
   /**
    * How many automation writes separate this event from a person's write — 0
    * (the default) for a records API write, N+1 for a write by a step of an
@@ -69,7 +67,7 @@ export interface TriggerRecordEventInput {
 interface RecordEventMatchInput {
   readonly app: App
   readonly tableName: string
-  readonly event: 'create' | 'update' | 'delete'
+  readonly event: 'create' | 'update' | 'delete' | 'restore'
   readonly record: Record<string, unknown>
   readonly previousRecord: Record<string, unknown> | undefined
   readonly pausedNames: ReadonlySet<string>
@@ -122,27 +120,6 @@ const findMatchingRecordAutomations = (
     }
     return true
   })
-}
-
-/**
- * Names of the single-user (`allowMultiple !== true`) `user`-typed fields
- * declared on the named table. [internal ref] scopes hydration to single-user fields
- * — multi-user (`allowMultiple: true`) fields are intentionally left as the
- * raw id list (NOT full relationship hydration).
- */
-const singleUserFieldNames = (app: App, tableName: string): readonly string[] => {
-  const table = app.tables?.find((t) => t.name === tableName)
-  if (!table) return []
-  return table.fields
-    .filter((field): field is typeof field & { readonly allowMultiple?: boolean } => {
-      if (field.type !== 'user') return false
-      // Scope to single-user fields. A `user` field carries an optional
-      // `allowMultiple`; multi-user fields are left as the raw id list
-      // ([internal ref] is single-user only — NOT full relationship hydration).
-      const { allowMultiple } = field as { readonly allowMultiple?: boolean }
-      return allowMultiple !== true
-    })
-    .map((field) => field.name)
 }
 
 /**
@@ -600,7 +577,9 @@ export const triggerRecordEventAutomations = (
     })
     if (matching.length === 0) return
 
-    const triggerData = yield* buildRecordTriggerData({ ...input, record, previousRecord })
+    const rows = yield* buildRecordTriggerData({ ...input, record, previousRecord })
+    const triggerData =
+      input.requester === undefined ? rows : { ...rows, requester: input.requester }
 
     yield* Effect.forEach(
       matching,

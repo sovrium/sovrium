@@ -29,6 +29,8 @@ Both validate against the schema and neither is read at runtime, so a call writt
 
 `maxDepth` stops a chain that calls itself, directly or through intermediaries. The callee sees how deep it currently is at `{{trigger.depth}}` and which automation invoked it at `{{trigger.caller}}`.
 
+A call works among a `loop`'s actions, once per item, and among a `path` branch's actions, as it does at the top level. It is held to the same rules there: a call that would re-enter an automation already running in the chain fails as a circular reference, and one past its `maxDepth` fails before the callee starts.
+
 ## Returning
 
 Hands output back to the caller. It is only meaningful in an automation whose trigger is an automation call.

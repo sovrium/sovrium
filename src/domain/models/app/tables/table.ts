@@ -9,6 +9,7 @@ import { Schema, SchemaGetter } from 'effect'
 import { TableIdSchema } from '@/domain/kernel/identity/branded-ids'
 import { AiAccessSchema } from '@/domain/models/app/auth/ai-access'
 import { validateNoLookupCycle } from '@/domain/models/app/tables/lookup-cycle-validation'
+import { validateRowRuleChains } from '@/domain/models/app/tables/row-rule-chain-validation'
 import { validateRowRuleTypes } from '@/domain/models/app/tables/row-rule-types-validation'
 import { validateDistinctDerivedTableNames } from '@/domain/models/app/tables/table-derived-name-validation'
 import {
@@ -30,10 +31,12 @@ import {
   validatePublicViews,
   validateViews,
 } from '@/domain/models/app/tables/table-views-validation'
+import { validateWebhooks } from '@/domain/models/app/tables/table-webhooks-validation'
 import { CommentsConfigSchema } from './comments'
 import { CheckConstraintsSchema } from './constraints'
 import { FieldsSchema } from './fields'
 import { ForeignKeySchema } from './foreign-keys'
+import { TableImportSchema } from './import'
 import { IndexesSchema } from './indexes'
 import { NameSchema } from './name'
 import { TablePermissionsSchema } from './permissions'
@@ -139,73 +142,10 @@ const validateTableSchema = (table: TableShape): ValidationError | true => {
   if (accessError) return accessError
 
   // Validate webhook name uniqueness and payload field references
-  const webhookError = validateWebhooks(table, fieldNames)
+  const webhookError = validateWebhooks(table.webhooks, fieldNames)
   if (webhookError) return webhookError
 
   return true
-}
-
-/** Shape of a webhook relevant to table-level validation. */
-type WebhookForValidation = {
-  readonly name: string
-  readonly payload?: {
-    readonly includeFields?: ReadonlyArray<string>
-    readonly excludeFields?: ReadonlyArray<string>
-  }
-}
-
-/**
- * Every column referenced by a webhook's `payload.includeFields` /
- * `excludeFields` must name a real field on the table. The implicit `id`
- * column is always valid even though it is not a declared field.
- */
-const validateWebhookPayloadFields = (
-  webhooks: ReadonlyArray<WebhookForValidation>,
-  fieldNames: ReadonlySet<string>
-): ValidationError | undefined => {
-  const isKnown = (field: string): boolean => field === 'id' || fieldNames.has(field)
-  const offending = webhooks.flatMap((webhook) => {
-    const selectors = [
-      ...(webhook.payload?.includeFields ?? []),
-      ...(webhook.payload?.excludeFields ?? []),
-    ]
-    return selectors
-      .filter((field) => !isKnown(field))
-      .map((field) => ({ webhook: webhook.name, field }))
-  })
-  const first = offending[0]
-  if (first) {
-    return {
-      message: `Webhook '${first.webhook}' payload references field '${first.field}' which does not exist on the table`,
-      path: ['webhooks'],
-    }
-  }
-  return undefined
-}
-
-/**
- * Webhook names must be unique within a table — each webhook expands into a
- * distinct delivery configuration keyed by name, so a duplicate name would
- * make delivery logging ambiguous. Additionally, `payload` field selectors
- * must reference real table fields.
- */
-const validateWebhooks = (
-  table: TableShape,
-  fieldNames: ReadonlySet<string>
-): ValidationError | undefined => {
-  const { webhooks } = table
-  if (!webhooks || webhooks.length === 0) return undefined
-
-  const names = webhooks.map((webhook) => webhook.name)
-  const duplicate = names.find((name, index) => names.indexOf(name) !== index)
-  if (duplicate !== undefined) {
-    return {
-      message: `Duplicate webhook name '${duplicate}': webhook names must be unique within a table`,
-      path: ['webhooks'],
-    }
-  }
-
-  return validateWebhookPayloadFields(webhooks, fieldNames)
 }
 
 const TableStruct = Schema.Struct({
@@ -461,6 +401,9 @@ const TableStruct = Schema.Struct({
     )
   ),
 
+  /** How a CSV import into this table behaves — see {@link TableImportSchema}. */
+  import: Schema.optional(TableImportSchema),
+
   /**
    * Comment system configuration for this table.
    *
@@ -624,11 +567,9 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
   // (migration/v3-to-v4.md:14284). Both are data-last and the decode direction
   // is unchanged (From["Type"] -> To["Encoded"]); `strict` no longer exists.
   Schema.decodeTo(
-    // The description is repeated on the DECODED array because `decodeTo`
-    // returns a new node: the one piped above belongs to the encoded side, and
-    // `app.tables` resolves to this one. Without it the top-level property is
-    // the one option in the whole schema that `sovrium docs` can name and
-    // cannot explain.
+    // The description is repeated on the DECODED array: `decodeTo` returns a new node,
+    // and `app.tables` resolves to this one — without it `sovrium docs` could name
+    // the top-level property and not explain it.
     Schema.Array(TableSchema.pipe(Schema.annotate({ identifier: 'TableWithRequiredId' }))).pipe(
       Schema.annotate({
         description:
@@ -817,7 +758,8 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
   ),
   // After the references resolve: two tables whose lookups read each other
   // cannot both be computed, and the database would refuse it at start-up.
-  Schema.check(Schema.makeFilter((tables) => validateNoLookupCycle(tables)))
+  Schema.check(Schema.makeFilter((tables) => validateNoLookupCycle(tables))),
+  Schema.check(Schema.makeFilter((tables) => validateRowRuleChains(tables) ?? true))
 )
 
 export type Tables = Schema.Schema.Type<typeof TablesSchema>

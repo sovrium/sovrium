@@ -49,6 +49,7 @@ import { chainCommandSearchRoutes } from '@/presentation/api/search/routes'
 import { chainActivityRoutes } from '@/presentation/api/tables/activity-feed-routes'
 import { chainRealtimeRoutes } from '@/presentation/api/tables/realtime-routes'
 import { chainTableRoutes } from '@/presentation/api/tables/routes'
+import { chainWebhookOutboxRoutes } from '@/presentation/api/tables/webhook-outbox-routes'
 import { chainAdminApiRoutes } from './admin/routes'
 import { applyApiAuthGuards } from './middleware/api-auth-guards'
 import { getLiveApp } from './runtime/live-app-store'
@@ -271,8 +272,8 @@ export const createApiRoutes = <T extends Hono>(
   // interrupted-run sweep and the hourly failure roll-up). Always registered,
   // and 404 without the internal scheduler token — the same gate as
   // `purge-due` above.
-  const honoWithNotificationTriggers = chainNotificationTriggerRoutes(
-    honoWithAccount,
+  const honoWithNotificationTriggers = chainWebhookOutboxRoutes(
+    chainNotificationTriggerRoutes(honoWithAccount, resolveLiveApp),
     resolveLiveApp
   )
 

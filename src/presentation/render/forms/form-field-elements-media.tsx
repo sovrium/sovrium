@@ -11,6 +11,7 @@
  * split out of `form-field-elements.tsx` to keep that file under its size cap.
  */
 
+import { canonicalAcceptAttribute } from '@/domain/models/app/forms/form-file-upload-validation'
 import { computeFormFieldClasses } from '@/presentation/design/form-layout-classes'
 import { AudioRecorderControls } from './form-audio-recorder'
 import { ariaRequired, FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-field-chrome'
@@ -125,7 +126,7 @@ export const FileInput = ({
       {...ariaRequired(field.required)}
       disabled={field.conditionHidden}
       multiple={multiple}
-      accept={field.accept || undefined}
+      accept={field.accept ? canonicalAcceptAttribute(field.accept) || undefined : undefined}
       data-form-file-input={field.name}
       {...(field.maxFileSize !== undefined
         ? { 'data-max-file-size': String(field.maxFileSize) }

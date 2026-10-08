@@ -8,21 +8,16 @@
 /**
  * Dynamic-Record Repository Port.
  *
- * Backs the AI chat read-query and record-mutation flows
- * (`chat-query.ts` / `chat-mutation.ts`) — the lone codebase cluster that ran
- * raw `db.execute(sql`…`)` DML directly from the presentation layer. This port
- * relocates that SQL behind the application boundary with **byte-identical
- * behavior**: the live implementation runs the exact same parameterised SQL the
- * chat routes ran before (`COUNT(*)::int AS count`, `AVG/SUM(…)::float AS
- * value`, `INSERT … RETURNING id`, `… RETURNING id`), against
- * **arbitrary user-defined tables** addressed by name.
+ * Backs the AI chat's READS (`chat-query.ts`, and the candidate rows the chat
+ * write gate judges): counts, aggregates and listings against **arbitrary
+ * user-defined tables** addressed by name. Which rows a call reaches is the
+ * caller's to say: every read carries the chat read scope (live rows, the
+ * caller's row-level read rule).
  *
- * It deliberately does NOT route through `table-queries/crud/` — those add
- * activity-logging, authorship stamping and cascade behavior the chat reads
- * and updates omit. Which rows a call reaches is the caller's to say: every
- * read carries the chat read scope (live rows, the caller's row-level read
- * rule), and an update names the ids the chat write gate admitted. A chat
- * delete is not here at all — it goes through the records API's soft delete.
+ * It writes nothing. A chat create, update or delete goes through the records
+ * API's one write road for its operation (`chat-write-gate.ts`), so it carries
+ * the validation, activity entry, record automations and webhooks every other
+ * write of the same record carries.
  *
  * Implementation lives in the infrastructure layer
  * (`dynamic-record-repository-live.ts`).
@@ -125,30 +120,12 @@ export interface DynamicRecordCondition {
   readonly value?: unknown
 }
 
-/** Inputs for inserting one row; an empty payload uses `DEFAULT VALUES`. */
-export interface DynamicRecordInsertInput {
-  readonly table: string
-  readonly data: Readonly<Record<string, unknown>>
-}
-
-/**
- * Inputs for updating the rows named by `ids`. The ids are the ones the chat
- * write gate admitted for the caller; `readScope` (the live rows) is ANDed on
- * so a row moved to the trash since it was admitted is not written.
- */
-export interface DynamicRecordUpdateByIdsInput {
-  readonly table: string
-  readonly ids: ReadonlyArray<string | number>
-  readonly data: Readonly<Record<string, unknown>>
-  readonly readScope?: DynamicRecordReadScope | undefined
-}
-
 /**
  * Dynamic-Record Repository Port.
  *
  * Every method targets a user-defined table by name and returns plain raw
- * result shapes — no authorship, no cascade. A delete is not here: the chat
- * deletes through the records API's own soft delete.
+ * result shapes. Reads only: a chat write goes through the records API's write
+ * road for its operation.
  */
 export class DynamicRecordRepository extends Context.Service<
   DynamicRecordRepository,
@@ -172,13 +149,5 @@ export class DynamicRecordRepository extends Context.Service<
     readonly list: (
       input: DynamicRecordListInput
     ) => Effect.Effect<ReadonlyArray<Record<string, unknown>>, DynamicRecordError>
-    /** Insert one row; resolves the generated `id` (`RETURNING id`). */
-    readonly insert: (
-      input: DynamicRecordInsertInput
-    ) => Effect.Effect<number | string, DynamicRecordError>
-    /** Update the rows named by `ids`; resolves the affected record ids (`RETURNING id`). */
-    readonly updateByIds: (
-      input: DynamicRecordUpdateByIdsInput
-    ) => Effect.Effect<ReadonlyArray<number | string>, DynamicRecordError>
   }
 >()('DynamicRecordRepository') {}

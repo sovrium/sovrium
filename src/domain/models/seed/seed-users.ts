@@ -26,6 +26,25 @@
  * read as the other: an accounts file carries no `records:`, and a table file
  * carries no `users:`.
  *
+ * ## Invited accounts
+ *
+ * `invited: true` creates the account as a PENDING invitation instead: no
+ * password, no credential, and an invitation link the person opens to choose
+ * their own password and join. `invitedBy` names the account the invitation is
+ * from, so the invitation page can say who sent it. No email is sent; the run
+ * prints each new invitation's link, once.
+ *
+ * ```yaml
+ *   - email: chloe@northwind.example
+ *     name: Chloé Martin
+ *     role: member
+ *     invited: true
+ *     invitedBy: ines@northwind.example
+ * ```
+ *
+ * The token is never written in the file: a template ships its seed folder
+ * publicly, and a token everyone can read is an invitation anyone can accept.
+ *
  * ## Why the password is optional
  *
  * A template ships its seed folder publicly. A password written in it is a
@@ -56,12 +75,44 @@ export const SeedAccountSchema = Schema.Struct({
   password: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
-        description: 'The sign-in password. When omitted, SOVRIUM_SEED_PASSWORD is used.',
+        description:
+          'The sign-in password. When omitted, SOVRIUM_SEED_PASSWORD is used. Not allowed on an invited account.',
       })
     )
   ),
+  invited: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotate({
+        description:
+          'Create the account as a pending invitation: no password, and an invitation link printed by the run instead of an email.',
+      })
+    )
+  ),
+  invitedBy: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Email of the account the invitation is from, shown on the invitation page. Only on an invited account.',
+      }),
+      Schema.check(Schema.isNonEmpty({ message: 'invitedBy must not be empty' }))
+    )
+  ),
 }).pipe(
-  Schema.annotate({ title: 'Seed Account', description: 'One sign-in account a seed run creates.' })
+  Schema.annotate({
+    title: 'Seed Account',
+    description: 'One sign-in account a seed run creates.',
+  }),
+  Schema.check(
+    Schema.makeFilter((account) => {
+      if (account.invited === true && account.password !== undefined) {
+        return `"${account.email}" is invited, so it takes no password: the invitee chooses one when accepting.`
+      }
+      if (account.invitedBy !== undefined && account.invited !== true) {
+        return `"${account.email}" names invitedBy but is not invited: add invited: true, or remove invitedBy.`
+      }
+      return true
+    })
+  )
 )
 
 export type SeedAccount = Schema.Schema.Type<typeof SeedAccountSchema>

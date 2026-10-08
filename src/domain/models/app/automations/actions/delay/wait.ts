@@ -40,7 +40,7 @@ export const DelayWaitActionSchema = Schema.Struct({
       Schema.String.pipe(
         Schema.annotate({
           description:
-            'Delay duration: number + unit (ms, s, m, h, d). Examples: "30s", "5m", "24h", "7d"',
+            'Delay duration: number + unit (ms, s, m, h, d), at most 90 days. Up to one minute the run sleeps in place; longer, it is parked and resumed from the database within about a minute of the time. Examples: "30s", "5m", "24h", "7d"',
         }),
         Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/))
       )
@@ -51,7 +51,7 @@ export const DelayWaitActionSchema = Schema.Struct({
       TemplateStringSchema.pipe(
         Schema.annotate({
           description:
-            'ISO 8601 datetime or template variable to wait until. Example: "2025-12-01T09:00:00Z"',
+            'ISO 8601 datetime or template variable to wait until, at most 90 days ahead. Without an offset it is read in the operator time zone (SOVRIUM_TIMEZONE); a bare date is its midnight. Example: "2025-12-01T09:00:00Z"',
         })
       )
     ),

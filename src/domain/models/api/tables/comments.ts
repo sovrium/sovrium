@@ -179,16 +179,31 @@ export const recordHistoryEntrySchema = Schema.Struct({
       ),
     }).annotate({ description: 'Who made the change; absent when no user made it' })
   ),
+  userName: Schema.NullOr(Schema.String).annotate({
+    description:
+      "The name of the person who made the change — the same name `user` carries — or null when no person made it. Flat, so a page's row template can print it.",
+  }),
 }).annotate({ identifier: 'RecordHistoryEntry' })
 
 /**
  * Get record history response schema
  *
  * GET /api/tables/:tableId/records/:recordId/history
+ *
+ * Reads `limit` and `offset`, or `page` (one-based, read as
+ * `offset = (page - 1) × limit` when no `offset` is given), and
+ * `sort=createdAt:asc|desc` (oldest first when absent). `total` sits at the top
+ * of the answer as well as in `pagination`, so a list bound to this endpoint
+ * through a system source reads it with a flat `totalKey`.
  */
 export const getRecordHistoryResponseSchema = Schema.Struct({
   history: Schema.Array(recordHistoryEntrySchema).annotate({
-    description: 'List of history entries',
+    description:
+      'List of history entries, oldest first; `sort=createdAt:desc` answers newest first',
+  }),
+  total: Schema.Int.annotate({
+    description:
+      'How many entries the whole history holds, whatever page was asked for — the same number as `pagination.total`',
   }),
   pagination: optionalField(
     Schema.Struct({

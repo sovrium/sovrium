@@ -7,7 +7,7 @@
 
 /**
  * The chat write gate: which rows an AI-driven update or delete may reach for
- * the user who asked for it, and the two commits that reach them.
+ * the user who asked for it, and the three commits a chat turn writes through.
  *
  * ONE gate for every chat write door — an update by id, a bulk update, a
  * (filtered) delete — and for the number a confirmation prompt quotes:
@@ -24,24 +24,36 @@
  *
  * The admitted ids are what a write reaches: the confirmation counts them, the
  * confirmed commit writes them, so the number quoted and the rows written can
- * never disagree. A delete is the records API's soft delete
- * (`deleteRecordProgram`) — the row goes to the trash, with its activity entry
- * and its record triggers — never a hard `DELETE`.
+ * never disagree.
+ *
+ * Every commit goes through the records API's one write road for its
+ * operation, as the user who asked: a create through
+ * `createRecordWithSideEffects`, an update through `updateRecordWithSideEffects`
+ * once per admitted row, a delete through `deleteRecordWithSideEffects` once
+ * per admitted row — to the trash, never a hard `DELETE`. So a record the
+ * assistant writes carries what the same write through the records API
+ * carries: its validation and authorship stamps, its activity entry, the
+ * table's record automations and its webhooks, one event per row.
  */
 
 import { Effect } from 'effect'
 import {
   countDynamicRecords,
   listDynamicRecords,
-  updateDynamicRecordsByIds,
 } from '@/application/use-cases/ai/dynamic-record-query'
 import { buildSyntheticSession } from '@/application/use-cases/automations/build-guest-session'
 import {
   authorizeCallerWrites,
   type CallerWriteRequest,
 } from '@/application/use-cases/tables/permissions/caller-write-authority'
-import { deleteRecordProgram } from '@/application/use-cases/tables/record-lifecycle-programs'
+import {
+  createRecordWithSideEffects,
+  deleteRecordWithSideEffects,
+  updateRecordWithSideEffects,
+} from '@/application/use-cases/tables/record-write-roads'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logError } from '@/infrastructure/logging/logger'
+import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
 import { readScopeOf, resolveChatRowScope } from './chat-read-scope'
 import type { App } from '@/domain/models/app'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
@@ -128,45 +140,92 @@ export const admittedWriteIds = async (
   return candidates.filter((_, index) => verdicts[index] === true)
 }
 
+/** The user a chat commit writes as: the one who asked, with her role and groups. */
+export type ChatCaller = Pick<ChatWriter, 'services' | 'app' | 'userId' | 'userRole' | 'userGroups'>
+
+/** What every chat write hands its write road about the user who asked. */
+const callerOf = (caller: ChatCaller) => {
+  const session = buildSyntheticSession(caller.userId)
+  return {
+    session,
+    app: caller.app,
+    userRole: caller.userRole,
+    userGroups: caller.userGroups,
+    linkReader: { session, role: caller.userRole, groups: caller.userGroups },
+    processEnv: process.env,
+  }
+}
+
+/** Create one record as the caller, through the records API's create road; resolves its id. */
+export const commitChatCreate = async (
+  caller: ChatCaller,
+  tableName: string,
+  data: Readonly<Record<string, unknown>>
+): Promise<string> => {
+  const created = await Effect.runPromise(
+    createRecordWithSideEffects({
+      ...callerOf(caller),
+      tableName,
+      fields: data,
+      isSqlite: isSqliteRuntime(),
+    }).pipe(Effect.provide(caller.services))
+  )
+  return created.id
+}
+
 /**
- * Write `change` onto the admitted rows; resolves the ids written. Live rows
- * only: a row moved to the trash since it was admitted is not written.
+ * Write `change` onto each admitted row, one update at a time, as the caller;
+ * resolves the ids written. A row that cannot be written (moved to the trash
+ * since it was admitted, refused by the database) is left as it is, logged.
  */
 export const commitChatUpdate = async (
-  services: DomainContext,
+  caller: ChatCaller,
   tableName: string,
   ids: readonly string[],
   change: Readonly<Record<string, unknown>>
 ): Promise<readonly string[]> => {
-  const written = await Effect.runPromise(
-    updateDynamicRecordsByIds({
-      table: tableName,
-      ids,
-      data: change,
-      ...readScopeOf({ kind: 'all' }),
-    }).pipe(Effect.provide(services))
+  const outcomes = await Effect.runPromise(
+    Effect.forEach(ids, (recordId) =>
+      updateRecordWithSideEffects({
+        ...callerOf(caller),
+        ...{ tableName, recordId, fields: change },
+        isSqlite: isSqliteRuntime(),
+        forgetDerivedVariants: evictTransformCacheForKey,
+      }).pipe(
+        Effect.map((written) => (written === undefined ? undefined : recordId)),
+        Effect.tapCause((cause) =>
+          Effect.sync(() => {
+            logError('[ai-chat] updating a record failed', cause, { table: tableName })
+          })
+        ),
+        // effect-swallow: one row that cannot be written must not stop the others; it stays as it was and is not reported updated.
+        Effect.orElseSucceed(() => undefined)
+      )
+    ).pipe(Effect.provide(caller.services))
   )
-  return written.map(String)
+  return outcomes.filter((id): id is string => id !== undefined)
 }
 
 /**
  * Move the admitted rows to the trash, as the records API's delete does, on
- * behalf of `userId`; resolves the ids trashed. A row that cannot be trashed
+ * behalf of the caller; resolves the ids trashed. A row that cannot be trashed
  * (already in the trash, held by a restrict link) is left as it is, logged.
  */
 export const commitChatDelete = async (input: {
-  readonly services: DomainContext
-  readonly app: App
-  readonly userId: string
+  readonly caller: ChatCaller
   readonly tableName: string
   readonly ids: readonly string[]
 }): Promise<readonly string[]> => {
-  const { services, app, userId, tableName, ids } = input
-  const session = buildSyntheticSession(userId)
+  const { caller, tableName, ids } = input
+  const { session, app, processEnv } = callerOf(caller)
   const outcomes = await Effect.runPromise(
-    Effect.forEach(ids, (id) =>
-      deleteRecordProgram(session, tableName, id, app).pipe(
-        Effect.map((result) => (result.success ? id : undefined)),
+    Effect.forEach(ids, (recordId) =>
+      deleteRecordWithSideEffects({
+        ...{ session, app, tableName, recordId, processEnv },
+        mode: 'soft',
+        forgetDerivedVariants: evictTransformCacheForKey,
+      }).pipe(
+        Effect.map((result) => (result.success ? recordId : undefined)),
         Effect.tapCause((cause) =>
           Effect.sync(() => {
             logError('[ai-chat] moving a record to the trash failed', cause, { table: tableName })
@@ -175,7 +234,7 @@ export const commitChatDelete = async (input: {
         // effect-swallow: one row that cannot be trashed must not stop the others; it stays as it was and is not reported deleted.
         Effect.orElseSucceed(() => undefined)
       )
-    ).pipe(Effect.provide(services))
+    ).pipe(Effect.provide(caller.services))
   )
   return outcomes.filter((id): id is string => id !== undefined)
 }

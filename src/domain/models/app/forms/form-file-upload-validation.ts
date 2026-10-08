@@ -88,6 +88,21 @@ const normalizedEntry = (entry: string): string =>
   entry.startsWith('.') || entry.endsWith('/*') ? entry : canonicalMimeType(entry)
 
 /**
+ * The field's `accept` list as the page's file input carries it: each MIME
+ * entry in its registered spelling (`image/jpg` → `image/jpeg`, the type a
+ * browser reports for a `.jpg`, so its file dialog offers the right files),
+ * wildcards and extensions as written, duplicates dropped.
+ */
+export const canonicalAcceptAttribute = (accept: string): string => {
+  const entries = accept
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map(normalizedEntry)
+  return [...new Set(entries)].join(',')
+}
+
+/**
  * Whether the field's `accept` list admits a file of `type` named `name`. An
  * absent or empty list admits every type.
  */

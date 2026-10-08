@@ -58,6 +58,7 @@
  */
 
 import { Effect, Layer as LayerModule, ManagedRuntime } from 'effect'
+import { AssetStore, type AssetStoreShape } from '@/application/ports/services/asset-store'
 import { AutomationRuntimeLayer } from '@/infrastructure/automations/runtime-layer'
 import { makeAiComputeListenerLayer } from '@/infrastructure/database/ai-compute-listener'
 import { makeAiKnowledgeListenerLayer } from '@/infrastructure/database/ai-knowledge-listener'
@@ -111,8 +112,10 @@ import type { Context as HonoContext } from 'hono'
  * module-level `Layer`, so there is no second implementation to disagree with
  * the first.
  */
-const domainLayerFor = (app: App | undefined) =>
+const domainLayerFor = (app: App | undefined, assets: AssetStoreShape | undefined) =>
   LayerModule.mergeAll(
+    // The private assets this server's boot loaded (an empty store when none).
+    LayerModule.succeed(AssetStore, assets ?? AssetStore.defaultValue()),
     createAppLayer(app?.auth),
     AutomationRuntimeLayer,
     // The form-submission extras that are NOT in the automation runtime:
@@ -175,8 +178,8 @@ export type DomainContext = Context.Context<DomainServices>
 // TEXT, and a local alias is exactly the case
 // that lever cannot see — the same disable `observability-runtime.ts` carries on
 // its `ObsRuntime` alias, for the same reason.
-export const createDomainRuntime = (app?: App): DomainRuntime =>
-  ManagedRuntime.make(domainLayerFor(app))
+export const createDomainRuntime = (app?: App, assets?: AssetStoreShape): DomainRuntime =>
+  ManagedRuntime.make(domainLayerFor(app, assets))
 
 /**
  * Release a domain runtime's layer scope, absorbing — but never hiding — a

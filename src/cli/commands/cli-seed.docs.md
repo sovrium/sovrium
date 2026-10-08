@@ -10,6 +10,8 @@ Usage: sovrium seed [config] [options]
 
 It reads `seed/<table>.yaml`, resolves the links between records, expands any date tokens, and writes through the same code path the REST API uses. No server needs to be running.
 
+Seeding is silent: it sends no table webhook and starts no record automation, so reloading demo data on every reset never reaches a receiver or an automation wired to production.
+
 ## The seed directory
 
 One file per table, named after the table:
@@ -122,6 +124,32 @@ users:
 The `users:` key is what tells this file apart from the seed file of a table named `users`, which uses `records:`.
 
 A `user` field takes `'@user:<email>'`, resolved to that account's id. An email with no account is refused with the file, record, field and email.
+
+### Pending invitations
+
+An entry with `invited: true` is seeded as a pending invitation instead of an account that signs in: it takes no `password` (and needs no `SOVRIUM_SEED_PASSWORD`), gets no credential, and is listed among the team's waiting invitations. `invitedBy` names the account the invitation is from, so the invitation page can say who sent it; it must exist already or be listed in the same file without `invited`, and cannot be an account still waiting to accept its own invitation, since that account cannot sign in yet.
+
+```yaml
+# seed/users.yaml
+users:
+  - email: ines@northwind.example
+    name: Inès Moreau
+    role: admin
+  - email: chloe@northwind.example
+    name: Chloé Martin
+    role: member
+    invited: true
+    invitedBy: ines@northwind.example
+```
+
+No email is sent. The run generates the invitation's token and prints its link once — the link an invitation email would carry, on the page the app declares for invitations. A seed run answers no request, so the link starts with `BASE_URL` when it is set and is the page's path alone otherwise:
+
+```text
+accounts: created 1, invited 1, 0 already present
+invitation: chloe@northwind.example → /join?token=…
+```
+
+The token is never read from a file, so a seed folder published with a template holds nothing anyone could accept. A replay leaves an existing invitation and its link as they are; an invitation that has lapsed is renewed with **Resend** in the console. `--dry-run` counts the invitations it would create and prints no link.
 
 ## Options
 

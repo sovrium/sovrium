@@ -130,21 +130,21 @@ A `404` means the route is not mounted and every span you export is discarded. A
 
 This is why traces and metrics each have their own gate. The base endpoint arms log export and nothing else; spans and metric datapoints need their own variables. One variable per signal is what lets you run logs against a backend that mounts a logs route without pushing metrics at one that answers `404`, and lets you turn either off without losing the other. **The per-signal variables are used verbatim**: include the path yourself, since nothing is appended for you.
 
-| Variable                              | Default                        | Description                                                |
-| ------------------------------------- | ------------------------------ | ---------------------------------------------------------- |
-| `SENTRY_DSN`                          | unset (off)                    | Gates error reporting                                      |
-| `SENTRY_ENVIRONMENT`                  | `NODE_ENV`, else `development` | Environment label attached to events                       |
-| `SENTRY_TRACES_SAMPLE_RATE`           | unset (off)                    | Performance sampling rate in (0,1]; needs a DSN            |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`         | unset (off)                    | Base OTLP URL. Arms **log export only**                    |
-| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`    | derived from base              | Full logs URL, used verbatim                               |
-| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | unset (off)                    | Arms metric export; the base endpoint alone does not       |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`  | unset (off)                    | Arms trace export; the backend must mount the traces route |
-| `OTEL_EXPORTER_OTLP_HEADERS`          | —                              | Export headers as `k=v,k2=v2`                              |
-| `OTEL_SERVICE_NAME`                   | the app name                   | The service-name resource attribute                        |
-| `OTEL_METRIC_EXPORT_INTERVAL`         | `10000`                        | Metrics poll interval, in milliseconds                     |
-| `OTEL_TRACES_SAMPLER`                 | `parentbased_traceidratio`     | Sampler name; an unknown one aborts the boot               |
-| `OTEL_TRACES_SAMPLER_ARG`             | `0.1`                          | Sampling ratio in [0,1] for ratio-based samplers           |
-| `LOG_LEVEL`                           | `info`                         | `debug`, `info`, `warn` or `error`                         |
+| Variable                              | Default                        | Description                                                                                           |
+| ------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `SENTRY_DSN`                          | unset (off)                    | Gates error reporting                                                                                 |
+| `SENTRY_ENVIRONMENT`                  | `NODE_ENV`, else `development` | Environment label attached to events                                                                  |
+| `SENTRY_TRACES_SAMPLE_RATE`           | unset (off)                    | Performance sampling rate in (0,1]; needs a DSN                                                       |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`         | unset (off)                    | Base OTLP URL. Arms **log export only**                                                               |
+| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`    | derived from base              | Full logs URL, used verbatim                                                                          |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | unset (off)                    | Arms metric export; the base endpoint alone does not                                                  |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`  | unset (off)                    | Arms trace export; the backend must mount the traces route                                            |
+| `OTEL_EXPORTER_OTLP_HEADERS`          | —                              | Export headers as `k=v,k2=v2`                                                                         |
+| `OTEL_SERVICE_NAME`                   | the app name                   | The service-name resource attribute                                                                   |
+| `OTEL_METRIC_EXPORT_INTERVAL`         | `10000`                        | Metrics poll interval, in milliseconds                                                                |
+| `OTEL_TRACES_SAMPLER`                 | `parentbased_traceidratio`     | Sampler name; an unknown one aborts the boot                                                          |
+| `OTEL_TRACES_SAMPLER_ARG`             | `0.1`                          | Sampling ratio in [0,1] for ratio-based samplers                                                      |
+| `LOG_LEVEL`                           | `info`                         | `debug`, `info`, `warn` or `error`; `SOVRIUM_LOG_FORMAT` in **Env Vars: Hosting** sets the line shape |
 
 ## Static builds
 

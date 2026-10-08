@@ -7,7 +7,10 @@
 
 import { Effect } from 'effect'
 import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
-import { isSelfContainedSource, resolveSource, tempKey, uploadArtifact } from './file-support'
+import { writeGeneratedFile } from './document-output'
+import { outputPropOf, runDocumentAction } from './document-run'
+import { generateXlsxFromTemplate } from './document-xlsx-template'
+import { isSelfContainedSource, resolveSource } from './file-support'
 import { applyCellRange, parseCellRange, readXlsx, type XlsxCell } from './file-xlsx-parse'
 import { buildXlsx, type XlsxSheetInput } from './file-xlsx-write'
 import { resolveOwnProps } from './run-context-resolution'
@@ -15,7 +18,7 @@ import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
 /**
- * `file/parseXlsx` and `file/generateXlsx` — the two halves of the `.xlsx`
+ * `file/parseXlsx` and `document/generateXlsx` — the two halves of the `.xlsx`
  * codec. The format work itself is pure and lives in the sibling modules
  * `file-zip-read.ts`, `file-xlsx-xml.ts`, `file-xlsx-parse.ts` and
  * `file-xlsx-write.ts`; this file is storage-port glue.
@@ -216,30 +219,26 @@ const sheetInputsFor = (p: Readonly<Record<string, unknown>>): ReadonlyArray<Xls
   ]
 }
 
-export const handleFileGenerateXlsx: ActionHandler = (action, _app, _automation, runContext) =>
+export const handleDocumentGenerateXlsx: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const p = resolvedProps(action, runContext)
+    if (p['template'] !== undefined) {
+      return yield* generateXlsxFromTemplate(p, app, automation, runContext)
+    }
     const built = buildXlsx(sheetInputsFor(p))
     if (!built.ok) return failure(built.message)
-
-    const destination = optionalString(p, 'destination')
-    const key = destination ?? tempKey('.xlsx')
-    const storage = yield* StorageService
-    const wrote = yield* uploadArtifact(storage, key, built.bytes, XLSX_CONTENT_TYPE)
-    if (!wrote) return failure(`failed to write xlsx to ${key}`)
-
-    const base = {
-      key,
-      filename: optionalString(p, 'filename') ?? 'export.xlsx',
-      contentType: XLSX_CONTENT_TYPE,
-      size: built.bytes.length,
-    }
-    return {
-      status: 'success',
-      output: destination ? { ...base, path: destination } : { ...base, temporary: true },
-    } as const
+    return yield* runDocumentAction(
+      'document.generateXlsx',
+      writeGeneratedFile({
+        output: { filename: 'export.xlsx', ...outputPropOf(p) },
+        file: { bytes: built.bytes, contentType: XLSX_CONTENT_TYPE },
+        app,
+        automation,
+        runContext,
+      })
+    )
   }).pipe(
-    Effect.withSpan('automations.handle-file-generate-xlsx', {
+    Effect.withSpan('automations.handle-document-generate-xlsx', {
       attributes: actionAttributes(action),
     })
   )

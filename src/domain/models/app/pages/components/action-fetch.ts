@@ -180,6 +180,44 @@ const FetchSuccessReloadSchema = Schema.Boolean.annotate({
 })
 
 /**
+ * The fields of {@link FetchSuccessResponseSchema}, before its check. Exported so
+ * a success slot that sits somewhere the fetch action does not can add effects
+ * only it can honour — the endpoint form's `close` and `reset` — without the
+ * fetch action, the file upload and every other consumer of the shared slot
+ * gaining keys they would leave inert.
+ */
+export const fetchSuccessResponseFields = {
+  ...FetchToastResponseSchema.fields,
+  /** Persistent inline `role="status"` region populated on success. */
+  status: Schema.optional(FetchSuccessStatusSchema),
+  /** Sibling data-bound component id(s) to re-query on success. */
+  refetch: Schema.optional(FetchSuccessRefetchSchema),
+  /** Reload the whole page on success so the server recomposes it. */
+  reload: Schema.optional(FetchSuccessReloadSchema),
+} as const
+
+/**
+ * The reason a success slot declaring `reload` beside a same-page effect is
+ * refused, or `true` when it is not. Shared by every slot built on
+ * {@link fetchSuccessResponseFields}, so the refusal reads the same wherever an
+ * author meets it.
+ */
+export const fetchSuccessReloadConflict = (response: {
+  readonly reload?: boolean | undefined
+  readonly status?: unknown
+  readonly refetch?: unknown
+}): true | string => {
+  if (response.reload !== true) return true
+  if (response.status !== undefined) {
+    return "onSuccess declares both 'reload' and 'status' — the reload replaces the document the status region lives in, so the message would be destroyed before anyone read it. Keep one: 'reload' to recompose the page server-side, or 'status' to write a persistent inline message into the page that stays."
+  }
+  if (response.refetch !== undefined) {
+    return "onSuccess declares both 'reload' and 'refetch' — a reload re-reads the whole page, so the narrower per-region re-query is subsumed and its read would run twice. Keep one: 'reload' when a server-read value changed, or 'refetch' when only one named region needs re-querying."
+  }
+  return true
+}
+
+/**
  * Success response for a `fetch` action — the toast slot PLUS the additive
  * client-state effects (`status`, `refetch`, `reload`).
  *
@@ -211,32 +249,13 @@ const FetchSuccessReloadSchema = Schema.Boolean.annotate({
  * the design-system console's Configuration table with nothing reporting it.
  * Measured on `effect@4.0.0-rc.108`; re-measured on `effect@4.0.0`.
  */
-export const FetchSuccessResponseSchema = Schema.Struct({
-  ...FetchToastResponseSchema.fields,
-  /** Persistent inline `role="status"` region populated on success. */
-  status: Schema.optional(FetchSuccessStatusSchema),
-  /** Sibling data-bound component id(s) to re-query on success. */
-  refetch: Schema.optional(FetchSuccessRefetchSchema),
-  /** Reload the whole page on success so the server recomposes it. */
-  reload: Schema.optional(FetchSuccessReloadSchema),
-}).pipe(
+export const FetchSuccessResponseSchema = Schema.Struct(fetchSuccessResponseFields).pipe(
   Schema.annotate({
     title: 'Fetch Success Response',
     description:
       'Success handler for a fetch action: the toast slot plus optional client-state effects — a persistent inline status region (status), a sibling data-bound refetch (refetch), and a full-page reload (reload) that recomposes the page server-side. reload is mutually exclusive with status and refetch.',
   }),
-  Schema.check(
-    Schema.makeFilter((response) => {
-      if (response.reload !== true) return true
-      if (response.status !== undefined) {
-        return "onSuccess declares both 'reload' and 'status' — the reload replaces the document the status region lives in, so the message would be destroyed before anyone read it. Keep one: 'reload' to recompose the page server-side, or 'status' to write a persistent inline message into the page that stays."
-      }
-      if (response.refetch !== undefined) {
-        return "onSuccess declares both 'reload' and 'refetch' — a reload re-reads the whole page, so the narrower per-region re-query is subsumed and its read would run twice. Keep one: 'reload' when a server-read value changed, or 'refetch' when only one named region needs re-querying."
-      }
-      return true
-    })
-  )
+  Schema.check(Schema.makeFilter(fetchSuccessReloadConflict))
 )
 
 /**

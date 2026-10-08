@@ -20,6 +20,7 @@ import {
   computeGroupedAggregations,
   readManyToMany,
   readRelatedLabels,
+  isFileNamedByAnyRecord,
 } from '@/infrastructure/database/table-queries'
 
 /**
@@ -41,4 +42,5 @@ export const TableRepositoryLive = Layer.succeed(TableRepository, {
   computeGroupedAggregations,
   readManyToMany,
   readRelatedLabels,
+  isFileNamedByAnyRecord,
 })

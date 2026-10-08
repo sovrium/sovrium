@@ -22,6 +22,20 @@ export class EmailSendError extends Data.TaggedError('EmailSendError')<{
   readonly message: string
 }> {}
 
+/** A file attached to a message, whole. */
+export interface EmailAttachment {
+  readonly filename: string
+  readonly contentType: string
+  readonly content: Uint8Array
+  /**
+   * Set for a picture the HTML shows inline (`<img src="cid:…">`): the part
+   * travels as an inline part under this content id rather than as a file to
+   * download. A transport that cannot carry inline parts writes the picture
+   * into the HTML as a `data:` URL instead.
+   */
+  readonly contentId?: string | undefined
+}
+
 export interface OutgoingEmail {
   readonly to: string
   readonly subject: string
@@ -38,6 +52,8 @@ export interface OutgoingEmail {
   readonly cc?: readonly string[] | undefined
   readonly bcc?: readonly string[] | undefined
   readonly replyTo?: readonly string[] | undefined
+  /** Files attached to the message; every transport carries them or fails the send. */
+  readonly attachments?: readonly EmailAttachment[] | undefined
 }
 
 export class EmailSender extends Context.Service<

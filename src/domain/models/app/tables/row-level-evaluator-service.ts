@@ -37,6 +37,7 @@
  */
 
 import { normalizeCurrentUserRef } from '@/domain/models/app/pages/current-user-ref'
+import { chainLeafKey, isRowRuleChain, parseRowRuleChain } from './row-rule-chain-service'
 import type {
   RowLevelPermissions,
   RowLevelPredicate,
@@ -120,6 +121,12 @@ export interface CurrentUserContext {
    * see {@link signedOutContext}.
    */
   readonly signedOut?: boolean
+  /**
+   * For each `<relationship>.<column>` leaf of the rules (`chainLeafKey`): the
+   * ids of the related rows the leaf admits, looked up once for this reader. A
+   * chain leaf with no entry admits no row — see `row-rule-chain-service.ts`.
+   */
+  readonly chainMatches?: ReadonlyMap<string, readonly unknown[]>
 }
 
 /**
@@ -268,6 +275,7 @@ export const projectPredicateToFilter = (
   | undefined => {
   const op = mapRowLevelOperator(predicate.operator)
   if (!op) return undefined
+  if (isRowRuleChain(predicate.field)) return projectChainLeaf(predicate, ctx)
 
   const resolved = resolvePredicateValue(predicate.value, ctx)
   if (resolved === undefined) return undefined
@@ -347,6 +355,32 @@ export const projectWhenToFilter = (
 }
 
 /**
+ * A chain leaf as the SQL list asks it: the row's relationship is one of the
+ * related rows the leaf admits. `undefined` (no row visible) when the chain
+ * cannot be followed or was not looked up for this reader.
+ */
+const projectChainLeaf = (
+  predicate: RowLevelPredicate,
+  ctx: CurrentUserContext
+): RowLevelLeafClause | undefined => {
+  const chain = parseRowRuleChain(predicate.field)
+  const ids = ctx.chainMatches?.get(chainLeafKey(predicate))
+  if (chain === undefined || ids === undefined) return undefined
+  return { field: chain.relation, operator: 'in', value: ids }
+}
+
+/** A chain leaf against one record: its relationship points at an admitted related row. */
+const evaluateChainLeaf = (
+  record: Readonly<Record<string, unknown>>,
+  predicate: RowLevelPredicate,
+  ctx: CurrentUserContext
+): boolean => {
+  const clause = projectChainLeaf(predicate, ctx)
+  if (clause === undefined) return false
+  return compareValues('in', record[clause.field], clause.value as ResolvedPredicateValue)
+}
+
+/**
  * Evaluate a single `field/operator/value` triple against a record (base
  * case of {@link evaluateRecordAgainstPredicate}).
  */
@@ -355,6 +389,7 @@ const evaluateTriple = (
   predicate: RowLevelPredicate,
   ctx: CurrentUserContext
 ): boolean => {
+  if (isRowRuleChain(predicate.field)) return evaluateChainLeaf(record, predicate, ctx)
   const resolved = resolvePredicateValue(predicate.value, ctx)
   if (resolved === undefined) return false
 

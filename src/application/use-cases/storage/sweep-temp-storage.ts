@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Effect, Ref } from 'effect'
 import { UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
 import { parseStorageTempCleanupAfter } from '@/domain/models/process-env/storage/storage-temp-cleanup-after'
@@ -24,6 +24,12 @@ import type { StorageService } from '@/application/ports/services/storage-servic
  * pass. The accepted cost is that the last temp file written before an app
  * goes idle lingers until the next temp write.
  *
+ * A sweep lists every temp file, so it runs at most once per
+ * {@link sweepIntervalFor} per process rather than on EVERY temp write: a
+ * loop writing a thousand temp files lists the folder a handful of times, not
+ * a thousand. A file is therefore reclaimed between `STORAGE_TEMP_CLEANUP_AFTER`
+ * and that plus the interval after it was written — never before.
+ *
  * Composed entirely from the storage port (`list` / `getMetadata` / `delete`),
  * so it works identically on every backend — including the local filesystem,
  * which is the zero-config default and has no lifecycle rules of its own.
@@ -41,6 +47,31 @@ type StoragePort = Effect.Success<typeof StorageService>
  */
 const TEMP_LIST_PREFIX = TEMP_STORAGE_PREFIX.replace(/\/$/, '')
 
+/** The longest wait between two sweeps of one process. */
+export const SWEEP_INTERVAL_CAP_MS = 60_000
+
+/**
+ * The least time between two sweeps: the TTL itself, capped at a minute. A
+ * short TTL keeps the folder within twice its age; a long one is not listed
+ * more than once a minute.
+ */
+export const sweepIntervalFor = (ttlMs: number): number => Math.min(ttlMs, SWEEP_INTERVAL_CAP_MS)
+
+/** When this process last swept, in epoch milliseconds. */
+export type SweepClock = Ref.Ref<number>
+
+/** A fresh clock: the next sweep runs whatever the interval. */
+export const makeSweepClock = (): SweepClock => Ref.makeUnsafe(Number.NEGATIVE_INFINITY)
+
+/** The process's own clock, shared by every temp write. */
+const processSweepClock = makeSweepClock()
+
+/** Whether a sweep is due at `now`; claims it when it is, so concurrent writes sweep once. */
+const claimSweep = (clock: SweepClock, ttlMs: number, now: number): Effect.Effect<boolean> =>
+  Ref.modify(clock, (last): readonly [boolean, number] =>
+    now - last >= sweepIntervalFor(ttlMs) ? [true, now] : [false, last]
+  )
+
 export interface SweepTempStorageOptions {
   /**
    * A key to leave alone regardless of age — the file the triggering write
@@ -50,6 +81,10 @@ export interface SweepTempStorageOptions {
    */
   readonly preserve?: string
   readonly env?: Readonly<Record<string, string | undefined>>
+  /** When the last sweep ran; the process's own unless a test provides one. */
+  readonly clock?: SweepClock
+  /** The current time; `Date.now` unless a test provides one. */
+  readonly now?: () => number
 }
 
 /**
@@ -92,11 +127,14 @@ export const sweepAgedTempFiles = (
   Effect.gen(function* () {
     const ttlMs = parseStorageTempCleanupAfter(options?.env ?? process.env)
     if (ttlMs <= 0) return
+    const now = (options?.now ?? Date.now)()
+    const due = yield* claimSweep(options?.clock ?? processSweepClock, ttlMs, now)
+    if (!due) return
 
     const listed = yield* Effect.result(storage.list(TEMP_LIST_PREFIX))
     if (listed._tag === 'Failure') return
 
-    const cutoff = Date.now() - ttlMs
+    const cutoff = now - ttlMs
     const candidates = listed.success.filter(
       (key) => key.startsWith(TEMP_STORAGE_PREFIX) && key !== options?.preserve
     )

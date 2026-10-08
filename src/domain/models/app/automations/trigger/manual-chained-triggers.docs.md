@@ -16,13 +16,27 @@ trigger:
 
 <!-- sovrium:options ManualTriggerSchema -->
 
-Every property is optional; `requiredRole` defaults to `admin`, which the app's highest role satisfies too. Input supplied at trigger time is read at **`{{trigger.input.*}}`** — not `{{trigger.inputData}}`, which is the property name on the calling side and does not resolve here.
+Every property is optional; `requiredRole` defaults to `admin`, which the app's highest role satisfies too.
+
+### Where the input lands
+
+Where a manual run reads what it was given depends on how it was started:
+
+| Started by                                                     | Input read at                                                                                     |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `POST /api/automations/{name}/trigger`, the MCP tool, the chat | **`{{trigger.data.*}}`**: the request body's keys, also at `{{trigger.data.body.*}}`              |
+| A page button, alert-dialog confirm or data form               | **`{{trigger.input.*}}`**, and the same values at `{{trigger.data.*}}`                            |
+| A table's button field                                         | **`{{trigger.input.table}}`**, **`{{trigger.input.recordId}}`** and **`{{trigger.input.field}}`** |
+
+So posting `{"warehouse": "north"}` to the trigger endpoint is read as `{{trigger.data.warehouse}}`, and `{{trigger.input.warehouse}}` is empty in that run. An automation meant to be started both from a page and over the API reads `{{trigger.data.*}}`, which both fill. `{{trigger.inputData}}` resolves nowhere: `inputData` is the property name on the calling side, not a path a run can read.
 
 ### From a page button
 
 A page component whose action is `{ type: automation, name }` — a button, an alert-dialog confirm, a data form — runs that manual automation under the page's own `access` rule: a button on a public page runs for a signed-out visitor, one on a page that requires a session runs only for a signed-in caller. A `requiredRole` the trigger declares still binds on top of the page rule; the implicit `admin` default does not, because the page's `access` rule is the grant. A page never reaches a webhook, schedule, record or form automation, even when a component names one, and an automation no page names cannot be pressed at all: each of those answers exactly as an unknown name does. So does a press of an automation an operator has paused, or one set to `enabled: false`: nothing runs, even though its button is still on the page.
 
 A button the page does not show the caller cannot be pressed by them either. A press counts only the components the page draws for that caller: one left out by its `visibility` — `roles`, `when`, a `$user.*` `condition` or a `capability`, on the component itself or on any container around it — is answered as an unknown name and runs nothing, so an admin-only button on a public page runs for an admin and for no one else. The `record`, `query`, `declares` and `runtime` gates only decide what a page shows; they are not access controls and are not judged at press time.
+
+A button's `onSuccess` and `onError` toasts tell the reader what the press did. With `await: true` the button waits for the run and reads its outcome: `onSuccess` when the run completed, `onError` when it failed — the press itself is answered with `200` either way, so the toast is the only place a failure shows. Without `await` the button shows `onSuccess` as soon as it is pressed, before the run ends. In both modes a press the server refuses, or one that never reaches it, shows `onError`.
 
 A press by a signed-in caller records her as the person who started the run, as the direct trigger does: she may read that run, and replay or cancel it under the trigger's role rule (an admin, by default, when the trigger declares no `requiredRole`). A press with no session records no starter, so only an admin acts on that run. Replaying or cancelling a run is reserved to an admin and to the person who started it by hand, while she still holds the trigger's role; an approver named on the run may read it and decide on its request, not replay or cancel it.
 

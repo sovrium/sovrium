@@ -546,7 +546,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.status.success': 'Success',
         'admin.automations.runs.status.timedOut': 'Timed out',
         'admin.automations.runs.status.waitingApproval': 'Waiting for approval',
+        'admin.automations.runs.status.waitingDelay': 'Waiting to resume',
         'admin.automations.runs.step.filtered': 'Filtered out',
+        'admin.automations.runs.step.waiting': 'Waiting',
         'admin.automations.tabs.automations': 'Automations',
         'admin.automations.tabs.history': 'History',
         'admin.automations.tabs.region': 'Runs sub-views',
@@ -645,6 +647,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.crumb.pages': 'Analytics',
         'admin.crumb.profile': 'My profile',
         'admin.crumb.tables': 'Records',
+        'admin.crumb.templates': 'Templates',
         'admin.crumb.users': 'Users',
         'admin.decisions.back': 'Back to decisions',
         'admin.decisions.blurb':
@@ -880,6 +883,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.meta.release': 'Sovrium — Changelog · Release',
         'admin.meta.resetPassword': 'Sovrium — New password',
         'admin.meta.tables': 'Sovrium — Data · Records',
+        'admin.meta.templates': 'Sovrium — Data · Templates',
         'admin.meta.userAccount': 'Sovrium — Data · Account',
         'admin.meta.users': 'Sovrium — Data · Users',
         'admin.meta.welcome': 'Sovrium — Welcome',
@@ -1094,6 +1098,30 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.tables.empty.heading': 'No tables',
         'admin.tables.empty.hint': 'Add a table first — records follow.',
         'admin.tables.heading': 'Records',
+        'admin.templates.blurb':
+          'The documents and emails your automations fill in. Open one to see it filled with its sample data. A template changes in the config, never here.',
+        'admin.templates.empty.body':
+          'This app ships no template. A template is an HTML, SVG, text, Word, Excel or PowerPoint file an automation fills with data — an invoice, a sheet of labels, a reminder email.',
+        'admin.templates.empty.hint':
+          'Declare one under assets in the config, with sampleData to preview it here.',
+        'admin.templates.empty.title': 'No templates',
+        'admin.templates.file.body':
+          'Word, Excel and PowerPoint templates produce a file, so there is nothing to show in the browser. To render it with its sample data, run this in the project folder:',
+        'admin.templates.file.title': 'This template renders to a file',
+        'admin.templates.heading': 'Templates',
+        'admin.templates.list.region': 'Template assets',
+        'admin.templates.noSample.body':
+          'This template declares no sampleData, so its fields render empty. Add sampleData to this asset in the config to preview it filled.',
+        'admin.templates.noSample.title': 'No sample data',
+        'admin.templates.preview.blurb':
+          'This template rendered with its sample data, by the same engine an automation uses.',
+        'admin.templates.preview.document':
+          'Filled with its sample data, as an automation renders it. Scripts and remote images do not load here.',
+        'admin.templates.preview.email':
+          'Shown as email/send delivers it: style rules inlined, the style block removed.',
+        'admin.templates.row.noSample': 'No sample data',
+        'admin.templates.row.readBy': 'Read by',
+        'admin.templates.row.sample': 'Sample data',
         'admin.users.account.back': 'Back to users',
         'admin.users.account.blurb':
           'One account: its role and status, the writes an administrator may make on it, and what the console cannot show about it yet.',
@@ -1263,7 +1291,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.status.success': 'Réussie',
         'admin.automations.runs.status.timedOut': 'Expirée',
         'admin.automations.runs.status.waitingApproval': 'En attente de validation',
+        'admin.automations.runs.status.waitingDelay': 'En attente de reprise',
         'admin.automations.runs.step.filtered': 'Filtrée',
+        'admin.automations.runs.step.waiting': 'En attente',
         'admin.automations.tabs.automations': 'Automatisations',
         'admin.automations.tabs.history': 'Historique',
         'admin.automations.tabs.region': 'Sous-vues Exécutions',
@@ -1362,6 +1392,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.crumb.pages': 'Analytique',
         'admin.crumb.profile': 'Mon profil',
         'admin.crumb.tables': 'Enregistrements',
+        'admin.crumb.templates': 'Modèles',
         'admin.crumb.users': 'Utilisateurs',
         'admin.decisions.back': 'Retour aux décisions',
         'admin.decisions.blurb':
@@ -1598,6 +1629,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.meta.release': 'Sovrium — Journal des versions · Version',
         'admin.meta.resetPassword': 'Sovrium — Nouveau mot de passe',
         'admin.meta.tables': 'Sovrium — Données · Enregistrements',
+        'admin.meta.templates': 'Sovrium — Données · Modèles',
         'admin.meta.userAccount': 'Sovrium — Données · Compte',
         'admin.meta.users': 'Sovrium — Données · Utilisateurs',
         'admin.meta.welcome': 'Sovrium — Bienvenue',
@@ -1816,6 +1848,30 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.tables.empty.heading': 'Aucune table',
         'admin.tables.empty.hint': 'Ajoute une table d’abord — les enregistrements suivront.',
         'admin.tables.heading': 'Enregistrements',
+        'admin.templates.blurb':
+          'Les documents et e-mails que tes automatisations remplissent. Ouvre-en un pour le voir rempli avec ses données d’exemple. Un modèle se modifie dans la configuration, jamais ici.',
+        'admin.templates.empty.body':
+          'Cette application ne déclare aucun modèle. Un modèle est un fichier HTML, SVG, texte, Word, Excel ou PowerPoint qu’une automatisation remplit avec des données : une facture, une planche d’étiquettes, un e-mail de relance.',
+        'admin.templates.empty.hint':
+          'Déclares-en un dans assets, dans la configuration, avec sampleData pour le prévisualiser ici.',
+        'admin.templates.empty.title': 'Aucun modèle',
+        'admin.templates.file.body':
+          'Les modèles Word, Excel et PowerPoint produisent un fichier : il n’y a rien à afficher dans le navigateur. Pour le rendre avec ses données d’exemple, lance cette commande dans le dossier du projet :',
+        'admin.templates.file.title': 'Ce modèle produit un fichier',
+        'admin.templates.heading': 'Modèles',
+        'admin.templates.list.region': 'Modèles déclarés',
+        'admin.templates.noSample.body':
+          'Ce modèle ne déclare pas de sampleData : ses champs s’affichent vides. Ajoute sampleData à cet asset dans la configuration pour le prévisualiser rempli.',
+        'admin.templates.noSample.title': 'Pas de données d’exemple',
+        'admin.templates.preview.blurb':
+          'Ce modèle rendu avec ses données d’exemple, par le même moteur qu’une automatisation.',
+        'admin.templates.preview.document':
+          'Rempli avec ses données d’exemple, comme le rend une automatisation. Les scripts et les images distantes ne se chargent pas ici.',
+        'admin.templates.preview.email':
+          'Affiché tel que email/send le distribue : règles de style intégrées aux éléments, bloc style retiré.',
+        'admin.templates.row.noSample': 'Sans données d’exemple',
+        'admin.templates.row.readBy': 'Lu par',
+        'admin.templates.row.sample': 'Données d’exemple',
         'admin.users.account.back': 'Retour aux utilisateurs',
         'admin.users.account.blurb':
           'Un compte : son rôle et son statut, les écritures qu’une administratrice peut y faire, et ce que la console ne sait pas encore en montrer.',
@@ -2161,6 +2217,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -3614,6 +3679,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -4945,6 +5019,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -5927,6 +6010,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -6582,6 +6674,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -7453,6 +7554,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -8188,6 +8298,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -9211,6 +9330,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -10326,6 +10454,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -11417,6 +11554,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -12884,6 +13030,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -14103,6 +14258,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -15808,6 +15972,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -16878,6 +17051,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -17957,6 +18139,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -18952,6 +19143,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -20441,6 +20641,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -21895,6 +22104,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -22281,6 +22499,10 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       value: 'waiting-approval',
                                     },
                                     {
+                                      label: '$t:admin.automations.runs.status.waitingDelay',
+                                      value: 'waiting-delay',
+                                    },
+                                    {
                                       label: '$t:admin.automations.runs.status.rejected',
                                       value: 'rejected',
                                     },
@@ -22347,14 +22569,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       className:
                                         '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-foreground-subtle',
                                       when: {
-                                        eq: 'Rejected',
-                                      },
-                                    },
-                                    {
-                                      className:
-                                        '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-foreground-subtle',
-                                      when: {
-                                        eq: 'Cancelled',
+                                        in: ['Rejected', 'Cancelled'],
                                       },
                                     },
                                     {
@@ -22375,7 +22590,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       className:
                                         '[&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5 [&>span]:rounded-full [&>span]:border [&>span]:border-border-strong [&>span]:px-2 [&>span]:py-0.5 [&>span]:text-xs [&>span]:text-foreground [&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:bg-foreground-subtle',
                                       when: {
-                                        eq: 'Queued',
+                                        in: ['Queued', 'Waiting to resume'],
                                       },
                                     },
                                     {
@@ -22409,6 +22624,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                     'Timed out': '$t:admin.automations.runs.status.timedOut',
                                     'Waiting for approval':
                                       '$t:admin.automations.runs.status.waitingApproval',
+                                    'Waiting to resume':
+                                      '$t:admin.automations.runs.status.waitingDelay',
                                   },
                                 },
                                 {
@@ -23017,6 +23234,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -24056,6 +24282,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -24736,6 +24971,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -25406,6 +25650,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -26085,6 +26338,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -27164,6 +27426,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -27804,6 +28075,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -28614,6 +28894,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -29399,6 +29688,1731 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'agents-nav-children',
+                          },
+                          href: '/agents',
+                          icon: 'message-square',
+                          label: '$t:admin.crumb.agents',
+                          props: {
+                            'data-testid': 'data-nav-agents',
+                          },
+                          source: {
+                            endpoint: '/api/admin/agents',
+                            hrefTemplate: '/agents/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-agents-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/links',
+                          icon: 'link',
+                          label: '$t:admin.crumb.links',
+                          props: {
+                            'data-testid': 'data-nav-links',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.application',
+                      landmark: '$t:admin.nav.landmark.data',
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/connections',
+                          icon: 'plug',
+                          label: '$t:admin.crumb.connections',
+                          props: {
+                            'data-testid': 'data-nav-connections',
+                          },
+                        },
+                        {
+                          href: '/api',
+                          icon: 'code',
+                          label: '$t:admin.crumb.api',
+                          props: {
+                            'data-testid': 'developer-nav-api',
+                          },
+                        },
+                        {
+                          href: '/mcp',
+                          icon: 'bot',
+                          label: '$t:admin.crumb.mcp',
+                          props: {
+                            'data-testid': 'developer-nav-mcp',
+                          },
+                        },
+                        {
+                          href: '/changelog',
+                          icon: 'history',
+                          label: '$t:admin.crumb.changelog',
+                          props: {
+                            'data-testid': 'developer-nav-changelog',
+                          },
+                        },
+                        {
+                          href: '/env',
+                          icon: 'settings',
+                          label: '$t:admin.crumb.env',
+                          props: {
+                            'data-testid': 'developer-nav-env',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.developers',
+                      landmark: '$t:admin.nav.group.developers',
+                    },
+                  ],
+                  props: {
+                    className:
+                      'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto max-xl:w-full max-md:[&_a]:justify-start max-md:[&_a>span]:not-sr-only max-md:[&_button]:justify-start max-md:[&_button>span]:not-sr-only max-md:[&_h2]:not-sr-only',
+                  },
+                  rail: {
+                    below: 'xl',
+                  },
+                  trackNavigation: true,
+                  type: 'sidebar',
+                },
+                {
+                  children: [
+                    {
+                      label: '$session.name',
+                      props: {
+                        'data-testid': 'operator-avatar',
+                      },
+                      size: 'sm',
+                      src: '$session.image',
+                      type: 'avatar',
+                    },
+                    {
+                      children: [
+                        {
+                          element: 'span',
+                          props: {
+                            className: 'text-foreground truncate text-sm font-medium',
+                            'data-testid': 'operator-name',
+                          },
+                          session: 'name',
+                          type: 'text',
+                        },
+                        {
+                          element: 'span',
+                          props: {
+                            className: 'text-foreground-muted truncate text-[11px]',
+                            'data-testid': 'operator-email',
+                          },
+                          session: 'email',
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex min-w-0 flex-col text-left md:max-xl:hidden',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  menuItems: [
+                    {
+                      action: {
+                        path: '/profile',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.myAccount',
+                    },
+                    {
+                      separator: true,
+                    },
+                    {
+                      action: {
+                        path: 'https://github.com/sovrium/sovrium/issues/new?labels=feedback',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.giveFeedback',
+                    },
+                    {
+                      action: {
+                        path: 'https://github.com/sovrium/sovrium/issues/new?labels=bug',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.reportBug',
+                    },
+                    {
+                      separator: true,
+                    },
+                    {
+                      action: {
+                        method: 'logout',
+                        onSuccess: {
+                          navigate: '/login',
+                        },
+                        type: 'auth',
+                      },
+                      label: '$t:admin.shell.signOut',
+                      variant: 'destructive',
+                    },
+                  ],
+                  props: {
+                    className:
+                      'border-border text-foreground-subtle hover:text-foreground mt-auto w-full border-t px-2 pt-3 text-left text-md md:max-xl:justify-center md:max-xl:px-0 md:max-xl:[&>svg]:hidden',
+                    'data-testid': 'operator-menu',
+                  },
+                  triggerLabel: '$t:admin.shell.account',
+                  type: 'dropdown-menu',
+                },
+              ],
+              element: 'aside',
+              props: {
+                className:
+                  'hidden md:flex w-64 md:max-xl:w-14 shrink-0 border-r border-border bg-background-raised p-4 md:max-xl:px-2.5 flex-col gap-4 overflow-hidden',
+                'data-dashboard-aside': 'true',
+                'data-dashboard-sidebar': 'true',
+              },
+              type: 'container',
+            },
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      content: '☰',
+                      props: {
+                        'aria-label': '$t:admin.shell.openMenu',
+                        className:
+                          'md:hidden inline-flex h-8 w-8 items-center justify-center rounded-md border border-border p-2 text-foreground-subtle hover:text-foreground',
+                        'data-dashboard-burger': 'true',
+                        type: 'button',
+                      },
+                      type: 'button',
+                      variant: 'ghost',
+                    },
+                    {
+                      derive: 'path',
+                      home: {
+                        label: '$app.label',
+                      },
+                      labels: {
+                        templates: '$t:admin.crumb.templates',
+                      },
+                      props: {
+                        className:
+                          'min-w-0 flex-1 overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate',
+                        'data-testid': 'breadcrumb',
+                      },
+                      type: 'breadcrumb',
+                    },
+                    {
+                      children: [
+                        {
+                          props: {
+                            'data-testid': 'admin-scheme-toggle',
+                          },
+                          type: 'theme-toggle',
+                          variant: 'icon',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'ml-auto flex items-center gap-2',
+                        'data-testid': 'chrome-end',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className:
+                      'bg-background border-border sticky top-0 z-20 flex min-h-12 flex-none items-center gap-3 border-b px-4 py-1.5',
+                    'data-testid': 'design-system-topbar',
+                  },
+                  type: 'container',
+                },
+                {
+                  children: [
+                    {
+                      children: [
+                        {
+                          content: '$t:admin.templates.heading',
+                          element: 'h1',
+                          props: {
+                            className: 'sr-only',
+                          },
+                          type: 'text',
+                        },
+                        {
+                          content: '$t:admin.templates.blurb',
+                          element: 'p',
+                          props: {
+                            className: 'text-foreground-muted max-w-3xl text-sm',
+                          },
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex flex-col',
+                      },
+                      type: 'container',
+                    },
+                    {
+                      children: [
+                        {
+                          children: [
+                            {
+                              children: [
+                                {
+                                  children: [
+                                    {
+                                      children: [
+                                        {
+                                          content: '$record.path',
+                                          element: 'span',
+                                          props: {
+                                            className:
+                                              'text-foreground font-mono text-sm break-all',
+                                          },
+                                          type: 'text',
+                                        },
+                                        {
+                                          content: '$record.description',
+                                          element: 'span',
+                                          props: {
+                                            className:
+                                              'text-foreground-subtle text-sm empty:hidden',
+                                          },
+                                          type: 'text',
+                                        },
+                                        {
+                                          children: [
+                                            {
+                                              content: '$t:admin.templates.row.readBy',
+                                              element: 'span',
+                                              props: {
+                                                className: '',
+                                              },
+                                              type: 'text',
+                                            },
+                                            {
+                                              content: '$record.usedBy',
+                                              element: 'span',
+                                              props: {
+                                                className: 'font-mono',
+                                              },
+                                              type: 'text',
+                                            },
+                                          ],
+                                          element: 'div',
+                                          props: {
+                                            className:
+                                              'text-foreground-subtle flex flex-wrap gap-1 text-sm',
+                                          },
+                                          type: 'container',
+                                          visibility: {
+                                            record: {
+                                              field: 'usedBy',
+                                              isNotEmpty: true,
+                                            },
+                                          },
+                                        },
+                                      ],
+                                      element: 'div',
+                                      props: {
+                                        className: 'flex min-w-0 flex-col gap-0.5',
+                                      },
+                                      type: 'container',
+                                    },
+                                    {
+                                      children: [
+                                        {
+                                          content: '$t:admin.templates.row.sample',
+                                          element: 'span',
+                                          props: {
+                                            className: 'text-foreground text-sm',
+                                          },
+                                          type: 'text',
+                                          visibility: {
+                                            record: {
+                                              eq: true,
+                                              field: 'hasSampleData',
+                                            },
+                                          },
+                                        },
+                                        {
+                                          content: '$t:admin.templates.row.noSample',
+                                          element: 'span',
+                                          props: {
+                                            className: 'text-foreground-subtle text-sm',
+                                          },
+                                          type: 'text',
+                                          visibility: {
+                                            record: {
+                                              eq: false,
+                                              field: 'hasSampleData',
+                                            },
+                                          },
+                                        },
+                                        {
+                                          content: '$record.kind',
+                                          element: 'span',
+                                          props: {
+                                            className: 'text-foreground-subtle font-mono text-sm',
+                                          },
+                                          type: 'text',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      props: {
+                                        className: 'flex shrink-0 items-baseline gap-3',
+                                      },
+                                      type: 'container',
+                                    },
+                                  ],
+                                  props: {
+                                    className:
+                                      'hover:bg-background-hover flex flex-col gap-1 px-4 py-3 no-underline md:flex-row md:items-baseline md:justify-between md:gap-6',
+                                    'data-testid': 'template-row-$record.path',
+                                    href: '/templates/$record.path',
+                                  },
+                                  type: 'link',
+                                },
+                              ],
+                              dataSource: {
+                                system: {
+                                  endpoint: '/api/admin/templates',
+                                  idKey: 'path',
+                                  rowsKey: 'templates',
+                                },
+                              },
+                              props: {
+                                'aria-label': '$t:admin.templates.list.region',
+                                className:
+                                  'border-border divide-border bg-background-raised divide-y overflow-hidden rounded-lg border',
+                                'data-testid': 'templates-list',
+                              },
+                              type: 'list',
+                            },
+                          ],
+                          element: 'div',
+                          props: {},
+                          type: 'container',
+                          visibility: {
+                            record: {
+                              field: 'templates',
+                              isNotEmpty: true,
+                            },
+                          },
+                        },
+                        {
+                          children: [
+                            {
+                              children: [
+                                {
+                                  content: '$t:admin.templates.empty.title',
+                                  element: 'p',
+                                  props: {
+                                    className: 'text-foreground text-md font-medium',
+                                  },
+                                  type: 'text',
+                                },
+                                {
+                                  content: '$t:admin.templates.empty.body',
+                                  element: 'p',
+                                  props: {
+                                    className:
+                                      'text-foreground-muted max-w-md text-md leading-relaxed',
+                                  },
+                                  type: 'text',
+                                },
+                                {
+                                  content: '$t:admin.templates.empty.hint',
+                                  element: 'p',
+                                  props: {
+                                    className:
+                                      'text-foreground-subtle mt-1 max-w-md text-md italic',
+                                  },
+                                  type: 'text',
+                                },
+                              ],
+                              element: 'section',
+                              props: {
+                                'aria-label': '$t:admin.templates.empty.title',
+                                className:
+                                  'border-border bg-background-raised flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center',
+                              },
+                              type: 'container',
+                            },
+                          ],
+                          element: 'div',
+                          props: {},
+                          type: 'container',
+                          visibility: {
+                            record: {
+                              field: 'templates',
+                              isEmpty: true,
+                            },
+                          },
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex max-w-4xl flex-col gap-4 pt-2',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex min-w-0 flex-1 flex-col gap-6 px-4 pt-3 pb-4',
+                  },
+                  type: 'container',
+                },
+              ],
+              element: 'div',
+              props: {
+                className: 'flex flex-1 flex-col overflow-y-auto',
+                'data-admin-content': 'true',
+                id: 'admin-surface-content',
+              },
+              type: 'container',
+            },
+            {
+              search: {
+                endpoint: '/api/admin/search',
+              },
+              type: 'command-palette',
+            },
+            {
+              children: [
+                {
+                  content: '',
+                  element: 'span',
+                  props: {
+                    className: 'sr-only',
+                  },
+                  type: 'text',
+                },
+              ],
+              element: 'div',
+              props: {
+                className: 'hidden',
+                'data-island': 'admin-spa-nav',
+                'data-island-props': '{}',
+              },
+              type: 'container',
+            },
+          ],
+          element: 'div',
+          props: {
+            className: 'flex h-screen overflow-hidden bg-background text-foreground',
+            'data-admin-base-path': '/',
+          },
+          type: 'container',
+        },
+      ],
+      dataSource: {
+        system: {
+          endpoint: '/api/admin/templates',
+        },
+      },
+      id: 'dashboard-data-templates',
+      meta: {
+        lang: 'en-US',
+        title: '$t:admin.meta.templates',
+      },
+      name: 'dashboard-data-templates',
+      path: '/templates',
+    },
+    {
+      components: [
+        {
+          children: [
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      children: [
+                        {
+                          children: [
+                            {
+                              content: '$app.label',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground truncate text-md font-semibold',
+                              },
+                              type: 'text',
+                            },
+                          ],
+                          props: {
+                            'aria-label': '$t:admin.shell.openSite',
+                            className: 'flex min-w-0 flex-1 items-center gap-2',
+                            href: '$app.origin',
+                            rel: 'noopener',
+                            target: '_blank',
+                          },
+                          type: 'link',
+                        },
+                        {
+                          content: '$app.version',
+                          element: 'span',
+                          props: {
+                            className:
+                              "bg-background-subtle text-foreground-subtle shrink-0 rounded-full px-2 py-0.5 font-mono text-xs leading-[1.3] before:content-['v'] empty:hidden!",
+                            'data-testid': 'sidebar-version',
+                          },
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex items-center gap-2',
+                      },
+                      type: 'container',
+                    },
+                    {
+                      content: '(Sovrium v$app.engineVersion)',
+                      element: 'p',
+                      props: {
+                        className:
+                          'text-foreground-subtle truncate font-mono text-xs leading-[1.3]',
+                        'data-testid': 'sidebar-engine',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex flex-col gap-0.5 md:max-xl:hidden',
+                  },
+                  type: 'container',
+                },
+                {
+                  children: [
+                    {
+                      props: {
+                        className: 'shrink-0',
+                        name: 'search',
+                        size: 16,
+                      },
+                      type: 'icon',
+                    },
+                    {
+                      content: '$t:admin.shell.searchPlaceholder',
+                      element: 'span',
+                      props: {
+                        className: 'flex-1 text-left max-xl:hidden',
+                      },
+                      type: 'text',
+                    },
+                    {
+                      content: '⌘K',
+                      element: 'span',
+                      props: {
+                        className: 'text-foreground-subtle text-sm max-xl:hidden',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  props: {
+                    'aria-label': '$t:admin.shell.search',
+                    className:
+                      'border-border text-foreground-subtle hover:text-foreground flex h-9 w-full items-center justify-start gap-2 rounded-md px-3 py-2 text-md font-normal md:max-xl:w-9 md:max-xl:justify-center md:max-xl:px-0',
+                    'data-command-palette-trigger': 'true',
+                    type: 'button',
+                  },
+                  type: 'button',
+                  variant: 'secondary',
+                },
+                {
+                  groups: [
+                    {
+                      items: [
+                        {
+                          activeMatch: 'exact',
+                          href: '/',
+                          icon: 'house',
+                          label: '$t:admin.nav.welcome',
+                          props: {
+                            'data-testid': 'data-nav-overview',
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/organisation',
+                          icon: 'network',
+                          label: '$t:admin.crumb.organisation',
+                          props: {
+                            'data-testid': 'data-nav-organisation',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/users',
+                          icon: 'users',
+                          label: '$t:admin.crumb.users',
+                          props: {
+                            'data-testid': 'data-nav-users',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/pages',
+                          icon: 'chart-column',
+                          label: '$t:admin.crumb.pages',
+                          props: {
+                            'data-testid': 'data-nav-pages',
+                          },
+                        },
+                        {
+                          children: [
+                            {
+                              href: '/design-system',
+                              label: '$t:admin.nav.design.overview',
+                              props: {
+                                'data-testid': 'data-nav-design-system-overview',
+                              },
+                            },
+                            {
+                              href: '/design-system/foundations',
+                              label: '$t:admin.nav.design.foundations',
+                              props: {
+                                'data-testid': 'data-nav-design-system-foundations',
+                              },
+                            },
+                            {
+                              badge: {
+                                endpoint: '/api/admin/schema/component-types',
+                                valuePath: 'total',
+                              },
+                              href: '/design-system/ui-kit',
+                              label: '$t:admin.nav.design.uiKit',
+                              props: {
+                                'data-testid': 'data-nav-design-system-ui-kit',
+                              },
+                            },
+                            {
+                              badge: {
+                                endpoint: '/api/admin/design-system/usage?subject=component',
+                                valuePath: 'total',
+                              },
+                              href: '/design-system/components',
+                              label: '$t:admin.nav.design.components',
+                              props: {
+                                'data-testid': 'data-nav-design-system-components',
+                              },
+                            },
+                            {
+                              href: '/design-system/brand',
+                              label: '$t:admin.nav.design.brand',
+                              props: {
+                                'data-testid': 'data-nav-design-system-brand',
+                              },
+                            },
+                            {
+                              href: '/design-system/voice',
+                              label: '$t:admin.nav.design.voice',
+                              props: {
+                                'data-testid': 'data-nav-design-system-voice',
+                              },
+                            },
+                          ],
+                          childrenProps: {
+                            'data-testid': 'design-system-nav-children',
+                          },
+                          icon: 'palette',
+                          label: '$t:admin.nav.design',
+                          props: {
+                            'data-testid': 'data-nav-design-system',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/decisions',
+                          icon: 'scroll-text',
+                          label: '$t:admin.crumb.decisions',
+                          props: {
+                            'data-testid': 'data-nav-decisions',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.system',
+                      landmark: '$t:admin.nav.landmark.data',
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/automations',
+                          icon: 'zap',
+                          label: '$t:admin.crumb.automations',
+                          props: {
+                            'data-testid': 'data-nav-automations',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'tables-nav-children',
+                          },
+                          href: '/tables',
+                          icon: 'table',
+                          label: '$t:admin.crumb.tables',
+                          props: {
+                            'data-testid': 'data-nav-tables',
+                          },
+                          source: {
+                            endpoint: '/api/admin/tables/overview',
+                            hrefTemplate: '/tables/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-tables-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'by_table',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'forms-nav-children',
+                          },
+                          href: '/forms',
+                          icon: 'clipboard-list',
+                          label: '$t:admin.crumb.forms',
+                          props: {
+                            'data-testid': 'data-nav-forms',
+                          },
+                          source: {
+                            endpoint: '/api/admin/forms',
+                            hrefTemplate: '/forms/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-forms-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'buckets-nav-children',
+                          },
+                          href: '/buckets',
+                          icon: 'folder',
+                          label: '$t:admin.crumb.buckets',
+                          props: {
+                            'data-testid': 'data-nav-buckets',
+                          },
+                          source: {
+                            endpoint: '/api/admin/buckets',
+                            hrefTemplate: '/buckets/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-buckets-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'agents-nav-children',
+                          },
+                          href: '/agents',
+                          icon: 'message-square',
+                          label: '$t:admin.crumb.agents',
+                          props: {
+                            'data-testid': 'data-nav-agents',
+                          },
+                          source: {
+                            endpoint: '/api/admin/agents',
+                            hrefTemplate: '/agents/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-agents-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/links',
+                          icon: 'link',
+                          label: '$t:admin.crumb.links',
+                          props: {
+                            'data-testid': 'data-nav-links',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.application',
+                      landmark: '$t:admin.nav.landmark.data',
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/connections',
+                          icon: 'plug',
+                          label: '$t:admin.crumb.connections',
+                          props: {
+                            'data-testid': 'data-nav-connections',
+                          },
+                        },
+                        {
+                          href: '/api',
+                          icon: 'code',
+                          label: '$t:admin.crumb.api',
+                          props: {
+                            'data-testid': 'developer-nav-api',
+                          },
+                        },
+                        {
+                          href: '/mcp',
+                          icon: 'bot',
+                          label: '$t:admin.crumb.mcp',
+                          props: {
+                            'data-testid': 'developer-nav-mcp',
+                          },
+                        },
+                        {
+                          href: '/changelog',
+                          icon: 'history',
+                          label: '$t:admin.crumb.changelog',
+                          props: {
+                            'data-testid': 'developer-nav-changelog',
+                          },
+                        },
+                        {
+                          href: '/env',
+                          icon: 'settings',
+                          label: '$t:admin.crumb.env',
+                          props: {
+                            'data-testid': 'developer-nav-env',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.developers',
+                      landmark: '$t:admin.nav.group.developers',
+                    },
+                  ],
+                  props: {
+                    className:
+                      'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto max-xl:w-full max-md:[&_a]:justify-start max-md:[&_a>span]:not-sr-only max-md:[&_button]:justify-start max-md:[&_button>span]:not-sr-only max-md:[&_h2]:not-sr-only',
+                  },
+                  rail: {
+                    below: 'xl',
+                  },
+                  trackNavigation: true,
+                  type: 'sidebar',
+                },
+                {
+                  children: [
+                    {
+                      label: '$session.name',
+                      props: {
+                        'data-testid': 'operator-avatar',
+                      },
+                      size: 'sm',
+                      src: '$session.image',
+                      type: 'avatar',
+                    },
+                    {
+                      children: [
+                        {
+                          element: 'span',
+                          props: {
+                            className: 'text-foreground truncate text-sm font-medium',
+                            'data-testid': 'operator-name',
+                          },
+                          session: 'name',
+                          type: 'text',
+                        },
+                        {
+                          element: 'span',
+                          props: {
+                            className: 'text-foreground-muted truncate text-[11px]',
+                            'data-testid': 'operator-email',
+                          },
+                          session: 'email',
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex min-w-0 flex-col text-left md:max-xl:hidden',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  menuItems: [
+                    {
+                      action: {
+                        path: '/profile',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.myAccount',
+                    },
+                    {
+                      separator: true,
+                    },
+                    {
+                      action: {
+                        path: 'https://github.com/sovrium/sovrium/issues/new?labels=feedback',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.giveFeedback',
+                    },
+                    {
+                      action: {
+                        path: 'https://github.com/sovrium/sovrium/issues/new?labels=bug',
+                        type: 'navigate',
+                      },
+                      label: '$t:admin.shell.reportBug',
+                    },
+                    {
+                      separator: true,
+                    },
+                    {
+                      action: {
+                        method: 'logout',
+                        onSuccess: {
+                          navigate: '/login',
+                        },
+                        type: 'auth',
+                      },
+                      label: '$t:admin.shell.signOut',
+                      variant: 'destructive',
+                    },
+                  ],
+                  props: {
+                    className:
+                      'border-border text-foreground-subtle hover:text-foreground mt-auto w-full border-t px-2 pt-3 text-left text-md md:max-xl:justify-center md:max-xl:px-0 md:max-xl:[&>svg]:hidden',
+                    'data-testid': 'operator-menu',
+                  },
+                  triggerLabel: '$t:admin.shell.account',
+                  type: 'dropdown-menu',
+                },
+              ],
+              element: 'aside',
+              props: {
+                className:
+                  'hidden md:flex w-64 md:max-xl:w-14 shrink-0 border-r border-border bg-background-raised p-4 md:max-xl:px-2.5 flex-col gap-4 overflow-hidden',
+                'data-dashboard-aside': 'true',
+                'data-dashboard-sidebar': 'true',
+              },
+              type: 'container',
+            },
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      content: '☰',
+                      props: {
+                        'aria-label': '$t:admin.shell.openMenu',
+                        className:
+                          'md:hidden inline-flex h-8 w-8 items-center justify-center rounded-md border border-border p-2 text-foreground-subtle hover:text-foreground',
+                        'data-dashboard-burger': 'true',
+                        type: 'button',
+                      },
+                      type: 'button',
+                      variant: 'ghost',
+                    },
+                    {
+                      derive: 'path',
+                      home: {
+                        label: '$app.label',
+                      },
+                      labels: {
+                        templates: '$t:admin.crumb.templates',
+                      },
+                      props: {
+                        className:
+                          'min-w-0 flex-1 overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate',
+                        'data-testid': 'breadcrumb',
+                      },
+                      type: 'breadcrumb',
+                    },
+                    {
+                      children: [
+                        {
+                          props: {
+                            'data-testid': 'admin-scheme-toggle',
+                          },
+                          type: 'theme-toggle',
+                          variant: 'icon',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'ml-auto flex items-center gap-2',
+                        'data-testid': 'chrome-end',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className:
+                      'bg-background border-border sticky top-0 z-20 flex min-h-12 flex-none items-center gap-3 border-b px-4 py-1.5',
+                    'data-testid': 'design-system-topbar',
+                  },
+                  type: 'container',
+                },
+                {
+                  children: [
+                    {
+                      children: [
+                        {
+                          content: '$record.path',
+                          element: 'h1',
+                          type: 'text',
+                        },
+                        {
+                          content: '$t:admin.templates.preview.blurb',
+                          element: 'p',
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'sr-only',
+                      },
+                      type: 'container',
+                    },
+                    {
+                      children: [
+                        {
+                          content: '$record.path',
+                          element: 'p',
+                          props: {
+                            className: 'text-foreground font-mono text-sm break-all',
+                          },
+                          type: 'text',
+                        },
+                        {
+                          children: [
+                            {
+                              content: '$t:admin.templates.noSample.title',
+                              element: 'p',
+                              props: {
+                                className: 'text-foreground text-sm font-medium',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$t:admin.templates.noSample.body',
+                              element: 'p',
+                              props: {
+                                className: 'text-foreground-subtle max-w-2xl text-sm',
+                              },
+                              type: 'text',
+                            },
+                          ],
+                          element: 'div',
+                          props: {
+                            className:
+                              'border-border bg-background-raised flex flex-col gap-1 rounded-lg border p-4',
+                            'data-testid': 'template-no-sample',
+                            role: 'note',
+                          },
+                          type: 'container',
+                          visibility: {
+                            record: {
+                              eq: false,
+                              field: 'usedSampleData',
+                            },
+                          },
+                        },
+                        {
+                          children: [
+                            {
+                              children: [
+                                {
+                                  content: '$t:admin.templates.preview.email',
+                                  element: 'p',
+                                  props: {
+                                    className: 'text-foreground-subtle text-sm',
+                                  },
+                                  type: 'text',
+                                  visibility: {
+                                    record: {
+                                      eq: 'email',
+                                      field: 'rendersAs',
+                                    },
+                                  },
+                                },
+                                {
+                                  children: [
+                                    {
+                                      content: '$t:admin.templates.preview.document',
+                                      element: 'p',
+                                      props: {
+                                        className: 'text-foreground-subtle text-sm',
+                                      },
+                                      type: 'text',
+                                      visibility: {
+                                        record: {
+                                          field: 'rendersAs',
+                                          in: ['html', 'svg', 'text'],
+                                        },
+                                      },
+                                    },
+                                  ],
+                                  element: 'div',
+                                  props: {},
+                                  type: 'container',
+                                  visibility: {
+                                    record: {
+                                      eq: true,
+                                      field: 'usedSampleData',
+                                    },
+                                  },
+                                },
+                              ],
+                              element: 'div',
+                              props: {
+                                className: 'flex flex-col gap-0.5',
+                              },
+                              type: 'container',
+                            },
+                            {
+                              children: [
+                                {
+                                  props: {
+                                    className: 'block h-[70vh] min-h-80 w-full border-0 bg-white!',
+                                    'data-testid': 'template-preview',
+                                    sandbox: '',
+                                    srcDoc:
+                                      '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src data:">$record.content',
+                                    title: 'Preview of $record.path',
+                                  },
+                                  type: 'iframe',
+                                },
+                              ],
+                              element: 'div',
+                              props: {
+                                className: 'border-border overflow-hidden rounded-lg border',
+                              },
+                              type: 'container',
+                            },
+                          ],
+                          element: 'div',
+                          props: {
+                            className: 'flex flex-col gap-2',
+                          },
+                          type: 'container',
+                          visibility: {
+                            record: {
+                              field: 'rendersAs',
+                              neq: 'none',
+                            },
+                          },
+                        },
+                        {
+                          children: [
+                            {
+                              content: '$t:admin.templates.file.title',
+                              element: 'p',
+                              props: {
+                                className: 'text-foreground text-sm font-medium',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              content: '$t:admin.templates.file.body',
+                              element: 'p',
+                              props: {
+                                className: 'text-foreground-subtle max-w-2xl text-sm',
+                              },
+                              type: 'text',
+                            },
+                            {
+                              children: [
+                                {
+                                  content: 'sovrium render $record.path --out preview.docx',
+                                  props: {
+                                    'data-testid': 'template-render-command',
+                                    language: 'bash',
+                                  },
+                                  type: 'code',
+                                },
+                              ],
+                              element: 'div',
+                              props: {},
+                              type: 'container',
+                              visibility: {
+                                record: {
+                                  contains: '.docx',
+                                  field: 'path',
+                                },
+                              },
+                            },
+                            {
+                              children: [
+                                {
+                                  content: 'sovrium render $record.path --out preview.xlsx',
+                                  props: {
+                                    'data-testid': 'template-render-command',
+                                    language: 'bash',
+                                  },
+                                  type: 'code',
+                                },
+                              ],
+                              element: 'div',
+                              props: {},
+                              type: 'container',
+                              visibility: {
+                                record: {
+                                  contains: '.xlsx',
+                                  field: 'path',
+                                },
+                              },
+                            },
+                            {
+                              children: [
+                                {
+                                  content: 'sovrium render $record.path --out preview.pptx',
+                                  props: {
+                                    'data-testid': 'template-render-command',
+                                    language: 'bash',
+                                  },
+                                  type: 'code',
+                                },
+                              ],
+                              element: 'div',
+                              props: {},
+                              type: 'container',
+                              visibility: {
+                                record: {
+                                  contains: '.pptx',
+                                  field: 'path',
+                                },
+                              },
+                            },
+                          ],
+                          element: 'div',
+                          props: {
+                            className:
+                              'border-border bg-background-raised flex flex-col gap-2 rounded-lg border p-4',
+                            'data-testid': 'template-file-panel',
+                          },
+                          type: 'container',
+                          visibility: {
+                            record: {
+                              eq: 'none',
+                              field: 'rendersAs',
+                            },
+                          },
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex max-w-5xl flex-col gap-4 pt-2',
+                      },
+                      type: 'container',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex min-w-0 flex-1 flex-col gap-6 px-4 pt-3 pb-4',
+                  },
+                  type: 'container',
+                },
+              ],
+              element: 'div',
+              props: {
+                className: 'flex flex-1 flex-col overflow-y-auto',
+                'data-admin-content': 'true',
+                id: 'admin-surface-content',
+              },
+              type: 'container',
+            },
+            {
+              search: {
+                endpoint: '/api/admin/search',
+              },
+              type: 'command-palette',
+            },
+            {
+              children: [
+                {
+                  content: '',
+                  element: 'span',
+                  props: {
+                    className: 'sr-only',
+                  },
+                  type: 'text',
+                },
+              ],
+              element: 'div',
+              props: {
+                className: 'hidden',
+                'data-island': 'admin-spa-nav',
+                'data-island-props': '{}',
+              },
+              type: 'container',
+            },
+          ],
+          element: 'div',
+          props: {
+            className: 'flex h-screen overflow-hidden bg-background text-foreground',
+            'data-admin-base-path': '/',
+          },
+          type: 'container',
+        },
+      ],
+      dataSource: {
+        system: {
+          endpoint: '/api/admin/templates/preview?path=:path',
+          param: 'path',
+        },
+      },
+      id: 'dashboard-data-template-preview',
+      meta: {
+        lang: 'en-US',
+        title: '$t:admin.meta.templates',
+      },
+      name: 'dashboard-data-template-preview',
+      path: '/templates/:path*',
+    },
+    {
+      components: [
+        {
+          children: [
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      children: [
+                        {
+                          children: [
+                            {
+                              content: '$app.label',
+                              element: 'span',
+                              props: {
+                                className: 'text-foreground truncate text-md font-semibold',
+                              },
+                              type: 'text',
+                            },
+                          ],
+                          props: {
+                            'aria-label': '$t:admin.shell.openSite',
+                            className: 'flex min-w-0 flex-1 items-center gap-2',
+                            href: '$app.origin',
+                            rel: 'noopener',
+                            target: '_blank',
+                          },
+                          type: 'link',
+                        },
+                        {
+                          content: '$app.version',
+                          element: 'span',
+                          props: {
+                            className:
+                              "bg-background-subtle text-foreground-subtle shrink-0 rounded-full px-2 py-0.5 font-mono text-xs leading-[1.3] before:content-['v'] empty:hidden!",
+                            'data-testid': 'sidebar-version',
+                          },
+                          type: 'text',
+                        },
+                      ],
+                      element: 'div',
+                      props: {
+                        className: 'flex items-center gap-2',
+                      },
+                      type: 'container',
+                    },
+                    {
+                      content: '(Sovrium v$app.engineVersion)',
+                      element: 'p',
+                      props: {
+                        className:
+                          'text-foreground-subtle truncate font-mono text-xs leading-[1.3]',
+                        'data-testid': 'sidebar-engine',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex flex-col gap-0.5 md:max-xl:hidden',
+                  },
+                  type: 'container',
+                },
+                {
+                  children: [
+                    {
+                      props: {
+                        className: 'shrink-0',
+                        name: 'search',
+                        size: 16,
+                      },
+                      type: 'icon',
+                    },
+                    {
+                      content: '$t:admin.shell.searchPlaceholder',
+                      element: 'span',
+                      props: {
+                        className: 'flex-1 text-left max-xl:hidden',
+                      },
+                      type: 'text',
+                    },
+                    {
+                      content: '⌘K',
+                      element: 'span',
+                      props: {
+                        className: 'text-foreground-subtle text-sm max-xl:hidden',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  props: {
+                    'aria-label': '$t:admin.shell.search',
+                    className:
+                      'border-border text-foreground-subtle hover:text-foreground flex h-9 w-full items-center justify-start gap-2 rounded-md px-3 py-2 text-md font-normal md:max-xl:w-9 md:max-xl:justify-center md:max-xl:px-0',
+                    'data-command-palette-trigger': 'true',
+                    type: 'button',
+                  },
+                  type: 'button',
+                  variant: 'secondary',
+                },
+                {
+                  groups: [
+                    {
+                      items: [
+                        {
+                          activeMatch: 'exact',
+                          href: '/',
+                          icon: 'house',
+                          label: '$t:admin.nav.welcome',
+                          props: {
+                            'data-testid': 'data-nav-overview',
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/organisation',
+                          icon: 'network',
+                          label: '$t:admin.crumb.organisation',
+                          props: {
+                            'data-testid': 'data-nav-organisation',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/users',
+                          icon: 'users',
+                          label: '$t:admin.crumb.users',
+                          props: {
+                            'data-testid': 'data-nav-users',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/pages',
+                          icon: 'chart-column',
+                          label: '$t:admin.crumb.pages',
+                          props: {
+                            'data-testid': 'data-nav-pages',
+                          },
+                        },
+                        {
+                          children: [
+                            {
+                              href: '/design-system',
+                              label: '$t:admin.nav.design.overview',
+                              props: {
+                                'data-testid': 'data-nav-design-system-overview',
+                              },
+                            },
+                            {
+                              href: '/design-system/foundations',
+                              label: '$t:admin.nav.design.foundations',
+                              props: {
+                                'data-testid': 'data-nav-design-system-foundations',
+                              },
+                            },
+                            {
+                              badge: {
+                                endpoint: '/api/admin/schema/component-types',
+                                valuePath: 'total',
+                              },
+                              href: '/design-system/ui-kit',
+                              label: '$t:admin.nav.design.uiKit',
+                              props: {
+                                'data-testid': 'data-nav-design-system-ui-kit',
+                              },
+                            },
+                            {
+                              badge: {
+                                endpoint: '/api/admin/design-system/usage?subject=component',
+                                valuePath: 'total',
+                              },
+                              href: '/design-system/components',
+                              label: '$t:admin.nav.design.components',
+                              props: {
+                                'data-testid': 'data-nav-design-system-components',
+                              },
+                            },
+                            {
+                              href: '/design-system/brand',
+                              label: '$t:admin.nav.design.brand',
+                              props: {
+                                'data-testid': 'data-nav-design-system-brand',
+                              },
+                            },
+                            {
+                              href: '/design-system/voice',
+                              label: '$t:admin.nav.design.voice',
+                              props: {
+                                'data-testid': 'data-nav-design-system-voice',
+                              },
+                            },
+                          ],
+                          childrenProps: {
+                            'data-testid': 'design-system-nav-children',
+                          },
+                          icon: 'palette',
+                          label: '$t:admin.nav.design',
+                          props: {
+                            'data-testid': 'data-nav-design-system',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/decisions',
+                          icon: 'scroll-text',
+                          label: '$t:admin.crumb.decisions',
+                          props: {
+                            'data-testid': 'data-nav-decisions',
+                          },
+                        },
+                      ],
+                      label: '$t:admin.nav.group.system',
+                      landmark: '$t:admin.nav.landmark.data',
+                    },
+                    {
+                      headingLevel: 2,
+                      items: [
+                        {
+                          activeMatch: 'prefix',
+                          href: '/automations',
+                          icon: 'zap',
+                          label: '$t:admin.crumb.automations',
+                          props: {
+                            'data-testid': 'data-nav-automations',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'tables-nav-children',
+                          },
+                          href: '/tables',
+                          icon: 'table',
+                          label: '$t:admin.crumb.tables',
+                          props: {
+                            'data-testid': 'data-nav-tables',
+                          },
+                          source: {
+                            endpoint: '/api/admin/tables/overview',
+                            hrefTemplate: '/tables/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-tables-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'by_table',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'forms-nav-children',
+                          },
+                          href: '/forms',
+                          icon: 'clipboard-list',
+                          label: '$t:admin.crumb.forms',
+                          props: {
+                            'data-testid': 'data-nav-forms',
+                          },
+                          source: {
+                            endpoint: '/api/admin/forms',
+                            hrefTemplate: '/forms/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-forms-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          childrenProps: {
+                            'data-testid': 'buckets-nav-children',
+                          },
+                          href: '/buckets',
+                          icon: 'folder',
+                          label: '$t:admin.crumb.buckets',
+                          props: {
+                            'data-testid': 'data-nav-buckets',
+                          },
+                          source: {
+                            endpoint: '/api/admin/buckets',
+                            hrefTemplate: '/buckets/{name}',
+                            itemProps: {
+                              'data-testid': 'data-nav-buckets-{name}',
+                            },
+                            labelKey: 'name',
+                            rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -30039,6 +32053,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -30703,6 +32726,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -31359,6 +33391,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -32431,6 +34472,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -33862,6 +35912,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -34631,6 +36690,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -36434,6 +38502,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -39294,6 +41371,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {
@@ -42302,6 +44388,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -44422,6 +46517,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -46433,6 +48537,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -47886,6 +49999,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         {
                           activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
                           childrenProps: {
                             'data-testid': 'agents-nav-children',
                           },
@@ -49213,6 +51335,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             labelKey: 'name',
                             rowsKey: 'items',
+                          },
+                        },
+                        {
+                          activeMatch: 'prefix',
+                          href: '/templates',
+                          icon: 'file-text',
+                          label: '$t:admin.crumb.templates',
+                          props: {
+                            'data-testid': 'data-nav-templates',
                           },
                         },
                         {

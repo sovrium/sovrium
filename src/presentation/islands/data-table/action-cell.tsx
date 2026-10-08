@@ -30,6 +30,7 @@
  */
 
 import { useState, type ReactElement } from 'react'
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import {
   computeTableActionButtonClasses,
   computeTableInlineConfirmClasses,
@@ -76,6 +77,7 @@ function actionTypeAttr(action: ActionColumnItem): string {
  * the legacy STRING form keeps the byte-identical inline alertdialog below. Both
  * take their dismissal text from `labels.cancel` — server-resolved against the
  * app language, so neither falls back to the shared component's English constant.
+ * Both fill `$record.*` from the row the gate was armed for, as text, never markup.
  */
 function ConfirmDialog({
   action,
@@ -106,7 +108,7 @@ function ConfirmDialog({
       />
     )
   }
-  const prompt = typeof action.confirm === 'string' ? action.confirm : ''
+  const prompt = substituteRecordVars(action.confirm ?? '', record)
   return (
     <div
       role="alertdialog"

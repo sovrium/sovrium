@@ -72,6 +72,17 @@ const redactRecord = (
   >
 
 /**
+ * The status a step records. `'skipped'` is only ever set by the run loop's
+ * `buildSkippedStep`; a loop or a path the run parked inside records
+ * `'waiting'` until the run resumes and completes its row.
+ */
+const stepStatusOf = (outcome: ActionOutcome): ExecutedStep['status'] => {
+  if (outcome.status === 'failure') return 'failure'
+  if (outcome.status === 'filtered') return 'filtered'
+  return outcome.park?.container === undefined ? 'success' : 'waiting'
+}
+
+/**
  * Build an `ExecutedStep` from a raw action and its dispatch outcome.
  *
  * This is the ONLY place a step becomes a durable history record, so it is
@@ -108,21 +119,9 @@ export const buildStep = (
   const identity = readActionIdentity(rawAction)
   const redactedProps = redactRecord(maskSecretProps(identity, resolvedProps), ctx)
 
-  // `outcome.status` is `'success' | 'failure' | 'filtered'`. Filtered
-  // outcomes are routed to {@link buildFilteredStep} (records the filter
-  // action itself with `status: 'filtered'`); subsequent steps remain
-  // omitted from `steps[]` via the `acc.halted` short-circuit in the run
-  // loop. `'skipped'` is only set by {@link buildSkippedStep}; never by
-  // buildStep.
-  const stepStatus: 'success' | 'failure' | 'filtered' =
-    outcome.status === 'failure'
-      ? 'failure'
-      : outcome.status === 'filtered'
-        ? 'filtered'
-        : 'success'
   return {
     ...identity,
-    status: stepStatus,
+    status: stepStatusOf(outcome),
     ...(outcome.error !== undefined
       ? { error: redactString(outcome.error, ctx.app, ctx.processEnv) }
       : {}),

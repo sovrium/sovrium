@@ -24,8 +24,10 @@
  *    the page's `access` admits the submitter: a literal or `$user.<prop>` as
  *    above; `$parent.<col>` / `$record.<col>` any value that column holds on a
  *    record the page would read FOR THIS SUBMITTER — the table's read grant with
- *    their groups and `user_access` roles, its row-level read rule, live rows
- *    only, and the column readable by them;
+ *    their groups and `user_access` roles, its row-level read rule (for someone
+ *    not signed in, the rule as it reads for a visitor: one naming the
+ *    signed-in person admits nothing), live rows only, the column readable by
+ *    them, and on a `collection` page the collection's own `filter`;
  *  - an empty value, which files the record under nothing.
  *
  * Which fields are pinned, and from which sources, is read off the
@@ -46,6 +48,9 @@ import {
 } from '@/application/use-cases/automations/build-guest-session'
 import { callerReadScope } from '@/application/use-cases/tables/permissions/caller-read-authority'
 import { loadCallerIdentity } from '@/application/use-cases/tables/permissions/caller-write-authority'
+import { loadCurrentUserContext } from '@/application/use-cases/tables/permissions/row-level-enforcement'
+import { GUEST_USER_ID } from '@/domain/models/app/auth/guest-session'
+import { SIGNED_OUT_VISITOR_ROLE } from '@/domain/models/app/auth/permission-evaluation'
 import {
   classifyPinSource,
   pinnedFieldsOf,
@@ -54,6 +59,7 @@ import {
 import { formEmbeddingPrefills } from '@/domain/models/app/pages/form-embedding-service'
 import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
 import {
+  admitsNothing,
   buildReadAccessPlan,
   CANONICAL_READ_POLICY,
   readPrincipalFromSession,
@@ -115,21 +121,84 @@ const directValues = (source: PinSource, submitter: Submitter): readonly string[
   return typeof value === 'string' || typeof value === 'number' ? [String(value)] : []
 }
 
-/** The table a page reads ONE record from, when it does. */
-const singleRecordTableOf = (page: Page): string | undefined => {
+/**
+ * The records-API operator for each collection-filter operator the query judges
+ * as the page does. `contains` is absent on purpose: the page compares it
+ * case-sensitively and the query would not, so a page filtering on it admits
+ * no pinned record rather than one its page leaves out.
+ */
+const COLLECTION_FILTER_OPERATORS: Readonly<Record<string, string>> = {
+  eq: 'equals',
+  neq: 'notEquals',
+  gt: 'greaterThan',
+  gte: 'greaterThanOrEqual',
+  lt: 'lessThan',
+  lte: 'lessThanOrEqual',
+  in: 'in',
+  isEmpty: 'isEmpty',
+  isNotEmpty: 'isNotEmpty',
+}
+
+/**
+ * Whether the page can ever match `value` under `operator`: a `$currentUser`
+ * object never matches, a range compares numbers only, and `in` needs a list.
+ */
+const pageCanMatch = (operator: string, value: unknown): boolean => {
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) return false
+  if (['gt', 'gte', 'lt', 'lte'].includes(operator)) return typeof value === 'number'
+  return operator !== 'in' || Array.isArray(value)
+}
+
+/**
+ * A collection's `filter` as a query clause — every condition ANDed, read off
+ * the configuration and never the request — or `'nothing'` when one condition
+ * cannot be judged as the page judges it (an unmapped operator, or a value the
+ * page never matches — {@link pageCanMatch}).
+ */
+const collectionClauseOf = (
+  filter: NonNullable<Page['collection']>['filter']
+): QueryFilterNode | 'nothing' | undefined => {
+  if (filter === undefined || filter.length === 0) return undefined
+  const leaves = filter.map(({ field, operator, value }) => {
+    const mapped = Object.hasOwn(COLLECTION_FILTER_OPERATORS, operator)
+      ? COLLECTION_FILTER_OPERATORS[operator]
+      : undefined
+    return mapped === undefined || !pageCanMatch(operator, value)
+      ? undefined
+      : { field, operator: mapped, value }
+  })
+  return leaves.every((leaf) => leaf !== undefined) ? { and: leaves } : 'nothing'
+}
+
+/** The table a page reads ONE record from, and the clause its own config narrows it by. */
+interface PageRecordSource {
+  readonly tableName: string
+  readonly pageClause: QueryFilterNode | undefined
+}
+
+/**
+ * Where a page reads ONE record from, when it does: a `dataSource` in `single`
+ * mode, or a `collection` — which shows a record only when its `filter` admits
+ * it, so that filter rides with the source.
+ */
+const recordSourceOf = (page: Page): PageRecordSource | undefined => {
   const { dataSource } = page as {
     readonly dataSource?: { readonly table?: unknown; readonly mode?: unknown }
   }
-  return dataSource?.mode === 'single' && typeof dataSource.table === 'string'
-    ? dataSource.table
-    : undefined
+  if (dataSource?.mode === 'single' && typeof dataSource.table === 'string') {
+    return { tableName: dataSource.table, pageClause: undefined }
+  }
+  if (page.collection === undefined) return undefined
+  const pageClause = collectionClauseOf(page.collection.filter)
+  return pageClause === 'nothing' ? undefined : { tableName: page.collection.table, pageClause }
 }
 
 /**
  * The read gate a page applies to `tableName` for this submitter, as a filter
  * clause and a column test — or `undefined` when it reads them nothing. A
  * signed-in submitter meets the records API's gates (`callerReadScope`); anyone
- * else reads only a table open to everyone, with no row-level rule.
+ * else reads only a table open to everyone, under its row-level rule as it reads
+ * for a visitor — a rule naming the signed-in person admits nothing.
  */
 const pageReadGate = (
   app: App,
@@ -147,39 +216,53 @@ const pageReadGate = (
       if (scope === undefined || scope.clause === 'nothing') return undefined
       return { clause: scope.clause, readsColumn: scope.readsColumn }
     }
+    const table = app.tables?.find((candidate) => candidate.name === tableName)
+    const visitor = { userId: GUEST_USER_ID, role: SIGNED_OUT_VISITOR_ROLE, isUnrestricted: false }
+    const rowContext = yield* loadCurrentUserContext(visitor, table?.rowLevelPermissions)
     const plan = buildReadAccessPlan({
       app,
-      table: app.tables?.find((table) => table.name === tableName),
+      table,
       principal: readPrincipalFromSession(undefined),
       policy: CANONICAL_READ_POLICY,
+      rowContext,
     })
-    if (!plan.allowed || plan.rowPredicate !== 'none') return undefined
-    return { clause: undefined, readsColumn: (column) => !plan.restrictedColumns.has(column) }
+    const { rowPredicate } = plan
+    if (!plan.allowed || admitsNothing(rowPredicate) || rowPredicate === 'bypass') return undefined
+    return {
+      clause: rowPredicate === 'none' ? undefined : (rowPredicate as QueryFilterNode),
+      readsColumn: (column) => !plan.restrictedColumns.has(column),
+    }
   })
 
 /** Whether `page`'s `access` admits the submitter. */
 const pageAdmits = (app: App, page: Page, submitter: Submitter): boolean =>
   checkPageAccess(page.access, app, submitter.session).allowed
 
-/** The distinct `(table, column)` records the admitting embeddings of `pin` read from. */
+/** The distinct `(table, column, page clause)` records the admitting embeddings of `pin` read from. */
 const recordReads = (
   app: App,
   pin: HiddenPin,
   submitter: Submitter
-): readonly { readonly tableName: string; readonly column: string }[] => {
-  const pairs = pin.embeddings.flatMap(({ page, source }) => {
+): readonly (PageRecordSource & { readonly column: string })[] => {
+  const reads = pin.embeddings.flatMap(({ page, source }) => {
     if (source.kind !== 'record' || !pageAdmits(app, page, submitter)) return []
-    const tableName = singleRecordTableOf(page)
-    return tableName === undefined ? [] : [{ tableName, column: source.column }]
+    const recordSource = recordSourceOf(page)
+    return recordSource === undefined ? [] : [{ ...recordSource, column: source.column }]
   })
-  return [...new Map(pairs.map((pair) => [`${pair.tableName}\u0000${pair.column}`, pair])).values()]
+  const keyOf = (read: Readonly<(typeof reads)[number]>): string =>
+    JSON.stringify([read.tableName, read.column, read.pageClause ?? null])
+  return [...new Map(reads.map((read) => [keyOf(read), read])).values()]
 }
 
-/** One record source of a pinned field that this submitter may read: a column of a table, under their read clause. */
+/**
+ * One record source of a pinned field that this submitter may read: a column of
+ * a table, under their read clause and the page's own clause.
+ */
 interface RecordRead {
   readonly tableName: string
   readonly column: string
   readonly clause: QueryFilterNode | undefined
+  readonly pageClause: QueryFilterNode | undefined
 }
 
 /** The record sources of `pin` whose table and column this submitter may read. */
@@ -188,19 +271,20 @@ const readableRecordReads = (
   pin: HiddenPin,
   submitter: Submitter
 ): Effect.Effect<readonly RecordRead[], never, Requirements> =>
-  Effect.forEach(recordReads(app, pin, submitter), ({ tableName, column }) =>
+  Effect.forEach(recordReads(app, pin, submitter), ({ tableName, column, pageClause }) =>
     pageReadGate(app, tableName, submitter).pipe(
       Effect.map((gate): readonly RecordRead[] =>
         gate === undefined || (column !== 'id' && !gate.readsColumn(column))
           ? []
-          : [{ tableName, column, clause: gate.clause }]
+          : [{ tableName, column, clause: gate.clause, pageClause }]
       )
     )
   ).pipe(Effect.map((reads) => reads.flat()))
 
 /**
  * Whether a live record behind `read` holds `key` in its column — one existence
- * query, `column = key` under the submitter's read clause, at most one row back.
+ * query, `column = key` under the submitter's read clause AND the page's own
+ * clause, at most one row back.
  */
 const recordHolds = (
   app: App,
@@ -217,6 +301,7 @@ const recordHolds = (
         and: [
           { field: read.column, operator: 'in', value: [key] },
           ...(read.clause === undefined ? [] : [read.clause]),
+          ...(read.pageClause === undefined ? [] : [read.pageClause]),
         ],
       },
       columns: [read.column],

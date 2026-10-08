@@ -20,6 +20,7 @@ import {
 } from '@/application/ports/repositories/automations/automation-run-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
+import * as park from '@/infrastructure/database/automation-run-park'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   automationDefinitions as automationDefinitionsPg,
@@ -47,14 +48,7 @@ const automationRunRefs = resolveDialectSchema(automationRunRefsPg, automationRu
 /** Wrap a DB promise, adapting failures to AutomationRunDatabaseError. */
 const wrap = makeDbWrap((cause) => new AutomationRunDatabaseError({ cause }))
 
-/**
- * Convert nullable Date to ISO 8601 string (or null) for the API contract.
- *
- * The `PersistedRun.startedAt` (and related) fields are intentionally
- * `string | null` because the public Run schema (Zod runSchema) uses
- * `.nullable()` for these timestamps — they are never `undefined`, only
- * present-or-null.
- */
+/** A nullable Date as ISO 8601 (or null): the run timestamps are present-or-null, never absent. */
 const toIso = (value: Readonly<Date> | null | undefined): string | null =>
   value instanceof Date ? value.toISOString() : null
 
@@ -79,6 +73,7 @@ const toRun = (
   startedByHand: runRow.startedByHand,
   relay: runRow.relay,
   valuesErasedAt: toIso(runRow.valuesErasedAt),
+  resumeAt: toIso(runRow.resumeAt),
 })
 
 const toStep = (row: Readonly<typeof automationRunSteps.$inferSelect>): PersistedStep => ({
@@ -98,11 +93,7 @@ const toStep = (row: Readonly<typeof automationRunSteps.$inferSelect>): Persiste
   nested: row.nested,
 })
 
-/**
- * Build the optional-column overlay for a run insert. Pulled out so the
- * `create` callback stays under the complexity threshold — every conditional
- * spread on the literal counted toward `create`'s cyclomatic complexity.
- */
+/** The optional-column overlay for a run insert, out of `create` for its complexity. */
 const runInsertOptionals = (input: Readonly<CreateRunInput>) => ({
   ...(input.triggerData !== undefined ? { triggerData: input.triggerData as object } : {}),
   ...(input.triggeredByUserId !== undefined ? { triggeredByUserId: input.triggeredByUserId } : {}),
@@ -196,10 +187,7 @@ const buildListFilters = (options: ListRunsOptions): ReadonlyArray<SQL> => {
   return [...nameFilter, ...statusFilter, ...readableByFilters(options.readableBy)]
 }
 
-/**
- * Resolve `(page, pageSize)` defaults from raw options. Returns `pageSize`
- * undefined when the caller didn't ask to paginate.
- */
+/** `(page, pageSize)` defaults; `pageSize` undefined when the caller did not paginate. */
 const resolvePaging = (
   options: ListRunsOptions
 ): { readonly page: number; readonly pageSize: number | undefined } => {
@@ -209,10 +197,7 @@ const resolvePaging = (
   return { page, pageSize }
 }
 
-/**
- * Drizzle implementation for {@link AutomationRunRepository.listAll}. Pulled
- * out of the `wrap()` callback so the latter stays under the complexity cap.
- */
+/** Drizzle implementation for {@link AutomationRunRepository.listAll}. */
 const listAllRuns = async (
   options: ListRunsOptions
 ): Promise<{ readonly runs: ReadonlyArray<PersistedRun>; readonly total: number }> => {
@@ -257,21 +242,32 @@ const listAllRuns = async (
  * `findById`, `findStepsByRunId`) JOIN definitions by `automation_id` so
  * callers can filter by user-facing name.
  */
+/** The run row's columns a finalisation writes: status, timings, error, and the park or its clearing. */
+const finalisedColumns = (
+  input: Parameters<(typeof AutomationRunRepository.Service)['finaliseRun']>[0]
+): Readonly<Record<string, unknown>> => ({
+  status: input.status,
+  // Parking sets when and where the run resumes; any other finalisation clears both.
+  resumeAt: input.park?.resumeAt ?? null,
+  resumeCursor: input.park?.cursor ?? null,
+  ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {}),
+  ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
+  ...(input.error !== undefined ? { error: input.error } : {}),
+})
+
+const findRunById = async (id: string): Promise<PersistedRun | undefined> => {
+  const rows = await db
+    .select({ run: automationRuns, definitionName: automationDefinitions.name })
+    .from(automationRuns)
+    .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
+    .where(eq(automationRuns.id, id))
+    .limit(1)
+  const head = rows[0]
+  return head ? toRun(head.run, head.definitionName) : undefined
+}
+
 export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository, {
-  findById: (id) =>
-    wrap(async () => {
-      const rows = await db
-        .select({
-          run: automationRuns,
-          definitionName: automationDefinitions.name,
-        })
-        .from(automationRuns)
-        .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
-        .where(eq(automationRuns.id, id))
-        .limit(1)
-      const head = rows[0]
-      return head ? toRun(head.run, head.definitionName) : undefined
-    }),
+  findById: (id) => wrap(() => findRunById(id)),
 
   listByAutomationName: (automationName, readableBy) =>
     wrap(async () => {
@@ -321,8 +317,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       }
       await insertRunRefs(runRow.id, input)
 
-      // Look up the definition name so the returned shape includes it.
-      // The same query path the readers use, no caching needed at this layer.
+      // The definition name, so the returned shape includes it.
       const defRows = await db
         .select({ name: automationDefinitions.name })
         .from(automationDefinitions)
@@ -335,9 +330,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
 
   updateStatus: (input) =>
     wrap(async () => {
-      // Plain UPDATE; no CHECK constraint on the status column (status
-      // is `text`) so 'cancelled' is accepted alongside the engine-set
-      // values ('completed', 'failed', 'timed-out', etc.).
+      // Plain UPDATE: `status` is `text` with no CHECK, so any engine label is accepted.
       const [updated] = await db
         .update(automationRuns)
         .set({
@@ -369,23 +362,14 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
 
   finaliseRun: (input) =>
     wrap(async () => {
-      // Update terminal status + timings on the existing run row.
-      const updateSet: Readonly<Record<string, unknown>> = {
-        status: input.status,
-        ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {}),
-        ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
-        ...(input.error !== undefined ? { error: input.error } : {}),
-      }
       const [updated] = await db
         .update(automationRuns)
-        .set(updateSet)
+        .set(finalisedColumns(input))
         .where(eq(automationRuns.id, input.id))
         .returning()
       if (!updated) return undefined
 
-      // Append step rows (if any). The scheduler-driven path inserts steps
-      // only at finalisation time so the per-step durations / outputs land
-      // atomically with the terminal status.
+      // Append step rows: they land with the terminal status, never earlier.
       const steps = input.steps ?? []
       if (steps.length > 0) {
         await db.insert(automationRunSteps).values(stepValues(updated.id, steps))
@@ -399,4 +383,15 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         .limit(1)
       return toRun(updated, defRows[0]?.name ?? '')
     }),
+
+  hasWaitingDelayRuns: wrap(park.hasWaitingDelayRuns),
+  listDueDelayedRuns: (input) => wrap(() => park.listDueDelayedRuns(input)),
+  claimDelayedRun: (input) =>
+    wrap(async () => {
+      const claimed = await park.claimDelayedRun(input)
+      const run = claimed === undefined ? undefined : await findRunById(input.id)
+      return run === undefined ? undefined : { run, cursor: claimed?.cursor }
+    }),
+  cancelWaitingRun: (input) => wrap(() => park.cancelWaitingRun(input)),
+  updateStep: (input) => wrap(() => park.updateRunStep(input)),
 })

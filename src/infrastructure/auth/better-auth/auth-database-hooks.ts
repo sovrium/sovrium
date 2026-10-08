@@ -5,13 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  triggerAuthEventAutomations,
-  type AuthTriggerEvent,
-  // eslint-disable-next-line boundaries/dependencies -- Better Auth databaseHooks fire from within the auth library's lifecycle; the infrastructure-auth layer is the only point where we can observe signUp/emailVerified events. The application-layer use case is the dispatch contract that routes through the AU-02 scheduler — same shape as the record-event trigger bridge.
-} from '@/application/use-cases/automations/trigger-auth-event'
-import { logError } from '@/infrastructure/logging/logger'
-import { runOnDomain } from '@/infrastructure/server/domain-runtime'
+import { dispatchAuthEvent, emailVerifiedHooks } from './auth-event-hooks'
 import { ensureMembership, ensureOrganization } from './org-team-seeder'
 import * as ssoPlugin from './plugins/sso'
 import { buildSessionHooks } from './session-database-hooks'
@@ -85,47 +79,6 @@ export type AppMetaForOrg = {
 }
 
 /**
- * Effect-to-async bridge for the AU-03 auth-event trigger. Drives the
- * `triggerAuthEventAutomations` use case from the plain-async Better Auth
- * databaseHooks context. Mirrors the fire-and-forget pattern used by the
- * webhook handler — a downstream automation crash must never fail the
- * upstream auth flow, so all errors are swallowed at the boundary with
- * a `console.error` for operator diagnosis.
- *
- * `app` carries `automations` (filtered inside the use case) and `name`
- * (used by `executeAutomationRun`'s logger). When `appMeta` is undefined
- * (the OpenAPI-schema-generation auth instance has no app context), the
- * bridge no-ops so the default export `auth` doesn't crash at module load.
- */
-const dispatchAuthEvent = (
-  event: AuthTriggerEvent,
-  user: Readonly<Record<string, unknown>>,
-  hookContext: AuthHookContext
-): Promise<void> => {
-  const { appMeta, domainContext } = hookContext
-  if (!appMeta || !appMeta.automations || appMeta.automations.length === 0) {
-    return Promise.resolve()
-  }
-  // No server context means no server: this is the schema-generation instance
-  // (`export const auth = createAuthInstance()`), which has no app and fires no
-  // automations. It cannot reach the automation services and must not build a
-  // second set to pretend otherwise.
-  if (domainContext === undefined) return Promise.resolve()
-  const program = triggerAuthEventAutomations({
-    app: appMeta as App,
-    event,
-    user,
-    processEnv: process.env,
-    userId: typeof user['id'] === 'string' ? (user['id'] as string) : undefined,
-  })
-  return runOnDomain(domainContext, program).catch((err) => {
-    // The use case absorbs its own errors via `Effect.catchAllCause`, so this
-    // `.catch` only fires if the run itself rejects. Log-only — never throw.
-    logError('[automation:auth-event] auth-event dispatch failed', err)
-  })
-}
-
-/**
  * Build the Better Auth `databaseHooks` block.
  *
  * Hooks installed when auth is configured:
@@ -140,17 +93,14 @@ const dispatchAuthEvent = (
  *    into that organization, (test-mode only) seeds OAuth tokens, AND
  *    (AU-03) fires any `trigger.type === 'auth'` automations that
  *    subscribe to the `signUp` event.
- *  - `user.update.after` (AU-03) fires `emailVerified` auth-event
- *    automations when the verification flow completes.
+ *  - `user.update.before`/`after` fire `emailVerified` auth-event
+ *    automations when an update makes the address verified — and only then:
+ *    a later update of an already verified account (a rename) leaves the row's
+ *    `emailVerified` at `true` without being a verification.
  *
- * The `signIn` / `signOut` / `passwordReset` auth-trigger events are
- * scoped out of this change pending dedicated specs — they require a
- * dialect-aware user-row lookup from `session.userId` (signIn/signOut
- * hooks have only the session) and a Better Auth integration point for
- * passwordReset completion (the `sendResetPassword` callback fires at
- * request time, not on reset success). The dispatch helper
- * `dispatchAuthEvent` is event-agnostic so those calls drop in directly
- * when the matching specs land.
+ * `signIn`, `signOut` and `passwordReset` are dispatched from the request
+ * hooks and `onPasswordReset` instead (see `auth-event-hooks.ts`): a session
+ * row alone does not say whether a person signed in or out.
  *
  * Extracted from `createAuthInstance` to keep that function under the
  * project-wide `max-lines-per-function` limit.
@@ -206,26 +156,7 @@ export function buildDatabaseHooks(
           await dispatchAuthEvent('signUp', user, hookContext)
         },
       },
-      update: {
-        // AU-03: when `emailVerified` flips false→true (verification flow
-        // completion), fire `emailVerified` auth-event automations. The
-        // `before`-vs-`after` value diff is not exposed by Better Auth so
-        // we conservatively fire on every update where the new value is
-        // `true` — duplicates are tolerated (automations are idempotent
-        // by `trigger.data.event` envelope). When no auth-trigger
-        // automation subscribes to `emailVerified`, `dispatchAuthEvent`
-        // exits early via the `automations.length === 0` short-circuit
-        // so this hook has zero cost on non-AU-03 apps.
-        after: async (user: Readonly<Record<string, unknown>> | null) => {
-          // Better Auth invokes this hook with `null` when the update affected
-          // no rows — e.g. the admin `set-role` endpoint targeting a
-          // non-existent user, which is idempotent and must return 200 with an
-          // empty user. Guard so the missing-user path never throws a 500.
-          if (user !== null && user['emailVerified'] === true) {
-            await dispatchAuthEvent('emailVerified', user, hookContext)
-          }
-        },
-      },
+      update: emailVerifiedHooks(hookContext),
     },
   }
 }

@@ -8,3 +8,5 @@
 export * from './sovrium-action'
 
 export * from './validate-config'
+
+export * from './validate-bundle'

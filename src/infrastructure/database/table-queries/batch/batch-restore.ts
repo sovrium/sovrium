@@ -8,14 +8,9 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { reportCommittedRows } from '@/application/ports/services/record-change-feed'
-import {
-  db,
-  NotFoundError,
-  DatabaseError,
-  type DrizzleTransaction,
-} from '@/infrastructure/database'
+import { NotFoundError, DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { withTransaction } from '@/infrastructure/database/transaction'
+import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import {
   passthroughError,
@@ -24,7 +19,7 @@ import {
   type PassthroughError,
 } from '../statement/error-handling'
 import { tableIdentifier } from '../statement/validation'
-import { BATCH_FANOUT_CONCURRENCY } from './batch-helpers'
+import { BATCH_FANOUT_CONCURRENCY, insertedRowChanges } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -184,8 +179,8 @@ export function batchRestoreRecords(
   recordIds: readonly string[]
 ): Effect.Effect<number, DatabaseError | NotFoundError> {
   return Effect.gen(function* () {
-    const restoredRecords = yield* withTransaction(
-      db,
+    // A restored row comes back into view: announced (and owed) as an insert.
+    const restoredRecords = yield* withOutboxTransaction(insertedRowChanges(tableName))(
       (tx) =>
         Effect.gen(function* () {
           const tableIdent = tableIdentifier(tableName)
@@ -217,15 +212,7 @@ export function batchRestoreRecords(
     )
 
     yield* logRestoreActivities(session, tableName, restoredRecords)
-    // A restored row comes back into view: announced as an insert.
-    yield* reportCommittedRows(
-      restoredRecords.map((row) => ({
-        tableName,
-        event: 'insert' as const,
-        recordId: String(row['id']),
-        row,
-      }))
-    )
+    yield* reportCommittedRows(insertedRowChanges(tableName)(restoredRecords))
 
     return restoredRecords.length
   })

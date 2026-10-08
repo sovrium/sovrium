@@ -4,7 +4,9 @@
 
 ## Record trigger
 
-Fires when records change in a watched table.
+Fires when records change in a watched table — `create`, `update`, `delete`, and `restore` when a deleted record is brought back from the trash. It fires whichever way the record was written: the records API, a batch call, an upsert, a form, the assistant, a CSV import or another automation, once per record. `sovrium seed` is the exception and fires nothing, and so does an import into a table that declares `import: { fireEvents: false }`.
+
+A `restore` is not a `create`: an automation that greets new records does not run again for one that already existed. On a `restore` the row is at `{{trigger.data.record.*}}` as restored, and `watchFields` does not apply.
 
 ```yaml
 trigger:
@@ -46,13 +48,15 @@ A `create` or `delete` has no previous row, so there `{{trigger.data.previousRec
 
 ### Writes by other automations
 
-A record an automation writes starts the record automations of its table, exactly as the same write through the records API does — a lead created by a webhook recipe starts the automation that watches new leads. The single-record `create`, `update`, `upsert` and `delete` steps dispatch; the batch operators do not. It does not matter where the step sits: a write made inside a branch path, inside a loop (one run per record), or by a code step through `context.actions.record.*` starts them too, under the same loop rules and depth limit as a top-level write.
+A record an automation writes starts the record automations of its table, exactly as the same write through the records API does — a lead created by a webhook recipe starts the automation that watches new leads. Every record step dispatches, the batch operators included, once per record written. It does not matter where the step sits: a write made inside a branch path, inside a loop (one run per record), or by a code step through `context.actions.record.*` starts them too, under the same loop rules and depth limit as a top-level write.
 
 A loop the configuration shows is refused at validation: an automation whose own `update` step writes a field its trigger's `watchFields` watch — or its own table at all, when the trigger declares no `watchFields` and so watches every field — and one whose `create` step writes into the table whose new records start it. The trigger's own `condition` is read first: when an `equals` or `notEquals` comparison on `{{trigger.data.record.<field>}}` in an `and` group can never hold for the value the step writes into that field — the trigger fires while `status` equals Review and the step writes Scheduled — the write cannot start another run, and it is accepted. A written value that could satisfy the condition again, the same value or one read at run time, is still refused. Two automations whose writes start each other — each one's step writes the other's table, on a field the other watches or on any field when it declares no `watchFields`, and neither trigger has a `condition` — are refused the same way, naming both automations and both tables. A cycle that hangs on a trigger `condition`, or runs through more than two automations, is decided at run time: it stops after four automation writes: a step whose write would start a record automation one level deeper fails without writing, and its run says why in run history; a write that changes no field any automation watches starts nothing and is never refused.
 
 ### What the trigger hands you
 
-The row is at **`{{trigger.data.record.*}}`**, also reachable as `{{trigger.record.*}}`. It is **not** flattened, so `{{trigger.data.status}}` does not resolve. It is the row as stored, whatever created it — the records API, a form submission, a dialog or another automation: its `id`, every column the server stamped (`created-by`, `created-at`) and every default applied, not only the answers a form posted. The `id` is a string on every event — create, update and delete alike — as the records API returns it, and so is a relationship value a `condition` or `watchFields` compares, in `record` and in `previousRecord`.
+The row is at **`{{trigger.data.record.*}}`**, also reachable as `{{trigger.record.*}}`. It is **not** flattened, so `{{trigger.data.status}}` does not resolve. It is the row as stored, whatever created it — the records API, a form submission, a dialog or another automation: its `id`, `created_at` and `updated_at`, every column the server stamped (`created-by`, `updated-by`) and every default applied, not only the answers a form posted.
+
+The run can also know who made the write: **`{{trigger.user.id}}`** and **`{{trigger.user.role}}`**, in the same shape a webhook with `auth: { type: session }` hands its run. A record a signed-in person creates through the records API names that person and her role. When no person made the write — a step of another automation wrote the row, on any event — both read `system`, as the row's `created-by` column does. A visitor who has not signed in has no `trigger.user`, and neither, for now, has an update or a delete made through the records API, nor a form submission. The `id` is a string on every event — create, update and delete alike — as the records API returns it, and so is a relationship value a `condition` or `watchFields` compares, in `record` and in `previousRecord`.
 
 | Path                                | Available on  | Contains                      |
 | ----------------------------------- | ------------- | ----------------------------- |

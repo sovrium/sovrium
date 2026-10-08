@@ -7,6 +7,7 @@
 
 import { Result } from 'effect'
 import { isSingleMailbox } from '@/domain/kernel/sanitize/email-validation'
+import { templateContextPathsFor } from '@/domain/models/app/automations/template-context-service'
 import { lookupPath, resolveTriggerInValue } from '../resolve-trigger-data'
 import type {
   TemplateEncoding,
@@ -26,6 +27,10 @@ import type {
  *
  * A prop that cannot be filled in safely fails the step with a reason, before
  * the action runs.
+ *
+ * And a prop that is template TEXT (`template.inline`, `header.inline`, …: the
+ * `templateContext` annotation, read off the schema) is left as written: its
+ * action renders it, escaped for its output, against its `data` only.
  */
 
 type Props = Readonly<Record<string, unknown>>
@@ -34,6 +39,10 @@ export interface RenderedActionProps {
   readonly props: Record<string, unknown>
   /** Why the step must fail without running, when a prop cannot be filled in safely. */
   readonly refusal?: string
+  /** A named template's variables (`$vars`), filled in with the props, for its inline text. */
+  readonly templateVars?: Readonly<Record<string, unknown>>
+  /** The props are the configuration as written: the handler fills them in itself. */
+  readonly authored?: true
 }
 
 const HTTP_OPERATORS: ReadonlySet<string> = new Set([
@@ -132,6 +141,34 @@ const emailAddressRefusal = (
   ).find((reason) => reason !== undefined)
 
 /**
+ * Render `value` with `renderValue`, except at the `skip` paths (relative to
+ * `value`), which are kept as written: template TEXT its action renders itself
+ * (the `templateContext` annotation). Only an object is descended into; a
+ * value that is not one at a skip path's prefix is rendered whole.
+ */
+const renderExcept = (
+  value: unknown,
+  skip: ReadonlyArray<string>,
+  renderValue: (value: unknown) => unknown
+): unknown => {
+  if (skip.includes('')) return value
+  if (skip.length === 0 || value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return renderValue(value)
+  }
+  return Object.fromEntries(
+    Object.entries(value as Props).map(([key, child]) => {
+      const under = skip
+        .filter((path) => path === key || path.startsWith(`${key}.`))
+        .map((path) => path.slice(key.length + 1))
+      return [
+        key,
+        under.length === 0 ? renderValue(child) : renderExcept(child, under, renderValue),
+      ]
+    })
+  )
+}
+
+/**
  * Fill in `authored` (an action's props as written, `$env.` already turned
  * into values the pass inserts) for the action `type`/`operator`.
  * `renderValue` fills in a prop with no position of its own — the run loop's
@@ -153,8 +190,15 @@ export const renderActionProps = (input: {
   }
   const authored = input.authored as Props
   const encodings = encodingsFor(type, operator, authored)
+  const skipped = templateContextPathsFor(type, operator).map((entry) => entry.path)
   const entries = Object.entries(authored).map(([key, value]) => {
     const encoding = encodings[key]
+    const under = skipped
+      .filter((path) => path === key || path.startsWith(`${key}.`))
+      .map((path) => path.slice(key.length + 1))
+    if (under.length > 0) {
+      return { key, value: renderExcept(value, under, renderValue), refusal: undefined }
+    }
     if (encoding === undefined || typeof value !== 'string') {
       return { key, value: renderValue(value), refusal: undefined }
     }

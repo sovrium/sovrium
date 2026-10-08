@@ -8,6 +8,7 @@
 export * from './auth'
 
 export * from './api-keys'
+export * from './device-authorization'
 export * from './email-templates'
 export * from './groups'
 export * from './passkeys'

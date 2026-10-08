@@ -7,6 +7,8 @@
 
 import configValidationBody from '@/cli/commands/config-validation.docs.md' with { type: 'file' }
 import configurationTypescriptBody from '@/cli/commands/configuration-typescript.docs.md' with { type: 'file' }
+import envVarsDocumentsBody from '@/cli/commands/env-vars-documents.docs.md' with { type: 'file' }
+import envVarsHostingBody from '@/cli/commands/env-vars-hosting.docs.md' with { type: 'file' }
 import envVarsProjectBody from '@/cli/commands/env-vars-project.docs.md' with { type: 'file' }
 import envVarsServicesBody from '@/cli/commands/env-vars-services.docs.md' with { type: 'file' }
 import envVarsBody from '@/cli/commands/env-vars.docs.md' with { type: 'file' }
@@ -95,12 +97,14 @@ export const configuration = defineSection({
         'SOVRIUM_ENCRYPTION_KEY',
         'AUTH_SECRET',
         'TRUSTED_PROXY_HOPS',
+        'SOVRIUM_BIND_HOST',
       ],
       order: 1210,
       sidebarLabel: 'Env Vars: Core',
       body: envVarsBody,
       documents: [],
       stories: [
+        'US-CLI-STARTING-SERVER-BIND-HOST',
         'US-INFRASTRUCTURE-DEFAULT-DATABASE-PROVIDER-001',
         'US-INFRASTRUCTURE-DEFAULT-DATABASE-PROVIDER-002',
         'US-INFRASTRUCTURE-DEFAULT-DATABASE-PROVIDER-003',
@@ -134,6 +138,34 @@ export const configuration = defineSection({
       stories: [],
     }),
     defineArticle({
+      slug: 'env-vars-hosting',
+      title: 'Environment Variables: Hosting Under a Supervisor',
+      description:
+        'What changes when an app runs under systemd, a container orchestrator or a socket-activation proxy: a busy port that refuses, a Unix socket listener, an exit when idle, JSON logs, and the switches of an app that supervises the others.',
+      keywords: [
+        'sovrium',
+        'environment variables',
+        'SOVRIUM_STRICT_PORT',
+        'SOVRIUM_LISTEN_UNIX',
+        'SOVRIUM_IDLE_EXIT_SECONDS',
+        'SOVRIUM_LOG_FORMAT',
+        'SOVRIUM_HOST_ACTIONS',
+        'SOVRIUM_INSTANCES_DIR',
+        'SOVRIUM_BUNDLE_PUBLIC_KEYS',
+        'systemd',
+        'socket activation',
+      ],
+      order: 1214,
+      sidebarLabel: 'Env Vars: Hosting',
+      body: envVarsHostingBody,
+      documents: [],
+      stories: [
+        'US-CLI-STARTING-SERVER-STRICT-PORT',
+        'US-CLI-STARTING-SERVER-UNIX-SOCKET-AND-IDLE-EXIT',
+        'US-CLI-SERVER-LOGGING-JSON-FORMAT',
+      ],
+    }),
+    defineArticle({
       slug: 'env-vars-services',
       title: 'Environment Variables: Storage, AI, Email and Observability',
       description:
@@ -161,6 +193,29 @@ export const configuration = defineSection({
         'US-INFRASTRUCTURE-OBSERVABILITY-PERFORMANCE',
         'US-INFRASTRUCTURE-OBSERVABILITY-TRACING',
       ],
+    }),
+    defineArticle({
+      slug: 'env-vars-documents',
+      title: 'Environment Variables: Document Rendering',
+      description:
+        'The browser that turns HTML templates into PDFs and images — a local Chrome, a Chrome sidecar or Gotenberg — the limits on every render, and what a template is allowed to load.',
+      keywords: [
+        'sovrium',
+        'RENDERER_PROVIDER',
+        'RENDERER_CHROME_PATH',
+        'RENDERER_CDP_URL',
+        'RENDERER_TIMEOUT_MS',
+        'PDF',
+        'Chrome',
+        'Gotenberg',
+      ],
+      order: 1217,
+      sidebarLabel: 'Env Vars: Documents',
+      body: envVarsDocumentsBody,
+      documents: [],
+      // No `stories:` yet: the document-action stories are claimed by the
+      // articles that document the actions themselves.
+      stories: [],
     }),
     defineArticle({
       slug: 'json-schema',

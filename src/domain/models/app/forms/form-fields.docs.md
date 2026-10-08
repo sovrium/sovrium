@@ -44,6 +44,8 @@ An attachment column renders a file input automatically, and a `relationship` co
 
 Every required field — required by the field, by its column, or by a `requiredWhen` rule that holds — shows a required mark beside its label and is announced as required to assistive technology.
 
+A checkbox stores `true` when it is ticked and `false` when it is not — never an empty value. A browser posts a ticked box as `on`; `on`, `true` and `1` all mean ticked, and `false`, `0` or a box left out of the submission mean unticked. A **required checkbox must be ticked**: it is the shape a consent takes, so a submission that posts it unticked, or leaves it out, is refused with `400`, naming the box, and nothing is stored.
+
 ## Standalone fields
 
 Typed inline, and not written to a column. This is the kind for a form that routes to an automation or lives only in the ledger.

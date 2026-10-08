@@ -21,9 +21,22 @@
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { toLf } from './line-endings'
 import { LICENSE_SUPPLEMENTS, type LicenseSupplement } from './third-party-license-supplements'
 
 export type LicenseClass = 'permissive' | 'attribution' | 'unknown'
+
+/**
+ * A text file read with its line endings normalised to LF.
+ *
+ * The payload these texts feed is compared BYTE for byte by
+ * `generate-embedded-licenses.ts --check`, and git rewrites line endings on
+ * checkout wherever `core.autocrlf` is on — the default on the GitHub
+ * `windows-latest` runner, which turned every LF text under `licenses/` into
+ * CRLF and failed the v0.32.0 Windows binary build on bytes no human changed.
+ * Reading through this makes the rendered payload the same on every OS.
+ */
+export const readTextLf = (path: string): string => toLf(readFileSync(path, 'utf8'))
 
 /** SPDX identifiers that grant use without asking for their text to travel separately. */
 const PERMISSIVE_IDS = [
@@ -297,7 +310,7 @@ const readDeclaredLicense = (
   }
   const file = readdirSync(dir).find((name) => LICENSE_FILE.test(name))
   if (file === undefined) return undefined
-  const firstLine = readFileSync(join(dir, file), 'utf8')
+  const firstLine = readTextLf(join(dir, file))
     .split('\n')
     .map((line) => line.trim())
     .find((line) => line.length > 0)
@@ -407,7 +420,7 @@ export const extractNotice = (dir: string): ExtractedNotice | undefined => {
   const files = readdirSync(dir)
     .filter((name) => LICENSE_FILE.test(name) && statSync(join(dir, name)).isFile())
     .sort()
-  const texts = files.map((file) => readFileSync(join(dir, file), 'utf8'))
+  const texts = files.map((file) => readTextLf(join(dir, file)))
   const joined = texts.join('\n\n')
   const { copyright, body } = splitNotice(joined)
   if (body.length === 0) return undefined
@@ -432,7 +445,7 @@ export const supplementNotice = (
 ): ExtractedNotice | undefined => {
   const paths = row.files.map((file) => join(supplementsDir, file))
   if (!paths.every((path) => existsSync(path))) return undefined
-  const split = splitNotice(paths.map((path) => readFileSync(path, 'utf8')).join('\n\n'))
+  const split = splitNotice(paths.map((path) => readTextLf(path)).join('\n\n'))
   // A canonical SPDX text carries placeholder or sample copyright lines; the
   // holder the manifest names replaces them.
   const copyright = row.holder === undefined ? split.copyright : [`Copyright (c) ${row.holder}`]

@@ -104,7 +104,10 @@ export interface ServerStatusDocument {
   readonly seq: number
   readonly state: ServerStatusState
   readonly pid: number
-  readonly port: number
+  /** The bound TCP port; absent when the instance serves on a Unix socket. */
+  readonly port?: number
+  /** The Unix socket the instance serves on (`SOVRIUM_LISTEN_UNIX`), in place of `port`. */
+  readonly socketPath?: string
   readonly configHash: string
   readonly configPath: string
   readonly updatedAt: string
@@ -115,6 +118,7 @@ export interface ServerStatusDocument {
 export interface ServerStatusPatch {
   readonly state?: ServerStatusState
   readonly port?: number
+  readonly socketPath?: string
   readonly configHash?: string
   readonly configPath?: string
   readonly lastReload?: StatusReloadRecord
@@ -147,12 +151,21 @@ const sequence = new Map<'seq', number>()
 export const getStatusFilePath = (): string => join(dirname(getLockFilePath()), STATUS_FILE_NAME)
 
 /** Merge a patch over what was last published. */
+/** One listener, recorded once: a socket path replaces the port. */
+const mergedListener = (
+  patch: ServerStatusPatch,
+  previous: RetainedStatus
+): { readonly port: number } | { readonly socketPath: string } => {
+  const socketPath = patch.socketPath ?? previous.socketPath
+  return socketPath !== undefined ? { socketPath } : { port: patch.port ?? previous.port ?? 0 }
+}
+
 const nextDocument = (patch: ServerStatusPatch): ServerStatusDocument => {
   const previous = retained.get('status') ?? INITIAL
   const merged: RetainedStatus = {
     state: patch.state ?? previous.state,
     pid: process.pid,
-    port: patch.port ?? previous.port,
+    ...mergedListener(patch, previous),
     configHash: patch.configHash ?? previous.configHash,
     configPath: patch.configPath ?? previous.configPath,
     // `undefined` in a patch means "I learned nothing about this", so a boot

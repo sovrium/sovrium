@@ -30,6 +30,12 @@ export interface DerivedCrumbOptions {
    * own name (`ORD-0412`) instead of its id. Ignored when empty.
    */
   readonly currentLabel?: string
+  /**
+   * The page's DECLARED path (`/templates/:path*`). When its last segment is a
+   * catch-all (`:name*`), every request segment from that position on is one
+   * capture, and the capture becomes ONE crumb rather than a crumb per folder.
+   */
+  readonly pattern?: string
 }
 
 /** One crumb of a derived trail. The last one carries no `href`. */
@@ -77,35 +83,102 @@ const nonEmpty = (label: string | undefined): string | undefined => {
  * // [ { label: 'automations', href: '/automations' },
  * //   { label: 'Run' },
  * //   { label: '42' } ]
+ *
+ * buildDerivedCrumbs('/templates/emails/body.html', undefined, { pattern: '/templates/:path*' })
+ * // [ { label: 'templates', href: '/templates' }, { label: 'body.html' } ]
  * ```
  */
 export function buildDerivedCrumbs(
   path: string,
   labels: Readonly<Record<string, string>> | undefined,
-  options?: DerivedCrumbOptions
+  options: DerivedCrumbOptions = {}
 ): readonly DerivedCrumb[] {
-  const base = options?.basePath ?? ''
-  const unlinked = new Set(options?.unlinked ?? [])
-  const segments = (path.split('?')[0] ?? '').split('/').filter((segment) => segment.length > 0)
+  const base = options.basePath ?? ''
+  const current = nonEmpty(options.currentLabel)
+  const { staticSegments, captured } = splitAtCatchAll(
+    splitSegments(path.split('?')[0] ?? ''),
+    options.pattern
+  )
+  const hasCapture = captured !== undefined
+  const staticCrumbs = buildStaticCrumbs(staticSegments, labels, {
+    base,
+    unlinked: new Set(options.unlinked),
+    // The current-page label lands on the last STATIC crumb only when nothing
+    // was captured after it; otherwise the capture is the current page.
+    current: hasCapture ? undefined : current,
+    lastIsCurrent: !hasCapture,
+  })
+  // `labels` and `unlinked` name STATIC segments: a captured one is data (an
+  // asset's own file name), shown verbatim.
+  const derived = hasCapture ? [...staticCrumbs, { label: current ?? captured }] : staticCrumbs
+  return withHome(derived, options.home, base)
+}
 
-  const current = nonEmpty(options?.currentLabel)
-  const derived = segments.map((segment, index) => {
-    const isLast = index === segments.length - 1
-    const label = (isLast ? current : undefined) ?? labels?.[segment] ?? segment
+/**
+ * Prepend the declared root crumb, if any.
+ *
+ * The root href is never authored: under a mount the app root is the MOUNT
+ * (`/_admin`, `/ops`), which the config cannot know and only this call
+ * resolves. An authored `/` would link every mounted console out of the mount
+ * the operator was browsing.
+ */
+const withHome = (
+  derived: readonly DerivedCrumb[],
+  home: DerivedCrumbOptions['home'],
+  base: string
+): readonly DerivedCrumb[] =>
+  home === undefined ? derived : [{ label: home.label, href: base === '' ? '/' : base }, ...derived]
+
+interface StaticCrumbContext {
+  readonly base: string
+  readonly unlinked: ReadonlySet<string>
+  readonly current: string | undefined
+  readonly lastIsCurrent: boolean
+}
+
+/** One crumb per static segment, each linking to its own prefix. */
+const buildStaticCrumbs = (
+  segments: readonly string[],
+  labels: Readonly<Record<string, string>> | undefined,
+  context: StaticCrumbContext
+): readonly DerivedCrumb[] =>
+  segments.map((segment, index) => {
+    const isLast = context.lastIsCurrent && index === segments.length - 1
+    const label = (isLast ? context.current : undefined) ?? labels?.[segment] ?? segment
     // The prefix is rebuilt from the ORIGINAL segments, not the labelled ones —
     // a relabelled crumb must still link to the path it came from.
     // An unlinked segment is matched on the URL segment too, so the name in
     // config is the slug a person reads in the address bar, not its label.
-    return isLast || unlinked.has(segment)
+    return isLast || context.unlinked.has(segment)
       ? { label }
-      : { label, href: `${base}/${segments.slice(0, index + 1).join('/')}` }
+      : { label, href: `${context.base}/${segments.slice(0, index + 1).join('/')}` }
   })
 
-  const { home } = options ?? {}
-  if (home === undefined) return derived
-  // The root href is never authored: under a mount the app root is the MOUNT
-  // (`/_admin`, `/ops`), which the config cannot know and only this call
-  // resolves. An authored `/` would link every mounted console out of the mount
-  // the operator was browsing.
-  return [{ label: home.label, href: base === '' ? '/' : base }, ...derived]
+/**
+ * Split the request segments at the declared catch-all, if any.
+ *
+ * A catch-all's capture is ONE value that happens to contain slashes: its
+ * folders are not pages, so a crumb each would link into the catch-all itself,
+ * borrowing whatever label a static segment of the same name has. `captured`
+ * is the capture's LAST segment, or `undefined` when there is no catch-all or
+ * it captured nothing — a zero-segment capture adds no crumb.
+ */
+const splitAtCatchAll = (
+  segments: readonly string[],
+  pattern: string | undefined
+): { readonly staticSegments: readonly string[]; readonly captured: string | undefined } => {
+  const at = catchAllIndex(pattern)
+  if (at === undefined) return { staticSegments: segments, captured: undefined }
+  return { staticSegments: segments.slice(0, at), captured: segments.slice(at).at(-1) }
+}
+
+const splitSegments = (path: string): readonly string[] =>
+  path.split('/').filter((segment) => segment.length > 0)
+
+/** Position of a trailing `:name*` segment in a declared path, if it has one. */
+const catchAllIndex = (pattern: string | undefined): number | undefined => {
+  if (pattern === undefined) return undefined
+  const segments = splitSegments(pattern)
+  const last = segments[segments.length - 1]
+  return last !== undefined && /^:[^/]+\*$/.test(last) ? segments.length - 1 : undefined
 }

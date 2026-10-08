@@ -6,8 +6,29 @@
  */
 
 import { analyticsIsEnabled } from '@/domain/models/app/analytics/analytics-enabled'
+import {
+  componentTreeHasMatch,
+  type TreeNode,
+} from '@/domain/models/app/pages/component-tree-has-type'
 import type { App } from '@/domain/models/app'
 import type { PageCapability } from '@/domain/models/app/pages/requires'
+
+/** A `form` whose action asks for a password-reset link (`auth` / `resetPassword`). */
+const isResetRequestForm = (node: TreeNode): boolean => {
+  if (node['type'] !== 'form') return false
+  const action = node['action'] as { readonly type?: unknown; readonly method?: unknown } | null
+  return action?.type === 'auth' && action.method === 'resetPassword'
+}
+
+/**
+ * Whether the app signs in with email and password AND one of its pages draws
+ * the form that asks for a reset link — written on the page, in a breakpoint's
+ * children, or placed through a template (`component:` / `$ref`) at any depth.
+ * Without that page, a "Forgot password?" link would lead to a 404.
+ */
+const passwordResetIsOffered = (app: App): boolean =>
+  (app.auth?.strategies ?? []).some((strategy) => strategy.type === 'emailAndPassword') &&
+  componentTreeHasMatch(app, isResetRequestForm)
 
 /**
  * Whether a host app declares one capability.
@@ -44,6 +65,7 @@ const CAPABILITY_PREDICATES: Readonly<Record<PageCapability, (app: App) => boole
   'auth.sso': (app) => (app.auth?.sso?.length ?? 0) > 0,
   // `allowSignUp` defaults to open, so only an explicit `false` closes it
   'auth.signUp': (app) => app.auth !== undefined && app.auth.allowSignUp !== false,
+  'auth.passwordReset': passwordResetIsOffered,
   tables: (app) => (app.tables?.length ?? 0) > 0,
   forms: (app) => (app.forms?.length ?? 0) > 0,
   links: (app) => (app.links?.length ?? 0) > 0,

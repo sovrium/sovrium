@@ -20,7 +20,7 @@
 
 import { Effect } from 'effect'
 import { actionKey, missingActionHandler, type ActionOutcome } from '../action-handlers'
-import { buildStepsResultView } from '../action-handlers/run-context-resolution'
+import { buildStepsResultView, resolveOwnProp } from '../action-handlers/run-context-resolution'
 import { authoredReferenceRoots, fillAuthoredReferences } from '../authored-references'
 import { readActionIdentity } from './action-identity'
 import {
@@ -41,6 +41,7 @@ import {
   type StepContext,
   type StepRequirements,
 } from './types'
+import type { ActionRunContext } from '../action-handlers/shared'
 
 type StepProps = Record<string, unknown>
 
@@ -108,6 +109,23 @@ const fillStepProps = (
 }
 
 /**
+ * A step run from a named action template carries the template's variables as
+ * `$vars`: as the calling automation wrote them (a `$ref`, filled in here,
+ * against the run, once), or as an MCP client's arguments already filled them
+ * (final props, taken as given). An inline template inside the step kept its
+ * `$name` references (`{{$vars.name}}`) and reads them from here.
+ */
+const withExpandedTemplateVars = <C extends ActionRunContext>(
+  rawAction: Readonly<Record<string, unknown>>,
+  runContext: C
+): C => {
+  const vars = rawAction['$vars']
+  if (vars === null || typeof vars !== 'object' || Array.isArray(vars)) return runContext
+  const filled = resolveOwnProp(runContext, vars) as Readonly<Record<string, unknown>>
+  return { ...runContext, templateVars: filled }
+}
+
+/**
  * Execute one action: resolve `$env.VAR` references in its authored props
  * (then its `{{...}}` templates), dispatch
  * to the registered handler, retry per policy, and fold the outcome into
@@ -126,6 +144,12 @@ export const executeStep = (
   Effect.gen(function* () {
     const { authored, resolvedProps, final, refusal } = fillStepProps(acc, rawAction, ctx)
     const tracker = createReadTracker()
+    // One call invoker per step, shared by everything the step dispatches: a
+    // call a loop, a path or a script makes is held to the same guards.
+    const scope = {
+      tracker,
+      invokeAutomation: trackedInvoker(buildAutomationInvoker(ctx, acc.steps.length), tracker),
+    }
     // An unregistered key FAILS the step rather than silently succeeding. Every
     // action AppSchema can declare has a handler — asserted by
     // `registry-schema-coverage.test.ts` — so no config an author can write
@@ -133,7 +157,7 @@ export const executeStep = (
     // rewrites it to its target before the run loop starts.
     const { type, operator } = readActionIdentity(rawAction)
     const handler = ctx.handlers.get(actionKey(type, operator)) ?? missingActionHandler
-    const runContext = {
+    const builtContext = {
       previousSteps: acc.actions,
       triggerData: ctx.triggerData,
       rawAction,
@@ -142,15 +166,20 @@ export const executeStep = (
       envLookup: ctx.envLookup,
       templates: ctx.templates,
       // The 0-indexed position of this action: the count of steps already
-      // recorded equals the index of the action about to run. Threaded so the
-      // approval handler can record the paused step's index.
-      stepIndex: acc.steps.length,
-      invokeTemplate: buildTemplateInvoker(ctx, acc, new Set(), tracker),
-      invokeNativeAction: buildNativeActionInvoker(ctx, acc, new Set(), tracker),
-      runNestedStep: buildNestedStepInvoker(ctx, acc, new Set(), tracker),
-      invokeAutomation: trackedInvoker(buildAutomationInvoker(ctx, acc.steps.length), tracker),
+      // recorded (after a resumed segment's first index) equals the index of
+      // the action about to run. The approval handler records it.
+      stepIndex: (ctx.resume?.base ?? 0) + acc.steps.length,
+      // A resumed segment's first action is the loop or path it re-enters.
+      ...(acc.steps.length === 0 && ctx.resume?.container !== undefined
+        ? { resume: ctx.resume.container }
+        : {}),
+      invokeTemplate: buildTemplateInvoker(ctx, acc, new Set(), scope),
+      invokeNativeAction: buildNativeActionInvoker(ctx, acc, new Set(), scope),
+      runNestedStep: buildNestedStepInvoker(ctx, acc, new Set(), scope),
+      invokeAutomation: scope.invokeAutomation,
       recordEvents: ctx.recordEvents,
     }
+    const runContext = withExpandedTemplateVars(rawAction, builtContext)
     // A prop a value from run data could not be placed in safely: the step
     // fails before the action runs, so nothing is sent.
     if (refusal !== undefined) {

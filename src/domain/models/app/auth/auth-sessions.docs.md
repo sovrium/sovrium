@@ -18,7 +18,7 @@ Changing the signing secret invalidates **every** active session and signs every
 
 ### What decides whether the session cookie is `Secure`
 
-The address the app is reachable at, not an environment name. Bound to loopback, the cookie omits `Secure` and origin-checking is off, so `http://localhost` works while you develop. Bound to anything else — which the app reads from `BASE_URL`, then `HOSTNAME` — `Secure` is forced on and origin-checking is enforced.
+The address the app is reachable at, not an environment name. Bound to loopback, the cookie omits `Secure` and origin-checking is off, so `http://localhost` works while you develop. Bound to anything else — which the app reads from `BASE_URL`, then `SOVRIUM_BIND_HOST` — `Secure` is forced on and origin-checking is enforced.
 
 Two consequences follow, and both cut against the usual expectation. Setting `NODE_ENV=production` does not harden the session cookie, because nothing in this decision reads it. And the wildcard binds `0.0.0.0` and `::` are deliberately _not_ treated as loopback: they are every interface the machine has, which is the most exposed bind there is, so the ordinary container idiom keeps the hardened posture.
 

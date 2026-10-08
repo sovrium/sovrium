@@ -16,6 +16,7 @@ const FIXED_BY_HMAC_TIMESTAMP = ['prefix', 'algorithm'] as const
 
 interface WebhookAuthLike {
   readonly type?: string
+  readonly requiredRole?: string
   readonly scheme?: string
   readonly tolerance?: number
   readonly header?: string
@@ -83,8 +84,8 @@ const hmacTimestampIssue = (automationName: string, auth: WebhookAuthLike): true
 }
 
 /**
- * Check an incoming webhook's `hmac` auth for properties its `scheme` would
- * silently ignore or needs: `header`, `prefix` or `algorithm` beside a named
+ * Check an incoming webhook's auth for properties its type or `scheme` would
+ * silently ignore or needs: `requiredRole` beside any type but `session`; `header`, `prefix` or `algorithm` beside a named
  * scheme (stripe, slack, svix); `header` or a layout missing from, a layout
  * named twice or by half in, or `prefix` / `algorithm` beside,
  * `hmac-timestamp`; a layout property beside any other scheme; `tolerance` beside `hex`/`base64`, which sign no timestamp. Returns a
@@ -95,8 +96,22 @@ export const validateWebhookSignatureScheme = (
   automationName: string,
   trigger: { readonly type: string; readonly auth?: WebhookAuthLike }
 ): true | string => {
-  if (trigger.type !== 'webhook' || trigger.auth?.type !== 'hmac') return true
-  const { auth } = trigger
+  if (trigger.type !== 'webhook') return true
+  const roleIssue = requiredRoleIssue(automationName, trigger.auth)
+  if (roleIssue !== true) return roleIssue
+  return trigger.auth?.type === 'hmac' ? hmacSchemeIssue(automationName, trigger.auth) : true
+}
+
+/** `requiredRole` names who may call a `session` webhook; any other type would ignore it. */
+const requiredRoleIssue = (
+  automationName: string,
+  auth: WebhookAuthLike | undefined
+): true | string =>
+  auth?.requiredRole === undefined || auth.type === 'session'
+    ? true
+    : `Automation '${automationName}': 'requiredRole' applies only to a webhook with auth type 'session', not to '${auth.type ?? ''}'`
+
+const hmacSchemeIssue = (automationName: string, auth: WebhookAuthLike): true | string => {
   const scheme = auth.scheme ?? 'hex'
   if (scheme === 'hmac-timestamp') return hmacTimestampIssue(automationName, auth)
   const layoutProperty = LAYOUT_PROPERTIES.find((property) => auth[property] !== undefined)

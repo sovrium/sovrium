@@ -91,6 +91,7 @@ const runStatusBadge = (dot: string): string =>
     '[&>span]:text-xs [&>span]:text-foreground',
     `[&>span]:before:size-1.5 [&>span]:before:shrink-0 [&>span]:before:rounded-full [&>span]:before:${dot}`,
   ].join(' ')
+const QUIET_BADGE = runStatusBadge('bg-foreground-subtle')
 
 const RUNS_GRID_ID = 'automation-runs-grid'
 
@@ -295,10 +296,8 @@ const filterBar = (): PageComponent =>
           { value: 'completed', label: '$t:admin.automations.runs.status.success' },
           { value: 'failed', label: '$t:admin.automations.runs.status.failed' },
           { value: 'completed-with-errors', label: '$t:admin.automations.runs.status.partial' },
-          {
-            value: 'waiting-approval',
-            label: '$t:admin.automations.runs.status.waitingApproval',
-          },
+          { value: 'waiting-approval', label: '$t:admin.automations.runs.status.waitingApproval' },
+          { value: 'waiting-delay', label: '$t:admin.automations.runs.status.waitingDelay' },
           { value: 'rejected', label: '$t:admin.automations.runs.status.rejected' },
           { value: 'cancelled', label: '$t:admin.automations.runs.status.cancelled' },
         ],
@@ -349,6 +348,7 @@ const runsGrid = (): PageComponent =>
           Failed: '$t:admin.automations.runs.status.failed',
           Partial: '$t:admin.automations.runs.status.partial',
           'Waiting for approval': '$t:admin.automations.runs.status.waitingApproval',
+          'Waiting to resume': '$t:admin.automations.runs.status.waitingDelay',
           Rejected: '$t:admin.automations.runs.status.rejected',
           Cancelled: '$t:admin.automations.runs.status.cancelled',
           'Retries exhausted': '$t:admin.automations.runs.status.retriesExhausted',
@@ -372,17 +372,16 @@ const runsGrid = (): PageComponent =>
           { when: { eq: 'Waiting for approval' }, className: runStatusBadge('bg-info-solid') },
           // A decision, not a fault: an approver said no, or the run was
           // stopped on purpose. Neither is painted as a failure.
-          { when: { eq: 'Rejected' }, className: runStatusBadge('bg-foreground-subtle') },
-          { when: { eq: 'Cancelled' }, className: runStatusBadge('bg-foreground-subtle') },
+          { when: { in: ['Rejected', 'Cancelled'] }, className: QUIET_BADGE },
           // Every retry spent: a failure, painted as one.
           { when: { eq: 'Retries exhausted' }, className: runStatusBadge('bg-error-solid') },
           // It ran out of time rather than broke: a warning.
           { when: { eq: 'Timed out' }, className: runStatusBadge('bg-warning-solid') },
-          // Not finished yet: waiting for its turn, or under way.
-          { when: { eq: 'Queued' }, className: runStatusBadge('bg-foreground-subtle') },
+          // Not finished yet: queued, parked on a long wait (nobody has to act), or under way.
+          { when: { in: ['Queued', 'Waiting to resume'] }, className: QUIET_BADGE },
           { when: { eq: 'Running' }, className: runStatusBadge('bg-info-solid') },
           // A filter stopped it, as written — not a fault.
-          { when: { eq: 'Skipped' }, className: runStatusBadge('bg-foreground-subtle') },
+          { when: { eq: 'Skipped' }, className: QUIET_BADGE },
         ],
       },
       { field: 'startedAt', label: '$t:admin.automations.runs.col.started', format: 'datetime' },

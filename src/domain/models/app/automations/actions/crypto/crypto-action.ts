@@ -8,6 +8,8 @@
 import { Schema } from 'effect'
 import { CryptoHashActionSchema } from './hash'
 import { CryptoHmacActionSchema } from './hmac'
+import { CryptoSignActionSchema } from './sign'
+import { CryptoVerifyActionSchema } from './verify'
 
 /**
  * Crypto Action — union of all cryptographic operators
@@ -15,11 +17,14 @@ import { CryptoHmacActionSchema } from './hmac'
 export const CryptoActionSchema = Schema.Union([
   CryptoHashActionSchema,
   CryptoHmacActionSchema,
+  CryptoSignActionSchema,
+  CryptoVerifyActionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'CryptoAction',
     title: 'Crypto Action',
-    description: 'Cryptographic operations: hashing and HMAC computation',
+    description:
+      'Cryptographic operations: hashing, HMAC computation, and Ed25519 signing and verification',
   })
 )
 

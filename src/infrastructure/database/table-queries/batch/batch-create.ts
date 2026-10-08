@@ -7,14 +7,18 @@
 
 import { Effect } from 'effect'
 import { reportCommittedRows } from '@/application/ports/services/record-change-feed'
-import { db, DatabaseError } from '@/infrastructure/database'
-import { withTransaction } from '@/infrastructure/database/transaction'
+import { DatabaseError } from '@/infrastructure/database'
+import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import { writeManyToManyLinksInTransaction } from '../mutation-helpers/many-to-many-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError, wrapDatabaseErrorWithValidation } from '../statement/error-handling'
-import { BATCH_FANOUT_CONCURRENCY, createSingleRecordInBatch } from './batch-helpers'
+import {
+  BATCH_FANOUT_CONCURRENCY,
+  createSingleRecordInBatch,
+  insertedRowChanges,
+} from './batch-helpers'
 import type { BatchCreateLink } from '@/application/ports/repositories/tables/batch-repository'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DrizzleTransaction, ValidationError } from '@/infrastructure/database'
@@ -77,14 +81,7 @@ function settleCreatedRecords(
         changes: { after: record },
       })
     ).pipe(Effect.asVoid)
-    yield* reportCommittedRows(
-      createdRecords.map((row) => ({
-        tableName,
-        event: 'insert' as const,
-        recordId: String(row['id']),
-        row,
-      }))
-    )
+    yield* reportCommittedRows(insertedRowChanges(tableName)(createdRecords))
   })
 }
 
@@ -133,8 +130,7 @@ export function batchCreateRecords(
 ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const onFailure = wrapDatabaseErrorWithValidation(batchCreateFailure(tableName))
-    const createdRecords = yield* withTransaction(
-      db,
+    const createdRecords = yield* withOutboxTransaction(insertedRowChanges(tableName))(
       (tx) =>
         Effect.gen(function* () {
           if (recordsData.length === 0) {

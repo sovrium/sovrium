@@ -83,6 +83,7 @@ children:
               type: auth
               method: declineInvitation
               submitLabel: Decline
+              submitVariant: secondary
               onSuccess:
                 navigate: /sign-in
         visibility:

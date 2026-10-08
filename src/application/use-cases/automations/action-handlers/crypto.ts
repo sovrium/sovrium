@@ -30,6 +30,13 @@
 
 import { createHash, createHmac } from 'node:crypto'
 import { Effect } from 'effect'
+import {
+  importEd25519PrivateKey,
+  importEd25519PublicKey,
+  signDetached,
+  verifyDetached,
+} from '@/domain/kernel/identity/ed25519'
+import { findBundlePublicKey } from '@/domain/models/process-env/host-actions'
 import { stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
@@ -89,3 +96,81 @@ export const handleCryptoHmac: ActionHandler = (action, _app, _automation) =>
       output: { signature },
     } as const satisfies ActionOutcome
   }).pipe(Effect.withSpan('automations.handle-crypto-hmac'))
+
+const failure = (error: string): ActionOutcome => ({ status: 'failure', error, retryable: false })
+
+const utf8 = (text: string): Uint8Array => new TextEncoder().encode(text)
+
+/**
+ * `crypto/sign` — a detached Ed25519 signature of the UTF-8 bytes of
+ * `props.data`, base64. Output: `{ signature, keyId? }`.
+ *
+ * `privateKey` is declared as `$env.NAME` (the schema refuses anything else),
+ * so by the time it reaches this handler it holds the variable's value: a
+ * base64 32-byte seed or a PKCS#8 PEM. A value still reading `$env.` means the
+ * variable is not set. The key never appears in the output, and the run
+ * history masks every `$env` value.
+ */
+export const handleCryptoSign: ActionHandler = (action, _app, _automation) =>
+  Effect.sync((): ActionOutcome => {
+    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
+    const keyText = stringProp(props, 'privateKey')
+    if (keyText === '' || keyText.startsWith('$env.')) {
+      return failure(`crypto.sign: the private key variable ${keyText || '(none)'} is not set`)
+    }
+    const privateKey = importEd25519PrivateKey(keyText)
+    if (privateKey === undefined) {
+      return failure(
+        'crypto.sign: the private key is neither a base64 32-byte Ed25519 seed nor a PKCS#8 PEM'
+      )
+    }
+    const { keyId } = props
+    return {
+      status: 'success',
+      output: {
+        signature: signDetached(utf8(stringProp(props, 'data')), privateKey),
+        ...(typeof keyId === 'string' && keyId !== '' ? { keyId } : {}),
+      },
+    }
+  }).pipe(Effect.withSpan('automations.handle-crypto-sign'))
+
+/** The public key a verify step names, or why it cannot be had. */
+const verifyingKey = (props: Readonly<Record<string, unknown>>) => {
+  const { publicKey: inline, keyId } = props
+  if (typeof inline === 'string' && inline !== '') {
+    return importEd25519PublicKey(inline) ?? 'crypto.verify: publicKey is not an Ed25519 public key'
+  }
+  if (typeof keyId === 'string' && keyId !== '') {
+    const trusted = findBundlePublicKey(keyId, process.env)
+    if (trusted === undefined) {
+      return `crypto.verify: no key "${keyId}" in SOVRIUM_BUNDLE_PUBLIC_KEYS`
+    }
+    return (
+      importEd25519PublicKey(trusted) ??
+      `crypto.verify: the key "${keyId}" is not an Ed25519 public key`
+    )
+  }
+  return 'crypto.verify: give publicKey or keyId'
+}
+
+/**
+ * `crypto/verify` — whether `props.signature` is a valid Ed25519 signature of
+ * the UTF-8 bytes of `props.data`. Output: `{ valid }`.
+ *
+ * A signature that does not verify — another key, altered data, not base64,
+ * the wrong length — is a VERDICT, `valid: false` on a successful step that a
+ * workflow branches on. A public key that cannot be read, or a `keyId` the
+ * keyring does not hold, is a configuration fault and fails the step.
+ */
+export const handleCryptoVerify: ActionHandler = (action, _app, _automation) =>
+  Effect.sync((): ActionOutcome => {
+    const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
+    const key = verifyingKey(props)
+    if (typeof key === 'string') return failure(key)
+    const valid = verifyDetached(
+      utf8(stringProp(props, 'data')),
+      stringProp(props, 'signature'),
+      key
+    )
+    return { status: 'success', output: { valid } }
+  }).pipe(Effect.withSpan('automations.handle-crypto-verify'))

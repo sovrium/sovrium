@@ -18,7 +18,7 @@
 
 import { useMemo, useState, type FormEvent, type ReactElement } from 'react'
 import { authPendingLabel, authSubmitLabel } from '@/presentation/design/auth-form-types'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeSubmitButtonClasses } from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { useDeferredComponent } from '../parts/deferred-component'
 import { AuthFieldRow } from './auth-form-fields'
@@ -85,7 +85,7 @@ export function AccountMethodBoundary(input: AccountMethodBoundaryProps): ReactE
         type="submit"
         disabled
         data-component-type="button"
-        className={`${computeButtonDefaultClasses()} w-full`}
+        className={`${computeSubmitButtonClasses(props.submitVariant)} w-full`}
       >
         {props.submitLabel}
       </button>

@@ -51,8 +51,10 @@ import {
 } from '@/infrastructure/assets/embedded-licenses-payload'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { REPO_ROOT } from '../lib/drift/walk'
+import { toLf } from '../lib/line-endings'
 import {
   groupNotices,
+  readTextLf,
   resolveNotice,
   walkProductionClosure,
   type AttributedComponent,
@@ -84,8 +86,12 @@ export interface AssetNotice {
   readonly name: string
   readonly license: string
   readonly source: string
-  /** The `src/` module that embeds the asset; it must name `licenses/<file>`. */
-  readonly embeddedIn: string
+  /**
+   * The `src/` modules that embed the asset; each must name `licenses/<file>`.
+   * One font can ship in more than one form — IBM Plex Sans is inlined into the
+   * CSS AND embedded as static files for SVG text — and every form is listed.
+   */
+  readonly embeddedIn: readonly string[]
 }
 
 /** The runtime the binary is compiled with, versioned by `packageManager`. */
@@ -139,8 +145,13 @@ export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = [
     file: 'OFL-1.1-ibm-plex.txt',
     name: 'IBM Plex Sans (font)',
     license: 'OFL-1.1',
-    source: '@fontsource-variable/ibm-plex-sans, latin subset, inlined as woff2',
-    embeddedIn: 'src/infrastructure/css/theme/fonts/plex-sans.ts',
+    source:
+      '@fontsource-variable/ibm-plex-sans, latin subset, inlined as woff2; ' +
+      '@ibm/plex-sans 1.1.0, fonts/complete/woff2/ Regular and Bold, embedded as static woff2 for SVG text',
+    embeddedIn: [
+      'src/infrastructure/css/theme/fonts/plex-sans.ts',
+      'src/infrastructure/assets/plex-sans-woff2.ts',
+    ],
   },
   {
     kind: 'asset',
@@ -148,7 +159,7 @@ export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = [
     name: 'JetBrains Mono (font)',
     license: 'OFL-1.1',
     source: '@fontsource-variable/jetbrains-mono, latin subset, inlined as woff2',
-    embeddedIn: 'src/infrastructure/css/theme/fonts/jetbrains-mono.ts',
+    embeddedIn: ['src/infrastructure/css/theme/fonts/jetbrains-mono.ts'],
   },
 ]
 
@@ -307,7 +318,7 @@ export const renderLicensesPayload = (
       license: notice.license,
       source: notice.source,
       file: `licenses/${notice.file}`,
-      text: readFileSync(join(dir, notice.file), 'utf8'),
+      text: readTextLf(join(dir, notice.file)),
     }))
     .toSorted((a, b) => a.name.localeCompare(b.name, 'en'))
   const { components, missing } = attributedComponents(root, notices)
@@ -334,6 +345,16 @@ export const renderLicensesPayload = (
   return `${JSON.stringify(payload, null, 2)}\n`
 }
 
+/**
+ * Whether the committed payload matches the rendered one. The committed file
+ * is compared with its line endings normalised: a Windows checkout under
+ * `core.autocrlf` hands it back with CRLF structural newlines, which are not a
+ * content change. The rendered side is always LF — every text it embeds is read
+ * through `readTextLf` — so an edited text or a moved version still fails.
+ */
+export const isPayloadCurrent = (committed: string, rendered: string): boolean =>
+  toLf(committed) === rendered
+
 const main = (argv: readonly string[]): number => {
   const check = argv.includes('--check')
   const { payload } = licensesPaths(REPO_ROOT)
@@ -343,7 +364,7 @@ const main = (argv: readonly string[]): number => {
   const name = 'embedded-licenses.generated.json'
   if (check) {
     const committed = existsSync(payload) ? readFileSync(payload, 'utf8') : ''
-    if (committed !== rendered) {
+    if (!isPayloadCurrent(committed, rendered)) {
       console.log(
         `${name} does not match licenses/ and the installed versions — run \`bun run build:licenses\` and commit the result.`
       )

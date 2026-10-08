@@ -56,8 +56,12 @@ export const isStorageObjectNotFound = (error: Readonly<StorageError>): boolean 
  * It is deliberately NOT `'default'`. Stamping automation output with a
  * nameable bucket would re-expose those objects through that bucket's route,
  * which is the very hole this binding closes. An unattributed write records
- * NULL, and an unattributed read performs no comparison — safe because no
- * HTTP path can reach it: every route resolves and passes a real bucket name.
+ * NULL, and an unattributed read performs no comparison. One HTTP path reaches
+ * it, and only with the operator's say-so: a download link a `file.signUrl`
+ * step minted, whose token binds the `automation` scope (`signed-download.ts`)
+ * — it reads exactly the key the operator's step named, as that step's own
+ * `file` actions could. Every other route resolves and passes a real bucket
+ * name, and no sign route can mint that scope.
  *
  * A symbol, not a string, so it can never collide with a configured bucket.
  */
@@ -66,10 +70,15 @@ export const UNATTRIBUTED_BUCKET: unique symbol = Symbol.for('sovrium/storage/un
 /** The bucket an operation is attributed to, or an explicit opt-out. */
 export type BucketBinding = string | typeof UNATTRIBUTED_BUCKET
 
-/** A write naming its bucket AND the signed-in person behind it. */
+/** A write naming its bucket AND the signed-in person — or the automation — behind it. */
 export interface AttributedUpload {
   readonly bucket: BucketBinding
   readonly uploadedById: string | undefined
+  /**
+   * The automation that generated the object (its name), recorded when the
+   * key is new: what lets a document output overwrite only its own files.
+   */
+  readonly generatedBy?: string
 }
 
 /**
@@ -132,7 +141,8 @@ export class StorageService extends Context.Service<
      * file is stored under `key`. `bucket` is the binding the catalog records
      * for the object, absent when it belongs to none — what a copy carries to
      * its destination so the object stays reachable where it was. `uploadedBy`
-     * is the id of the person who uploaded it, absent when nobody is recorded.
+     * is the id of the person who uploaded it, absent when nobody is recorded;
+     * `generatedBy` the automation that generated it, absent when none did.
      */
     readonly getMetadata: (
       key: string,
@@ -145,6 +155,7 @@ export class StorageService extends Context.Service<
         readonly lastModified: string
         readonly bucket?: string
         readonly uploadedBy?: string
+        readonly generatedBy?: string
       },
       StorageError
     >

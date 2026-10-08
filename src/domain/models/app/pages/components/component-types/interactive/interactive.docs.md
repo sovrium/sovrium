@@ -46,6 +46,8 @@ A period rail, a tab strip and a section nav all have the same shape: every item
 
 `value` is normally a reference — `$window.id`, `$query.<name>`, `$param.<name>`, `$app.<name>` — and is already a literal by the time the comparison runs, so the same key expresses "the selected period", "the open tab" and "the current section" without knowing anything about URLs.
 
+A shared navigation placed as a component template names its current item through the placement's `vars`: `activeWhen: { value: '$current', equals: 'pricing' }` inside the template, placed with `vars: { current: 'pricing' }`, marks that item on that page only. `activeWhen` and `activeProps` take the vars like `props` does, on the template's root and on every nested item.
+
 The merge is key by key, last wins: an attribute appears only on the current item, and a `className` declared in both is SWAPPED rather than concatenated, which is what a selected style usually wants. Three links stay three links; expressing this with a visibility gate would need six, each pair free to drift apart.
 
 The two keys are useless apart and are refused apart at startup, as is a comparison between two literals — it answers the same on every render, so either every item of the set is current or none is.

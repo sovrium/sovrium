@@ -7,7 +7,6 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { createRecordProgram } from '@/application/use-cases/tables/write-record-programs'
 import { buildUpdateAuthorshipOverrides } from '@/domain/models/app/tables/authorship-fields'
 import { buildGuestSession, buildSyntheticSession } from '../build-guest-session'
 import {
@@ -21,12 +20,7 @@ import {
   writerActorOf,
 } from './record-caller-gate'
 import { automationCreateFields } from './record-create-fields'
-import {
-  announceRecordWrite,
-  deleteAndAnnounce,
-  flattenWrittenRecord,
-  updateAndAnnounce,
-} from './record-events'
+import { createAndAnnounce, deleteAndAnnounce, updateAndAnnounce } from './record-events'
 import {
   declaredFieldNames,
   extractIdFromFilter,
@@ -46,11 +40,10 @@ import {
   scopedListFilter,
 } from './record-read-scope'
 import { recordUpdatePrecheck } from './record-update-precheck'
+import { describeWriteFailure } from './record-write-failure'
 import { actionAttributes, findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext, AutomationContext } from './shared'
 import type { StepRequirements } from '../run/types'
-import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App } from '@/domain/models/app'
@@ -114,22 +107,23 @@ export const handleRecordCreate: ActionHandler = (action, app, automation, runCo
     // injection; custom-named `created-by` fields (e.g. `author`) are stamped
     // by name via the override map.
     const actorId = resolveRunAsActor(props, automation)
-    const program = createRecordProgram({
-      session: buildSyntheticSession(actorId),
-      tableName,
-      fields: automationCreateFields(app, tableName, fields, actorId),
-    })
-    const result = yield* Effect.result(program)
+    // The records API's create road: the new record fires its table's webhooks,
+    // and starts its record automations through the run's channel.
+    const result = yield* Effect.result(
+      createAndAnnounce({
+        session: buildSyntheticSession(actorId),
+        app,
+        tableName,
+        fields: automationCreateFields(app, tableName, fields, actorId),
+        runContext,
+      })
+    )
     if (result._tag === 'Failure') {
-      const err = result.failure
-      const message = err instanceof Error ? err.message : String(err)
-      return { status: 'failure', error: message } as const
+      // The column the database refused and its reason, for the run history.
+      return { status: 'failure', error: describeWriteFailure(result.failure, fields) } as const
     }
-    // The new record starts the record automations of its table, and
-    // a later step reads its id as `{{<step>.result.id}}`.
-    const record = flattenWrittenRecord(result.success)
-    yield* announceRecordWrite(runContext, { tableName, event: 'create', record })
-    return { status: 'success', output: { id: record['id'] } } as const
+    // A later step reads its id as `{{<step>.result.id}}`.
+    return { status: 'success', output: { id: result.success.id } } as const
   }).pipe(
     Effect.withSpan('automations.handle-record-create', { attributes: actionAttributes(action) })
   )
@@ -207,7 +201,7 @@ const applyRecordUpdates = (config: {
   readonly app: App
   readonly linkReader: LinkReader | undefined
   readonly runContext: ActionRunContext | undefined
-}): Effect.Effect<ActionOutcome, never, TableRepository | DataSourceRepository | AuthRepository> =>
+}): Effect.Effect<ActionOutcome, never, StepRequirements> =>
   Effect.gen(function* () {
     const { actorId, tableName, idsToUpdate, data, app, linkReader, runContext } = config
     const session = buildSyntheticSession(actorId)
@@ -316,7 +310,7 @@ export const handleRecordDelete: ActionHandler = (action, app, automation, runCo
     const deletes = yield* Effect.result(
       Effect.forEach(
         idsToDelete,
-        (recordId) => deleteAndAnnounce({ session, tableName, recordId, runContext }),
+        (recordId) => deleteAndAnnounce({ session, app, tableName, recordId, runContext }),
         { discard: true }
       )
     )

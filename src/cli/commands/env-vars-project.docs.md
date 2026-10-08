@@ -2,7 +2,7 @@
 
 > Where the engine reads your app from, and where it writes what running it produces. Both are environment, never schema: nothing about how an app is supervised belongs in the config, so a config authored under a supervisor runs unchanged in Docker, on a server, and in CI.
 
-The variables in **Env Vars: Core** are values — a port, a URL, a connection string. The ones here are what a supervising process needs instead: the Sovrium desktop app, a systemd unit, a CI step. Four of the six are _paths_, and unset they resolve against the working directory, which is what a person typing `sovrium start` in their project folder wants. Every one of them is optional.
+The variables in **Env Vars: Core** are values — a port, a URL, a connection string. The ones here are what a supervising process needs instead: the Sovrium desktop app, a systemd unit, a CI step. Most are _paths_, and unset the project and data ones resolve against the working directory, which is what a person typing `sovrium start` in their project folder wants. Every one of them is optional.
 
 ## Running under a supervisor
 

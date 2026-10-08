@@ -7,7 +7,7 @@
 
 import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
-import { RECORD_PAGE_NOTE, recordPanel } from '@/library/manifest/record-block-kit'
+import { RECORD_PAGE_NOTE } from '@/library/manifest/record-block-kit'
 
 /** The discussion of the page's record: the composer first, newest comment on top. */
 export const entry = defineLibraryEntry({
@@ -25,15 +25,30 @@ export const entry = defineLibraryEntry({
   ],
   params: [
     stringParam('table', 'The table the page’s record belongs to.', 'projects'),
-    stringParam('headline', 'The heading above the thread.', 'Comments'),
+    stringParam('headline', 'The heading above the thread. Empty to omit.', 'Comments'),
   ],
   env: [],
   requires: [],
   build: ({ name, params }) => {
     const p = param(params)
-    return asComponent(
-      name,
-      recordPanel(p('headline'), [
+    // The thread draws its own frame — one bordered surface whose rows are
+    // separated by rules — so the block adds no panel around it: a panel
+    // would put a card inside a card. The heading sits above the frame, which
+    // keeps its own outer margin as the space between the two.
+    return asComponent(name, {
+      type: 'container',
+      props: { className: 'flex min-w-0 flex-col' },
+      children: [
+        ...(p('headline') === ''
+          ? []
+          : [
+              {
+                type: 'text',
+                element: 'h2',
+                props: { className: 'text-md font-semibold text-foreground' },
+                content: p('headline'),
+              },
+            ]),
         {
           type: 'comments',
           sort: 'newest',
@@ -42,7 +57,7 @@ export const entry = defineLibraryEntry({
           emptyText: 'No comment yet. Start the conversation.',
           props: { placeholder: 'Write a comment…' },
         },
-      ])
-    )
+      ],
+    })
   },
 })

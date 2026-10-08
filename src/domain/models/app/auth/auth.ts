@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { validateAccountDeletionTemplateLink } from './account-deletion-template-validation'
 import { AuthApiKeysConfigSchema } from './api-keys'
+import { AuthDeviceAuthorizationConfigSchema } from './device-authorization'
 import { AuthEmailTemplatesSchema } from './email-templates'
 import { GroupSchema } from './groups'
 import { PasskeysConfigSchema } from './passkeys'
@@ -195,6 +196,8 @@ export const InvitationTokenExpirySchema = Schema.Union([
 interface AuthConfigForValidation {
   readonly strategies?: readonly AuthStrategy[]
   readonly twoFactor?: unknown
+  readonly apiKeys?: boolean
+  readonly deviceAuthorization?: boolean
   readonly defaultRole?: string
   readonly roles?: readonly {
     readonly name: string
@@ -218,6 +221,18 @@ const validateTwoFactorRequiresEmailPassword = (
     ? undefined
     : 'Two-factor authentication requires emailAndPassword strategy'
 }
+
+/**
+ * An approved device code is redeemed for an API key and for nothing else, so
+ * the device flow needs the API-key plugin it mints through. Without it the
+ * device endpoints would hand out codes that can never be redeemed.
+ */
+const validateDeviceAuthorizationRequiresApiKeys = (
+  config: AuthConfigForValidation
+): string | undefined =>
+  config.deviceAuthorization === true && config.apiKeys !== true
+    ? 'auth.deviceAuthorization requires auth.apiKeys: true — an approved device code is redeemed for an API key'
+    : undefined
 
 /**
  * An auth block needs a way in: at least one strategy, or — for an SSO-only
@@ -384,6 +399,16 @@ export const AuthSchema = Schema.Struct({
    * Omitted (the default) means the `/api/auth/api-key/*` endpoints answer 404.
    */
   apiKeys: Schema.optional(AuthApiKeysConfigSchema),
+
+  /**
+   * Device authorization for the `sovrium` CLI (optional)
+   *
+   * Lets the CLI sign in with a short code a signed-in user approves in the
+   * browser, then redeem the approved code ONCE for an API key of that user
+   * (`POST /api/auth/device/api-key`). Requires `apiKeys: true`. Omitted (the
+   * default) means the `/api/auth/device*` endpoints answer 404.
+   */
+  deviceAuthorization: Schema.optional(AuthDeviceAuthorizationConfigSchema),
 
   /**
    * Email templates for authentication flows (optional)
@@ -588,6 +613,7 @@ export const AuthSchema = Schema.Struct({
       return (
         validateHasSignInMethod(config) ??
         validateTwoFactorRequiresEmailPassword(config) ??
+        validateDeviceAuthorizationRequiresApiKeys(config) ??
         validateDefaultRoleExists(config) ??
         validateGroupNames(config) ??
         validateScopeTables(config) ??

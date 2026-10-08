@@ -9,3 +9,5 @@ export * from './crypto-action'
 
 export * from './hash'
 export * from './hmac'
+export * from './sign'
+export * from './verify'

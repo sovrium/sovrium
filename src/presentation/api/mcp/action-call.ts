@@ -66,8 +66,10 @@ import {
   type RunAutomationError,
   type RunAutomationResult,
 } from '@/application/use-cases/automations/run-automation'
+import { lastOutputAsSeenBy } from '@/application/use-cases/automations/run-person-address-mask'
 import { isAiAccessEnabled } from '@/domain/models/app/auth/ai-access'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
+import { mcpCallerReadsWhole } from './automation-call'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { McpCaller } from './auth'
 import type { RuntimeActionTemplate } from '@/application/use-cases/automations/run/types'
@@ -179,6 +181,15 @@ const fillTemplate = (
     templates,
   })
 
+/** The template's action props as its configuration wrote them, before any arg filled them. */
+const configuredPropsOf = (template: ActionTemplate): Readonly<Record<string, unknown>> => {
+  const { action } = template
+  const props = 'props' in action ? action.props : undefined
+  return typeof props === 'object' && props !== null
+    ? (props as Readonly<Record<string, unknown>>)
+    : {}
+}
+
 /**
  * Synthesise a single-step manual automation from the filled action. The
  * resulting automation is fed to `executeAutomationRun` with `propsFinal`, so
@@ -217,14 +228,29 @@ const actionErrorToJsonRpc = (error: RunAutomationError): never => {
  * automation dispatcher's shape so callers that consume both surfaces see
  * a consistent envelope (`id`, `status`, optional `output`, optional
  * `error`). `id` is the run UUID — correlates with
- * `GET /api/automations/runs/:id`.
+ * `GET /api/automations/runs/:id`. `output` is masked as the automation
+ * dispatcher masks it: each expanded person's address, for a caller who is not
+ * an admin-equivalent.
  */
-const buildActionResultBody = (result: RunAutomationResult) => {
+const buildActionResultBody = (
+  app: App,
+  input: {
+    readonly caller: McpCaller
+    readonly automationName: string
+    readonly result: RunAutomationResult
+  }
+) => {
+  const { caller, automationName, result } = input
   const publicStatus: 'completed' | 'failed' = result.status === 'success' ? 'completed' : 'failed'
+  const output = lastOutputAsSeenBy(app, {
+    automationName,
+    readsWhole: mcpCallerReadsWhole(app, caller),
+    result,
+  })
   return {
     id: result.runId,
     status: publicStatus,
-    ...(result.lastOutput !== undefined ? { output: result.lastOutput } : {}),
+    ...(output !== undefined ? { output } : {}),
     ...(result.error !== undefined ? { error: result.error } : {}),
   }
 }
@@ -269,7 +295,14 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
     const filled = fillTemplate(app, template, envelope.args, yield* TemplateEngine)
     const { refusal } = filled
     if (refusal !== undefined) return { _tag: 'Refused', refusal } as const
-    const automation = synthesizeAutomation(template, filled.action)
+    // `$vars`: what an inline template's `$name` reads (the generic pass never
+    // renders it); `$configuredProps`: the props as the template wrote them,
+    // which a file reference's origin is judged by.
+    const automation = synthesizeAutomation(template, {
+      ...filled.action,
+      $vars: filled.vars,
+      $configuredProps: configuredPropsOf(template),
+    })
     const automationId = yield* resolveAutomationId(automation.name, automation)
     const run = yield* executeAutomationRun({
       name: automation.name,
@@ -285,7 +318,7 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
       // Filled in once above: no step reads a caller arg again.
       propsFinal: true,
     })
-    return { _tag: 'Ran', run } as const
+    return { _tag: 'Ran', run, automationName: automation.name } as const
   })
 
   // See `automation-call.ts`: an MCP tool call reaches the server's services
@@ -297,5 +330,6 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
   }
   // An arg that cannot be placed safely: no run was synthesised, nothing sent.
   if (outcome.success._tag === 'Refused') return toolFailure(-32_602, outcome.success.refusal)
-  return toolSuccess(buildActionResultBody(outcome.success.run))
+  const { run, automationName } = outcome.success
+  return toolSuccess(buildActionResultBody(app, { caller, automationName, result: run }))
 }

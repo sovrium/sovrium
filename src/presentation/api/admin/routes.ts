@@ -21,6 +21,7 @@ import {
   DEVELOPER_READ_OPERATIONS,
   RELEASE_READ_OPERATIONS,
   SCHEMA_READ_OPERATIONS,
+  TEMPLATES_READ_OPERATIONS,
 } from '@/application/use-cases/admin/admin-read-registry'
 import { chainAdminAgentsRoutes } from '@/presentation/api/admin/agents-routes'
 import { chainAdminAuditLogRoutes } from '@/presentation/api/admin/audit-log-routes'
@@ -118,6 +119,8 @@ export const chainAdminApiRoutes = <T extends Hono>(
       ...DESIGN_SYSTEM_READ_OPERATIONS,
       ...DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS,
       ...SCHEMA_READ_OPERATIONS,
+      // The template catalogue and its read-only preview (rendered, never the raw file).
+      ...TEMPLATES_READ_OPERATIONS,
     ]),
     resolveLiveApp
   )

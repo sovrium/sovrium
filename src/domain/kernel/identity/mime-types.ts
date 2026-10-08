@@ -120,13 +120,17 @@ export const inferMimeFromKey = (key: string): string => {
 }
 
 /**
- * Legacy and vendor spellings browsers still report for audio, mapped to the
+ * Legacy and vendor spellings still written or reported, mapped to the
  * registered type the MIME table above uses. Chromium announces a picked
  * `.m4a` as `audio/x-m4a` and Firefox a `.wav` as `audio/x-wav`; storing those
  * verbatim would make the same recording `audio/mp4` on one browser and
- * `audio/x-m4a` on another.
+ * `audio/x-m4a` on another. `image/jpg` is how authors commonly write "a JPEG"
+ * and `image/pjpeg` how older software reports a progressive one; every browser
+ * reports a `.jpg` as `image/jpeg`.
  */
 const MIME_TYPE_ALIASES: Readonly<Record<string, string>> = {
+  'image/jpg': 'image/jpeg',
+  'image/pjpeg': 'image/jpeg',
   'audio/x-m4a': 'audio/mp4',
   'audio/m4a': 'audio/mp4',
   'audio/x-wav': 'audio/wav',
@@ -143,7 +147,7 @@ const MIME_TYPE_ALIASES: Readonly<Record<string, string>> = {
  */
 export const canonicalMimeType = (reported: string): string => {
   const bare = (reported.split(';')[0] ?? '').trim().toLowerCase()
-  return MIME_TYPE_ALIASES[bare] ?? bare
+  return Object.hasOwn(MIME_TYPE_ALIASES, bare) ? (MIME_TYPE_ALIASES[bare] ?? bare) : bare
 }
 
 /**

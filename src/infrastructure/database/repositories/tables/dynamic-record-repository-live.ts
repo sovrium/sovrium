@@ -174,42 +174,4 @@ export const DynamicRecordRepositoryLive = Layer.succeed(DynamicRecordRepository
         return await executeRawTyped<Record<string, unknown>>(db, query)
       })
     ),
-
-  insert: (input) =>
-    wrap(async () => {
-      const entries = Object.entries(input.data)
-      // An empty payload inserts a row with all-default column values — every
-      // engine-created column is nullable, so `DEFAULT VALUES` is valid SQL.
-      const query =
-        entries.length === 0
-          ? sql`INSERT INTO ${tableIdentifier(input.table)} DEFAULT VALUES RETURNING id`
-          : sql`INSERT INTO ${tableIdentifier(input.table)} (${sql.join(
-              entries.map(([key]) => sql.identifier(key)),
-              sql`, `
-            )}) VALUES (${sql.join(
-              entries.map(([, value]) => sql`${value}`),
-              sql`, `
-            )}) RETURNING id`
-      const result = await executeRawTyped<{ readonly id: number | string }>(db, query)
-      return result[0]?.id ?? 0
-    }),
-
-  updateByIds: (input) =>
-    wrap(async () => {
-      if (input.ids.length === 0) return []
-      const assignments = sql.join(
-        Object.entries(input.data).map(([key, value]) => sql`${sql.identifier(key)} = ${value}`),
-        sql`, `
-      )
-      const where = conditionsClause(
-        undefined,
-        [{ column: 'id', operator: 'in', value: input.ids }],
-        input.readScope
-      )
-      const result = await executeRawTyped<{ readonly id: number | string }>(
-        db,
-        sql`UPDATE ${tableIdentifier(input.table)} SET ${assignments}${where} RETURNING id`
-      )
-      return result.map((row) => row.id)
-    }),
 })

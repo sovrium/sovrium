@@ -17,6 +17,8 @@ import {
   FormRateLimitedError,
   FormSubmissionLimitError,
 } from '@/application/use-cases/forms/submit-form'
+import { DatabaseError } from '@/domain/errors/database-error'
+import { UniqueConstraintViolationError } from '@/domain/errors/unique-constraint-violation-error'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { logError } from '@/infrastructure/logging/logger'
 import {
@@ -224,6 +226,13 @@ function respondUploadFailure(
   return undefined
 }
 
+/** What a visitor reads when the write failed for a reason no field explains. */
+const SUBMISSION_NOT_STORED_MESSAGE = 'The submission could not be stored.'
+
+/** A database refusal the form flow could not attribute to a submitted field. */
+const isStorageFault = (failure: unknown): boolean =>
+  failure instanceof DatabaseError || failure instanceof UniqueConstraintViolationError
+
 export function respondSubmissionFailure(
   c: Context,
   isJsonClient: boolean,
@@ -249,11 +258,14 @@ export function respondSubmissionFailure(
   if (fieldError !== undefined) return fieldError
   const uploadFailure = respondUploadFailure(c, isJsonClient, failure)
   if (uploadFailure !== undefined) return uploadFailure
-  const message = failure instanceof Error ? failure.message : String(failure)
+  const detail = failure instanceof Error ? failure.message : String(failure)
   // Log failures to stderr so DEBUG=sovrium:server runs surface them; the
   // raw `failure` is included so test debugging can see the underlying
   // Effect tagged error chain (FormSubmissionError / TableValidationError).
-  logError(`[forms] submission rejected: ${message}`, failure)
+  logError(`[forms] submission rejected: ${detail}`, failure)
+  // A storage fault no field could be named for carries driver and table text
+  // (S4): the detail stays in the log, the visitor reads a generic sentence.
+  const message = isStorageFault(failure) ? SUBMISSION_NOT_STORED_MESSAGE : detail
   if (isJsonClient) return c.json({ error: 'submission_invalid', message }, 422)
   return c.html(renderSubmissionErrorHtml(message, '422 — submission rejected'), 422)
 }

@@ -34,11 +34,12 @@ import { Effect, Console } from 'effect'
 import {
   CHECKSUM_GUIDANCE,
   UNVERIFIED_NOTE,
+  VERIFIED_LINES,
   announceSkippedChecksum,
   isTrustedFinalUrl,
   originFor,
   releaseAssetUrl,
-  verifyChecksum,
+  verifyRelease,
 } from '@/cli/commands/update-verify'
 import { UPDATE_HELP_TEXT } from '@/cli/runtime/command-help'
 import { withFetchStallTimeout, withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
@@ -513,10 +514,9 @@ const downloadAndReplace = async (
   const archiveBuffer = await downloadArchive(url, archive, version, target)
 
   // Verified before the extraction directory exists: a refusal exits from
-  // inside `verifyChecksum`, and would otherwise leave the directory behind.
-  if (!insecureSkipChecksum) printProgress('Verifying the checksum')
-  const checksumVerified = await verifyChecksum(archiveBuffer, {
-    checksumUrl: releaseAssetUrl(version, `sovrium-${version}-${target}.sha256`),
+  // inside `verifyRelease`, and would otherwise leave the directory behind.
+  const verified = await verifyRelease(archiveBuffer, {
+    archiveUrl: url,
     stallTimeoutMs: DOWNLOAD_STALL_TIMEOUT_MS,
     insecureSkipChecksum,
   })
@@ -559,10 +559,10 @@ const downloadAndReplace = async (
 
   printDocument([
     [{ text: `Sovrium v${version}` }],
-    checksumVerified ? [] : [{ glyph: 'warn' as const, text: UNVERIFIED_NOTE }],
+    verified ? [] : [{ glyph: 'warn' as const, text: UNVERIFIED_NOTE }],
     [
       { glyph: 'ok' as const, text: `Downloaded ${archive}` },
-      ...(checksumVerified ? [{ glyph: 'ok' as const, text: 'Checksum verified' }] : []),
+      ...(verified ? VERIFIED_LINES : []),
       { glyph: 'ok' as const, text: `Replaced ${currentBinary}` },
     ],
     [{ text: `Updated from v${currentVersion} to v${version}.` }],

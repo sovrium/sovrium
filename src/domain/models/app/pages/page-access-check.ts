@@ -162,13 +162,19 @@ function withReturnPath(redirectTo: string, currentPath: string | undefined): st
 }
 
 /**
- * Builds the denial response for unauthorized access
+ * Builds the denial response for unauthorized access.
+ *
+ * `redirectTo` sends only a visitor who has NOT signed in: a signed-in caller
+ * without the role gains nothing from signing in again, and the redirect would
+ * disclose that the page exists — she is answered exactly as for a missing
+ * page (404, anti-enumeration).
  */
 function denyAccess(
   redirectTo: string | undefined,
-  currentPath: string | undefined
+  currentPath: string | undefined,
+  hasSession: boolean
 ): AccessDecision {
-  return redirectTo
+  return redirectTo && !hasSession
     ? { allowed: false, action: 'redirect', url: withReturnPath(redirectTo, currentPath) }
     : { allowed: false, action: 'not-found' }
 }
@@ -223,5 +229,5 @@ export function checkPageAccess(
     return { allowed: true }
   }
 
-  return denyAccess(normalized.redirectTo, currentPath)
+  return denyAccess(normalized.redirectTo, currentPath, session !== undefined)
 }

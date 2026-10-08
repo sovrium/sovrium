@@ -10,11 +10,11 @@ import {
   buildSyntheticSession,
   buildSystemSession,
 } from '@/application/use-cases/automations/build-guest-session'
-import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import { coerceScalarsForArrayColumns } from '@/application/use-cases/forms/coerce-array-columns'
 import { coerceEmptySelectToNull } from '@/application/use-cases/forms/coerce-empty-select'
 import { reserveLedgerSlot, writeLedgerRow } from '@/application/use-cases/forms/submit-form-ledger'
-import { createRecordProgram } from '@/application/use-cases/tables/write-record-programs'
+import { storedRowOf } from '@/application/use-cases/tables/record-stored-row'
+import { createRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { buildCreateAuthorshipOverrides } from '@/domain/models/app/tables/authorship-fields'
 import { coerceLinkedRecordId } from './submit-form-body'
@@ -24,8 +24,10 @@ import type { Form } from '@/domain/models/app/forms'
 import type { SubmissionSurface } from '@/domain/models/app/forms/submission-ledger-service'
 
 /**
- * Where an accepted submission is written: the bound table's record and the
- * submission ledger, and the record-create automations the write fires.
+ * Where an accepted submission is written: the bound table's record — through
+ * the records API's one create path, so it fires the table's record-create
+ * automations and create webhooks exactly as a records-API create does — and
+ * the submission ledger.
  */
 
 /** Outcome of {@link persistSubmission}: the IDs needed by the trigger + result. */
@@ -72,24 +74,31 @@ const writeBoundTableRecord = (input: {
   readonly form: Readonly<Form>
   readonly mapped: Readonly<Record<string, unknown>>
   readonly submitterUserId: string | undefined
+  readonly processEnv: Readonly<Record<string, string | undefined>>
 }) =>
   Effect.gen(function* () {
     const { app, form, mapped, submitterUserId } = input
     if (form.submitTo.table === undefined) return undefined
     const tableName = form.submitTo.table
-    return yield* createRecordProgram({
-      // Pass `app` so `createRecordProgram` can resolve the bound
-      // table's many-to-many fields and split them out of the base insert
-      // (writing junction rows against the resolved id) instead of jsonb-encoding
-      // them into a phantom base column. Without `app` the split is a no-op and a
-      // form filing an m2m field (partner `requests.pains`) fails with
-      // `column "pains" ... does not exist`, on plain AND view-backed tables.
+    // The form writes with its own authority (no caller role judges the echo),
+    // as its submitter or, for a signed-out visitor, as the system — which is
+    // also who its record automations run for.
+    const session =
+      submitterUserId !== undefined ? buildSyntheticSession(submitterUserId) : buildSystemSession()
+    return yield* createRecordWithSideEffects({
+      // `app` resolves the bound table's many-to-many fields, split out of the
+      // base insert and written as junction rows against the resolved id —
+      // otherwise a form filing an m2m field fails with `column ... does not
+      // exist`, on plain AND view-backed tables.
       app,
-      session:
-        submitterUserId !== undefined
-          ? buildSyntheticSession(submitterUserId)
-          : buildSystemSession(),
+      session,
       tableName,
+      // As before the form took this road: no SQLite AI baseline merge here.
+      isSqlite: false,
+      processEnv: input.processEnv,
+      // A record automation reads the answers no column stores, beneath the
+      // row as stored — the stamps and the defaults included.
+      triggerValues: mapped,
       fields: {
         // Order matters: `''` becomes `null` FIRST, so the array coercion
         // below sees an absent value and passes it through rather than
@@ -113,6 +122,7 @@ export const persistSubmission = (input: {
   readonly submitterIpHash: string | undefined
   readonly userAgent: string | undefined
   readonly submitterUserId: string | undefined
+  readonly processEnv: Readonly<Record<string, string | undefined>>
 }) =>
   Effect.gen(function* () {
     const { app, form, mapped, submitterIpHash, userAgent, submitterUserId } = input
@@ -132,7 +142,10 @@ export const persistSubmission = (input: {
           })
         : undefined
 
-    const linkedRecord = yield* writeBoundTableRecord({ app, form, mapped, submitterUserId })
+    const linkedRecord = yield* writeBoundTableRecord({
+      ...{ app, form, mapped, submitterUserId },
+      processEnv: input.processEnv,
+    })
     const linkedRecordId = coerceLinkedRecordId(linkedRecord)
 
     // Capped forms already reserved their ledger row above; the standard
@@ -153,43 +166,6 @@ export const persistSubmission = (input: {
       submissionId,
       linkedRecordPresent: linkedRecord !== undefined,
       linkedRecordId,
-      ...(linkedRecord !== undefined && { linkedRecordFields: linkedRecord.fields }),
+      ...(linkedRecord !== undefined && { linkedRecordFields: storedRowOf(linkedRecord) }),
     } satisfies PersistOutcome
   }).pipe(Effect.withSpan('forms.persist-submission', { attributes: { form: input.form.name } }))
-
-/**
- * [internal ref]: fire the bound table's `record`/`create` automations for a
- * form-created row, exactly like the direct records-API create path
- * (`record-write-handlers.ts` taps `triggerRecordEventAutomations`). The form
- * path bypasses that handler by calling `createRecordProgram` directly, so we
- * fire the same trigger here — AFTER the row commits, only when
- * `submitTo.table` produced a row. The STORED row's column-keyed fields —
- * server stamps and defaults included, not only the posted answers — are
- * surfaced under `{{trigger.data.record.X}}`. Errors are absorbed inside the
- * use case so a failing automation never rolls back the submission. No-op when
- * no bound-table row was written.
- */
-export const fireBoundTableRecordCreateAutomations = (input: {
-  readonly app: Readonly<App>
-  readonly form: Readonly<Form>
-  readonly mapped: Readonly<Record<string, unknown>>
-  readonly outcome: PersistOutcome
-  readonly processEnv: Readonly<Record<string, string | undefined>>
-  readonly submitterUserId: string | undefined
-}) => {
-  const { app, form, mapped, outcome, processEnv, submitterUserId } = input
-  const { linkedRecordPresent, linkedRecordId, linkedRecordFields } = outcome
-  if (!linkedRecordPresent || form.submitTo.table === undefined || linkedRecordId === undefined) {
-    return Effect.void
-  }
-  // The row as stored wins over the answers posted: a record automation reads
-  // the same row whatever created it — the stamps and the defaults included.
-  return triggerRecordEventAutomations({
-    app,
-    tableName: form.submitTo.table,
-    event: 'create',
-    record: { id: linkedRecordId, ...mapped, ...linkedRecordFields },
-    processEnv,
-    ...(submitterUserId !== undefined ? { userId: submitterUserId } : {}),
-  })
-}

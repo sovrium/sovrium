@@ -81,6 +81,8 @@ export interface FilledTemplateAction {
   readonly action: Readonly<Record<string, unknown>>
   /** Why the action must not run: an argument cannot be placed safely. */
   readonly refusal?: string
+  /** The template's variables as the call filled them, for an inline template's `$name`. */
+  readonly vars: Readonly<Record<string, unknown>>
 }
 
 /** The props of a code action invoked with values: its source is never a template. */
@@ -154,6 +156,7 @@ export const fillInvokedTemplateAction = (input: {
   if (type === 'code') {
     return {
       action: { ...template.action, props: fillCodeProps(props, values, context, templates) },
+      vars: values.vars ?? {},
     }
   }
   const rendered = renderActionProps({
@@ -164,5 +167,8 @@ export const fillInvokedTemplateAction = (input: {
     templates,
   })
   const action = { ...template.action, props: rendered.props }
-  return rendered.refusal === undefined ? { action } : { action, refusal: rendered.refusal }
+  const vars = values.vars ?? {}
+  return rendered.refusal === undefined
+    ? { action, vars }
+    : { action, vars, refusal: rendered.refusal }
 }

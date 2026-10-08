@@ -13,10 +13,12 @@ import { AgentsSchema } from './agents'
 import { validateAllAgentApprovalRules } from './agents/approval-validation'
 import { validateAllKnowledgeReferences } from './agents/knowledge-validation'
 import { BuiltInAnalyticsSchema } from './analytics'
+import { AssetsSchema } from './assets'
 import { AuthSchema } from './auth'
 import { validateAllAiAccessRules } from './auth/ai-access-validation'
 import { validateAllRoleReferences, validateTableRoleReferences } from './auth/role-validation'
 import { type Action, AutomationsSchema } from './automations'
+import { validateSessionWebhookAuth } from './automations/trigger/webhook-session-validation'
 import { BadgeSchema } from './badge'
 import { BucketsSchema } from './buckets'
 import { validateComponentPlacements } from './component-placement-validation'
@@ -371,13 +373,7 @@ export const AppSchema = Schema.Struct({
    */
   components: Schema.optional(ComponentsSchema),
 
-  /**
-   * Marketing and content pages (optional).
-   *
-   * Array of page configurations with server-side rendering support. Pages use a
-   * component-based system with comprehensive metadata, theming, and i18n support.
-   * Minimum of 1 page required when pages property is present.
-   */
+  /** Server-rendered, component-based pages (optional); at least one when present. */
   pages: Schema.optional(PagesSchema),
 
   /**
@@ -398,6 +394,9 @@ export const AppSchema = Schema.Struct({
 
   /** Tracked short links served at /l/{slug}. */
   links: Schema.optional(LinksSchema),
+
+  /** Private files beside the config, read by actions through `{ asset }` and never served. */
+  assets: Schema.optional(AssetsSchema),
 
   /**
    * Standalone forms (optional).
@@ -652,11 +651,10 @@ export const AppSchema = Schema.Struct({
       return true
     })
   ),
-  // Automation cross-validation: auth triggers/actions require auth config
+  // Automation cross-validation: auth triggers/actions and session webhooks require auth config
   Schema.check(
     Schema.makeFilter((app) => {
       if (!app.automations) return true
-
       const hasAuthTrigger = app.automations.some((a) => a.trigger.type === 'auth')
       if (hasAuthTrigger && !app.auth) {
         return 'Auth triggers require auth configuration to be enabled'
@@ -668,7 +666,7 @@ export const AppSchema = Schema.Struct({
       if (hasAuthAction && !app.auth) {
         return 'Auth actions require auth configuration to be enabled'
       }
-      return true
+      return validateSessionWebhookAuth(app)
     })
   ),
   // Automation cross-validation: analytics actions require analytics config

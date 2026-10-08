@@ -33,7 +33,8 @@ GET /api/tables/orders/records/42/history
       "changes": {
         "after": { "id": 42, "status": "pending", "updated_at": "2026-10-05T09:12:04.101Z" }
       },
-      "user": { "id": "7Qm2TbV9xKc4LwP1sN8dRz3YhJ6fGa0E", "name": "Alice" }
+      "user": { "id": "7Qm2TbV9xKc4LwP1sN8dRz3YhJ6fGa0E", "name": "Alice" },
+      "userName": "Alice"
     },
     {
       "action": "update",
@@ -42,14 +43,16 @@ GET /api/tables/orders/records/42/history
         "before": { "id": 42, "status": "pending", "updated_at": "2026-10-05T09:12:04.101Z" },
         "after": { "id": 42, "status": "approved", "updated_at": "2026-10-05T10:30:00.198Z" }
       },
-      "user": { "id": "7Qm2TbV9xKc4LwP1sN8dRz3YhJ6fGa0E", "name": "Alice" }
+      "user": { "id": "7Qm2TbV9xKc4LwP1sN8dRz3YhJ6fGa0E", "name": "Alice" },
+      "userName": "Alice"
     }
   ],
+  "total": 2,
   "pagination": { "total": 2, "limit": 2, "offset": 0 }
 }
 ```
 
-Entries come oldest first. `changes` holds the whole record on each side of the change — every field you may read, not only the ones that moved — so a client computes the difference by comparing `before` with `after`; a create carries `after` alone. The snapshots are the stored row, which is why the record's key reads there as the database holds it — a number, for the default key — rather than as the string the records API answers. `user` names the person who made the change and is absent when no user did. `?limit=` and `?offset=` page through a long history; without them every entry is returned and `limit` equals `total`.
+Entries come oldest first. `changes` holds the whole record on each side of the change — every field you may read, not only the ones that moved — so a client computes the difference by comparing `before` with `after`; a create carries `after` alone. The snapshots are the stored row, which is why the record's key reads there as the database holds it — a number, for the default key — rather than as the string the records API answers. `user` names the person who made the change and is absent when no user did; `userName` carries the same name flatly — so a page's row template can print it — and is `null`, never missing, when no person made the change. `?sort=createdAt:desc` answers newest first, and `?sort=createdAt:asc` or no `sort` keeps oldest first. `?limit=` and `?offset=` page through a long history, and `?page=` (counting from 1) does the same when no `offset` is given: `?page=2&limit=5` answers what `?offset=5&limit=5` does. Without them every entry is returned and `limit` equals `total`. `total` — the size of the whole history, whatever page was asked for — sits at the top of the answer as well as in `pagination`.
 
 A record's history shows only what a read of the record would: the fields you may read, and nothing of a record you may not open (404). The table's read permission, its row-level read rule and each field's read rule apply exactly as they do on `GET /api/tables/:tableId/records/:recordId`; a change to a field hidden from you still appears as an entry, without that field's values.
 

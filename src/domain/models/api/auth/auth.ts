@@ -341,3 +341,116 @@ export type SignUpResponse = typeof signUpResponseSchema.Type
 export type SignOutResponse = typeof signOutResponseSchema.Type
 export type GetSessionResponse = typeof getSessionResponseSchema.Type
 export type ListSessionsResponse = typeof listSessionsResponseSchema.Type
+
+// ============================================================================
+// Device Authorization — API-key redemption (auth.deviceAuthorization)
+// ============================================================================
+
+/**
+ * Wire contract of `POST /api/auth/device/api-key` — Sovrium's redemption of an
+ * approved device code (`auth.deviceAuthorization`).
+ *
+ * The upstream `/device/token` answers a RAW session token, which no Sovrium
+ * route accepts (only the session cookie and `x-api-key` authenticate). This
+ * endpoint consumes the same approved code and mints an API key for the user
+ * who approved it, returned exactly once. The CLI never holds a session.
+ */
+
+/** The only client the device flow accepts. */
+export const SOVRIUM_CLI_CLIENT_ID = 'sovrium-cli'
+
+/**
+ * Body of `POST /api/auth/device/code`, the request that starts the flow. Sent
+ * without a session.
+ *
+ * @public
+ */
+export const deviceCodeRequestSchema = Schema.Struct({
+  client_id: Schema.Literal(SOVRIUM_CLI_CLIENT_ID).annotate({
+    description: "The client asking for a code; only 'sovrium-cli' is served",
+  }),
+})
+
+/** @public */
+export type DeviceCodeRequest = Schema.Schema.Type<typeof deviceCodeRequestSchema>
+
+/**
+ * Answer of `POST /api/auth/device/code` (RFC 8628 §3.2): the code the CLI
+ * redeems, the code the person types or confirms, where they do it, and the
+ * polling timings.
+ *
+ * @public
+ */
+export const deviceCodeResponseSchema = Schema.Struct({
+  device_code: Schema.String.annotate({
+    description: 'Secret code the CLI redeems at POST /api/auth/device/api-key; never shown',
+  }).check(Schema.isMinLength(1)),
+  user_code: Schema.String.annotate({
+    description: 'Short code the person confirms in the browser',
+  }).check(Schema.isMinLength(1)),
+  verification_uri: Schema.String.annotate({
+    description: "The app's page where the person enters the code",
+  }),
+  verification_uri_complete: optionalField(
+    Schema.String.annotate({
+      description: 'The same page with the code already filled in, for a one-click approval',
+    })
+  ),
+  expires_in: Schema.Number.annotate({
+    description: 'Seconds before the code expires',
+  }).check(Schema.isInt(), Schema.isGreaterThan(0)),
+  interval: Schema.Number.annotate({
+    description: 'Seconds to wait between two redemption attempts',
+  }).check(Schema.isInt(), Schema.isGreaterThan(0)),
+})
+
+/** @public */
+export type DeviceCodeResponse = Schema.Schema.Type<typeof deviceCodeResponseSchema>
+
+export const deviceApiKeyRequestSchema = Schema.Struct({
+  device_code: Schema.String.annotate({
+    description: 'The device_code returned by POST /api/auth/device/code',
+  }).check(Schema.isMinLength(1)),
+  client_id: Schema.Literal(SOVRIUM_CLI_CLIENT_ID).annotate({
+    description: "The client that requested the code; always 'sovrium-cli'",
+  }),
+})
+
+export type DeviceApiKeyRequest = Schema.Schema.Type<typeof deviceApiKeyRequestSchema>
+
+export const deviceApiKeyResponseSchema = Schema.Struct({
+  key: Schema.String.annotate({
+    description:
+      'The API key, in plaintext. Returned by this response only and never again: store it, then send it as the x-api-key header',
+  }).check(Schema.isMinLength(1)),
+  keyId: Schema.String.annotate({
+    description: 'Identifier of the key, for listing and revoking it later',
+  }).check(Schema.isMinLength(1)),
+  name: Schema.String.annotate({
+    description: 'Display name given to the key, naming the device that requested it',
+  }),
+})
+
+export type DeviceApiKeyResponse = Schema.Schema.Type<typeof deviceApiKeyResponseSchema>
+
+/**
+ * The refusals, in the RFC 8628 vocabulary the upstream token endpoint uses.
+ * All of them answer 400.
+ */
+export const deviceApiKeyErrorCodes = [
+  'authorization_pending',
+  'slow_down',
+  'expired_token',
+  'access_denied',
+  'invalid_grant',
+] as const
+
+export const deviceApiKeyErrorSchema = Schema.Struct({
+  error: Schema.Literals(deviceApiKeyErrorCodes).annotate({
+    description:
+      "'authorization_pending': not approved yet, poll again. 'slow_down': polled faster than the interval. 'expired_token': the code expired, request a new one. 'access_denied': the user denied it. 'invalid_grant': unknown, already redeemed, or requested by another client",
+  }),
+  error_description: Schema.String.annotate({ description: 'Human-readable explanation' }),
+})
+
+export type DeviceApiKeyError = Schema.Schema.Type<typeof deviceApiKeyErrorSchema>

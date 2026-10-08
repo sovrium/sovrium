@@ -143,7 +143,8 @@ export function useDialogOpenState(
 
 /**
  * Close when a form inside this dialog has written its record
- * (`sovrium:crud-success`), or when a `data-dialog-cancel` control inside a
+ * (`sovrium:crud-success`), when an endpoint form inside it asks to close on
+ * success (`sovrium:close-dialog`), or when a `data-dialog-cancel` control inside a
  * NESTED island is pressed — that island is its own React root, so the panel's
  * `onCancel` never hears it. Capture phase: the island may re-render the
  * control away before the click bubbles back up.
@@ -161,9 +162,11 @@ function useCloseOnHostedWrite(id: string | undefined, setOpen: (open: boolean) 
       if (cancel && inPanel(cancel)) setOpen(false)
     }
     document.addEventListener('sovrium:crud-success', onWrite)
+    document.addEventListener('sovrium:close-dialog', onWrite)
     document.addEventListener('click', onClick, true)
     return () => {
       document.removeEventListener('sovrium:crud-success', onWrite)
+      document.removeEventListener('sovrium:close-dialog', onWrite)
       document.removeEventListener('click', onClick, true)
     }
   }, [id, setOpen])

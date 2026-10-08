@@ -10,6 +10,7 @@ import apiKeysBody from '@/domain/models/app/auth/api-keys.docs.md' with { type:
 import authInvitationsBody from '@/domain/models/app/auth/auth-invitations.docs.md' with { type: 'file' }
 import authOauthServerBody from '@/domain/models/app/auth/auth-oauth-server.docs.md' with { type: 'file' }
 import authSessionsBody from '@/domain/models/app/auth/auth-sessions.docs.md' with { type: 'file' }
+import deviceAuthorizationBody from '@/domain/models/app/auth/device-authorization.docs.md' with { type: 'file' }
 import userManagementBody from '@/domain/models/app/auth/user-management.docs.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
 
@@ -69,6 +70,28 @@ export const authAccounts = defineSection({
       body: apiKeysBody,
       documents: [],
       stories: ['US-AUTH-API-KEYS'],
+    }),
+    defineArticle({
+      slug: 'device-authorization',
+      title: 'Device Authorization',
+      description:
+        'Let the sovrium CLI sign in with a short code a signed-in person approves in the browser, then redeem the approved code once for an API key.',
+      keywords: [
+        'sovrium',
+        'device authorization',
+        'device code',
+        'RFC 8628',
+        'auth.deviceAuthorization',
+        'sovrium login',
+        'CLI sign-in',
+        'user code',
+        'x-api-key',
+      ],
+      order: 7406,
+      sidebarLabel: 'Device Authorization',
+      body: deviceAuthorizationBody,
+      documents: [],
+      stories: ['US-AUTH-DEVICE-AUTHORIZATION'],
     }),
     defineArticle({
       slug: 'user-management',

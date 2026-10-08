@@ -40,6 +40,7 @@ components:
   - $ref: ./library/block/record-meta-sidebar.yaml
   - $ref: ./library/block/record-edit-sections.yaml
   - $ref: ./library/block/record-comments.yaml
+  - $ref: ./library/block/record-history.yaml
   - $ref: ./library/block/drawer-record.yaml
   - $ref: ./library/block/settings-account.yaml
   - $ref: ./library/block/settings-security.yaml

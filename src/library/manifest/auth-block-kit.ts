@@ -30,6 +30,7 @@ export type AuthCapability =
   | 'auth.oauth'
   | 'auth.sso'
   | 'auth.signUp'
+  | 'auth.passwordReset'
   | 'auth.twoFactor'
   | 'auth.apiKeys'
 

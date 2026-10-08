@@ -61,7 +61,8 @@
  * grammar of its own (a failure, a journal entry) gets a named emitter instead.
  */
 
-import { Console, Effect } from 'effect'
+import { Effect } from 'effect'
+import { logToStdout, writeStderrText } from './log-format'
 
 /**
  * The closed glyph set (T8). Three marks, each a PREFIX, each followed by
@@ -136,7 +137,7 @@ export const formatDocument = (blocks: readonly CliBlock[]): string => {
  * a final blank row would otherwise contribute.
  */
 export const renderDocument = (blocks: readonly CliBlock[]): Effect.Effect<void> =>
-  Console.log(formatDocument(blocks))
+  logToStdout(formatDocument(blocks))
 
 /**
  * Duration for display (T27): `320ms` under one second, `1.2s` at or above,
@@ -255,9 +256,7 @@ export const printDocument = (blocks: readonly CliBlock[]): void =>
  * `Effect.gen`. Everywhere else wants {@link printStderr}.
  */
 export const renderStderr = (message: string): Effect.Effect<void> =>
-  Effect.sync(() => {
-    process.stderr.write(`${message}\n`)
-  })
+  Effect.sync(() => writeStderrText(message))
 
 /**
  * Write one line to stderr, outside an Effect program — the sync form of
@@ -443,7 +442,7 @@ const printJournalEntry = (
  * `Console.log` supplies the newline, so nothing here carries one.
  */
 export const printJournal = (tag: string, text: string): void =>
-  printJournalEntry(Console.log, { tag, text, at: new Date() })
+  printJournalEntry(logToStdout, { tag, text, at: new Date() })
 
 /**
  * Append a WARNING entry to the journal on stderr (T31, T41): a degradation the

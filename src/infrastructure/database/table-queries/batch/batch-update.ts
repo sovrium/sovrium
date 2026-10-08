@@ -12,14 +12,13 @@ import {
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
 import {
-  db,
   type ValidationError,
   type DrizzleTransaction,
   type DatabaseError,
 } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { withTransaction } from '@/infrastructure/database/transaction'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { injectUpdateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { encodeColumnValue } from '../mutation-helpers/column-value-encoding'
 import { fetchRecordsByIds } from '../mutation-helpers/record-fetch-helpers'
@@ -226,8 +225,7 @@ export function batchUpdateRecords(
     const committed =
       merged.length === 0
         ? []
-        : yield* withTransaction(
-            db,
+        : yield* withOutboxTransaction((changes: readonly CommittedRowChange[]) => changes)(
             (tx) => writeBatch(tx, tableName, session, merged),
             wrapDatabaseErrorWithValidation(`Failed to batch update records in ${tableName}`)
           )

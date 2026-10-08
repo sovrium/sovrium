@@ -86,7 +86,7 @@ An item is filled in once, as it is: an item holding `{{…}}` or `$env.` text r
 
 It defaults to **1000**, so a loop over 1,800 rows processes the first thousand and reports success. Nothing marks the run as incomplete, because from the loop's point of view it did what it was told. Raise it explicitly — up to 10000 — whenever the collection can exceed the cap, or page the source and loop per page.
 
-`continueOnItemError` keeps the loop going past a failing item; it defaults to `false`, which aborts the whole loop on the first failure.
+`continueOnItemError` keeps the loop going past a failing item; it defaults to `false`, which aborts the whole loop on the first failure. A tolerated item is still reported: the loop's output counts it in `failed`, and its place in `results` holds an `error` naming what refused it — for example a template that rendered nothing into a date column. A loop runs the same way inside a path as at the top level.
 
 ```yaml
 - name: notifyEach
@@ -107,7 +107,7 @@ It defaults to **1000**, so a loop over 1,800 rows processes the first thousand 
 
 Halts the run immediately, with an optional status and output.
 
-A stop ends the run wherever it sits — at the top level, inside a path, inside a loop, at any depth: nothing after it runs, at its own level or above, and the caller of a synchronous trigger receives the stop's status, message and output.
+A stop ends the run wherever it sits — at the top level, inside a path, inside a loop, at any depth: nothing after it runs, at its own level or above, and the caller of a synchronous trigger receives the stop's status, message and output. When a `webhook/response` already set the answer, the caller receives that response instead — its status, headers and body: the stop ends the run, it does not replace an answer you chose. Answering `404` and then stopping is how a webhook refuses an unknown record without running the rest.
 
 <!-- sovrium:options FlowStopActionSchema -->
 

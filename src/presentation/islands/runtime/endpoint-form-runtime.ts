@@ -39,12 +39,18 @@ export type EndpointToastResponse = {
   readonly actionUrl?: string
 }
 
+/** The endpoint form's success slot: the toast, plus the two effects only a form has. */
+type EndpointSuccessResponse = EndpointToastResponse & {
+  readonly close?: boolean
+  readonly reset?: boolean
+}
+
 /** The `data-endpoint-config` blob serialized by `renderEndpointForm`. */
 type EndpointFormConfig = {
   readonly url: string
   readonly method?: string
   readonly responseEnvelope?: string
-  readonly onSuccess?: EndpointToastResponse
+  readonly onSuccess?: EndpointSuccessResponse
   readonly onError?: EndpointToastResponse
 }
 
@@ -96,6 +102,28 @@ function syncSwitchState(event: Event): void {
   target.setAttribute('aria-checked', target.checked ? 'true' : 'false')
 }
 
+/**
+ * The form-only success effects, run once the request has succeeded (never
+ * before: what was typed is what was sent). `reset` puts every field back to
+ * its authored default — the switches' `aria-checked` with them, since a native
+ * reset fires no `change` — and `close` asks the dialog the form sits in to
+ * close, by a bubbling event the dialog matches against its own panel.
+ */
+function applyFormSuccessEffects(
+  form: HTMLFormElement,
+  onSuccess: EndpointSuccessResponse | undefined
+): void {
+  if (onSuccess?.reset === true) {
+    form.reset()
+    form.querySelectorAll<HTMLInputElement>(SWITCH_SELECTOR).forEach((control) => {
+      control.setAttribute('aria-checked', control.checked ? 'true' : 'false')
+    })
+  }
+  if (onSuccess?.close === true) {
+    form.dispatchEvent(new CustomEvent('sovrium:close-dialog', { bubbles: true }))
+  }
+}
+
 /** Submit one endpoint form through the shared fetch runtime. */
 function submitEndpointForm(
   form: HTMLFormElement,
@@ -118,7 +146,9 @@ function submitEndpointForm(
     ...(config.onError && { onError: config.onError }),
   } as FetchAction
   void executeFetchAction(action).then((result) => {
-    if (result) dispatchToast(result.ok ? config.onSuccess : config.onError)
+    if (!result) return
+    dispatchToast(result.ok ? config.onSuccess : config.onError)
+    if (result.ok) applyFormSuccessEffects(form, config.onSuccess)
   })
 }
 

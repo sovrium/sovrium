@@ -21,8 +21,8 @@ import {
 } from '@/domain/models/app/automations/run-record-refs-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { storedNestedOf } from './nested-step-record'
-import { toApiStatus, toApiStepStatus } from './run-status'
-import type { ExecutedStep } from './types'
+import { toApiStatus, toApiStepStatus, type EngineRunStatus } from './run-status'
+import type { ExecutedStep, RunAccumulator } from './types'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { App } from '@/domain/models/app'
 import type { RunRelay } from '@/domain/models/app/automations/run-relay-service'
@@ -147,11 +147,12 @@ const nestedColumn = (step: ExecutedStep): { readonly nested?: unknown } =>
 const buildStepsInput = (
   steps: ReadonlyArray<ExecutedStep>,
   startedAt: Readonly<Date>,
-  finishedAt: Readonly<Date>
+  finishedAt: Readonly<Date>,
+  base = 0
 ) =>
   steps.map((step, index) => ({
     actionName: step.name,
-    stepIndex: index,
+    stepIndex: base + index,
     status: toApiStepStatus(step.status),
     ...(step.props !== undefined ? { input: step.props as unknown } : {}),
     ...(step.output !== undefined ? { output: step.output as unknown } : {}),
@@ -163,21 +164,21 @@ const buildStepsInput = (
     ...(step.error !== undefined ? { error: step.error } : {}),
   }))
 
+/** The row a step record is stored as, at position `stepIndex` of its run. */
+export const stepRowOf = (step: ExecutedStep, stepIndex: number, at: Readonly<Date>) =>
+  buildStepsInput([step], at, at, stepIndex)[0] as NonNullable<
+    ReturnType<typeof buildStepsInput>[number]
+  >
+
 type FinaliseRunInput = {
   readonly runId: string
   readonly automationId: string
-  readonly engineStatus:
-    | 'success'
-    | 'failure'
-    | 'timed-out'
-    | 'exhausted'
-    | 'completed-with-errors'
-    | 'skipped'
-    | 'cancelled'
-    | 'waiting-approval'
-    | 'queued'
-    | 'running'
+  readonly engineStatus: EngineRunStatus
   readonly engineError: string | undefined
+  /** Set when the run parks on a long wait (`waiting-delay`): when and where it resumes. */
+  readonly park?: RunAccumulator['park']
+  /** A resumed segment: the position its first new step row takes, and the active time before it. */
+  readonly segment?: { readonly stepIndexBase: number; readonly priorActiveMs: number }
   readonly triggerData: TriggerData
   readonly startedAt: Date
   readonly finishedAt: Date
@@ -255,19 +256,35 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
     return fallback.success.id
   })
 
+/**
+ * The run row's park overlay: a parked run keeps no completion time and stores
+ * when and where it resumes; the repository clears both on any other status.
+ */
+const parkOverlay = (input: FinaliseRunInput) =>
+  input.park === undefined
+    ? { completedAt: input.finishedAt }
+    : {
+        park: {
+          resumeAt: new Date(input.park.resumeAt),
+          cursor: { v: 1, frames: input.park.frames },
+        },
+      }
+
 export const finaliseRun = (
   input: FinaliseRunInput
 ): Effect.Effect<string | undefined, never, AutomationRunRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
+    const activeMs = input.finishedAt.getTime() - input.startedAt.getTime()
+    const base = input.segment?.stepIndexBase ?? 0
     const finalised = yield* Effect.result(
       repo.finaliseRun({
         id: input.runId,
         status: toApiStatus(input.engineStatus),
-        completedAt: input.finishedAt,
-        durationMs: input.finishedAt.getTime() - input.startedAt.getTime(),
+        durationMs: activeMs + (input.segment?.priorActiveMs ?? 0),
+        ...parkOverlay(input),
         ...(input.engineError !== undefined ? { error: input.engineError } : {}),
-        steps: buildStepsInput(input.steps, input.startedAt, input.finishedAt),
+        steps: buildStepsInput(input.steps, input.startedAt, input.finishedAt, base),
         ...refsOverlay(readsOfRun(input)),
       })
     )
@@ -276,7 +293,8 @@ export const finaliseRun = (
         '[automation] failed to finalise run on existing row; falling back to insert',
         finalised._tag === 'Failure' ? finalised.failure : 'row missing'
       )
-      return yield* finaliseRunFallback(input)
+      // A resumed run's row was there when it was claimed: a second row would split its log.
+      return input.segment === undefined ? yield* finaliseRunFallback(input) : undefined
     }
     return input.runId
   }).pipe(Effect.withSpan('automations.finalise-run'))

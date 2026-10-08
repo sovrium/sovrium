@@ -16,17 +16,32 @@
 /** Popup tone axis (`popupVariant` schema field) — mirrors `MenuSurface`. */
 export type MenuSurface = 'default' | 'inverted'
 
+/** The toast an automation's `onSuccess` / `onError` slot declares. */
+interface MenuActionOutcome {
+  readonly navigate?: string
+  readonly toast?: { readonly message?: string; readonly variant?: string }
+}
+
 /**
- * A menu item's config `action` (a subset of the shared `ActionSchema`). The
- * dropdown-menu wires the two operate-affordances an operator menu needs:
- * `navigate` (a link item) and `auth` `method: logout` (sign out). Other action
- * types parse but are inert here (the item still renders).
+ * A menu item's config `action` (a subset of the shared `ActionSchema`). Every
+ * type the menu runs is honoured: `navigate` draws the row as a link, `auth`
+ * `method: logout` signs out, and `toast`, `automation` and `fetch` run when the
+ * row is picked (`menu-item-actions.ts`), as they would from a button.
  */
-interface MenuItemAction {
+export interface MenuItemAction {
   readonly type?: string
   readonly method?: string
   readonly path?: string
-  readonly onSuccess?: { readonly navigate?: string }
+  /** `toast`: the message, its variant and how long it stays. */
+  readonly message?: string
+  readonly variant?: string
+  readonly duration?: number
+  /** `automation`: the automation pressed, its input, and whether to await the run. */
+  readonly name?: string
+  readonly inputData?: Readonly<Record<string, unknown>>
+  readonly await?: boolean
+  readonly onSuccess?: MenuActionOutcome
+  readonly onError?: MenuActionOutcome
 }
 
 export interface MenuItem {
@@ -57,6 +72,6 @@ export interface MenuItem {
    * which is why the live row is UNCONTROLLED (`defaultChecked`).
    */
   readonly toggle?: 'checked' | 'unchecked'
-  /** Action triggered when the item is activated (navigate / auth logout). */
+  /** Action triggered when the item is activated. */
   readonly action?: MenuItemAction
 }

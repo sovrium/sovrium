@@ -25,6 +25,7 @@ import { hostname } from 'node:os'
 import { HTTPException } from 'hono/http-exception'
 import { classifyDriverFailure } from '@/domain/errors/driver-failure'
 import { isErrorReportingEnabled } from '@/domain/models/process-env/telemetry/telemetry'
+import { writeStderrText } from '@/infrastructure/logging/log-format'
 import { formatErrorChain } from './error-chain'
 import { initErrorReporter, registerProcessErrorHandlers, reportException } from './error-reporter'
 import { disposeObsRuntime, emitLog, initObsRuntime, setLogResource } from './observability-runtime'
@@ -207,7 +208,8 @@ export const emitTelemetryLog = (
     // stdout/journald is the last-resort record: it survives the error backend
     // being down, misconfigured, or never enabled, so it must carry the whole
     // chain rather than the outermost link.
-    process.stderr.write(formatErrorChain(cause) + '\n')
+    // One record in `SOVRIUM_LOG_FORMAT=json`, the chain escaped inside it.
+    writeStderrText(formatErrorChain(cause))
     // The local record above is UNCONDITIONAL and stays that way: stdout is the
     // operator's own log, where a declined write is ordinary, searchable
     // context. Only the error STORE — the paging, triage-me surface — is

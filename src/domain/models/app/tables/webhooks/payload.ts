@@ -153,7 +153,7 @@ const computeChangedFields = (
 export const customizeWebhookData = (input: {
   readonly record: Record<string, unknown>
   readonly payload: WebhookPayload | undefined
-  readonly event: 'create' | 'update' | 'delete'
+  readonly event: 'create' | 'update' | 'delete' | 'restore'
   readonly previousRecord?: Record<string, unknown> | undefined
 }): CustomizedWebhookData => {
   const { record, payload, event, previousRecord } = input

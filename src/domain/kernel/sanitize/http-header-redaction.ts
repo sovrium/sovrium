@@ -80,6 +80,28 @@ export const redactSecretHeaders = (headers: unknown): unknown => {
 }
 
 /**
+ * Replace the value of every header NAMED in `names` (compared
+ * case-insensitively), whatever the name is, preserving key order and every
+ * other entry.
+ *
+ * This is the rule for a header set Sovrium itself built: the caller knows
+ * which entries carry a credential because it produced them, so no name list
+ * is consulted — a key sent under `X-Partner-Access` is redacted like an
+ * `Authorization`.
+ */
+export const redactHeadersNamed = (
+  headers: Readonly<Record<string, string>>,
+  names: readonly string[]
+): Readonly<Record<string, string>> => {
+  const named = new Set(names.map((name) => name.toLowerCase()))
+  return Object.fromEntries(
+    Object.entries(headers).map(([name, value]) =>
+      named.has(name.toLowerCase()) ? [name, REDACTED_HEADER_VALUE] : [name, value]
+    )
+  )
+}
+
+/**
  * Redact the `headers` sub-object of a captured trigger payload.
  *
  * An automation's `triggerData` is `{ headers?, body?, query?, … }` — the shape

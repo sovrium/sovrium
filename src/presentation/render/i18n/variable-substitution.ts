@@ -151,11 +151,51 @@ export function substituteChildrenVariables(
 
     return {
       ...child,
+      ...substituteActiveMarker(child, vars),
       props: substitutedProps,
       children: substitutedChildren,
       content: substitutedContent,
     }
   })
+}
+
+/** The two keys of the current-item marker, which compare and merge placement vars. */
+const ACTIVE_MARKER_KEYS = ['activeWhen', 'activeProps'] as const
+
+/**
+ * Substitutes placement variables into a node's current-item marker
+ * (`activeWhen` and `activeProps`), returning only the keys the node carries.
+ *
+ * A shared template marks the item its PLACEMENT names — `activeWhen: { value:
+ * '$current', equals: 'home' }` placed with `vars: { current: 'home' }` — so the
+ * marker must read the vars like `props` does. Without this the comparison saw
+ * the literal text `$current` and no item of a shared nav was ever current.
+ * Tokens that are not placement vars (`$query.*`, `$window.*`) are left as
+ * written for the passes that resolve them.
+ *
+ * @example
+ * ```typescript
+ * substituteActiveMarker(
+ *   { activeWhen: { value: '$current', equals: 'home' } },
+ *   { current: 'home' }
+ * )
+ * // { activeWhen: { value: 'home', equals: 'home' } }
+ * ```
+ */
+export function substituteActiveMarker(
+  node: object,
+  vars?: Record<string, unknown>
+): Record<string, unknown> {
+  if (!vars) return {}
+  const record = node as Record<string, unknown>
+  return Object.fromEntries(
+    ACTIVE_MARKER_KEYS.flatMap((key) => {
+      const value = record[key]
+      return value !== null && typeof value === 'object' && !Array.isArray(value)
+        ? [[key, substitutePropsVariables(value as Record<string, unknown>, vars)]]
+        : []
+    })
+  )
 }
 
 /**

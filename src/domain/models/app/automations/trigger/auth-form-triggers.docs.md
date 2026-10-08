@@ -26,13 +26,17 @@ automations:
 
 <!-- sovrium:options AuthTriggerSchema -->
 
-| Event           | Fires when                                     |
-| --------------- | ---------------------------------------------- |
-| `signUp`        | An account is created, by any enabled strategy |
-| `signIn`        | A session is issued                            |
-| `signOut`       | A session is ended by the user                 |
-| `passwordReset` | A password reset completes                     |
-| `emailVerified` | A verification link is followed                |
+| Event           | Fires when                                                                                                             | Does not fire when                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `signUp`        | An account is created, by any enabled strategy                                                                         | —                                                                                              |
+| `signIn`        | A sign-in way opens a session: a password, a followed magic link, single sign-on, a passkey, a completed second factor | The sign-up form opens its own session; the sign-in is refused; a magic link is only requested |
+| `signOut`       | The person signs out                                                                                                   | A session is revoked, the account is banned, or the session expires                            |
+| `passwordReset` | A password reset is completed with a valid link                                                                        | A reset is only requested; the link is invalid or expired                                      |
+| `emailVerified` | The address becomes verified                                                                                           | The account is updated later                                                                   |
+
+A first sign-in that also creates the account — a first magic link, a first single sign-on — fires both `signUp` and `signIn`.
+
+Every event hands its actions `{{trigger.data.event}}` and `{{trigger.data.user.*}}` (`id`, `email`, `name`, `role`, …). It never hands them a session, a link token or a password: the run history keeps the trigger data, and reading a run must not let anyone sign in as the person it names.
 
 `events` is the trigger's **only** narrowing property. There is no way to restrict an auth trigger to a role, a domain or an OAuth provider in the trigger itself — do that in the first action, with a filter gate.
 

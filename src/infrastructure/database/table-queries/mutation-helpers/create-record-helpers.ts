@@ -71,7 +71,10 @@ export function buildInsertClauses(
   fields: Readonly<Record<string, unknown>>,
   arrayColumnTypes: Readonly<Record<string, string>>
 ): Readonly<{ columnsClause: unknown; valuesClause: unknown }> {
-  const entries = Object.entries(fields)
+  // A value that is `undefined` — a template that rendered nothing as a whole
+  // value — is not given: it would bind no parameter at all (`VALUES ($1, )`),
+  // so the column takes its default, and a required one refuses the row by name.
+  const entries = Object.entries(fields).filter(([, value]) => value !== undefined)
   // No column to write: `insertAndResolveRow` inserts `DEFAULT VALUES`.
   if (entries.length === 0) return { columnsClause: undefined, valuesClause: undefined }
 

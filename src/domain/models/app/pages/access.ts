@@ -44,7 +44,8 @@ export const PageAccessExtendedSchema = Schema.Struct({
         })
       )
     ).annotate({
-      description: 'URL path to redirect unauthenticated/unauthorized users',
+      description:
+        'Path a visitor who has not signed in is sent to. A signed-in person without the required role is answered 404, never redirected.',
       examples: ['/login', '/signup', '/403'],
     })
   ),

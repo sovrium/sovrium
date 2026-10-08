@@ -22,6 +22,8 @@ import { ServerCreationError } from '@/infrastructure/errors/server-creation-err
 import { ServerStopError } from '@/infrastructure/errors/server-stop-error'
 import { logDebug, logError, logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { disposeDomainRuntime } from '@/infrastructure/server/domain-runtime'
+import { trackRequest } from '@/infrastructure/server/idle-exit'
+import { isAddressInUse, portInUseRefusal } from '@/infrastructure/server/port-availability'
 import { shutdownTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
 import type { App } from '@/domain/models/app'
 import type { DomainRuntime } from '@/infrastructure/server/domain-runtime'
@@ -308,7 +310,7 @@ export const resolveMaxRequestBodySize = (
  * `maxRequestBodySize` is {@link resolveMaxRequestBodySize}: a body above it is
  * refused with `413` by Bun itself.
  */
-const buildBunServeOptions = (
+export const buildBunServeOptions = (
   honoApp: Readonly<Hono>,
   port: number,
   hostname: string,
@@ -318,11 +320,13 @@ const buildBunServeOptions = (
   hostname,
   maxRequestBodySize,
   fetch: (request: Request, server: unknown): Response | Promise<Response> =>
-    hasMalformedHost(request)
-      ? malformedHostResponse()
-      : honoApp.fetch(withBindAddressUrl(request, boundAddress(server, { hostname, port })), {
-          server,
-        }),
+    trackRequest(() =>
+      hasMalformedHost(request)
+        ? malformedHostResponse()
+        : honoApp.fetch(withBindAddressUrl(request, boundAddress(server, { hostname, port })), {
+            server,
+          })
+    ),
   websocket,
 })
 
@@ -361,36 +365,36 @@ export const reloadBunServer = (
 }
 
 /**
- * Start Bun HTTP server
+ * Start Bun HTTP server. A busy port falls back to an OS-assigned one unless
+ * `strict` (`isStrictPortBoot`), where it refuses — a supervised server that
+ * quietly moved would leave its proxy pointing at nothing.
  */
 export const startBunServer = (
   honoApp: Readonly<Hono>,
-  port: number,
-  hostname: string,
+  {
+    port,
+    hostname,
+    strict,
+  }: { readonly port: number; readonly hostname: string; readonly strict: boolean },
   maxRequestBodySize: number
 ): Effect.Effect<ReturnType<typeof Bun.serve>, ServerCreationError, never> =>
   Effect.try({
     try: () => Bun.serve(buildBunServeOptions(honoApp, port, hostname, maxRequestBodySize)),
     catch: (error) => new ServerCreationError(error),
   }).pipe(
-    // Retry on EADDRINUSE with port 0 (auto-select) as fallback
     Effect.catchIf(
-      (e) => {
-        const { cause } = e as ServerCreationError
-        return (
-          typeof cause === 'object' &&
-          cause !== null &&
-          'code' in cause &&
-          (cause as { code: string }).code === 'EADDRINUSE'
-        )
-      },
-      () =>
-        Effect.try({
-          try: () => {
-            logWarning(`[server] Port ${port} in use; using an OS-assigned port (see URL below).`)
-            return Bun.serve(buildBunServeOptions(honoApp, 0, hostname, maxRequestBodySize))
-          },
-          catch: (error) => new ServerCreationError(error),
-        })
+      (e) => isAddressInUse((e as ServerCreationError).cause),
+      (e) =>
+        strict
+          ? Effect.fail(new ServerCreationError(portInUseRefusal(hostname, port, e.cause)))
+          : Effect.try({
+              try: () => {
+                logWarning(
+                  `[server] Port ${port} in use; using an OS-assigned port (see URL below).`
+                )
+                return Bun.serve(buildBunServeOptions(honoApp, 0, hostname, maxRequestBodySize))
+              },
+              catch: (error) => new ServerCreationError(error),
+            })
     )
   )

@@ -8,11 +8,11 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { reportCommittedRows } from '@/application/ports/services/record-change-feed'
-import { db, DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
+import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { nowExpr } from '@/infrastructure/database/sql/dialect-sql'
-import { withTransaction } from '@/infrastructure/database/transaction'
+import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { fetchRecordsByIds } from '../mutation-helpers/record-fetch-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import {
@@ -22,7 +22,7 @@ import {
   type PassthroughError,
 } from '../statement/error-handling'
 import { tableIdentifier, databaseTableName } from '../statement/validation'
-import { BATCH_FANOUT_CONCURRENCY, BatchValidationError } from './batch-helpers'
+import { BATCH_FANOUT_CONCURRENCY, BatchValidationError, deletedRowChanges } from './batch-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -213,8 +213,10 @@ export function batchDeleteRecords(
   permanent = false
 ): Effect.Effect<number, DatabaseError> {
   return Effect.gen(function* () {
-    const { deletedCount, recordsBefore } = yield* withTransaction(
-      db,
+    const { deletedCount, recordsBefore } = yield* withOutboxTransaction(
+      (deleted: { readonly recordsBefore: readonly Record<string, unknown>[] }) =>
+        deletedRowChanges(tableName)(deleted.recordsBefore)
+    )(
       (tx) =>
         Effect.gen(function* () {
           const tableIdent = tableIdentifier(tableName)
@@ -240,14 +242,7 @@ export function batchDeleteRecords(
     )
 
     yield* logDeleteActivities(session, tableName, recordsBefore)
-    yield* reportCommittedRows(
-      recordsBefore.map((previous) => ({
-        tableName,
-        event: 'delete' as const,
-        recordId: String(previous['id']),
-        previous,
-      }))
-    )
+    yield* reportCommittedRows(deletedRowChanges(tableName)(recordsBefore))
 
     return deletedCount
   })

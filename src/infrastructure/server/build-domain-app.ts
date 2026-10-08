@@ -16,6 +16,11 @@
  */
 
 import { Effect } from 'effect'
+import {
+  assetProjectDir,
+  assetTemplateIssues,
+  loadPrivateAssets,
+} from '@/infrastructure/assets/private-assets'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import { createHonoApp } from '@/infrastructure/server/compose-hono-app'
@@ -87,7 +92,26 @@ export const buildDomainRuntimeAndApp = (
   ServerCreationError
 > =>
   Effect.gen(function* () {
-    const runtime = createDomainRuntime(config.app)
+    // The private assets, read once and checked before anything else is built:
+    // a missing, escaping, publicly served or mis-typed asset refuses the boot,
+    // naming each one.
+    const assets = yield* Effect.tryPromise({
+      try: () =>
+        loadPrivateAssets(config.app.assets, assetProjectDir(config.configPath), config.publicDir),
+      catch: (cause: unknown) =>
+        new ServerCreationError(
+          `Sovrium could not read its private assets: ${formatRuntimeError(cause)}`
+        ),
+    })
+    const issues = assets.ok ? assetTemplateIssues(config.app, assets.store) : assets.issues
+    if (!assets.ok || issues.length > 0) {
+      return yield* Effect.fail(
+        new ServerCreationError(
+          `Sovrium could not load its private assets:\n  ${issues.join('\n  ')}`
+        )
+      )
+    }
+    const runtime = createDomainRuntime(config.app, assets.store)
     const context = yield* Effect.tryPromise({
       try: () => runtime.context(),
       catch: (cause: unknown) =>

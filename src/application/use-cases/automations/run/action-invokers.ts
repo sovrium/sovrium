@@ -27,7 +27,7 @@ import { readActionIdentity } from './action-identity'
 import { findTemplate, renderAuthoredTemplateProps } from './prop-substitution'
 import { buildStep } from './step-record'
 import type { ReadTracker } from './read-tracker'
-import type { RunAccumulator, StepContext } from './types'
+import type { AutomationInvoker, RunAccumulator, StepContext } from './types'
 import type { ActionHandler, ActionRunContext, NestedStepInvoker } from '../action-handlers/shared'
 
 /**
@@ -53,8 +53,18 @@ interface DispatchActionInput {
   readonly acc: RunAccumulator
   readonly invocationStack: ReadonlySet<string>
   readonly failureLabel: string
-  /** Where the step records what this dispatch read. */
+  readonly scope: DispatchScope
+}
+
+/**
+ * What every dispatch made on one step's behalf shares with that step: where
+ * it records what it read, and the step's `automation:call` invoker — so a
+ * call a loop, a path or a script makes runs under the same depth limit and
+ * cycle guard, and is recorded against the same step, as the step's own.
+ */
+export interface DispatchScope {
   readonly tracker: ReadTracker
+  readonly invokeAutomation: AutomationInvoker
 }
 
 /**
@@ -68,7 +78,7 @@ const dispatchedContext = (
   ctx: StepContext,
   acc: RunAccumulator,
   invocationStack: ReadonlySet<string>,
-  tracker: ReadTracker
+  scope: DispatchScope
 ): Pick<
   ActionRunContext,
   | 'envLookup'
@@ -76,18 +86,20 @@ const dispatchedContext = (
   | 'invokeTemplate'
   | 'invokeNativeAction'
   | 'runNestedStep'
+  | 'invokeAutomation'
   | 'recordEvents'
 > => ({
   envLookup: ctx.envLookup,
   templates: ctx.templates,
-  invokeTemplate: buildTemplateInvoker(ctx, acc, invocationStack, tracker),
-  invokeNativeAction: buildNativeActionInvoker(ctx, acc, invocationStack, tracker),
-  runNestedStep: buildNestedStepInvoker(ctx, acc, invocationStack, tracker),
+  invokeTemplate: buildTemplateInvoker(ctx, acc, invocationStack, scope),
+  invokeNativeAction: buildNativeActionInvoker(ctx, acc, invocationStack, scope),
+  runNestedStep: buildNestedStepInvoker(ctx, acc, invocationStack, scope),
+  invokeAutomation: scope.invokeAutomation,
   recordEvents: ctx.recordEvents,
 })
 
 const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> => {
-  const { action, resolvedProps, ctx, acc, invocationStack, failureLabel, tracker } = input
+  const { action, resolvedProps, ctx, acc, invocationStack, failureLabel, scope } = input
   const handlerKey = actionKey(
     String(action['type'] ?? ''),
     action['operator'] as string | undefined
@@ -105,7 +117,7 @@ const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> =
     authoredProps: input.authoredProps,
     ...(input.templateVars === undefined ? {} : { templateVars: input.templateVars }),
     ...(input.propsFinal ? { propsFinal: true as const } : {}),
-    ...dispatchedContext(ctx, acc, invocationStack, tracker),
+    ...dispatchedContext(ctx, acc, invocationStack, scope),
   }
   // Its own announcing scope: this program runs detached from the calling
   // step's fiber, so the rows it writes are announced as one write of its own.
@@ -115,7 +127,7 @@ const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> =
   return ctx.runProgram(program).then((outcome) => {
     // What it read is recorded whatever the outcome: a failed read may still
     // carry what it read in its error.
-    tracker.dispatched(ctx.app, { ...action, props: resolvedProps }, outcome.output)
+    scope.tracker.dispatched(ctx.app, { ...action, props: resolvedProps }, outcome.output)
     if (outcome.status === 'failure') {
       // eslint-disable-next-line functional/no-throw-statements -- inside .then; throw-as-rejection is the unicorn-preferred form
       throw new Error(outcome.error ?? `${failureLabel} failed`)
@@ -147,7 +159,7 @@ export const buildTemplateInvoker = (
   ctx: StepContext,
   acc: RunAccumulator,
   invocationStack: ReadonlySet<string>,
-  tracker: ReadTracker
+  scope: DispatchScope
 ): ((name: string, vars?: Readonly<Record<string, unknown>>) => Promise<unknown>) => {
   return (templateName, vars) => {
     if (invocationStack.has(templateName)) {
@@ -193,7 +205,7 @@ export const buildTemplateInvoker = (
       acc,
       invocationStack: newStack,
       failureLabel: `template '${templateName}'`,
-      tracker,
+      scope,
     })
   }
 }
@@ -216,7 +228,7 @@ export const buildNativeActionInvoker = (
   ctx: StepContext,
   acc: RunAccumulator,
   invocationStack: ReadonlySet<string>,
-  tracker: ReadTracker
+  scope: DispatchScope
 ): ((
   type: string,
   operator: string,
@@ -250,7 +262,7 @@ export const buildNativeActionInvoker = (
       acc,
       invocationStack,
       failureLabel: `native action '${type}.${operator}'`,
-      tracker,
+      scope,
     })
   }
 }
@@ -271,29 +283,37 @@ export const buildNestedStepInvoker = (
   ctx: StepContext,
   acc: RunAccumulator,
   invocationStack: ReadonlySet<string>,
-  tracker: ReadTracker
+  scope: DispatchScope
 ): NestedStepInvoker => {
-  return ({ action, props, previousSteps, refusal }) => {
+  return ({ action, props, previousSteps, refusal, authored, templateVars, resume }) => {
     const { type, operator } = readActionIdentity(action)
     const found = ctx.handlers.get(actionKey(type, operator)) ?? missingActionHandler
     // A prop a value from run data could not be placed in safely: the action
     // fails without running, recorded like any other failed nested step.
     const handler: ActionHandler =
       refusal === undefined ? found : () => Effect.succeed({ status: 'failure', error: refusal })
-    const rawAction = { ...action, props }
+    // `$configuredProps`: the props as the path or loop declares them, before
+    // this item filled them in — what a file reference's origin is judged by.
+    const rawAction = { ...action, props, $configuredProps: action['props'] ?? {} }
     const subRunContext: ActionRunContext = {
       previousSteps,
       triggerData: ctx.triggerData,
       rawAction,
       authoredProps: props,
-      propsFinal: true,
-      ...dispatchedContext(ctx, acc, invocationStack, tracker),
+      // A loop a branch holds gets its configuration as written and fills in
+      // its own body per item; every other nested action's props are final.
+      ...(authored === true ? {} : { propsFinal: true as const }),
+      // A named template called from the path or the loop: its inline text reads these.
+      ...(templateVars === undefined ? {} : { templateVars }),
+      // A loop or a path the run resumes inside re-enters where it parked.
+      ...(resume === undefined ? {} : { resume }),
+      ...dispatchedContext(ctx, acc, invocationStack, scope),
     }
     const program = announceRecordWrites(ctx.app)(
       handler(rawAction, ctx.app, ctx.automation, subRunContext)
     )
     return ctx.runProgram(program).then((outcome) => {
-      tracker.dispatched(ctx.app, rawAction, outcome.output)
+      scope.tracker.dispatched(ctx.app, rawAction, outcome.output)
       // Recorded, and masked, exactly as a top-level step is.
       return { outcome, step: buildStep(rawAction, props, outcome, ctx) }
     })

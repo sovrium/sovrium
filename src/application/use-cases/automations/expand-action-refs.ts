@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mapStringsDeep } from './value-walker'
-
 /**
  * An action template as declared in `app.actions[]`. Re-typed locally as a
  * shallow read-only structure so the expansion helper does not need to
@@ -30,37 +28,50 @@ const substituteVarsInString = (input: string, vars: Readonly<Record<string, unk
     return replacement === undefined || replacement === null ? '' : String(replacement)
   })
 
-/**
- * Substitute `$varName` placeholders in any string leaf of `value`. Arrays
- * and plain objects are traversed structurally via `mapStringsDeep`; other
- * scalars pass through unchanged.
- *
- * Exported so the runtime template invoker (used by code action's
- * `context.actions.ref('<name>', vars)` proxy) can reuse the same
- * substitution semantics as static `$ref` expansion.
- */
-export const substituteVars = (value: unknown, vars: Readonly<Record<string, unknown>>): unknown =>
-  mapStringsDeep(value, (s) => substituteVarsInString(s, vars))
+/** A `{{…}}` expression, as the template engine reads one. */
+const MUSTACHE = /\{\{[\s\S]*?\}\}/g
+
+/** A known `$name` → the reference an inline template reads it by (`{{$vars.name}}`). */
+const referenceVarsInString = (input: string, vars: Readonly<Record<string, unknown>>): string => {
+  const known = (name: string): boolean => Object.prototype.hasOwnProperty.call(vars, name)
+  const expressions = input.match(MUSTACHE) ?? []
+  return input
+    .split(MUSTACHE)
+    .map((text, index) => {
+      const outside = text.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (match, name: string) =>
+        known(name) ? `{{$vars.${name}}}` : match
+      )
+      const expression = expressions[index]
+      return expression === undefined
+        ? outside
+        : outside +
+            expression.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (match, name: string) =>
+              known(name) && name !== 'vars' && name !== 'env' ? `$vars.${name}` : match
+            )
+    })
+    .join('')
+}
 
 /**
- * Merge a template's declared `variables` defaults with caller-supplied
- * `vars` (caller values take precedence on key collision), then apply
- * `$varName` substitution throughout the template's action body.
- *
- * Shared by the static `$ref` expansion path
- * ({@link expandRefAction}) and the runtime `context.actions.ref(...)`
- * invoker so both surfaces produce identical substitution semantics.
- * Returns the substituted action body — the caller is responsible for
- * any `name` field preservation specific to its surface (the static
- * path keeps the caller's step name; the runtime path uses the
- * template's own action name).
+ * `$varName` substitution over a template's action body for the run loop. An
+ * inline template's text (`{ inline }` — rendered by its handler against
+ * `data`, never by the generic pass) keeps each `$name` as a `{{$vars.name}}`
+ * reference instead, read from the step's variables once the run resolved
+ * them; every other string gets the value as text, as before.
  */
-export const applyTemplateVars = (
-  template: ActionTemplateLike,
-  callerVars: Readonly<Record<string, unknown>> | undefined
-): Readonly<Record<string, unknown>> => {
-  const merged = { ...(template.variables ?? {}), ...(callerVars ?? {}) }
-  return substituteVars(template.action, merged) as Record<string, unknown>
+const substituteForRun = (value: unknown, vars: Readonly<Record<string, unknown>>): unknown => {
+  if (typeof value === 'string') return substituteVarsInString(value, vars)
+  if (Array.isArray(value)) return value.map((item) => substituteForRun(item, vars))
+  if (value === null || typeof value !== 'object') return value
+  const entries = Object.entries(value as Record<string, unknown>)
+  return Object.fromEntries(
+    entries.map(([key, child]) => [
+      key,
+      key === 'inline' && typeof child === 'string'
+        ? referenceVarsInString(child, vars)
+        : substituteForRun(child, vars),
+    ])
+  )
 }
 
 /**
@@ -84,12 +95,14 @@ export const expandRefAction = (
   if (!template) return rawAction
 
   const overrides = rawAction['$vars'] as Record<string, unknown> | undefined
-  const expanded = applyTemplateVars(template, overrides) as Record<string, unknown>
+  const merged = { ...(template.variables ?? {}), ...(overrides ?? {}) }
+  const expanded = substituteForRun(template.action, merged) as Record<string, unknown>
 
   // Preserve the caller-supplied step name so run-history references the
   // automation's perspective ("sendNotify"), not the template's
-  // ("notify").
-  return { ...expanded, name: rawAction['name'] ?? expanded['name'] }
+  // ("notify"). The merged variables ride along as `$vars`: the step resolves
+  // them against the run for the references an inline template kept.
+  return { ...expanded, name: rawAction['name'] ?? expanded['name'], $vars: merged }
 }
 
 /**

@@ -19,6 +19,9 @@
  */
 
 import { type ActionOutcome } from '../action-handlers'
+import { laterResponse } from '../action-handlers/response-precedence'
+import { parkedAt } from '../action-handlers/run-park'
+import { redactSecretsForApp } from '../redact-secrets'
 import { buildStep, redactString } from './step-record'
 import { type RunAccumulator, type StepContext } from './types'
 
@@ -29,15 +32,16 @@ import { type RunAccumulator, type StepContext } from './types'
 
 /**
  * Last-write-wins selector for `responseOverride`: the most recent
- * `webhook/response` action shapes the synchronous response. Extracted
- * so {@link appendStepToAccumulator} stays inside the complexity cap
- * (the inline `??` pushed the function to 11; the project cap is 10).
+ * `webhook/response` action shapes the synchronous response, and a
+ * `flow/stop`'s own answer never replaces one already set (see
+ * `response-precedence.ts`). Extracted so {@link appendStepToAccumulator}
+ * stays inside the complexity cap.
  */
 const pickResponseOverride = (
   outcome: ActionOutcome,
   acc: RunAccumulator
 ): Readonly<Record<string, unknown>> | undefined =>
-  outcome.responseOverride !== undefined ? outcome.responseOverride : acc.responseOverride
+  laterResponse(acc.responseOverride, outcome.responseOverride)
 
 /**
  * `automation:return` hands back a payload AND halts the rest of the callee
@@ -165,6 +169,49 @@ const appendStepToAccumulator = (input: {
 }
 
 /**
+ * A step that PARKED the run on a long wait — recorded (a loop or a path as
+ * `waiting`), its output folded, the run `waiting-delay` with its resume
+ * cursor, every later action withheld — or a resumed container that found its
+ * configuration changed, which cancels the run with the reason.
+ */
+const suspendedOrCancelled = (input: {
+  readonly acc: RunAccumulator
+  readonly rawAction: Readonly<Record<string, unknown>>
+  readonly resolvedProps: Readonly<Record<string, unknown>>
+  readonly outcome: ActionOutcome
+  readonly ctx: StepContext
+}): RunAccumulator => {
+  const { acc, rawAction, resolvedProps, outcome, ctx } = input
+  const stepName = String(rawAction['name'] ?? '')
+  const steps = [...acc.steps, buildStep(rawAction, resolvedProps, outcome, ctx)]
+  if (outcome.park === undefined) {
+    const runError = redactString(outcome.cancelRun ?? 'Run cancelled', ctx.app, ctx.processEnv)
+    return { ...acc, steps, runStatus: 'cancelled', runError, halted: true }
+  }
+  const index = (ctx.resume?.base ?? 0) + acc.steps.length
+  const parked = parkedAt(outcome.park, stepName, index)
+  // A loop frame holds its item's value: redacted like every stored output,
+  // so the cursor keeps no secret and matches the outputs it is restored with.
+  const frames = redactSecretsForApp(
+    parked.frames,
+    ctx.app.env,
+    ctx.processEnv,
+    ctx.app.connections
+  ) as typeof parked.frames
+  const { resumeAt } = parked
+  const { actions, lastOutput } = foldStepOutput(acc, stepName, outcome.output)
+  return {
+    ...acc,
+    steps,
+    runStatus: 'waiting-delay',
+    actions,
+    lastOutput,
+    halted: true,
+    park: { resumeAt, frames },
+  }
+}
+
+/**
  * Fold an action's `outcome` into the run accumulator. Pure synchronous;
  * tracks `lastOutput` as a shallow merge of every step's output (later
  * steps win on key collisions; see RunAccumulator docstring).
@@ -197,6 +244,9 @@ export const foldOutcome = (input: {
       runStatus: 'skipped',
       halted: true,
     }
+  }
+  if (outcome.park !== undefined || outcome.cancelRun !== undefined) {
+    return suspendedOrCancelled({ ...input, acc })
   }
   // Approval pause: the `approval/request` handler returns a
   // successful outcome flagged `pause: true`. The run SUSPENDS — the approval

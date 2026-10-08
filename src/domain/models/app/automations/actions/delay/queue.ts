@@ -56,7 +56,7 @@ export const DelayQueueActionSchema = Schema.Struct({
     interval: Schema.String.pipe(
       Schema.annotate({
         description:
-          'Minimum delay between processing each queued item. Format: number + unit (ms, s, m, h)',
+          'How long the run waits before its next step, at most one minute. Format: number + unit (ms, s, m, h)',
         examples: ['500ms', '2s', '1m', '30s'],
       }),
       Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h)$/))

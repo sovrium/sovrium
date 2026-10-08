@@ -1,0 +1,1 @@
+ALTER TABLE `system_file_storage_metadata` ADD `generated_by` text;

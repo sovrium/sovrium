@@ -49,6 +49,10 @@ function consumePendingOpen(id: string): boolean {
  *    crud-form's `submitCrudForm` after a successful update / create
  *    — this closes the drawer so the user
  *    returns to the underlying data-table view with the updated row.
+ *
+ * 4. The `sovrium:close-dialog` CustomEvent an endpoint form declaring
+ *    `onSuccess.close` bubbles once its request succeeds — honoured only when
+ *    it comes from inside THIS drawer's panel.
  */
 export function useExternalOpenTrigger(
   id: string | undefined,
@@ -78,9 +82,14 @@ export function useExternalOpenTrigger(
       if (!closeOnCrudSuccess) return
       setOpen(false)
     })
+    const closeHandler = (event: Event): void => {
+      if ((event.target as Element | null)?.closest?.('[role="dialog"]')?.id === id) setOpen(false)
+    }
+    document.addEventListener('sovrium:close-dialog', closeHandler)
     return () => {
       cancelAnimationFrame(raf)
       document.removeEventListener('click', clickHandler)
+      document.removeEventListener('sovrium:close-dialog', closeHandler)
       unsubscribeOpenDrawer()
       unsubscribeCrudSuccess()
     }

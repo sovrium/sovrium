@@ -10,14 +10,16 @@ import {
   applyAccountDeletionAfterHooks,
   applyAccountDeletionBeforeHooks,
 } from './account-deletion-hooks'
-import { applyAccountPreferenceGuards } from './account-preferences'
+import { applyAccountPreferenceGuards, writablePreferenceLanguages } from './account-preferences'
 import { applyAdminRoleAfterHooks, applyAdminRoleGuards } from './admin-role-guards'
 import { applyAdminUserActAfterHooks, applyAdminUserActBeforeHooks } from './admin-user-act-hooks'
+import { applyAuthEventAfterHooks, applyAuthEventBeforeHooks } from './auth-event-hooks'
 import { applyAvatarUrlGuard } from './avatar-url-guard'
 import { applyDisplayNameGuard } from './display-name-guard'
 import { applyRealtimeGrantAfterHooks, applyRealtimeGrantBeforeHooks } from './realtime-grant-hooks'
 import type { AuthHookDeps } from './admin-role-guards'
 import type { AdminUserActDeps } from './admin-user-act-hooks'
+import type { AuthHookContext } from './auth-database-hooks'
 import type { createEmailHandlers } from './email-handlers'
 import type { Auth } from '@/domain/models/app/auth'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
@@ -122,7 +124,10 @@ async function handleTwoFactorEnable(
  * ({@link applyRealtimeGrantAfterHooks}). A self-service deletion request is
  * held to the last-admin rail before its link is mailed, and one that stood is
  * put on the audit trail ({@link applyAccountDeletionBeforeHooks},
- * {@link applyAccountDeletionAfterHooks}).
+ * {@link applyAccountDeletionAfterHooks}). A sign-out that ended a session
+ * fires the app's `auth` automations ({@link applyAuthEventBeforeHooks},
+ * {@link applyAuthEventAfterHooks}); a sign-in fires them from a plugin, which
+ * runs after the two-factor plugin may have taken the session back.
  *
  * `authConfig` supplies the app's role vocabulary; when it is absent the admin
  * plugin is not registered at all (`buildAdminPlugin` returns `[]`), so those
@@ -135,8 +140,14 @@ export function buildAuthHooks(
   handlers?: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth,
   deps?: AuthHookDeps & AdminUserActDeps,
-  languages?: Languages
+  extras: { readonly languages?: Languages; readonly hookContext?: AuthHookContext } = {}
 ) {
+  const { hookContext } = extras
+  // The languages a written preference may name: the app's own, plus the
+  // mounted console's (see `writablePreferenceLanguages`).
+  const languages =
+    extras.languages ??
+    (hookContext === undefined ? undefined : writablePreferenceLanguages(hookContext.appMeta))
   const roleApp: AdminRoleResolvable = { auth: authConfig }
   return {
     before: createAuthMiddleware(async (ctx) => {
@@ -161,6 +172,7 @@ export function buildAuthHooks(
       await applyAdminUserActBeforeHooks(ctx, deps)
       await applyRealtimeGrantBeforeHooks(ctx)
       await applyAccountDeletionBeforeHooks(ctx, roleApp)
+      await applyAuthEventBeforeHooks(ctx)
     }),
     after: createAuthMiddleware(async (ctx) => {
       if (ctx.path === '/two-factor/enable' && handlers?.twoFactorBackupCodes) {
@@ -169,9 +181,11 @@ export function buildAuthHooks(
       await applyAccountDeletionAfterHooks(ctx)
       await applyAdminRoleAfterHooks(ctx, roleApp, deps)
       await applyAdminUserActAfterHooks(ctx, deps)
-      // Last: a grant that changed closes the account's live realtime
+      // A grant that changed closes the account's live realtime
       // connections, after the role guards have had the chance to undo it.
       await applyRealtimeGrantAfterHooks(ctx)
+      // The sign-out automations, once every guard has had its say.
+      await applyAuthEventAfterHooks(ctx, hookContext)
     }),
   }
 }

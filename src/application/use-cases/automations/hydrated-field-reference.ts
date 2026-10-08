@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import type { App } from '@/domain/models/app'
+
 /**
  * The id a hydrated relationship or user field stands for, kept on the
  * prototype of the hydrated object under a private symbol. Non-enumerable by
@@ -46,4 +48,25 @@ export const hydratedFieldIdOf = (value: unknown): string | undefined => {
   if (typeof value !== 'object' || value === null) return undefined
   const id: unknown = (value as { readonly [HYDRATED_ID]?: unknown })[HYDRATED_ID]
   return typeof id === 'string' ? id : undefined
+}
+
+/**
+ * Names of the single-user (`allowMultiple !== true`) `user`-typed fields
+ * declared on the named table: the fields a record trigger and a record read
+ * expand to the person. Multi-user (`allowMultiple: true`) fields are left as
+ * the raw id list.
+ */
+export const singleUserFieldNames = (app: App, tableName: string): readonly string[] => {
+  const table = app.tables?.find((t) => t.name === tableName)
+  if (!table) return []
+  return table.fields
+    .filter((field): field is typeof field & { readonly allowMultiple?: boolean } => {
+      if (field.type !== 'user') return false
+      // Scope to single-user fields. A `user` field carries an optional
+      // `allowMultiple`; multi-user fields are left as the raw id list
+      // ([internal ref] is single-user only — NOT full relationship hydration).
+      const { allowMultiple } = field as { readonly allowMultiple?: boolean }
+      return allowMultiple !== true
+    })
+    .map((field) => field.name)
 }

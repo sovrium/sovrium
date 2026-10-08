@@ -76,11 +76,10 @@ const findMatchingAuthAutomations = (
 /**
  * Fire all auth-triggered automations matching the given lifecycle event.
  *
- * The Better Auth `databaseHooks` block in
- * `src/infrastructure/auth/better-auth/auth.ts:buildDatabaseHooks` calls
- * this from a plain-async context via
- * `Effect.runPromise(provideAutomationRuntime(triggerAuthEventAutomations({...})))`
- * — the Effect requirements are resolved at the infrastructure boundary so
+ * The Better Auth `databaseHooks` block
+ * (`src/infrastructure/auth/better-auth/auth-database-hooks.ts`) calls this
+ * from a plain-async context via `runOnDomain(domainContext, …)` — the Effect
+ * requirements are resolved by the server's domain runtime, so
  * the use case stays free of the dependency graph itself, matching the
  * pattern used by `triggerRecordEventAutomations`.
  *

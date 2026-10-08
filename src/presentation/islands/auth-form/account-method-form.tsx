@@ -20,7 +20,10 @@
 
 import { useState, type FormEvent, type ReactElement } from 'react'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeSubmitButtonClasses,
+  type ButtonVariant,
+} from '@/presentation/design/button-default-classes'
 import {
   AUTH_ERROR_BANNER_STYLE,
   AUTH_SUCCESS_BANNER_STYLE,
@@ -45,6 +48,8 @@ export interface AccountMethodFormProps {
   readonly fields: readonly AuthFormField[]
   readonly submitLabel: string
   readonly pendingLabel: string
+  /** The submit's weight (`action.submitVariant`); absent keeps the primary fill. */
+  readonly submitVariant?: ButtonVariant
   readonly redirectUrl?: string
   readonly factor?: string
   readonly trustDevice?: boolean
@@ -69,7 +74,6 @@ type Stage =
 const SIGNS_IN: ReadonlySet<string> = new Set(['verifyTwoFactor', 'acceptInvitation'])
 
 const FORM_STAGE: Stage = { kind: 'form' }
-const BUTTON_CLASSES = `${computeButtonDefaultClasses()} w-full`
 const noop = (): void => undefined
 
 /** The stage a successful request leads to, from what it answered. */
@@ -234,7 +238,7 @@ export function AccountMethodForm(props: AccountMethodFormProps): ReactElement {
         type="submit"
         data-component-type="button"
         disabled={pending}
-        className={BUTTON_CLASSES}
+        className={`${computeSubmitButtonClasses(props.submitVariant)} w-full`}
       >
         {pending ? props.pendingLabel : props.submitLabel}
       </button>

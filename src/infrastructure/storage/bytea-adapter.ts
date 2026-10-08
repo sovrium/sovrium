@@ -126,14 +126,14 @@ export const byteaUpload = async (
   mimeType: string,
   target: UploadTarget
 ): Promise<void> => {
-  const { bucket, uploadedById } = uploadTargetParts(target)
+  const { bucket, uploadedById, generatedBy } = uploadTargetParts(target)
   const filename = key.split('/').at(-1) ?? key
   const buf = Buffer.from(content)
 
   const result = (await db.execute(sql`
     INSERT INTO system.file_storage_metadata
-      (key, filename, mime_type, size, storage_provider, bucket, uploaded_by_id)
-    VALUES (${key}, ${filename}, ${mimeType}, ${content.length}, 'bytea', ${bucketColumnValue(bucket)}, ${uploadedById ?? null})
+      (key, filename, mime_type, size, storage_provider, bucket, uploaded_by_id, generated_by)
+    VALUES (${key}, ${filename}, ${mimeType}, ${content.length}, 'bytea', ${bucketColumnValue(bucket)}, ${uploadedById ?? null}, ${generatedBy ?? null})
     ON CONFLICT (key) DO UPDATE SET
       filename = EXCLUDED.filename,
       mime_type = EXCLUDED.mime_type,
@@ -250,8 +250,10 @@ export const writeFileMetadata = async (file: {
   readonly bucket: BucketBinding
   /** The person behind the write, recorded only when the key is new. */
   readonly uploadedById?: string
+  /** The automation behind the write, recorded only when the key is new. */
+  readonly generatedBy?: string
 }): Promise<void> => {
-  const { key, mimeType, size, storageProvider, uploadedById } = file
+  const { key, mimeType, size, storageProvider, uploadedById, generatedBy } = file
   const filename = key.split('/').at(-1) ?? key
   // Strip MIME type parameters (e.g. "text/plain;charset=utf-8" → "text/plain")
   // so the stored value is always the canonical base type.
@@ -273,12 +275,14 @@ export const writeFileMetadata = async (file: {
       storageProvider,
       bucket: bucketValue,
       uploadedById: uploadedById ?? null,
+      generatedBy: generatedBy ?? null,
     })
     .onConflictDoUpdate({
       target: files.key,
       // `bucket` is absent from the SET list on purpose: a write REPLACES bytes,
-      // it never MOVES an object between buckets. `uploadedById` is absent too:
-      // an overwrite never changes the recorded uploader (see `byteaUpload`).
+      // it never MOVES an object between buckets. `uploadedById` and
+      // `generatedBy` are absent too: an overwrite never changes who the
+      // catalog records behind the object (see `byteaUpload`).
       set: { filename, mimeType: baseMimeType, size, storageProvider },
       setWhere: ownerUnchanged,
     })
@@ -334,6 +338,7 @@ export const readFileMetadata = async (
       readonly lastModified: string
       readonly bucket: string | null
       readonly uploadedBy: string | null
+      readonly generatedBy: string | null
     }
   | undefined
 > => {
@@ -345,6 +350,7 @@ export const readFileMetadata = async (
       modified: files.createdAt,
       bucket: files.bucket,
       uploadedBy: files.uploadedById,
+      generatedBy: files.generatedBy,
     })
     .from(files)
     .where(eq(files.key, key))
@@ -363,5 +369,6 @@ export const readFileMetadata = async (
     lastModified: modified,
     bucket: row.bucket,
     uploadedBy: row.uploadedBy,
+    generatedBy: row.generatedBy,
   }
 }

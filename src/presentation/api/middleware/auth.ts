@@ -301,7 +301,7 @@ function isGuestCommentCreateRequest(c: Context): boolean {
 type TablesApp = Pick<App, 'tables'>
 
 /**
- * The table a `/api/tables/{table}/records...` request names, matched by name
+ * The table a `/api/tables/{table}/records...` or `/aggregate` request names, by name
  * or by id. The segment is read off the path rather than from Hono's param
  * binding, because this middleware runs upstream of `validateTable`.
  */
@@ -309,7 +309,7 @@ function findRequestedTable(
   c: Context,
   app: TablesApp | undefined
 ): NonNullable<App['tables']>[number] | undefined {
-  const tableKey = c.req.path.match(/^\/api\/tables\/([^/]+)\/records/)?.[1]
+  const tableKey = c.req.path.match(/^\/api\/tables\/([^/]+)\/(?:records|aggregate)/)?.[1]
   if (tableKey === undefined) return undefined
   return app?.tables?.find(
     (table) => table.name === tableKey || String(table.id ?? '') === tableKey
@@ -339,8 +339,8 @@ function hasGuestCommentsEnabled(c: Context, app: TablesApp | undefined): boolea
 }
 
 /**
- * the anonymous `permissions.read: 'all'` rule public-read carve-out — matches the two READ record routes only:
- *   `GET /api/tables/:t/records`         (list)
+ * the anonymous `permissions.read: 'all'` rule public-read carve-out — matches the three READ routes only:
+ *   `GET /api/tables/:t/records`, `GET /api/tables/:t/aggregate`   (list, figures)
  *   `GET /api/tables/:t/records/:id`     (single record)
  * The single-record shape anchors to one trailing segment so deeper subroutes
  * (`/comments`, `/comments/:id`, `/history`) do NOT match — they stay 401'd.
@@ -348,7 +348,7 @@ function hasGuestCommentsEnabled(c: Context, app: TablesApp | undefined): boolea
  * is excluded here too: a public VIEW is admitted by its own carve-out
  * (`public-view-read.ts`), which asks of the view rather than of the table.
  */
-const PUBLIC_READ_LIST_PATH = /^\/api\/tables\/[^/]+\/records\/?$/
+const PUBLIC_READ_LIST_PATH = /^\/api\/tables\/[^/]+\/(?:records|aggregate)\/?$/
 const PUBLIC_READ_SINGLE_PATH = /^\/api\/tables\/[^/]+\/records\/[^/]+\/?$/
 
 /**
@@ -361,7 +361,7 @@ const PUBLIC_READ_SINGLE_PATH = /^\/api\/tables\/[^/]+\/records\/[^/]+\/?$/
  * and `c.req.path` does not include the query string, so the carve-out regex
  * matched it and served soft-deleted rows to an ANONYMOUS caller on any
  * `read: 'all'` table. `?includeDeleted=true` reaches the same rows (on the
- * list, and the single read of a trashed record), so it is closed alike.
+ * list, the single read of a trashed record, the figures read), so it is closed alike.
  */
 function requestsDeletedRecords(c: Context): boolean {
   return c.req.query('deleted') === 'true' || c.req.query('includeDeleted') === 'true'
@@ -375,12 +375,11 @@ function isPublicTableRecordReadRequest(c: Context): boolean {
 }
 
 /**
- * The records API's create verb exactly — `POST /api/tables/:t/records` — and
- * nothing beneath it: the batch, import, form and comment routes keep their
- * own doors.
+ * The records API's create verb exactly — `POST /api/tables/:t/records`, never `/aggregate` —
+ * and nothing beneath it: the batch, import, form and comment routes keep their own doors.
  */
 function isRecordCreateRequest(c: Context): boolean {
-  return c.req.method === 'POST' && PUBLIC_READ_LIST_PATH.test(c.req.path)
+  return c.req.method === 'POST' && /^\/api\/tables\/[^/]+\/records\/?$/.test(c.req.path)
 }
 
 /**

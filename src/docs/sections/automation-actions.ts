@@ -21,6 +21,7 @@ import {
   DigestActionSchema,
   FilterContinueActionSchema,
   FlowStopActionSchema,
+  InstanceActionSchema,
   LoopEachActionSchema,
   PathBranchActionSchema,
   StateActionSchema,
@@ -32,6 +33,7 @@ import automationCryptoDigestBody from '@/domain/models/app/automations/actions/
 import automationDataActionsBody from '@/domain/models/app/automations/actions/data-state-actions.docs.md' with { type: 'file' }
 import automationDateActionsBody from '@/domain/models/app/automations/actions/date-actions.docs.md' with { type: 'file' }
 import automationFlowControlBody from '@/domain/models/app/automations/actions/flow-control-actions.docs.md' with { type: 'file' }
+import automationInstanceActionsBody from '@/domain/models/app/automations/actions/instance-actions.docs.md' with { type: 'file' }
 import automationSubworkflowsBody from '@/domain/models/app/automations/actions/subworkflow-actions.docs.md' with { type: 'file' }
 import { ConditionGroupSchema } from '@/domain/models/app/automations/conditions'
 import { defineArticle, defineSection } from './define'
@@ -46,7 +48,7 @@ export const automationActions = defineSection({
       slug: 'automation-actions-overview',
       title: 'Automation Actions Overview',
       description:
-        'The action model (type + operator + props), the 24 action families, and the common base properties every action accepts.',
+        'The action model (type + operator + props), every action family and its operators, and the common base properties every action accepts.',
       keywords: [
         'sovrium',
         'automation actions',
@@ -130,6 +132,8 @@ export const automationActions = defineSection({
         'crypto action',
         'hash',
         'hmac',
+        'ed25519',
+        'signature',
         'sha256',
         'sha512',
         'md5',
@@ -147,6 +151,7 @@ export const automationActions = defineSection({
       documents: [CryptoActionSchema, DigestActionSchema],
       stories: [
         'US-AUTOMATIONS-ACTIONS-CRYPTO',
+        'US-AUTOMATIONS-ACTIONS-CRYPTO-SIGN-VERIFY',
         'US-AUTOMATIONS-ACTIONS-DIGEST-COLLECT',
         'US-AUTOMATIONS-ACTIONS-DIGEST-RELEASE',
       ],
@@ -285,6 +290,36 @@ export const automationActions = defineSection({
       body: automationCodeActionsBody,
       documents: [CodeRunTypescriptActionSchema],
       stories: ['US-AUTOMATIONS-ACTIONS-CODE'],
+    }),
+    defineArticle({
+      slug: 'automation-instance-actions',
+      title: 'Instance Actions',
+      description:
+        'Supervise other Sovrium apps on the same machine from an automation: state, start, suspend, signed releases, rollback, health, logs, backup and restore, behind an operator switch.',
+      keywords: [
+        'sovrium',
+        'instance action',
+        'fleet',
+        'systemd',
+        'supervise apps',
+        'signed release',
+        'rollback',
+        'health probe',
+        'journal logs',
+        'backup restore',
+        'SOVRIUM_HOST_ACTIONS',
+      ],
+      order: 5244,
+      sidebarLabel: 'Instance Actions',
+      body: automationInstanceActionsBody,
+      documents: [InstanceActionSchema],
+      stories: [
+        'US-AUTOMATIONS-ACTIONS-INSTANCE-GATE',
+        'US-AUTOMATIONS-ACTIONS-INSTANCE-CONTROL',
+        'US-AUTOMATIONS-ACTIONS-INSTANCE-RELEASE',
+        'US-AUTOMATIONS-ACTIONS-INSTANCE-HEALTH',
+        'US-AUTOMATIONS-ACTIONS-INSTANCE-BACKUP',
+      ],
     }),
   ],
 })

@@ -1,6 +1,6 @@
 name: invite
-# The invitation email links to /accept-invitation, so this page lives there:
-# an app page at that path replaces the built-in one.
+# The invitation email links to the page that declares `invitation`, at any
+# path. This one keeps the built-in page's path, so it also replaces it.
 path: /accept-invitation
 meta:
   title: Invitation · App starter

@@ -64,8 +64,17 @@ export async function callerReadsTable(
 /** What the gate must decide for a request, read off its method and path. */
 type GateKind = 'table' | 'create' | 'view' | 'none'
 
-/** Path words that sit where a record id would, on a POST, and read the table. */
-const READING_POSTS: ReadonlySet<string> = new Set(['upsert', 'bulk-update', 'bulk-delete'])
+/**
+ * Path words that sit where a record id would, on a POST, and read the table.
+ * An import matches its rows against the records it may read (`skip`,
+ * `overwrite`), as an upsert does.
+ */
+const READING_POSTS: ReadonlySet<string> = new Set([
+  'upsert',
+  'import',
+  'bulk-update',
+  'bulk-delete',
+])
 
 /** Actions under `/records/:recordId/` a POST performs on what the table holds. */
 const READING_ACTIONS: ReadonlySet<string> = new Set(['update', 'delete'])

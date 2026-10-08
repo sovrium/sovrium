@@ -45,7 +45,7 @@ export const DelayWebhookActionSchema = Schema.Struct({
       Schema.String.pipe(
         Schema.annotate({
           description:
-            'Maximum time to wait for callback: number + unit (ms, s, m, h, d). Examples: "1h", "7d"',
+            'How long to wait before continuing with timedOut: true — callbacks are not received yet: number + unit (ms, s, m, h, d), at most 90 days. Longer than one minute parks the run until then. Examples: "1h", "7d"',
         }),
         Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/))
       )
@@ -55,7 +55,8 @@ export const DelayWebhookActionSchema = Schema.Struct({
     onTimeout: Schema.optional(
       Schema.Literals(['continue', 'stop', 'error']).pipe(
         Schema.annotate({
-          description: 'Behavior on timeout: continue, stop, or error (default: error)',
+          description:
+            'Behavior on timeout: continue, stop, or error. The run currently continues past the step whichever is chosen.',
         })
       )
     ),

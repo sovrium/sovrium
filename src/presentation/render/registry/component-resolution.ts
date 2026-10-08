@@ -6,6 +6,7 @@
  */
 
 import {
+  substituteActiveMarker,
   substituteVariableValues,
   substituteChildrenVariables,
   substitutePropsVariables,
@@ -89,6 +90,8 @@ export function resolveComponent(
 
   const component: Component = {
     ...passthroughFields,
+    // The current-item marker compares the placement's vars, so it takes them.
+    ...substituteActiveMarker(template, vars),
     type: template.type,
     ...('element' in template && template.element !== undefined
       ? { element: template.element }

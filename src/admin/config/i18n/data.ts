@@ -222,6 +222,32 @@ export default {
   'admin.organisation.exceptions.detail': 'Detail',
   'admin.organisation.exceptions.empty': 'No narrowings declared.',
 
+  // ── Templates (`/templates`, `/templates/:path*`) ───────────────────────
+  'admin.templates.heading': 'Templates',
+  'admin.templates.blurb':
+    'The documents and emails your automations fill in. Open one to see it filled with its sample data. A template changes in the config, never here.',
+  'admin.templates.list.region': 'Template assets',
+  'admin.templates.row.readBy': 'Read by',
+  'admin.templates.row.sample': 'Sample data',
+  'admin.templates.row.noSample': 'No sample data',
+  'admin.templates.empty.title': 'No templates',
+  'admin.templates.empty.body':
+    'This app ships no template. A template is an HTML, SVG, text, Word, Excel or PowerPoint file an automation fills with data — an invoice, a sheet of labels, a reminder email.',
+  'admin.templates.empty.hint':
+    'Declare one under assets in the config, with sampleData to preview it here.',
+  'admin.templates.preview.blurb':
+    'This template rendered with its sample data, by the same engine an automation uses.',
+  'admin.templates.preview.document':
+    'Filled with its sample data, as an automation renders it. Scripts and remote images do not load here.',
+  'admin.templates.preview.email':
+    'Shown as email/send delivers it: style rules inlined, the style block removed.',
+  'admin.templates.noSample.title': 'No sample data',
+  'admin.templates.noSample.body':
+    'This template declares no sampleData, so its fields render empty. Add sampleData to this asset in the config to preview it filled.',
+  'admin.templates.file.title': 'This template renders to a file',
+  'admin.templates.file.body':
+    'Word, Excel and PowerPoint templates produce a file, so there is nothing to show in the browser. To render it with its sample data, run this in the project folder:',
+
   // ── Footprint (`/footprint`) ────────────────────────────────────────────
   'admin.footprint.heading': 'Footprint',
   'admin.footprint.blurb':
@@ -446,6 +472,7 @@ export default {
   'admin.automations.runs.status.failed': 'Failed',
   'admin.automations.runs.status.partial': 'Partial',
   'admin.automations.runs.status.waitingApproval': 'Waiting for approval',
+  'admin.automations.runs.status.waitingDelay': 'Waiting to resume',
   'admin.automations.runs.status.rejected': 'Rejected',
   'admin.automations.runs.status.cancelled': 'Cancelled',
   'admin.automations.runs.status.retriesExhausted': 'Retries exhausted',
@@ -455,6 +482,8 @@ export default {
   'admin.automations.runs.status.skipped': 'Skipped',
   // A step a filter stopped, read on the run page (the run itself reads skipped).
   'admin.automations.runs.step.filtered': 'Filtered out',
+  // A step the run is parked inside until its wait ends.
+  'admin.automations.runs.step.waiting': 'Waiting',
   'admin.automations.runs.col.automation': 'Automation',
   'admin.automations.runs.col.status': 'Status',
   'admin.automations.runs.col.started': 'Started',

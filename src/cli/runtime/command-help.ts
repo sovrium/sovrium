@@ -6,7 +6,9 @@
  */
 
 import { BACKUP_HELP_TEXT, RESTORE_HELP_TEXT } from './backup-help'
+import { CLOUD_COMMAND_HELP } from './cloud-help'
 import { REFERENCE_HELP } from './reference-help'
+import { RENDER_HELP_TEXT } from './render-help'
 
 /**
  * Per-command `--help` text for every dispatchable `sovrium` command.
@@ -25,12 +27,10 @@ import { REFERENCE_HELP } from './reference-help'
  * ahead of BOTH dispatch tables. With the lookup central, a new command
  * inherits `--help` by being added here rather than by remembering to thread a flag.
  *
- * Every entry MUST open with a `Usage:` line — a CLI commands help spec asserts
- * that contract across the whole command surface.
+ * Every entry MUST open with a `Usage:` line: a CLI help spec asserts it on every command.
  *
- * Kept in its OWN module (rather than in `index.ts`) so `commands/start.ts` and
- * `update.ts` can import their own text without a cycle: `index.ts` already
- * imports those handlers.
+ * Kept in its OWN module (not `index.ts`) so `commands/start.ts` and `update.ts` can
+ * import their own text without a cycle: `index.ts` already imports those handlers.
  */
 
 export const START_HELP_TEXT = [
@@ -51,7 +51,7 @@ export const START_HELP_TEXT = [
   'Environment variables (all optional — Sovrium runs zero-config):',
   '  APP_SCHEMA                    Inline JSON/YAML or remote URL (alternative to file arg)',
   '  PORT                          Server port (default: 3000)',
-  '  HOSTNAME                      Server hostname (default: localhost)',
+  '  SOVRIUM_BIND_HOST             Interface to bind (default: localhost)',
   '  DATABASE_URL                  Postgres connection (omit → embedded SQLite)',
   '  AUTH_SECRET                   Auth signing secret (run: sovrium secret generate)',
   '  SOVRIUM_PUBLIC_DIR            Static-asset directory (or "none" to disable)',
@@ -73,7 +73,7 @@ export const UPDATE_HELP_TEXT = [
   '  docker                        Prints the `docker pull` instruction',
   '',
   'Options:',
-  '  --insecure-skip-checksum      Install without verifying the sha256 (not recommended)',
+  '  --insecure-skip-checksum      Install without verifying the sha256 or the signature',
   '  --help, -h                    Show this help message',
   '',
   'Environment variables (advanced / test seams):',
@@ -443,7 +443,9 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
   restart: RESTART_HELP_TEXT,
   reload: RELOAD_HELP_TEXT,
   backup: BACKUP_HELP_TEXT,
+  ...CLOUD_COMMAND_HELP,
   restore: RESTORE_HELP_TEXT,
+  render: RENDER_HELP_TEXT,
 }
 
 /**

@@ -20,7 +20,7 @@ import {
 import { handleAutomationCall, handleAutomationReturn } from './automation'
 import { handleCodeRun } from './code'
 import { handleConnectionCall } from './connection'
-import { handleCryptoHash, handleCryptoHmac } from './crypto'
+import { handleCryptoHash, handleCryptoHmac, handleCryptoSign, handleCryptoVerify } from './crypto'
 import {
   handleDataAggregate,
   handleDataCompare,
@@ -44,6 +44,10 @@ import {
 } from './date'
 import { handleDelayQueue, handleDelayWait, handleDelayWebhook } from './delay'
 import { handleDigestCollect, handleDigestRelease } from './digest'
+import { handleDocumentConvert } from './document-convert'
+import { handleDocumentGenerateDocx } from './document-docx'
+import { handleDocumentGenerateImage } from './document-image'
+import { handleDocumentGeneratePdf } from './document-pdf'
 import { handleEmailSend } from './email'
 import {
   handleFileDownload,
@@ -54,7 +58,6 @@ import {
 import {
   handleFileCompress,
   handleFileExtractText,
-  handleFileGeneratePdf,
   handleFileTransformImage,
 } from './file-advanced'
 import {
@@ -65,7 +68,7 @@ import {
   handleFileMove,
   handleFileSignUrl,
 } from './file-ops'
-import { handleFileGenerateXlsx, handleFileParseXlsx } from './file-xlsx'
+import { handleDocumentGenerateXlsx, handleFileParseXlsx } from './file-xlsx'
 import { handleFilterContinue } from './filter'
 import { handleFlowStop } from './flow'
 import {
@@ -76,9 +79,29 @@ import {
   handleHttpPut,
   handleHttpRequest,
 } from './http'
+import {
+  handleInstanceApply,
+  handleInstanceBackup,
+  handleInstanceHealth,
+  handleInstanceLogs,
+  handleInstanceRemove,
+  handleInstanceRestart,
+  handleInstanceRestore,
+  handleInstanceRollback,
+  handleInstanceStart,
+  handleInstanceStatus,
+  handleInstanceStop,
+} from './instance'
 import { handleLinkCreate, handleLinkDelete, handleLinkUpdate } from './link'
 import { handleLoopEach } from './loop'
 import { handlePathBranch } from './path'
+import { handlePdfFillForm } from './pdf-fill-form'
+import { handlePdfFromImages } from './pdf-from-images'
+import { handlePdfInspect } from './pdf-inspect'
+import { handlePdfStamp, handlePdfWatermark } from './pdf-marks'
+import { handlePdfMerge } from './pdf-merge'
+import { handlePdfPages } from './pdf-pages'
+import { handlePdfSplit } from './pdf-split'
 import {
   handleRecordCreate,
   handleRecordDelete,
@@ -88,13 +111,13 @@ import {
 } from './record'
 import {
   handleRecordBatchCreate,
-  handleRecordBatchDelete,
   handleRecordBatchUpdate,
   handleRecordBatchUpsert,
 } from './record-batch'
+import { handleRecordBatchDelete } from './record-batch-delete'
 import { handleRecordUpsert } from './record-upsert'
 import { actionKey } from './shared'
-import { handleSovriumValidateConfig } from './sovrium'
+import { handleSovriumValidateBundle, handleSovriumValidateConfig } from './sovrium'
 import {
   handleStateDelete,
   handleStateGet,
@@ -128,6 +151,8 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['connection/call', handleConnectionCall],
   ['crypto/hash', handleCryptoHash],
   ['crypto/hmac', handleCryptoHmac],
+  ['crypto/sign', handleCryptoSign],
+  ['crypto/verify', handleCryptoVerify],
   ['data/set', handleDataSet],
   ['data/aggregate', handleDataAggregate],
   ['data/sort', handleDataSort],
@@ -175,7 +200,6 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['file/parseCsv', handleFileParseCsv],
   ['file/generateCsv', handleFileGenerateCsv],
   ['file/parseXlsx', handleFileParseXlsx],
-  ['file/generateXlsx', handleFileGenerateXlsx],
   ['file/list', handleFileList],
   ['file/getMetadata', handleFileGetMetadata],
   ['file/move', handleFileMove],
@@ -185,15 +209,41 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['file/compress', handleFileCompress],
   ['file/extractText', handleFileExtractText],
   ['file/transformImage', handleFileTransformImage],
-  ['file/generatePdf', handleFileGeneratePdf],
+  ['document/generatePdf', handleDocumentGeneratePdf],
+  ['document/generateImage', handleDocumentGenerateImage],
+  ['document/generateDocx', handleDocumentGenerateDocx],
+  ['document/generateXlsx', handleDocumentGenerateXlsx],
+  ['document/convert', handleDocumentConvert],
+  ['pdf/merge', handlePdfMerge],
+  ['pdf/split', handlePdfSplit],
+  ['pdf/pages', handlePdfPages],
+  ['pdf/watermark', handlePdfWatermark],
+  ['pdf/stamp', handlePdfStamp],
+  ['pdf/fillForm', handlePdfFillForm],
+  ['pdf/inspect', handlePdfInspect],
+  ['pdf/fromImages', handlePdfFromImages],
   ['http/request', handleHttpRequest],
   ['http/get', handleHttpGet],
   ['http/post', handleHttpPost],
   ['http/put', handleHttpPut],
   ['http/patch', handleHttpPatch],
   ['http/delete', handleHttpDelete],
+  // `instance/*` — other Sovrium apps of this host; each handler refuses unless
+  // SOVRIUM_HOST_ACTIONS is on.
+  ['instance/status', handleInstanceStatus],
+  ['instance/start', handleInstanceStart],
+  ['instance/stop', handleInstanceStop],
+  ['instance/restart', handleInstanceRestart],
+  ['instance/apply', handleInstanceApply],
+  ['instance/rollback', handleInstanceRollback],
+  ['instance/remove', handleInstanceRemove],
+  ['instance/health', handleInstanceHealth],
+  ['instance/logs', handleInstanceLogs],
+  ['instance/backup', handleInstanceBackup],
+  ['instance/restore', handleInstanceRestore],
   ['flow/stop', handleFlowStop],
   ['sovrium/validateConfig', handleSovriumValidateConfig],
+  ['sovrium/validateBundle', handleSovriumValidateBundle],
   ['email/send', handleEmailSend],
   ['webhook/send', handleWebhookSend],
   ['webhook/response', handleWebhookResponse],

@@ -5,9 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import backupBody from '@/cli/commands/backup.docs.md' with { type: 'file' }
-import changelogBody from '@/cli/commands/changelog.docs.md' with { type: 'file' }
-import cliAdminBody from '@/cli/commands/cli-admin.docs.md' with { type: 'file' }
 import cliFlagsBody from '@/cli/commands/cli-flags.docs.md' with { type: 'file' }
 import cliLifecycleBody from '@/cli/commands/cli-lifecycle.docs.md' with { type: 'file' }
 import cliMigrateBody from '@/cli/commands/cli-migrate.docs.md' with { type: 'file' }
@@ -19,6 +16,8 @@ import configSnapshotHistoryBody from '@/cli/commands/config-snapshot-history.do
 import docsBody from '@/cli/commands/docs.docs.md' with { type: 'file' }
 import libraryBody from '@/cli/commands/library.docs.md' with { type: 'file' }
 import skillsBody from '@/cli/commands/skills.docs.md' with { type: 'file' }
+import { operateCliArticles } from './cli-api-operate'
+import { cliReferenceArticles } from './cli-reference'
 import { defineArticle, defineSection } from './define'
 
 /**
@@ -218,49 +217,9 @@ export const section = defineSection({
       sidebarLabel: 'Seeding Data',
       body: cliSeedBody,
       documents: [],
-      stories: ['US-CLI-SEEDING-DATA'],
+      stories: ['US-CLI-SEEDING-DATA', 'US-CLI-SEEDING-INVITATIONS'],
     }),
-    defineArticle({
-      slug: 'cli-admin',
-      title: 'Admin & Maintenance',
-      description:
-        'Operate a deployment from the CLI — provision the first admin account, generate cryptographic secrets, adopt an existing encryption key, and keep the binary current.',
-      keywords: [
-        'sovrium admin create',
-        'sovrium secret generate',
-        'sovrium secret adopt',
-        'sovrium update',
-        'SOVRIUM_INSTALL_METHOD',
-        'AUTH_SECRET',
-        'SOVRIUM_ENCRYPTION_KEY',
-      ],
-      order: 1430,
-      sidebarLabel: 'Admin & Maintenance',
-      body: cliAdminBody,
-      documents: [],
-      stories: ['US-CLI-COMMANDS-ADMIN'],
-    }),
-    defineArticle({
-      slug: 'backup-restore',
-      title: 'Back Up and Restore',
-      description:
-        'Write the database, the encryption key, the config tree and the uploads into one archive with sovrium backup, and put it back with sovrium restore.',
-      keywords: [
-        'sovrium backup',
-        'sovrium restore',
-        'backup',
-        'restore',
-        'pg_dump',
-        'encryption-key',
-        '--data-dir',
-        '--force',
-      ],
-      order: 1435,
-      sidebarLabel: 'Back Up & Restore',
-      body: backupBody,
-      documents: [],
-      stories: ['US-CLI-COMMANDS-BACKUP-RESTORE'],
-    }),
+    ...operateCliArticles,
     defineArticle({
       slug: 'cli-flags',
       title: 'Global Flags & Exit Codes',
@@ -360,27 +319,7 @@ export const section = defineSection({
       documents: [],
       stories: ['US-CLI-COMMANDS-SKILLS'],
     }),
-    defineArticle({
-      slug: 'cli-changelog',
-      title: 'Release Notes',
-      description:
-        'Read what changed in the version you run, in any earlier version, or since the version you upgraded from — breaking changes first, from the binary, with no network.',
-      keywords: [
-        'sovrium changelog',
-        'release notes',
-        'changelog',
-        'what changed',
-        'breaking changes',
-        'upgrade',
-        '--since',
-        '--list',
-      ],
-      order: 1497,
-      sidebarLabel: 'Release Notes',
-      body: changelogBody,
-      documents: [],
-      stories: ['US-CLI-COMMANDS-CHANGELOG'],
-    }),
+    ...cliReferenceArticles,
     defineArticle({
       slug: 'cli-library',
       title: 'The Library of Ready-Made Pieces',

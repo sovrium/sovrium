@@ -46,7 +46,7 @@ import {
   existingRowWriteAllowed,
 } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
-import { loadCurrentUserContext } from './row-level-enforcement'
+import { loadCurrentUserContext, rowRuleScopeOf } from './row-level-enforcement'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App, Table } from '@/domain/models/app'
@@ -109,7 +109,8 @@ export const loadCallerIdentity = (
     // The context reads her email itself, the one lookup every door shares.
     const ctx = yield* loadCurrentUserContext(
       { userId, role, isUnrestricted: isAdminEquivalent(role, app) },
-      table.rowLevelPermissions
+      table.rowLevelPermissions,
+      rowRuleScopeOf(table, app.tables)
     )
     // The records route's own effective roles: assignment roles count only on
     // a table with row-level rules, exactly as they do there.

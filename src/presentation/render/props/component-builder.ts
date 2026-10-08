@@ -41,8 +41,31 @@ export type ComponentPropsConfig = {
   readonly variant?: string
   readonly size?: string
   readonly badgeVariant?: string
+  /** The authored HTML element (`element: nav`), when the component names one. */
+  readonly element?: string
   /** `design.components[<type>]`, pre-resolved by `ComponentRenderer`. */
   readonly designStyles?: ComponentDesignResolution
+}
+
+/**
+ * The authored shape fields the props builder reads straight off the component
+ * node: the button/badge variant and size, and the HTML element it is drawn as.
+ */
+export function pickAuthoredShapeFields(
+  component: object
+): Pick<ComponentPropsConfig, 'variant' | 'size' | 'badgeVariant' | 'element'> {
+  const node = component as {
+    readonly variant?: string
+    readonly size?: string
+    readonly badgeVariant?: string
+    readonly element?: unknown
+  }
+  return {
+    variant: node.variant,
+    size: node.size,
+    badgeVariant: node.badgeVariant,
+    ...(typeof node.element === 'string' && { element: node.element }),
+  }
 }
 
 /**
@@ -193,6 +216,7 @@ export function buildComponentProps(config: ComponentPropsConfig): {
     design,
     childIndex,
     interactions: config.interactions,
+    ...(config.element !== undefined && { element: config.element }),
   })
 
   return {

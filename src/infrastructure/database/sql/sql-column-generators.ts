@@ -41,16 +41,18 @@ const formatDefaultValue = (defaultValue: unknown): string => {
  * Generate auto-increment column definition.
  *
  * PostgreSQL uses `SERIAL`. SQLite has no `SERIAL`: an auto-incrementing
- * integer key is `INTEGER PRIMARY KEY AUTOINCREMENT`, and a non-primary-key
- * auto-increment field degrades to a plain `INTEGER` (SQLite cannot
- * auto-increment a non-rowid column).
+ * integer key is `INTEGER PRIMARY KEY AUTOINCREMENT`, and SQLite cannot
+ * auto-increment any other column. A non-primary-key autonumber on SQLite is
+ * therefore a plain `INTEGER` filled by the `AFTER INSERT` trigger from
+ * `generateAutonumberTriggers`. It cannot be `NOT NULL`: SQLite checks the
+ * constraint before an `AFTER` trigger runs and a `BEFORE` trigger cannot
+ * rewrite `NEW`, so an insert that leaves the number to the engine would be
+ * refused before the trigger could assign it.
  */
 const generateSerialColumn = (fieldName: string, isPrimaryKey: boolean = false): string => {
   const column = quoteSqlIdentifier(fieldName)
   if (isSqliteRuntime()) {
-    return isPrimaryKey
-      ? `${column} INTEGER PRIMARY KEY AUTOINCREMENT`
-      : `${column} INTEGER NOT NULL`
+    return isPrimaryKey ? `${column} INTEGER PRIMARY KEY AUTOINCREMENT` : `${column} INTEGER`
   }
   return isPrimaryKey ? `${column} SERIAL PRIMARY KEY` : `${column} SERIAL NOT NULL`
 }

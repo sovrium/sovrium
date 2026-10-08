@@ -5,14 +5,33 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolve } from 'node:path'
 import { Effect, Console } from 'effect'
 import { printFailure, printStderr } from '@/infrastructure/logging/cli-output'
+import { isBunfsPath } from '@/infrastructure/process/package-paths'
 import {
   isProcessRunning,
   readLockFile,
   removeLockFile,
   waitForProcessExit,
 } from '@/infrastructure/server/lock-file'
+
+/**
+ * The command line that starts `configFile` with the program running now.
+ *
+ * `process.execPath` is the compiled binary itself, or the `bun` executable
+ * when running from source or from a bundle — in which case the entry script
+ * (`process.argv[1]`) comes next. A compiled binary's `argv[1]` is a path
+ * inside its own embedded file system, never a script to pass back. Spawning
+ * `bun run src/cli/index.ts` instead only worked inside a checkout of this
+ * repository: from an installed binary, or from any other directory, the old
+ * server was stopped and nothing replaced it.
+ */
+const relaunchCommand = (configFile: string): readonly string[] => {
+  const entry = process.argv[1]
+  const viaScript = entry !== undefined && !isBunfsPath(entry)
+  return [process.execPath, ...(viaScript ? [entry] : []), 'start', configFile]
+}
 
 /**
  * Handle the 'restart' command -- stop current server, start new one in background
@@ -51,9 +70,13 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
     process.exit(1)
   }
 
-  // Start new server as a detached background process
-  const child = spawn('bun', ['run', 'src/cli/index.ts', 'start', effectiveConfigFile], {
-    env: { ...process.env, PORT: '0' },
+  // Start the new server as a detached background process, from the SAME
+  // program this command runs in — see `relaunchCommand`. It inherits this
+  // command's environment: a `PORT` set here is the port it binds, and only an
+  // unset one becomes `0`, a free port the lock file then reports.
+  const [command, ...args] = relaunchCommand(resolve(effectiveConfigFile))
+  const child = spawn(command ?? process.execPath, args, {
+    env: { ...process.env, PORT: process.env['PORT'] || '0' },
     stdio: 'ignore',
     detached: true,
   })
@@ -67,7 +90,11 @@ export const handleRestartCommand = async (configFile?: string): Promise<void> =
     if (newLock && newLock.pid !== lockData?.pid) {
       // The spawn uses PORT=0, so the new port is knowable ONLY from the lock
       // file the restarted server just wrote. Reporting it is the whole point.
-      Effect.runSync(Console.log(`Server restarted on http://localhost:${newLock.port}.`))
+      const where =
+        newLock.socketPath !== undefined
+          ? `the socket ${newLock.socketPath}`
+          : `http://localhost:${String(newLock.port)}`
+      Effect.runSync(Console.log(`Server restarted on ${where}.`))
       return
     }
     attempts++

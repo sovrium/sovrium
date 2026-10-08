@@ -26,6 +26,7 @@
 import { Effect } from 'effect'
 import {
   loadCurrentUserContext,
+  rowRuleScopeOf,
   toSessionProjection,
   type SessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
@@ -132,16 +133,14 @@ export const buildRowLevelGuardContext = (
     const { userRole, userGroups } = caller
     const projection: SessionProjection = toSessionProjection(session, {
       role: userRole,
-      // A literal `admin` user is ALWAYS unrestricted (built-in-admin
-      // conservatism — never a regression). Additionally, the app's RESOLVED
-      // TOP custom role is admin-equivalent and bypasses row-level scoping,
-      // bringing the records-API guard into parity with the session-establish
-      // (`server.ts`) and MCP (`mcp/tool-call.ts`) paths. Mid-level custom
-      // roles return false from `isAdminEquivalent` and stay scoped.
+      // A literal `admin` user is ALWAYS unrestricted; the app's RESOLVED TOP custom role is
+      // admin-equivalent too (parity with `server.ts` and `mcp/tool-call.ts`), and a mid-level
+      // custom role stays scoped.
       isUnrestricted: isAdminEquivalent(userRole, app),
     })
-
-    const current = yield* loadCurrentUserContext(projection, table.rowLevelPermissions)
+    // A rule reading through a relationship is followed in the app's tables.
+    const scope = rowRuleScopeOf(table, app.tables)
+    const current = yield* loadCurrentUserContext(projection, table.rowLevelPermissions, scope)
 
     // Effective roles = Better Auth role + a `group:<name>` entry per group
     // membership + every user_access role this user holds. Used for the
@@ -196,12 +195,7 @@ export const guardForTable = (
   app: Pick<App, 'auth' | 'tables'>
 ): Effect.Effect<RowLevelGuardContext | undefined, never, DataSourceRepository | AuthRepository> =>
   table?.rowLevelPermissions
-    ? buildRowLevelGuardContext(
-        session,
-        caller,
-        { rowLevelPermissions: table.rowLevelPermissions },
-        app
-      )
+    ? buildRowLevelGuardContext(session, caller, table, app)
     : Effect.undefined
 
 /**

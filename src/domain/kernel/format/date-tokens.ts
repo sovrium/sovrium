@@ -19,9 +19,8 @@
  *  - Lowercase `yyyy` / `dd` pass through LITERALLY, so `yyyy-MM-dd` renders
  *    `yyyy-03-dd`.
  *
- * Both are empirically reproduced in the co-located test file. This module
- * replaces the replace-chain with a real single-pass tokenizer and adds the
- * timezone/locale awareness nothing in the codebase currently offers.
+ * Both are reproduced in the co-located tests. This module replaces the chain
+ * with a single-pass tokenizer, aware of the timezone and the locale.
  *
  * WHY NOT A DATE LIBRARY
  * ----------------------
@@ -39,10 +38,9 @@
  * moment we imply the full ~40-token vocabulary of a real date library, we owe
  * users all of it. With a closed set the surface is finite and testable.
  *
- * Concretely: every ASCII letter outside a quoted literal must belong to a
- * recognised token. That is LDML's own rule — letters are reserved, and a
- * literal letter must be quoted (`'at'`). Non-letters (`-`, `/`, `:`, space)
- * are literals and pass through untouched.
+ * Every ASCII letter outside a quoted literal must belong to a token (LDML's
+ * own rule: letters are reserved, a literal letter is quoted, `'at'`), and
+ * non-letters (`-`, `/`, `:`, space) pass through untouched.
  *
  * VOCABULARY: UNICODE LDML, WITH LEGACY ALIASES
  * ---------------------------------------------
@@ -140,6 +138,8 @@ export const TOKENS: readonly DateToken[] = [
   { token: 'MM', description: 'Month, 2 digits (01-12)', parseable: true },
   { token: 'dd', description: 'Day of month, 2 digits (01-31)', parseable: true },
   { token: 'DD', description: 'Legacy alias of dd', parseable: true, aliasOf: 'dd' },
+  { token: 'd', description: 'Day of month, no leading zero (1-31)', parseable: false },
+  { token: 'D', description: 'Legacy alias of d', parseable: false, aliasOf: 'd' },
   { token: 'HH', description: 'Hour, 2 digits, 24-hour (00-23)', parseable: true },
   { token: 'mm', description: 'Minute, 2 digits (00-59)', parseable: true },
   { token: 'ss', description: 'Second, 2 digits (00-59)', parseable: true },
@@ -160,7 +160,6 @@ const CANONICAL: Readonly<Record<string, string>> = Object.fromEntries(
  * precisely the `0303` bug this module exists to fix.
  */
 const TOKEN_TEXTS: readonly string[] = TOKENS.map((t) => t.token)
-
 const TOKENS_LONGEST_FIRST: readonly string[] = TOKEN_TEXTS.toSorted((a, b) => b.length - a.length)
 
 const PARSEABLE: Readonly<Record<string, boolean>> = Object.fromEntries(
@@ -298,6 +297,7 @@ const NUMERIC: Readonly<Record<string, (p: ZonedParts) => string>> = {
   yyyy: (p) => pad(p.year, 4),
   MM: (p) => pad(p.month, 2),
   dd: (p) => pad(p.day, 2),
+  d: (p) => String(p.day),
   HH: (p) => pad(p.hour, 2),
   mm: (p) => pad(p.minute, 2),
   ss: (p) => pad(p.second, 2),

@@ -74,22 +74,23 @@ A batch update is written as one set-based statement, so its cost does not grow 
 { "ids": ["1", "2", "3"] }
 ```
 
-Records that are not currently deleted are skipped rather than failing; a missing `id` rolls the whole batch back. Each restore clears `deletedAt` and `deletedBy`, and is written to the record's change history.
+Records that are not currently deleted are skipped rather than failing; a missing `id` rolls the whole batch back. Each restore clears `deletedAt` and `deletedBy`, is written to the record's change history, and fires the table's `restore` webhooks and record automations once per record brought back.
 
 ## Upsert
 
-Create-or-update many records matched on one or more unique fields, in one transaction. Name the merge key with `fieldsToMergeOn`, or its alias `matchFields`. An existing match is patched; anything else is inserted. This is the canonical path for idempotent synchronisation from an external source of truth.
+Create-or-update many records matched on one or more unique fields, in one transaction. Name the merge key with `fieldsToMergeOn`, or its alias `matchFields`. An existing match is patched; anything else is inserted. This is the canonical path for idempotent synchronisation from an external source of truth. An inserted row fires the table's `create` webhooks and record automations, a matched one its `update` ones — with the row as it stood, even when no value changed.
 
 ## What holds across all five
 
-| Property        | Behaviour                                                         |
-| --------------- | ----------------------------------------------------------------- |
-| Atomicity       | One transaction per batch — all or nothing                        |
-| `returnRecords` | `false` unless asked; `true` returns the affected rows            |
-| Minimum size    | At least one entry, otherwise `400`                               |
-| Unique conflict | `409` on create, update and upsert — the code a single write uses |
-| Authorship      | Stamped per record, exactly as on a single write                  |
-| Permissions     | Table and field-level permissions are enforced per record         |
+| Property        | Behaviour                                                                                                |
+| --------------- | -------------------------------------------------------------------------------------------------------- |
+| Atomicity       | One transaction per batch — all or nothing                                                               |
+| `returnRecords` | `false` unless asked; `true` returns the affected rows                                                   |
+| Minimum size    | At least one entry, otherwise `400`                                                                      |
+| Unique conflict | `409` on create, update and upsert — the code a single write uses                                        |
+| Authorship      | Stamped per record, exactly as on a single write                                                         |
+| Permissions     | Table and field-level permissions are enforced per record                                                |
+| Record events   | One per row — the table's webhooks and record automations fire for each record written, after the commit |
 
 A **uniqueness collision answers `409`** on every batch path, matching the single-record write. Other constraint failures — a check, a foreign key, a not-null — stay `400`, because those reject the value that was sent, whereas a unique collision is a clash with a row that already exists. Either way the transaction rolls back whole.
 

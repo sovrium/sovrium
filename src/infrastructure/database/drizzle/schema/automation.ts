@@ -161,6 +161,13 @@ export const automationRuns = systemSchema.table(
      */
     relay: jsonb('relay'),
     /**
+     * While the run waits on a long delay (`waiting-delay`): the instant it
+     * resumes at, and where it paused — one frame per level of loop and path
+     * nesting, the last one the wait step. Both NULL once the run moves on.
+     */
+    resumeAt: timestamp('resume_at', { withTimezone: true }),
+    resumeCursor: jsonb('resume_cursor'),
+    /**
      * When the values this run captured were erased with the account of a
      * person they named: trigger data, step inputs, outputs, errors and logs,
      * and the run's own error emptied; steps, statuses and timings kept. NULL
@@ -174,6 +181,7 @@ export const automationRuns = systemSchema.table(
     index('automation_runs_status_idx').on(table.status),
     index('automation_runs_createdAt_idx').on(table.createdAt),
     index('automation_runs_triggeredByUserId_idx').on(table.triggeredByUserId),
+    index('automation_runs_status_resumeAt_idx').on(table.status, table.resumeAt),
   ]
 )
 

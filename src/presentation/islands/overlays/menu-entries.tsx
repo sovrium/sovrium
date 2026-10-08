@@ -7,6 +7,7 @@
 
 import { Menu } from '@base-ui/react/menu'
 import { computeMenuItemClasses } from './menu-default-classes'
+import { isRunnableMenuAction, runMenuItemAction } from './menu-item-actions'
 import { MenuItemBody } from './menu-popup-body'
 import type { MenuItem, MenuSurface } from './menu-item-types'
 import type { ReactElement } from 'react'
@@ -21,7 +22,11 @@ function isExternalPath(path: string): boolean {
   return /^https?:\/\//i.test(path)
 }
 
-/** A plain (or inert-action) menu item — label/icon/shortcut, no behaviour. */
+/**
+ * A plain menu item — label/icon/shortcut. Picking it runs its `toast`,
+ * `automation` or `fetch` action when it declares one (`menu-item-actions.ts`);
+ * an item with no action, or one of another type, only closes the menu.
+ */
 export function PlainMenuItem({
   item,
   surface,
@@ -32,6 +37,7 @@ export function PlainMenuItem({
   return (
     <Menu.Item
       disabled={item.disabled}
+      onClick={isRunnableMenuAction(item.action) ? () => runMenuItemAction(item.action) : undefined}
       className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />

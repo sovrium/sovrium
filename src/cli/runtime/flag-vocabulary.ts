@@ -101,6 +101,17 @@ export const FLAG_VALUE_OPTIONS = [
   // `sovrium restore <file> --data-dir <dir>`. Both lists: absent here, the
   // directory would be read as the backup file.
   '--data-dir',
+  // `sovrium render <asset> --data <file> --out <file> --locale <code> --config <file>`.
+  '--data',
+  '--out',
+  '--locale',
+  '--config',
+  // `sovrium login` / `sovrium deploy`. Both lists, and `--host` bites hardest:
+  // absent here, `login --host https://…` leaves a URL in the positional
+  // stream, where `isConfigFile` matches it on the `/` and boots a server.
+  '--host',
+  '--api-key',
+  '--app',
 ] as const
 
 /** Commands that use two-level noun-verb dispatch (verb in 2nd positional slot). */
@@ -152,9 +163,20 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   // `sovrium changelog --list`.
   '--list',
   '--insecure-skip-checksum', // `sovrium update`: opt out of the fail-closed checksum
+  '--email', // `sovrium render`: as `email/send` delivers it
+  // `sovrium login --open | --status | --logout`, `sovrium deploy --no-wait`.
+  '--open',
+  '--status',
+  '--logout',
+  '--no-wait',
 ])
 
 const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
+  // `sovrium render` (see FLAG_VALUE_OPTIONS).
+  '--data',
+  '--out',
+  '--locale',
+  '--config',
   '--output',
   '--template',
   // `sovrium init --from-url <https://…>`. A published config document forked
@@ -204,6 +226,10 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--since',
   // `sovrium restore --data-dir <dir>`.
   '--data-dir',
+  // `sovrium login --host <url> --api-key <key>`, `sovrium deploy --app <slug>`.
+  '--host',
+  '--api-key',
+  '--app',
 ])
 
 /** Strip `=value` from `--flag=value` so the bare flag name can be matched. */

@@ -11,8 +11,11 @@ import { BaseFieldSchema } from '../base-field'
 /**
  * Autonumber field — a database-assigned sequence.
  *
- * The column is emitted as SERIAL (Postgres) / INTEGER AUTOINCREMENT (SQLite),
- * so the value is allocated by the database on insert and starts at 1. There is
+ * The value is allocated by the database on every insert, whether or not the
+ * field is `required`, and starts at 1. On PostgreSQL the column is a `SERIAL`.
+ * On SQLite it is `INTEGER PRIMARY KEY AUTOINCREMENT` only when the field is the
+ * primary key; otherwise it is a plain `INTEGER` that an `AFTER INSERT` trigger
+ * fills with the largest number already assigned plus one. There is
  * deliberately nothing to configure: `prefix` / `startFrom` / `digits` are
  * refused, because no code path would read them and a config that set them
  * would be silently wrong. A human-facing reference (`INV-01000`) is composed by a
@@ -28,7 +31,8 @@ export const AutonumberFieldSchema = BaseFieldSchema.pipe(
   }),
   Schema.annotate({
     title: 'Autonumber Field',
-    description: 'Auto-incrementing number field assigned by the database.',
+    description:
+      'Auto-incrementing number field assigned by the database on every insert, whether or not the field is `required`, on SQLite as on PostgreSQL.',
     examples: [
       {
         id: 1,

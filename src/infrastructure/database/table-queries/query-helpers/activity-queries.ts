@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { eq, and, asc, gte, sql } from 'drizzle-orm'
+import { eq, and, asc, desc, gte, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { activityLogRetentionCutoff } from '@/domain/models/app/admin/activity-log-retention'
 import { DatabaseError } from '@/infrastructure/database'
@@ -73,6 +73,7 @@ export function getRecordHistory(config: {
   readonly recordId: string
   readonly limit?: number
   readonly offset?: number
+  readonly sortOrder?: 'asc' | 'desc'
 }): Effect.Effect<
   {
     readonly entries: readonly ActivityHistoryEntry[]
@@ -106,7 +107,7 @@ export function getRecordHistory(config: {
         .from(activityLogs)
         .leftJoin(users, eq(activityLogs.userId, users.id))
         .where(whereCondition)
-        .orderBy(asc(activityLogs.createdAt))
+        .orderBy((config.sortOrder === 'desc' ? desc : asc)(activityLogs.createdAt))
 
       const paginatedQuery =
         limit !== undefined

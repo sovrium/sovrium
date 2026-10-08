@@ -31,6 +31,7 @@ import {
   createAdminAccount,
   describeBootstrapDatabaseError,
 } from '@/application/use-cases/auth/bootstrap-admin'
+import { issueSeedInvitations } from '@/application/use-cases/auth/seed-invitations'
 import { decodeAppConfigObject } from '@/application/use-cases/config/decode-app-config'
 import {
   extractCodeActionRefusal,
@@ -46,11 +47,13 @@ import { isDatabaseUnreachable } from '@/domain/errors/driver-failure'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import { resolveIdleExitSeconds } from '@/domain/models/process-env/server-lifecycle'
 import { provisionRootSecret } from '@/infrastructure/crypto/root-secret'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { createAppLayer, createStaticBuildLayer } from '@/infrastructure/layers/app-layer'
 import { formatRuntimeError, logDebug } from '@/infrastructure/logging'
-import { installShutdownHandlers } from '@/infrastructure/server/lifecycle'
+import { armIdleExit } from '@/infrastructure/server/idle-exit'
+import { installShutdownHandlers, requestGracefulStop } from '@/infrastructure/server/lifecycle'
 import type { AuthDatabaseError } from '@/application/ports/repositories/auth/auth-repository'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type {
@@ -58,6 +61,10 @@ import type {
   InvalidEmailError,
   WeakPasswordError,
 } from '@/application/use-cases/auth/bootstrap-admin'
+import type {
+  SeedInvitationOutcome,
+  SeedInvitee,
+} from '@/application/use-cases/auth/seed-invitations'
 import type {
   DecodeAppConfigOptions,
   DecodeAppConfigResult,
@@ -176,6 +183,12 @@ export const start = async (
       // server would ignore SIGTERM outright. `installShutdownHandlers`
       // registers and returns — there is no fiber left to interrupt.
       yield* installShutdownHandlers(server)
+      // `SOVRIUM_IDLE_EXIT_SECONDS`: the same graceful stop, once nobody uses
+      // the server. Idempotent across `--watch` reloads (`idle-exit.ts`).
+      const idleSeconds = resolveIdleExitSeconds(process.env)
+      if (idleSeconds !== undefined) {
+        yield* Effect.sync(() => armIdleExit(validatedApp, idleSeconds, requestGracefulStop))
+      }
       return server
     }).pipe(Effect.provide(createAppLayer(validatedApp.auth)))
 
@@ -483,6 +496,39 @@ export const createAccounts = async (
   }
 }
 
+/**
+ * Issue pending invitations against an already-decoded app, sending nothing:
+ * the path `sovrium seed` takes for a `seed/users.yaml` entry with
+ * `invited: true`. Each invitee gets an account with no credential and a
+ * stored token; each outcome carries the invitation link under `origin`, for
+ * the caller to print once. Expected failures are returned, not thrown.
+ */
+export const inviteAccounts = async (
+  app: Readonly<App>,
+  invitees: readonly SeedInvitee[],
+  origin: string
+): Promise<readonly SeedInvitationOutcome[]> => {
+  if (!app.auth || invitees.length === 0) {
+    return invitees.map((invitee) => ({
+      ok: false as const,
+      email: invitee.email,
+      message: 'Auth is not configured for this app.',
+    }))
+  }
+  try {
+    return await Effect.runPromise(
+      issueSeedInvitations({ app, invitees, origin }).pipe(Effect.provide(createAppLayer(app.auth)))
+    )
+  } catch (error) {
+    // Defects (an unreachable database) bypass the typed channel.
+    return invitees.map((invitee) => ({
+      ok: false as const,
+      email: invitee.email,
+      message: formatRuntimeError(error),
+    }))
+  }
+}
+
 // ============================================================================
 // Type Exports (consumed by scripts/build/build-types.ts → the shipped sovrium.d.ts)
 // ============================================================================
@@ -582,16 +628,13 @@ export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
  * path performs template substitution and no schema decode. So a wrong prop is
  * caught in the editor and nowhere else; treat these as authoring aids, not as a
  * runtime contract. *
- * THREE MEMBERS ARE TYPED BUT DO NOT WORK FROM A CODE BODY
- * --------------------------------------------------------
+ * TWO MEMBERS ARE TYPED BUT DO NOT WORK FROM A CODE BODY
+ * ------------------------------------------------------
  * The surface describes what DISPATCH accepts, which is every registered
- * handler. Three of them are broken in this position, for one shared reason:
- * the sandbox sub-run-context built in `run/action-invokers.ts` omits fields the
- * top-level step context sets.
+ * handler. Two of them are inert in this position, for one shared reason: the
+ * dispatcher in `run/action-invokers.ts` hands a script only an action's
+ * `output`, and these two act through the rest of the outcome.
  *
- *   - `automation.call`   ALWAYS REJECTS. The sub-context has no
- *                         `invokeAutomation`, so the handler fails with
- *                         "not available in this execution context".
  *   - `filter.continue`   Silent no-op. Returns `{status:'filtered'}`, which the
  *                         dispatcher does not treat as failure, so it resolves
  *                         `undefined` and the halt never propagates.
