@@ -1,0 +1,3 @@
+# Written by the release mirror. Every file is checked out exactly as committed,
+# so a Windows checkout under core.autocrlf builds the same bytes as Linux/macOS.
+* -text
