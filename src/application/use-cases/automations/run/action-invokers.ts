@@ -15,6 +15,7 @@
  * gets fresh invokers) and share one cycle-detection `invocationStack`.
  */
 
+import { Effect } from 'effect'
 import { announceRecordWrites } from '@/application/use-cases/tables/record-change-announcement'
 import { actionKey, missingActionHandler } from '../action-handlers'
 import {
@@ -27,7 +28,7 @@ import { findTemplate, renderAuthoredTemplateProps } from './prop-substitution'
 import { buildStep } from './step-record'
 import type { ReadTracker } from './read-tracker'
 import type { RunAccumulator, StepContext } from './types'
-import type { ActionRunContext, NestedStepInvoker } from '../action-handlers/shared'
+import type { ActionHandler, ActionRunContext, NestedStepInvoker } from '../action-handlers/shared'
 
 /**
  * Shared "dispatch one action via the handler registry, return its
@@ -175,11 +176,12 @@ export const buildTemplateInvoker = (
     // as text, and so is the action other handlers read as written.
     const filled = fillAuthoredReferences(template.action, values)
     const isCode = String(template.action['type'] ?? '') === 'code'
-    const resolvedProps = renderAuthoredTemplateProps(
+    const { props: resolvedProps, refusal } = renderAuthoredTemplateProps(
       isCode ? filled : referenced,
       { ...ctx.templateContext, ...authoredReferenceRoots(values) },
       ctx.templates
     )
+    if (refusal !== undefined) return Promise.reject(new Error(refusal))
     const newStack = new Set([...invocationStack, templateName])
     return dispatchActionAsPromise({
       action: filled,
@@ -271,9 +273,13 @@ export const buildNestedStepInvoker = (
   invocationStack: ReadonlySet<string>,
   tracker: ReadTracker
 ): NestedStepInvoker => {
-  return ({ action, props, previousSteps }) => {
+  return ({ action, props, previousSteps, refusal }) => {
     const { type, operator } = readActionIdentity(action)
-    const handler = ctx.handlers.get(actionKey(type, operator)) ?? missingActionHandler
+    const found = ctx.handlers.get(actionKey(type, operator)) ?? missingActionHandler
+    // A prop a value from run data could not be placed in safely: the action
+    // fails without running, recorded like any other failed nested step.
+    const handler: ActionHandler =
+      refusal === undefined ? found : () => Effect.succeed({ status: 'failure', error: refusal })
     const rawAction = { ...action, props }
     const subRunContext: ActionRunContext = {
       previousSteps,

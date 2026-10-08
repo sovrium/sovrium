@@ -1,3 +1,15 @@
+## [0.32.0](https://github.com/sovrium/sovrium/compare/v0.31.0...v0.32.0) (2026-10-08)
+
+### Features
+
+- **cli**: add sovrium licenses to print the third-party license texts the binary carries
+
+### Bug Fixes
+
+- **cli**: end quietly with exit 0 when stdout's reader closes the pipe
+- **automations**: place action template arguments by position over MCP
+- **automations**: encode values from run data where an action places them
+
 ## [0.31.0](https://github.com/sovrium/sovrium/compare/v0.30.0...v0.31.0) (2026-10-07)
 
 ### BREAKING CHANGES

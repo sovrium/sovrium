@@ -21,7 +21,7 @@ Six operators. The generic `request` takes an explicit `method`; the verb operat
 
 ### `query`: parameters as values, not text glued into the URL
 
-`url` is a template, and a value interpolated into it is inserted as it is — so `?email={{trigger.data.email}}` sends `claire+test@atelier.fr` as `claire test@atelier.fr`, and a company named `Dupont & Fils` splits into two parameters. Give the parameters as a `query` object instead: each value is resolved first (templates, `$env`), then percent-encoded on its own and appended to the `url`, after any query the `url` already carries.
+`url` is a template, and a value placed in it is encoded for where it lands: in the path it stays one segment (`/`, `?` and `#` in it are encoded), in the query one value (`&` and `=` too). So `orders/{{trigger.data.id}}` always reads one order, and `?q={{trigger.data.term}}` sends a term like `Dupont & Fils` as a single parameter. A value that is a bare `.` or `..` fails the step. A `url` that is exactly one template (`'{{steps.list.response.body.next}}'`), a `$env.` reference, and the output of `urlEncode` are inserted as they are. For a path that spans several segments — a file path, an `owner/repo` pair — use `{{urlPath value}}`: it keeps the slashes, encodes each segment, and fails the step on a `..` segment. The `query` object below remains the clearest way to send several parameters: each value is resolved first (templates, `$env`), then percent-encoded on its own and appended to the `url`, after any query the `url` already carries.
 
 ```yaml
 - name: findLead
@@ -36,13 +36,17 @@ Six operators. The generic `request` takes an explicit `method`; the verb operat
       status: [interested, contacted]
 ```
 
-A string or template is sent percent-encoded, a number or boolean as its literal text, and an array repeats its key once per item, in order (`status=interested&status=contacted`). A nested object has no single encoding across APIs and is refused when the config loads — write the flat key the API expects. On `post`, `put` and `patch` the query goes on the url and the body is sent unchanged. For a value that belongs in the path, `{{urlEncode value}}` encodes it in place.
+A string or template is sent percent-encoded, a number or boolean as its literal text, and an array repeats its key once per item, in order (`status=interested&status=contacted`). A nested object has no single encoding across APIs and is refused when the config loads — write the flat key the API expects. On `post`, `put` and `patch` the query goes on the url and the body is sent unchanged.
 
 ### `contentType` has no default
 
 Set it and Sovrium stamps the matching `Content-Type` **and** encodes the body to match — `form` URL-encodes a JSON-shaped body rather than announcing one encoding while sending another.
 
 Omit it and `post`, `put` and `patch` still send `application/json` for a JSON-shaped body, while `request` and `delete` send no `Content-Type` of their own. An explicit `Content-Type` in `headers` wins outright, over both the header and the encoding — which is the escape hatch for an API wanting something this vocabulary does not name.
+
+### A body written as JSON text
+
+A `body` given as a string is sent as written. When the request is sent as JSON — a `Content-Type: application/json` header, `contentType: json`, or `webhook/send`, which sends JSON unless its headers say otherwise — each value placed in that text is escaped as the content of a JSON string, so a quote or a backslash in it cannot end the string or add a key. A body given as an object is serialised as JSON and needs nothing of the kind.
 
 ### What a non-2xx does
 
@@ -102,4 +106,4 @@ They are different mechanisms and the names collide badly:
 
 The `response` action applies only to an automation a webhook trigger started. Used anywhere else there is no inbound request to answer, so it has nothing to write to.
 
-It is also the only way a webhook-started run hands back what its steps produced. Without it, the caller is answered the run's `id` and `status` and nothing else; with it, the caller gets exactly the status, headers and body the action declares. A body value that is exactly one template, such as `'{{steps.lookup.record}}'`, keeps the type of what it names (an object, a list, a number, a boolean or `null`), and a template that names nothing leaves its key out; a value mixing text with a template is a string. A whole record carries every field the step read, so name the fields to return when some are not the caller's to see.
+It is also the only way a webhook-started run hands back what its steps produced. Without it, the caller is answered the run's `id` and `status` and nothing else; with it, the caller gets exactly the status, headers and body the action declares. A body value that is exactly one template, such as `'{{steps.lookup.record}}'`, keeps the type of what it names (an object, a list, a number, a boolean or `null`), and a template that names nothing leaves its key out; a value mixing text with a template is a string. A whole record carries every field the step read, so name the fields to return when some are not the caller's to see. The body is always sent as JSON, and `<`, `>` and `&` are written as `\u003c`, `\u003e` and `\u0026`, whatever `Content-Type` the action declares: the caller's JSON parser reads the same value, and a browser never finds markup in the response.

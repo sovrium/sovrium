@@ -273,4 +273,74 @@ mod tests {
         assert!(!enabled);
         assert!(!label.contains("0.26.0"), "{label}");
     }
+
+    /// Standard-alphabet base64 with `=` padding, which is what both the
+    /// `pubkey` field and the minisign key line inside it use. Hand-rolled so
+    /// the test needs no dependency the shell does not already carry.
+    fn base64_decode(input: &str) -> Vec<u8> {
+        const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut out = Vec::new();
+        let mut acc: u32 = 0;
+        let mut bits = 0;
+        for byte in input.trim_end_matches('=').bytes() {
+            let value = ALPHABET
+                .iter()
+                .position(|&c| c == byte)
+                .unwrap_or_else(|| panic!("not base64: {:?}", byte as char))
+                as u32;
+            acc = (acc << 6) | value;
+            bits += 6;
+            if bits >= 8 {
+                bits -= 8;
+                out.push((acc >> bits) as u8);
+            }
+        }
+        out
+    }
+
+    /// `tauri build` with `createUpdaterArtifacts` on rejects a pubkey that is
+    /// not a base64-encoded minisign public key — an empty one included, with
+    /// "failed to decode pubkey: Missing comment in public key". That failure
+    /// surfaced only on the release lanes, after the tag was immutable, so the
+    /// shape is pinned here where `cargo test` reaches it on every change.
+    #[test]
+    fn the_updater_pubkey_is_a_minisign_public_key() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("tauri.conf.json");
+        let pubkey = conf["plugins"]["updater"]["pubkey"]
+            .as_str()
+            .expect("plugins.updater.pubkey must be a string");
+        assert!(!pubkey.is_empty(), "plugins.updater.pubkey is empty");
+        assert!(
+            !pubkey.chars().any(char::is_whitespace),
+            "the pubkey is one base64 line, never a wrapped or multi-line value"
+        );
+
+        let decoded = String::from_utf8(base64_decode(pubkey)).expect("decodes to UTF-8 text");
+        let mut lines = decoded.lines();
+        let comment = lines.next().expect("a comment line");
+        assert!(
+            comment.starts_with("untrusted comment: "),
+            "minisign keys open with an `untrusted comment:` line, got {comment:?}"
+        );
+        let key = base64_decode(lines.next().expect("a key line"));
+        assert_eq!(
+            key.len(),
+            42,
+            "2-byte algorithm + 8-byte key id + 32-byte Ed25519 key"
+        );
+        assert_eq!(&key[..2], b"Ed", "minisign signature algorithm");
+
+        // The comment names the key id; it must be the id the key carries
+        // (stored little-endian), or the half pasted here belongs to another key.
+        let key_id: String = key[2..10]
+            .iter()
+            .rev()
+            .map(|b| format!("{b:02X}"))
+            .collect();
+        assert!(
+            comment.ends_with(&key_id),
+            "the comment names key id {comment:?} but the key carries {key_id}"
+        );
+    }
 }

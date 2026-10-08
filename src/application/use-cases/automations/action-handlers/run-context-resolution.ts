@@ -13,6 +13,7 @@ import {
   lookupPath,
   resolveTriggerInString,
 } from '../resolve-trigger-data'
+import { renderActionProps, type RenderedActionProps } from '../run/render-action-props'
 import type { ActionRunContext } from './shared'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 
@@ -166,6 +167,26 @@ export const buildRunContextView = (
     }),
   }
 }
+
+/**
+ * Fill in the props of an action nested in a `path` or a `loop` against
+ * `context`, for the place each one lands (see `../run/render-action-props`):
+ * a prop with no position of its own keeps its type, as
+ * {@link resolveRunContextValue} gives it.
+ */
+export const renderNestedActionProps = (
+  action: Readonly<Record<string, unknown>>,
+  context: Readonly<Record<string, unknown>>,
+  templates: TemplateRenderer
+): RenderedActionProps =>
+  renderActionProps({
+    type: String(action['type'] ?? ''),
+    operator: String(action['operator'] ?? ''),
+    authored: action['props'] ?? {},
+    context,
+    templates,
+    renderValue: (value) => resolveRunContextValue(value, context, templates),
+  })
 
 /** Narrow an `unknown` to an array, else `[]`. */
 export const asArray = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : [])

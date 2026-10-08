@@ -13,9 +13,15 @@ import {
   runNestedSequence,
   type SequenceRun,
 } from './nested-sequence'
-import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
+import {
+  authoredActionProps,
+  buildRunContextView,
+  renderNestedActionProps,
+  resolveOwnProp,
+} from './run-context-resolution'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
+import type { RenderedActionProps } from '../run/render-action-props'
 import type { ExecutedStep } from '../run/types'
 
 /**
@@ -155,8 +161,17 @@ const runSelectedBranches = (input: {
   readonly runNested: NonNullable<ActionRunContext['runNestedStep']>
 }): Promise<BranchRun> => {
   const { selected, runContext, runNested } = input
-  const fillProps = (props: unknown, previousSteps: ActionRunContext['previousSteps']) =>
-    resolveOwnProp({ ...runContext, previousSteps }, props) as Record<string, unknown>
+  const fillProps = (
+    action: Readonly<Record<string, unknown>>,
+    previousSteps: ActionRunContext['previousSteps']
+  ): RenderedActionProps =>
+    runContext.propsFinal === true
+      ? { props: (action['props'] ?? {}) as Record<string, unknown> }
+      : renderNestedActionProps(
+          action,
+          buildRunContextView({ ...runContext, previousSteps }),
+          runContext.templates
+        )
   return selected.reduce<Promise<BranchRun>>(
     async (prev, path) => {
       const acc = await prev

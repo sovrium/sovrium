@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import licensesBody from '@/cli/commands/licenses.docs.md' with { type: 'file' }
 import databaseInfrastructureBody from '@/docs/operations/database-infrastructure.md' with { type: 'file' }
 import ecoconceptionBody from '@/docs/operations/ecoconception.md' with { type: 'file' }
 import gdprPrivacyBody from '@/docs/operations/gdpr-privacy.md' with { type: 'file' }
@@ -242,6 +243,18 @@ export const section = defineSection({
       // The alert stories are cited by the automations articles that own them
       // (a story is cited by one article); this one owns the weekly summary.
       stories: ['US-ADMIN-NOTIFICATIONS-WEEKLY-DIGEST'],
+    }),
+    defineArticle({
+      slug: 'third-party-licenses',
+      title: 'Third-Party Licenses',
+      description:
+        'Print the license notice of every third-party component the binary carries — version, copyright and license text — offline, from the binary.',
+      keywords: ['sovrium licenses', 'third-party licenses', 'MPL-2.0', 'OFL-1.1', 'attribution'],
+      order: 1660,
+      sidebarLabel: 'Third-Party Licenses',
+      body: licensesBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-LICENSES'],
     }),
   ],
 })

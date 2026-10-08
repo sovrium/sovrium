@@ -35,6 +35,7 @@ import {
 } from './webhook-refusals'
 import { coerceQueryForSchema, validateAgainstSchema } from './webhook-validation'
 import { answerVerificationHandshake } from './webhook-verification'
+import { webhookJson } from './webhook-wire-json'
 import type { TriggerData } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { RunAutomationResult } from '@/application/use-cases/automations/run-automation'
 import type { PublicRunStatus, WebhookDefaultResponse } from '@/domain/models/api/automations'
@@ -396,9 +397,8 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
     }
   )
   const runId = await runIdPromise
-  // Surface as BOTH `id` (matching the sync response shape used by
-  // An API automation runs spec) AND `runId` (matching an API automation runs spec).
-  return c.json({ id: runId, runId }, 202)
+  // Surface as BOTH `id` (the sync response's key) AND `runId` (the runs API's).
+  return webhookJson(c, { id: runId, runId }, 202)
 }
 
 const dispatchSync = async (
@@ -449,7 +449,7 @@ const dispatchSync = async (
   const cfg = input.trigger.response
   const operatorOverrodeStatus = cfg?.status !== undefined || cfg?.statusCode !== undefined
   const finalStatus = result.success.status === 'failure' && !operatorOverrodeStatus ? 500 : status
-  return c.json(respBody as Record<string, unknown>, finalStatus as 200, headers)
+  return webhookJson(c, respBody, finalStatus, headers)
 }
 
 /**

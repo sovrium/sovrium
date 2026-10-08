@@ -145,6 +145,21 @@ pages:
 
 The OpenAPI document no longer lists `GET /forms/{formSlug}/embed`. That route had served nothing since the iframe embed was removed; a form is placed on a page with `formRef`.
 
+### Values from requests and records are encoded where an automation places them
+
+No config key changes and every config that validated on 0.30 still validates. What changes is the text an automation builds from data it did not write — a webhook body, a form submission, a record:
+
+| Where the value lands                           | On 0.30                              | On 0.31                                                                               |
+| ----------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------- |
+| `email/send` `to`, `cc`, `bcc`, `replyTo`       | Sent as written, separators included | Exactly one address per value or list item, else the step fails and nothing is sent   |
+| `email/send` `from`                             | Any template                         | Written in the config or `$env.`; a value from run data fails the step                |
+| `email/send` `body`                             | Inserted as markup                   | Shown as text; rich text through `{{{safeHtml value}}}`                               |
+| An `http/*` or `webhook/send` `url`             | Inserted as it is                    | One path segment or one query value; a multi-segment path through `{{urlPath value}}` |
+| A string body sent as JSON                      | Inserted as it is                    | Escaped as the content of a JSON string                                               |
+| A `webhook/response` or `trigger.response` body | `<`, `>`, `&` sent as is             | Written as `\u003c`, `\u003e`, `\u0026` — the same value to a JSON parser             |
+
+Before you restart, look for automations that place markup from data in an email body on purpose (wrap the value in `safeHtml`) or a nested path in a URL (use `urlPath`, a `query` object, or a URL that is a single template).
+
 ### A component's translation and prop keys are reported by name
 
 A key under a component's `i18n` must be a language code (`fr`, `fr-FR`), and a key under its `props` a camelCase property name or a kebab-case `data-*` or `aria-*` attribute. Such a mistake already stopped `sovrium validate` and startup on 0.30, but was reported as an unknown property with an empty list of accepted keys. On 0.31 each mistyped key is named with the spelling it must match, all of them in the same run:

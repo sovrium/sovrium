@@ -251,6 +251,8 @@ export const ENCODING_HELPERS = [
   'base64Decode',
   'md5',
   'sha256',
+  'urlPath',
+  'safeHtml',
 ] as const
 
 /** Type coercion helpers */

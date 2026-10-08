@@ -60,6 +60,7 @@ import { handleDesignSystemCommand } from '@/cli/commands/design-system'
 import { handleDocsCommand } from '@/cli/commands/docs'
 import { handleInitCommand } from '@/cli/commands/init'
 import { handleLibraryCommand } from '@/cli/commands/library'
+import { handleLicensesCommand } from '@/cli/commands/licenses'
 import { handleMcpCommand } from '@/cli/commands/mcp'
 import { handleMigrateCommand } from '@/cli/commands/migrate'
 import { handleReloadCommand } from '@/cli/commands/reload'
@@ -114,6 +115,7 @@ const HELP_TEXT = [
   '  sovrium design-system         Export the design system as an agent brief or DTCG JSON',
   '  sovrium docs [address]        Read the platform manual out of this binary',
   '  sovrium changelog [version]   Read the release notes this binary carries',
+  '  sovrium licenses              Print the third-party license notices this binary carries',
   '  sovrium library <verb>        Browse and install ready-made blocks, connections, recipes',
   '  sovrium seed [config]         Load seed/<table>.yaml data into the tables',
   '  sovrium migrate [config]      Bring the database schema forward, without booting',
@@ -133,7 +135,7 @@ const HELP_TEXT = [
   '  --watch, -w                   Watch config file and hot reload (start)',
   '  --output <path>               Write to a file (schema, design-system, backup) or dir (types, skills)',
   '  --typescript                  Scaffold a typed app.ts instead of app.yaml (init)',
-  '  --format <md|json|llms>       Export format (design-system, docs, changelog; default: md)',
+  '  --format <md|json|llms>       Export format (design-system, docs, changelog, licenses; default: md)',
   '  --full                        Print the whole manual (docs)',
   '  --list-sections               Print the section slugs and exit (docs)',
   '  --lang <code>                 Manual locale — `en` only (docs)',
@@ -267,6 +269,8 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       sinceRequested: parsed.changelogSinceRequested ?? false,
       since: parsed.changelogSince,
     }),
+  licenses: async () =>
+    handleLicensesCommand({ format: parsed.format, outputPath: parsed.outputPath }),
   '--version': async () => showVersion(),
   version: async () => showVersion(),
   '--help': async () => showHelp(),

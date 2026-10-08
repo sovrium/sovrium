@@ -7,7 +7,11 @@
 
 import { Layer } from 'effect'
 import { TemplateEngine } from '@/application/ports/services/template-engine'
-import { isTemplateHelper, renderTemplate } from '@/infrastructure/templates/template-engine'
+import {
+  isTemplateHelper,
+  renderTemplate,
+  renderTemplateFor,
+} from '@/infrastructure/templates/template-engine'
 
 /**
  * The Handlebars template engine. Its environment and compile cache are module
@@ -16,5 +20,6 @@ import { isTemplateHelper, renderTemplate } from '@/infrastructure/templates/tem
  */
 export const TemplateEngineLive = Layer.succeed(TemplateEngine, {
   render: renderTemplate,
+  renderFor: renderTemplateFor,
   isHelper: isTemplateHelper,
 })

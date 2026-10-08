@@ -6,6 +6,7 @@
  */
 
 import type { ActionOutcome, NestedStepInvoker } from './shared'
+import type { RenderedActionProps } from '../run/render-action-props'
 import type { ExecutedStep } from '../run/types'
 
 /**
@@ -74,18 +75,20 @@ export const runNestedSequence = (input: {
   readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
   readonly runNested: NestedStepInvoker
   readonly previousSteps: StepOutputs
+  /** Fill in one action's props, or say why it cannot run (it then fails unrun). */
   readonly fillProps: (
-    props: unknown,
+    action: Readonly<Record<string, unknown>>,
     previousSteps: StepOutputs
-  ) => Readonly<Record<string, unknown>>
+  ) => RenderedActionProps
 }): Promise<SequenceRun> => {
   const { actions, runNested, previousSteps, fillProps } = input
   return actions.reduce<Promise<SequenceRun>>(async (prev, action) => {
     const run = await prev
     if (run.halt !== undefined) return run
     const reads = { ...previousSteps, ...run.outputs }
-    const props = fillProps(action['props'] ?? {}, reads)
-    return settle(run, action, await runNested({ action, props, previousSteps: reads }))
+    const { props, refusal } = fillProps(action, reads)
+    const refused = refusal === undefined ? {} : { refusal }
+    return settle(run, action, await runNested({ action, props, previousSteps: reads, ...refused }))
   }, Promise.resolve(EMPTY_SEQUENCE))
 }
 

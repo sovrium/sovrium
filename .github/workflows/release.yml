@@ -1509,8 +1509,13 @@ jobs:
   # if any demo does not come back (no continue-on-error). ubuntu-latest has open
   # egress; the demo host's security group already allows inbound SSH.
   #
-  # upgrade-fleet.sh is executed HOST-RESIDENT (/root/upgrade-fleet.sh on
-  # sovrium-demos-01), never read from this job's checkout: docs/ is excluded
+  # upgrade-fleet.sh is executed HOST-RESIDENT (/usr/local/bin/upgrade-fleet.sh
+  # on sovrium-demos-01), never read from this job's checkout. That path is an
+  # entry wrapper: as root it runs the real script
+  # (/usr/local/bin/upgrade-fleet-root.sh) directly; as the unprivileged
+  # `deploy` user (DEMO_FLEET_SSH_USER=deploy) it re-enters it through the one
+  # sudoers-allowed command, with VERSION kept by env_keep. Never /root/...:
+  # `deploy` cannot traverse /root. The checkout cannot hold it: docs/ is excluded
   # from the public GitHub mirror (scripts/filtered-mirror.sh), so a checkout of
   # this repo on GitHub can never contain it — piping it from `< docs/...` here
   # 404s every single run. The host copy (+ /root/manifest.json) is provisioned
@@ -1568,8 +1573,8 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
           # The login user is a repository VARIABLE so moving off root is a
-          # settings change, not a workflow edit, once the host has an
-          # unprivileged deploy user (scaleway-infra-maintainer).
+          # settings change, not a workflow edit. The host has the
+          # unprivileged `deploy` user; set DEMO_FLEET_SSH_USER=deploy.
           DEMO_USER: ${{ vars.DEMO_FLEET_SSH_USER || 'root' }}
         run: |
           # The version reaches a REMOTE shell, so it is validated here rather
@@ -1588,13 +1593,13 @@ jobs:
             -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts" \
             "${DEMO_USER}@163.172.175.246" "
             set -e
-            test -x /root/upgrade-fleet.sh || {
-              echo 'upgrade-fleet.sh missing (or not executable) on the host at /root/upgrade-fleet.sh —'
-              echo 'scp docs/development/demo-fleet/host/upgrade-fleet.sh to /root/ on sovrium-demos-01 first.'
+            test -x /usr/local/bin/upgrade-fleet.sh || {
+              echo 'upgrade-fleet.sh missing (or not executable) on the host at /usr/local/bin/upgrade-fleet.sh —'
+              echo 'install docs/development/demo-fleet/host/upgrade-fleet-entry.sh there on sovrium-demos-01 first.'
               echo 'See: docs/development/demo-fleet/operations.md'
               exit 1
             }
-            VERSION='${VERSION}' bash /root/upgrade-fleet.sh
+            VERSION='${VERSION}' /usr/local/bin/upgrade-fleet.sh
           "
 
   # ── Build and push multi-arch Docker image ──────────────────

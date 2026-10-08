@@ -3,6 +3,41 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.32.0",
+      "date": "2026-10-08",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.31.0...v0.32.0",
+      "sections": [
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "cli",
+              "text": "add sovrium licenses to print the third-party license texts the binary carries"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "cli",
+              "text": "end quietly with exit 0 when stdout's reader closes the pipe"
+            },
+            {
+              "scope": "automations",
+              "text": "place action template arguments by position over MCP"
+            },
+            {
+              "scope": "automations",
+              "text": "encode values from run data where an action places them"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.31.0",
       "date": "2026-10-07",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.30.0...v0.31.0",

@@ -57,6 +57,8 @@ An action template carries no role gate of its own, so a viewer is refused one o
 
 An action template or a manual automation writes as the caller: the table's rules apply inside the run, and a record they exclude fails the step without being touched.
 
+The arguments of an action template are placed by the same rules as values in an automation step: each is encoded for the place it lands, whether a URL path or query, a body written as JSON text, or an email body, and an address field takes exactly one address. An argument that cannot be placed safely makes the call an invalid-params tool error naming the prop, and nothing is executed.
+
 Every one of those checks — table permissions, field `read` and `write` grants, row-level scopes, a manual automation's `requiredRole` — sees the account's role exactly as the records API does, custom roles included; a table permission naming a `group:` is matched against the groups the account belongs to, and on a table with row-level rules the roles an assignment gives the account count too, exactly as on the records API. A key owned by an `editor` is an `editor` to your tables, not a generic member.
 
 A manual automation is listed to a role exactly when that role may run it; the same `requiredRole` check decides both. An automation an operator has paused is not listed until it is resumed.

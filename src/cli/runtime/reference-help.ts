@@ -6,7 +6,7 @@
  */
 
 /**
- * `--help` for the REFERENCE verbs — `docs`, `changelog` and `library` — which
+ * `--help` for the REFERENCE verbs — `docs`, `changelog`, `licenses` and `library` — which
  * read the catalogues compiled into the binary (the manual, the release notes
  * and the installable library) rather than an app. Split out of
  * `command-help.ts`, which sits at its line ceiling; `COMMAND_HELP` there still
@@ -125,3 +125,29 @@ export const CHANGELOG_HELP_TEXT = [
   '  sovrium changelog --since 0.26.0              # Everything since an upgrade',
   '  sovrium changelog --since 0.26.0 --format json',
 ].join('\n')
+
+export const LICENSES_HELP_TEXT = [
+  'Usage: sovrium licenses [--format md|json] [--output <path>]',
+  '',
+  'Print the license notice of every third-party component this binary carries:',
+  'its version, copyright line(s) and license text, identical texts printed once.',
+  'Offline, with no config file, no database and no network.',
+  '',
+  'Options:',
+  '  --format <md|json>            md (default), or one json document for tooling',
+  '  --output <path>               Write to a file instead of stdout (creates parent dirs)',
+  '  --help, -h                    Show this help message',
+  '',
+  'Examples:',
+  '  sovrium licenses                              # Every text, on stdout',
+  '  sovrium licenses --output THIRD-PARTY.md      # Keep a copy beside a deployment',
+  '  sovrium licenses --format json',
+].join('\n')
+
+/** The reference verbs' help, spread into `COMMAND_HELP` in `command-help.ts`. */
+export const REFERENCE_HELP: Readonly<Record<string, string>> = {
+  docs: DOCS_HELP_TEXT,
+  changelog: CHANGELOG_HELP_TEXT,
+  licenses: LICENSES_HELP_TEXT,
+  library: LIBRARY_HELP_TEXT,
+}

@@ -22,7 +22,6 @@ import { Effect } from 'effect'
 import { actionKey, missingActionHandler, type ActionOutcome } from '../action-handlers'
 import { buildStepsResultView } from '../action-handlers/run-context-resolution'
 import { authoredReferenceRoots, fillAuthoredReferences } from '../authored-references'
-import { resolveTriggerInValue } from '../resolve-trigger-data'
 import { readActionIdentity } from './action-identity'
 import {
   buildNativeActionInvoker,
@@ -31,6 +30,7 @@ import {
 } from './action-invokers'
 import { referenceAuthoredProps } from './prop-substitution'
 import { createReadTracker, trackedInvoker, withRecordedReads } from './read-tracker'
+import { renderActionProps } from './render-action-props'
 import { foldOutcome } from './step-outcome'
 import { dispatchWithRetry } from './step-retry'
 import {
@@ -69,7 +69,12 @@ const fillStepProps = (
   acc: RunAccumulator,
   rawAction: Readonly<Record<string, unknown>>,
   ctx: StepContext
-): { readonly authored: unknown; readonly resolvedProps: StepProps; readonly final: boolean } => {
+): {
+  readonly authored: unknown
+  readonly resolvedProps: StepProps
+  readonly final: boolean
+  readonly refusal?: string
+} => {
   const props = rawAction['props'] ?? {}
   if (ctx.propsFinal === true)
     return { authored: props, resolvedProps: props as StepProps, final: true }
@@ -86,12 +91,20 @@ const fillStepProps = (
     // The env values an authored `$env.X` inserts, read under `$env`.
     ...authoredReferenceRoots({ envLookup: ctx.envLookup }),
   }
-  const resolvedProps = resolveTriggerInValue(
+  const { type, operator } = readActionIdentity(rawAction)
+  const rendered = renderActionProps({
+    type,
+    operator: operator ?? '',
     authored,
-    stepTemplateContext,
-    ctx.templates
-  ) as StepProps
-  return { authored, resolvedProps, final: false }
+    context: stepTemplateContext,
+    templates: ctx.templates,
+  })
+  return {
+    authored,
+    resolvedProps: rendered.props,
+    final: false,
+    ...(rendered.refusal === undefined ? {} : { refusal: rendered.refusal }),
+  }
 }
 
 /**
@@ -111,7 +124,7 @@ export const executeStep = (
   buildAutomationInvoker: (ctx: StepContext, stepIndex: number) => AutomationInvoker
 ): Effect.Effect<RunAccumulator, never, StepRequirements> =>
   Effect.gen(function* () {
-    const { authored, resolvedProps, final } = fillStepProps(acc, rawAction, ctx)
+    const { authored, resolvedProps, final, refusal } = fillStepProps(acc, rawAction, ctx)
     const tracker = createReadTracker()
     // An unregistered key FAILS the step rather than silently succeeding. Every
     // action AppSchema can declare has a handler — asserted by
@@ -137,6 +150,12 @@ export const executeStep = (
       runNestedStep: buildNestedStepInvoker(ctx, acc, new Set(), tracker),
       invokeAutomation: trackedInvoker(buildAutomationInvoker(ctx, acc.steps.length), tracker),
       recordEvents: ctx.recordEvents,
+    }
+    // A prop a value from run data could not be placed in safely: the step
+    // fails before the action runs, so nothing is sent.
+    if (refusal !== undefined) {
+      const refused: ActionOutcome = { status: 'failure', error: refusal }
+      return foldOutcome({ acc, rawAction, resolvedProps, outcome: refused, ctx })
     }
     const outcome: ActionOutcome = yield* dispatchWithRetry({
       handler,

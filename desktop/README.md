@@ -77,12 +77,21 @@ App" is what a user is pointed at in the meantime.
 
 ## The updater key
 
-`plugins.updater.pubkey` in `src-tauri/tauri.conf.json` is an empty string, and the shell ships that
-way on purpose. The key is read when an update is **verified**, so an empty one makes an install fail
-verification rather than skip it — the tray's check succeeds, the install then fails, and both reach
-the user as a dialog. Neither blocks launch.
+The key exists. `plugins.updater.pubkey` in `src-tauri/tauri.conf.json` holds its public half (minisign
+key id `60A9BA5B6D43BDD9`), and the private half is the `TAURI_SIGNING_PRIVATE_KEY` release secret.
+The key is read when an update is **verified**, so an installed copy only accepts an update signed by
+that private key.
 
-Generating it is the maintainer's to do once, and nobody else's — no CI job and no agent may do it:
+The two halves must stay a pair. The release workflow turns `createUpdaterArtifacts` on as soon as the
+private key is present, and `tauri build` then refuses a `pubkey` that is not a base64-encoded minisign
+public key — an empty one included ("failed to decode pubkey: Missing comment in public key"). That is
+how the first release carrying the secret lost its installers, so `cargo test` now pins the shape:
+`the_updater_pubkey_is_a_minisign_public_key` in `src-tauri/src/updater.rs` decodes the field, checks
+the `untrusted comment:` line, and checks that the key id it names is the one the key carries.
+
+Generating the key was the maintainer's to do once, and nobody else's — no CI job and no agent may do
+it. Rotating it would end updates for every installed copy (see below), so the command is recorded
+here for the record, not for re-running:
 
 ```bash
 bun run --cwd desktop tauri signer generate -w ~/.sovrium-updater.key

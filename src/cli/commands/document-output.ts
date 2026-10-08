@@ -64,6 +64,20 @@ export function resolveDocumentFormat<F extends string>(
 }
 
 /**
+ * The slice of a writable stream {@link writeStdout} needs. `process.stdout`
+ * satisfies it; a unit test passes a fake, so the broken-pipe path is pinned
+ * without a real pipe and without `mock.module()`.
+ */
+export interface StdoutSink {
+  write(chunk: string, callback: (error?: Error | null) => void): unknown
+  on(event: 'error', listener: (error: Error) => void): unknown
+  off(event: 'error', listener: (error: Error) => void): unknown
+}
+
+/** True for the error a write raises once the pipe's reader has gone away. */
+const isBrokenPipe = (error: Error): boolean => (error as NodeJS.ErrnoException).code === 'EPIPE'
+
+/**
  * Write to stdout and resolve only once the stream has taken all of it.
  *
  * Every command that prints a document is an EXIT command: `src/cli/index.ts`
@@ -73,10 +87,41 @@ export function resolveDocumentFormat<F extends string>(
  * jq` received the first 128 KiB and invalid JSON. A file or a terminal hid
  * it; only a pipe showed it. The write callback fires once the chunk is
  * handed to the operating system, which is the point where exiting is safe.
+ *
+ * A reader that closes early (`sovrium licenses | head`) is a NORMAL end, not a
+ * failure: the write fails with `EPIPE`, and the verb resolves so the command
+ * exits 0 with nothing on stderr — the convention every Unix filter follows.
+ * This is the one deliberate swallow here, and it is narrow: only `EPIPE`, and
+ * only on this stream. Its cause is still logged, at Debug so the default
+ * level keeps the terminal quiet. Any other write error rejects, and an
+ * `--output` file is written by `writeFile`, never through here, so a real
+ * write failure stays loud.
+ *
+ * The `error` listener is what keeps the stream's own `error` event — emitted
+ * after the callback — from becoming an uncaught exception and a stack trace.
+ * After a broken pipe it stays attached: the stream is dead and the process is
+ * about to exit, so a late duplicate of the same `EPIPE` must find a listener.
  */
-const writeStdoutFully = (content: string): Promise<void> =>
+export const writeStdout = (content: string, stream: StdoutSink = process.stdout): Promise<void> =>
   new Promise((resolve, reject) => {
-    process.stdout.write(content, (error) => (error ? reject(error) : resolve()))
+    const settle = (error?: Error | null): void => {
+      if (!error) {
+        stream.off('error', settle)
+        resolve()
+        return
+      }
+      if (!isBrokenPipe(error)) {
+        stream.off('error', settle)
+        reject(error)
+        return
+      }
+      Effect.runSync(
+        Effect.logDebug('stdout reader closed early (EPIPE); treated as a normal end', error)
+      )
+      resolve()
+    }
+    stream.on('error', settle)
+    stream.write(content, settle)
   })
 
 /**
@@ -95,7 +140,7 @@ export const writeDocument = async (
   outputPath: string | undefined,
   noun: string
 ): Promise<void> => {
-  if (outputPath === undefined) return writeStdoutFully(content)
+  if (outputPath === undefined) return writeStdout(content)
   await mkdir(dirname(outputPath), { recursive: true })
   await writeFile(outputPath, content)
   Effect.runSync(Console.log(`${noun} written to ${outputPath}.`))

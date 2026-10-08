@@ -11,11 +11,12 @@ import {
   asArray,
   authoredActionProps,
   buildRunContextView,
+  renderNestedActionProps,
   resolveOwnProp,
-  resolveRunContextValue,
 } from './run-context-resolution'
 import { actionAttributes, itemLoopOutcome } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
+import type { RenderedActionProps } from '../run/render-action-props'
 import type { ExecutedStep } from '../run/types'
 
 /**
@@ -198,7 +199,10 @@ const loopOutcome = (tally: LoopTally, continueOnItemError: boolean): ActionOutc
 }
 
 /** How a nested action's props are filled in for one item. */
-type FillProps = (props: unknown, itemContext: Readonly<Record<string, unknown>>) => unknown
+type FillProps = (
+  action: Readonly<Record<string, unknown>>,
+  itemContext: Readonly<Record<string, unknown>>
+) => RenderedActionProps
 
 interface IterationInput {
   readonly actions: ReadonlyArray<Readonly<Record<string, unknown>>>
@@ -222,9 +226,9 @@ const runIteration = async (input: IterationInput): Promise<IterationOutcome> =>
     actions,
     runNested,
     previousSteps: runContext.previousSteps,
-    fillProps: (props, previousSteps) => {
+    fillProps: (action, previousSteps) => {
       const view = buildRunContextView({ ...runContext, previousSteps })
-      return fill(props, { ...view, loop }) as Record<string, unknown>
+      return fill(action, { ...view, loop })
     },
   })
   const { steps } = run
@@ -288,9 +292,9 @@ export const handleLoopEach: ActionHandler = (action, _app, _automation, runCont
     // A loop whose props a step handed over (final) runs them as given.
     const fill: FillProps =
       runContext.propsFinal === true
-        ? (nestedProps) => nestedProps
-        : (nestedProps, itemContext) =>
-            resolveRunContextValue(nestedProps, itemContext, runContext.templates)
+        ? (nested) => ({ props: (nested['props'] ?? {}) as Record<string, unknown> })
+        : (nested, itemContext) =>
+            renderNestedActionProps(nested, itemContext, runContext.templates)
     const actions = asActionList(props['actions'])
     const limit = Math.min(items.length, maxIterationsOf(props))
     const continueOnItemError = props['continueOnItemError'] === true

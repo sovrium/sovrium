@@ -10,7 +10,9 @@ name: Manual demo fleet deploy (upgrade / rollback)
 # checkout, staggered restart, per-app health check, binary auto-rollback on
 # failure. A non-zero exit turns this run red.
 #
-# upgrade-fleet.sh is executed HOST-RESIDENT (/root/upgrade-fleet.sh), never
+# upgrade-fleet.sh is executed HOST-RESIDENT (/usr/local/bin/upgrade-fleet.sh,
+# the entry wrapper that works as root and as the sudo-limited `deploy` user —
+# see release.yml's deploy-demos job), never
 # read from this job's checkout — docs/ is excluded from the public GitHub
 # mirror, so it can never exist there. See docs/development/demo-fleet/
 # operations.md for the "scp before the next release" contract.
@@ -76,8 +78,8 @@ jobs:
       - name: Upgrade fleet
         env:
           VERSION: ${{ inputs.version }}
-          # A repository variable, so moving off root is a settings change once
-          # the host has an unprivileged deploy user (see release.yml).
+          # A repository variable, so moving off root is a settings change:
+          # DEMO_FLEET_SSH_USER=deploy (see release.yml).
           DEMO_USER: ${{ vars.DEMO_FLEET_SSH_USER || 'root' }}
         run: |
           # Runs the HOST-RESIDENT copy of upgrade-fleet.sh — see the header
@@ -87,11 +89,11 @@ jobs:
             -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts" \
             "${DEMO_USER}@163.172.175.246" "
             set -e
-            test -x /root/upgrade-fleet.sh || {
-              echo 'upgrade-fleet.sh missing (or not executable) on the host at /root/upgrade-fleet.sh —'
-              echo 'scp docs/development/demo-fleet/host/upgrade-fleet.sh to /root/ on sovrium-demos-01 first.'
+            test -x /usr/local/bin/upgrade-fleet.sh || {
+              echo 'upgrade-fleet.sh missing (or not executable) on the host at /usr/local/bin/upgrade-fleet.sh —'
+              echo 'install docs/development/demo-fleet/host/upgrade-fleet-entry.sh there on sovrium-demos-01 first.'
               echo 'See: docs/development/demo-fleet/operations.md'
               exit 1
             }
-            VERSION='${VERSION}' bash /root/upgrade-fleet.sh
+            VERSION='${VERSION}' /usr/local/bin/upgrade-fleet.sh
           "

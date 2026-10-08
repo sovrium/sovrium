@@ -67,6 +67,8 @@ A whole record carries every field the step read, so name the fields to return w
 
 `trigger.response` shapes the answer too, but its `body` and `headers` templates see `{{run.id}}` and `{{trigger.data.*}}` only. A `{{steps.*}}` path is not in their reach and renders empty, so step data goes through the `webhook/response` action, which wins when both are present. Setting `trigger.response.status` also keeps that status when a step fails, instead of the `500`. With `respondImmediately: true` the caller gets `202` and `{ "id", "runId" }`, both the run's id, and nothing else.
 
+Whichever shapes it, the answer's body is JSON in which `<`, `>` and `&` are written as `\u003c`, `\u003e` and `\u0026`, even under a declared `Content-Type: text/html`. A JSON parser reads the same value; a browser opening the URL never finds markup that came from the request.
+
 The manual trigger (`POST /api/automations/{name}/trigger`) answers differently, on purpose: it also returns the last step's `output` and a failed step's `error`. Its caller is signed in and started the run herself, and every step of a run started by hand reads within what she may read, so its answer shows her nothing beyond her own reach.
 
 ### Inbound authentication

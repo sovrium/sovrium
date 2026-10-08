@@ -45,15 +45,21 @@
  * read a caller arg, a `$varName` a declared parameter, `$env.X` the app's
  * env. A caller arg is a value the template pass inserts without parsing it,
  * and the run executes the filled action with its props FINAL, so no step
- * reads an arg again for `$env.` or `{{...}}`. Caller args are also forwarded
- * as `triggerData.body` for the run's history.
+ * reads an arg again for `$env.` or `{{...}}`. An arg is placed by position,
+ * as run data is in any step (one URL segment or query value, one JSON string,
+ * text in an email body, exactly one recipient); one that cannot be placed
+ * safely is a -32602 before any run is synthesised, so nothing is sent.
+ * Caller args are also forwarded as `triggerData.body` for the run's history.
  */
 
 import { Effect } from 'effect'
 import { TemplateEngine, type TemplateRenderer } from '@/application/ports/services/template-engine'
 import { defaultActionHandlers } from '@/application/use-cases/automations/action-handlers'
 import { buildEnvLookup } from '@/application/use-cases/automations/resolve-env-vars'
-import { fillInvokedTemplateAction } from '@/application/use-cases/automations/run/prop-substitution'
+import {
+  fillInvokedTemplateAction,
+  type FilledTemplateAction,
+} from '@/application/use-cases/automations/run/prop-substitution'
 import {
   executeAutomationRun,
   resolveAutomationId,
@@ -154,20 +160,17 @@ const declaredParameterNames = (template: ActionTemplate): ReadonlyArray<string>
 }
 
 /**
- * Synthesise a single-step manual automation from the action template, filled
- * in once with the caller args (see the module header). The resulting
- * automation is fed to `executeAutomationRun` with `propsFinal`, so
- * persistence (run row in `system.automation_runs`, step rows, in-memory
- * store) and handler dispatch follow the exact same code path as a regular
- * manual automation, without a second pass over the filled props.
+ * Fill the action template in once with the caller args (see the module
+ * header), by position: an arg that cannot be placed safely comes back as a
+ * `refusal`, and nothing runs.
  */
-const synthesizeAutomation = (
+const fillTemplate = (
   app: App,
   template: ActionTemplate,
   args: Readonly<Record<string, unknown>>,
   templates: TemplateRenderer
-): NonNullable<App['automations']>[number] => {
-  const filledAction = fillInvokedTemplateAction({
+): FilledTemplateAction =>
+  fillInvokedTemplateAction({
     // The decoded template, read as the run loop reads `app.actions[]`.
     template: template as unknown as RuntimeActionTemplate,
     args,
@@ -175,14 +178,24 @@ const synthesizeAutomation = (
     envLookup: buildEnvLookup(app.env, process.env),
     templates,
   })
-  const synthName = `mcp-action:${template.name}`
-  return {
-    name: synthName,
+
+/**
+ * Synthesise a single-step manual automation from the filled action. The
+ * resulting automation is fed to `executeAutomationRun` with `propsFinal`, so
+ * persistence (run row in `system.automation_runs`, step rows, in-memory
+ * store) and handler dispatch follow the exact same code path as a regular
+ * manual automation, without a second pass over the filled props.
+ */
+const synthesizeAutomation = (
+  template: ActionTemplate,
+  filledAction: Readonly<Record<string, unknown>>
+): NonNullable<App['automations']>[number] =>
+  ({
+    name: `mcp-action:${template.name}`,
     trigger: { type: 'manual' },
     actions: [filledAction],
     enabled: true,
-  } as unknown as NonNullable<App['automations']>[number]
-}
+  }) as unknown as NonNullable<App['automations']>[number]
 
 /**
  * Translate a `runActionTemplate` failure into the appropriate JSON-RPC
@@ -253,9 +266,12 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
   }
 
   const program = Effect.gen(function* () {
-    const automation = synthesizeAutomation(app, template, envelope.args, yield* TemplateEngine)
+    const filled = fillTemplate(app, template, envelope.args, yield* TemplateEngine)
+    const { refusal } = filled
+    if (refusal !== undefined) return { _tag: 'Refused', refusal } as const
+    const automation = synthesizeAutomation(template, filled.action)
     const automationId = yield* resolveAutomationId(automation.name, automation)
-    return yield* executeAutomationRun({
+    const run = yield* executeAutomationRun({
       name: automation.name,
       automation,
       automationId,
@@ -269,6 +285,7 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
       // Filled in once above: no step reads a caller arg again.
       propsFinal: true,
     })
+    return { _tag: 'Ran', run } as const
   })
 
   // See `automation-call.ts`: an MCP tool call reaches the server's services
@@ -278,5 +295,7 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
   if (outcome._tag === 'Failure') {
     return actionErrorToJsonRpc(outcome.failure)
   }
-  return toolSuccess(buildActionResultBody(outcome.success))
+  // An arg that cannot be placed safely: no run was synthesised, nothing sent.
+  if (outcome.success._tag === 'Refused') return toolFailure(-32_602, outcome.success.refusal)
+  return toolSuccess(buildActionResultBody(outcome.success.run))
 }

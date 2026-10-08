@@ -55,6 +55,7 @@ import {
   timestamp,
   type ShiftUnit,
 } from './helper-dates'
+import { safeHtmlHelper, urlPathHelper } from './helper-encoding'
 import {
   firstEmail,
   firstNumber,
@@ -423,10 +424,7 @@ const registerEncodingHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('base64Decode', (v: unknown) =>
     Buffer.from(toStr(v), 'base64').toString('utf8')
   )
-  // NOTE: `encodeUri`/`urlEncode` have always called `encodeURIComponent`, so
-  // `encodeUriComponent` is the ACCURATE name for the shared behaviour rather
-  // than a new capability. The two legacy spellings keep their semantics —
-  // changing them would silently alter every shipped template that uses them.
+  // `encodeUri`/`urlEncode` have always been `encodeURIComponent` (the accurate name); kept as is.
   hbs.registerHelper('encodeUri', (v: unknown) => encodeURIComponent(toStr(v)))
   hbs.registerHelper('decodeUri', safeUriDecode)
   hbs.registerHelper('encodeUriComponent', (v: unknown) => encodeURIComponent(toStr(v)))
@@ -435,6 +433,8 @@ const registerEncodingHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('urlDecode', safeUriDecode)
   hbs.registerHelper('md5', (v: unknown) => hashOrEmpty('md5', v))
   hbs.registerHelper('sha256', (v: unknown) => hashOrEmpty('sha256', v))
+  hbs.registerHelper('urlPath', urlPathHelper)
+  hbs.registerHelper('safeHtml', safeHtmlHelper)
 }
 
 const registerCoercionHelpers = (hbs: Hbs): void => {

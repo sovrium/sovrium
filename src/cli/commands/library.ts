@@ -30,6 +30,7 @@
  */
 
 import { printStderr } from '@/infrastructure/logging/cli-output'
+import { writeStdout } from './document-output'
 import { runLibraryAdd } from './library-add'
 import {
   interleaveByProvider,
@@ -83,9 +84,8 @@ const refuse = (message: string): never => {
   process.exit(1)
 }
 
-const emit = (content: string): void => {
-  process.stdout.write(content.endsWith('\n') ? content : `${content}\n`)
-}
+const emit = (content: string): Promise<void> =>
+  writeStdout(content.endsWith('\n') ? content : `${content}\n`)
 
 const asJson = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`
 

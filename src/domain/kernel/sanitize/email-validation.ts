@@ -49,3 +49,32 @@ export function isValidEmail(email: string): boolean {
   // on an over-length string, bounding worst-case matching time to linear.
   return email.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(email)
 }
+
+/**
+ * The characters that separate, quote or group addresses in an address
+ * header. A value holding one of them outside the angle brackets of a single
+ * `Name <address>` could name a second recipient once a mail transport parses
+ * it.
+ */
+const ADDRESS_LIST_SYNTAX = /[,;<>"()[\]\\:]/
+
+/** `Display Name <address>`, the display name free of address-list syntax and of `@`. */
+const NAMED_MAILBOX = /^([^<>,;"()[\]\\:@]*)<([^<>]*)>$/
+
+/**
+ * Returns `true` when `value` names exactly ONE mailbox: a bare
+ * `local@domain.tld`, or `Display Name <local@domain.tld>` whose name holds no
+ * separator, quote or bracket. A list (`a@x.fr, b@y.fr`, `a@x.fr; b@y.fr`), a
+ * second bracketed address or a quoted display name is refused.
+ *
+ * For a value an automation took from data it did not write (a form, a
+ * webhook body, a record): one value, one recipient.
+ */
+export function isSingleMailbox(value: string): boolean {
+  // Bounded before either pattern runs, as `isValidEmail` is.
+  if (value.length > MAX_EMAIL_LENGTH * 2) return false
+  const trimmed = value.trim()
+  const named = NAMED_MAILBOX.exec(trimmed)
+  const address = named === null ? trimmed : (named[2] ?? '').trim()
+  return !ADDRESS_LIST_SYNTAX.test(address) && isValidEmail(address)
+}

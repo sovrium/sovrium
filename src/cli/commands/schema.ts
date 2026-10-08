@@ -9,6 +9,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
 import { Effect, Console } from 'effect'
 import { generateAppJsonSchema, splitAppJsonSchema } from '@/domain/models/app/app-json-schema'
+import { writeStdout } from './document-output'
 
 /** A document as the schema command writes it: two-space JSON, one trailing newline. */
 const toJsonText = (document: unknown): string => JSON.stringify(document, null, 2) + '\n'
@@ -47,6 +48,6 @@ export const handleSchemaCommand = async (outputPath?: string): Promise<void> =>
     Effect.runSync(Console.log(`Schema written to ${outputPath}.`))
   } else {
     // Write to stdout without trailing console formatting
-    process.stdout.write(json)
+    await writeStdout(json)
   }
 }

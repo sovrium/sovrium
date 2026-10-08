@@ -21,12 +21,20 @@ trigger:
     path: { type: string, description: 'The file, for example runbooks/rollback.md' }
     title: { type: string, description: 'The title the document is filed under' }
 actions:
+  # A value placed in a `url` is encoded so it stays one piece of the path:
+  # a `/` inside it becomes `%2F`. That is the safe default, but here both
+  # values are meant to span several segments — `acme/ops` is an owner and a
+  # repository, `runbooks/rollback.md` a folder and a file — and GitHub would
+  # not find `acme%2Fops`. `urlPath` keeps the slashes, still encodes each
+  # segment, and stops the run on a `.` or `..` segment, so the call can only
+  # reach a file inside the repository it names.
+  #
   # `Accept: …raw` asks GitHub for the file as it is written, not base64 JSON.
   - name: fetch
     type: http
     operator: get
     props:
-      url: 'https://api.github.com/repos/{{trigger.data.body.repository}}/contents/{{trigger.data.body.path}}'
+      url: 'https://api.github.com/repos/{{urlPath trigger.data.body.repository}}/contents/{{urlPath trigger.data.body.path}}'
       connection: github
       headers:
         Accept: application/vnd.github.raw+json

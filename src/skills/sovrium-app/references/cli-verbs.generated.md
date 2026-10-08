@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every verb the `sovrium` binary dispatches (24), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
+Every verb the `sovrium` binary dispatches (25), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
 
 ## Verbs
 
@@ -19,6 +19,7 @@ Every verb the `sovrium` binary dispatches (24), with its usage line and what it
 | `help` | `sovrium help` | Show this help message |
 | `init` | `sovrium init [dir] [options]` | Scaffold a new project (in [dir], or cwd) |
 | `library` | `sovrium library list [--kind <kind>] [--category <c>] [--format md\|json]`<br>`sovrium library search <query> [--format md\|json]`<br>`sovrium library show <id> [--format md\|json]`<br>`sovrium library add <id> [--set key=value]… [--as <name>] [--into <config>]` | Browse and install ready-made blocks, connections, recipes |
+| `licenses` | `sovrium licenses [--format md\|json] [--output <path>]` | Print the third-party license notices this binary carries |
 | `mcp` | `sovrium mcp [--project <dir>]` | Serve the config read tools to an AI client over stdio |
 | `migrate` | `sovrium migrate [config] [options]` | Bring the database schema forward, without booting |
 | `reload` | `sovrium reload [options]` | Hot-reload config without downtime |

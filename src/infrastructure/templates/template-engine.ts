@@ -5,9 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Result } from 'effect'
 import Handlebars from 'handlebars'
 import { logError } from '@/infrastructure/logging/logger'
+import {
+  ENCODE_VALUE_HELPER,
+  encodeExpressions,
+  hasDotSegment,
+  isSingleExpression,
+} from './encoded-template'
 import { registerHelpers } from './handlebars-helpers'
+import { encodeValue, TemplateRefusal, type ValueEncoding } from './helper-encoding'
 
 /**
  * Internal: a Handlebars instance with the Sovrium helper catalogue
@@ -50,7 +58,10 @@ const TEMPLATE_PATTERN = /\{\{[\s\S]*?\}\}/
  * marks a template that previously failed to parse, so we don't re-pay the
  * (expensive) parse-error cost on every render.
  */
-type Compiled = (ctx: Readonly<Record<string, unknown>>) => string
+type Compiled = (
+  ctx: Readonly<Record<string, unknown>>,
+  options?: Handlebars.RuntimeOptions
+) => string
 const FAILED_COMPILE: Compiled = () => ''
 const compileCache = new Map<string, Compiled>()
 
@@ -100,7 +111,7 @@ const hasPatternFromData = (node: TemplateNode): boolean =>
  * Parsing eagerly (`engine.compile` alone defers it to the first call) also
  * makes a syntax error a compile failure rather than a render failure.
  */
-const compileAuthored = (template: string): Compiled => {
+const compileAuthored = (template: string, encoding?: ValueEncoding): Compiled => {
   const ast = engine.parse(template)
   if ((ast.body as ReadonlyArray<TemplateNode>).some(hasPatternFromData)) {
     if (process.env['DEBUG']?.includes('sovrium:templates')) {
@@ -112,15 +123,27 @@ const compileAuthored = (template: string): Compiled => {
     }
     return FAILED_COMPILE
   }
-  return engine.compile(ast, { noEscape: true, strict: false })
+  // A URL that is exactly one template is the whole URL, sent as given (and
+  // still address-guarded where it is fetched); there is nothing around it to
+  // protect, so nothing is rewritten.
+  const encoded =
+    encoding === undefined || (encoding === 'url' && isSingleExpression(ast))
+      ? ast
+      : encodeExpressions(ast, encoding, isTemplateHelper)
+  return engine.compile(encoded, { noEscape: true, strict: false })
 }
 
-const getCompiled = (template: string): Compiled => {
-  const cached = compileCache.get(template)
+/** The cache key of a template compiled for `encoding` (`''` for plain text). */
+const cacheKey = (template: string, encoding: ValueEncoding | undefined): string =>
+  encoding === undefined ? template : `${encoding}\u0000${template}`
+
+const getCompiled = (template: string, encoding?: ValueEncoding): Compiled => {
+  const key = cacheKey(template, encoding)
+  const cached = compileCache.get(key)
   if (cached !== undefined) return cached
   const result = ((): Compiled => {
     try {
-      return compileAuthored(template)
+      return compileAuthored(template, encoding)
     } catch (error) {
       if (process.env['DEBUG']?.includes('sovrium:templates')) {
         logError('[templates] compile failed', error, { template })
@@ -128,7 +151,7 @@ const getCompiled = (template: string): Compiled => {
       return FAILED_COMPILE
     }
   })()
-  compileCache.set(template, result)
+  compileCache.set(key, result)
   return result
 }
 
@@ -177,5 +200,46 @@ export const renderTemplate = (
       logError('[templates] render failed', error, { template })
     }
     return template
+  }
+}
+
+/** A template that is one expression and nothing else (`{{steps.list.next}}`). */
+const WHOLE_EXPRESSION = /^\{\{\{?[^{}]*\}?\}\}$/
+
+/** The helpers handed to an encoded render: the value encoder the rewrite calls. */
+const ENCODED_RENDER_OPTIONS: Handlebars.RuntimeOptions = {
+  helpers: {
+    [ENCODE_VALUE_HELPER]: (value: unknown, encoding: unknown) =>
+      encodeValue(value, encoding as ValueEncoding),
+  },
+}
+
+/**
+ * Render a template for the place its output lands: every value an expression
+ * inserts is encoded for `encoding` (see `encoded-template.ts`), the text
+ * around it is kept. Fails only on a {@link TemplateRefusal} (a value no
+ * encoding makes safe there); a compile error or another helper failure keeps
+ * the template as written, exactly as {@link renderTemplate} does.
+ */
+export const renderTemplateFor = (
+  template: string,
+  context: Readonly<Record<string, unknown>>,
+  encoding: ValueEncoding
+): Result.Result<string, string> => {
+  if (!TEMPLATE_PATTERN.test(template)) return Result.succeed(template)
+  const compiled = getCompiled(template, encoding)
+  if (compiled === FAILED_COMPILE) return Result.succeed(template)
+  try {
+    const rendered = compiled(context, ENCODED_RENDER_OPTIONS)
+    if (encoding === 'url' && !WHOLE_EXPRESSION.test(template.trim()) && hasDotSegment(rendered)) {
+      return Result.fail('a value may not make a `.` or `..` path segment')
+    }
+    return Result.succeed(rendered)
+  } catch (error) {
+    if (error instanceof TemplateRefusal) return Result.fail(error.message)
+    if (process.env['DEBUG']?.includes('sovrium:templates')) {
+      logError('[templates] render failed', error, { template, encoding })
+    }
+    return Result.succeed(template)
   }
 }

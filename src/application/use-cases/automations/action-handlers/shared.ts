@@ -253,9 +253,8 @@ export interface ActionRunContext {
   readonly recordEvents?: RecordEventChannel
 
   /**
-   * Run one action of a `path` or a `loop` as a step of the run, reading
-   * `previousSteps`; resolves with its whole outcome (a stop, a filter halt
-   * and a failure included) and its step record, not only its `output`.
+   * Run one action of a `path` or a `loop` as a step of the run, reading `previousSteps`; resolves
+   * with its whole outcome (a stop, a filter halt and a failure included) and its step record.
    */
   readonly runNestedStep?: NestedStepInvoker
 }
@@ -265,6 +264,7 @@ export type NestedStepInvoker = (input: {
   readonly action: Readonly<Record<string, unknown>>
   readonly props: Readonly<Record<string, unknown>>
   readonly previousSteps: Readonly<Record<string, Readonly<Record<string, unknown>>>>
+  readonly refusal?: string // why the props cannot be filled in safely: the step fails unrun
 }) => Promise<{ readonly outcome: ActionOutcome; readonly step: ExecutedStep }>
 
 /** One write an automation step made, as the record triggers read it. */

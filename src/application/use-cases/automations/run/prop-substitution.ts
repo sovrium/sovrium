@@ -25,6 +25,7 @@ import {
   referenceAuthoredValues,
 } from '../authored-references'
 import { buildAutomationContext, resolveTriggerInValue } from '../resolve-trigger-data'
+import { renderActionProps, type RenderedActionProps } from './render-action-props'
 import type { AuthoredReferenceValues } from '../authored-references'
 import type { RuntimeActionTemplate, StepContext } from './types'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
@@ -62,11 +63,24 @@ export const renderAuthoredTemplateProps = (
   action: Readonly<Record<string, unknown>>,
   context: Readonly<Record<string, unknown>>,
   templates: TemplateRenderer
-): Readonly<Record<string, unknown>> => {
+): RenderedActionProps => {
   const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
   return String(action['type'] ?? '') === 'code'
-    ? props
-    : (resolveTriggerInValue(props, context, templates) as Record<string, unknown>)
+    ? { props }
+    : renderActionProps({
+        type: String(action['type'] ?? ''),
+        operator: String(action['operator'] ?? ''),
+        authored: props,
+        context,
+        templates,
+      })
+}
+
+/** An invoked action template filled in once, or why it cannot run. */
+export interface FilledTemplateAction {
+  readonly action: Readonly<Record<string, unknown>>
+  /** Why the action must not run: an argument cannot be placed safely. */
+  readonly refusal?: string
 }
 
 /** The props of a code action invoked with values: its source is never a template. */
@@ -105,6 +119,13 @@ const fillCodeProps = (
  * its env references are filled in, and arguments reach it through
  * `inputData`.
  *
+ * A non-code action is filled in by position, as a step of a run is
+ * (`renderActionProps`): an argument in a URL is encoded as one path segment
+ * or one query value, in a JSON-text body as JSON string content, in an email
+ * body as text, and an address field reads exactly one recipient. An argument
+ * that cannot be placed safely returns a `refusal`, and the caller runs
+ * nothing.
+ *
  * The text the template engine compiles is therefore the configuration as
  * written, never an argument.
  */
@@ -114,7 +135,7 @@ export const fillInvokedTemplateAction = (input: {
   readonly parameterNames: ReadonlyArray<string>
   readonly envLookup: Readonly<Record<string, string>>
   readonly templates: TemplateRenderer
-}): Readonly<Record<string, unknown>> => {
+}): FilledTemplateAction => {
   const { template, args, envLookup, templates } = input
   const defaults = fillAuthoredReferences(template.variables ?? {}, { envLookup })
   const declared = Object.fromEntries(
@@ -129,13 +150,19 @@ export const fillInvokedTemplateAction = (input: {
     ...authoredReferenceRoots(values),
   }
   const props = (template.action['props'] as Record<string, unknown> | undefined) ?? {}
-  const filled =
-    String(template.action['type'] ?? '') === 'code'
-      ? fillCodeProps(props, values, context, templates)
-      : (resolveTriggerInValue(
-          referenceAuthoredValues(props, values),
-          context,
-          templates
-        ) as Readonly<Record<string, unknown>>)
-  return { ...template.action, props: filled }
+  const type = String(template.action['type'] ?? '')
+  if (type === 'code') {
+    return {
+      action: { ...template.action, props: fillCodeProps(props, values, context, templates) },
+    }
+  }
+  const rendered = renderActionProps({
+    type,
+    operator: String(template.action['operator'] ?? ''),
+    authored: referenceAuthoredValues(props, values),
+    context,
+    templates,
+  })
+  const action = { ...template.action, props: rendered.props }
+  return rendered.refusal === undefined ? { action } : { action, refusal: rendered.refusal }
 }

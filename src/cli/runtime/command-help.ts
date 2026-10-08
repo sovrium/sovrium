@@ -6,7 +6,7 @@
  */
 
 import { BACKUP_HELP_TEXT, RESTORE_HELP_TEXT } from './backup-help'
-import { CHANGELOG_HELP_TEXT, DOCS_HELP_TEXT, LIBRARY_HELP_TEXT } from './reference-help'
+import { REFERENCE_HELP } from './reference-help'
 
 /**
  * Per-command `--help` text for every dispatchable `sovrium` command.
@@ -430,9 +430,7 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
   types: TYPES_HELP_TEXT,
   skills: SKILLS_HELP_TEXT,
   'design-system': DESIGN_SYSTEM_HELP_TEXT,
-  docs: DOCS_HELP_TEXT,
-  changelog: CHANGELOG_HELP_TEXT,
-  library: LIBRARY_HELP_TEXT,
+  ...REFERENCE_HELP,
   validate: VALIDATE_HELP_TEXT,
   mcp: MCP_HELP_TEXT,
   seed: SEED_HELP_TEXT,

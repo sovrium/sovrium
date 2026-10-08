@@ -688,6 +688,17 @@ const main: Effect.Effect<void, BuildBinaryError, CommandService> = Effect.gen(f
   const releaseCount = yield* verifyChangelogPayload(PROJECT_ROOT, version)
   console.log(`  ${releaseCount} release(s), including ${version}`)
 
+  // The third-party license texts (`sovrium licenses`). Checked, never
+  // regenerated: MPL-2.0, OFL-1.1 and PSF-2.0 require the text to ship with the
+  // code, so a binary whose payload disagrees with `licenses/` or with the
+  // installed versions must not be built. Both inputs exist on the public mirror
+  // (`licenses/` is mirrored, node_modules is installed from the same lockfile).
+  yield* run(
+    ['bun', 'run', 'scripts/build/generate-embedded-licenses.ts', '--check'],
+    'Check embedded third-party license payload',
+    CODEGEN_TIMEOUT_MS
+  )
+
   // Compile each target
   for (const target of targets) {
     yield* compileBinary(target, version)
