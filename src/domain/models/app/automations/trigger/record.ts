@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { ConditionGroupSchema } from '../conditions'
+import { TriggerNameSchema } from './trigger-name'
 
 /**
  * Record Trigger
@@ -19,6 +20,9 @@ export const RecordTriggerSchema = Schema.Struct({
       description: "Constant value 'record' for type discrimination in discriminated unions",
     })
   ),
+
+  /** Name of this trigger within its automation (defaults to its type) */
+  name: Schema.optional(TriggerNameSchema),
   table: Schema.String.pipe(
     Schema.annotate({ description: 'Name of the table to watch for record events' }),
     Schema.check(Schema.isMinLength(1))

@@ -77,6 +77,23 @@ The manual trigger (`POST /api/automations/{name}/trigger`) answers differently,
 
 Nothing validates that a `bearer` block actually carries a `token`, so an incomplete block passes `sovrium validate` and fails at request time instead. Check an inbound auth block by sending a request at it, not by validating the configuration. Every credential value supports `$env.VAR`.
 
+#### A shared key in a header: `type: apiKey`
+
+Some senders sign nothing and instead send back, on every delivery, a header you gave them when you registered the webhook. Unipile is one: a webhook created through its API carries the custom headers named at creation and no signature. Check that header with `apiKey`, naming it in `header` (`X-API-Key` by default) and the value in `key`, and register the same value as the webhook's header on the sender's side:
+
+```yaml
+# Requires env: [{ key: UNIPILE_WEBHOOK_SECRET }] at the top of the app
+trigger:
+  type: webhook
+  method: POST
+  auth:
+    type: apiKey
+    header: Unipile-Auth
+    key: $env.UNIPILE_WEBHOOK_SECRET
+```
+
+A request whose header is missing or differs is answered `401` and runs nothing; the comparison is constant-time.
+
 #### Signed-in callers: `type: session`
 
 ```yaml
@@ -106,7 +123,7 @@ An `hmac` webhook checks a signature the way its `scheme` says the provider writ
 | ------------------ | ----------------- | -------------------------------------------------------------------------------- |
 | `t=<ts>,v1=<sig>`  | `<ts>.<raw body>` | Calendly, in `Calendly-Webhook-Signature`; any of several `v1` entries may match |
 | `ts=<ts>;h1=<sig>` | `<ts>:<raw body>` | Paddle Billing, in `Paddle-Signature`                                            |
-| `t=<ts>,v0=<sig>`  | `<ts>.<raw body>` | Unipile, in `unipile-signature`                                                  |
+| `t=<ts>,v0=<sig>`  | `<ts>.<raw body>` | the same layout as Stripe's, with the signature under a `v0` tag                 |
 
 ```yaml
 # Requires env: [{ key: CALENDLY_WEBHOOK_SIGNING_KEY }] at the top of the app
@@ -161,7 +178,7 @@ A handshake presenting the verify token you entered in the provider console is a
 
 ### What the payload looks like
 
-The body is **not** at `{{trigger.body}}`. The available paths are `{{trigger.data.body.*}}`, `{{trigger.data.headers.*}}` and `{{trigger.data.query.*}}`, plus `{{trigger.data.method}}`, `{{trigger.data.path}}` and `{{trigger.data.ip}}`. Scalar body fields are additionally flattened to `{{trigger.data.<field>}}`, which is a convenience rather than the contract — a nested object is only reachable through the full path. When the request carries a session cookie or a user's API key, `{{trigger.user.id}}` and `{{trigger.user.role}}` name that caller; the body cannot set them, so a posted `user` field only ever lands under `{{trigger.data.*}}`.
+The body is **not** at `{{trigger.body}}`. The available paths are `{{trigger.data.body.*}}`, `{{trigger.data.headers.*}}` and `{{trigger.data.query.*}}`, plus `{{trigger.data.method}}`, `{{trigger.data.path}}` and `{{trigger.data.ip}}`. Scalar body fields are additionally flattened to `{{trigger.data.<field>}}`, which is a convenience rather than the contract — a nested object is only reachable through the full path. When the request carries a session cookie or a user's API key, `{{trigger.user.id}}` and `{{trigger.user.role}}` name that caller; the body cannot set them, so a posted `user` field only ever lands under `{{trigger.data.*}}`. A credential header (the header your `auth` reads, or any name containing `authorization`, `cookie`, `token`, `secret`, `signature`, `api-key`, `apikey` or `password`) reads `***` there: the run keeps its name, never its value.
 
 ## Cron trigger
 
@@ -176,10 +193,6 @@ trigger:
 
 <!-- sovrium:options CronTriggerSchema -->
 
-`expression` is a standard five-field cron expression, or a six-field one carrying seconds. `timezone` is an IANA zone name; when omitted it is the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset).
-
-There are **no `@daily`, `@hourly` or `@weekly` aliases** — write the numeric equivalent, `0 0 * * *` or `0 * * * *`. A step of zero, `*/0`, is refused.
-
-Both the expression and the timezone are validated offline, against the IANA database in the timezone's case, so a typo fails `sovrium validate` rather than producing an automation that silently never runs.
+`expression` is a standard five-field cron expression, or a six-field one carrying seconds. `timezone` is an IANA zone name; when omitted it is the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset). There are **no `@daily`, `@hourly` or `@weekly` aliases** — write the numeric equivalent, `0 0 * * *` or `0 * * * *`. A step of zero, `*/0`, is refused. Both the expression and the timezone are validated offline, against the IANA database in the timezone's case, so a typo fails `sovrium validate` rather than producing an automation that silently never runs.
 
 Set `timezone` whenever the schedule tracks human working hours. `0 9 * * 1-5` in `UTC` drifts an hour against Paris twice a year, while the same expression in `Europe/Paris` stays at 09:00 local through both daylight-saving transitions.

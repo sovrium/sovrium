@@ -143,6 +143,19 @@ export interface TriggerData {
    * for an anonymous call and for every other trigger.
    */
   readonly requester?: TriggerRequester
+  /**
+   * The trigger entry that started the run, as `{{trigger.type}}` and
+   * `{{trigger.name}}`: set by the run loop on the data its steps read, never on
+   * the data a run records, so a replay or a resume takes it from the run's own
+   * recorded trigger name.
+   */
+  readonly startedBy?: RunTriggerEntry
+}
+
+/** The type and the name of the trigger entry that started a run. */
+export interface RunTriggerEntry {
+  readonly type: string
+  readonly name: string
 }
 
 /** The identity a credentialed webhook call was made with. */
@@ -209,6 +222,9 @@ export const resolveTriggerInValue = (
   templates: TemplateRenderer
 ): unknown => mapStringsDeep(value, (s) => resolveTriggerInString(s, context, templates))
 
+/** Keys read only at `trigger.<key>`, never under `trigger.data`. */
+const LIFTED_ONLY_KEYS: ReadonlySet<string> = new Set(['requester', 'startedBy'])
+
 /**
  * Build the substitution context an action sees during a run.
  *
@@ -248,7 +264,7 @@ export const buildAutomationContext = (
   // already-flattened scalar children would otherwise duplicate.
   const envelopeAdditions = Object.fromEntries(
     Object.keys(td)
-      .filter((key) => key !== 'requester' && td[key] !== undefined && !(key in fromBody))
+      .filter((key) => !LIFTED_ONLY_KEYS.has(key) && td[key] !== undefined && !(key in fromBody))
       .map((key) => [key, td[key]] as const)
   )
   // Top-level keys exposed at `trigger.X` (in addition to `trigger.data.X`)
@@ -273,10 +289,14 @@ export const buildAutomationContext = (
   const triggerTopLevel = Object.fromEntries(
     TOPLEVEL_KEYS.filter((key) => td[key] !== undefined).map((key) => [key, td[key]] as const)
   )
+  const { startedBy } = triggerData
   return {
     trigger: {
       data: { ...fromBody, ...envelopeAdditions },
       ...triggerTopLevel,
+      // The entry that started the run. Written after the lifted keys: no
+      // payload names the trigger.
+      ...(startedBy === undefined ? {} : { type: startedBy.type, name: startedBy.name }),
       // The caller identity is read from the request's credential, never the body.
       ...(triggerData.requester === undefined ? {} : { user: triggerData.requester }),
     },

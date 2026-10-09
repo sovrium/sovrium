@@ -64,6 +64,7 @@ import type {
   DeliveryMode,
   OutboxedWrite,
 } from '@/application/ports/services/record-webhook-dispatcher'
+import type { TriggerRequester } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { TriggerRecordEventInput } from '@/application/use-cases/automations/trigger-record-event'
 import type { App } from '@/domain/models/app'
 
@@ -82,6 +83,8 @@ export interface BatchScope {
   readonly fireEvents?: boolean
   /** Whether the call waits for its webhook deliveries; a bulk write does not, by default. */
   readonly deliveryMode?: DeliveryMode
+  /** Who made the write, as each row's `trigger.user`: absent for a write no person made. */
+  readonly requester?: TriggerRequester
 }
 
 /** A bulk write that echoes the records it wrote. */
@@ -96,6 +99,20 @@ export type RowEvent = Omit<TriggerRecordEventInput, 'processEnv'>
 
 /** The record event one committed row change is, for the record automations. */
 export function rowEventOf(
+  input: {
+    readonly app: App
+    readonly tableName: string
+    readonly userId: string
+    readonly requester?: TriggerRequester
+  },
+  change: CommittedRowChange,
+  kind: WebhookWriteKind
+): RowEvent {
+  const event = rowEventWithoutRequester(input, change, kind)
+  return input.requester === undefined ? event : { ...event, requester: input.requester }
+}
+
+function rowEventWithoutRequester(
   input: { readonly app: App; readonly tableName: string; readonly userId: string },
   change: CommittedRowChange,
   kind: WebhookWriteKind
@@ -142,6 +159,7 @@ export function orchestrateBulkWrite<A, E, RW, RA = never, RE = never, RD = neve
     readonly app: App
     readonly tableName: string
     readonly userId: string
+    readonly requester?: TriggerRequester
     readonly kind: WebhookWriteKind
     readonly fireEvents: boolean
   },
@@ -222,6 +240,7 @@ const bulkInput = (scope: BatchScope, kind: WebhookWriteKind = 'write') => ({
   app: scope.app,
   tableName: scope.tableName,
   userId: scope.session.userId,
+  ...(scope.requester === undefined ? {} : { requester: scope.requester }),
   kind,
   fireEvents: scope.fireEvents !== false,
 })

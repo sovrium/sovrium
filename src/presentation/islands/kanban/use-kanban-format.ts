@@ -8,6 +8,7 @@
 import { createContext, useContext } from 'react'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
+import type { RecordTextFields } from '@/domain/models/app/tables/record-text-service'
 
 /**
  * What a card needs from the board to draw itself: the page's language, each
@@ -33,6 +34,8 @@ export interface KanbanFormat {
   readonly colorFieldColors?: Readonly<Record<string, string>>
   /** Whether a card may be picked up — the board's resolved drag gate. */
   readonly draggableEnabled?: boolean
+  /** How each formatted field reads in a card's text, resolved by the server. */
+  readonly recordText?: RecordTextFields
 }
 
 export const KanbanFormatContext = createContext<KanbanFormat>({

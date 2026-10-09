@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { FormNameSchema } from '../../forms/name'
+import { TriggerNameSchema } from './trigger-name'
 
 /**
  * Form Trigger
@@ -28,6 +29,9 @@ export const FormTriggerSchema = Schema.Struct({
       description: "Constant value 'form' for type discrimination in discriminated unions",
     })
   ),
+
+  /** Name of this trigger within its automation (defaults to its type) */
+  name: Schema.optional(TriggerNameSchema),
   /** Top-level form name from app.forms[].name. Cross-validated. */
   form: FormNameSchema,
 }).pipe(

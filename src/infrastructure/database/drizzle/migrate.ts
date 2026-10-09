@@ -22,6 +22,7 @@ import {
 } from '@/infrastructure/database/sql/postgres-client-options'
 import { withCauseInMessage } from '@/infrastructure/errors/with-cause-in-message'
 import { logDebug } from '@/infrastructure/logging/logger'
+import { acquireMaintenanceClient } from '../sql/postgres-connection-budget'
 import { applySqlitePragmas, sqliteLockHint } from '../sql/sqlite-pragmas'
 import {
   detectPostgresAccountCollisions,
@@ -195,7 +196,8 @@ const runPostgresMigrations = (
     // database (or the pooler in front of it) accepts the runtime settings.
     // effect-promise: total -- `probePostgresRuntimeSettings` settles both arms of its only query and never rejects (a refused or failed probe answers `false`).
     yield* Effect.promise(() => probePostgresRuntimeSettings(databaseUrl))
-    const client = new SQL(postgresClientOptions(databaseUrl))
+    // The maintenance slot, released on every exit of this scope.
+    const client = yield* acquireMaintenanceClient(databaseUrl)
     // No `schema` map: drizzle v1 removed the option, and the migrator never
     // read it — it applies raw SQL files.
     const db = drizzlePg({ client })
@@ -243,10 +245,7 @@ const runPostgresMigrations = (
           cause: error,
         }),
     })
-
-    // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; the migration it is closing after has already succeeded, and a teardown failure must not be reported as a migration failure.
-    yield* Effect.promise(() => client.close())
-  })
+  }).pipe(Effect.scoped)
 
 /**
  * Apply the SQLite migration set (`drizzle/sqlite/`).
@@ -259,20 +258,23 @@ const runSqliteMigrations = (
   path: string
 ): Effect.Effect<void, DatabaseConnectionError | MigrationError> =>
   Effect.gen(function* () {
-    const client = yield* Effect.try({
-      try: () => {
-        // Create the parent dir first — `bun:sqlite` `{ create: true }` makes
-        // the file but not its directory, and the zero-config default now lives
-        // under `./.sovrium/`. Skip the in-memory sentinel (no filesystem path).
-        if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
-        return new BunSqlite(path, { create: true })
-      },
-      catch: (error) =>
-        new DatabaseConnectionError({
-          message: `SQLite database open failed: ${driverMessage(error)}${sqliteLockHint(error, path)}`,
-          cause: error,
-        }),
-    })
+    const client = yield* Effect.acquireRelease(
+      Effect.try({
+        try: () => {
+          // Create the parent dir first — `bun:sqlite` `{ create: true }` makes
+          // the file but not its directory, and the zero-config default now lives
+          // under `./.sovrium/`. Skip the in-memory sentinel (no filesystem path).
+          if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true })
+          return new BunSqlite(path, { create: true })
+        },
+        catch: (error) =>
+          new DatabaseConnectionError({
+            message: `SQLite database open failed: ${driverMessage(error)}${sqliteLockHint(error, path)}`,
+            cause: error,
+          }),
+      }),
+      (opened) => Effect.sync(() => opened.close())
+    )
 
     // The SAME pragmas the runtime connection gets, from the one module that
     // spells them. `busy_timeout` is the load-bearing one here: without it this
@@ -319,9 +321,7 @@ const runSqliteMigrations = (
           cause: error,
         }),
     })
-
-    yield* Effect.sync(() => client.close())
-  })
+  }).pipe(Effect.scoped)
 
 /**
  * Run Drizzle migrations to create/update the database schema.
@@ -519,7 +519,7 @@ const readAppliedNames = (
 
   return Effect.tryPromise({
     try: async () => {
-      const client = new SQL(postgresClientOptions(config.databaseUrl))
+      const client = new SQL(postgresClientOptions(config.databaseUrl, { max: 1 }))
       try {
         return await postgresAppliedNames((sql) => client.unsafe(sql), shipped)
       } finally {

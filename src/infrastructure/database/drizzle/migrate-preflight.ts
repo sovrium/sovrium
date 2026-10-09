@@ -174,7 +174,7 @@ const postgresPreflight = async (
   databaseUrl: string,
   migrationsFolder: string
 ): Promise<MigrationPreflightReport> => {
-  const client = new SQL(postgresClientOptions(databaseUrl))
+  const client = new SQL(postgresClientOptions(databaseUrl, { max: 1 }))
   try {
     const query = (sql: string): Promise<unknown> => client.unsafe(sql)
     return {

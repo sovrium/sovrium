@@ -6,14 +6,14 @@ File actions operate against the app's configured storage, whether that is the l
 
 ## Storage
 
-| Operator   | Props                                         | Does                       |
-| ---------- | --------------------------------------------- | -------------------------- |
-| `upload`   | `source`, `path?`, `contentType?`, `headers?` | Uploads a file to storage  |
-| `download` | `key`                                         | Downloads a stored file    |
-| `delete`   | `key`                                         | Deletes a stored file      |
-| `copy`     | `sourceKey`, `destinationKey`                 | Copies a stored file       |
-| `move`     | `sourceKey`, `destinationKey`                 | Moves or renames a file    |
-| `list`     | `prefix`, `limit?`                            | Lists files under a prefix |
+| Operator   | Props                                                    | Does                       |
+| ---------- | -------------------------------------------------------- | -------------------------- |
+| `upload`   | `source`, `path?`, `bucket?`, `contentType?`, `headers?` | Uploads a file to storage  |
+| `download` | `key`                                                    | Downloads a stored file    |
+| `delete`   | `key`                                                    | Deletes a stored file      |
+| `copy`     | `sourceKey`, `destinationKey`                            | Copies a stored file       |
+| `move`     | `sourceKey`, `destinationKey`                            | Moves or renames a file    |
+| `list`     | `prefix`, `limit?`                                       | Lists files under a prefix |
 
 A copy or a move keeps the source's bucket: a file uploaded through a bucket stays reachable through that bucket's API, and by `ai/transcribe` with `bucket`, under its new key. A file that belongs to no bucket stays in none.
 
@@ -21,12 +21,29 @@ An `upload` `source` is a storage key, a `data:` URI or an `http(s)` URL. A URL 
 
 A URL that needs credentials takes `headers`, whose values read template variables and `$env` secrets — for example `headers: { X-API-KEY: $env.MESSAGING_API_KEY }` to store a message attachment a messaging API serves only to its key. The headers go with the download and with a redirect to the same origin; a redirect to another origin is followed without them. Every header value is treated as a secret, whether it is a literal, a template or an `$env` reference: it never appears in the step's output, the run detail or the admin run detail. Headers are sent to the source as you write it, a plain `http://` URL included — use an `https://` source so they are not sent in clear.
 
+Without `bucket`, an uploaded file is temporary and belongs to no bucket, so an attachment column bound to a bucket refuses its key. To mirror a file into a record — a messaging API's attachment written into a message — give the step the `bucket` of the column it goes to, then write `{{steps.<upload>.key}}` into that column with a `record/update`; the step's output then carries `bucket` instead of `path` or `temporary`. `bucket` is a name from `buckets`, or `system`, and it is written as is, never as a template: an app whose step names a bucket it does not declare is refused at start, naming that bucket, and a `code` step that calls the upload with such a bucket fails. The file is stored with no uploader, as stored by the automation, whatever the bucket's `upload` roles say about whoever triggered the run, and it does not need a record step. With a `path`, a key already holding a file the automation did not store, such as a person's upload, fails the step and the file there is kept; a file the same automation stored there before is replaced. Without a `path`, a fresh key is minted. With or without `bucket`, a `path` must be a relative key with no empty, `.` or `..` segment and no backslash, or the step fails and nothing is stored.
+
 ## Metadata and access
 
 | Operator      | Props                                             | Does                                            |
 | ------------- | ------------------------------------------------- | ----------------------------------------------- |
-| `getMetadata` | `key`                                             | Reads size, content type and the rest           |
+| `getMetadata` | `key`                                             | Reads a stored file's metadata, not its bytes   |
 | `signUrl`     | `key`, `expiresIn?`, `operation?`, `contentType?` | Mints a time-limited URL for download or upload |
+
+`getMetadata` returns the file's catalogue entry, and its output keys are a stable contract:
+
+| Key            | Always present | Holds                                                                                                                                                      |
+| -------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `key`          | yes            | The storage key that was read                                                                                                                              |
+| `contentType`  | yes            | The stored content type, for example `image/png`                                                                                                           |
+| `size`         | yes            | The size in bytes, a number                                                                                                                                |
+| `lastModified` | yes            | When the file was stored, an ISO 8601 timestamp                                                                                                            |
+| `uploadedBy`   | no             | The id of the user who uploaded it — signed in, or through one of their API keys. Absent when nobody is recorded: an anonymous form, an automation, a seed |
+| `generatedBy`  | no             | The name of the automation whose document action wrote it. Absent for any other file                                                                       |
+
+So `{{steps.inspect.uploadedBy}}` names the uploader of the file a `getMetadata` step called `inspect` read, and a condition can check it is the account you expect; check it with `isNotEmpty` first, since an anonymous upload has none. The bucket the file belongs to is not part of the output. A key with no stored file is not a failure of the run: the step's output carries `error: file not found: <key>` instead, and a missing `key` carries `error: file.getMetadata requires a key`.
+
+`list` returns keys only — `files` is an array of `{ key }`, at most `limit` of them — so read one file's size, type or uploader with a `getMetadata` step per key.
 
 A download URL points at the app itself on every storage provider (local disk, the database, or an S3-compatible store): the app checks the link when it is followed and serves the file with no session needed, and refuses a link whose path, expiry or signature was altered, or whose lifetime has passed.
 

@@ -150,3 +150,143 @@ export const FormRecordAudioSchema = Schema.Struct({
 
 /** @public */
 export type FormRecordAudio = Schema.Schema.Type<typeof FormRecordAudioSchema>
+
+/**
+ * The autofill field names of the WHATWG HTML standard, in two families.
+ *
+ * A CONTACT field name may be preceded by a `home`, `work`, `mobile`, `fax` or
+ * `pager` hint; every other one may not. Written as data rather than as one
+ * regular expression so the grammar below reads as the standard does, and so a
+ * typo is refused by a list a reader can check by eye.
+ */
+const AUTOFILL_FIELD_NAMES: ReadonlySet<string> = new Set([
+  'name',
+  'honorific-prefix',
+  'given-name',
+  'additional-name',
+  'family-name',
+  'honorific-suffix',
+  'nickname',
+  'username',
+  'new-password',
+  'current-password',
+  'one-time-code',
+  'organization-title',
+  'organization',
+  'street-address',
+  'address-line1',
+  'address-line2',
+  'address-line3',
+  'address-level4',
+  'address-level3',
+  'address-level2',
+  'address-level1',
+  'country',
+  'country-name',
+  'postal-code',
+  'cc-name',
+  'cc-given-name',
+  'cc-additional-name',
+  'cc-family-name',
+  'cc-number',
+  'cc-exp',
+  'cc-exp-month',
+  'cc-exp-year',
+  'cc-csc',
+  'cc-type',
+  'transaction-currency',
+  'transaction-amount',
+  'language',
+  'bday',
+  'bday-day',
+  'bday-month',
+  'bday-year',
+  'sex',
+  'url',
+  'photo',
+])
+
+const AUTOFILL_CONTACT_FIELD_NAMES: ReadonlySet<string> = new Set([
+  'tel',
+  'tel-country-code',
+  'tel-national',
+  'tel-area-code',
+  'tel-local',
+  'tel-local-prefix',
+  'tel-local-suffix',
+  'tel-extension',
+  'email',
+  'impp',
+])
+
+const AUTOFILL_CONTACT_HINTS: ReadonlySet<string> = new Set([
+  'home',
+  'work',
+  'mobile',
+  'fax',
+  'pager',
+])
+
+/** Drop `first` from the head of `tokens` when `matches` accepts it. */
+const dropOptional = (
+  tokens: readonly string[],
+  matches: (token: string) => boolean
+): readonly string[] => (tokens[0] !== undefined && matches(tokens[0]) ? tokens.slice(1) : tokens)
+
+/**
+ * Is `value` an autofill detail the HTML standard defines?
+ *
+ * `on` or `off` alone, or — in this order, separated by spaces — an optional
+ * `section-<name>`, an optional `shipping` or `billing`, an optional contact
+ * hint before a contact field name, ONE field name, and an optional trailing
+ * `webauthn`. Compared case-insensitively, as browsers compare it.
+ */
+export const isAutofillDetail = (value: string): boolean => {
+  const tokens = value.trim().toLowerCase().split(/\s+/)
+  if (tokens.length === 1 && (tokens[0] === 'on' || tokens[0] === 'off')) return true
+  const withoutWebauthn = tokens.at(-1) === 'webauthn' ? tokens.slice(0, -1) : tokens
+  const afterSection = dropOptional(
+    withoutWebauthn,
+    (token) => token.startsWith('section-') && token.length > 'section-'.length
+  )
+  const afterMode = dropOptional(
+    afterSection,
+    (token) => token === 'shipping' || token === 'billing'
+  )
+  if (afterMode.length === 1) {
+    const [field] = afterMode as readonly [string]
+    return AUTOFILL_FIELD_NAMES.has(field) || AUTOFILL_CONTACT_FIELD_NAMES.has(field)
+  }
+  if (afterMode.length === 2) {
+    const [hint, field] = afterMode as readonly [string, string]
+    return AUTOFILL_CONTACT_HINTS.has(hint) && AUTOFILL_CONTACT_FIELD_NAMES.has(field)
+  }
+  return false
+}
+
+/**
+ * The browser autofill hint a form field carries, as the HTML `autocomplete`
+ * attribute.
+ *
+ * Omitted, a field takes the hint its TYPE implies — an email field `email`, a
+ * phone field `tel`, a link field `url` — and a field whose type implies none
+ * carries no attribute. Never derived from the field's NAME: a `name` column on
+ * a product form is not a person's name. `off` turns autofill off for the one
+ * field, and any other value must be an autofill detail the HTML standard
+ * defines; a typo is refused when the config is loaded, because a browser
+ * silently ignores a hint it does not know. The grammar is checked at the app
+ * level (`form-autocomplete-validation.ts`), so the refusal names the form and
+ * the field rather than their positions.
+ */
+export const FormFieldAutocompleteSchema = Schema.String.pipe(
+  Schema.annotate({
+    identifier: 'FormFieldAutocomplete',
+    title: 'Form Field Autocomplete',
+    description:
+      "Browser autofill hint for this field, written to the input's `autocomplete` attribute. Omit it and the field takes the hint its type implies (`email` for an email field, `tel` for a phone field, `url` for a link field), or none. `off` turns autofill off for this field; any other value must be an autofill detail of the HTML standard, such as `given-name`, `organization`, `postal-code` or `shipping street-address`.",
+    examples: ['given-name', 'organization', 'off', 'shipping postal-code', 'new-password'],
+  })
+)
+
+/** @public */
+export type FormFieldAutocomplete = Schema.Schema.Type<typeof FormFieldAutocompleteSchema>

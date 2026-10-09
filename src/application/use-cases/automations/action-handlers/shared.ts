@@ -9,7 +9,9 @@ import {
   findMultiSelectSelectionOverflows,
   findUndeclaredMultiSelectValues,
 } from '@/domain/models/app/tables/multi-select-values-validation'
+import type { LoopScope } from './loop-scope'
 import type { ContainerResume, RunPark } from './run-park'
+import type { RunWrittenFiles } from './run-written-files'
 import type { ExecutedStep, NestedStepRuns, StepRequirements } from '../run/types'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
@@ -79,6 +81,8 @@ export interface ActionOutcome {
   readonly nestedOutputs?: Readonly<Record<string, Record<string, unknown>>>
   /** Set by `path` and `loop`: the steps they ran, recorded like top-level ones. */
   readonly nestedSteps?: NestedStepRuns
+  /** Set by `path` and `loop`: how many nested `continueOnError` failures they tolerated. */
+  readonly toleratedFailures?: number
 }
 
 /**
@@ -95,11 +99,8 @@ export interface ActionOutcome {
  * Undefined for system-triggered automations (cron, automation-call) where
  * no caller user exists.
  *
- * `runId` is the `system.automation_runs.id` of the in-flight run. Threaded so
- * the `approval/request` handler can FK its pending row to the paused run
- * — the run-scoped resolution endpoint locates
- * the run via that link. Undefined when a run row was not persisted (the
- * scheduler could not seed `system.automation_runs`).
+ * `runId` is the in-flight run's id (the `approval/request` handler links its
+ * pending row to it); undefined when no run row was persisted.
  */
 export interface AutomationContext {
   readonly name: string
@@ -112,6 +113,8 @@ export interface AutomationContext {
    * `ExecuteAutomationRunInput.startedByHand`.
    */
   readonly startedByHand?: true
+  /** The files this run stored in a bucket (`run-written-files.ts`). */
+  readonly writtenFiles?: RunWrittenFiles
 }
 
 /**
@@ -227,10 +230,9 @@ export interface ActionRunContext {
    * 1-indexed retry attempt number for this action's dispatch. Threaded
    * through by `dispatchWithRetry` (run-automation.ts): 1 on the initial
    * call, 2 on the first retry, etc. Surfaced to the code-action sandbox
-   * as `context.run.attempt` so authors can short-circuit on retry — see
-   * Optional so handlers that don't care about
-   * retries can ignore it; the runtime always provides a value (defaults
-   * to 1 when called outside the retry loop).
+   * as `context.run.attempt` so authors can short-circuit on retry. Optional so
+   * handlers that don't care about retries can ignore it; the runtime always
+   * provides a value (defaults to 1 when called outside the retry loop).
    */
   readonly attempt?: number
 
@@ -238,6 +240,7 @@ export interface ActionRunContext {
   readonly stepIndex?: number
   /** Set on a loop or a path the run resumes inside (`run-park.ts`). */
   readonly resume?: ContainerResume
+  readonly loopScopes?: readonly LoopScope[] // the loops the action sits in (`./loop-scope`)
 
   /**
    * The record-event channel of this run: a record a step writes
@@ -261,6 +264,7 @@ export type NestedStepInvoker = (input: {
   readonly templateVars?: Readonly<Record<string, unknown>> // a named template's `$vars`, filled in
   readonly authored?: true // the props are as written, not final: the handler fills them in
   readonly resume?: ContainerResume // a container the run resumes inside
+  readonly loopScopes?: readonly LoopScope[] // the loops the action sits in, outermost first
 }) => Promise<{ readonly outcome: ActionOutcome; readonly step: ExecutedStep }>
 
 /** One write an automation step made, as the record triggers read it. */

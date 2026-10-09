@@ -207,11 +207,11 @@ export function validateRecordCreation(
     yield* validateAttachmentReferences(slugAppliedData)
     yield* validateAttachmentConstraints(slugAppliedData)
 
-    // Step 9.5: B-01 — persist inline `{ name, content }` attachment payloads
-    // to storage and replace them with the canonical
-    // `{ key, name, mimeType, size }` JSONB shape. Targets `'attachment'`
-    // JSONB columns only; the legacy `single-attachment` storage-key flow
-    // and its `storeMetadata: true` enrichment are left to step 10.
+    // Step 9.5: persist inline `{ name, content }` attachment payloads into
+    // each column's bucket and replace them with what the column holds — a
+    // key, a list of keys, or the `'attachment'` alias's metadata object.
+    // Content that is not base64 is refused here, before anything is stored;
+    // `storeMetadata: true` enrichment of the stored key is left to step 10.
     const persistedData = yield* uploadInlineAttachmentContent(slugAppliedData)
 
     // Step 10: Enrich attachment metadata when storeMetadata: true

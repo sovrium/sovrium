@@ -164,8 +164,8 @@ export const resolveWebviewTarget = (
 export const backendSource = (
   target: Exclude<WebviewTarget, { readonly kind: 'none' }>,
   timeoutMs: number,
-  resolveUrl: (cdpUrl: string) => Promise<string> = (cdpUrl) =>
-    resolveCdpWebSocketUrl(cdpUrl, { timeoutMs }),
+  resolveUrl: (cdpUrl: string, budgetMs: number) => Promise<string> = (cdpUrl, budgetMs) =>
+    resolveCdpWebSocketUrl(cdpUrl, { timeoutMs: budgetMs }),
   sandboxOff = false
 ): BackendSource => {
   if (target.kind === 'spawn') {
@@ -187,8 +187,8 @@ export const backendSource = (
   // Mutable on purpose: the memoised address, until a failure forgets it.
   const cache: { url?: Promise<string> } = {}
   return {
-    acquire: async () => {
-      const pending = cache.url ?? resolveUrl(target.cdpUrl)
+    acquire: async (budgetMs = timeoutMs) => {
+      const pending = cache.url ?? resolveUrl(target.cdpUrl, Math.min(budgetMs, timeoutMs))
       cache.url = pending
       await settleAfterClose()
       const url = await pending.catch((error: unknown) => {

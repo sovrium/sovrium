@@ -39,6 +39,7 @@ import { resolveRouteBoundTables } from '@/presentation/render/resolve/route-bou
 import { resolvePageRouteParams } from '@/presentation/render/resolve/route-param-props-resolver'
 import { resolveTabsLazyPanels } from '@/presentation/render/resolve/tabs-lazy-resolver'
 import { resolvePageWindowProps } from '@/presentation/render/resolve/window-props-resolver'
+import { resolvePageLanguage } from './page-lang-resolver'
 import { definedOnly, resolveAndFilterPage } from './page-row-scope-resolver'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -196,7 +197,7 @@ interface ResolveCollectionAndFilterInput {
 export async function resolveCollectionAndFilter(
   input: ResolveCollectionAndFilterInput
 ): Promise<Page | { readonly unauthorized: true } | undefined> {
-  const { app, routeParams, session, cookies, db, previewMode } = input
+  const { app, routeParams, session, cookies, previewMode } = input
   // P7 then the four `$`-reference passes, in one step — see
   // `prepareRequestPage`. `'not-found'` is the route-bound-table 404.
   const invited = await resolvePageInvitation(input.matchedPage, input)
@@ -205,6 +206,17 @@ export async function resolveCollectionAndFilter(
   // Pure pass-throughs to `resolveAndFilterPage` — the per-request locale and
   // query context, grouped so it reads as one thing.
   const { detectedLanguage, requestQuery } = input
+  // The page's served language rides on `db` to every `$record.` text site.
+  const { lang } = resolvePageLanguage(
+    matchedPage,
+    app.languages,
+    detectedLanguage,
+    input.urlLanguage
+  )
+  const db = {
+    ...input.db,
+    recordText: { locale: lang, tables: app.tables, languages: app.languages },
+  }
   // editorial-role preview bypasses
   // collection.filter so admins/editors can preview drafts at the
   // canonical public URL. The route layer guarantees `previewMode` is

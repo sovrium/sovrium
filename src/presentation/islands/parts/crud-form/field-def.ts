@@ -48,6 +48,8 @@ export interface FieldDef extends TypedColumnConfig {
   readonly maxLines?: number
   readonly toolbar?: readonly string[]
   readonly placeholder?: string
+  /** The browser autofill hint, resolved on the server (declared, or derived from the type). */
+  readonly autocomplete?: string
   readonly maxLength?: number
   readonly displayLabel?: string
   /**

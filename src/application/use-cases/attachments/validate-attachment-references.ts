@@ -22,6 +22,8 @@
  * 3. the writer may download from that bucket, under the SAME rule the bucket
  *    `GET` route applies — `public` short-circuits, a declared `download` is
  *    enforced with the admin override, an undeclared one requires a session.
+ *    An automation step writing as nobody instead needs its own run to have
+ *    stored the key there.
  *
  * Every failure is ONE refusal carrying ONE message. The three conditions are
  * all evaluated for every reference — the catalog is read even when the role
@@ -70,11 +72,15 @@ export class AttachmentReferenceRefused extends Data.TaggedError('AttachmentRefe
 
 /**
  * Who is writing. `authenticated: false` is an anonymous caller (no session);
- * `role` is the caller's resolved global role when there is a session.
+ * `role` is the caller's resolved global role when there is a session. `app`
+ * is the app itself — an automation step that writes as nobody — for which
+ * condition (3) becomes "its own run stored this key in this bucket": such a
+ * step attaches no file that existed before its run, whoever stored it.
  */
 export interface AttachmentWriter {
   readonly authenticated: boolean
   readonly role?: string
+  readonly app?: { readonly wroteThisRun: (bucket: string, key: string) => boolean }
 }
 
 /**
@@ -93,6 +99,7 @@ const writerMayDownload = (
   const { scope, writer, publicAccess } = input
   const bucket = resolveUploadBucket(scope.app, bucketName)
   if (bucket === undefined) return false
+  if (writer.app !== undefined) return writer.app.wroteThisRun(bucketName, key)
   if (bucket.public === true || isFilePublic(publicAccess, key)) return true
   const caller = writer.authenticated
     ? writer.role === undefined

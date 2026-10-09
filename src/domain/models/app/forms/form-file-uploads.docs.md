@@ -109,6 +109,10 @@ type FileMetadata = {
 
 Where the content announces its type — markup, or the signature of a PNG, JPEG, GIF or WebP image — that **detected** type is what is stored, rather than the upload's own claim; otherwise the declared type is kept.
 
+### Exposing an existing column through a form
+
+Referencing an attachment column from a form changes how that column is stored. A `single-attachment` column that no form uses holds the bare storage key of its file; once a form references it, the column holds the metadata object above, so on PostgreSQL it becomes a JSON column. The conversion runs on the next boot after the deploy that adds the form, even when nothing else in the tables changed. Each stored key becomes `{ "key": <key> }`, which reads back with its URL like any other file, and a row without a file (empty or null) stays without one. SQLite stores both shapes as text and needs no conversion.
+
 ## Recording audio in the browser
 
 Add `recordAudio` to an attachment field and the person filling in the form gets a **Record audio** button beside the file picker. They press Record audio, speak, press **Stop recording**, and the recording becomes a file on the field. It is uploaded to the field's bucket, shown as a removable chip, and submitted with the same `{ url, name, size, mimeType }` metadata as a picked file. The picker stays available, so a voice memo recorded on a phone (`.m4a`) can be uploaded instead.

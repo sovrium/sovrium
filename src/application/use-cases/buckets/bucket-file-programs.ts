@@ -18,7 +18,7 @@
  * a property of the operation.
  */
 
-import { Data, Effect } from 'effect'
+import { Data, Effect, Option } from 'effect'
 import {
   ImageTransformService,
   type NegotiatedTransformFailure,
@@ -28,7 +28,7 @@ import {
   isStorageObjectNotFound,
 } from '@/application/ports/services/storage-service'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
-import type { StorageError } from '@/application/ports/services/storage-service'
+import type { StorageError, StoredSpelling } from '@/application/ports/services/storage-service'
 import type { TransformParams } from '@/domain/models/app/buckets/image-transform-params'
 
 /**
@@ -138,6 +138,19 @@ export const readStoredObjectOwner = (input: {
     if (isStorageObjectNotFound(found.failure)) return { stored: false } as const
     return yield* found.failure
   }).pipe(Effect.withSpan('buckets.read-object-owner'))
+
+/**
+ * The stored object, other than `key` itself and in any bucket, that a write
+ * at `key` would land on — what a write door reads to answer a second spelling
+ * of a stored key the way the stored key itself would be answered.
+ */
+export const readOtherSpelling = (input: {
+  readonly key: string
+}): Effect.Effect<StoredSpelling | undefined, StorageError, StorageService> =>
+  Effect.gen(function* () {
+    const storage = yield* StorageService
+    return Option.getOrUndefined(yield* storage.findOtherSpelling(input.key))
+  }).pipe(Effect.withSpan('buckets.read-other-spelling'))
 
 /** Remove a file from a bucket. */
 export const removeBucketFile = (input: {

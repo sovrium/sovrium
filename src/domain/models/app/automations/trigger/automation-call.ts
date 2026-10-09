@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { TriggerNameSchema } from './trigger-name'
 
 /**
  * Automation Call Trigger
@@ -25,6 +26,9 @@ export const AutomationCallTriggerSchema = Schema.Struct({
         "Constant value 'automation-call' for type discrimination in discriminated unions",
     })
   ),
+
+  /** Name of this trigger within its automation (defaults to its type) */
+  name: Schema.optional(TriggerNameSchema),
   inputSchema: Schema.optional(
     Schema.Record(Schema.String, Schema.Unknown).pipe(
       Schema.annotate({

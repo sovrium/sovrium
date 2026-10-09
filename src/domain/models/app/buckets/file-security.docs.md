@@ -11,7 +11,7 @@ Each step is total: nothing sanitises and continues.
 | Step | Check                                                          | Rejection                         |
 | ---- | -------------------------------------------------------------- | --------------------------------- |
 | 1    | The filename contains a parent segment, a slash or a backslash | `400`                             |
-| 2    | The filename contains a null byte                              | `400`                             |
+| 2    | The filename contains a null byte, or is over 218 bytes        | `400`                             |
 | 3    | The size exceeds the bucket's cap, or the global one           | `413`                             |
 | 4    | The type is not in the bucket's allow-list                     | `400`                             |
 | 5    | The bucket's `upload` rule excludes the caller                 | `401` anonymous, `404` wrong-role |
@@ -21,7 +21,9 @@ Steps 1 to 4 run **before** the permission gate, so a malformed or oversized upl
 
 **The first four run before the auth check.** That ordering is intentional: an oversized or malformed upload is rejected on its own merits, so an unauthenticated client cannot use the auth boundary to learn whether its payload would otherwise have been accepted.
 
-An explicit path follows a slightly different rule set — a slash is allowed, since path prefixes are the whole point, but a leading slash, an empty value, a parent segment, a backslash and a null byte are all refused.
+An explicit path follows a slightly different rule set — a slash is allowed, since path prefixes are the whole point, but a leading or trailing slash, an empty value, an empty, `.` or parent segment, a backslash and a null byte are all refused. So is a path over 1024 bytes, or one with a segment over 255 bytes: no storage provider can hold such a key. A filename gets 218 bytes because the generated identifier in front of it takes the rest of that 255.
+
+When Sovrium runs on Windows, as the desktop app can, files are stored on a Windows disk, which reads some names as other names: `a:b.png` is a hidden part of the file `a`, and `report.pdf.` or `report.pdf ` opens `report.pdf`. There, a filename or path holding `<`, `>`, `:`, `"`, `|`, `?`, `*` or a control character, or with a segment ending in `.` or a space, is refused with `400`. These are ordinary characters on every other system.
 
 ## MIME allow-lists
 

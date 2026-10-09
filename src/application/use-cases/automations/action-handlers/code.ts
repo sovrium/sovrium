@@ -9,6 +9,7 @@ import vm from 'node:vm'
 import { Effect } from 'effect'
 import ts from 'typescript'
 import { authoredReferenceRoots } from '../authored-references'
+import { buildAutomationContext, type TriggerData } from '../resolve-trigger-data'
 import { resolveCodeInputData } from './code-input-resolution'
 import { createCodeLogCollector } from './code-log-collector'
 import { authoredActionProps } from './run-context-resolution'
@@ -36,41 +37,6 @@ import type { ActionHandler, ActionOutcome } from './shared'
  */
 
 const DEFAULT_TIMEOUT_MS = 30_000
-
-/**
- * Build the `trigger.data` view exposed to the code's `context.trigger.data`
- * AND used as the substitution context for `inputData` template resolution.
- *
- * For webhook triggers (`triggerData.body` is the parsed JSON body), we
- * surface `body` as the canonical `data`. This lets code authors write
- * `context.trigger.data.userId` instead of `context.trigger.data.body.userId`
- * — matching spec convention.
- *
- * All other keys on `triggerData` are passed through verbatim so authors
- * can still reach the raw HTTP envelope (`headers`/`query`/`method`/…) and
- * trigger-kind-specific payloads (`record` / `previousRecord` for
- * record-event, `firedAt` for cron, etc.). The pass-through is dynamic
- * rather than a hardcoded allowlist — see the matching reasoning in
- * `resolve-trigger-data.ts#buildAutomationContext`.
- */
-const buildCodeTriggerView = (
-  triggerData: Readonly<Record<string, unknown>>
-): Readonly<Record<string, unknown>> => {
-  const { body } = triggerData
-  const fromBody: Readonly<Record<string, unknown>> =
-    body !== undefined && body !== null && typeof body === 'object'
-      ? { ...(body as Record<string, unknown>) }
-      : {}
-  // Pass through every non-body key on triggerData NOT already in the flattened
-  // body (body wins, so `context.trigger.data.X` is the body field), except the
-  // caller identity, which is `context.trigger.user` only.
-  const envelopeAdditions = Object.fromEntries(
-    Object.keys(triggerData)
-      .filter((key) => key !== 'requester' && triggerData[key] !== undefined && !(key in fromBody))
-      .map((key) => [key, triggerData[key]] as const)
-  )
-  return { ...fromBody, ...envelopeAdditions }
-}
 
 // Code-action `inputData` template resolution (PURE_TEMPLATE detection +
 // typed-primitive re-typing) lives in `code-input-resolution.ts` so this
@@ -165,7 +131,6 @@ const buildResolutionContext = (input: {
   readonly actions: Readonly<Record<string, unknown>>
   readonly log: Readonly<Record<string, (...args: ReadonlyArray<unknown>) => void>>
 }): Readonly<Record<string, unknown>> => {
-  const triggerView = buildCodeTriggerView(input.triggerData)
   return {
     // Prior step outputs are spread at the root so `{{stepName.property}}`
     // resolves directly (the cross-cutting action-feature convention).
@@ -173,7 +138,10 @@ const buildResolutionContext = (input: {
     // below. Reserved keys (`trigger`, `steps`, `env`, …) are written AFTER
     // the spread so a step named `trigger`/`steps`/`env` cannot shadow them.
     ...input.previousSteps,
-    trigger: { data: triggerView, user: input.triggerData['requester'] },
+    // The same `trigger` a step's templates read: `data`, `user` and the
+    // lifted keys (`input`, `record`, `caller`, …), so an `inputData`
+    // reference resolves here exactly as it does in any other step.
+    trigger: buildAutomationContext(input.triggerData as TriggerData)['trigger'],
     steps: input.previousSteps,
     env: input.env,
     inputData: input.inputData,

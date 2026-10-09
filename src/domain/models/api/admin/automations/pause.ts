@@ -71,6 +71,26 @@ const automationPauseReasonSchema = Schema.NullOr(Schema.Literal('consecutive-fa
 export type AutomationPauseReason = typeof automationPauseReasonSchema.Type
 
 /**
+ * One trigger entry of a catalogued automation.
+ *
+ * `name` is the entry's own `name`, else its `type` — the same word a run of
+ * that entry records as `triggerName` and the run history filters on, so the
+ * catalog and the history name a trigger identically.
+ */
+const automationCatalogTriggerSchema = Schema.Struct({
+  type: Schema.String.annotate({
+    description: "Trigger type discriminator, e.g. 'webhook', 'cron', 'record', 'manual'",
+  }),
+  name: Schema.String.annotate({
+    description:
+      "The trigger's name: its own `name`, else its type. The word a run started by it records as `triggerName`",
+  }),
+}).annotate({ identifier: 'AutomationCatalogTrigger' })
+
+/** @public */
+export type AutomationCatalogTrigger = typeof automationCatalogTriggerSchema.Type
+
+/**
  * One row of the automations catalog.
  *
  * `pausedBy` / `pausedAt` are present ONLY when `state === 'paused'`. They are
@@ -90,7 +110,12 @@ export const automationCatalogItemSchema = Schema.Struct({
     Schema.String.annotate({ description: 'Human-readable label from config, when set' })
   ),
   trigger: Schema.String.annotate({
-    description: "Trigger type discriminator, e.g. 'webhook', 'cron', 'record', 'form'",
+    description:
+      "The FIRST trigger's type, e.g. 'webhook', 'cron', 'record', 'form'. Kept for existing readers; `triggers` lists every entry",
+  }),
+  triggers: Schema.Array(automationCatalogTriggerSchema).annotate({
+    description:
+      'Every trigger the automation starts on, in declaration order. A single `trigger` reads as a one-entry list',
   }),
   state: automationOperationalStateSchema,
   pausedBy: optionalField(
@@ -124,6 +149,16 @@ export type AutomationCatalogItem = typeof automationCatalogItemSchema.Type
 export const automationsCatalogResponseSchema = Schema.Struct({
   items: Schema.Array(automationCatalogItemSchema).annotate({
     description: 'Every automation declared in config, in config order',
+  }),
+  triggerNames: Schema.Array(
+    Schema.Struct({
+      name: Schema.String.annotate({
+        description: 'A trigger name, as a run records it and `?triggerName=` filters on it',
+      }),
+    })
+  ).annotate({
+    description:
+      'Every distinct trigger name across the catalog, in config order of first appearance: the choices of a run filter by trigger',
   }),
 }).annotate({ identifier: 'AutomationsCatalogResponse' })
 

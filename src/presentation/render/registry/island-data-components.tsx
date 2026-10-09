@@ -18,6 +18,7 @@ import {
 } from '@/presentation/design/table-default-classes'
 import { computeTimelineShellClasses } from '@/presentation/design/timeline-default-classes'
 import { withGridChipPart } from '@/presentation/render/props/option-badge-paints'
+import { withRecordTextProp } from '@/presentation/render/props/record-value-format'
 import {
   resolveRowExpandDrawerProps,
   resolveRowExpandRowClick,
@@ -127,9 +128,8 @@ function extractKanbanProps(elementProps: Record<string, unknown>): Record<strin
     columnOptions: elementProps.columnOptions,
     columnColors: elementProps.columnColors,
     // The SECOND grouping axis and its declared lane values. Both have to pass
-    // this gate AND the `kanban` entry of `type-specific-props-builder.ts` to
-    // reach the browser; a key added to one and not the other arrives as
-    // `undefined` with no error anywhere, and the board silently draws flat.
+    // this gate AND the `kanban` entry of `type-specific-props-builder.ts`: a key
+    // added to one only arrives as `undefined`, and the board silently draws flat.
     swimlanes: elementProps.swimlanes,
     swimlaneOptions: elementProps.swimlaneOptions,
     // `optionValue → hex` for the field `card.colorField` names, resolved
@@ -291,9 +291,9 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
   },
   chart: islandChartComponent,
   kpi: islandKpiComponent,
-  kanban: ({ elementProps, currentLang, languages }) => {
-    const propsJson = JSON.stringify(extractKanbanProps(elementProps))
-
+  kanban: ({ elementProps, currentLang, languages, tables }) => {
+    const text = { tables, languages, locale: currentLang }
+    const propsJson = JSON.stringify(withRecordTextProp(extractKanbanProps(elementProps), text))
     return (
       <div
         data-island="kanban"

@@ -12,6 +12,7 @@ import {
 } from '@/domain/models/app/tables/authorship-fields'
 import { normalizeDateValuesIn } from '@/domain/models/app/tables/empty-date-service'
 import { buildSyntheticSession } from '../build-guest-session'
+import { admitAttachments, type AttachmentAdmission } from './record-attachment-gate'
 import { failed, batchOutcome, runBatchItems } from './record-batch-loop'
 import {
   CALLER_REFUSAL,
@@ -38,11 +39,6 @@ export type GateRequirements = StepRequirements
 /**
  * The `record` batch operators: `batchCreate`, `batchUpdate`, `batchDelete` and
  * `batchUpsert`.
- *
- * All but `batchCreate` were declarable in AppSchema — documented, validated,
- * accepted by `sovrium validate` — with no registered handler, so every run
- * dispatched them to the registry's no-op fallback, recorded the step as
- * successful, and wrote nothing.
  *
  * ── Why these loop the single-record write roads ─────────────────────────────
  *
@@ -107,6 +103,26 @@ export const asRecord = (value: unknown): BatchProps | undefined =>
     ? (value as Record<string, unknown>)
     : undefined
 
+/**
+ * An item's write judged: the caller gate first, then the attachment rules for
+ * the writer the batch writes as, which also store its inline files.
+ */
+const itemAdmission = (input: {
+  readonly app: App
+  readonly automation: AutomationContext
+  readonly tableName: string
+  readonly values: Readonly<Record<string, unknown>>
+  readonly requests: readonly CallerWriteRequest[]
+}): Effect.Effect<AttachmentAdmission, never, GateRequirements> =>
+  Effect.gen(function* () {
+    const refused = yield* callerRefusal(input.app, input.automation, input.requests)
+    if (refused !== undefined) return { status: 'failure', error: refused.error } as const
+    const { automation } = input
+    return yield* admitAttachments({
+      ...{ ...input, actorId: writerActorOf(automation), written: automation.writtenFiles },
+    })
+  })
+
 // ---------------------------------------------------------------------------
 // record/batchCreate
 // ---------------------------------------------------------------------------
@@ -133,17 +149,18 @@ const createItem = (input: {
     // it takes `app` optionally and this caller passes none.
     const multiSelectError = findMultiSelectViolationMessage(app, tableName, fields)
     if (multiSelectError) return failed(multiSelectError)
-    const refused = yield* callerRefusal(app, automation, [{ op: 'create', tableName, fields }])
-    if (refused !== undefined) return failed(refused.error)
     const loop = recordEventLoopRefusal(runContext, tableName, 'create')
     if (loop !== undefined) return failed(loop.error ?? 'record-event loop')
+    const requests = [{ op: 'create', tableName, fields }] as const
+    const admitted = yield* itemAdmission({ app, automation, tableName, values: fields, requests })
+    if (admitted.status === 'failure') return failed(admitted.error)
 
     const created = yield* Effect.result(
       createAndAnnounce({
         session,
         app,
         tableName,
-        fields: { ...normalizeDateValuesIn(app.tables, tableName, fields), ...authorship },
+        fields: { ...normalizeDateValuesIn(app.tables, tableName, admitted.values), ...authorship },
         runContext,
       })
     )
@@ -290,12 +307,23 @@ const applyUpdateItem = (input: {
       // broken integration report a clean run forever.
       return failed(`batchUpdate item matched no records in '${tableName}'`)
     }
-    if (!(yield* callerMayWrite(app, automation, updatesOf(tableName, ids, data)))) {
-      return failed(CALLER_REFUSAL)
-    }
-
+    const requests = updatesOf(tableName, ids, data)
+    if (!(yield* callerMayWrite(app, automation, requests))) return failed(CALLER_REFUSAL)
     const actorId = writerActorOf(automation)
-    return yield* writeUpdates({ actorId, tableName, ids, data, app, automation, runContext })
+    const admitted = yield* admitAttachments({
+      ...{ app, actorId, tableName, values: data, requests, written: automation.writtenFiles },
+    })
+    if (admitted.status === 'failure') return failed(admitted.error)
+    const { values } = admitted
+    return yield* writeUpdates({
+      actorId,
+      tableName,
+      ids,
+      data: values,
+      app,
+      automation,
+      runContext,
+    })
   })
 
 export const handleRecordBatchUpdate: ActionHandler = (action, app, automation, runContext) =>
@@ -373,13 +401,16 @@ const upsertItem = (input: {
       ids.length === 0
         ? [{ op: 'create', tableName, fields: data }]
         : updatesOf(tableName, ids, data)
-    const refused = yield* callerRefusal(app, automation, writes)
-    if (refused !== undefined) return failed(refused.error)
+    const admitted = yield* itemAdmission({
+      ...{ app, automation, tableName, values: data, requests: writes },
+    })
+    if (admitted.status === 'failure') return failed(admitted.error)
     const actorId = writerActorOf(automation)
     const session = buildSyntheticSession(actorId)
+    const { values } = admitted
     return ids.length === 0
-      ? yield* createUpsertRow({ session, actorId, tableName, data, app, runContext })
-      : yield* writeUpdates({ actorId, tableName, ids, data, app, automation, runContext })
+      ? yield* createUpsertRow({ session, actorId, tableName, data: values, app, runContext })
+      : yield* writeUpdates({ actorId, tableName, ids, data: values, app, automation, runContext })
   })
 
 const createUpsertRow = (input: {

@@ -21,7 +21,11 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState, type ReactElement } from 'react'
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  substituteRecordVars,
+  withRecordText,
+} from '@/domain/models/app/pages/substitute-record-vars'
+import { restoreInertTemplateValue } from '@/presentation/design/session-template'
 import { nullable, READ_ONCE_QUERY_OPTIONS } from './query-client'
 import { fetchSessionUser, resolveSessionTemplate } from './session-resolver'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
@@ -146,7 +150,7 @@ export interface ObjectConfirmDialogProps {
  */
 function resolveRecordTemplate(
   template: string,
-  record: Record<string, unknown> | undefined
+  record: Readonly<Record<string, unknown>> | undefined
 ): string {
   return record === undefined ? template : substituteRecordVars(template, record)
 }
@@ -163,7 +167,7 @@ function useResolvedMatchValue(
 ): string | undefined {
   const [matchValue, setMatchValue] = useState<string | undefined>(() =>
     rawMatch !== undefined && !rawMatch.includes('$session.')
-      ? resolveRecordTemplate(rawMatch, record)
+      ? restoreInertTemplateValue(resolveRecordTemplate(rawMatch, record))
       : undefined
   )
   // Only a `$session.`-bearing template needs the identity; everything else was
@@ -178,8 +182,11 @@ function useResolvedMatchValue(
 
   useEffect(() => {
     if (!needsSession || user === undefined) return
+    // A value the server filled in is restored LAST, after every token resolved.
     setMatchValue(
-      resolveRecordTemplate(resolveSessionTemplate(rawMatch ?? '', user ?? undefined), record)
+      restoreInertTemplateValue(
+        resolveRecordTemplate(resolveSessionTemplate(rawMatch ?? '', user ?? undefined), record)
+      )
     )
   }, [needsSession, user, rawMatch, record])
   return matchValue
@@ -188,6 +195,12 @@ function useResolvedMatchValue(
 /**
  * The words an object-form gate shows: its title and message with `$record.*`
  * filled from the row it was armed for, and its two button labels.
+ *
+ * The title and message are TEXT sites: a record that carries its formatted text
+ * (a record drawer's, `withRecordTextFields`) prints it there, exactly as the
+ * server prints the same value on a record page; `<field>.raw` keeps the stored
+ * value. The type-to-confirm `matchValue` is a VALUE site and reads the record
+ * as stored ({@link useResolvedMatchValue}).
  */
 function gateTexts(
   config: ConfirmObject,
@@ -195,9 +208,10 @@ function gateTexts(
   fallbackConfirmLabel: string,
   fallbackCancelLabel: string
 ): { title: string; message: string; confirmLabel: string; cancelLabel: string } {
+  const text = record === undefined ? undefined : withRecordText(record)
   return {
-    title: resolveRecordTemplate(config.title ?? config.message, record),
-    message: resolveRecordTemplate(config.message, record),
+    title: resolveRecordTemplate(config.title ?? config.message, text),
+    message: resolveRecordTemplate(config.message, text),
     confirmLabel: config.confirmLabel ?? fallbackConfirmLabel,
     cancelLabel: config.cancelLabel ?? fallbackCancelLabel,
   }

@@ -25,7 +25,7 @@ const BundleSourceSchema = Schema.Union([
     objectKey: TemplateStringSchema.pipe(
       Schema.annotate({
         description:
-          'Storage key of the bundle archive in this app’s own storage (supports template variables)',
+          'Storage key of the bundle archive — one this app uploaded, or one another app wrote into a shared bucket: the object’s size is read from the store and no catalog row is required (supports template variables)',
       })
     ),
   }),

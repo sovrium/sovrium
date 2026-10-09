@@ -85,6 +85,27 @@ const side = (length: Length, viewBoxSide: number | undefined): number | undefin
 }
 
 /**
+ * The text with its `<!-- … -->` comments taken out, read left to right as an
+ * XML parser does: a comment runs to the first `-->` after its `<!--`, and the
+ * text after it is never re-scanned, so removing one cannot assemble another.
+ * An unterminated `<!--` is kept as written. The result is only searched for
+ * the root element, never emitted.
+ */
+const withoutComments = (svg: string): string => {
+  let kept = ''
+  let from = 0
+  for (;;) {
+    const open = svg.indexOf('<!--', from)
+    const close = open === -1 ? -1 : svg.indexOf('-->', open + 4)
+    if (close === -1) {
+      return kept + svg.slice(from)
+    }
+    kept += svg.slice(from, open)
+    from = close + 3
+  }
+}
+
+/**
  * The SVG's own size, as resvg resolves it: a missing or percentage side is
  * that share of the `viewBox` side. With no `viewBox` either, resvg measures
  * the drawing itself, which only it can do — 100 is taken here, and the
@@ -92,7 +113,7 @@ const side = (length: Length, viewBoxSide: number | undefined): number | undefin
  * when the text holds no `<svg>` root.
  */
 export const intrinsicSvgSize = (svg: string): PixelSize | undefined => {
-  const root = ROOT.exec(svg.replace(/<!--[\s\S]*?-->/g, ''))
+  const root = ROOT.exec(withoutComments(svg))
   if (root === null) return undefined
   const attributes = root[1] ?? ''
   const viewBox = viewBoxOf(attributes)

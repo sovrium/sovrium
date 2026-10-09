@@ -30,7 +30,12 @@ import {
   type ResumeCursor,
 } from '@/domain/models/app/automations/run-resume-cursor-service'
 import { resumedWaitOutput, type ContainerResume } from '../action-handlers/run-park'
-import { outputsOfStored, readStoredNested } from './nested-step-record'
+import {
+  outputsOfStored,
+  readStoredNested,
+  toleratedInStored,
+  type StoredNestedStep,
+} from './nested-step-record'
 import type {
   CreateStepInput,
   PersistedStep,
@@ -52,6 +57,11 @@ export interface ResumeSegmentPlan {
   readonly waitRow?: CreateStepInput
   /** Paused inside a loop or a path: how it re-enters. */
   readonly container?: ContainerResume
+  /**
+   * Failures `continueOnError` let the run go past before it parked, at any
+   * depth: the resumed run still ends `completed-with-errors` for them.
+   */
+  readonly priorTolerated: number
 }
 
 /** The plan, or why the run is cancelled instead. */
@@ -59,12 +69,32 @@ export type ResumePlan =
   | { readonly kind: 'resume'; readonly segment: ResumeSegmentPlan }
   | { readonly kind: 'cancel'; readonly error: string }
 
-/** A step row as the stored-output reader takes it. */
-const asStored = (row: PersistedStep) => ({
+/** A step row as the stored-step readers take it. */
+const asStored = (row: PersistedStep): StoredNestedStep => ({
   name: row.actionName,
+  type: '',
+  status: row.status === 'failed' ? 'failed' : 'completed',
   output: row.output,
   ...readStoredNested(row.nested),
 })
+
+/**
+ * What the steps before the paused one leave the resumed run: their outputs,
+ * and the failures among them — each was followed by another step, so each
+ * was tolerated.
+ */
+const beforeThePark = (rows: readonly PersistedStep[]) => {
+  const before = rows.map(asStored)
+  return { seed: outputsOfStored(before), priorTolerated: toleratedInStored(before, false) }
+}
+
+/**
+ * The failures `continueOnError` let the stored steps `rows` go past, at any
+ * depth — what a run resumed past them (a park, an approval) still owes its
+ * `completed-with-errors`.
+ */
+export const toleratedInRows = (rows: readonly PersistedStep[]): number =>
+  beforeThePark(rows).priorTolerated
 
 /** The row a resumed wait step is rewritten to. */
 const waitRowOf = (
@@ -99,7 +129,7 @@ export const planResume = (input: {
   if (frame === undefined || paused === undefined || action === undefined) {
     return { kind: 'cancel', error: 'The run could not find where it paused.' }
   }
-  const seed = outputsOfStored(steps.slice(0, pausedIndex).map(asStored))
+  const { seed, priorTolerated } = beforeThePark(steps.slice(0, pausedIndex))
   if (inner.length === 0) {
     const output = resumedWaitOutput(action, paused.output, resumedAt)
     const segment: ResumeSegmentPlan = {
@@ -108,6 +138,7 @@ export const planResume = (input: {
       pausedRow: paused.stepIndex,
       seedOutputs: { ...seed, [frame.step]: output },
       waitRow: waitRowOf(paused, output),
+      priorTolerated,
     }
     return { kind: 'resume', segment }
   }
@@ -119,6 +150,7 @@ export const planResume = (input: {
     pausedRow: paused.stepIndex,
     seedOutputs: seed,
     container,
+    priorTolerated,
   }
   return { kind: 'resume', segment }
 }

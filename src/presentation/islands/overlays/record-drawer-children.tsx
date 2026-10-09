@@ -40,7 +40,10 @@
  */
 
 import { useCallback, useEffect, useRef, type ReactElement } from 'react'
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  substituteRecordVars,
+  withRecordText,
+} from '@/domain/models/app/pages/substitute-record-vars'
 import { paintQrTemplates } from '@/presentation/islands/runtime/qr-template'
 import { mountNestedIslands } from './live-injected-markup'
 import {
@@ -77,7 +80,8 @@ function resolveSlotTokens(
     const source = pristine.get(text) ?? text.nodeValue ?? ''
     if (!source.includes('$record.')) return
     pristine.set(text, source)
-    const next = substituteRecordVars(source, record)
+    // A TEXT site: a formatted field prints its text, `<field>.raw` the stored value.
+    const next = substituteRecordVars(source, withRecordText(record))
     // eslint-disable-next-line no-param-reassign -- writing the resolved text into the DOM is the contract here, exactly as in `distributeRecord`
     if (next !== text.nodeValue) text.nodeValue = next
   })

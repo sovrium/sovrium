@@ -8,6 +8,7 @@
 /** The HTTP half of a bucket write once it has been admitted: the stored upload, and a failed delete. */
 
 import { Effect } from 'effect'
+import { StorageKeySpellingTaken } from '@/application/ports/services/storage-service'
 import {
   checkStorageQuota,
   storeBucketFile,
@@ -16,6 +17,7 @@ import { logError } from '@/infrastructure/logging/logger'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
 import { buildUploadStorageKey } from '@/infrastructure/storage/upload-key'
+import { spellingTaken } from '@/presentation/api/buckets/object-ownership-gate'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { isNotFoundError } from '@/presentation/api/runtime/error-sanitizer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -73,6 +75,8 @@ export async function persistUpload(
     if (isNotFoundError(cause)) {
       return notFound(c, 'File not found')
     }
+    // Another spelling of the key was stored since the route checked it.
+    if (cause instanceof StorageKeySpellingTaken) return spellingTaken(c)
     const message = cause instanceof Error ? cause.message : String(cause)
     return c.json(storageErrorBody(`Upload failed: ${message}`, 'STORAGE_ERROR'), 500)
   }

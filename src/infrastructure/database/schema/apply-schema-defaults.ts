@@ -19,8 +19,16 @@ import type { Table } from '@/domain/models/app/tables'
  * The set key is tableName::columnName so an attachment column on one
  * table is not auto-upgraded just because another table happens to have
  * the same column name.
+ *
+ * Also resolved INTO the schema snapshot (`migration-audit-trail.ts`): a form
+ * that starts referencing an attachment column changes how that column is
+ * stored, so it must change the checksum too, or a form-only deploy would take
+ * the fast path and the column would stay `VARCHAR` while the form writes
+ * metadata objects into it. For an app with no such form the upgrade is a
+ * no-op, so its checksum — and every snapshot an older binary wrote — is
+ * unchanged.
  */
-const upgradeFormReferencedAttachments = (
+export const upgradeFormReferencedAttachments = (
   tables: readonly Table[],
   app: Readonly<App>
 ): readonly Table[] => {

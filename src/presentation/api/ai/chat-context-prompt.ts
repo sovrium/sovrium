@@ -20,6 +20,7 @@ import {
   type ContextTable,
   type ContextAutomation,
 } from '@/domain/models/app/agents/ai-chat-context'
+import { triggerOfTypeOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { projectAppTables } from './chat-table-projection'
 import type { App } from '@/domain/models/app'
 
@@ -48,7 +49,8 @@ const toContextAutomations = (app: App | undefined): ReadonlyArray<ContextAutoma
   (app?.automations ?? []).map((automation) => ({
     name: automation.name,
     ...(automation.description !== undefined && { description: automation.description }),
-    trigger: { type: automation.trigger.type },
+    // Triggerable from chat when one of its triggers is manual.
+    trigger: { type: triggerOfTypeOrFirst(automation, 'manual').type },
   }))
 
 /**

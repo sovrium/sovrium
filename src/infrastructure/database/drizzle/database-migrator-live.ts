@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import { DatabaseMigrator } from '@/application/ports/services/database-migrator'
+import { reserveListenerConnections } from '../sql/postgres-connection-budget'
 import { runMigrations } from './migrate'
 
 /**
@@ -15,5 +16,10 @@ import { runMigrations } from './migrate'
  */
 export const DatabaseMigratorLive = Layer.succeed(
   DatabaseMigrator,
-  DatabaseMigrator.of({ migrate: (config) => runMigrations(config) })
+  DatabaseMigrator.of({
+    migrate: (config, options) =>
+      Effect.sync(() => reserveListenerConnections(options?.listeners ?? 0)).pipe(
+        Effect.andThen(runMigrations(config))
+      ),
+  })
 )

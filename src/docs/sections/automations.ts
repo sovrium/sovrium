@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { AutomationSchema } from '@/domain/models/app/automations/automation'
+import { AutomationInputSchema } from '@/domain/models/app/automations/automation'
 import automationRetryFailureBody from '@/domain/models/app/automations/automation-retry-failure.docs.md' with { type: 'file' }
 import automationRunsBody from '@/domain/models/app/automations/automation-runs.docs.md' with { type: 'file' }
 import automationTriggersBody from '@/domain/models/app/automations/automation-triggers.docs.md' with { type: 'file' }
@@ -52,7 +52,7 @@ export const automations = defineSection({
       order: 5000,
       sidebarLabel: 'Automations Overview',
       body: automationsOverviewBody,
-      documents: [AutomationSchema],
+      documents: [AutomationInputSchema],
       stories: [
         'US-AUTOMATIONS-AUTOMATION-DEFINITIONS-001',
         'US-AUTOMATIONS-AUTOMATION-DEFINITIONS-002',
@@ -115,7 +115,7 @@ export const automations = defineSection({
       slug: 'automation-triggers',
       title: 'Triggers Overview',
       description:
-        'The nine automation trigger types at a glance — what starts each one, the context it exposes, and where each is configured in detail.',
+        'The nine automation trigger types at a glance — what starts each one, the context it exposes, how one automation starts on several, and where each is configured in detail.',
       keywords: [
         'sovrium',
         'automation triggers',
@@ -130,12 +130,17 @@ export const automations = defineSection({
         'automation-failure',
         'comment',
         'trigger context',
+        'multiple triggers',
       ],
       order: 5010,
       sidebarLabel: 'Triggers Overview',
       body: automationTriggersBody,
       documents: [],
-      stories: ['US-AUTOMATIONS-TRIGGERS-001', 'US-AUTOMATIONS-TRIGGERS-SCHEDULE'],
+      stories: [
+        'US-AUTOMATIONS-TRIGGERS-001',
+        'US-AUTOMATIONS-TRIGGERS-SCHEDULE',
+        'US-AUTOMATIONS-TRIGGERS-MULTIPLE-TRIGGERS',
+      ],
     }),
     defineArticle({
       slug: 'automation-runs',

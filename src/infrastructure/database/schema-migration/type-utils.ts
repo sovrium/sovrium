@@ -235,6 +235,31 @@ const resolveUsingClause = (
 }
 
 /**
+ * The `USING` clause for a `single-attachment` column moving from a bare key
+ * (`VARCHAR`/`TEXT`) to `JSONB` — what happens the day a top-level form starts
+ * referencing the column and turns on `storeMetadata`.
+ *
+ * PostgreSQL refuses `varchar → jsonb` without a cast, which aborted the boot.
+ * A stored key `k` becomes `{"key": k}`, the shape the attachment reader
+ * promotes to `{ key, url… }`; NULL and the empty string (no file) become NULL.
+ * A JSON string (`to_jsonb(k)`) would not do: the reader leaves a string
+ * untouched, so the cell would lose its URL.
+ *
+ * @returns the clause, or `undefined` when this is not that conversion
+ */
+const attachmentKeyToJsonbUsing = (
+  field: Fields[number],
+  columnName: string,
+  normalizedExisting: string,
+  normalizedTarget: string
+): string | undefined =>
+  field.type === 'single-attachment' &&
+  normalizedTarget === 'jsonb' &&
+  (normalizedExisting === 'varchar' || normalizedExisting === 'text')
+    ? ` USING CASE WHEN ${columnName} IS NULL OR ${columnName} = '' THEN NULL ELSE jsonb_build_object('key', ${columnName}) END`
+    : undefined
+
+/**
  * Generate ALTER COLUMN TYPE statement with USING clause if needed
  * Handles type conversions that require explicit casting or transformation
  */
@@ -245,12 +270,12 @@ export const generateAlterColumnTypeStatement = (
   tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 ): string => {
   const targetType = resolveExpectedColumnType(field, tablePrimaryKeyTypes)
-  const usingClause = resolveUsingClause(
-    quoteSqlIdentifier(field.name),
-    targetType,
-    normalizeDataType(existingDataType),
-    normalizeDataType(targetType)
-  )
+  const columnName = quoteSqlIdentifier(field.name)
+  const normalizedExisting = normalizeDataType(existingDataType)
+  const normalizedTarget = normalizeDataType(targetType)
+  const usingClause =
+    attachmentKeyToJsonbUsing(field, columnName, normalizedExisting, normalizedTarget) ??
+    resolveUsingClause(columnName, targetType, normalizedExisting, normalizedTarget)
 
   return `ALTER TABLE ${tableName} ALTER COLUMN ${quoteSqlIdentifier(field.name)} TYPE ${targetType}${usingClause}`
 }

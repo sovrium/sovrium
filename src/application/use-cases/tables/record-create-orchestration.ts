@@ -117,6 +117,19 @@ export function mergeCreateAiBaseline(
 }
 
 /**
+ * Who made a records write, as its automations' `trigger.user`: the person
+ * and her role. Absent for a signed-out visitor's write, for one the system
+ * made, and for one written with no caller role (a form's own authority).
+ */
+export function recordWriteRequester(
+  userId: string,
+  userRole: string | undefined
+): TriggerRequester | undefined {
+  const person = resolveActorUserId(userId)
+  return person === undefined || userRole === undefined ? undefined : { id: person, role: userRole }
+}
+
+/**
  * The create, in the order the module header documents, over abstract steps.
  * Resolves to the written record as the caller may read it.
  */
@@ -163,11 +176,7 @@ export function createRecordVia<RA>(
 ) {
   const { session, app, tableName } = input
   // A signed-out visitor's row is written as the system: no person made it.
-  const person = resolveActorUserId((input.writer ?? session).userId)
-  const requester =
-    person === undefined || input.userRole === undefined
-      ? undefined
-      : { id: person, role: input.userRole }
+  const requester = recordWriteRequester((input.writer ?? session).userId, input.userRole)
   return orchestrateRecordCreate<
     Effect.Error<ReturnType<typeof createRecordProgram>>,
     | Effect.Services<ReturnType<typeof createRecordProgram>>

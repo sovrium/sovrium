@@ -150,6 +150,7 @@ export function useGridInstance(
   const { conflict, dismissConflict } = useRealtimeReconciliation({
     enabled: ctx.params.dataSource.refreshMode === 'realtime',
     records: grid.rows,
+    pending: input.inlineEditing.editingCell,
     onConflict: input.inlineEditing.cancelEditing,
   })
 

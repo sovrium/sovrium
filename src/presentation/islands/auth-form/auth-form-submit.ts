@@ -49,6 +49,18 @@ function pickCredentials(
   }
 }
 
+/**
+ * Where a sign-in sends the reader: the page's own `?callbackURL=` when it is a
+ * same-origin path — the way back a page that sent the reader here to sign in
+ * (the OAuth consent screen) asked for — and the form's configured destination
+ * otherwise. The query value is untrusted, so only `toSafeRedirectPath` output
+ * is ever used; anything else falls back to `configured`.
+ */
+const signInDestination = (configured: string | undefined): string | undefined =>
+  toSafeRedirectPath(
+    new URLSearchParams(globalThis.location?.search ?? '').get('callbackURL') ?? undefined
+  ) ?? configured
+
 /** The banner a password sign-in shows when the account still owes its second step. */
 const TWO_FACTOR_PENDING_MESSAGE =
   'Two-step verification is on — enter your code to finish signing in'
@@ -142,7 +154,7 @@ async function handleMagicLinkRequest(
   email: string,
   redirectUrl: string | undefined
 ): Promise<string | undefined> {
-  const callbackURL = toSafeRedirectPath(redirectUrl)
+  const callbackURL = toSafeRedirectPath(signInDestination(redirectUrl))
   const result = await authClient.$fetch('/sign-in/magic-link', {
     method: 'POST',
     body: { email, ...(callbackURL !== undefined && { callbackURL }) },
@@ -237,7 +249,9 @@ function fireToast(toast: ToastConfig | undefined): void {
  */
 function handleAuthSuccess(ctx: SubmitContext): void {
   fireToast(ctx.successToast)
-  const target = toSafeRedirectPath(ctx.redirectUrl)
+  const target = toSafeRedirectPath(
+    ctx.method === 'login' ? signInDestination(ctx.redirectUrl) : ctx.redirectUrl
+  )
   if (target !== undefined) {
     // Delay the redirect so the success toast is observable before the page
     // unloads — mirrors the crud-form submit-pipeline navigation pattern.
@@ -323,7 +337,7 @@ export async function startSocialSignIn(input: {
   readonly provider: string
   readonly callbackURL: string | undefined
 }): Promise<string | undefined> {
-  const callbackURL = toSafeRedirectPath(input.callbackURL)
+  const callbackURL = toSafeRedirectPath(signInDestination(input.callbackURL))
   const result = await authClient.signIn.social({
     provider: input.provider,
     ...(callbackURL !== undefined && { callbackURL }),

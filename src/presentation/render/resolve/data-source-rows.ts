@@ -17,13 +17,17 @@
  * `expandDataSourceChildren` just built.
  */
 
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  substituteRecordVars,
+  withRecordText,
+} from '@/domain/models/app/pages/substitute-record-vars'
 import { isListIslandMode } from '@/presentation/render/registry/list-island-mode'
 import {
   isRecordDrawerSystemMode,
   isRecordFieldSystemMode,
 } from '@/presentation/render/registry/system-detail-mode'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
+import { readsAnotherRecord } from './bound-node-record'
 import { desugarSystemSourceRef } from './data-source-contracts'
 import { emptyListMarkers } from './empty-list-markers'
 import { resolveListIslandInputs } from './list-island-inputs'
@@ -63,9 +67,9 @@ import type { Component } from '@/domain/models/app/pages/components'
  * with the parent's fields (eg. `$record.title` of a category), making
  * row-level data binding impossible.
  *
- * Props, content, and `dataSource.filter[].value` ARE substituted — the
- * parent record drives cross-table filtering (eg.
- * `filter: [{ field: 'category', value: '$record.name' }]`).
+ * `dataSource.filter[].value` IS substituted — the parent record drives
+ * cross-table filtering (`value: '$record.name'`) — and so are props and content,
+ * unless the node reads one record of its own ({@link readsAnotherRecord}).
  */
 export function substituteRecordInCollectionTemplate(
   component: Component,
@@ -95,12 +99,11 @@ export function substituteRecordInCollectionTemplate(
   if (component.dataSource) {
     return {
       ...component,
-      props: baseProps,
-      content: baseContent,
-      ...templatePatch,
+      ...(readsAnotherRecord(component, tableName)
+        ? {}
+        : { props: baseProps, content: baseContent, ...templatePatch }),
       dataSource: substituteRecordInDataSource(component.dataSource, record),
-      // Children left UNSUBSTITUTED — per-row templates expanded later.
-    }
+    } // Children left UNSUBSTITUTED — per-row templates expanded later.
   }
 
   const own = { ...component, props: baseProps, content: baseContent, ...templatePatch }
@@ -113,7 +116,7 @@ export function substituteRecordInCollectionTemplate(
     children: filterChildrenForRecord(component.children ?? [], record).map(
       (child: Component | string) =>
         typeof child === 'string'
-          ? substituteRecordVars(child, printable)
+          ? substituteRecordVars(child, withRecordText(printable))
           : substituteRecordInCollectionTemplate(child, record, tableName, scope)
     ),
   }
@@ -228,12 +231,8 @@ export function expandDataSourceChildren(
     // — and no config could prevent it, because `rowWrapper` is
     // chosen here and has no node an author could hang a predicate on.
     //
-    // The rule is stated on the FILTERED CHILDREN rather than on the predicate:
-    // it fires whenever the expansion has nothing left to put in a row,
-    // whatever emptied it. Distinct from the `children.length === 0`
-    // short-circuit above, which is an author's genuinely empty template — that
-    // is not a gate firing, and it still yields the bound-but-empty component
-    // it describes.
+    // Stated on the FILTERED CHILDREN, so it fires whatever emptied the row —
+    // unlike the `children.length === 0` short-circuit above (an empty template).
     if (kept.length === 0) return []
 
     return [
@@ -244,7 +243,7 @@ export function expandDataSourceChildren(
         // which is where the content pin is applied.
         children: kept.map((child: Component | string) =>
           typeof child === 'string'
-            ? substituteRecordVars(child, record)
+            ? substituteRecordVars(child, withRecordText(record))
             : substituteRecordInComponent(child, record, undefined, substitution)
         ),
       },

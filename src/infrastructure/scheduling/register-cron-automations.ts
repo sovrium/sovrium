@@ -5,22 +5,25 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Clock, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { runCronAutomation } from '@/application/use-cases/automations/run-cron-automation'
+import {
+  tickOf,
+  yieldsTickToEarlierEntry,
+  type CronEntrySchedule,
+} from '@/domain/models/app/automations/cron-tick-service'
+import {
+  hasTriggerOfType,
+  triggersOfType,
+} from '@/domain/models/app/automations/trigger-entries-service'
+import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
 
 type Automation = NonNullable<App['automations']>[number]
-type CronTriggerLike = {
-  readonly type: 'cron'
-  readonly expression: string
-  // Optional: the schema carries no default, and an omitted zone resolves to
-  // the operator timezone at registration.
-  readonly timezone?: string
-}
 type CronScheduleService = Effect.Success<typeof CronScheduler>
 
 /** Everything a cron run needs, taken from the server rather than rebuilt. */
@@ -29,6 +32,10 @@ type CronRunServices = Effect.Services<ReturnType<typeof runCronAutomation>>
 /** One armed cron job's inputs, bundled so the builder stays within `max-params`. */
 interface CronCallbackInput {
   readonly automation: Automation
+  /** The automation's cron entries, timezones resolved, in declaration order. */
+  readonly schedules: ReadonlyArray<CronEntrySchedule & { readonly name: string }>
+  /** Which of them this job arms. */
+  readonly index: number
   readonly app: App
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly services: Context.Context<CronRunServices>
@@ -48,10 +55,24 @@ interface CronCallbackInput {
  * header says there must never be.
  */
 const buildCronCallback = (input: CronCallbackInput) => (): Effect.Effect<void, unknown> =>
+  // Read on every tick: the scheduler builds this Effect once and re-runs it.
+  // One run per tick: an entry declared earlier that falls due at the same
+  // instant starts it, under its own name, and this job lets the tick pass.
+  Clock.currentTimeMillis.pipe(
+    Effect.flatMap((now) =>
+      yieldsTickToEarlierEntry(input.schedules, input.index, tickOf(new Date(now)))
+        ? Effect.void
+        : Effect.suspend(() => runEntry(input))
+    )
+  )
+
+/** Run the automation under the cron entry this job arms. */
+const runEntry = (input: CronCallbackInput): Effect.Effect<void, unknown> =>
   runCronAutomation({
     name: input.automation.name,
     app: input.app,
     processEnv: input.processEnv,
+    triggerName: input.schedules[input.index]?.name ?? 'cron',
   }).pipe(
     Effect.provide(input.services),
     Effect.tapError((err) =>
@@ -67,8 +88,16 @@ const buildCronCallback = (input: CronCallbackInput) => (): Effect.Effect<void, 
     Effect.asVoid
   )
 
+/** An automation's cron entries, an omitted zone resolved to the operator timezone. */
+const cronSchedulesOf = (automation: Automation): CronCallbackInput['schedules'] =>
+  triggersOfType(automation, 'cron').map((entry) => ({
+    name: triggerEntryName(entry),
+    expression: entry.expression,
+    timezone: entry.timezone ?? resolveOperatorTimezone(),
+  }))
+
 /**
- * Schedule a single cron-triggered automation. Logged-and-recovered on
+ * Schedule one cron entry of an automation. Logged-and-recovered on
  * failure so one bad expression cannot block subsequent registrations.
  */
 const scheduleOne = (
@@ -76,12 +105,14 @@ const scheduleOne = (
   input: CronCallbackInput
 ): Effect.Effect<string, never> => {
   const { automation } = input
-  const trigger = automation.trigger as CronTriggerLike
+  const schedule = input.schedules[input.index]
+  if (schedule === undefined) return Effect.succeed(automation.name)
   const callback = buildCronCallback(input)
   return scheduler
-    .schedule(trigger.expression, callback, {
-      jobId: automation.name,
-      timezone: trigger.timezone ?? resolveOperatorTimezone(),
+    .schedule(schedule.expression, callback, {
+      // The first entry keeps the automation's own job id; each other entry its own.
+      jobId: input.index === 0 ? automation.name : `${automation.name}:${schedule.name}`,
+      timezone: schedule.timezone,
     })
     .pipe(
       Effect.catch((err) =>
@@ -148,7 +179,7 @@ export const registerCronAutomations = (
     // NOTE: `enabled !== false` only — no pause check. See the block comment
     // above; the pause is enforced at fire time in `run-cron-automation.ts`.
     const cronAutomations = (app.automations ?? []).filter(
-      (automation) => automation.trigger.type === 'cron' && automation.enabled !== false
+      (automation) => hasTriggerOfType(automation, 'cron') && automation.enabled !== false
     )
     if (cronAutomations.length === 0) return [] as readonly string[]
 
@@ -158,9 +189,14 @@ export const registerCronAutomations = (
     // no request in sight, so the services have to be a value it closes over
     // rather than a requirement it could declare.
     const services = yield* Effect.context<CronRunServices>()
+    // One job per cron entry of each automation.
+    const jobs = cronAutomations.flatMap((automation) => {
+      const schedules = cronSchedulesOf(automation)
+      return schedules.map((_, index) => ({ automation, schedules, index }))
+    })
     return yield* Effect.forEach(
-      cronAutomations,
-      (automation) => scheduleOne(scheduler, { automation, app, processEnv, services }),
+      jobs,
+      (job) => scheduleOne(scheduler, { ...job, app, processEnv, services }),
       { concurrency: 1 }
     )
   })

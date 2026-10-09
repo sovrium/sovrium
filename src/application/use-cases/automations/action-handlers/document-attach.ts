@@ -16,6 +16,7 @@ import { buildSyntheticSession } from '../build-guest-session'
 import { attachmentCells, attachmentColumnKind, attachmentKey } from './document-file-ref'
 import { GeneratedFileWriteError } from './document-output-error'
 import { type Raw } from './document-run'
+import { attachmentRefusal } from './record-attachment-gate'
 import { writerActorOf } from './record-caller-gate'
 import { updateAndAnnounce } from './record-events'
 import type { ActionRunContext, AutomationContext } from './shared'
@@ -190,3 +191,31 @@ export const attachGeneratedFile = (input: {
       .filter((old): old is string => old !== undefined && old !== key)
     yield* deleteReplaced({ keys: replaced, target, app })
   }).pipe(Effect.withSpan('automations.attach-generated-file'))
+
+/**
+ * Attach a file the step did NOT write — the one `ifExists: skip` kept — under
+ * the attachment-reference rule a record step is held to: a run acting for a
+ * person attaches it when that person may download it, and a run acting for
+ * nobody only when this run stored it. A refusal fails the step with the rule's
+ * one message and leaves the record unchanged.
+ */
+export const attachReusedFile = (input: {
+  readonly attachTo: Raw
+  readonly key: string
+  readonly app: App
+  readonly automation: AutomationContext
+  readonly runContext: ActionRunContext | undefined
+}): Effect.Effect<void, GeneratedFileWriteError, StepRequirements> =>
+  Effect.gen(function* () {
+    const tableName = String(input.attachTo['table'] ?? '')
+    const field = String(input.attachTo['field'] ?? '')
+    const recordId = String(input.attachTo['record'] ?? '')
+    const refused = yield* attachmentRefusal({
+      app: input.app,
+      actorId: writerActorOf(input.automation),
+      requests: [{ op: 'update', tableName, recordId, change: { [field]: input.key } }],
+      written: input.automation.writtenFiles,
+    })
+    if (refused !== undefined) return yield* refuse(refused.error)
+    yield* attachGeneratedFile(input)
+  }).pipe(Effect.withSpan('automations.attach-reused-file'))

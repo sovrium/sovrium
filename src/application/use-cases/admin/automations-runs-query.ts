@@ -80,6 +80,7 @@ export function decodeAdminRunsListQuery(raw: unknown): AdminRunsListQueryDecode
     input: {
       status: query.status,
       automationName: query.automationName,
+      triggerName: query.triggerName,
       automationId: query.automationId,
       from: query.from,
       to: query.to,

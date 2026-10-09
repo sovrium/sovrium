@@ -217,7 +217,7 @@ The palette appends `?q=<term>` (or `&q=` when your path already carries a query
 
 ## The in-component search box
 
-A data component can draw its own search bar instead of being driven by a separate input. On a `table`, `toolbar.search: true` renders a box over the bound rows, which issues a `?q=` request rather than filtering the loaded page — see **Search Overview**. `toolbar` also carries `filters`, `sort`, `export`, `refresh`, `density`, `columnToggle`, `groupBy`, `views` and `viewSwitcher`; **Data Tables** documents the set.
+A data component can draw its own search bar instead of being driven by a separate input. On a `table`, `toolbar.search: true` renders a box over the bound rows, which issues a `?q=` request rather than filtering the loaded page — see **Search Overview**. The other `toolbar` keys are `filters`, `sort`, `export` and `refresh`, and those five are the whole set: a saved-views menu, a view switcher, a column toggle, a density button and a runtime group-by picker are refused at load, because a lasting way of looking at a table is one of its `views[]`, bound with `dataSource.view`. **Data Tables** documents the set.
 
 ```yaml
 name: my-app

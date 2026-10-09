@@ -246,12 +246,13 @@ export const specialComponents: Partial<Record<DispatchableComponentType, Compon
     currentLang,
     languages,
     designStyles,
+    tables,
   }) => {
     // CAP-1: a client-fetching data-bound list (DB table OR system read
     // endpoint), stamped by the data-source resolver. Emit the `list` island
     // host; the island fetches its rows and renders the itemTemplate items.
     if (elementProps['_listIslandMode']) {
-      return renderListIsland(elementProps, { currentLang, languages }, designStyles)
+      return renderListIsland(elementProps, { currentLang, languages, tables }, designStyles)
     }
 
     // Show error if dataSource validation failed

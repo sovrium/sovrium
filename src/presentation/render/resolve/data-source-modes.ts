@@ -10,11 +10,8 @@
  * short-circuit's props — plus the write-permission gates stamped onto whatever
  * they produce.
  *
- * One module because the modes share a composition rather than a signature:
- * each reads the same access plan, applies the same field-level filter, and
- * hands its result to the same `withWritePermissionGates` stamp. `resolveByMode`
- * is the dispatch, and keeping the branches beside it is what makes the shared
- * steps visible as shared.
+ * One module because the modes share a composition: the same access plan, field
+ * filter and `withWritePermissionGates` stamp; `resolveByMode` is the dispatch.
  */
 
 import { toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
@@ -33,6 +30,7 @@ import {
   type ReadAccessPlan,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { pageRecordOf } from '@/presentation/render/props/record-value-format'
 import { withCallerTableView } from './caller-table-stamp'
 import {
   SINGLE_RECORD_NOT_FOUND,
@@ -50,6 +48,7 @@ import {
 } from './form-bound-record'
 import { readRecordForCaller, readRowsForCaller, type CallerRowsQuery } from './record-read-gate'
 import { substituteRecordInComponent } from './record-substitution'
+import { addressRowAttachments } from './row-attachment-addresses'
 import {
   isReadWithheld,
   isWithheldOverUnreadableTable,
@@ -60,12 +59,8 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
 
 /**
- * Synthesizes a render-time-only `favorites-button` child component.
- *
- * The `favorites-button` type is never schema-authored — it is injected here
- * so that every single-record detail page automatically gets a star toggle
- * bound to the host record. The renderer for this type lives in the component
- * registry and emits an accessible `<button>` plus an inline toggle runtime.
+ * A render-time-only `favorites-button` child: never schema-authored, injected
+ * so every single-record detail page gets a star toggle bound to its record.
  */
 function buildFavoritesButton(tableName: string, record: Record<string, unknown>): Component {
   const recordId = record['id']
@@ -101,14 +96,13 @@ function withheldFieldsProps(
 function applySingleRecordToComponent(
   component: Component,
   record: RecordRow,
-  ctx: { readonly tableName: string; readonly plan: ReadAccessPlan | undefined }
+  ctx: Pick<SingleModeOptions, 'tableName' | 'plan' | 'db'>
 ): Component {
-  const substituted = substituteRecordInComponent(component, { ...record }, ctx.tableName)
+  const pageRecord = pageRecordOf(record, ctx.tableName, ctx.db.recordText)
+  const substituted = substituteRecordInComponent(component, pageRecord, ctx.tableName)
   const existingChildren = (substituted.children ?? []) as ReadonlyArray<Component | string>
   return {
     ...substituted,
-    // Append the favorites star toggle as the last child so any record
-    // detail page exposes a bookmark control without schema authoring.
     children: [...existingChildren, buildFavoritesButton(ctx.tableName, { ...record })],
     props: {
       ...(substituted.props ?? {}),
@@ -164,7 +158,7 @@ async function resolveSingleMode(
   })
   if (gatedRecord === undefined) return SINGLE_RECORD_NOT_FOUND
   const record = await withManyToManyLinks(gatedRecord, options)
-  return applySingleRecordToComponent(component, record, { tableName, plan: options.plan })
+  return applySingleRecordToComponent(component, record, { ...options, tableName })
 }
 
 export function checkFieldErrors(
@@ -207,7 +201,7 @@ function bindingQuery(
  * Resolve a list binding: its rows are drawn on the server, so they are read
  * through the records gate ({@link readRowsForCaller}) — the rows the row-level
  * rule shows this visitor, less the columns she may not read — and the pager's
- * total counts those rows alone.
+ * total counts those rows alone. Only those rows' attachments get an address.
  */
 async function resolveListMode(
   component: Component,
@@ -230,8 +224,10 @@ async function resolveListMode(
   const total = Math.min(totalCount, dataSource?.limit ?? totalCount)
   const paginationMeta =
     pageSize !== undefined ? { pageSize, totalCount: total, style: pagination?.style } : undefined
-
-  return expandDataSourceChildren(component, rows, paginationMeta)
+  const sign = ctx.db.signFileUrl
+  const addressed = await addressRowAttachments({ component, rows, app: ctx.app, tableName, sign })
+  const pageRows = addressed.rows.map((row) => pageRecordOf(row, tableName, ctx.db.recordText))
+  return expandDataSourceChildren(addressed.component, pageRows, paginationMeta)
 }
 
 function buildSearchProps(
@@ -266,13 +262,11 @@ function buildSearchProps(
 }
 
 /**
- * Resolve a `mode: search` binding: every matching row is serialised into the
- * island's props so the island can filter client-side.
- *
- * Serialised WHOLE, so the rows are read through the records gate
- * ({@link readRowsForCaller}): only the rows the row-level rule shows this
- * visitor, each less the columns she may not read. Every row in the payload is
- * in the HTML whatever the island draws.
+ * Resolve a `mode: search` binding: every matching row goes into the island's
+ * props, with the formatted text it prints. Serialised WHOLE, so the rows are
+ * read through the records gate ({@link readRowsForCaller}): only the rows the
+ * row-level rule shows this visitor, each less the columns she may not read.
+ * Every row in the payload is in the HTML whatever the island draws.
  */
 async function resolveSearchMode(
   component: Component,
@@ -287,7 +281,8 @@ async function resolveSearchMode(
     db: ctx.db,
     query: bindingQuery(dataSource, ctx.requestedFields),
   })
-  return { ...component, props: buildSearchProps(component, rows) }
+  const pageRows = rows.map((row) => pageRecordOf(row, tableName, ctx.db.recordText))
+  return { ...component, props: buildSearchProps(component, pageRows) }
 }
 
 /**

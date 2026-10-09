@@ -12,9 +12,9 @@ import {
 import { constantTimeEqual } from '@/presentation/api/runtime/constant-time-equal'
 import { webhookNotFound } from './webhook-refusals'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 import type { Context } from 'hono'
 
-type Trigger = NonNullable<App['automations']>[number]['trigger']
 type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
 
 /** A challenge longer than this is not a provider's: it is not echoed. */

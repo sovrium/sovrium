@@ -12,8 +12,11 @@ import {
   uploadTargetParts,
 } from '@/application/ports/services/storage-service'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { db } from '@/infrastructure/database'
+import { hasBuiltDbClient } from '@/infrastructure/database/drizzle/db-bun'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { pingThroughMaintenanceSlot } from '@/infrastructure/database/sql/postgres-connection-budget'
 import type { BucketBinding, UploadTarget } from '@/application/ports/services/storage-service'
 
 /**
@@ -95,19 +98,18 @@ export const bucketBindingPermitsWrite = (
  */
 
 /**
- * Validate the database connection at server startup when the bytea storage
- * provider is selected (auto-fallback when STORAGE_PROVIDER is unset and
- * DATABASE_URL is set). Only checks connectivity — the
- * `system.file_storage_bytea` and `system.file_storage_metadata` tables are
- * created by Drizzle migrations during `serverFactory.create()`, which runs
- * AFTER this validation but BEFORE any real upload/download is attempted.
- *
- * Naturally rejects if the database is unreachable — the surrounding
- * `Effect.tryPromise` converts this to a `StorageError` that fails server
- * startup.
+ * Check connectivity when the bytea provider is selected (STORAGE_PROVIDER
+ * unset, DATABASE_URL set); migrations create the tables later. A start's
+ * check, its first read, uses the maintenance slot so the request pool is
+ * built once, after the runtime-settings probe. Later checks (an account
+ * erasure builds this layer per call) reuse the pool: a second connection
+ * beside it could exceed `DATABASE_POOL_MAX`. Rejects when unreachable.
  */
 export const byteaValidateAndInit = async (): Promise<void> => {
-  await db.execute(sql`SELECT 1`)
+  const config = parseDatabaseDialectConfig()
+  await (config.dialect === 'postgres' && !hasBuiltDbClient()
+    ? pingThroughMaintenanceSlot(config.databaseUrl)
+    : db.execute(sql`SELECT 1`))
 }
 
 /**
@@ -183,6 +185,28 @@ export const byteaDownload = async (key: string, bucket: BucketBinding): Promise
   return row.content instanceof Uint8Array
     ? row.content
     : new Uint8Array(row.content as ArrayBuffer)
+}
+
+/**
+ * The stored payload's length in bytes, read without fetching it; `undefined`
+ * when no bytea payload is stored under `key`. The payload cascades off its
+ * catalog row, so on this provider the store and the catalog are one.
+ */
+export const byteaStoredSize = async (key: string): Promise<number | undefined> => {
+  const result = (await db.execute(sql`
+    SELECT octet_length(b.content) AS size
+    FROM system.file_storage_bytea b
+    JOIN system.file_storage_metadata m ON m.id = b.metadata_id
+    WHERE m.key = ${key} AND m.storage_provider = 'bytea'
+    LIMIT 1
+  `)) as readonly Record<string, unknown>[]
+  return payloadSizeOf(result)
+}
+
+/** The `size` a {@link byteaStoredSize} query returned; `undefined` when no payload row came back. */
+export const payloadSizeOf = (rows: readonly Record<string, unknown>[]): number | undefined => {
+  const size = rows[0]?.['size']
+  return size === undefined || size === null ? undefined : Number(size)
 }
 
 /**

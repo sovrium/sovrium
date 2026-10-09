@@ -10,21 +10,45 @@
  * reach judgement reads it (`run-step-output-reach.ts`).
  */
 
-import { redactTriggerDataHeaders } from '@/domain/kernel/sanitize/http-header-redaction'
+import { redactRunTriggerData } from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
+import {
+  runTriggerOf,
+  triggerNameFilterOf as runTriggerNameFilterOf,
+  type RunTrigger,
+  type TriggerNameFilter,
+} from '@/domain/models/app/automations/trigger-entries-service'
 import { judgedRunOf } from './run-step-output-reach'
 import type {
   PersistedRun,
   PersistedStep,
 } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { App } from '@/domain/models/app'
+import type { Context } from 'hono'
 
 /**
- * Resolve a run's trigger type by looking up its automation in the schema.
- * Defaults to `'webhook'` when the automation has been removed from the schema
- * mid-flight (the run row outlives the definition reference).
+ * A run's trigger, type and name: the name it recorded, its type read from the
+ * automation's entry of that name (see `runTriggerOf`). The run row outlives
+ * its automation, which may have left the config since.
  */
-const lookupTriggerType = (app: App, name: string): string =>
-  app.automations?.find((a) => a.name === name)?.trigger.type ?? 'webhook'
+export const runTriggerFields = (app: App, run: PersistedRun): RunTrigger =>
+  runTriggerOf(
+    app.automations?.find((a) => a.name === run.automationName),
+    run.triggerName
+  )
+
+/** A run's `triggerData` as a read returns it: credential headers hidden (`redactRunTriggerData`). */
+export const runTriggerDataOf = (app: App, run: PersistedRun): unknown =>
+  redactRunTriggerData(
+    run.triggerData,
+    app.automations?.find((a) => a.name === run.automationName)
+  )
+
+/** The `?triggerName=` filter of the public history (see the domain's `triggerNameFilterOf`). */
+export const triggerNameFilterOf = (
+  app: App,
+  automationName: string | undefined,
+  triggerName: string
+): TriggerNameFilter => runTriggerNameFilterOf(app.automations, automationName, triggerName)
 
 /**
  * Compute the attempt count for a run from its step rows. When a step has
@@ -56,12 +80,8 @@ const persistedRunToApi = (app: App, run: PersistedRun, steps?: ReadonlyArray<Pe
   id: run.id,
   automationName: run.automationName,
   status: run.status,
-  triggerType: lookupTriggerType(app, run.automationName),
-  // A webhook trigger captures EVERY inbound request header, the caller's own
-  // credential included. Step `output` was already scrubbed; `triggerData` was
-  // not, so the run history reflected `Authorization: Bearer <webhook secret>`
-  // back verbatim.
-  triggerData: redactTriggerDataHeaders(run.triggerData),
+  ...runTriggerFields(app, run),
+  triggerData: runTriggerDataOf(app, run),
   startedAt: run.startedAt,
   completedAt: run.completedAt,
   durationMs: run.durationMs,
@@ -85,3 +105,16 @@ export const listedRuns = (
         judgedRunOf(run, stepsPerRun[i] ?? []),
       ] as const
   )
+
+/** The `GET /api/automations/runs` query parameters, numbers parsed. */
+export const readListRunsQuery = (c: Context) => {
+  const pageStr = c.req.query('page')
+  const pageSizeStr = c.req.query('pageSize')
+  return {
+    automationName: c.req.query('automationName'),
+    status: c.req.query('status'),
+    triggerName: c.req.query('triggerName'),
+    page: pageStr !== undefined ? Number(pageStr) : undefined,
+    pageSize: pageSizeStr !== undefined ? Number(pageSizeStr) : undefined,
+  }
+}

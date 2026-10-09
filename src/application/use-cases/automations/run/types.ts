@@ -57,6 +57,7 @@ import type { App } from '@/domain/models/app'
 import type { RunRelay } from '@/domain/models/app/automations/run-relay-service'
 import type { ResumeFrame } from '@/domain/models/app/automations/run-resume-cursor-service'
 import type { StepRead } from '@/domain/models/app/automations/step-read-service'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Step record retained in run history; `output` is the handler's
@@ -182,6 +183,8 @@ export interface StepContext {
   readonly templates: TemplateRenderer
   /** Identity of the running automation; threaded into each handler call. */
   readonly automation: AutomationContext
+  /** The type of the trigger entry that started the run (a `webhook/response` step answers only `webhook`). */
+  readonly triggerType: Trigger['type']
   /** Raw trigger payload — code action sandbox flattens this for `context.trigger.data`. */
   readonly triggerData: Readonly<Record<string, unknown>>
   /**
@@ -334,22 +337,19 @@ export interface RunAutomationResult {
   readonly error?: string
   readonly responseOverride?: Readonly<Record<string, unknown>>
   /**
-   * Payload from the run's first `automation:return` action (early-exit).
-   * The `automation:call` invoker reads this and hands `{ result }` back
-   * to the caller; absent when the callee declared no `return` action
-   * (the caller then sees `{ result: {} }`).
+   * Payload from the run's first `automation:return` action (early-exit), which the
+   * `automation:call` invoker hands back as `{ result }`; absent when the callee
+   * declared no `return` action (the caller then sees `{ result: {} }`).
    */
   readonly returnData?: Readonly<Record<string, unknown>>
 }
 
-/**
- * Inputs for `executeAutomationRun`. Reused across entry points
- * (webhook, manual, record-event) so the persistence + dispatch contract
- * stays identical.
- */
+/** Inputs for `executeAutomationRun`, shared by every entry point (webhook, manual, record-event…). */
 export interface ExecuteAutomationRunInput {
   readonly name: string
   readonly automation: NonNullable<App['automations']>[number]
+  /** The entry of `automation.triggers` that started the run: recorded by name, read at `{{trigger.*}}`. */
+  readonly trigger: Trigger
   readonly automationId: string
   readonly app: App
   readonly processEnv: Readonly<Record<string, string | undefined>>
@@ -385,16 +385,13 @@ export interface ExecuteAutomationRunInput {
    */
   readonly visitedAutomations?: ReadonlySet<string>
   /**
-   * Action names that the run loop should record as `'skipped'` WITHOUT
-   * executing. Used by the replay endpoint so a
-   * resumed run preserves the previously-successful side-effects of those
-   * steps without re-running them — a record/create that fired in the
-   * original run is NOT fired again on replay (no duplicate insert).
-   *
-   * Undefined / empty set means "execute every action normally" (the
-   * default top-level run shape).
+   * Action names the run loop records as `'skipped'` WITHOUT executing (an
+   * approval resume, a replay): their side effects already happened once.
+   * Undefined / empty: every action runs.
    */
   readonly skipActionNames?: ReadonlySet<string>
+  /** Failures `continueOnError` let the skipped steps go past: still `completed-with-errors`. */
+  readonly priorTolerated?: number
   /**
    * Step outputs the resumed run starts with, keyed by step name — so a later
    * step reads what a skipped step decided. Set by the approval resume, whose

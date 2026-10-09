@@ -23,7 +23,7 @@ import {
   fillAuthoredReferences,
   referenceAuthoredValues,
 } from '../authored-references'
-import { readActionIdentity } from './action-identity'
+import { answersNoCaller, readActionIdentity } from './action-identity'
 import { findTemplate, renderAuthoredTemplateProps } from './prop-substitution'
 import { buildStep } from './step-record'
 import type { ReadTracker } from './read-tracker'
@@ -285,7 +285,21 @@ export const buildNestedStepInvoker = (
   invocationStack: ReadonlySet<string>,
   scope: DispatchScope
 ): NestedStepInvoker => {
-  return ({ action, props, previousSteps, refusal, authored, templateVars, resume }) => {
+  return ({
+    action,
+    props,
+    previousSteps,
+    refusal,
+    authored,
+    templateVars,
+    resume,
+    loopScopes,
+  }) => {
+    // A `webhook/response` with no webhook caller waiting is passed over, as at the top level.
+    if (answersNoCaller(action, ctx.triggerType)) {
+      const skipped = { ...readActionIdentity(action), status: 'skipped' as const }
+      return Promise.resolve({ outcome: { status: 'success' as const }, step: skipped })
+    }
     const { type, operator } = readActionIdentity(action)
     const found = ctx.handlers.get(actionKey(type, operator)) ?? missingActionHandler
     // A prop a value from run data could not be placed in safely: the action
@@ -300,13 +314,15 @@ export const buildNestedStepInvoker = (
       triggerData: ctx.triggerData,
       rawAction,
       authoredProps: props,
-      // A loop a branch holds gets its configuration as written and fills in
-      // its own body per item; every other nested action's props are final.
+      // A loop or a path nested in a loop or a path gets its configuration as
+      // written and fills in its own body; every other nested action's props are final.
       ...(authored === true ? {} : { propsFinal: true as const }),
       // A named template called from the path or the loop: its inline text reads these.
       ...(templateVars === undefined ? {} : { templateVars }),
       // A loop or a path the run resumes inside re-enters where it parked.
       ...(resume === undefined ? {} : { resume }),
+      // The loops it sits in, which its templates read as `{{loop.*}}` / `{{loops.<name>.*}}`.
+      ...(loopScopes === undefined ? {} : { loopScopes }),
       ...dispatchedContext(ctx, acc, invocationStack, scope),
     }
     const program = announceRecordWrites(ctx.app)(

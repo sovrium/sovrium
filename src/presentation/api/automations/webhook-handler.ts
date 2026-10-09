@@ -11,6 +11,7 @@ import { loadPausedAutomationNames } from '@/application/use-cases/automations/p
 import { buildEnvLookup } from '@/application/use-cases/automations/resolve-env-vars'
 import { runWebhookAutomation } from '@/application/use-cases/automations/run-automation'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import { triggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   provideDomain,
@@ -18,7 +19,7 @@ import {
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
-import { runWebhookAuth } from './webhook-auth'
+import { headersToRecord, recordedHeaders, runWebhookAuth } from './webhook-auth'
 import { resolveWebhookCaller, sessionWebhookRefuses } from './webhook-caller'
 import { checkAndRecordDedup } from './webhook-dedup'
 import { allowedMethodsFor, isMethod, type Method, type Trigger } from './webhook-methods'
@@ -85,12 +86,9 @@ const findWebhookAutomation = (app: App, name: string, pausedNames: ReadonlySet<
   const automation = app.automations?.find((a) => a.name === name)
   if (automation === undefined) return undefined
   if (!isAutomationOperationallyEnabled(automation, pausedNames)) return undefined
-  if (automation.trigger.type !== 'webhook') return undefined
-  return automation
+  // The webhook ENTRY, with its own auth; never another entry of the automation.
+  return triggerOfType(automation, 'webhook')
 }
-
-const headersToRecord = (req: Context['req']): Readonly<Record<string, string>> =>
-  Object.fromEntries(req.raw.headers as Iterable<readonly [string, string]>)
 
 const queryToRecord = (c: Context): Readonly<Record<string, string>> => {
   const queries = c.req.queries()
@@ -181,9 +179,8 @@ const lookupAndMethodGate = (
     } => {
   const name = c.req.param('name')
   if (name === undefined) return { status: 'reject', response: webhookInvalidRequest(c) }
-  const automation = findWebhookAutomation(app, name, pausedNames)
-  if (automation === undefined) return { status: 'reject', response: webhookNotFound(c) }
-  const trigger = automation.trigger as WebhookTrigger
+  const trigger = findWebhookAutomation(app, name, pausedNames)
+  if (trigger === undefined) return { status: 'reject', response: webhookNotFound(c) }
   const allowed = allowedMethodsFor(trigger)
   const handshake = answerVerificationHandshake(c, app, trigger, allowed.includes('GET'))
   if (handshake !== undefined) return { status: 'reject', response: handshake }
@@ -259,11 +256,12 @@ const runWebhookGates = async (c: Context, app: App): Promise<GateResult> => {
   }
 }
 
+/** What a run keeps of the request: auth, caller and dedup read the live one before this. */
 const buildTriggerData = (c: Context, gate: GateContext): TriggerData => ({
   method: gate.method,
   path: c.req.path,
   body: gate.rawBody === '' ? undefined : safeParseJson(gate.rawBody),
-  headers: headersToRecord(c.req),
+  headers: recordedHeaders(c.req, gate.trigger),
   query: gate.queryRecord,
   ip: getRequestClientIp(c),
   ...(gate.caller === undefined ? {} : { requester: gate.caller }),

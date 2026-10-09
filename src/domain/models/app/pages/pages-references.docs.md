@@ -13,6 +13,30 @@ Component `content` and `props` values resolve four reference families at render
 
 A page rendered from `markdown` additionally exposes `$frontmatter.*`. A fifth reference, `$session.<field>`, resolves in the browser rather than at render time.
 
+## Formatted values and `.raw`
+
+`$record.<field>` in a sentence a reader reads — a component's `content`, a string child, a confirm's `title` and `message`, a `description-list` `detail`, a breadcrumb's `currentLabel`, the page's `meta.title` and `meta.description` — prints a date, a date-time, an amount, a percentage, a yes/no, an option or a duration formatted by its field type, exactly as a `record-field` with no `format` prints it:
+
+| Field type                                      | Prints as                                                                                      | Example                                |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `date`                                          | A short date                                                                                   | `Mar 14, 2025`                         |
+| `datetime`, `created-at`, `updated-at`          | A date and a time                                                                              | `Mar 20, 2025 at 02:05 PM`             |
+| `currency`                                      | The field's amount                                                                             | `€1,250.50`                            |
+| `percentage`                                    | The number with `%`, with the field's `precision` decimals                                     | `12.5%`                                |
+| `checkbox`                                      | Yes or no, in the page's language                                                              | `Yes`                                  |
+| `single-select`, `status`                       | The option's label                                                                             | `Sent to client`                       |
+| `multi-select`                                  | The options' labels, as the language writes a list                                             | `Urgent, Needs review, and Legal hold` |
+| `duration`                                      | Hours and minutes, or hours, minutes and seconds when the field's `displayFormat` is `h:mm:ss` | `1:30`                                 |
+| every other type (`number`, `integer` included) | The stored value                                                                               | `1250`                                 |
+
+The type is read from the table the record came from — a collection page's `collection.table`, or the component's `dataSource.table`, one row at a time in a list. The record's `createdAt` and `updatedAt` read as date-times. The language is the page's own (its `<html lang>`), so a French page prints `14 mars 2025`, `1 250,50 €`, `12,5 %` and `Oui`. The time zone is the operator's (`SOVRIUM_TIMEZONE`, UTC when unset), except for a `datetime` field that declares its own `timeZone`, which prints in that zone, as the grid shows it; `local` reads in the operator's. A `date` names a calendar day and prints the same day in every zone.
+
+A template the browser fills — a record drawer's `children` and its `actions`' `confirm`, a kanban `card`, a list or search `itemTemplate` — prints a value exactly as the server prints it on a record page: same formats, the page's language, the operator's time zone. The same value never reads one way on a page and another in the drawer opened from it.
+
+Every other place keeps the stored value, as the records API returns it — `2025-03-14`, `2025-03-20T14:05:00.000Z`, `1250.5`: a `props` value such as a link's `href` or an image's `src`, an attribute inside HTML `content` (only the text between its tags is formatted), an action's `path`, `url` and `inputData`, a form field's `defaultValue`, a confirm's `input.matchValue`, filters and `meta` values other than the title and description. An address must resolve, and a phrase must be typable from what is stored.
+
+Write `$record.<field>.raw` to print the stored value in a sentence — `12.5`, `true`, an option's stored value. The suffix is accepted everywhere, is never printed, and may end each member of a fallback chain (`$record.paid_at.raw|$record.issued_on.raw`).
+
 ## Query parameters as page inputs
 
 <!-- sovrium:options PageQueryPropSchema depth=2 -->

@@ -63,6 +63,7 @@ import {
   type StepAction,
   type StepRead,
 } from '@/domain/models/app/automations/step-read-service'
+import { recordedTrigger } from '@/domain/models/app/automations/trigger-entries-service'
 import { rowRuledTablesBehind } from '@/domain/models/app/tables/lookup-link-service'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import {
@@ -89,6 +90,8 @@ export interface JudgedStep {
 /** A run as the judgement reads it. */
 export interface JudgedRun {
   readonly automationName: string
+  /** The name of the trigger entry that started it; `null`/omitted, the first entry. */
+  readonly triggerName?: string | null
   readonly triggerData?: unknown
   /** The run that handed this one its trigger data, raw (`parseRelay`). */
   readonly relay?: unknown
@@ -207,6 +210,7 @@ const loadRun = (c: Context, runId: string): Promise<JudgedRun | undefined> =>
       const steps = yield* repo.findStepsByRunId(runId)
       return {
         automationName: run.automationName,
+        triggerName: run.triggerName,
         triggerData: run.triggerData,
         relay: run.relay,
         valuesErasedAt: run.valuesErasedAt,
@@ -320,19 +324,16 @@ export const capturedRecordsOf = (
 }
 
 /**
- * True when the trigger data a run's own trigger captured stays within reach:
- * no record its trigger's table holds (a webhook's request, a form's answers),
- * or every such record whole — its related rows captured whole included.
+ * True when a run's own trigger captured no record of `tableName` — the table its record or comment
+ * trigger names — or every such record whole, its related rows captured whole included.
  */
-const capturedWithinReach = async (judge: Judge, run: JudgedRun): Promise<boolean> => {
-  const automation = judge.app.automations?.find(
-    (candidate) => candidate.name === run.automationName
-  )
-  if (automation === undefined) return false
+const capturedWithinReach = async (
+  judge: Judge,
+  run: JudgedRun,
+  tableName: unknown
+): Promise<boolean> => {
   const records = capturedRecordsOf(run.triggerData)
   if (records.length === 0) return true
-  // A record or comment trigger names the table whose record it captured.
-  const { table: tableName } = automation.trigger as { readonly table?: unknown }
   if (typeof tableName !== 'string') return true
   const table = tableNamed(judge.app, tableName)
   if (table === undefined) return false
@@ -340,15 +341,14 @@ const capturedWithinReach = async (judge: Judge, run: JudgedRun): Promise<boolea
 }
 
 /**
- * True when a run no other run fed keeps its trigger data within reach. A call
- * or failure run recorded before relays were cannot be judged.
+ * True when a run no other run fed keeps its trigger data within reach (a call or failure run
+ * recorded before relays: never; a run no entry of its automation can be placed on: never).
  */
 const ownTriggerWithinReach = (judge: Judge, run: JudgedRun): Promise<boolean> => {
-  const trigger = judge.app.automations?.find(
-    (candidate) => candidate.name === run.automationName
-  )?.trigger
-  if (isRelayedTriggerType(trigger?.type)) return Promise.resolve(false)
-  return capturedWithinReach(judge, run)
+  const automation = judge.app.automations?.find((a) => a.name === run.automationName)
+  const trigger = automation && recordedTrigger(automation, run.triggerName)
+  if (trigger === undefined || isRelayedTriggerType(trigger.type)) return Promise.resolve(false)
+  return capturedWithinReach(judge, run, (trigger as { readonly table?: unknown }).table)
 }
 
 /** How many records a run's trigger and `steps` carry, for the relay's record cap. */

@@ -13,6 +13,7 @@ import {
   batchUpdateWithSideEffects,
   upsertWithSideEffects,
 } from '@/application/use-cases/tables/record-batch-orchestration'
+import { recordWriteRequester } from '@/application/use-cases/tables/record-create-orchestration'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   batchCreateRecordsRequestSchema,
@@ -138,7 +139,10 @@ async function handleBatchRestore(c: Context, app: App) {
 
   const programResult = await runOnRequest(
     c,
-    batchRestoreWithSideEffects({ session, tableName, app, ids, processEnv: process.env })
+    batchRestoreWithSideEffects({
+      ...{ session, tableName, app, ids, processEnv: process.env },
+      requester: recordWriteRequester(session.userId, userRole),
+    })
   )
 
   if (programResult._tag === 'Failure') {
@@ -227,6 +231,7 @@ async function handleBatchCreate(c: Context, app: App) {
   // The batch create and its side effects (`record-batch-orchestration.ts`).
   const program = batchCreateWithSideEffects({
     ...{ session, tableName, app, linkReader: getLinkReader(c), processEnv: process.env },
+    requester: recordWriteRequester(session.userId, userRole),
     rows: result.data.records.map((record) => record.fields),
     returnRecords: result.data.returnRecords,
     isSqlite: isSqliteRuntime(),
@@ -301,6 +306,7 @@ async function handleBatchUpdate(c: Context, app: App) {
   // The batch update and its side effects, with field-level read filtering on the response
   const filteredProgram = batchUpdateWithSideEffects({
     ...{ session, tableName, app, linkReader: getLinkReader(c), processEnv: process.env },
+    requester: recordWriteRequester(session.userId, userRole),
     records: recordsData,
     returnRecords: result.data.returnRecords,
   }).pipe(
@@ -369,6 +375,7 @@ async function handleBatchDelete(c: Context, app: App) {
   if (permanent && !isAdminEquivalent(userRole, app)) return notFound(c)
   const program = batchDeleteWithSideEffects({
     ...{ session, tableName, app, permanent, processEnv: process.env },
+    requester: recordWriteRequester(session.userId, userRole),
     ids: result.data.ids,
   })
   return runEffect(c, provideDomain(c, program), batchDeleteRecordsResponseSchema)
@@ -397,6 +404,7 @@ async function handleUpsert(c: Context, app: App) {
   // Execute upsert, with a record event per row inserted or matched
   const program = upsertWithSideEffects({
     ...{ session, tableName, processEnv: process.env },
+    requester: recordWriteRequester(session.userId, userRole),
     recordsData: flatRecordsData,
     fieldsToMergeOn: result.data.fieldsToMergeOn,
     hiddenIds: validation.hiddenIds,

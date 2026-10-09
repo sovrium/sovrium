@@ -62,6 +62,23 @@ export const isSecretHeaderName = (name: string): boolean => {
   return SECRET_HEADER_MARKERS.some((marker) => lower.includes(marker))
 }
 
+/** A case-insensitive membership test over `names`. */
+const isNamedIn = (names: readonly string[]): ((name: string) => boolean) => {
+  const named = new Set(names.map((name) => name.toLowerCase()))
+  return (name) => named.has(name.toLowerCase())
+}
+
+/** Replace the value of every entry whose name `isCredential` accepts, keeping key order. */
+const redactEntriesWhere = <V>(
+  headers: Readonly<Record<string, V>>,
+  isCredential: (name: string) => boolean
+): Readonly<Record<string, V | typeof REDACTED_HEADER_VALUE>> =>
+  Object.fromEntries(
+    Object.entries(headers).map(([name, value]) =>
+      isCredential(name) ? [name, REDACTED_HEADER_VALUE] : [name, value]
+    )
+  )
+
 /**
  * Replace the value of every credential-bearing header, preserving key order
  * and every other entry.
@@ -72,11 +89,7 @@ export const isSecretHeaderName = (name: string): boolean => {
  */
 export const redactSecretHeaders = (headers: unknown): unknown => {
   if (headers === null || typeof headers !== 'object' || Array.isArray(headers)) return headers
-  return Object.fromEntries(
-    Object.entries(headers as Record<string, unknown>).map(([name, value]) =>
-      isSecretHeaderName(name) ? [name, REDACTED_HEADER_VALUE] : [name, value]
-    )
-  )
+  return redactEntriesWhere(headers as Readonly<Record<string, unknown>>, isSecretHeaderName)
 }
 
 /**
@@ -92,13 +105,33 @@ export const redactSecretHeaders = (headers: unknown): unknown => {
 export const redactHeadersNamed = (
   headers: Readonly<Record<string, string>>,
   names: readonly string[]
-): Readonly<Record<string, string>> => {
-  const named = new Set(names.map((name) => name.toLowerCase()))
-  return Object.fromEntries(
-    Object.entries(headers).map(([name, value]) =>
-      named.has(name.toLowerCase()) ? [name, REDACTED_HEADER_VALUE] : [name, value]
-    )
-  )
+): Readonly<Record<string, string>> => redactEntriesWhere(headers, isNamedIn(names))
+
+/**
+ * The headers that carry the caller's own credential whatever the request is
+ * for: a session cookie, a cookie being set, and the two authorization headers.
+ */
+export const CREDENTIAL_HEADER_NAMES: readonly string[] = [
+  'cookie',
+  'set-cookie',
+  'authorization',
+  'proxy-authorization',
+]
+
+/**
+ * Both rules at once: every header in {@link CREDENTIAL_HEADER_NAMES} or in
+ * `namedHeaders`, and every header {@link isSecretHeaderName} matches.
+ *
+ * This is the rule for a request Sovrium RECEIVED and keeps: the name rule
+ * cannot know that a sender's key travels under `X-Partner-Access`, so the
+ * caller passes the header names its own configuration designates.
+ */
+export const redactCredentialHeaders = <V>(
+  headers: Readonly<Record<string, V>>,
+  namedHeaders: readonly string[]
+): Readonly<Record<string, V | typeof REDACTED_HEADER_VALUE>> => {
+  const named = isNamedIn([...CREDENTIAL_HEADER_NAMES, ...namedHeaders])
+  return redactEntriesWhere(headers, (name) => named(name) || isSecretHeaderName(name))
 }
 
 /**
@@ -108,12 +141,25 @@ export const redactHeadersNamed = (
  * `webhook-handler.ts` builds. Only `headers` is rewritten: the BODY is the
  * automation's actual input and an operator inspecting a failed run needs it,
  * while a name-based rule has nothing to say about arbitrary body keys.
+ *
+ * `namedHeaders` are the headers the trigger's own configuration designates as
+ * its credential (see {@link redactCredentialHeaders}); a run recorded since
+ * that redaction moved to record time already carries the marker, and a second
+ * pass over a marker is a no-op.
  */
-export const redactTriggerDataHeaders = (triggerData: unknown): unknown => {
+export const redactTriggerDataHeaders = (
+  triggerData: unknown,
+  namedHeaders: readonly string[] = []
+): unknown => {
   if (triggerData === null || typeof triggerData !== 'object' || Array.isArray(triggerData)) {
     return triggerData
   }
   const record = triggerData as Record<string, unknown>
   if (!('headers' in record)) return triggerData
-  return { ...record, headers: redactSecretHeaders(record['headers']) }
+  const { headers } = record
+  if (headers === null || typeof headers !== 'object' || Array.isArray(headers)) return triggerData
+  return {
+    ...record,
+    headers: redactCredentialHeaders(headers as Readonly<Record<string, unknown>>, namedHeaders),
+  }
 }

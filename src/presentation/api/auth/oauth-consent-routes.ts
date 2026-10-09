@@ -29,6 +29,26 @@
  * page and no client table to read — the route must not exist rather than
  * answer for a provider that isn't there.
  *
+ * ─── A SIGNED-OUT VISITOR IS SENT TO SIGN IN, BEFORE ANY CLIENT LOOKUP ──────
+ *
+ * A consent decision needs a signed-in user: Better Auth's consent POST
+ * answers 401 without a session. So a visitor with no session is redirected to
+ * the app's sign-in page (`auth.loginPage`, default `/login` — the same
+ * `loginPage` the OAuth plugin is configured with), carrying the way back as
+ * `callbackURL`. That redirect is answered
+ * BEFORE the client is looked up, and identically for a known, an unknown or a
+ * disabled `client_id`: a status that differed would let a signed-out prober
+ * tell registered client ids apart.
+ *
+ * The redirect cannot be turned into an open redirect. `Location` is a
+ * relative path naming the configured sign-in page, which validate holds to an
+ * app-relative path (one leading `/`, no host, query or fragment) and
+ * `loginPageOf` re-checks, so no host — forwarded or otherwise — is ever read.
+ * The `callbackURL` is this request's own `pathname + search`, so it always
+ * starts with `/oauth/consent?`; a `callbackURL` an attacker placed in the
+ * consent link stays encoded INSIDE it and is never promoted to the login
+ * URL's own parameter.
+ *
  * ─── ONE ANSWER FOR EVERY REFUSAL ───────────────────────────────────────────
  *
  * Missing `client_id`, unknown `client_id`, disabled client, database failure:
@@ -48,12 +68,14 @@
 
 import { Effect } from 'effect'
 import { OAuthServerRepository } from '@/application/ports/repositories/auth/oauth-server-repository'
+import { loginPageOf, signInRedirectPath } from '@/domain/models/app/auth/login-page-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { renderOAuthConsentDocument } from '../../render/page/oauth-consent-document'
 import type { OAuthConsentColors } from '../../render/page/oauth-consent-document'
 import type { OAuthClientRecord } from '@/application/ports/repositories/auth/oauth-server-repository'
 import type { App } from '@/domain/models/app'
+import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Hono } from 'hono'
 
 /** The palette the consent screen borrows from the app's own theme. */
@@ -90,16 +112,47 @@ const isAttested = (client: Readonly<OAuthClientRecord>): boolean =>
   (client.clientDiscoveryId !== undefined && client.clientDiscoveryId.length > 0)
 
 /**
+ * The sign-in redirect for a signed-out visitor: the app's sign-in page
+ * (`auth.loginPage`, default `/login`) on this origin, with this request's own
+ * path and query as the only `callbackURL`.
+ *
+ * Built from the request URL's `pathname` and `search` alone — never from a
+ * `Host` or `X-Forwarded-Host` header, and never from a `callbackURL` the
+ * query carries — and returned relative, so the browser resolves it against
+ * the origin it is already on. The sign-in page itself is an app-relative path
+ * (`loginPageOf` re-checks it), so the redirect cannot leave this origin.
+ *
+ * @param requestUrl - the consent request's URL
+ * @param loginPage - the app's sign-in page path
+ * @returns a same-origin, relative `Location` value
+ */
+export const signInRedirectFor = (requestUrl: string, loginPage: string): string => {
+  const { pathname, search } = new URL(requestUrl)
+  return signInRedirectPath(loginPage, `${pathname}${search}`)
+}
+
+/**
  * Setup the OAuth consent screen.
  *
  * @param honoApp - Hono application instance.
  * @param app - Decoded app configuration.
+ * @param getSession - the page tier's session reader (same binding checks as the API).
  * @returns The Hono app with the consent screen chained (unchanged without auth).
  */
-export function setupOauthConsentRoutes(honoApp: Readonly<Hono>, app: App): Readonly<Hono> {
-  if (!app.auth) return honoApp
+export function setupOauthConsentRoutes(
+  honoApp: Readonly<Hono>,
+  app: App,
+  getSession: ((headers: Headers) => Promise<SessionInfo | undefined>) | undefined
+): Readonly<Hono> {
+  if (!app.auth || getSession === undefined) return honoApp
+  const loginPage = loginPageOf(app.auth)
 
   return honoApp.get('/oauth/consent', async (c) => {
+    // The session check comes FIRST, before the client_id is even read: a
+    // signed-out visitor gets the same redirect whatever the query names.
+    const session = await getSession(c.req.raw.headers)
+    if (session === undefined) return c.redirect(signInRedirectFor(c.req.url, loginPage), 302)
+
     const clientId = c.req.query('client_id')
     if (clientId === undefined || clientId.length === 0) return c.notFound()
 
@@ -144,6 +197,7 @@ export function setupOauthConsentRoutes(honoApp: Readonly<Hono>, app: App): Read
           // `POST /oauth2/consent`, so rebuilding it would invalidate the
           // signature.
           oauthQuery: new URL(c.req.url).search.replace(/^\?/, ''),
+          loginPage,
         },
         app.name,
         consentColors(app)

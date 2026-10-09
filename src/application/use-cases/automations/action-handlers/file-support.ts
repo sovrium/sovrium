@@ -48,6 +48,12 @@ export const mimeByExt = (key: string | undefined): string | undefined => {
   return MIME_BY_EXT[key.slice(dot + 1).toLowerCase()]
 }
 
+/** The extension (with its dot) a MIME type is stored under, or `''` for one this table does not name. */
+export const extByMime = (mime: string): string => {
+  const ext = Object.entries(MIME_BY_EXT).find(([, known]) => known === mime)?.[0]
+  return ext === undefined ? '' : `.${ext}`
+}
+
 export const extOf = (key: string | undefined): string => {
   if (!key) return ''
   const dot = key.lastIndexOf('.')
@@ -136,8 +142,11 @@ export class OutboundUrlBlockedError extends Data.TaggedError('OutboundUrlBlocke
   readonly reason: GuardedFetchRefusalReason
 }> {}
 
+/** A `data:` URI: a media type, an optional `;base64`, a comma, then the payload. */
+const DATA_URI = /^data:([^;,]*)(;base64)?,(.*)$/s
+
 const parseDataUri = (source: string): ResolvedSource | undefined => {
-  const match = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(source)
+  const match = DATA_URI.exec(source)
   if (!match) return undefined
   const [, mime, base64Flag, payload] = match
   const bytes = base64Flag
@@ -223,7 +232,9 @@ const fetchSource = (
  * degrades a missing key to empty bytes.
  */
 export const isSelfContainedSource = (source: string): boolean =>
-  source.startsWith('data:') || /^https?:\/\//.test(source)
+  // The same pattern `parseDataUri` reads: a malformed `data:` text (no comma)
+  // falls through to storage there, so it is a stored key here too.
+  DATA_URI.test(source) || /^https?:\/\//.test(source)
 
 export const resolveSource = (
   source: string,

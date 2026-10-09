@@ -7,7 +7,11 @@
 
 import { Schema } from 'effect'
 import { SelectOptionSourceSchema } from '../../table-option-source'
-import { commonFieldProps, FormRecordAudioSchema } from '../form-field-props'
+import {
+  commonFieldProps,
+  FormFieldAutocompleteSchema,
+  FormRecordAudioSchema,
+} from '../form-field-props'
 
 /**
  * Table-bound field — references a column on the form's `submitTo.table`.
@@ -76,6 +80,8 @@ export const TableBoundFieldSchema = Schema.Struct({
   ),
   /** In-browser microphone recorder for attachment fields. */
   recordAudio: Schema.optional(FormRecordAudioSchema),
+  /** Browser autofill hint; derived from the field's type when omitted. */
+  autocomplete: Schema.optional(FormFieldAutocompleteSchema),
   ...commonFieldProps,
 }).annotate({
   identifier: 'TableBoundField',

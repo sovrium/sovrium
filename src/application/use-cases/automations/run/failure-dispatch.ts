@@ -20,11 +20,13 @@
 
 import { Effect } from 'effect'
 import { relayFrom, type RunRelay } from '@/domain/models/app/automations/run-relay-service'
+import { firstMatchingTrigger } from '@/domain/models/app/automations/trigger-entries-service'
 import { defaultActionHandlers } from '../action-handlers'
 import { cryptoRandomId } from './types'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { ExecutedStep, ResolvedRetryConfig, RunRequirements } from './types'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Input bag for the `automation-failure` dispatch. Shared with the
@@ -59,6 +61,7 @@ export interface FailureDispatchRunners {
   readonly executeAutomationRun: (input: {
     readonly name: string
     readonly automation: NonNullable<App['automations']>[number]
+    readonly trigger: Trigger
     readonly automationId: string
     readonly app: App
     readonly processEnv: Readonly<Record<string, string | undefined>>
@@ -73,11 +76,20 @@ export interface FailureDispatchRunners {
 const matchingFailureHandlers = (
   app: App,
   failedAutomationName: string
-): ReadonlyArray<NonNullable<App['automations']>[number]> =>
-  (app.automations ?? []).filter((a) => {
-    if (a.trigger.type !== 'automation-failure') return false
-    const filter = a.trigger.automations
-    return filter === undefined || (filter as ReadonlyArray<string>).includes(failedAutomationName)
+): ReadonlyArray<{
+  readonly handler: NonNullable<App['automations']>[number]
+  readonly trigger: Trigger
+}> =>
+  (app.automations ?? []).flatMap((handler) => {
+    // One handler run per failure: the first failure entry that watches it.
+    const trigger = firstMatchingTrigger(
+      handler,
+      'automation-failure',
+      ({ automations }) =>
+        automations === undefined ||
+        (automations as ReadonlyArray<string>).includes(failedAutomationName)
+    )
+    return trigger === undefined ? [] : [{ handler, trigger }]
   })
 
 /**
@@ -124,7 +136,7 @@ export const dispatchFailureHandlers = (
     const failureTriggerData = buildFailureTriggerData(input)
     yield* Effect.forEach(
       handlers,
-      (handler) =>
+      ({ handler, trigger }) =>
         Effect.gen(function* () {
           const automationId = yield* runners.resolveAutomationId(handler.name, handler).pipe(
             // effect-swallow: the id only LABELS this run in the activity log; a lookup that fails must not stop the automation it was about to run, and a random id keeps the run traceable within itself.
@@ -133,6 +145,7 @@ export const dispatchFailureHandlers = (
           yield* runners.executeAutomationRun({
             name: handler.name,
             automation: handler,
+            trigger,
             automationId,
             app: input.app,
             processEnv: input.processEnv,

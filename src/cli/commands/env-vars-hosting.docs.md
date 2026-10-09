@@ -21,6 +21,8 @@ Started by hand with no `PORT`, Sovrium binds `3000`, and if that is taken it bi
 
 Nothing is written before the refusal: no migration has run, and there is no lock file and no status file. `PORT=0` still means any free port. `SOVRIUM_STRICT_PORT=0` or `false` leaves the decision to the other two signals; any other value refuses to start.
 
+A port counts as busy when another process holds it on any address the bind host reaches, or on the wildcard of either family. So `localhost` is checked on both `127.0.0.1` and `::1`, and a holder listening on `0.0.0.0` or `::` refuses a boot on any host, as does a holder on either loopback when Sovrium itself binds a wildcard. An address the machine cannot bind at all, such as `::1` on a host without IPv6, is skipped rather than counted as busy.
+
 ## The interface
 
 The interface comes from `SOVRIUM_BIND_HOST`. `HOSTNAME` used to carry it, and still does while `SOVRIUM_BIND_HOST` is unset, with one warning per boot. It is being retired because shells and containers export the machine name under that name, which moves the server onto an address nobody chose — or onto one that does not resolve, so the boot fails. The bind also decides the transport posture described in **Env Vars: Core**, so `SOVRIUM_BIND_HOST=0.0.0.0` keeps exactly the posture `HOSTNAME=0.0.0.0` had. A value that is neither `localhost` nor an IP literal refuses to start.

@@ -36,6 +36,8 @@
  */
 
 import { isEmptyCell } from '@/domain/kernel/matching/empty-value'
+import { withRecordText } from '@/domain/models/app/pages/substitute-record-vars'
+import { pageRecordOf } from '@/presentation/render/props/record-value-format'
 import { substituteRecordVars } from '@/presentation/render/resolve/data-source-contracts'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
 import {
@@ -170,27 +172,25 @@ function substituteRecordDeep(value: unknown, record: Record<string, unknown>): 
 }
 
 /**
- * Substitutes `$record.<field>` tokens across the entire page metadata
- * (the pages collection pages requirement — B-4 dynamic-seo-for-collections).
- *
- * Walks the top-level scalar fields (`title`, `description`, `keywords`,
- * `canonical`, `author`, `robots`) AND the nested SEO sub-objects
- * (`openGraph`, `twitter`, `structuredData`) so a single page declaration
- * produces per-record:
- *   - `<title>` (B-1)
- *   - `<meta name="description">` (B-1)
- *   - `<link rel="canonical">` (B-4)
- *   - Open Graph and Twitter Card image / URL / title / description
- *     tags for social-sharing previews (B-4)
- *   - JSON-LD `<script type="application/ld+json">` payloads with
- *     record-derived headline/datePublished/author (B-4)
- *
- * Returns the same meta object when meta is undefined so React rendering
- * stays referentially stable for unrelated test snapshots.
+ * Substitutes `$record.<field>` tokens across the entire page metadata — the
+ * scalar fields and the nested SEO objects (`openGraph`, `twitter`,
+ * `structuredData`) — so one declaration yields a per-record `<title>`,
+ * description, canonical link, social card and JSON-LD. `title` and
+ * `description` are prose and print a value formatted; every other leaf keeps
+ * the stored value.
  */
 function substituteRecordInMeta(meta: Page['meta'], record: Record<string, unknown>): Page['meta'] {
   if (meta === undefined) return meta
-  return substituteRecordDeep(meta, record) as Page['meta']
+  const { title, description } = meta as {
+    readonly title?: unknown
+    readonly description?: unknown
+  }
+  const prose = (value: unknown) => substituteRecordDeep(value, withRecordText(record))
+  return {
+    ...(substituteRecordDeep(meta, record) as NonNullable<Page['meta']>),
+    ...(title !== undefined && { title: prose(title) }),
+    ...(description !== undefined && { description: prose(description) }),
+  } as Page['meta']
 }
 
 /** The loose binding shape the nested-record walk reads off a component. */
@@ -518,11 +518,11 @@ export async function resolveCollectionPage(
   const resolved = await resolveCollectionRecord(collection, routeParams, db, options)
   if (resolved.kind !== 'continue') return resolved
   const record = (await options?.projectRecord?.(resolved.record)) ?? resolved.record
-
-  const substitutedMeta = substituteRecordInMeta(page.meta, record)
+  const pageRecord = pageRecordOf(record, collection.table, db.recordText)
+  const substitutedMeta = substituteRecordInMeta(page.meta, pageRecord)
   const substitutedComponents = substituteRecordInPageComponents(
     page.components,
-    record,
+    pageRecord,
     collection.table
   )
 

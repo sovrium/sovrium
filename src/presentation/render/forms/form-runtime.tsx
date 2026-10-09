@@ -295,7 +295,7 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}
       var picked = m
         .split('|')
         .map(function (token) {
-          return text(scope[token.slice(ns.length + 2)])
+          return text(scope[token.slice(ns.length + 2).replace(/[.]raw$/, '')])
         })
         .filter(function (s) {
           return s.length > 0

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { TriggerNameSchema } from './trigger-name'
 
 /**
  * Manual Trigger (type: manual)
@@ -22,6 +23,9 @@ export const ManualTriggerSchema = Schema.Struct({
       description: "Constant value 'manual' for type discrimination in discriminated unions",
     })
   ),
+
+  /** Name of this trigger within its automation (defaults to its type) */
+  name: Schema.optional(TriggerNameSchema),
 
   /** Button label for admin interface */
   label: Schema.optional(

@@ -24,7 +24,8 @@ import type { TableRecord } from '../runtime/types'
  * field(s).
  *
  * The first records snapshot establishes a baseline and never raises a
- * conflict; only subsequent changes to an already-displayed record do.
+ * conflict. Afterwards only a change to the field the reader is editing — her
+ * pending, unsaved value — raises one; any other change is simply redrawn.
  */
 
 export interface DetectedConflict {
@@ -36,8 +37,28 @@ export interface DetectedConflict {
   readonly token: number
 }
 
-/** System columns that change on every write and are not user-facing edits. */
-const SYSTEM_FIELDS = new Set(['updated_at', 'created_at', 'updated_by', 'created_by'])
+/**
+ * System columns that change on every write and are not user-facing edits, in
+ * both spellings a row can carry them in (the records API answers camelCase).
+ */
+const SYSTEM_FIELDS = new Set([
+  'updated_at',
+  'created_at',
+  'updated_by',
+  'created_by',
+  'deleted_at',
+  'updatedAt',
+  'createdAt',
+  'updatedBy',
+  'createdBy',
+  'deletedAt',
+])
+
+/** The cell the reader is editing and has not saved: the only change a server write can overwrite. */
+export interface PendingEdit {
+  readonly rowId: string | number
+  readonly field: string
+}
 
 /** Index a records array by stringified id for O(1) prior-value lookup. */
 function indexById(records: readonly TableRecord[]): ReadonlyMap<string, TableRecord> {
@@ -58,25 +79,24 @@ function changedFields(prev: TableRecord, next: TableRecord): readonly string[] 
 }
 
 /**
- * Detect the first record whose displayed field values were overwritten by an
- * incoming server snapshot. Returns `undefined` when nothing a user could see
- * actually changed.
+ * Detect whether an incoming server snapshot overwrote the reader's PENDING
+ * edit: the field of the row she is editing changed under her. A row changed
+ * while nothing is pending on it is simply redrawn, so with no pending edit
+ * there is never a conflict.
  */
 function detectConflict(
   prevById: ReadonlyMap<string, TableRecord>,
-  nextRecords: readonly TableRecord[]
+  nextRecords: readonly TableRecord[],
+  pending: PendingEdit | undefined
 ): Omit<DetectedConflict, 'token'> | undefined {
-  return nextRecords
-    .map((next) => {
-      const prev = prevById.get(String(next.id))
-      // A brand-new record is an insert, not an overwrite of displayed values.
-      if (!prev) return undefined
-      const overwrittenFields = changedFields(prev, next)
-      return overwrittenFields.length > 0
-        ? { recordId: String(next.id), overwrittenFields }
-        : undefined
-    })
-    .find((detected): detected is Omit<DetectedConflict, 'token'> => detected !== undefined)
+  if (pending === undefined) return undefined
+  const recordId = String(pending.rowId)
+  const prev = prevById.get(recordId)
+  const next = nextRecords.find((record) => String(record.id) === recordId)
+  // A brand-new record is an insert, not an overwrite of displayed values.
+  if (!prev || !next) return undefined
+  const overwrittenFields = changedFields(prev, next).filter((key) => key === pending.field)
+  return overwrittenFields.length > 0 ? { recordId, overwrittenFields } : undefined
 }
 
 /**
@@ -91,6 +111,8 @@ function detectConflict(
 export function useRealtimeReconciliation(params: {
   readonly enabled: boolean
   readonly records: readonly TableRecord[]
+  /** The cell the reader is editing, if any — see {@link PendingEdit}. */
+  readonly pending?: PendingEdit
   readonly onConflict?: () => void
 }): {
   readonly conflict: DetectedConflict | undefined
@@ -101,6 +123,9 @@ export function useRealtimeReconciliation(params: {
   const tokenRef = useRef(0)
   const onConflictRef = useRef(onConflict)
   onConflictRef.current = onConflict
+  // Read at snapshot time, not a dependency: opening an editor is not a snapshot.
+  const pendingRef = useRef(params.pending)
+  pendingRef.current = params.pending
   const [conflict, setConflict] = useState<DetectedConflict | undefined>(undefined)
 
   useEffect(() => {
@@ -116,7 +141,7 @@ export function useRealtimeReconciliation(params: {
       return
     }
 
-    const detected = detectConflict(prevById, records)
+    const detected = detectConflict(prevById, records, pendingRef.current)
     prevRef.current = indexById(records)
 
     if (detected) {

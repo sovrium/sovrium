@@ -60,6 +60,7 @@ import {
   fillInvokedTemplateAction,
   type FilledTemplateAction,
 } from '@/application/use-cases/automations/run/prop-substitution'
+import { runErrorAsSeenBy } from '@/application/use-cases/automations/run-admin-only-output'
 import {
   executeAutomationRun,
   resolveAutomationId,
@@ -197,13 +198,16 @@ const configuredPropsOf = (template: ActionTemplate): Readonly<Record<string, un
  * store) and handler dispatch follow the exact same code path as a regular
  * manual automation, without a second pass over the filled props.
  */
+/** The one trigger of the automation an action template runs as. */
+const MANUAL_ENTRY = { type: 'manual' } as const
+
 const synthesizeAutomation = (
   template: ActionTemplate,
   filledAction: Readonly<Record<string, unknown>>
 ): NonNullable<App['automations']>[number] =>
   ({
     name: `mcp-action:${template.name}`,
-    trigger: { type: 'manual' },
+    triggers: [MANUAL_ENTRY],
     actions: [filledAction],
     enabled: true,
   }) as unknown as NonNullable<App['automations']>[number]
@@ -242,16 +246,14 @@ const buildActionResultBody = (
 ) => {
   const { caller, automationName, result } = input
   const publicStatus: 'completed' | 'failed' = result.status === 'success' ? 'completed' : 'failed'
-  const output = lastOutputAsSeenBy(app, {
-    automationName,
-    readsWhole: mcpCallerReadsWhole(app, caller),
-    result,
-  })
+  const readsWhole = mcpCallerReadsWhole(app, caller)
+  const output = lastOutputAsSeenBy(app, { automationName, readsWhole, result })
+  const error = runErrorAsSeenBy(app, { automationName, readsWhole, result })
   return {
     id: result.runId,
     status: publicStatus,
     ...(output !== undefined ? { output } : {}),
-    ...(result.error !== undefined ? { error: result.error } : {}),
+    ...(error !== undefined ? { error } : {}),
   }
 }
 
@@ -307,6 +309,7 @@ export const handleActionCall = async (input: HandleActionCallInput): Promise<Mc
     const run = yield* executeAutomationRun({
       name: automation.name,
       automation,
+      trigger: MANUAL_ENTRY,
       automationId,
       app,
       processEnv: process.env,

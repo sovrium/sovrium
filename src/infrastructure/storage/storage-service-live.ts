@@ -9,7 +9,6 @@ import { Effect, Layer } from 'effect'
 import {
   StorageService,
   StorageError,
-  UNATTRIBUTED_BUCKET,
   storageObjectNotFound,
   uploadTargetParts,
 } from '@/application/ports/services/storage-service'
@@ -19,18 +18,25 @@ import {
 } from '@/domain/models/process-env/storage/storage'
 import { logWarning } from '@/infrastructure/logging/logger'
 import {
-  bucketBindingMatches,
-  bucketBindingPermitsWrite,
   byteaUpload,
   byteaDownload,
   byteaDelete,
   byteaList,
   byteaGetTotalBytes,
+  byteaStoredSize,
   byteaValidateAndInit,
   deleteFileMetadata,
-  readFileMetadata,
   writeFileMetadata,
 } from './bytea-adapter'
+import {
+  assertBucketBinding,
+  assertBucketWritable,
+  assertNoOtherSpelling,
+  findOtherSpellingIn,
+  withSpellingLock,
+  getMetadataFromCatalog,
+  type SpellingStore,
+} from './catalog-guards'
 import {
   localUpload,
   localDownload,
@@ -38,8 +44,10 @@ import {
   localDeleteIfPresent,
   localList,
   localGetTotalBytes,
+  localStoredSize,
   localValidateDirectory,
 } from './local-adapter'
+import { probeLocalCaseOnce } from './local-case-probe'
 import {
   createS3Client,
   s3Upload,
@@ -50,6 +58,7 @@ import {
   s3GetTotalBytes,
 } from './s3-adapter'
 import { findMissingS3EnvVar, warnIfS3BucketUnreachable } from './s3-reachability'
+import { s3StoredSize, storedObjectSize } from './stored-object-size'
 import type { BucketBinding, UploadTarget } from '@/application/ports/services/storage-service'
 
 const makeError = (cause: unknown): StorageError => new StorageError({ cause })
@@ -74,81 +83,39 @@ const unwrapS3Listing = <A>(value: A, truncated: boolean, operation: string, buc
   return value
 }
 
-/**
- * Refuse an operation whose caller named a bucket the object does not belong
- * to — or that belongs to no recorded bucket at all.
- *
- * Storage keys are FLAT, so without this every declared bucket addresses the
- * same objects and the bucket in the URL only chooses which permission block
- * runs. The failure is shaped as "File not found" so the route answers 404,
- * never distinguishing "wrong bucket" from "absent" to a caller.
- */
-const assertBucketBinding = (
-  key: string,
-  bucket: BucketBinding
-): Effect.Effect<void, StorageError> => {
-  // An unattributed caller asserts nothing about ownership, so there is nothing
-  // to check — and it must not require a catalog row either: automation actions
-  // address keys that may have been written to the object store out of band.
-  if (bucket === UNATTRIBUTED_BUCKET) return Effect.void
-  return Effect.tryPromise({
-    try: () => readFileMetadata(key),
-    catch: (e: unknown) => makeError(e),
-  }).pipe(
-    Effect.flatMap((meta) =>
-      meta && bucketBindingMatches(bucket, meta.bucket)
-        ? Effect.void
-        : Effect.fail(makeError(storageObjectNotFound(key)))
-    )
-  )
-}
+/** An object store keeps letter case; normalisation is compared on every store. */
+const S3_STORE: SpellingStore = { caseInsensitive: false, provider: 's3' }
+
+/** A database key: compared with case, and normalised like every other key. */
+const BYTEA_STORE: SpellingStore = { caseInsensitive: false, provider: 'bytea' }
 
 /**
- * Refuse a write that would move an existing object into the caller's bucket.
- *
- * This runs BEFORE the bytes are handed to the object store, and that ordering
- * is the whole point. S3 and local write the blob first and the catalog row
- * second, so a refusal raised only by the catalog upsert would arrive after the
- * victim's bytes had already been replaced — the object would survive with the
- * right owner and the wrong content, which is precisely the silent data loss
- * this gate exists to prevent. `byteaUpload` needs no pre-check because its
- * metadata upsert is upstream of its content upsert in the same call.
- *
- * The guarded upsert inside {@link writeFileMetadata} is still load-bearing: it
- * is what closes the window between this read and that write, and it is the
- * seam every provider funnels through.
+ * Make sure the local storage directory is writable, then measure whether its
+ * disk ignores letter case — once per process ({@link probeLocalCaseOnce}).
+ * A probe that cannot measure is reported and compares keys without case.
  */
-const assertBucketWritable = (
-  key: string,
-  bucket: BucketBinding
-): Effect.Effect<void, StorageError> =>
+const prepareLocalDirectory = (dir: string): Effect.Effect<SpellingStore, StorageError> =>
   Effect.tryPromise({
-    try: () => readFileMetadata(key),
-    catch: (e: unknown) => makeError(e),
+    try: () => localValidateDirectory(dir),
+    catch: (e: unknown) =>
+      new StorageError({ cause: `Local storage directory "${dir}" is not accessible: ${e}` }),
   }).pipe(
-    Effect.flatMap((meta) =>
-      bucketBindingPermitsWrite(bucket, meta?.bucket)
+    // effect-promise: total -- `probeLocalCaseOnce` turns a failed probe into a value.
+    Effect.andThen(Effect.promise(() => probeLocalCaseOnce(dir))),
+    Effect.tap((probed) =>
+      probed.cause === undefined
         ? Effect.void
-        : Effect.fail(makeError(storageObjectNotFound(key)))
-    )
-  )
-
-/** File metadata lookup shared by every provider — reads `system.file_storage_metadata`. */
-const getMetadataFromCatalog: StorageService['Service']['getMetadata'] = (key, bucket) =>
-  Effect.tryPromise({ try: () => readFileMetadata(key), catch: (e: unknown) => makeError(e) }).pipe(
-    Effect.flatMap((meta) =>
-      meta && bucketBindingMatches(bucket, meta.bucket)
-        ? Effect.succeed({
-            key,
-            contentType: meta.contentType,
-            size: meta.size,
-            lastModified: meta.lastModified,
-            ...(meta.bucket === null ? {} : { bucket: meta.bucket }),
-            ...(meta.uploadedBy === null ? {} : { uploadedBy: meta.uploadedBy }),
-            ...(meta.generatedBy === null ? {} : { generatedBy: meta.generatedBy }),
-          })
-        : Effect.fail(makeError(storageObjectNotFound(key)))
-    )
+        : Effect.sync(() =>
+            logWarning(
+              `[storage] could not measure whether "${dir}" ignores letter case; keys are compared without case: ${String(probed.cause)}`
+            )
+          )
+    ),
+    Effect.map((probed): SpellingStore => ({
+      caseInsensitive: probed.caseInsensitive,
+      provider: 'local',
+    })),
+    Effect.withSpan('storage.prepare-local-directory')
   )
 
 export const StorageServiceLive = Layer.effect(
@@ -178,6 +145,7 @@ export const StorageServiceLive = Layer.effect(
         upload: (key: string, content: Uint8Array, mimeType: string, target: UploadTarget) => {
           const { bucket, uploadedById, generatedBy } = uploadTargetParts(target)
           return assertBucketWritable(key, bucket).pipe(
+            Effect.andThen(assertNoOtherSpelling(key, bucket, S3_STORE)),
             Effect.flatMap(() =>
               Effect.tryPromise({
                 try: () =>
@@ -194,7 +162,8 @@ export const StorageServiceLive = Layer.effect(
                   ),
                 catch: (e: unknown) => makeError(e),
               })
-            )
+            ),
+            withSpellingLock(key)
           )
         },
         download: (key: string, bucket: BucketBinding) =>
@@ -231,6 +200,9 @@ export const StorageServiceLive = Layer.effect(
             catch: (e: unknown) => makeError(e),
           }),
         getMetadata: getMetadataFromCatalog,
+        findOtherSpelling: findOtherSpellingIn(S3_STORE),
+        statObject: (key: string) =>
+          storedObjectSize(key, () => s3StoredSize(client, s3Bucket, key)),
         list: (prefix: string) =>
           Effect.tryPromise({
             try: () => s3List(client, s3Bucket, prefix),
@@ -251,15 +223,12 @@ export const StorageServiceLive = Layer.effect(
 
     if (config?.provider === 'local') {
       const dir = config.directory
-      yield* Effect.tryPromise({
-        try: () => localValidateDirectory(dir),
-        catch: (e: unknown) =>
-          new StorageError({ cause: `Local storage directory "${dir}" is not accessible: ${e}` }),
-      })
+      const localStore = yield* prepareLocalDirectory(dir)
       return StorageService.of({
         upload: (key: string, content: Uint8Array, mimeType: string, target: UploadTarget) => {
           const { bucket, uploadedById, generatedBy } = uploadTargetParts(target)
           return assertBucketWritable(key, bucket).pipe(
+            Effect.andThen(assertNoOtherSpelling(key, bucket, localStore)),
             Effect.flatMap(() =>
               Effect.tryPromise({
                 try: () =>
@@ -276,7 +245,8 @@ export const StorageServiceLive = Layer.effect(
                   ),
                 catch: (e: unknown) => makeError(e),
               })
-            )
+            ),
+            withSpellingLock(key)
           )
         },
         download: (key: string, bucket: BucketBinding) =>
@@ -310,6 +280,8 @@ export const StorageServiceLive = Layer.effect(
         getSignedUrl: (_key: string, _expiresIn: number) =>
           Effect.fail(new StorageError({ cause: 'Signed URLs not supported for local storage' })),
         getMetadata: getMetadataFromCatalog,
+        findOtherSpelling: findOtherSpellingIn(localStore),
+        statObject: (key: string) => storedObjectSize(key, () => localStoredSize(dir, key)),
         list: (prefix: string) =>
           Effect.tryPromise({
             try: () => localList(dir, prefix),
@@ -346,6 +318,8 @@ export const StorageServiceLive = Layer.effect(
         deleteUncataloguedBytes: (_key: string) => Effect.fail(notConfigured()),
         getSignedUrl: (_key: string, _expiresIn: number) => Effect.fail(notConfigured()),
         getMetadata: (_key: string, _bucket: BucketBinding) => Effect.fail(notConfigured()),
+        findOtherSpelling: (_key: string) => Effect.fail(notConfigured()),
+        statObject: (_key: string) => Effect.fail(notConfigured()),
         list: (_prefix: string) => Effect.fail(notConfigured()),
         getTotalBytes: Effect.succeed(0),
       })
@@ -367,10 +341,15 @@ export const StorageServiceLive = Layer.effect(
 
     return StorageService.of({
       upload: (key: string, content: Uint8Array, mimeType: string, target: UploadTarget) =>
-        Effect.tryPromise({
-          try: () => byteaUpload(key, content, mimeType, target),
-          catch: (e: unknown) => makeError(e),
-        }),
+        assertNoOtherSpelling(key, uploadTargetParts(target).bucket, BYTEA_STORE).pipe(
+          Effect.andThen(
+            Effect.tryPromise({
+              try: () => byteaUpload(key, content, mimeType, target),
+              catch: (e: unknown) => makeError(e),
+            })
+          ),
+          withSpellingLock(key)
+        ),
       download: (key: string, bucket: BucketBinding) =>
         Effect.tryPromise({
           try: () => byteaDownload(key, bucket),
@@ -387,6 +366,8 @@ export const StorageServiceLive = Layer.effect(
       getSignedUrl: (_key: string, _expiresIn: number) =>
         Effect.fail(new StorageError({ cause: 'Signed URLs not supported for bytea storage' })),
       getMetadata: getMetadataFromCatalog,
+      findOtherSpelling: findOtherSpellingIn(BYTEA_STORE),
+      statObject: (key: string) => storedObjectSize(key, () => byteaStoredSize(key)),
       list: (prefix: string) =>
         Effect.tryPromise({
           try: () => byteaList(prefix),

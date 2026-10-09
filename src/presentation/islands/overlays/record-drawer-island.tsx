@@ -69,6 +69,7 @@ import { useRecordDrawer, useDrawerRecord, useDrawerHandlers } from './use-recor
 import type { DrawerAction } from './record-drawer-actions'
 import type { RecordDrawerField } from './record-drawer-field'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
+import type { RecordTextFields } from '@/domain/models/app/tables/record-text-service'
 import type { ReactElement } from 'react'
 
 interface RecordDrawerIslandProps extends RelatedSlotProps, DrawerNavigationProps {
@@ -96,6 +97,8 @@ interface RecordDrawerIslandProps extends RelatedSlotProps, DrawerNavigationProp
    * childless drawer rendering exactly what it rendered before the slot existed.
    */
   readonly childrenHtml?: string
+  /** How each formatted field reads in the slot and a confirm prompt, resolved by the host. */
+  readonly recordText?: RecordTextFields
   /**
    * `false` when only another drawer's related rows open this one: the page's
    * `?record=` deep link names a record of the page's own table, not of this
@@ -177,7 +180,7 @@ export default function RecordDrawerIsland(props: RecordDrawerIslandProps): Reac
   const labels = resolveDrawerLabels(props)
   const drawer = useRecordDrawer(id, table, system, props.deepLink !== false)
   const { open, setOpen, recordId, values, setValues, loading } = drawer
-  const record = useDrawerRecord(system, recordId, drawer.record)
+  const record = useDrawerRecord(system, recordId, drawer.record, props.recordText)
   const { error, setError, onChange, onClose } = useDrawerHandlers(setValues, setOpen)
   const saved = { recordFields, values, table, recordId, setOpen, setError }
   const onSave = useRecordSave({ ...saved, failedLabel: props.saveFailedLabel })

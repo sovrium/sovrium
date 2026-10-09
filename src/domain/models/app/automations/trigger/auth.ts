@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { TriggerNameSchema } from './trigger-name'
 
 /**
  * Auth Trigger
@@ -18,6 +19,9 @@ export const AuthTriggerSchema = Schema.Struct({
       description: "Constant value 'auth' for type discrimination in discriminated unions",
     })
   ),
+
+  /** Name of this trigger within its automation (defaults to its type) */
+  name: Schema.optional(TriggerNameSchema),
   events: Schema.Array(
     Schema.Literals(['signUp', 'signIn', 'signOut', 'passwordReset', 'emailVerified'])
   ).pipe(

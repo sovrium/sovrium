@@ -44,7 +44,9 @@ export const FORM_RUNTIME_FILE_HANDLERS_SCRIPT = `
   }
   // The server's own rule (acceptEntryAdmits, form-file-upload-validation.ts), so a
   // file the submit would refuse (an SVG on an image/* field) is refused here.
-  ${String(acceptEntryAdmits)}
+  // Bound to a var so the call below keeps working when a minifier renames the
+  // function's own declared name.
+  var acceptEntryAdmits = ${String(acceptEntryAdmits)}
   function fileMatchesAccept(file, accept) {
     if (!accept) return true
     var fileName = file.name || ''

@@ -53,6 +53,12 @@ const RUNS_LIST_TOOL_PROPERTIES: Readonly<Record<string, unknown>> = {
     minLength: 1,
     description: 'Only runs of the automation with this name.',
   },
+  triggerName: {
+    type: 'string',
+    minLength: 1,
+    description:
+      'Only runs started by the trigger with this name: its own name, else its type. AND-combined with every other filter.',
+  },
   automationId: {
     type: 'string',
     minLength: 1,
@@ -96,6 +102,7 @@ const runsList = defineAdminRead<AdminRunsListInput>({
     'limit',
     'status',
     'automationName',
+    'triggerName',
     'automationId',
     'from',
     'to',

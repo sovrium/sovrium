@@ -370,8 +370,7 @@ export async function resolveAndFilterPage(
   const parentRecord = await resolveGatedParentRecord(input)
   if (parentRecord === 'not-found') return undefined
 
-  // The single-mode dataSource record takes precedence; otherwise fall back
-  // to the collection record so an embedded form’s `$record.*` tokens resolve.
+  // The single-mode record first, else the collection record (embedded forms).
   const hostRecord = parentRecord ?? collectionRecord
 
   // CAP-2 + the page-level system-record resolution rule: distribute the page-level single record to descendant
@@ -384,6 +383,7 @@ export async function resolveAndFilterPage(
   const binding = await applyPageLevelRecordBinding(rawPage, routeParams, hostRecord, {
     fetchSystemRecord: input.fetchSystemRecord,
     translate: keyTranslatorFor(rawPage, input),
+    recordText: db.recordText,
   })
   if (binding.kind === 'not-found') return undefined
   const boundPage = binding.page

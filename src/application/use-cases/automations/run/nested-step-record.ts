@@ -217,6 +217,47 @@ export const outputsOfStored = (
     }
   }, {})
 
+/** Whether a stored loop's output records item `index` as a failed item. */
+const itemFailed = (output: unknown, index: number): boolean => {
+  const results = asOutput(output)?.['results']
+  const entry = Array.isArray(results) ? asOutput(results[index]) : undefined
+  return entry !== undefined && 'error' in entry
+}
+
+/**
+ * The items a completed loop skipped under `continueOnItemError`: its stored
+ * `failed` count. A loop that stopped at a failed item is itself `failed`.
+ */
+const skippedItems = (step: StoredNestedStep): number => {
+  const failed = asOutput(step.output)?.['failed']
+  return step.iterations !== undefined && step.status === 'completed' && typeof failed === 'number'
+    ? failed
+    : 0
+}
+
+/**
+ * How many failures `continueOnError` let stored steps go past, at any depth —
+ * what a run resumed after a park still owes its `completed-with-errors`. A
+ * failed step a later step of its sequence follows was tolerated, since the
+ * sequence went on; the LAST step of a sequence (`lastEnds`) was tolerated
+ * only when it did not end that sequence — a failed item, a failed path. An
+ * item a loop skipped under `continueOnItemError` counts too.
+ */
+export const toleratedInStored = (steps: readonly StoredNestedStep[], lastEnds: boolean): number =>
+  steps.reduce((count, step, at) => {
+    const ended = lastEnds && at === steps.length - 1
+    const own = (step.status === 'failed' && !ended ? 1 : 0) + skippedItems(step)
+    const inPaths = (step.paths ?? []).reduce(
+      (sum, path) => sum + toleratedInStored(path.steps, step.status === 'failed'),
+      0
+    )
+    const inItems = (step.iterations ?? []).reduce(
+      (sum, item) => sum + toleratedInStored(item.steps, itemFailed(step.output, item.index)),
+      0
+    )
+    return count + own + inPaths + inItems
+  }, 0)
+
 /** A stored tree with each step projected to a run detail's step shape. */
 export interface ProjectedNested<T> {
   readonly paths?: readonly {

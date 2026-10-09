@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import {
   isStorageObjectNotFound,
   UNATTRIBUTED_BUCKET,
@@ -64,14 +64,18 @@ const linkOrigin = (env: Readonly<Record<string, string | undefined>>): string =
   env['BASE_URL']?.trim().replace(/\/+$/, '') ?? ''
 
 /**
- * Whether the catalog already holds an object at `key`, in ANY bucket — the
- * read names none, so a key `system` does not hold but another bucket does is
+ * Whether the catalog already holds an object at `key`, or at another spelling
+ * of it the store would land on, in ANY bucket — the read names none, so a key `system` does not hold but another bucket does is
  * refused too. `undefined` when the catalog could not be read: the step then
  * hands out no link rather than one it could not check.
  */
 const keyIsStored = (storage: Storage, key: string): Effect.Effect<boolean | undefined, never> =>
   storage.getMetadata(key, UNATTRIBUTED_BUCKET).pipe(
     Effect.map(() => true),
+    // A second spelling the store would land on the same object counts as it.
+    Effect.catchIf(isStorageObjectNotFound, () =>
+      storage.findOtherSpelling(key).pipe(Effect.map(Option.isSome))
+    ),
     Effect.catch((error) =>
       isStorageObjectNotFound(error)
         ? Effect.succeed(false)

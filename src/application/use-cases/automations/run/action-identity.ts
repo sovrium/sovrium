@@ -30,3 +30,17 @@ export const readActionIdentity = (
     ...(typeof operator === 'string' ? { operator } : {}),
   }
 }
+
+/**
+ * Whether the action is a `webhook/response` step of a run no webhook started.
+ * Such a step answers the webhook caller; a run another trigger started has no
+ * caller waiting, so the step is passed over — at the top level and inside a
+ * `path` or a `loop` alike.
+ */
+export const answersNoCaller = (
+  rawAction: Readonly<Record<string, unknown>>,
+  triggerType: string
+): boolean =>
+  rawAction['type'] === 'webhook' &&
+  rawAction['operator'] === 'response' &&
+  triggerType !== 'webhook'

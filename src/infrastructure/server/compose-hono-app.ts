@@ -397,7 +397,8 @@ export async function createHonoApp(
             ),
             app
           ),
-          app
+          app,
+          getSession
         ),
         app
       )

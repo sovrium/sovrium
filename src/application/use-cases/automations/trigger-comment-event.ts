@@ -14,6 +14,10 @@ import {
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import {
+  firstMatchingTrigger,
+  type TriggerOfType,
+} from '@/domain/models/app/automations/trigger-entries-service'
 import { createdByFieldNames } from '@/domain/models/app/tables/authorship-fields'
 import { evaluateRecordAgainstPredicate } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
@@ -79,19 +83,10 @@ export interface TriggerCommentEventInput {
 }
 
 /**
- * Match a `comment`-typed automation against the just-posted comment.
- *
- * `when` lifecycle gate semantics (PG-02 lock):
- * - `undefined` / `'created'` (default): fires on any new comment insert.
- * - `'approved'`: fires only when the comment row's status is `'approved'`.
- *   The DB column defaults to `'approved'`, so today every new comment
- *   passes this gate. When the moderation pipeline lands and starts
- *   emitting `'pending'` / `'rejected'` rows, this gate already excludes
- *   them without further matcher changes.
- * - `'any'`: fires on any new comment regardless of status.
- *
- * `filter.mentionsOnly` short-circuits when the caller's mentions list is
- * empty (the trigger envelope's `{{trigger.mentions}}` would be empty too).
+ * The comment entry of an automation that the just-posted comment starts — the
+ * first that matches, so one comment starts one run. `when: 'approved'` (PG-02
+ * lock) fires only for an approved comment; `'created'`, `'any'` and no value
+ * fire on any insert. `filter.mentionsOnly` needs at least one mention.
  */
 const matchesCommentTrigger = (input: {
   readonly automation: NonNullable<App['automations']>[number]
@@ -99,17 +94,17 @@ const matchesCommentTrigger = (input: {
   readonly mentions: readonly string[]
   readonly status: 'pending' | 'approved' | 'rejected'
   readonly pausedNames: ReadonlySet<string>
-}): boolean => {
+}): TriggerOfType<'comment'> | undefined => {
   const { automation, tableName, mentions, status, pausedNames } = input
-  if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
-  const { trigger } = automation
-  if (trigger.type !== 'comment') return false
-  if (trigger.table !== tableName) return false
-  if (trigger.filter?.mentionsOnly === true && mentions.length === 0) return false
-  // PG-02 lock: `when: 'approved'` fires only for approved comments. Other
-  // values (`'created'`, `'any'`, undefined) fire on any insert.
-  if (trigger.when === 'approved' && status !== 'approved') return false
-  return true
+  if (!isAutomationOperationallyEnabled(automation, pausedNames)) return undefined
+  return firstMatchingTrigger(
+    automation,
+    'comment',
+    (trigger) =>
+      trigger.table === tableName &&
+      !(trigger.filter?.mentionsOnly === true && mentions.length === 0) &&
+      !(trigger.when === 'approved' && status !== 'approved')
+  )
 }
 
 /**
@@ -360,15 +355,15 @@ const fetchParentRecord = (
  */
 const dispatchSingleCommentAutomation = (params: {
   readonly automation: NonNullable<App['automations']>[number]
+  readonly trigger: TriggerOfType<'comment'>
   readonly input: TriggerCommentEventInput
   readonly table: Table | undefined
   readonly record: Readonly<Record<string, unknown>>
   readonly triggerData: TriggerData
 }): Effect.Effect<void, never, ExecuteAutomationRunRequirements | DataSourceRepository> =>
   Effect.gen(function* () {
-    const { automation, input, table, record, triggerData } = params
-    const respectFlag =
-      automation.trigger.type === 'comment' ? automation.trigger.respectReadPermissions : undefined
+    const { automation, trigger, input, table, record, triggerData } = params
+    const respectFlag = trigger.respectReadPermissions
     const passes = yield* passesReadPermissionGate({
       app: input.app,
       table,
@@ -380,6 +375,7 @@ const dispatchSingleCommentAutomation = (params: {
     if (!passes) return
     yield* dispatchAutomationOnce({
       automation,
+      trigger,
       app: input.app,
       processEnv: input.processEnv,
       triggerData,
@@ -442,15 +438,16 @@ export const triggerCommentEventAutomations = (
   Effect.gen(function* () {
     // Entry point: one read of the operational pauses per comment event.
     const pausedNames = yield* loadPausedAutomationNames
-    const matching = (input.app.automations ?? []).filter((automation) =>
-      matchesCommentTrigger({
+    const matching = (input.app.automations ?? []).flatMap((automation) => {
+      const trigger = matchesCommentTrigger({
         automation,
         tableName: input.tableName,
         mentions: input.mentions,
         status: input.comment.status,
         pausedNames,
       })
-    )
+      return trigger === undefined ? [] : [{ automation, trigger }]
+    })
     if (matching.length === 0) return
 
     const record = yield* fetchParentRecord(input.session, input.tableName, input.recordId)
@@ -461,8 +458,8 @@ export const triggerCommentEventAutomations = (
 
     yield* Effect.forEach(
       matching,
-      (automation) =>
-        dispatchSingleCommentAutomation({ automation, input, table, record, triggerData }),
+      ({ automation, trigger }) =>
+        dispatchSingleCommentAutomation({ automation, trigger, input, table, record, triggerData }),
       { concurrency: 1, discard: true }
     )
   }).pipe(

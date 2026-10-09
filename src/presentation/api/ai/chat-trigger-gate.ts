@@ -23,6 +23,7 @@ import {
   mayStartAutomationByName,
   triggerPermissionAdmits,
 } from '@/domain/models/app/automations/manual-trigger-role-service'
+import { hasTriggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import type { App } from '@/domain/models/app'
 
 type Automation = NonNullable<App['automations']>[number]
@@ -42,6 +43,6 @@ export const admitChatTrigger = (
   userRole: string
 ): ChatTriggerAdmission => {
   if (!triggerPermissionAdmits(automation, app, userRole)) return 'forbidden'
-  if (automation.trigger.type !== 'manual') return 'not-triggerable'
+  if (!hasTriggerOfType(automation, 'manual')) return 'not-triggerable'
   return mayStartAutomationByName(automation, app, userRole) ? 'admitted' : 'forbidden'
 }

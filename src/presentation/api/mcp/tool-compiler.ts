@@ -29,6 +29,7 @@ import {
   buildTableToolName,
   isAiAccessEnabled,
 } from '@/domain/models/app/auth/ai-access'
+import { triggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import type { App } from '@/domain/models/app'
 import type { ActionTemplate } from '@/domain/models/app/actions'
 import type {
@@ -227,7 +228,7 @@ const compileAutomationTools = (
 ): ReadonlyArray<CompiledTool> => {
   const access = automation.aiAccess
   if (!isAiAccessEnabled(access)) return []
-  if (automation.trigger.type !== 'manual') return []
+  if (triggerOfType(automation, 'manual') === undefined) return []
 
   return [
     {
@@ -254,10 +255,8 @@ const buildAutomationInputSchema = (
   readonly properties: Record<string, unknown>
   readonly required?: ReadonlyArray<string>
 } => {
-  if (automation.trigger.type !== 'manual') {
-    return { type: 'object', properties: {} }
-  }
-  const declared = automation.trigger.inputSchema
+  // The manual entry's input: an AI client starts the automation through it.
+  const declared = triggerOfType(automation, 'manual')?.inputSchema
   if (declared === undefined) return { type: 'object', properties: {} }
 
   // The trigger schema stores `inputSchema` as `Record<string, unknown>`,

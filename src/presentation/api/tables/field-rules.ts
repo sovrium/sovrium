@@ -282,9 +282,8 @@ export function validateFieldFormats(
  *
  * The two application errors and the two wire errors are the same distinction
  * seen from two sides: a verdict about the payload (400) versus a storage
- * operation that never produced one (503). The mapping is total and is the only
- * place the two vocabularies meet, so `VALIDATION_ERROR_ENVELOPES` keeps
- * deciding every status and this file decides none.
+ * operation that never produced one (503). The only place the two vocabularies
+ * meet, so `VALIDATION_ERROR_ENVELOPES` decides every status and this file none.
  */
 const toFieldError = (
   error: AttachmentRuleViolation | AttachmentStorageUnavailable
@@ -293,7 +292,7 @@ const toFieldError = (
     ? new FieldValidationError(error.message, error.field)
     : new FieldStorageError(error.message, error.field, error.cause)
 
-/** {@link toFieldError} for the two programs that can only fail on storage. */
+/** {@link toFieldError} for the program that can only fail on storage. */
 const toFieldStorageError = (error: AttachmentStorageUnavailable): FieldStorageError =>
   new FieldStorageError(error.message, error.field, error.cause)
 
@@ -356,18 +355,18 @@ export function validateAttachmentReferences(
   })
 }
 
-/**
- * Persist inline `{ name, content }` attachment payloads from a record-create
- * request and replace them with the canonical `{ key, name, mimeType, size }`
- * JSONB shape.
- */
+/** Store inline `{ name, content }` values in their column's bucket; non-base64 content is a 400. */
 export function uploadInlineAttachmentContent(
   fields: Record<string, unknown>
-): Effect.Effect<Record<string, unknown>, FieldStorageError, ValidationContext | StorageService> {
+): Effect.Effect<
+  Record<string, unknown>,
+  FieldValidationError | FieldStorageError,
+  ValidationContext | StorageService
+> {
   return Effect.gen(function* () {
     const ctx = yield* ValidationContext
     return yield* persistInlineAttachments({ scope: ctx, fields }).pipe(
-      Effect.mapError(toFieldStorageError)
+      Effect.mapError(toFieldError)
     )
   })
 }

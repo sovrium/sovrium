@@ -8,6 +8,11 @@
 import { Effect } from 'effect'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import {
+  hasTriggerOfType,
+  triggersOfType,
+} from '@/domain/models/app/automations/trigger-entries-service'
+import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import {
@@ -20,6 +25,7 @@ import {
 import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Locate a cron-triggered automation by name and reject states that should
@@ -35,20 +41,30 @@ import type { App } from '@/domain/models/app'
 const resolveCronAutomation = (
   app: App,
   name: string,
-  pausedNames: ReadonlySet<string>
-): Effect.Effect<NonNullable<App['automations']>[number], RunAutomationError> => {
+  pausedNames: ReadonlySet<string>,
+  triggerName: string | undefined
+): Effect.Effect<
+  { readonly automation: NonNullable<App['automations']>[number]; readonly trigger: Trigger },
+  RunAutomationError
+> => {
   const automation = app.automations?.find((a) => a.name === name)
   if (!automation) return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
   if (!isAutomationOperationallyEnabled(automation, pausedNames)) {
     return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
   }
-  if (automation.trigger.type !== 'cron') {
+  // The cron entry that fired — the first one when the caller names none.
+  const crons = triggersOfType(automation, 'cron')
+  const trigger =
+    triggerName === undefined
+      ? crons[0]
+      : crons.find((entry) => triggerEntryName(entry) === triggerName)
+  if (trigger === undefined) {
     // Re-use the webhook-shaped error tag — the cron runner is internal,
     // not exposed to HTTP, and the run-history persistence path doesn't
     // distinguish per-trigger error kinds.
     return Effect.fail({ _tag: 'AutomationNotWebhookTriggered' as const, name })
   }
-  return Effect.succeed(automation)
+  return Effect.succeed({ automation, trigger })
 }
 
 /**
@@ -66,6 +82,8 @@ export interface RunCronAutomationOptions {
    */
   readonly triggerData?: TriggerData
   readonly handlers?: ReadonlyMap<ActionKey, ActionHandler>
+  /** The name of the cron entry that fired; omitted, the automation's first cron entry. */
+  readonly triggerName?: string
 }
 
 /**
@@ -87,6 +105,7 @@ export const runCronAutomation = ({
   processEnv,
   triggerData = { type: 'cron', firedAt: new Date().toISOString() },
   handlers = defaultActionHandlers,
+  triggerName,
 }: RunCronAutomationOptions): Effect.Effect<
   RunAutomationResult,
   RunAutomationError,
@@ -96,11 +115,17 @@ export const runCronAutomation = ({
     // Entry point: read the pauses on every tick, so a resume takes effect on
     // the very next scheduled fire without re-registering the job.
     const pausedNames = yield* loadPausedAutomationNames
-    const automation = yield* resolveCronAutomation(app, name, pausedNames)
+    const { automation, trigger } = yield* resolveCronAutomation(
+      app,
+      name,
+      pausedNames,
+      triggerName
+    )
     const automationId = yield* resolveAutomationId(name, automation)
     return yield* executeAutomationRun({
       name,
       automation,
+      trigger,
       automationId,
       app,
       processEnv,
@@ -179,7 +204,7 @@ export const runCronAutomationOnDemand = ({
     if (!automation || !isAutomationOperationallyEnabled(automation, pausedNames)) {
       return yield* Effect.fail({ _tag: 'AutomationNotFound' as const, name })
     }
-    if (automation.trigger.type !== 'cron') {
+    if (!hasTriggerOfType(automation, 'cron')) {
       return yield* Effect.fail({ _tag: 'AutomationNotManualTriggered' as const, name })
     }
 

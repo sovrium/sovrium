@@ -86,6 +86,10 @@ const RECORD_REFERENCE = /(?<!\\)\$record\.([a-zA-Z0-9_]+)/g
  * The field charset is {@link RECORD_REFERENCE}'s, `[a-zA-Z0-9_]`; a namespace
  * must start with a letter or an underscore, so `$1.50` is never a token.
  *
+ * A field may end in `.raw` (`$record.paid_at.raw`): the stored value, where a
+ * text site would otherwise print it formatted. The suffix belongs to the
+ * token, so it is never printed; {@link fieldText} reads it.
+ *
  * The FIRST alternative is the escape: a backslash directly before a
  * token matches that one token alone — never a chain — so `\$record.a|$record.b`
  * is an escaped token, a literal `|`, and a token that is still filled. Its
@@ -93,7 +97,7 @@ const RECORD_REFERENCE = /(?<!\\)\$record\.([a-zA-Z0-9_]+)/g
  * chain's back-reference names.
  */
 const SCOPED_VAR_CHAIN =
-  /\\\$([a-zA-Z_][a-zA-Z0-9_]*)\.[a-zA-Z0-9_]+|\$([a-zA-Z_][a-zA-Z0-9_]*)\.[a-zA-Z0-9_]+(?:\|\$\2\.[a-zA-Z0-9_]+)*/g
+  /\\\$([a-zA-Z_][a-zA-Z0-9_]*)\.[a-zA-Z0-9_]+|\$([a-zA-Z_][a-zA-Z0-9_]*)\.[a-zA-Z0-9_]+(?:\.raw\b)?(?:\|\$\2\.[a-zA-Z0-9_]+(?:\.raw\b)?)*/g
 
 /**
  * {@link SCOPED_VAR_CHAIN} as source text, for the one reader that cannot import
@@ -150,10 +154,48 @@ export const isTokenNamespace = (name: string): boolean => /^[a-zA-Z_][a-zA-Z0-9
  */
 const tokenText = (namespace: string, field: string): string => `$${namespace}.${field}`
 
-/** One field, coerced: `undefined` and `null` alike become the empty string. */
+/**
+ * The key a record carries its TEXT-SITE values under: each formatted field's
+ * text (`Mar 20, 2025 at 02:05 PM`, `€1,250.50`) by field name. Attached by the
+ * page renderer, which knows the field types, the page language and the zone.
+ */
+export const RECORD_TEXT_KEY = '_text'
+
+/**
+ * One field, coerced: `undefined` and `null` alike become the empty string.
+ * `<field>.raw` reads the key of that name when a text projection
+ * ({@link withRecordText}) supplied one, else the field itself — so the suffix
+ * is accepted at every site and is a no-op where nothing is formatted.
+ *
+ * The {@link RECORD_TEXT_KEY} map is the engine's, not a field: it rides on the
+ * record so a text site can read it, and a token naming it prints nothing.
+ */
 const fieldText = (record: Readonly<Record<string, unknown>>, fieldName: string): string => {
-  const value = record[fieldName]
+  const stored = fieldName.replace(/\.raw$/, '')
+  if (stored === RECORD_TEXT_KEY) return ''
+  const value = record[fieldName] ?? record[stored]
   return value === undefined || value === null ? '' : String(value)
+}
+
+/**
+ * A record projected for a TEXT site — a component's content, a string child, a
+ * confirm's title: every field its {@link RECORD_TEXT_KEY} map formats prints
+ * that text, and `<field>.raw` keeps the stored value. Returned unchanged when
+ * the record carries no text map, so an address site and a record read with no
+ * page context print exactly what they always did.
+ */
+export const withRecordText = (
+  record: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> => {
+  const text = record[RECORD_TEXT_KEY]
+  if (typeof text !== 'object' || text === null || Array.isArray(text)) return record
+  const entries = Object.entries(text as Record<string, unknown>)
+  if (entries.length === 0) return record
+  return {
+    ...record,
+    ...Object.fromEntries(entries.map(([field]) => [`${field}.raw`, record[field]])),
+    ...Object.fromEntries(entries),
+  }
 }
 
 /**
@@ -381,6 +423,12 @@ export const withDisplayLabels = (
   return labels.length === 0 ? record : { ...record, ...Object.fromEntries(labels) }
 }
 
+/** {@link withRecordText} over every namespace of a scope map. */
+export const withScopesText = (
+  scopes: Readonly<Record<string, Readonly<Record<string, unknown>>>>
+): Readonly<Record<string, Readonly<Record<string, unknown>>>> =>
+  Object.fromEntries(Object.entries(scopes).map(([name, record]) => [name, withRecordText(record)]))
+
 /** A value `String()` would print as `[object Object]`: a plain object, or an array holding one. */
 const printsAsObjectTag = (value: unknown): boolean => {
   if (Array.isArray(value)) return value.some(printsAsObjectTag)
@@ -408,6 +456,8 @@ export const printableRecordFields = (
   Object.fromEntries(
     Object.entries(record).map(([key, value]) => [
       key,
-      printsAsObjectTag(value) ? tokenText(RECORD_NAMESPACE, key) : value,
+      key !== RECORD_TEXT_KEY && printsAsObjectTag(value)
+        ? tokenText(RECORD_NAMESPACE, key)
+        : value,
     ])
   )

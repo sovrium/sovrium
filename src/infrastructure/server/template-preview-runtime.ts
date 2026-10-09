@@ -39,6 +39,8 @@ const OfflineStorage = Layer.succeed(StorageService, {
   deleteUncataloguedBytes: () => offline,
   getSignedUrl: () => offline,
   getMetadata: () => offline,
+  statObject: () => offline,
+  findOtherSpelling: () => offline,
   list: () => offline,
   getTotalBytes: offline,
 })

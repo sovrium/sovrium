@@ -144,12 +144,12 @@ The same count governs the address an instance prints. Without `BASE_URL`, `$app
 
 ## Database
 
-| Variable            | Default        | Description                                        |
-| ------------------- | -------------- | -------------------------------------------------- |
-| `DATABASE_URL`      | unset (SQLite) | Connection string; the scheme selects the engine   |
-| `DATABASE_POOL_MAX` | `10`           | PostgreSQL connection-pool size, ignored by SQLite |
+| Variable            | Default        | Description                                                               |
+| ------------------- | -------------- | ------------------------------------------------------------------------- |
+| `DATABASE_URL`      | unset (SQLite) | Connection string; the scheme selects the engine                          |
+| `DATABASE_POOL_MAX` | `10`           | Most PostgreSQL connections one instance holds at once, ignored by SQLite |
 
-The URL is scheme-discriminated, and anything unrecognised fails loudly at startup.
+The URL is scheme-discriminated, and anything unrecognised fails loudly at startup. A bare filesystem path is rejected — prefix it with `file:`.
 
 | Value                                               | Engine                                                       |
 | --------------------------------------------------- | ------------------------------------------------------------ |
@@ -157,7 +157,7 @@ The URL is scheme-discriminated, and anything unrecognised fails loudly at start
 | `postgresql://user:pass@host:5432/db`               | PostgreSQL; `postgres://` is equally accepted                |
 | `file:./data/app.db`, `sqlite:./app.db`, `:memory:` | SQLite at that path; `:memory:` is ephemeral                 |
 
-A bare filesystem path is rejected — prefix it with `file:`.
+`DATABASE_POOL_MAX` is the instance's whole footprint on PostgreSQL: the connections that serve requests, the one Sovrium uses for migrations and maintenance, and one for each AI listener the app declares all count against it. Size a role's `CONNECTION LIMIT`, or a shared server's `max_connections`, from this number. The smallest value an app accepts is 2, plus one for each of the AI compute and knowledge listeners it uses; a smaller value stops the start with a message naming the minimum.
 
 Sovrium turns PostgreSQL's JIT compilation off on the connections it opens. Its queries are short, and compiling them costs more than it saves. A connection pooler in front of the database can refuse that setting (a stock PgBouncer does); Sovrium then leaves JIT to the server and logs a warning at start-up, rather than failing to connect.
 

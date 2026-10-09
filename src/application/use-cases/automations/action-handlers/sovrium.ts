@@ -324,15 +324,16 @@ const judgeBundleEntries = (
 const readStoredArchive = (objectKey: string) =>
   Effect.gen(function* () {
     const storage = yield* StorageService
-    // The catalogued size refuses an oversized object before a byte is buffered;
+    // The size the STORE reports (no catalog row is needed: another app may have
+    // written the object) refuses an oversized object before a byte is buffered;
     // an object whose size cannot be read is never downloaded unchecked.
-    const catalogued = yield* storage.getMetadata(objectKey, UNATTRIBUTED_BUCKET).pipe(
+    const stored = yield* storage.statObject(objectKey).pipe(
       Effect.tapCause((cause) =>
         Effect.logWarning(`sovrium.validateBundle: no size for "${objectKey}"`, cause)
       ),
       Effect.mapError(() => `sovrium.validateBundle: no object could be read at "${objectKey}"`)
     )
-    if (catalogued.size > BUNDLE_MAX_STORED_BYTES) {
+    if (stored.size > BUNDLE_MAX_STORED_BYTES) {
       return yield* Effect.fail(
         `sovrium.validateBundle: the object at "${objectKey}" is larger than 100 MiB`
       )

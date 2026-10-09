@@ -30,6 +30,7 @@ import {
   CONFIRM_CANCEL_LABEL_ATTR,
   CONFIRM_CANCEL_LABEL_FALLBACK,
 } from '@/domain/models/app/pages/confirm-gate-labels'
+import { restoreInertTemplateValue } from '@/presentation/design/session-template'
 import { fetchSessionUser, resolveSessionTemplate } from './session-resolver'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
@@ -114,10 +115,13 @@ function wireTypeToConfirmGate(
     inputEl.addEventListener('input', evaluate)
     evaluate()
   }
+  // A value the server filled in is restored LAST, after every token resolved.
   if (rawMatch.includes('$session.')) {
-    void fetchSessionUser().then((user) => arm(resolveSessionTemplate(rawMatch, user)))
+    void fetchSessionUser().then((user) =>
+      arm(restoreInertTemplateValue(resolveSessionTemplate(rawMatch, user)))
+    )
   } else {
-    arm(rawMatch)
+    arm(restoreInertTemplateValue(rawMatch))
   }
 }
 

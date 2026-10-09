@@ -14,6 +14,7 @@ import {
   resolveTriggerInString,
 } from '../resolve-trigger-data'
 import { renderActionProps, type RenderedActionProps } from '../run/render-action-props'
+import { loopScopeRoots } from './loop-scope'
 import type { ActionRunContext } from './shared'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 
@@ -148,8 +149,8 @@ export const buildStepsResultView = (
  * (`{{steps.stepName.X}}`), and the env and template-variable values the
  * authored text references.
  *
- * Callers that add their own keys (e.g. `loop` adds `loop: { item, index }`)
- * spread this and override.
+ * Inside a loop it also holds the loop scopes (`./loop-scope`): `{{loop.*}}`
+ * for the innermost loop, `{{loops.<loop name>.*}}` for any loop around it.
  */
 export const buildRunContextView = (
   runContext: ActionRunContext
@@ -159,6 +160,8 @@ export const buildRunContextView = (
     ...stepsView,
     ...buildAutomationContext(runContext.triggerData as never),
     steps: stepsView,
+    // `{{loop.*}}` (innermost) and `{{loops.<loop name>.*}}`: the loops it sits in.
+    ...loopScopeRoots(runContext.loopScopes),
     // Written last so no step name shadows them: the values an authored
     // `$env.X` / `$name` reference inserts (see `../authored-references`).
     ...authoredReferenceRoots({
@@ -189,6 +192,34 @@ export const renderNestedActionProps = (
   }),
   ...nestedTemplateVars(action, (vars) => resolveRunContextValue(vars, context, templates)),
 })
+
+/** Whether a nested action is a container — a `loop` or a `path` — that fills its own body. */
+const isContainer = (action: Readonly<Record<string, unknown>>): boolean =>
+  action['type'] === 'loop' || action['type'] === 'path'
+
+/**
+ * The props of an action nested in a `path` or a `loop`, for the place each one
+ * lands: a nested container gets its configuration AS WRITTEN and fills in its
+ * own body when it runs — its `items` and `condition`s when it starts, each of
+ * its actions just before that action runs, against the loop scopes it sits in.
+ * Filled in here, a later action of its body would read an earlier one before
+ * it ran, and an inner `{{loop.item}}` would read the outer item. Its `$vars`
+ * (or, with none of its own, the ones around it) travel with it.
+ */
+export const fillNestedActionProps = (
+  action: Readonly<Record<string, unknown>>,
+  runContext: ActionRunContext,
+  context: Readonly<Record<string, unknown>>
+): RenderedActionProps => {
+  if (!isContainer(action)) return renderNestedActionProps(action, context, runContext.templates)
+  const own = nestedTemplateVars(action, (vars) =>
+    resolveRunContextValue(vars, context, runContext.templates)
+  )
+  const inherited =
+    runContext.templateVars === undefined ? {} : { templateVars: runContext.templateVars }
+  const props = (action['props'] ?? {}) as Record<string, unknown>
+  return { props, authored: true, ...(own.templateVars === undefined ? inherited : own) }
+}
 
 /** The props of a nested action a step handed over, final: run as given, `$vars` included. */
 export const finalNestedActionProps = (

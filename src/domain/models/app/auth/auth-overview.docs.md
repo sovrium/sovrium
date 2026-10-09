@@ -21,6 +21,27 @@ Those four lines give working email-and-password sign-up and sign-in, server-man
 
 Infrastructure secrets — signing keys, callback URLs, provider credentials — live in environment variables rather than here. The configuration is code: it goes into version control, gets reviewed, and ships to a mirror.
 
+### Sign-in page
+
+`auth.loginPage` names the path of your app's sign-in page. It defaults to `/login`.
+
+```yaml
+auth:
+  loginPage: /account/sign-in
+  strategies:
+    - type: emailAndPassword
+```
+
+When Sovrium has to send a signed-out visitor to sign in, it sends them to this page, with the way back:
+
+- An OAuth client's authorize request from a signed-out browser goes there with the authorization request attached. Signing in resumes it.
+- Opening the OAuth consent screen signed out, or clicking Allow or Deny after the session has ended, sends the visitor there with `callbackURL` set to the consent screen. A sign-in form on that page returns them to it.
+- The site header from the library (`block/navbar-simple`) points its sign-in link there, unless you pass `--set signInHref=…`.
+
+A page's own `access.redirectTo` is not affected: each page names its target. The operator console keeps its own sign-in page at `/_admin/login`.
+
+The value must be a path on your app: it starts with a single `/`, and has no scheme, host, query (`?`), fragment (`#`), backslash or whitespace. `sovrium validate` refuses anything else and names the value.
+
 ## Admin features are always on
 
 Once `auth` is configured, user management, role assignment and impersonation endpoints mount automatically; there is no separate toggle.

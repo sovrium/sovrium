@@ -42,6 +42,8 @@ automations:
 
 Inside an automation, `name` is how a later step references an output, so it belongs to the **call site** rather than to the template. That is why `action` is a nested block: the template declares what to do, and the invocation declares what to call it.
 
+A template that is a loop or a path carries its own steps, and those do keep their names: each step inside the template needs a name of its own, so that a `{{<step>.…}}` in the body reads one step only. `sovrium validate` and startup refuse a template where two of its steps share a name, naming the template.
+
 ## Invoking a template
 
 <!-- sovrium:options ActionRefSchema -->

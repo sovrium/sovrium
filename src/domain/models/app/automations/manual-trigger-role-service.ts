@@ -23,6 +23,7 @@ import {
   permits,
 } from '@/domain/models/app/auth/permission-evaluation'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { hasTriggerOfType, triggerOfType } from './trigger-entries-service'
 import type { App } from '@/domain/models/app'
 
 type Automation = NonNullable<App['automations']>[number]
@@ -119,8 +120,8 @@ export const usesUserScopedConnection = (automation: Automation, app: App): bool
  * meant to be run by individual users with their own tokens.
  */
 export const requiredManualTriggerRole = (automation: Automation, app: App): string => {
-  const explicitRole =
-    automation.trigger.type === 'manual' ? automation.trigger.requiredRole : undefined
+  // The MANUAL entry's own rule: another entry (a public webhook) never relaxes it.
+  const explicitRole = triggerOfType(automation, 'manual')?.requiredRole
   return explicitRole ?? (usesUserScopedConnection(automation, app) ? 'member' : 'admin')
 }
 
@@ -179,6 +180,6 @@ export const mayStartAutomationByName = (
   app: App,
   userRole: string | undefined
 ): boolean =>
-  automation.trigger.type === 'manual' &&
+  hasTriggerOfType(automation, 'manual') &&
   triggerPermissionAdmits(automation, app, userRole) &&
   mayRunManualAutomation(automation, app, userRole)

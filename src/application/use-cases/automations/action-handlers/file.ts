@@ -7,6 +7,8 @@
 
 import { Effect } from 'effect'
 import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import { resolveUploadBucket } from '@/application/use-cases/buckets/resolve-bucket'
+import { isPlainKey, takenKeyRefusal } from './document-output'
 import {
   autoDelimiter,
   csvCell,
@@ -15,16 +17,21 @@ import {
   parseCsvDocument,
 } from './file-csv'
 import {
+  extByMime,
   extOf,
   isSelfContainedSource,
   mimeByExt,
   resolveSource,
   tempKey,
   uploadArtifact,
+  uploadArtifactTo,
 } from './file-support'
 import { resolveOwnProps } from './run-context-resolution'
+import { recordOwnUpload } from './run-written-files'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
+import type { UploadTarget } from '@/application/ports/services/storage-service'
+import type { App } from '@/domain/models/app'
 
 /**
  * `file:*` action handlers — read/write bucket files via the StorageService
@@ -61,11 +68,65 @@ const errorOutcome = (message: string): ActionOutcome => ({
 // upload
 // ---------------------------------------------------------------------------
 
-export const handleFileUpload: ActionHandler = (action, _app, _automation) =>
+/**
+ * Where an upload goes. With no `bucket` it is a temporary artifact in no
+ * bucket, at its `path` or a fresh temp key. With a `bucket` — a literal the
+ * app declares, checked at start — it is catalogued there, recorded as stored
+ * by `automation`, at its `path` or a fresh key outside the temp prefix (the
+ * temp sweep must never reach a file a record may hold). A `path` that is not
+ * a plain relative key is refused in both cases, and so is one already holding a file this
+ * automation did not store: a person's upload is never replaced.
+ */
+const uploadPlacement = (input: {
+  readonly app: App
+  readonly path: string | undefined
+  readonly bucket: string | undefined
+  readonly mime: string
+  readonly automation: string
+}): Effect.Effect<
+  { readonly key: string; readonly target: UploadTarget } | { readonly refusal: string },
+  never,
+  StorageService
+> =>
+  Effect.gen(function* () {
+    const { path, bucket, mime, automation } = input
+    const hasPath = path !== undefined && path.trim() !== ''
+    if (hasPath && !isPlainKey(path)) {
+      return {
+        refusal: `file.upload path "${path}" must be a relative key with no "." or ".." segment`,
+      }
+    }
+    if (bucket === undefined) {
+      return { key: hasPath ? path : tempKey(''), target: UNATTRIBUTED_BUCKET }
+    }
+    // Start refuses an undeclared literal; a `code` step's call is checked here.
+    if (resolveUploadBucket(input.app, bucket) === undefined) {
+      return { refusal: `file.upload bucket "${bucket}" is not declared` }
+    }
+    const target = { bucket, uploadedById: undefined, generatedBy: automation }
+    if (!hasPath) return { key: `${globalThis.crypto.randomUUID()}${extByMime(mime)}`, target }
+    const refusal = yield* takenKeyRefusal(path, bucket, automation)
+    return refusal === undefined
+      ? { key: path, target }
+      : { refusal: `file.upload cannot write the file: ${refusal}` }
+  })
+
+/** What an upload step hands on: its bucket when it named one, else its path or `temporary`. */
+const uploadOutput = (
+  base: { readonly key: string; readonly contentType: string; readonly size: number },
+  path: string | undefined,
+  bucket: string | undefined
+): Readonly<Record<string, unknown>> => {
+  if (bucket !== undefined) return { ...base, bucket }
+  return path !== undefined && path.trim() !== '' ? { ...base, path } : { ...base, temporary: true }
+}
+
+export const handleFileUpload: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const p = props(action)
     const source = stringProp(p, 'source')
     const path = optionalString(p, 'path')
+    const bucket = optionalString(p, 'bucket') || undefined
     const explicitContentType = optionalString(p, 'contentType')
     if (!source) return { status: 'failure', error: 'file.upload requires a source' } as const
 
@@ -81,17 +142,18 @@ export const handleFileUpload: ActionHandler = (action, _app, _automation) =>
     const { bytes, detectedMime } = resolved.success
     const mime =
       explicitContentType || detectedMime || mimeByExt(path) || 'application/octet-stream'
-    const hasPath = path !== undefined && path.trim() !== ''
-    const key = hasPath ? (path as string) : tempKey('')
+    const placed = yield* uploadPlacement({ app, path, bucket, mime, automation: automation.name })
+    if ('refusal' in placed) return { status: 'failure', error: placed.refusal } as const
+    const { key, target } = placed
 
     const storage = yield* StorageService
-    const wrote = yield* uploadArtifact(storage, key, bytes, mime)
+    const wrote = yield* uploadArtifactTo(storage, key, { bytes, contentType: mime }, target)
     if (!wrote) return errorOutcome(`failed to upload to ${key}`)
+    yield* Effect.sync(() => recordOwnUpload(automation.writtenFiles, { bucket, source, key }))
 
-    const base = { key, contentType: mime, size: bytes.length }
     return {
       status: 'success',
-      output: hasPath ? { ...base, path } : { ...base, temporary: true },
+      output: uploadOutput({ key, contentType: mime, size: bytes.length }, path, bucket),
     } as const
   }).pipe(
     Effect.withSpan('automations.handle-file-upload', { attributes: actionAttributes(action) })

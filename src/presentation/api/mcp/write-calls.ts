@@ -19,6 +19,7 @@
  */
 
 import { Effect } from 'effect'
+import { recordWriteRequester } from '@/application/use-cases/tables/record-create-orchestration'
 import {
   createRecordWithSideEffects,
   deleteRecordWithSideEffects,
@@ -85,6 +86,7 @@ export async function runMcpRecordUpdate(
   const program = updateRecordWithSideEffects({
     ...{ session: input.session, app: input.app, tableName: input.tableName },
     ...{ recordId: input.recordId, fields: input.fields, userRole: input.userRole },
+    requester: recordWriteRequester(input.session.userId, input.userRole),
     userGroups: input.userGroups,
     linkReader: input.linkReader,
     isSqlite: isSqliteRuntime(),
@@ -98,11 +100,12 @@ export async function runMcpRecordUpdate(
 
 /** One MCP delete — to the trash, as the records API's DELETE — answered as a tool result. */
 export async function runMcpRecordDelete(
-  input: McpWriteScope & { readonly recordId: string }
+  input: McpWriteScope & { readonly recordId: string; readonly userRole: string }
 ): Promise<McpToolResult> {
   const program = deleteRecordWithSideEffects({
     ...{ session: input.session, app: input.app, tableName: input.tableName },
     recordId: input.recordId,
+    requester: recordWriteRequester(input.session.userId, input.userRole),
     mode: 'soft',
     processEnv: process.env,
     forgetDerivedVariants: evictTransformCacheForKey,

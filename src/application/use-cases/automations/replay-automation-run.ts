@@ -13,6 +13,8 @@ import {
   parseRelay,
   type RunRelay,
 } from '@/domain/models/app/automations/run-relay-service'
+import { redactRunTriggerData } from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
+import { triggerNamedOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import {
@@ -198,11 +200,16 @@ export const replayAutomationRun = (
     )
 
     const automationId = yield* resolveAutomationId(name, automation)
-    const replayTriggerData = triggerData ?? coerceTriggerData(run.triggerData)
+    // A run recorded before credential headers were kept as a marker replays
+    // with them hidden, as every read of it shows them.
+    const replayTriggerData =
+      triggerData ?? coerceTriggerData(redactRunTriggerData(run.triggerData, automation))
 
     return yield* executeAutomationRun({
       name,
       automation,
+      // A replay is recorded under the trigger entry of the run it replays.
+      trigger: triggerNamedOrFirst(automation, run.triggerName),
       automationId,
       app,
       processEnv,

@@ -6,7 +6,7 @@
  */
 
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
-import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Webhook per-trigger + per-IP rate limiter (in-memory sliding window).
@@ -19,8 +19,6 @@ import type { App } from '@/domain/models/app'
  * shipping the in-memory limiter unblocks T-1 without forcing a Redis
  * dependency on every Sovrium deployment.
  */
-
-type Trigger = NonNullable<App['automations']>[number]['trigger']
 type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
 
 const limiter = createSlidingWindowLimiter()

@@ -6,7 +6,7 @@
  */
 
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
-import type { App } from '@/domain/models/app'
+import type { Trigger as WebhookTrigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Signature schemes of an incoming `hmac` webhook beyond the default hex
@@ -21,8 +21,6 @@ import type { App } from '@/domain/models/app'
 
 /** Default replay window, in seconds — the providers' own recommendation. */
 export const DEFAULT_SIGNATURE_TOLERANCE_SECONDS = 300
-
-type WebhookTrigger = NonNullable<App['automations']>[number]['trigger']
 
 type HeaderReader = (name: string) => string | undefined
 

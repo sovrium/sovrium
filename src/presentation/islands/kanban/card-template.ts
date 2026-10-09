@@ -11,6 +11,7 @@ import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 import {
   substituteRecordVars,
   withDisplayLabels,
+  withRecordText,
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { CardQr } from './card-qr'
 import type { TableRecord } from '../runtime/types'
@@ -106,10 +107,13 @@ export const initialsOf = (name: string): string => {
   return `${words[0]?.[0] ?? ''}${words.length > 1 ? (words.at(-1)?.[0] ?? '') : ''}`.toUpperCase()
 }
 
-/** A string field of a card child, `$record.*` resolved against the labelled record. */
+/**
+ * A string field of a card child, `$record.*` resolved against the labelled
+ * record — and a formatted field's text, when the board attached one.
+ */
 const childText = (child: Record<string, unknown>, key: string, record: TableRecord): string => {
   const raw = child[key]
-  return typeof raw === 'string' ? substitute(raw, withDisplayLabels(record)) : ''
+  return typeof raw === 'string' ? substitute(raw, withRecordText(withDisplayLabels(record))) : ''
 }
 
 /** The attribute every card child names its type with (written once, read by specs). */

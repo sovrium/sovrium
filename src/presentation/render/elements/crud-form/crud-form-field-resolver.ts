@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { autofillHintOverlay } from '@/domain/models/app/forms/form-autofill-hint-service'
 import { fieldNamesMatch } from '@/domain/models/app/tables/field-name-matching'
 import { resolveTypedColumnConfig } from '@/presentation/design/field-control-attributes'
 import {
@@ -269,6 +270,7 @@ function resolveFieldDef(
     ...resolveRelationshipConfig(tableField.type, tf),
     ...resolveTypedColumnConfig(tableField.type, tf),
     ...(cfg ? resolveCfgOverrides(cfg) : undefined),
+    ...autofillHintOverlay(tableField.type, cfg?.autocomplete),
   }
 }
 

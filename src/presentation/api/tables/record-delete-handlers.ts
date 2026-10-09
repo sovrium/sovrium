@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { recordWriteRequester } from '@/application/use-cases/tables/record-create-orchestration'
 import {
   type DeleteMode,
   type DeleteResult,
@@ -82,6 +83,7 @@ function runDelete(
 ) {
   const program = deleteRecordWithSideEffects({
     ...input,
+    requester: recordWriteRequester(input.session.userId, getTableContext(c).userRole),
     processEnv: process.env,
     forgetDerivedVariants: evictTransformCacheForKey,
   })
@@ -246,6 +248,7 @@ export async function handleRestoreRecord(c: Context, app: App) {
     c,
     restoreRecordWithSideEffects({
       ...{ session, app, tableName, recordId, userRole, userGroups },
+      requester: recordWriteRequester(session.userId, userRole),
       processEnv: process.env,
     })
   )

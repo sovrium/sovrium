@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import { firstMatchingTrigger } from '@/domain/models/app/automations/trigger-entries-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
@@ -14,6 +15,7 @@ import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Names of the auth lifecycle events that an `auth` trigger can subscribe
@@ -64,13 +66,17 @@ const findMatchingAuthAutomations = (
   app: App,
   event: AuthTriggerEvent,
   pausedNames: ReadonlySet<string>
-): readonly NonNullable<App['automations']>[number][] =>
-  (app.automations ?? []).filter((automation) => {
-    if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
-    const { trigger } = automation
-    if (trigger.type !== 'auth') return false
-    if (!trigger.events.includes(event)) return false
-    return true
+): ReadonlyArray<{
+  readonly automation: NonNullable<App['automations']>[number]
+  readonly trigger: Trigger
+}> =>
+  (app.automations ?? []).flatMap((automation) => {
+    if (!isAutomationOperationallyEnabled(automation, pausedNames)) return []
+    // One run per event: the first auth entry listening to it starts it.
+    const trigger = firstMatchingTrigger(automation, 'auth', (entry) =>
+      entry.events.includes(event)
+    )
+    return trigger === undefined ? [] : [{ automation, trigger }]
   })
 
 /**
@@ -99,9 +105,10 @@ export const triggerAuthEventAutomations = (
 
     yield* Effect.forEach(
       matching,
-      (automation) =>
+      ({ automation, trigger }) =>
         dispatchAutomationOnce({
           automation,
+          trigger,
           app,
           processEnv,
           triggerData: { user, event } as TriggerData,

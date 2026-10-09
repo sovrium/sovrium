@@ -8,10 +8,12 @@
 import {
   executedFromStored,
   outputsOfStored,
+  toleratedInStored,
   type StoredNestedStep,
 } from '../run/nested-step-record'
 import { laterResponse } from './response-precedence'
 import { parkedAt, resumedWaitOutput } from './run-park'
+import type { LoopScope } from './loop-scope'
 import type { ActionOutcome, NestedStepInvoker } from './shared'
 import type { RenderedActionProps } from '../run/render-action-props'
 import type { ExecutedStep } from '../run/types'
@@ -41,19 +43,32 @@ export interface SequenceRun {
   readonly responseOverride: Readonly<Record<string, unknown>> | undefined
   /** The steps the sequence ran, in order — the failing or stopping one included. */
   readonly steps: readonly ExecutedStep[]
+  /** Failures `continueOnError` let the sequence go past, at any depth inside it. */
+  readonly tolerated: number
 }
 
 export const EMPTY_SEQUENCE: SequenceRun = {
   steps: [],
+  tolerated: 0,
   outputs: {},
   last: undefined,
   halt: undefined,
   responseOverride: undefined,
 }
 
+/**
+ * True when a failure of `action` is tolerated: it is marked `continueOnError`,
+ * so the next action of its item or path runs, as it would at the top level.
+ * A resumed container that found its configuration changed is never tolerated.
+ */
+const isTolerated = (action: Readonly<Record<string, unknown>>, outcome: ActionOutcome) =>
+  outcome.status === 'failure' &&
+  action['continueOnError'] === true &&
+  outcome.cancelRun === undefined
+
 /** True when this outcome ends the sequence it ran in. */
-const endsSequence = (outcome: ActionOutcome): boolean =>
-  outcome.status !== 'success' ||
+const endsSequence = (action: Readonly<Record<string, unknown>>, outcome: ActionOutcome) =>
+  (outcome.status !== 'success' && !isTolerated(action, outcome)) ||
   outcome.returnData !== undefined ||
   outcome.pause === true ||
   outcome.park !== undefined
@@ -72,11 +87,13 @@ const settle = (
       ? settled.outcome
       : { ...settled.outcome, park: parkedAt(settled.outcome.park, name, index) }
   const own = name !== '' && outcome.output !== undefined ? { [name]: outcome.output } : {}
+  const tolerated = (isTolerated(action, outcome) ? 1 : 0) + (outcome.toleratedFailures ?? 0)
   return {
     steps: [...run.steps, settled.step],
+    tolerated: run.tolerated + tolerated,
     outputs: { ...run.outputs, ...(outcome.nestedOutputs ?? {}), ...own },
     last: outcome.output,
-    halt: endsSequence(outcome) ? outcome : undefined,
+    halt: endsSequence(action, outcome) ? outcome : undefined,
     responseOverride: laterResponse(run.responseOverride, outcome.responseOverride),
   }
 }
@@ -101,6 +118,8 @@ type SequenceInput = {
   ) => RenderedActionProps
   /** Set when the run resumes inside this sequence. */
   readonly resume?: SequenceResume
+  /** The loops the sequence sits in, handed on to a loop or a path among its actions. */
+  readonly loopScopes?: readonly LoopScope[]
 }
 
 /** Run one action of the sequence through `runNested` and fold it in. */
@@ -116,8 +135,10 @@ const runOne = async (
   const asWritten = authored === true ? { authored } : {}
   const vars = templateVars === undefined ? {} : { templateVars }
   const resumed = extra.resume === undefined ? {} : { resume: extra.resume }
+  const scopes = input.loopScopes === undefined ? {} : { loopScopes: input.loopScopes }
   const nested = { action, props, previousSteps: reads, ...refused, ...asWritten, ...vars }
-  return settle(run, action, await input.runNested({ ...nested, ...resumed }), extra.index)
+  const outcome = await input.runNested({ ...nested, ...resumed, ...scopes })
+  return settle(run, action, outcome, extra.index)
 }
 
 /** Run `actions` from position `from` on, each once, stopping at the first that ends the sequence. */
@@ -139,10 +160,14 @@ export const runNestedSequence = (input: SequenceInput): Promise<SequenceRun> =>
     ? runFrom(input, Promise.resolve(EMPTY_SEQUENCE), 0)
     : resumeSequence(input, input.resume)
 
-/** The sequence as it stood at the park: the steps it had run before its paused one. */
+/**
+ * The sequence as it stood at the park: the steps it had run before its paused
+ * one — every failure among them tolerated, since the sequence went on.
+ */
 const priorRun = (prior: readonly StoredNestedStep[]): SequenceRun => ({
   ...EMPTY_SEQUENCE,
   steps: prior.map(executedFromStored),
+  tolerated: toleratedInStored(prior, false),
   outputs: outputsOfStored(prior),
   last: prior.at(-1)?.output,
 })
@@ -193,7 +218,10 @@ const resumeSequence = async (input: SequenceInput, resume: SequenceResume) => {
  */
 export const haltedOutcome = (
   halt: ActionOutcome,
-  carried: Pick<ActionOutcome, 'output' | 'nestedOutputs' | 'nestedSteps' | 'responseOverride'>
+  carried: Pick<
+    ActionOutcome,
+    'output' | 'nestedOutputs' | 'nestedSteps' | 'responseOverride' | 'toleratedFailures'
+  >
 ): ActionOutcome | undefined => {
   // A resumed container whose configuration changed cancels the whole run.
   if (halt.cancelRun !== undefined) {

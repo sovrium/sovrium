@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /** An automation's trigger, as the app declares it. */
-export type Trigger = NonNullable<App['automations']>[number]['trigger']
+export type { Trigger }
 
 /** The HTTP methods a webhook trigger may declare. */
 export type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'

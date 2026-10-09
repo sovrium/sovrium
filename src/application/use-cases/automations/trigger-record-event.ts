@@ -8,9 +8,8 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import { TemplateEngine, type TemplateRenderer } from '@/application/ports/services/template-engine'
+import { TemplateEngine } from '@/application/ports/services/template-engine'
 import { serializeDriverRow } from '@/application/use-cases/tables/record-transformer'
-import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import {
   relationshipFieldNames,
   withStringRecordId,
@@ -21,7 +20,7 @@ import { buildSyntheticSession } from './build-guest-session'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { singleUserFieldNames, withHydratedId } from './hydrated-field-reference'
 import { loadPausedAutomationNames } from './paused-automation-names'
-import { evaluateRecordTriggerCondition, watchFieldsChanged } from './record-trigger-filters'
+import { findMatchingRecordAutomations } from './record-trigger-filters'
 import type { TriggerData, TriggerRequester } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
@@ -62,64 +61,6 @@ export interface TriggerRecordEventInput {
    * N-deep run. Carried into the runs it starts.
    */
   readonly depth?: number
-}
-
-interface RecordEventMatchInput {
-  readonly app: App
-  readonly tableName: string
-  readonly event: 'create' | 'update' | 'delete' | 'restore'
-  readonly record: Record<string, unknown>
-  readonly previousRecord: Record<string, unknown> | undefined
-  readonly pausedNames: ReadonlySet<string>
-  readonly templates: TemplateRenderer
-}
-
-/**
- * Filter app.automations down to record-triggered automations whose trigger
- * config matches the (tableName, event) tuple AND, for `update` events,
- * passes `watchFields`/`condition` gates if configured. Automations that are
- * OFF — config-disabled OR operationally paused — are excluded, so an operator
- * can stop a misbehaving workflow without editing config or uninstalling.
- */
-const findMatchingRecordAutomations = (
-  input: RecordEventMatchInput
-): readonly NonNullable<App['automations']>[number][] => {
-  const { app, tableName, event, record, previousRecord, pausedNames, templates } = input
-  return (app.automations ?? []).filter((automation) => {
-    if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
-    const { trigger } = automation
-    if (trigger.type !== 'record') return false
-    if (trigger.table !== tableName) return false
-    if (!trigger.events.includes(event)) return false
-    // watchFields narrows update events to specific columns. Create/delete
-    // ignore watchFields per the schema convention (the column "doesn't
-    // exist before/after" semantics are undefined).
-    if (
-      event === 'update' &&
-      trigger.watchFields !== undefined &&
-      !watchFieldsChanged({
-        app,
-        tableName,
-        watchFields: trigger.watchFields,
-        record,
-        previousRecord,
-      })
-    ) {
-      return false
-    }
-    // condition filters by record content. Evaluated against a context
-    // exposing the new record at both `record.X` and `trigger.data.record.X`
-    // so spec authors can pick the more readable variant — and, on an update,
-    // the row before it at `trigger.data.previousRecord.X`, so a condition can
-    // name a transition rather than a state.
-    if (
-      trigger.condition !== undefined &&
-      !evaluateRecordTriggerCondition(templates, trigger.condition, record, previousRecord)
-    ) {
-      return false
-    }
-    return true
-  })
 }
 
 /**
@@ -583,9 +524,10 @@ export const triggerRecordEventAutomations = (
 
     yield* Effect.forEach(
       matching,
-      (automation) =>
+      ({ automation, trigger }) =>
         dispatchAutomationOnce({
           automation,
+          trigger,
           app,
           processEnv,
           triggerData: triggerData as TriggerData,

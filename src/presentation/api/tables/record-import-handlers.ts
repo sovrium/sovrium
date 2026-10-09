@@ -34,6 +34,7 @@ import {
   batchCreateWithSideEffects,
   upsertWithSideEffects,
 } from '@/application/use-cases/tables/record-batch-orchestration'
+import { recordWriteRequester } from '@/application/use-cases/tables/record-create-orchestration'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import {
   importRecordsRequestSchema,
@@ -120,11 +121,12 @@ async function importOverwrite(
     readonly fireEvents: boolean
   }
 ): Promise<Response> {
-  const { session, tableName } = getTableContext(c)
+  const { session, tableName, userRole } = getTableContext(c)
   const validation = await guardUpsert(c, app, input.records, [input.mergeOn])
   if (!validation.success) return validation.response
   const program = upsertWithSideEffects({
     ...{ session, tableName, app, processEnv: process.env, fireEvents: input.fireEvents },
+    requester: recordWriteRequester(session.userId, userRole),
     recordsData: validation.strippedRecords.map((record) => record.fields),
     fieldsToMergeOn: [input.mergeOn],
     hiddenIds: validation.hiddenIds,
@@ -144,7 +146,7 @@ async function importCreate(
     readonly fireEvents: boolean
   }
 ): Promise<Response> {
-  const { session, tableName } = getTableContext(c)
+  const { session, tableName, userRole } = getTableContext(c)
   const refusal = await guardBatchCreate(c, app, input.records)
   if (refusal) return refusal
   const { mergeOn } = input
@@ -159,6 +161,7 @@ async function importCreate(
   if (kept.length === 0) return c.json({ created: 0, updated: 0, skipped }, 200)
   const program = batchCreateWithSideEffects({
     ...{ session, tableName, app, processEnv: process.env, fireEvents: input.fireEvents },
+    requester: recordWriteRequester(session.userId, userRole),
     linkReader: getLinkReader(c),
     rows: kept.map((row) => row.fields),
     returnRecords: false,

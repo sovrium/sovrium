@@ -34,7 +34,7 @@ export class AutomationRepository extends Context.Service<
     readonly list: Effect.Effect<readonly Record<string, unknown>[], AutomationDatabaseError>
     readonly create: (definition: {
       readonly name: string
-      readonly trigger: Automation['trigger']
+      readonly trigger: Automation['triggers'][number]
       readonly actions: Automation['actions']
       readonly enabled?: boolean
     }) => Effect.Effect<Record<string, unknown>, AutomationDatabaseError>

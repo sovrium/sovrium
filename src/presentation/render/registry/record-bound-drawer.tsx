@@ -12,6 +12,7 @@ import {
   resolveTranslationTokensDeep,
 } from '@/domain/models/app/languages/translation-resolver'
 import { callerTableOf, updatableFieldsOf } from '@/presentation/render/props/caller-table-inputs'
+import { recordTextFieldsOf } from '@/presentation/render/props/record-value-format'
 import {
   applyDrawerFieldAccess,
   readDrawerFieldAccess,
@@ -207,6 +208,18 @@ function relatedCallerOf(
 }
 
 /**
+ * How each formatted field of the drawer's table reads, so its slot and a
+ * confirm prompt — filled in the browser — print a value exactly as the server
+ * prints it on a record page.
+ */
+const drawerRecordText = (
+  tables: Parameters<typeof recordTextFieldsOf>[0],
+  table: string | undefined,
+  currentLang: string | undefined,
+  languages: Languages | undefined
+) => recordTextFieldsOf(tables, table, { locale: currentLang ?? 'en-US', languages })
+
+/**
  * A `drawer` carrying a `dataSource` — the record-detail/edit surface.
  *
  * `id`, `dataSource`, `recordFields`, `actions`, `role` and `canEdit` are
@@ -273,6 +286,7 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
     // the record lands — they cannot be resolved here, because at SSR the drawer
     // does not yet know which record it will be opened for.
     childrenHtml: slotMarkup(renderedChildren),
+    recordText: drawerRecordText(tables, dataSource?.table, currentLang, languages),
     // CAP-8: the related sections, resolved against the related tables' field
     // schema and the caller's permissions here, where the session is known. A
     // section the caller may not read is absent, not emptied.

@@ -22,6 +22,7 @@
  */
 
 import { classifyStepRead, flattenActions, recordedReadsOf } from './step-read-service'
+import { hasTriggerOfType, recordedTrigger, triggerNamedOrFirst } from './trigger-entries-service'
 import type { StepAction, StepRead } from './step-read-service'
 import type { App } from '@/domain/models/app'
 
@@ -186,13 +187,18 @@ const capped = (refs: readonly RecordRef[]): readonly RecordRef[] => {
 export const runRecordRefs = (input: {
   readonly app: App
   readonly automationName: string
+  /** The name of the trigger entry that started the run; omitted, its first entry. */
+  readonly triggerName?: string | null
   readonly triggerData: unknown
   readonly steps: readonly FinishedStep[]
 }): RunReads => {
   const { app } = input
   const automation = app.automations?.find((candidate) => candidate.name === input.automationName)
   const actions = flattenActions((automation?.actions ?? []) as ReadonlyArray<StepAction>)
-  const trigger = automation?.trigger as { readonly table?: unknown } | undefined
+  const trigger =
+    automation === undefined
+      ? undefined
+      : (triggerNamedOrFirst(automation, input.triggerName) as { readonly table?: unknown })
   const steps = mergeReads(
     input.steps.map((step) =>
       stepReads(
@@ -224,8 +230,11 @@ export const readStoredRecords = (input: {
     (candidate) => candidate.name === input.automationName
   )
   if (automation === undefined) return true
-  const type = automation.trigger.type as string
-  if (type === 'automation-call' || type === 'automation-failure') return true
+  // Recorded before names: with several entries, which one captured what cannot be told.
+  if (recordedTrigger(automation, undefined) === undefined) return true
+  // A run another run may have fed: any call or failure entry.
+  if (hasTriggerOfType(automation, 'automation-call')) return true
+  if (hasTriggerOfType(automation, 'automation-failure')) return true
   const { refs } = runRecordRefs(input)
   if (refs.length > 0) return true
   const actions = flattenActions((automation.actions ?? []) as ReadonlyArray<StepAction>)

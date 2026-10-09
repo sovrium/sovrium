@@ -215,6 +215,8 @@ const redactAutomation = (automation: unknown): unknown => {
     ...(automation['trigger'] === undefined
       ? {}
       : { trigger: redactTrigger(automation['trigger']) }),
+    // Every entry of a `triggers` list carries its own secrets.
+    ...mapArrayProp(automation, 'triggers', redactTrigger),
     ...mapArrayProp(automation, 'actions', redactAction),
   }
 }

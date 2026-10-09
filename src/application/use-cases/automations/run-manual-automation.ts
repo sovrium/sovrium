@@ -12,6 +12,7 @@ import {
   mayStartAutomationByName,
   requiredManualTriggerRole,
 } from '@/domain/models/app/automations/manual-trigger-role-service'
+import { triggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import {
@@ -24,6 +25,7 @@ import {
 import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Locate a manual-triggered automation by name and reject states that
@@ -37,15 +39,38 @@ const resolveManualAutomation = (
   app: App,
   name: string,
   pausedNames: ReadonlySet<string>
-): Effect.Effect<NonNullable<App['automations']>[number], RunAutomationError> => {
+): Effect.Effect<
+  { readonly automation: NonNullable<App['automations']>[number]; readonly trigger: Trigger },
+  RunAutomationError
+> => {
   const automation = app.automations?.find((a) => a.name === name)
   if (!automation) return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
   if (!isAutomationOperationallyEnabled(automation, pausedNames))
     return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
-  if (automation.trigger.type !== 'manual') {
+  // The manual ENTRY: its own `requiredRole` gates the start, whatever the others allow.
+  const trigger = triggerOfType(automation, 'manual')
+  if (trigger === undefined) {
     return Effect.fail({ _tag: 'AutomationNotManualTriggered' as const, name })
   }
-  return Effect.succeed(automation)
+  return Effect.succeed({ automation, trigger })
+}
+
+/** Whether a value is a JSON object: not null, not an array. */
+const isJsonObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/**
+ * The input a run started by name reads at `trigger.input`: the posted body
+ * object — or, when the body's only key is an `input` object, that object.
+ * The body itself stays at `trigger.data.body`, as posted. A trigger data that
+ * already carries an input keeps it.
+ */
+const withInputFromBody = (triggerData: TriggerData): TriggerData => {
+  const { body } = triggerData
+  if (triggerData.input !== undefined || !isJsonObject(body)) return triggerData
+  const keys = Object.keys(body)
+  const wrapped = keys.length === 1 && keys[0] === 'input' && isJsonObject(body['input'])
+  return { ...triggerData, input: wrapped ? body['input'] : body }
 }
 
 /**
@@ -105,7 +130,7 @@ export const runManualAutomation = ({
   Effect.gen(function* () {
     // Entry point: one read of the operational pauses, threaded into the gate.
     const pausedNames = yield* loadPausedAutomationNames
-    const automation = yield* resolveManualAutomation(app, name, pausedNames)
+    const { automation, trigger } = yield* resolveManualAutomation(app, name, pausedNames)
 
     // The role decision is the one `tools/list` uses to decide which manual
     // automations an MCP caller is offered, so what is listed is what runs.
@@ -125,10 +150,11 @@ export const runManualAutomation = ({
     return yield* executeAutomationRun({
       name,
       automation,
+      trigger,
       automationId,
       app,
       processEnv,
-      triggerData,
+      triggerData: byName ? withInputFromBody(triggerData) : triggerData,
       handlers,
       userId,
       // A manual trigger is always a person's gesture: its record actions write as them.

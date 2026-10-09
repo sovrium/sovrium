@@ -107,3 +107,9 @@ pages:
 ```
 
 An engineer lands on the admin home; a customer-admin with one client lands on that client's page; with several, on the picker; and anyone the resolver cannot place reaches the no-access page.
+
+## A way back named in the address
+
+A page that sends a signed-out visitor to sign in can name where to come back to, as a `callbackURL` query parameter on the sign-in page's address. The OAuth consent screen does this: it sends the visitor to `/login?callbackURL=<the consent screen's own address>`. A sign-in form (`method: login`, with a password, a mailed link or a social provider) on that page then returns the reader there once they are signed in, ahead of its own `onSuccess` destination.
+
+Only a path on your own origin is followed. A `callbackURL` that names another host, or that is not a path starting with a single `/`, is ignored and the form's own destination applies, so the parameter cannot send a reader away from your app.

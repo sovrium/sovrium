@@ -6,15 +6,13 @@
  */
 
 /**
- * Field resolution pipeline shared by `form-renderer.tsx`. Walks each
- * `Form['fields']` entry and produces the `ResolvedFormField` shape
- * consumed by the per-field React components in
- * `./form-field-elements.tsx`. Sliced out of `form-renderer.tsx` so the
- * orchestration file (FormHead / FormBody / FormPage) stays under the
- * project's max-lines cap.
+ * Field resolution pipeline shared by `form-renderer.tsx`: each `Form['fields']`
+ * entry becomes the `ResolvedFormField` the components in
+ * `./form-field-elements.tsx` draw. Sliced out to keep the renderer under its cap.
  */
 
 import { resolveDensityStep } from '@/domain/models/app/design/density-service'
+import { autofillHintOverlay } from '@/domain/models/app/forms/form-autofill-hint-service'
 import {
   buildConditionValueMap,
   isFieldRequired,
@@ -124,12 +122,9 @@ interface FieldResolutionContext {
 }
 
 /**
- * Map a table-bound field kind onto an HTML input element type.
- *
- * Attachment columns (`single-attachment` / `multiple-attachments`)
- * project onto a `<input type="file">` element; the inline runtime
- * upgrades them with multipart upload, dropzone, file chips, and
- * validation.
+ * Map a table-bound field kind onto an HTML input element type. Attachment
+ * columns project onto `<input type="file">`; the inline runtime upgrades them
+ * with multipart upload, dropzone, file chips, and validation.
  */
 const TABLE_FIELD_INPUT_TYPE_MAP: Readonly<Record<string, string>> = {
   email: 'email',
@@ -320,6 +315,7 @@ const resolveStandaloneField = (
     ...(field.maxFiles !== undefined ? { maxFiles: field.maxFiles } : {}),
     ...(field.dropZone !== undefined ? { dropZone: field.dropZone } : {}),
     ...recordAudioOverlay(field.recordAudio),
+    ...autofillHintOverlay(field.inputType, field.autocomplete),
   }
 }
 
@@ -352,8 +348,8 @@ function readColumnAttachmentProps(
 }
 
 /**
- * Build the optional file-upload prop overlay for a table-bound field.
- * Form-level overrides win; column-level constraints fall through.
+ * Build the optional file-upload and autofill-hint overlay for a table-bound
+ * field. Form-level overrides win; column-level constraints fall through.
  */
 function fileUploadOverlay(
   field: Readonly<TableBoundField>,
@@ -361,7 +357,7 @@ function fileUploadOverlay(
 ): Partial<
   Pick<
     ResolvedFormField,
-    'accept' | 'maxFileSize' | 'maxFiles' | 'dropZone' | 'recordAudioMaxSeconds'
+    'accept' | 'maxFileSize' | 'maxFiles' | 'dropZone' | 'recordAudioMaxSeconds' | 'autocomplete'
   >
 > {
   const columnProps = readColumnAttachmentProps(column)
@@ -374,6 +370,7 @@ function fileUploadOverlay(
     ...(maxFiles !== undefined ? { maxFiles } : {}),
     ...(field.dropZone !== undefined ? { dropZone: field.dropZone } : {}),
     ...recordAudioOverlay(field.recordAudio),
+    ...autofillHintOverlay(column?.type, field.autocomplete),
   }
 }
 

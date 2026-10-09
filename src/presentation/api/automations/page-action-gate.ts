@@ -33,6 +33,7 @@
 
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { mayRunManualAutomation } from '@/domain/models/app/automations/manual-trigger-role-service'
+import { triggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import {
   pressablePageAutomation,
   type ManualAutomation,
@@ -66,7 +67,7 @@ export const admitPageAction = async (
   const automation = pressablePageAutomation(app, name, session)
   if (automation === undefined) return undefined
   const admission = { automation, userId: session?.userId }
-  if (automation.trigger.requiredRole === undefined) return admission
+  if (triggerOfType(automation, 'manual')?.requiredRole === undefined) return admission
   // The declared role is read for the same caller the page rule was judged on.
   const role =
     session === undefined ? undefined : await runDomainPromise(c, getUserRole(session.userId))

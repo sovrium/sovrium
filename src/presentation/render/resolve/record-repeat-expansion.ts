@@ -57,6 +57,7 @@ import {
   repeatElementScalars,
   scopedTokensIn,
   substituteScopedVars,
+  withScopesText,
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { substituteScopesInContent, withPlainTextPin } from './record-substitution'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -158,7 +159,7 @@ function propsInScope(props: Component['props'], scope: RecordScope): Component[
 
 /** One template node, resolved against one copy's scope. */
 function nodeInScope(node: Component | string, scope: RecordScope): Component | string {
-  if (typeof node === 'string') return substituteScopedVars(node, scope.printable)
+  if (typeof node === 'string') return substituteScopedVars(node, withScopesText(scope.printable))
   const json = node.type === 'code' ? loneTokenJson(node.content, scope) : undefined
   const resolved = substituteScopesInContent(node.content, scope.printable)
   const own: Component = {

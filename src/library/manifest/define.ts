@@ -79,6 +79,12 @@ export interface LibraryParam {
   /** A required parameter has no default; `add` refuses to run without it. */
   readonly required?: boolean
   readonly default?: LibraryParamValue
+  /**
+   * A setting of the target app that replaces `default` at `library add`
+   * time, when the app sets it: `auth.loginPage` makes a sign-in link follow
+   * the app's own sign-in page. An explicit `--set` still wins.
+   */
+  readonly defaultFromConfig?: 'auth.loginPage'
 }
 
 /** The third-party API an entry talks to. Names only — never a logo. */

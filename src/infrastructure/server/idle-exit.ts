@@ -29,6 +29,7 @@
 
 import { and, count, eq, gte, inArray, notInArray } from 'drizzle-orm'
 import { Cron, DateTime, Result } from 'effect'
+import { triggersOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
@@ -120,14 +121,11 @@ const parseSchedule = (expression: string, timezone: string): Cron.Cron | undefi
 const declaredSchedules = (app: App): readonly Cron.Cron[] => {
   const fallbackZone = resolveOperatorTimezone()
   const automations = (app.automations ?? []).flatMap((automation) => {
-    const trigger = automation.trigger as {
-      readonly type: string
-      readonly expression?: string
-      readonly timezone?: string
-    }
-    if (trigger.type !== 'cron' || automation.enabled === false) return []
-    const cron = parseSchedule(trigger.expression ?? '', trigger.timezone ?? fallbackZone)
-    return cron === undefined ? [] : [cron]
+    if (automation.enabled === false) return []
+    return triggersOfType(automation, 'cron').flatMap((trigger) => {
+      const cron = parseSchedule(trigger.expression, trigger.timezone ?? fallbackZone)
+      return cron === undefined ? [] : [cron]
+    })
   })
   const agents = (app.agents ?? []).flatMap((agent) => {
     if (agent.schedule === undefined || agent.enabled === false) return []

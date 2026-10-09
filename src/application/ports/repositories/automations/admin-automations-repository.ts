@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { TriggerNameFilter } from '@/domain/models/app/automations/trigger-entries-service'
 import type { Effect } from 'effect'
 
 /**
@@ -65,6 +66,8 @@ export interface AdminAutomationRunRow {
   readonly id: string
   readonly automationName: string
   readonly status: string | null
+  /** The name of the trigger entry that started it; `null` for a run recorded before names. */
+  readonly triggerName: string | null
   readonly triggerData: unknown
   readonly startedAt: Date | string | null
   readonly completedAt: Date | string | null
@@ -89,6 +92,8 @@ export interface AdminAutomationRunRow {
 export interface AdminRunsListFilters {
   readonly status?: string | undefined
   readonly automationName?: string | undefined
+  /** The runs one trigger entry started (see the domain's `triggerNameFilterOf`). */
+  readonly triggerName?: TriggerNameFilter | undefined
   readonly automationId?: string | undefined
   readonly from?: Date | undefined
   readonly to?: Date | undefined

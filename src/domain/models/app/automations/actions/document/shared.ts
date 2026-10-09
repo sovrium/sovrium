@@ -254,7 +254,7 @@ export const DocumentOutputSchema = Schema.Struct({
       Schema.annotate({
         defaultNote: 'overwrite',
         description:
-          'When a file already sits at the key: overwrite, suffix (name-1.ext … name-1000.ext, then the step fails), skip (keep it, return it, and attach it with attachTo) or fail. overwrite and skip only take a file this automation generated, never a person upload or another automation file.',
+          'When a file already sits at the key: overwrite, suffix (name-1.ext … name-1000.ext, then the step fails), skip (keep it and return it; with attachTo, attach it only for a run acting for a person) or fail. overwrite and skip only take a file this automation generated, never a person upload or another automation file.',
       })
     )
   ),

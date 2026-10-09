@@ -7,6 +7,7 @@
 
 import { mcp } from '@better-auth/mcp'
 import { jwt } from 'better-auth/plugins'
+import { loginPageOf } from '@/domain/models/app/auth/login-page-service'
 import { isAnonymousClientRegistrationEnabled } from '@/domain/models/process-env/oauth'
 import { mcpResourceIdentifier } from '../mcp-resource-identity'
 import type { Auth } from '@/domain/models/app/auth'
@@ -35,7 +36,7 @@ import type { Auth } from '@/domain/models/app/auth'
  *   Desktop, ChatGPT Dev Mode) can self-register without operator action.
  * - `accessTokenExpiresIn: 3600` (1h)      — industry standard.
  * - `refreshTokenExpiresIn: 30 * 24 * 3600` (30d) — industry standard.
- * - `loginPage: '/login'`                  — Sovrium engine page.
+ * - `loginPage`                            — the app's `auth.loginPage` (default `/login`).
  * - `consentPage: '/oauth/consent'`        — Sovrium engine page.
  *
  * The plugin is only mounted when `app.auth` is configured. Without auth, all
@@ -142,15 +143,16 @@ export const buildOauthServerPlugin = (authConfig?: Auth) => {
       //
       // - `loginPage` is where the plugin redirects unauthenticated users
       //   when an OAuth flow needs them logged in (`prompt=login` or no
-      //   active session).
+      //   active session), carrying the signed authorize query. It is the
+      //   app's own sign-in page, `auth.loginPage` (default `/login`) — an
+      //   app-relative path the schema guarantees, re-checked by
+      //   `loginPageOf`, so it can never point the browser at another host.
       // - `consentPage` is where the plugin redirects to capture user
       //   consent for non-trusted clients. The page calls
-      //   `POST /api/auth/oauth2/consent` to complete the flow.
-      //
-      // Both paths are Sovrium engine pages — they exist in the page tree
-      // when `app.auth` is configured. Schema authors don't change them.
+      //   `POST /api/auth/oauth2/consent` to complete the flow. It is a
+      //   Sovrium engine page; schema authors don't change it.
       // ──────────────────────────────────────────────────────────────────────
-      loginPage: '/login',
+      loginPage: loginPageOf(authConfig),
       consentPage: '/oauth/consent',
 
       // No `silenceWarnings` here: the plugin has no such option and emits no

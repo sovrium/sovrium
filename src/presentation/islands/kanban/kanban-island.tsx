@@ -24,6 +24,7 @@ import type {
 } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
+import type { RecordTextFields } from '@/domain/models/app/tables/record-text-service'
 
 export interface KanbanIslandProps {
   readonly dataSource?: {
@@ -82,6 +83,8 @@ export interface KanbanIslandProps {
    * the column's own currency, precision and separators.
    */
   readonly fieldMeta?: FieldMetaMap
+  /** How each formatted field reads in a card's text, resolved server-side. */
+  readonly recordText?: RecordTextFields
 }
 
 /**
@@ -180,6 +183,7 @@ export default function KanbanIsland({
   swimlaneOptions,
   colorFieldColors,
   fieldMeta,
+  recordText,
 }: KanbanIslandProps): ReactElement {
   const { localRecords, setLocalRecords, isLoading, isError, error } = useBoardRecords(dataSource)
 
@@ -187,7 +191,8 @@ export default function KanbanIsland({
   const laneField = swimlanes?.field
   const gate = useKanbanDragGate(dataSource, drag, [groupByField, laneField])
   const { draggableEnabled, persistEnabled } = gate
-  const format = { fieldMeta, table: dataSource?.table, colorFieldColors, draggableEnabled }
+  const table = dataSource?.table
+  const format = { fieldMeta, table, colorFieldColors, draggableEnabled, recordText }
 
   const state = resolveBoardState({ groupByField, isLoading, isError, error })
   if (state || groupByField === undefined) return state ?? <KanbanMissingGroupBy />

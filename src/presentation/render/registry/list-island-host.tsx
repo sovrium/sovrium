@@ -12,12 +12,14 @@ import {
 import { computeListShellClasses } from '@/presentation/design/list-default-classes'
 import { declaredListRowClasses } from '@/presentation/design/list-row-class-resolution'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { withRecordTextProp } from '@/presentation/render/props/record-value-format'
 import {
   hostClassName,
   hostComponentType,
 } from '@/presentation/render/registry/island-host-attributes'
 import { isAccountSessionsSource } from '@/presentation/render/resolve/auth-source-binding'
 import type { Languages } from '@/domain/models/app/languages'
+import type { Tables } from '@/domain/models/app/tables'
 import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
 import type { ReactElement } from 'react'
 
@@ -113,7 +115,7 @@ const declaredListShellClasses = (
 
 export function renderListIsland(
   elementProps: Record<string, unknown>,
-  { currentLang, languages }: EngineLocale,
+  { currentLang, languages, tables }: EngineLocale & { readonly tables?: Tables | undefined },
   styles: Pick<ComponentDesignResolution, 'parts' | 'partFloors'> | undefined
 ): ReactElement {
   const parts = styles?.parts
@@ -125,7 +127,9 @@ export function renderListIsland(
   const inputs = JSON.parse((elementProps['_listInputs'] as string) ?? '{}') as object
   const islandProps = JSON.stringify({
     ...inputs,
-    dataSource,
+    // The binding, and how each formatted field reads in an item's text — the
+    // text the server prints for the same value (`recordText`).
+    ...withRecordTextProp({ dataSource }, { tables, languages, locale: currentLang }),
     itemTemplate: listDisplay?.itemTemplate,
     // The paging affordance. Without this line the island cannot know a control
     // was asked for, so `listDisplay.loadMore` had no reader on this path at all

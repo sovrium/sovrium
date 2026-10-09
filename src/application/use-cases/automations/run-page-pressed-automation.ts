@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import { triggerOfTypeOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import type { TriggerData } from './resolve-trigger-data'
@@ -76,6 +77,8 @@ export const runPagePressedAutomationWith =
       }
       return yield* dispatch({
         automation,
+        // A press starts the manual entry; the gate admitted only an automation that has one.
+        trigger: triggerOfTypeOrFirst(automation, 'manual'),
         app,
         processEnv,
         triggerData,

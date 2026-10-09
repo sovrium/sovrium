@@ -120,6 +120,12 @@ export const automationRuns = systemTable(
      * erased (the id set to NULL) resumes writing nothing.
      */
     startedByHand: integer('started_by_hand', { mode: 'boolean' }).notNull().default(false),
+    /**
+     * The name of the trigger entry that started the run (its own `name`, else
+     * its type). NULL for a run recorded before an automation could declare
+     * several triggers: it reads as its automation's first trigger.
+     */
+    triggerName: text('trigger_name'),
     startedAt: integer('started_at', { mode: 'timestamp_ms' }),
     completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
     durationMs: integer('duration_ms'),

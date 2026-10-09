@@ -505,6 +505,13 @@ export type SchemaError =
  *
  * @see [internal ref] — the decision.
  */
+/** The error a failed obsolete-view cleanup stops schema init with. */
+const viewCleanupFailed = (error: unknown): SchemaInitializationError =>
+  new SchemaInitializationError({
+    message: `View cleanup failed: ${String(error)}`,
+    cause: error,
+  })
+
 /**
  * Drop obsolete views when migration is skipped (checksum fast-path).
  *
@@ -518,42 +525,31 @@ const cleanupObsoleteViews = (
   tables: readonly Table[]
 ): Effect.Effect<void, SchemaInitializationError> =>
   Effect.gen(function* () {
+    // Each connection is closed by `Effect.ensuring`, never a `finally` around
+    // `yield*`: `Effect.gen` abandons its generator on failure, so a `finally`
+    // there never runs and a failed cleanup would leak the connection.
     if (dialectConfig.dialect === 'sqlite') {
       const sqliteDb = openSqliteDdlDatabase(dialectConfig.path)
-      try {
-        yield* Effect.tryPromise({
-          try: () =>
-            runSqliteSchemaTransaction(sqliteDb, (tx) =>
-              viewGenerators.dropAllObsoleteViews(tx, tables)
-            ),
-          catch: (error) =>
-            new SchemaInitializationError({
-              message: `View cleanup failed: ${String(error)}`,
-              cause: error,
-            }),
-        })
-      } finally {
-        sqliteDb.close()
-      }
+      yield* Effect.tryPromise({
+        try: () =>
+          runSqliteSchemaTransaction(sqliteDb, (tx) =>
+            viewGenerators.dropAllObsoleteViews(tx, tables)
+          ),
+        catch: viewCleanupFailed,
+      }).pipe(Effect.ensuring(Effect.sync(() => sqliteDb.close())))
     } else {
       const db = new SQL(postgresClientOptions(dialectConfig.databaseUrl, { max: 1 }))
-      try {
-        yield* Effect.tryPromise({
-          try: async () => {
-            await db.begin(async (tx) => {
-              await viewGenerators.dropAllObsoleteViews(tx, tables)
-            })
-          },
-          catch: (error) =>
-            new SchemaInitializationError({
-              message: `View cleanup failed: ${String(error)}`,
-              cause: error,
-            }),
-        })
-      } finally {
-        // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; this is the `finally` arm, where a failure would replace the real view-cleanup error with a teardown one.
-        yield* Effect.promise(() => db.close())
-      }
+      yield* Effect.tryPromise({
+        try: async () => {
+          await db.begin(async (tx) => {
+            await viewGenerators.dropAllObsoleteViews(tx, tables)
+          })
+        },
+        catch: viewCleanupFailed,
+      }).pipe(
+        // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; this is the `ensuring` arm, where a failure would replace the real view-cleanup error with a teardown one.
+        Effect.ensuring(Effect.promise(() => db.close()))
+      )
     }
     logDebug('[schema] obsolete views cleaned up (schema unchanged)')
   })

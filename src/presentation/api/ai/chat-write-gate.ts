@@ -46,6 +46,7 @@ import {
   authorizeCallerWrites,
   type CallerWriteRequest,
 } from '@/application/use-cases/tables/permissions/caller-write-authority'
+import { recordWriteRequester } from '@/application/use-cases/tables/record-create-orchestration'
 import {
   createRecordWithSideEffects,
   deleteRecordWithSideEffects,
@@ -151,6 +152,7 @@ const callerOf = (caller: ChatCaller) => {
     app: caller.app,
     userRole: caller.userRole,
     userGroups: caller.userGroups,
+    requester: recordWriteRequester(session.userId, caller.userRole),
     linkReader: { session, role: caller.userRole, groups: caller.userGroups },
     processEnv: process.env,
   }
@@ -217,11 +219,11 @@ export const commitChatDelete = async (input: {
   readonly ids: readonly string[]
 }): Promise<readonly string[]> => {
   const { caller, tableName, ids } = input
-  const { session, app, processEnv } = callerOf(caller)
+  const { session, app, processEnv, requester } = callerOf(caller)
   const outcomes = await Effect.runPromise(
     Effect.forEach(ids, (recordId) =>
       deleteRecordWithSideEffects({
-        ...{ session, app, tableName, recordId, processEnv },
+        ...{ session, app, tableName, recordId, processEnv, requester },
         mode: 'soft',
         forgetDerivedVariants: evictTransformCacheForKey,
       }).pipe(

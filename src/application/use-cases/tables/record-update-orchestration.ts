@@ -37,6 +37,7 @@ import { StorageService } from '@/application/ports/services/storage-service'
 import { signalAiComputeWritePhase } from '@/application/use-cases/ai-compute/enqueue-refinement'
 import { loadPausedAutomationNames } from '@/application/use-cases/automations/paused-automation-names'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import { triggersOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { applyAiComputeBaseline } from '@/domain/models/app/tables/ai-compute-apply-baseline'
@@ -52,6 +53,7 @@ import type {
   OutboxedWrite,
   RecordWebhookDispatcher,
 } from '@/application/ports/services/record-webhook-dispatcher'
+import type { TriggerRequester } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { TriggerRecordEventInput } from '@/application/use-cases/automations/trigger-record-event'
 import type { App } from '@/domain/models/app'
 
@@ -77,6 +79,8 @@ export interface RecordUpdateInput {
   readonly fields: StoredRow
   /** The caller's role, which judges the echo; absent for a write no person made. */
   readonly userRole?: string
+  /** Who made the write, as the automations' `trigger.user`: absent for a write no person made. */
+  readonly requester?: TriggerRequester
   /** The caller's groups: a field read grant may name a group. */
   readonly userGroups?: readonly string[]
   /** The reader the write's echo judges link targets as. */
@@ -200,9 +204,9 @@ export function hasArmedUpdateTrigger(
   return (app.automations ?? []).some(
     (automation) =>
       isAutomationOperationallyEnabled(automation, pausedNames) &&
-      automation.trigger.type === 'record' &&
-      automation.trigger.table === tableName &&
-      automation.trigger.events.includes('update')
+      triggersOfType(automation, 'record').some(
+        (trigger) => trigger.table === tableName && trigger.events.includes('update')
+      )
   )
 }
 
@@ -231,7 +235,10 @@ export function flattenUpdatedRecord(updated: WrittenRecord): StoredRow {
  * Resolves to the written record, or `undefined` when the write touched no row.
  */
 export function orchestrateRecordUpdate<E, R, RD = never, RA = never>(
-  input: Pick<RecordUpdateInput, 'app' | 'tableName' | 'fields' | 'isSqlite' | 'processEnv'> & {
+  input: Pick<
+    RecordUpdateInput,
+    'app' | 'tableName' | 'fields' | 'isSqlite' | 'processEnv' | 'requester'
+  > & {
     readonly userId: string
     /** When the update happens, as an ISO 8601 instant. */
     readonly nowIso: string
@@ -255,6 +262,7 @@ export function orchestrateRecordUpdate<E, R, RD = never, RA = never>(
         ...(previous === undefined ? {} : { previousRecord: { ...previous } }),
         processEnv: input.processEnv,
         userId: input.userId,
+        ...(input.requester === undefined ? {} : { requester: input.requester }),
       })
     }
     if (!isWritten(updated)) return undefined

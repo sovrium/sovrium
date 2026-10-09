@@ -126,3 +126,14 @@ Both seed an initial value and both accept the same references. The choice is ab
 | -------------- | ----------------------------------------------------------------------------------------------- |
 | `prefill`      | Attribution and session seeding — the wiring is a concern of the form and reads better together |
 | `defaultValue` | A value that is part of the field's own definition, such as a starting quantity                 |
+
+## Autofill hints
+
+Every field's input carries the browser autofill hint its type implies — `email` for an email field, `tel` for a phone field, `url` for a link field — and none otherwise; a field's name never implies one. `autocomplete` names another hint (`given-name`, `organization`, `postal-code`, `shipping street-address`…), and `autocomplete: off` turns autofill off for one field. The value must be an autofill detail of the HTML standard; anything else is refused when the configuration loads, naming the form and the field. A page form's fields take the same key; a `password` control gets no hint unless you name `current-password` or `new-password`.
+
+```yaml
+fields:
+  - { kind: standalone, name: first_name, inputType: short-text, autocomplete: given-name }
+  - { kind: table-field, column: email } # carries `email`, from the column's type
+  - { kind: standalone, name: colleague_email, inputType: email, autocomplete: 'off' }
+```

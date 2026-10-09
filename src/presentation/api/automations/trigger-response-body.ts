@@ -10,6 +10,7 @@
  * press, a replay — as the caller who started it may read it.
  */
 
+import { runErrorAsSeenBy } from '@/application/use-cases/automations/run-admin-only-output'
 import { lastOutputAsSeenBy } from '@/application/use-cases/automations/run-person-address-mask'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
@@ -50,12 +51,15 @@ const toPublicTriggerStatus = (s: RunAutomationResult['status']): string =>
  * variants collapse to `'failed'`. When the run failed, the redacted `error`
  * string is surfaced so callers need no follow-up GET.
  */
-const triggerResultBody = (result: RunAutomationResult, output: unknown) => ({
+const triggerResultBody = (
+  result: RunAutomationResult,
+  seen: { readonly output: unknown; readonly error: string | undefined }
+) => ({
   success: true,
   id: result.runId,
   status: toPublicTriggerStatus(result.status),
-  ...(output !== undefined ? { output } : {}),
-  ...(result.error !== undefined ? { error: result.error } : {}),
+  ...(seen.output !== undefined ? { output: seen.output } : {}),
+  ...(seen.error !== undefined ? { error: seen.error } : {}),
 })
 
 /**
@@ -86,6 +90,11 @@ export const triggerResponseAsSeenByCaller = async (
   input: { readonly automationName: string; readonly result: RunAutomationResult }
 ) => {
   const { automationName, result } = input
-  const readsWhole = result.lastOutput === undefined || (await callerIsAdmin(c, app))
-  return triggerResultBody(result, lastOutputAsSeenBy(app, { automationName, readsWhole, result }))
+  // Nothing to judge, no role to read: a run with neither an output nor an error.
+  const judged = result.lastOutput !== undefined || result.error !== undefined
+  const readsWhole = !judged || (await callerIsAdmin(c, app))
+  return triggerResultBody(result, {
+    output: lastOutputAsSeenBy(app, { automationName, readsWhole, result }),
+    error: runErrorAsSeenBy(app, { automationName, readsWhole, result }),
+  })
 }

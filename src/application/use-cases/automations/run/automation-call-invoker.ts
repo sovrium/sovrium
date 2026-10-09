@@ -21,10 +21,15 @@
 
 import { Effect } from 'effect'
 import { relayFrom, type RunRelay } from '@/domain/models/app/automations/run-relay-service'
+import {
+  triggerOfType,
+  triggerOfTypeOrFirst,
+} from '@/domain/models/app/automations/trigger-entries-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { cryptoRandomId } from './types'
 import type { AutomationInvoker, RunAutomationResult, RunRequirements, StepContext } from './types'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Orchestrator-owned run primitives injected into the `automation:call`
@@ -41,6 +46,7 @@ export interface AutomationCallRunners {
   readonly executeAutomationRun: (input: {
     readonly name: string
     readonly automation: NonNullable<App['automations']>[number]
+    readonly trigger: Trigger
     readonly automationId: string
     readonly app: App
     readonly processEnv: Readonly<Record<string, string | undefined>>
@@ -120,10 +126,8 @@ const resolveCallTarget = (
       ),
     }
   }
-  const triggerInputSchema =
-    target.trigger.type === 'automation-call'
-      ? (target.trigger.inputSchema as Readonly<Record<string, unknown>> | undefined)
-      : undefined
+  const triggerInputSchema = triggerOfType(target, 'automation-call')?.inputSchema as
+    Readonly<Record<string, unknown>> | undefined
   const schemaError = validateAgainstInputSchema(inputData, triggerInputSchema)
   if (schemaError !== undefined) return { ok: false, error: new Error(schemaError) }
   return { ok: true, target, newDepth }
@@ -152,6 +156,8 @@ const buildSubAutomationRun = (
     return yield* runners.executeAutomationRun({
       name: target.name,
       automation: target,
+      // Its automation-call entry, or its first entry when it declares none.
+      trigger: triggerOfTypeOrFirst(target, 'automation-call'),
       automationId,
       app: ctx.app,
       processEnv: ctx.processEnv,

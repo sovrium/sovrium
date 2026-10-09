@@ -6,6 +6,12 @@
  */
 
 import { resolveSecretInString } from '@/application/use-cases/automations/resolve-env-vars'
+import { redactCredentialHeaders } from '@/domain/kernel/sanitize/http-header-redaction'
+import {
+  DEFAULT_WEBHOOK_API_KEY_HEADER,
+  DEFAULT_WEBHOOK_SIGNATURE_HEADER,
+  webhookCredentialHeaderNames,
+} from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
 import { constantTimeEqual } from '@/presentation/api/runtime/constant-time-equal'
 import {
   DEFAULT_SIGNATURE_TOLERANCE_SECONDS,
@@ -15,7 +21,7 @@ import {
   verifyRawBodyDigest,
   verifyTimestampedSignature,
 } from './webhook-signature-schemes'
-import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 import type { Context } from 'hono'
 
 /**
@@ -32,8 +38,6 @@ import type { Context } from 'hono'
  * the `max-lines` cap and to make the auth logic independently testable
  * via unit tests when needed.
  */
-
-type Trigger = NonNullable<App['automations']>[number]['trigger']
 type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
 
 export type AuthResult = { readonly ok: true } | { readonly ok: false }
@@ -64,7 +68,7 @@ const checkApiKey = (
 ): AuthResult => {
   const expected = resolveSecret(auth.key ?? auth.token, envLookup)
   if (expected === '') return { ok: false }
-  const headerName = auth.header ?? 'X-API-Key'
+  const headerName = auth.header ?? DEFAULT_WEBHOOK_API_KEY_HEADER
   const supplied = c.req.header(headerName) ?? ''
   if (supplied === '') return { ok: false }
   return constantTimeEqual(supplied, expected) ? { ok: true } : { ok: false }
@@ -118,7 +122,7 @@ const checkRawBodyHmac = (
 ): boolean => {
   try {
     return verifyRawBodyDigest({
-      supplied: c.req.header(auth.header ?? 'X-Signature') ?? '',
+      supplied: c.req.header(auth.header ?? DEFAULT_WEBHOOK_SIGNATURE_HEADER) ?? '',
       rawBody,
       secret,
       algorithm: auth.algorithm ?? 'sha256',
@@ -157,6 +161,20 @@ const checkHmac = (
   }
   return { ok: verifyTimestampedSignature(scheme, input) }
 }
+
+/** Every request header, as received — what the auth checks and the dedup key read. */
+export const headersToRecord = (req: Context['req']): Readonly<Record<string, string>> =>
+  Object.fromEntries(req.raw.headers as Iterable<readonly [string, string]>)
+
+/**
+ * The request headers a run keeps: the credential headers, including the one
+ * this webhook's `auth` reads, carry the marker for their value.
+ */
+export const recordedHeaders = (
+  req: Context['req'],
+  trigger: WebhookTrigger
+): Readonly<Record<string, string>> =>
+  redactCredentialHeaders(headersToRecord(req), webhookCredentialHeaderNames(trigger))
 
 /**
  * Dispatch to the configured auth scheme. Returns `{ ok: true }` when no

@@ -3,6 +3,295 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.34.0",
+      "date": "2026-10-09",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.33.0...v0.34.0",
+      "sections": [
+        {
+          "kind": "breaking",
+          "heading": "BREAKING CHANGES",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "format dates, date-times and amounts written into page text"
+            },
+            {
+              "scope": "pages",
+              "text": "make an attachment token in a row template the file's address"
+            },
+            {
+              "scope": "automations",
+              "text": "nested loops and paths read their own item and earlier steps"
+            }
+          ]
+        },
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "admin",
+              "text": "name every automation trigger in the console and its admin APIs"
+            },
+            {
+              "scope": "auth",
+              "text": "let an app name its own sign-in page with auth.loginPage"
+            },
+            {
+              "scope": "automations",
+              "text": "an automation may start on several triggers"
+            },
+            {
+              "scope": "forms",
+              "text": "browser autofill hints on form fields"
+            },
+            {
+              "scope": "automations",
+              "text": "store a file/upload step's file in a named bucket"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "ask for a typed confirmation's record value as stored inside row templates too"
+            },
+            {
+              "scope": "storage",
+              "text": "find every stored spelling of an upload key, and check and write it as one step"
+            },
+            {
+              "scope": "automations",
+              "text": "paint admin-only lines only in what a step carries, and in run errors and approval messages"
+            },
+            {
+              "scope": "automations",
+              "text": "count inline files as the run's own and read a malformed data URI as a key"
+            },
+            {
+              "scope": "automations",
+              "text": "keep credential header values out of webhook run data"
+            },
+            {
+              "scope": "pages",
+              "text": "a drawer action's confirm dialog prints its record values formatted"
+            },
+            {
+              "scope": "automations",
+              "text": "end an approved run completed-with-errors after a tolerated failure"
+            },
+            {
+              "scope": "automations",
+              "text": "keep journal and log lines admin-only wherever a run copies them"
+            },
+            {
+              "scope": "automations",
+              "text": "attach only files the run stored when a step writes as nobody"
+            },
+            {
+              "scope": "pages",
+              "text": "format more record values, and print them alike in the browser"
+            },
+            {
+              "scope": "pages",
+              "text": "a component with its own data source prints its own record"
+            },
+            {
+              "scope": "pages",
+              "text": "ask for a typed confirmation's record value exactly as stored"
+            },
+            {
+              "scope": "rendering",
+              "text": "count the first endpoint discovery against the render timeout"
+            },
+            {
+              "scope": "storage",
+              "text": "compare chosen upload keys after normalisation and disk case folding"
+            },
+            {
+              "scope": "automations",
+              "text": "detect SVG image templates with a linear-time scan"
+            },
+            {
+              "scope": "assets",
+              "text": "read SVG comments in a single left-to-right pass when measuring"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse a reusable action template whose steps share a name"
+            },
+            {
+              "scope": "automations",
+              "text": "keep the crash journal when its last line or the release record is malformed"
+            },
+            {
+              "scope": "automations",
+              "text": "show instance journal lines to admins only"
+            },
+            {
+              "scope": "automations",
+              "text": "list the triggers in the automation list contract"
+            },
+            {
+              "scope": "automations",
+              "text": "pass over a nested webhook response on a run no webhook started"
+            },
+            {
+              "scope": "automations",
+              "text": "judge a run's captured record by the trigger that started it"
+            },
+            {
+              "scope": "rendering",
+              "text": "count a retry's endpoint discovery against the render timeout"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a record value fully literal in a type-to-confirm phrase"
+            },
+            {
+              "scope": "pages",
+              "text": "never print [object Object] in a confirm filled from the record"
+            },
+            {
+              "scope": "pages",
+              "text": "print nothing for a record token naming the internal text map"
+            },
+            {
+              "scope": "storage",
+              "text": "refuse Windows-aliasing keys when files are stored on Windows"
+            },
+            {
+              "scope": "storage",
+              "text": "refuse an overlong storage key with 400 instead of failing the write"
+            },
+            {
+              "scope": "database",
+              "text": "count only whole connections of a fractional DATABASE_POOL_MAX"
+            },
+            {
+              "scope": "database",
+              "text": "keep storage connectivity checks inside the connection budget"
+            },
+            {
+              "scope": "database",
+              "text": "release the migration connection when a start fails"
+            },
+            {
+              "scope": "pages",
+              "text": "fill a confirm dialog's button and input labels from the record"
+            },
+            {
+              "scope": "buckets",
+              "text": "refuse an upload path that spells another key"
+            },
+            {
+              "scope": "storage",
+              "text": "keep every stored file inside its bucket"
+            },
+            {
+              "scope": "cli",
+              "text": "stop refusing a strict boot over a port held on an unrelated address"
+            },
+            {
+              "scope": "auth",
+              "text": "never follow an executable redirect from the consent screen"
+            },
+            {
+              "scope": "database",
+              "text": "hold DATABASE_POOL_MAX as the instance's total PostgreSQL connections"
+            },
+            {
+              "scope": "automations",
+              "text": "fail a file/upload step whose bucket the app does not declare"
+            },
+            {
+              "scope": "tables",
+              "text": "store inline attachment values from automation record steps, and hold every inline value to the upload rules"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse a step named loop or loops inside a reusable action template"
+            },
+            {
+              "scope": "pages",
+              "text": "ask for a record value as written in a type-to-confirm phrase"
+            },
+            {
+              "scope": "automations",
+              "text": "a loop that skipped an item ends the run completed-with-errors"
+            },
+            {
+              "scope": "automations",
+              "text": "an unhealthy instance health probe carries the app's journal"
+            },
+            {
+              "scope": "auth",
+              "text": "return to the page that sent a visitor to sign in"
+            },
+            {
+              "scope": "tables",
+              "text": "check the files automation record steps attach, and store inline values on every attachment column"
+            },
+            {
+              "scope": "rendering",
+              "text": "start Chrome once more when it dies while starting a render"
+            },
+            {
+              "scope": "cli",
+              "text": "see a port held on any address the bind host reaches before a strict boot"
+            },
+            {
+              "scope": "automations",
+              "text": "continueOnError holds for actions inside a loop or a path"
+            },
+            {
+              "scope": "pages",
+              "text": "fill a record page button's confirm from its record"
+            },
+            {
+              "scope": "tables",
+              "text": "convert an attachment column to JSON when a form starts using it on PostgreSQL"
+            },
+            {
+              "scope": "pages",
+              "text": "raise the realtime conflict notice only over a pending edit"
+            },
+            {
+              "scope": "auth",
+              "text": "make the OAuth consent screen's Allow and Deny buttons work, and send signed-out visitors to sign in"
+            },
+            {
+              "scope": "pages",
+              "text": "start an automation from a data table row action"
+            },
+            {
+              "scope": "automations",
+              "text": "read a stored bundle's size from the store, not the catalog"
+            },
+            {
+              "scope": "forms",
+              "text": "keep accept-listed file picks working in the compiled binary"
+            },
+            {
+              "scope": "automations",
+              "text": "read a manual run's posted body at trigger.input"
+            },
+            {
+              "scope": "types",
+              "text": "ship self-contained config types (no unresolved path aliases)"
+            },
+            {
+              "scope": "automations",
+              "text": "name the acting person in update, delete, restore and batch record runs"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.33.0",
       "date": "2026-10-08",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.32.0...v0.33.0",

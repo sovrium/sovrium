@@ -68,6 +68,11 @@ import {
   type RunStatus,
 } from '@/domain/models/api/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { redactRunTriggerData } from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
+import {
+  runTriggerOf,
+  triggerNameFilterOf,
+} from '@/domain/models/app/automations/trigger-entries-service'
 import { decodeRunsCursor, encodeRunsCursor } from './automations-runs-query'
 import type { App } from '@/domain/models/app'
 
@@ -94,16 +99,6 @@ function coerceStatus(raw: unknown): RunStatus {
 }
 
 /**
- * Resolve the trigger type for a given automation name by looking it up in the
- * live App config. Falls back to 'webhook' (the only Phase-0 trigger shape that
- * produces runs visible from the admin list).
- */
-function resolveTriggerType(app: App, automationName: string): string {
-  const def = (app.automations ?? []).find((a) => a.name === automationName)
-  return def?.trigger?.type ?? 'webhook'
-}
-
-/**
  * Build a canonical admin run item from a joined DB row.
  *
  * The public `runSchema` requires every field — including `startedAt`. For runs
@@ -111,10 +106,9 @@ function resolveTriggerType(app: App, automationName: string): string {
  * returned before the engine wrote `started_at`), we fall back to `createdAt` so
  * the schema does not reject the row.
  */
-function buildAdminRunItem(
-  row: AdminAutomationRunRow,
-  triggerType: string
-): AutomationRunAdminItem {
+function buildAdminRunItem(app: App, row: AdminAutomationRunRow): AutomationRunAdminItem {
+  // The run's trigger (`runTriggerOf`) and hidden credential headers, read off the live config.
+  const def = (app.automations ?? []).find((a) => a.name === row.automationName)
   const startedAtIso = toIso(row.startedAt) ?? toIso(row.createdAt) ?? new Date().toISOString()
   // The erasure marker the public run reads carry, present only when set.
   const valuesErasedAt = toIso(row.valuesErasedAt)
@@ -122,8 +116,8 @@ function buildAdminRunItem(
     id: row.id,
     automationName: row.automationName,
     status: coerceStatus(row.status),
-    triggerType,
-    triggerData: (row.triggerData ?? null) as unknown,
+    ...runTriggerOf(def, row.triggerName),
+    triggerData: redactRunTriggerData(row.triggerData ?? null, def),
     startedAt: startedAtIso,
     completedAt: toIso(row.completedAt),
     durationMs: row.durationMs,
@@ -287,24 +281,18 @@ export const BuildAutomationsOverview = (
 export interface AdminRunsListInput {
   readonly status?: RunStatus | undefined
   readonly automationName?: string | undefined
+  /** The name of the trigger that started the run, read as the public history reads it. */
+  readonly triggerName?: string | undefined
   readonly automationId?: string | undefined
   readonly from?: string | undefined
   readonly to?: string | undefined
-  /**
-   * The operator's free-text term over the automation name + the failure
-   * `error` text, already trimmed and length-checked by `searchTermSchema`.
-   * `undefined` means "no search" (the unfiltered page).
-   */
+  /** Free-text term over the automation name and failure `error`; `undefined` = no search. */
   readonly q?: string | undefined
   readonly cursor?: string | undefined
   readonly limit: number
 }
 
-/**
- * Outcome of the runs-list build. `Ok` carries the response body (items +
- * nextCursor + `appliedQuery`); `ValidationFailed` maps to a 500 (response-gate
- * failure).
- */
+/** The runs-list build: `Ok` carries the body; `ValidationFailed` maps to a 500. */
 export type AdminRunsListOutcome =
   | {
       readonly _tag: 'Ok'
@@ -360,6 +348,10 @@ export const BuildAdminRunsList = (
     const rows = yield* repo.listAdminRuns({
       status: input.status,
       automationName: input.automationName,
+      triggerName:
+        input.triggerName === undefined
+          ? undefined
+          : triggerNameFilterOf(app.automations, input.automationName, input.triggerName),
       automationId: input.automationId,
       from: input.from !== undefined ? new Date(input.from) : undefined,
       to: input.to !== undefined ? new Date(input.to) : undefined,
@@ -369,9 +361,7 @@ export const BuildAdminRunsList = (
     })
 
     const pageRows = rows.slice(0, input.limit)
-    const items = pageRows.map((row) =>
-      buildAdminRunItem(row, resolveTriggerType(app, row.automationName))
-    )
+    const items = pageRows.map((row) => buildAdminRunItem(app, row))
 
     const nextCursor = deriveRunsNextCursor(rows.length, pageRows, input.limit)
 
@@ -483,7 +473,7 @@ export const BuildAdminRunDetail = (
     )
     const steps = stepRows.map(buildAdminRunStep)
 
-    const item = buildAdminRunItem(row, resolveTriggerType(app, row.automationName))
+    const item = buildAdminRunItem(app, row)
     const parsed = decodeSafe(automationsRunsDetailWithStepsResponseSchema)({ ...item, steps })
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const

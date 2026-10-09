@@ -13,6 +13,10 @@
  */
 
 import { useCallback, useState, type ReactElement } from 'react'
+import {
+  substituteRecordVars,
+  withRecordText,
+} from '@/domain/models/app/pages/substitute-record-vars'
 import { executeFetchAction } from '../runtime/action-executor'
 import { dispatch } from '../runtime/event-bus'
 import { InlineConfirmDialog, ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
@@ -93,7 +97,7 @@ function DrawerActionButton({
     }
     return (
       <InlineConfirmDialog
-        prompt={item.confirm}
+        prompt={substituteRecordVars(item.confirm, withRecordText(record))}
         confirmLabel={item.label}
         onConfirm={fire}
         onCancel={() => setConfirming(false)}

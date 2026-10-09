@@ -6,7 +6,10 @@
  */
 
 import React from 'react'
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  substituteRecordVars,
+  withRecordText,
+} from '@/domain/models/app/pages/substitute-record-vars'
 import {
   computeListDividerClasses,
   computeListItemClasses,
@@ -59,14 +62,16 @@ export function substituteChildTemplate(
   template: ChildTemplate,
   record: Record<string, unknown>
 ): ChildTemplate {
+  // TEXT sites read a formatted field's text (the server attached it); props keep the stored value.
+  const text = withRecordText(record)
   return template.map((child) => {
-    if (typeof child === 'string') return substituteRecordVars(child, record)
+    if (typeof child === 'string') return substituteRecordVars(child, text)
     return {
       ...child,
       props: substituteChildProps(child.props, record),
       content:
         typeof child.content === 'string'
-          ? substituteRecordVars(child.content, record)
+          ? substituteRecordVars(child.content, text)
           : child.content,
       children: child.children ? substituteChildTemplate(child.children, record) : child.children,
     }

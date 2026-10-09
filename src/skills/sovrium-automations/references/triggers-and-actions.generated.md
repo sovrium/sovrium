@@ -82,7 +82,7 @@ Read: `sovrium docs automation-actions`
 | `file` | `copy` | Copy a file to a new storage path |
 | `file` | `move` | Move a file to a new storage path (copy + delete original) |
 | `file` | `list` | List files in storage by key prefix |
-| `file` | `getMetadata` | Get file metadata (size, type, date) without downloading content |
+| `file` | `getMetadata` | Read a stored file's metadata without downloading it. The step output carries `key`, `contentType`, `size` (bytes) and `lastModified` (ISO 8601), plus `uploadedBy` (the id of the user who uploaded it, signed in or through an API key) and `generatedBy` (the automation whose document action wrote it), each present only when recorded. A key with no stored file leaves `error` in the output instead. |
 | `file` | `signUrl` | Generate a time-limited signed URL for file access |
 | `file` | `generateCsv` | Generate a CSV file from an array of data objects |
 | `file` | `parseCsv` | Parse a CSV file into structured JSON data |

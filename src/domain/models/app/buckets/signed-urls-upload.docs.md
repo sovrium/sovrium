@@ -22,7 +22,7 @@ Cookie: <session>
 
 | Field         | Required | Default                     | Notes                                                                                                   |
 | ------------- | -------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `path`        | yes      | —                           | The exact key to write; you choose it                                                                   |
+| `path`        | yes      | —                           | The exact key to write; you choose it, under the explicit-path rules of a multipart upload (else `400`) |
 | `operation`   | yes      | —                           | Must be `upload`, since the default is `download`                                                       |
 | `expiresIn`   | no       | `3600`                      | 60 to 604800 seconds                                                                                    |
 | `contentType` | no       | any type the bucket accepts | Enforced on the write; refused at signing (`400`) when the bucket's `allowedMimeTypes` does not list it |
@@ -94,4 +94,4 @@ An upload entry takes the same `contentType` and `maxSize` fields as a single up
 
 A download entry whose file is missing comes back with an error **instead of failing the batch** — a gallery with one dead reference still renders the other ninety-nine.
 
-A few things do fail the whole request, and sign nothing: more than a hundred entries, an entry that names no path (or a path that is not text, answered `400` with `Missing path` as the single form answers it), and any single out-of-range lifetime or size limit. The asymmetry is intentional — a missing file is a data condition you can render around, while a malformed entry is a bug in the caller.
+A few things do fail the whole request, and sign nothing: more than a hundred entries, an entry that names no path (or a path that is not text, answered `400` with `Missing path` as the single form answers it), an upload entry whose path breaks the explicit-path rules, and any single out-of-range lifetime or size limit. The asymmetry is intentional — a missing file is a data condition you can render around, while a malformed entry is a bug in the caller.

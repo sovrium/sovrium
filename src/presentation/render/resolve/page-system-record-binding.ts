@@ -55,6 +55,10 @@ import {
   type RunStatusTranslator,
 } from '@/domain/models/app/pages/automation-run-status-language'
 import { buildDetailEndpointUrl } from '@/domain/models/app/pages/system-detail-endpoint'
+import {
+  pageRecordOf,
+  type RecordTextContext,
+} from '@/presentation/render/props/record-value-format'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
 import { markAddressedDialogs } from '@/presentation/render/resolve/overlay-triggers'
 import {
@@ -206,6 +210,8 @@ export type SystemRecordFetcher = (
 export interface SystemRecordReaders {
   readonly fetchSystemRecord?: SystemRecordFetcher | undefined
   readonly translate?: RunStatusTranslator | undefined
+  /** The page's language and tables, for the `{ table }` arm's text sites. */
+  readonly recordText?: RecordTextContext | undefined
 }
 
 /** The page as bound, or the page's own 404. */
@@ -306,7 +312,7 @@ export async function applyPageLevelRecordBinding(
     return bindSystemRecord(page, ds.system, routeParams, readers)
   }
   if (ds?.mode === 'single' && hostRecord !== undefined) {
-    const record = withApiTimestamps(hostRecord)
+    const record = pageRecordOf(withApiTimestamps(hostRecord), ds.table, readers.recordText)
     const components = substitutePageComponents(page.components, record, ds.table)
     return { kind: 'page', page: { ...page, components: bindComments(components, record, ds) } }
   }

@@ -19,6 +19,7 @@ import {
   runRecordRefs,
   type RunReads,
 } from '@/domain/models/app/automations/run-record-refs-service'
+import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
 import { logError } from '@/infrastructure/logging/logger'
 import { storedNestedOf } from './nested-step-record'
 import { toApiStatus, toApiStepStatus, type EngineRunStatus } from './run-status'
@@ -26,6 +27,7 @@ import type { ExecutedStep, RunAccumulator } from './types'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { App } from '@/domain/models/app'
 import type { RunRelay } from '@/domain/models/app/automations/run-relay-service'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Build the actor overlay for a run insert: `{ triggeredByUserId }` when a real
@@ -75,6 +77,8 @@ const runActorOverlay = (
  */
 export const persistQueuedRun = (input: {
   readonly automationId: string
+  /** The trigger entry that started the run, recorded by name. */
+  readonly trigger: Trigger
   readonly triggerData: TriggerData
   readonly userId: string | undefined
   readonly startedByHand?: boolean
@@ -87,6 +91,7 @@ export const persistQueuedRun = (input: {
       repo.create({
         automationId: input.automationId,
         status: 'queued',
+        triggerName: triggerEntryName(input.trigger),
         triggerData: input.triggerData as unknown,
         ...runActorOverlay(input.userId, input.startedByHand),
         ...(input.relay === undefined ? {} : { relay: input.relay }),
@@ -199,6 +204,7 @@ type FinaliseRunInput = {
     readonly app: App
     readonly name: string
     readonly relay?: RunRelay | undefined
+    readonly trigger?: Trigger
   }
 }
 
@@ -212,6 +218,9 @@ const readsOfRun = (input: FinaliseRunInput): RunReads | undefined =>
     : runRecordRefs({
         app: input.source.app,
         automationName: input.source.name,
+        ...(input.source.trigger === undefined
+          ? {}
+          : { triggerName: triggerEntryName(input.source.trigger) }),
         triggerData: input.triggerData,
         steps: input.steps.map((step) => ({
           name: step.name,
@@ -243,6 +252,9 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
         completedAt: input.finishedAt,
         durationMs: input.finishedAt.getTime() - input.startedAt.getTime(),
         ...runActorOverlay(input.userId),
+        ...(input.source?.trigger === undefined
+          ? {}
+          : { triggerName: triggerEntryName(input.source.trigger) }),
         ...(input.source?.relay === undefined ? {} : { relay: input.source.relay }),
         ...(input.engineError !== undefined ? { error: input.engineError } : {}),
         ...refsOverlay(readsOfRun(input)),

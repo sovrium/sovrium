@@ -75,6 +75,7 @@ function TextAreaField({
           onChange={(e) => onChange(field.name, e.target.value)}
           className={CONTROL_CLASS}
           {...(field.placeholder && { placeholder: field.placeholder })}
+          {...(field.autocomplete && { autoComplete: field.autocomplete })}
           {...(field.readOnly && { readOnly: true })}
           {...(field.disabled && { disabled: true })}
           {...(field.required && { required: true })}
@@ -186,6 +187,7 @@ function TypedInputField({
           className={CONTROL_CLASS}
           {...(field.required && { required: true, 'data-required': 'true' })}
           {...(field.placeholder && { placeholder: field.placeholder })}
+          {...(field.autocomplete && { autoComplete: field.autocomplete })}
           {...(field.readOnly && { readOnly: true })}
           {...(field.disabled && { disabled: true })}
           {...(invalid && { 'aria-invalid': 'true' })}

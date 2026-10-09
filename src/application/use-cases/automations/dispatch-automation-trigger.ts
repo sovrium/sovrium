@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { AutomationRepository } from '@/application/ports/repositories/automations/automation-repository'
+import { firstTrigger } from '@/domain/models/app/automations/trigger-entries-service'
 import { defaultActionHandlers } from './action-handlers'
 import {
   executeAutomationRun,
@@ -15,6 +16,7 @@ import {
 } from './run-automation'
 import type { TriggerData } from './resolve-trigger-data'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Resolve the `automation_definitions.id` lazily for an automation by name,
@@ -45,7 +47,7 @@ export const resolveAutomationIdSilent = (
     const createResult = yield* Effect.result(
       repo.create({
         name,
-        trigger: automation.trigger,
+        trigger: firstTrigger(automation),
         actions: automation.actions,
         enabled: automation.enabled ?? true,
       })
@@ -77,6 +79,8 @@ export const resolveAutomationIdSilent = (
  */
 export const dispatchAutomationOnce = (input: {
   readonly automation: NonNullable<App['automations']>[number]
+  /** The entry of the automation's triggers the event matched: the run is recorded under its name. */
+  readonly trigger: Trigger
   readonly app: App
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly triggerData: TriggerData
@@ -98,6 +102,7 @@ export const dispatchAutomationOnce = (input: {
     return yield* executeAutomationRun({
       name: automation.name,
       automation,
+      trigger: input.trigger,
       automationId,
       app,
       processEnv,

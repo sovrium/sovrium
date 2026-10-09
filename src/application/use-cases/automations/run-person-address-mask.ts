@@ -26,7 +26,9 @@
  */
 
 import { redactEmail } from '@/domain/kernel/sanitize/email-redaction'
+import { hasTriggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { singleUserFieldNames } from './hydrated-field-reference'
+import { lastOutputWithoutAdminOnlyLines } from './run-admin-only-output'
 import type { App } from '@/domain/models/app'
 
 type Json = Readonly<Record<string, unknown>>
@@ -131,8 +133,8 @@ export const maskCommentTriggerAddresses = (triggerData: unknown): unknown => {
 
 /**
  * A run's trigger data as a reader who is not an admin and did not start it is
- * shown it: each expanded person masked by shape, and — when the automation is
- * triggered by a comment — the comment's addresses masked by key.
+ * shown it: each expanded person masked by shape, and — when one of the
+ * automation's triggers is a comment trigger — the comment's addresses masked by key.
  */
 export const triggerDataWithMaskedAddresses = (
   app: App,
@@ -141,7 +143,10 @@ export const triggerDataWithMaskedAddresses = (
 ): unknown => {
   const byShape = maskByShape(triggerData)
   const automation = app.automations?.find((candidate) => candidate.name === automationName)
-  return automation?.trigger.type === 'comment' ? maskCommentTriggerAddresses(byShape) : byShape
+  // Any comment entry: the run may carry a comment's addresses, so they are masked.
+  return automation !== undefined && hasTriggerOfType(automation, 'comment')
+    ? maskCommentTriggerAddresses(byShape)
+    : byShape
 }
 
 /**
@@ -206,7 +211,9 @@ export const lastOutputWithMaskedAddresses = (
 
 /**
  * A run's last output as a reader may see it: whole when she reads every run
- * (an admin-equivalent), each expanded person's address masked otherwise.
+ * (an admin-equivalent); otherwise each expanded person's address masked, and
+ * without the journal lines a health or a logs step keeps for an admin
+ * (`run-admin-only-output.ts`).
  */
 export const lastOutputAsSeenBy = (
   app: App,
@@ -223,6 +230,9 @@ export const lastOutputAsSeenBy = (
   if (readsWhole || result.lastOutput === undefined) return result.lastOutput
   return lastOutputWithMaskedAddresses(app, automationName, {
     stepNames: Object.keys(result.actions),
-    output: result.lastOutput,
+    output: lastOutputWithoutAdminOnlyLines(app, automationName, {
+      actions: result.actions,
+      output: result.lastOutput,
+    }),
   })
 }

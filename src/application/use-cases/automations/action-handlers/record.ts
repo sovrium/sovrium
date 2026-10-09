@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { buildUpdateAuthorshipOverrides } from '@/domain/models/app/tables/authorship-fields'
 import { buildGuestSession, buildSyntheticSession } from '../build-guest-session'
+import { admitAttachments } from './record-attachment-gate'
 import {
   callerRefusal,
   deletesOf,
@@ -84,29 +85,25 @@ export const handleRecordCreate: ActionHandler = (action, app, automation, runCo
       return { status: 'failure', error: 'record.create requires a table name' } as const
     }
 
-    // Multi-select membership + cardinality. Checked on the raw author-supplied
-    // payload (authorship overrides are system-generated and never
-    // multi-select), and checked HERE rather than inside `createRecordProgram`
-    // because that program takes `app` OPTIONALLY and this caller has none to
-    // give it — validation placed there would silently no-op on this path.
+    // Multi-select rules on the raw payload, HERE: `createRecordProgram` takes
+    // `app` optionally, so a check placed there would no-op on this path.
     const multiSelectError = findMultiSelectViolationMessage(app, tableName, fields)
-    if (multiSelectError) {
-      return { status: 'failure', error: multiSelectError } as const
-    }
+    if (multiSelectError) return { status: 'failure', error: multiSelectError } as const
+    const requests = [{ op: 'create', tableName, fields }] as const
     const refused = yield* writeRefusal({
-      ...{ app, automation, runContext, tableName, event: 'create' },
-      requests: [{ op: 'create', tableName, fields }],
+      ...{ app, automation, runContext, tableName, event: 'create', requests },
     })
     if (refused !== undefined) return refused
-
-    // Actor authority: the automation engine writes with a durable, non-null
-    // actor id (not the NULL-normalized guest id) so NOT-NULL authorship
-    // columns are satisfied. `runAs: 'triggering-user'` attributes
-    // the write to the triggering user when one exists; otherwise the system
-    // actor. The synthetic session drives the literal `created_by` infra
-    // injection; custom-named `created-by` fields (e.g. `author`) are stamped
-    // by name via the override map.
     const actorId = resolveRunAsActor(props, automation)
+    const admitted = yield* admitAttachments({
+      ...{ app, actorId, tableName, values: fields, requests, written: automation.writtenFiles },
+    })
+    if (admitted.status === 'failure') return admitted
+
+    // Actor authority: a durable, non-null actor id (`actorId`, above) so NOT-NULL
+    // authorship columns hold. The synthetic session drives the literal
+    // `created_by` injection; custom-named `created-by` fields are stamped by
+    // name via the override map.
     // The records API's create road: the new record fires its table's webhooks,
     // and starts its record automations through the run's channel.
     const result = yield* Effect.result(
@@ -114,7 +111,7 @@ export const handleRecordCreate: ActionHandler = (action, app, automation, runCo
         session: buildSyntheticSession(actorId),
         app,
         tableName,
-        fields: automationCreateFields(app, tableName, fields, actorId),
+        fields: automationCreateFields(app, tableName, admitted.values, actorId),
         runContext,
       })
     )
@@ -167,14 +164,20 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation, runCo
     if (idsToUpdate.length === 0) {
       return { status: 'success', output: { updated: 0, ids: [] } } as const
     }
-    const refused = yield* callerRefusal(app, automation, updatesOf(tableName, idsToUpdate, data))
+    const requests = updatesOf(tableName, idsToUpdate, data)
+    const refused = yield* callerRefusal(app, automation, requests)
     if (refused !== undefined) return refused
+    const actorId = resolveRunAsActor(props, automation)
+    const admitted = yield* admitAttachments({
+      ...{ app, actorId, tableName, values: data, requests, written: automation.writtenFiles },
+    })
+    if (admitted.status === 'failure') return admitted
 
     return yield* applyRecordUpdates({
-      actorId: resolveRunAsActor(props, automation),
+      actorId,
       tableName,
       idsToUpdate,
-      data,
+      data: admitted.values,
       app,
       linkReader: yield* runLinkReader(automation),
       runContext,

@@ -21,6 +21,7 @@ import { redactConnectionUrl } from '@/domain/kernel/sanitize/redact-connection-
 import { renderLimitRefusal, type RendererConfig } from '@/domain/models/process-env/renderer'
 import { postGotenbergForm, type GotenbergFile } from './gotenberg-client'
 import { gotenbergImageForm, gotenbergPdfForm } from './gotenberg-renderer'
+import { BackendUnreachable, renderWithinBudget } from './renderer-launch-retry'
 import { imageAreaRefusal, readPdfPageCount } from './renderer-page-setup'
 import { outboundGuardAccepts, stripRemoteReferences } from './renderer-request-interception'
 import {
@@ -129,7 +130,8 @@ const declaredAreaFits = (area: {
  * `explain` adds what the operator can do to a failed render's message.
  */
 export interface BackendSource {
-  readonly acquire: () => Promise<Bun.WebView.Backend>
+  /** Finds the backend; a discovery it runs is bounded by `budgetMs` when given. */
+  readonly acquire: (budgetMs?: number) => Promise<Bun.WebView.Backend>
   readonly invalidate: () => void
   readonly explain?: (message: string) => string
 }
@@ -172,32 +174,42 @@ const renderOnView = <T>(
   }
 ): Effect.Effect<T, DocumentRenderError> =>
   Effect.tryPromise({
-    try: () => engine.backend.acquire(),
-    catch: (error) =>
-      unavailable(
-        `the Chrome DevTools endpoint could not be reached (RENDERER_CDP_URL): ${describe(error)}`
-      ),
-  }).pipe(
-    Effect.tap(() => Effect.sync(engine.onFirstView)),
-    Effect.flatMap((resolved) =>
-      Effect.tryPromise({
-        try: async () =>
-          runSandboxedRender({
-            backend: resolved,
-            html: await stripRemoteReferences(
-              input.html,
-              input.sandbox?.allowRemoteAssets === true ? outboundGuardAccepts : undefined
-            ),
-            sandbox: input.sandbox ?? {},
-            timeoutMs: engine.config.timeoutMs,
-            ...(input.viewport === undefined ? {} : { viewport: input.viewport }),
-            capture: input.capture,
-          }),
-        catch: (error): DocumentRenderError => renderErrorOf(engine, error),
-      })
-    ),
-    engine.permits.withPermits(1)
-  )
+    try: async () => {
+      const html = await stripRemoteReferences(
+        input.html,
+        input.sandbox?.allowRemoteAssets === true ? outboundGuardAccepts : undefined
+      )
+      const render = (backend: Bun.WebView.Backend, timeoutMs: number): Promise<T> =>
+        runSandboxedRender({
+          backend,
+          html,
+          sandbox: input.sandbox ?? {},
+          timeoutMs,
+          ...(input.viewport === undefined ? {} : { viewport: input.viewport }),
+          capture: input.capture,
+        })
+      // ONE budget from here, inside this permit: finding the backend (the
+      // first DevTools discovery included) and rendering on it share
+      // `RENDERER_TIMEOUT_MS`, and a Chrome that died while starting is
+      // launched once more with what is left (`renderer-launch-retry.ts`). The
+      // retry forgets the endpoint first, so it re-discovers a restarted
+      // sidecar rather than dialling the dead one.
+      return renderWithinBudget(
+        async (ms) => {
+          const backend = await engine.backend.acquire(ms)
+          engine.onFirstView()
+          return backend
+        },
+        render,
+        {
+          timeoutMs: engine.config.timeoutMs,
+          exceeded: () => new RenderDeadlineExceeded(engine.config.timeoutMs),
+          beforeRetry: () => engine.backend.invalidate(),
+        }
+      )
+    },
+    catch: (error): DocumentRenderError => renderErrorOf(engine, error),
+  }).pipe(engine.permits.withPermits(1))
 
 /**
  * A failed render as the port's error. Any failure other than the deadline or
@@ -208,6 +220,11 @@ const renderErrorOf = (engine: WebviewEngine, error: unknown): DocumentRenderErr
   if (error instanceof RenderDeadlineExceeded) return timedOut(engine.config.timeoutMs)
   if (error instanceof RenderAreaExceeded) return overLimit(error.message)
   engine.backend.invalidate()
+  if (error instanceof BackendUnreachable) {
+    return unavailable(
+      `the Chrome DevTools endpoint could not be reached (RENDERER_CDP_URL): ${describe(error.cause)}`
+    )
+  }
   const message = describe(error)
   return failed(engine.backend.explain?.(message) ?? message, error)
 }

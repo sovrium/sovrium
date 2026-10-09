@@ -41,6 +41,7 @@
  */
 
 import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
 
 /** What the screen needs to know about the client asking for authorization. */
 export interface OAuthConsentClient {
@@ -61,6 +62,11 @@ export interface OAuthConsentRequest {
    * untouched rather than rebuild it.
    */
   readonly oauthQuery: string
+  /**
+   * The app's sign-in page (`auth.loginPage`), where the page sends a browser
+   * whose session ended before Allow or Deny. Defaults to `/login`.
+   */
+  readonly loginPage?: string
 }
 
 /**
@@ -180,19 +186,40 @@ ${warning}
  * The accept/deny handler.
  *
  * Script rather than a plain form submit because `/api/auth/oauth2/consent`
- * speaks JSON in and JSON out, answering `{ redirect_uri }` rather than a 302.
- * The `<noscript>` branch in the document says so plainly instead of leaving a
+ * speaks JSON in and JSON out, answering `{ redirect: true, url }` rather than
+ * a 302 — for Allow (`url` carries the code and the state) and Deny (`url`
+ * carries `error=access_denied` and the state) alike. The script navigates to
+ * `url`. A `401` means the session ended while the screen was open: retrying
+ * can never succeed, so the visitor is sent to `/login` with this page's own
+ * path and query as `callbackURL` (same origin, never a host). The
+ * `<noscript>` branch in the document says so plainly instead of leaving a
  * dead button.
  */
 const CONSENT_SCRIPT = `
 (function () {
   var node = document.getElementById('oauth-consent-query')
   var oauthQuery = JSON.parse(node.textContent)
+  // The app's sign-in page, served as JSON beside the query. Only an
+  // app-relative path is followed (a single leading slash, no host), so even a
+  // tampered node cannot turn the 401 branch into a redirect off this origin.
+  var signInNode = document.getElementById('oauth-consent-sign-in')
+  var signInPage = signInNode ? JSON.parse(signInNode.textContent) : '/login'
+  if (typeof signInPage !== 'string' || !/^\\/(?![\\/\\\\])[^\\s?#\\\\]*$/.test(signInPage)) {
+    signInPage = '/login'
+  }
   var errorNode = document.getElementById('oauth-consent-error')
   var buttons = [
     document.getElementById('oauth-consent-allow'),
     document.getElementById('oauth-consent-deny'),
   ]
+  // A redirect URI is the client's to choose, and a native app may use its own
+  // scheme (RFC 8252), so only the schemes that EXECUTE are refused. Browsers
+  // ignore control characters and spaces inside a scheme, and read it in any
+  // case, so the check strips and lowercases before it compares.
+  function executes(url) {
+    var scheme = url.replace(/[\\u0000-\\u0020\\u007f-\\u009f]/g, '').toLowerCase()
+    return /^(javascript|data|vbscript):/.test(scheme)
+  }
   function submit(accept) {
     buttons.forEach(function (button) { button.disabled = true })
     errorNode.textContent = ''
@@ -202,13 +229,20 @@ const CONSENT_SCRIPT = `
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accept: accept, oauth_query: oauthQuery }),
     })
-      .then(function (response) { return response.json() })
-      .then(function (payload) {
-        if (payload && payload.redirect_uri) {
-          window.location.href = payload.redirect_uri
-          return
+      .then(function (response) {
+        if (response.status === 401) {
+          window.location.href = signInPage + '?callbackURL=' +
+            encodeURIComponent(window.location.pathname + window.location.search)
+          return undefined
         }
-        throw new Error('no redirect')
+        return response.json().then(function (payload) {
+          var target = payload && (payload.url || payload.redirect_uri)
+          if (typeof target === 'string' && target.length > 0 && !executes(target)) {
+            window.location.href = target
+            return undefined
+          }
+          throw new Error('no redirect')
+        })
       })
       .catch(function () {
         buttons.forEach(function (button) { button.disabled = false })
@@ -262,8 +296,11 @@ ${renderIdentity(client)}
 <p class="error" id="oauth-consent-error" role="alert"></p>
 <noscript><p class="warning">JavaScript is required to complete this authorization.</p></noscript>
 </main>
-<script type="application/json" id="oauth-consent-query">${escapeHtml(
-    JSON.stringify(request.oauthQuery)
+<script type="application/json" id="oauth-consent-query">${serializeJsonForScript(
+    request.oauthQuery
+  )}</script>
+<script type="application/json" id="oauth-consent-sign-in">${serializeJsonForScript(
+    request.loginPage ?? '/login'
   )}</script>
 <script>${CONSENT_SCRIPT}</script>
 </body>

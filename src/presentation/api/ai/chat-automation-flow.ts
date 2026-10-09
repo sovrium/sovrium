@@ -43,6 +43,7 @@ import {
   parseAutomationIntent,
   type AutomationCandidate,
 } from '@/domain/models/app/agents/ai-chat-automation-parser'
+import { triggerOfTypeOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { recordActivityLogRow, recordChatActivity } from '@/presentation/api/ai/chat-activity-log'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
@@ -94,7 +95,8 @@ export interface TriggerTurnInput {
 const toAutomationCandidates = (app: App | undefined): ReadonlyArray<AutomationCandidate> =>
   (app?.automations ?? []).map((automation) => ({
     name: automation.name,
-    triggerType: automation.trigger.type,
+    // `manual` when one of its triggers is: the chat starts that one.
+    triggerType: triggerOfTypeOrFirst(automation, 'manual').type,
   }))
 
 /**

@@ -29,6 +29,8 @@ import { AuthRepository } from '@/application/ports/repositories/auth/auth-repos
 import { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import { deliverAutomationNotice } from '@/application/use-cases/automations/automation-notice'
 import { resolveAutomationOperationalState } from '@/domain/models/app/automations/automation-operational-state'
+import { firstTrigger } from '@/domain/models/app/automations/trigger-entries-service'
+import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
 import { logError } from '@/infrastructure/logging/logger'
 import type {
   AutomationPauseDatabaseError,
@@ -78,13 +80,29 @@ const buildItem = (
   return {
     name: automation.name,
     ...(automation.label === undefined ? {} : { label: automation.label }),
-    trigger: automation.trigger.type,
+    // The first trigger's type, kept for existing readers; `triggers` lists every entry.
+    trigger: firstTrigger(automation).type,
+    triggers: automation.triggers.map((entry) => ({
+      type: entry.type,
+      name: triggerEntryName(entry),
+    })),
     state,
     ...(pause === undefined
       ? {}
       : { pausedBy: pause.pausedBy, pausedAt: toIso(pause.pausedAt), reason: pause.reason }),
   }
 }
+
+/**
+ * Every distinct trigger name across the catalog, in config order of first
+ * appearance: the option list of the run history's trigger filter.
+ */
+const distinctTriggerNames = (
+  items: ReadonlyArray<AutomationCatalogItem>
+): ReadonlyArray<{ readonly name: string }> =>
+  [...new Set(items.flatMap((item) => item.triggers.map((entry) => entry.name)))].map((name) => ({
+    name,
+  }))
 
 /**
  * Every automation declared in config, in CONFIG ORDER.
@@ -103,7 +121,8 @@ export const BuildAutomationsCatalog = (
   Effect.gen(function* () {
     const repository = yield* AutomationPauseRepository
     const pauses = indexPauses(yield* repository.listPauses)
-    return { items: (app.automations ?? []).map((automation) => buildItem(automation, pauses)) }
+    const items = (app.automations ?? []).map((automation) => buildItem(automation, pauses))
+    return { items, triggerNames: distinctTriggerNames(items) }
   }).pipe(Effect.withSpan('admin.build-automations-catalog'))
 
 /**

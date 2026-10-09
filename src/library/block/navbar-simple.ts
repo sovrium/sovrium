@@ -44,7 +44,14 @@ export const entry = defineLibraryEntry({
   params: [
     stringParam('brand', 'The product name beside the logo mark.', '[Product]'),
     stringParam('signInLabel', 'The text of the sign-in link.', 'Sign in'),
-    stringParam('signInHref', 'Where the sign-in link points.', '/login'),
+    {
+      ...stringParam(
+        'signInHref',
+        'Where the sign-in link points. Defaults to the app’s `auth.loginPage` when it sets one.',
+        '/login'
+      ),
+      defaultFromConfig: 'auth.loginPage',
+    },
     stringParam('ctaLabel', 'The text of the primary action.', '[Primary action]'),
     stringParam('ctaHref', 'Where the primary action points.', '/contact'),
   ],

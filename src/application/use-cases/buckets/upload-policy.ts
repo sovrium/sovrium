@@ -21,6 +21,12 @@
  * it to.
  */
 
+import {
+  isCanonicalStorageKey,
+  STORAGE_KEY_MAX_BYTES,
+  STORAGE_KEY_SEGMENT_MAX_BYTES,
+  STORAGE_KEY_UUID_PREFIX_LENGTH,
+} from '@/domain/kernel/identity/storage-key'
 import type { Bucket } from '@/domain/models/app/buckets'
 
 /** Why an upload was refused. */
@@ -44,10 +50,29 @@ export interface UploadCandidate {
 const DEFAULT_MAX_FILE_SIZE = 104_857_600
 
 /**
+ * The longest filename a stored key can carry: the `<uuid>-` prefix shares the
+ * key's single segment with it, and that segment is capped.
+ */
+const MAX_FILENAME_BYTES = STORAGE_KEY_SEGMENT_MAX_BYTES - STORAGE_KEY_UUID_PREFIX_LENGTH
+
+const utf8Bytes = (text: string): number => new TextEncoder().encode(text).length
+
+/**
+ * The platform spellings a new key is held to. A desktop install on Windows
+ * stores files on a Windows disk, where `a:b` and `a.png.` alias other names,
+ * so the doors refuse them there, before the adapter would.
+ */
+const hostKeyPlatform = () => ({ windows: process.platform === 'win32' })
+
+const WINDOWS_SPELLING_MESSAGE =
+  'a reserved character (<>:"|?*) or a trailing "." or space is not allowed'
+
+/**
  * Reject a filename that names somewhere other than itself.
  *
  * A filename is a single segment: `/` and `\` are separators, `..` walks up, and
- * a NUL byte truncates the key inside whatever C library eventually sees it.
+ * a NUL byte truncates the key inside whatever C library eventually sees it. It
+ * must also leave room for the `<uuid>-` prefix inside one stored segment.
  */
 const checkUploadFilename = (name: string): UploadRejection | undefined => {
   if (name.includes('..') || name.includes('/') || name.includes('\\')) {
@@ -59,6 +84,21 @@ const checkUploadFilename = (name: string): UploadRejection | undefined => {
   if (name.includes('\x00')) {
     return { reason: 'invalid-filename', message: 'Invalid filename: null bytes are not allowed' }
   }
+  if (utf8Bytes(name) > MAX_FILENAME_BYTES) {
+    return {
+      reason: 'invalid-filename',
+      message: `Invalid filename: longer than ${MAX_FILENAME_BYTES} bytes`,
+    }
+  }
+  // Judged as the stored segment `<uuid>-<name>`, so an empty name is still a name.
+  if (
+    !isCanonicalStorageKey(
+      `${'0'.repeat(STORAGE_KEY_UUID_PREFIX_LENGTH)}${name}`,
+      hostKeyPlatform()
+    )
+  ) {
+    return { reason: 'invalid-filename', message: `Invalid filename: ${WINDOWS_SPELLING_MESSAGE}` }
+  }
   return undefined
 }
 
@@ -68,7 +108,9 @@ const checkUploadFilename = (name: string): UploadRejection | undefined => {
  *
  * Unlike a filename a path MAY contain `/` separators; that is the whole point
  * of the `STORAGE_PUBLIC_PATHS` prefix feature. Traversal, NUL bytes and a
- * leading `/` are still refused.
+ * leading `/` are still refused, and so is every other spelling a provider
+ * would rewrite into a different key — an empty or `.` segment, a trailing `/` —
+ * because the owner of a key is looked up by its literal text.
  */
 export const checkUploadPath = (path: string): UploadRejection | undefined => {
   if (path.length === 0 || path.startsWith('/')) {
@@ -82,6 +124,27 @@ export const checkUploadPath = (path: string): UploadRejection | undefined => {
   }
   if (path.includes('\x00')) {
     return { reason: 'invalid-path', message: 'Invalid path: null bytes are not allowed' }
+  }
+  if (utf8Bytes(path) > STORAGE_KEY_MAX_BYTES) {
+    return {
+      reason: 'invalid-path',
+      message: `Invalid path: longer than ${STORAGE_KEY_MAX_BYTES} bytes`,
+    }
+  }
+  if (path.split('/').some((segment) => utf8Bytes(segment) > STORAGE_KEY_SEGMENT_MAX_BYTES)) {
+    return {
+      reason: 'invalid-path',
+      message: `Invalid path: a segment is longer than ${STORAGE_KEY_SEGMENT_MAX_BYTES} bytes`,
+    }
+  }
+  if (!isCanonicalStorageKey(path)) {
+    return {
+      reason: 'invalid-path',
+      message: 'Invalid path: empty or "." segments and a trailing "/" are not allowed',
+    }
+  }
+  if (!isCanonicalStorageKey(path, hostKeyPlatform())) {
+    return { reason: 'invalid-path', message: `Invalid path: ${WINDOWS_SPELLING_MESSAGE}` }
   }
   return undefined
 }

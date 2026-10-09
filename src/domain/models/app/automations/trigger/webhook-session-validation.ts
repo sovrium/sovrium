@@ -9,7 +9,10 @@ interface SessionWebhookAppLike {
   readonly auth?: unknown
   readonly automations?: ReadonlyArray<{
     readonly name: string
-    readonly trigger: { readonly type: string; readonly auth?: { readonly type?: string } }
+    readonly triggers: ReadonlyArray<{
+      readonly type: string
+      readonly auth?: { readonly type?: string }
+    }>
   }>
 }
 
@@ -20,9 +23,10 @@ interface SessionWebhookAppLike {
  */
 export const validateSessionWebhookAuth = (app: SessionWebhookAppLike): true | string => {
   if (app.auth !== undefined) return true
-  const sessionWebhook = app.automations?.find(
-    (automation) =>
-      automation.trigger.type === 'webhook' && automation.trigger.auth?.type === 'session'
+  const sessionWebhook = app.automations?.find((automation) =>
+    automation.triggers.some(
+      (trigger) => trigger.type === 'webhook' && trigger.auth?.type === 'session'
+    )
   )
   return sessionWebhook === undefined
     ? true

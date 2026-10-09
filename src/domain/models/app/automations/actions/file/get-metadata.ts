@@ -12,8 +12,9 @@ import { ActionBaseFields } from '../base'
 /**
  * File Get Metadata Action (type: file, operator: getMetadata)
  *
- * Get file metadata (size, type, date) without downloading content.
- * The metadata is available as the step output for subsequent actions.
+ * Get a stored file's catalogue entry without downloading its bytes. The
+ * step output carries `key`, `contentType`, `size` and `lastModified`, plus
+ * `uploadedBy` and `generatedBy` when the catalogue records them.
  */
 export const FileGetMetadataActionSchema = Schema.Struct({
   ...ActionBaseFields,
@@ -36,13 +37,14 @@ export const FileGetMetadataActionSchema = Schema.Struct({
       })
     ),
   }).annotate({
-    description: 'The file whose size, type and timestamps are read.',
+    description: 'The file whose catalogue entry is read.',
   }),
 }).pipe(
   Schema.annotate({
     identifier: 'FileGetMetadataAction',
     title: 'File Get Metadata Action',
-    description: 'Get file metadata (size, type, date) without downloading content',
+    description:
+      "Read a stored file's metadata without downloading it. The step output carries `key`, `contentType`, `size` (bytes) and `lastModified` (ISO 8601), plus `uploadedBy` (the id of the user who uploaded it, signed in or through an API key) and `generatedBy` (the automation whose document action wrote it), each present only when recorded. A key with no stored file leaves `error` in the output instead.",
   })
 )
 

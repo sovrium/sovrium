@@ -15,7 +15,7 @@ import { resolveBindHost } from '@/domain/models/process-env/server-lifecycle'
 import { printJournalWarning } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import { computeConfigHash } from '@/infrastructure/server/lock-file'
-import { isPortFree } from '@/infrastructure/server/port-availability'
+import { isPortFree, resolveHostAddresses } from '@/infrastructure/server/port-availability'
 import type { ConfigChangeVerdict } from '@/application/use-cases/config/classify-config-change'
 import type { StartOptions } from '@/application/use-cases/server/start-server-options'
 import type { App, AppEncoded } from '@/domain/models/app'
@@ -46,8 +46,9 @@ export const lazyImportCli = () => import('@/cli/runtime/schema-loader')
  */
 const waitForPortRelease = async (port: number, hostname: string, maxMs = 2000): Promise<void> => {
   const deadline = Date.now() + maxMs
+  const addresses = await resolveHostAddresses(hostname)
   // Any failure but EADDRINUSE reads as free: the rebind then surfaces it itself.
-  while (Date.now() < deadline && !isPortFree(hostname, port)) {
+  while (Date.now() < deadline && !isPortFree(hostname, port, addresses)) {
     await new Promise((resolve) => setTimeout(resolve, 50))
   }
 }

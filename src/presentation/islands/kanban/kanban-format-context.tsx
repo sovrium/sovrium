@@ -10,6 +10,7 @@ import { resolveCurrencyOptions } from '@/domain/kernel/format/currency-format'
 import { resolvePageLocale } from '../runtime/page-locale'
 import { KanbanFormatContext, type KanbanFormat } from './use-kanban-format'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
+import type { RecordTextFields } from '@/domain/models/app/tables/record-text-service'
 
 /**
  * Supplies the page language, the footer columns' currency treatment, the
@@ -20,12 +21,14 @@ export function KanbanFormatProvider({
   table,
   colorFieldColors,
   draggableEnabled,
+  recordText,
   children,
 }: {
   readonly fieldMeta: FieldMetaMap | undefined
   readonly table: string | undefined
   readonly colorFieldColors: Readonly<Record<string, string>> | undefined
   readonly draggableEnabled: boolean
+  readonly recordText: RecordTextFields | undefined
   readonly children: ReactNode
 }): ReactElement {
   const value = useMemo<KanbanFormat>(
@@ -36,8 +39,9 @@ export function KanbanFormatProvider({
       ...(table ? { table } : {}),
       ...(colorFieldColors ? { colorFieldColors } : {}),
       draggableEnabled,
+      ...(recordText ? { recordText } : {}),
     }),
-    [fieldMeta, table, colorFieldColors, draggableEnabled]
+    [fieldMeta, table, colorFieldColors, draggableEnabled, recordText]
   )
   return <KanbanFormatContext.Provider value={value}>{children}</KanbanFormatContext.Provider>
 }

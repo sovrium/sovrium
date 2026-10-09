@@ -5,13 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Schema } from 'effect'
+import { Schema, SchemaGetter } from 'effect'
 import { AiAccessSchema } from '@/domain/models/app/auth/ai-access'
 import { PermissionValueSchema } from '@/domain/models/app/auth/permissions'
 import { type Action, ActionSchema } from './actions'
+import { findReservedStepNames } from './reserved-step-name-validation'
 import { RetryConfigSchema } from './retry'
-import { TriggerSchema } from './trigger'
+import { type Trigger, TriggerSchema } from './trigger'
 import { validateWebhookSignatureScheme } from './trigger/webhook-signature-validation'
+import { validateTriggerList } from './trigger-list-validation'
+import { TriggerListSchema } from './triggers'
 
 /**
  * Recursively collect all action names (including nested in path/loop props)
@@ -59,17 +62,12 @@ const collectActionNames = (
 // ─── Automation Schema ──────────────────────────────────────────────────────
 
 /**
- * Single Automation Schema
- *
- * An automation is a workflow with one trigger and a sequence of actions.
- * Actions execute sequentially unless a PathAction branches execution.
- *
- * Data flows between steps via template variables:
- * - {{trigger.data.fieldName}} — access trigger payload
- * - {{stepName.result}} — access previous step output
- * - $env.VAR_NAME — access environment variable (never logged)
+ * The fields an automation has whichever way its triggers are declared, before
+ * the trigger keys. Shared, with {@link automationTailFields}, by the authored
+ * shape ({@link AutomationInputSchema}) and the decoded one
+ * ({@link AutomationSchema}); only the two trigger keys differ.
  */
-export const AutomationSchema = Schema.Struct({
+const automationHeadFields = {
   /** Unique automation name (kebab-case, used in webhook URLs) */
   name: Schema.String.pipe(
     Schema.annotate({
@@ -97,10 +95,10 @@ export const AutomationSchema = Schema.Struct({
       })
     )
   ),
+}
 
-  /** Trigger that starts this automation */
-  trigger: TriggerSchema,
-
+/** The fields after the trigger keys, in the order the manual lists them. */
+const automationTailFields = {
   /** Sequential list of actions to execute */
   actions: Schema.Array(ActionSchema).pipe(
     Schema.annotate({ description: 'Ordered list of actions to execute when triggered' }),
@@ -191,7 +189,7 @@ export const AutomationSchema = Schema.Struct({
    * AI/MCP exposure configuration.
    *
    * Declares this automation as eligible for invocation via Sovrium's MCP
-   * server. Only manual-trigger automations may set this — record / cron /
+   * server. Only an automation with a manual trigger may set this — record / cron /
    * webhook triggers fire on their own and cannot be invoked by an AI client.
    *
    * Cross-validation enforced at AppSchema level: setting `aiAccess` on a
@@ -215,12 +213,44 @@ export const AutomationSchema = Schema.Struct({
    * @see AiAccessSchema for full configuration options
    */
   aiAccess: Schema.optional(AiAccessSchema),
+}
+
+const automationAnnotations = {
+  title: 'Automation',
+  description:
+    'A workflow started by one trigger — or by any of a `triggers` list — that runs a sequence of actions. Data flows between steps via template variables.',
+} as const
+
+/**
+ * Single Automation Schema — the shape an author writes.
+ *
+ * An automation declares EITHER `trigger` (one) OR `triggers` (1 to 10), and a
+ * sequence of actions. Actions execute sequentially unless a PathAction
+ * branches execution.
+ *
+ * Data flows between steps via template variables:
+ * - {{trigger.data.fieldName}} — access trigger payload
+ * - {{trigger.type}} / {{trigger.name}} — the trigger that started the run
+ * - {{stepName.result}} — access previous step output
+ * - $env.VAR_NAME — access environment variable (never logged)
+ */
+export const AutomationInputSchema = Schema.Struct({
+  ...automationHeadFields,
+  /** The one trigger that starts this automation — or use `triggers` */
+  trigger: Schema.optional(
+    TriggerSchema.pipe(
+      Schema.annotate({
+        description:
+          'The one trigger that starts this automation. Declare either `trigger` or `triggers`, never both; `trigger: {…}` means exactly `triggers: [{…}]`.',
+      })
+    )
+  ),
+  triggers: Schema.optional(TriggerListSchema),
+  ...automationTailFields,
 }).pipe(
   Schema.annotate({
     identifier: 'Automation',
-    title: 'Automation',
-    description:
-      'A workflow with one trigger and a sequence of actions. Data flows between steps via template variables.',
+    ...automationAnnotations,
     examples: [
       {
         name: 'welcome-email',
@@ -248,12 +278,69 @@ export const AutomationSchema = Schema.Struct({
       if (actionNames.length !== uniqueNames.size) {
         return `Automation '${automation.name}' has duplicate action names`
       }
-      return true
+      // `loop` and `loops` are the template roots of loop items: one issue per
+      // step so named, at any depth, each at its own path.
+      return findReservedStepNames(automation.actions)
     })
   ),
+  Schema.check(Schema.makeFilter((automation) => validateTriggerList(automation)))
+)
+
+/**
+ * The decoded automation: `triggers` lists every trigger, whichever form the
+ * author wrote — the single `trigger` becomes a one-entry list. There is no
+ * decoded `trigger`: a consumer that read only it would see the first entry
+ * and miss every other, so every consumer reads the list. An entry's name is
+ * `triggerEntryName(entry)` (its own `name`, else its type).
+ *
+ * The manual documents the authored shape ({@link AutomationInputSchema}),
+ * where both keys exist.
+ */
+const AutomationDecodedSchema = Schema.Struct({
+  ...automationHeadFields,
+  triggers: TriggerListSchema,
+  ...automationTailFields,
+}).pipe(Schema.annotate(automationAnnotations))
+
+type AutomationDecoded = Schema.Schema.Type<typeof AutomationDecodedSchema>
+
+/** One list, whichever form the author wrote; `validateTriggerList` guarantees one exists. */
+const normaliseTriggers = (
+  automation: Schema.Schema.Type<typeof AutomationInputSchema>
+): AutomationDecoded => {
+  const { trigger, triggers, ...rest } = automation
+  const list: ReadonlyArray<Trigger> = triggers ?? (trigger === undefined ? [] : [trigger])
+  return { ...rest, triggers: list }
+}
+
+/** Back to the authored form: one entry is written as `trigger`, more as `triggers`. */
+const denormaliseTriggers = (
+  automation: AutomationDecoded
+): Schema.Schema.Type<typeof AutomationInputSchema> => {
+  const { triggers, ...rest } = automation
+  const [only] = triggers
+  return triggers.length === 1 && only !== undefined
+    ? { ...rest, trigger: only }
+    : { ...rest, triggers }
+}
+
+/**
+ * Single Automation Schema — decodes the authored shape
+ * ({@link AutomationInputSchema}) into one where `triggers` always lists every
+ * trigger.
+ */
+export const AutomationSchema = AutomationInputSchema.pipe(
+  Schema.decodeTo(Schema.toType(AutomationDecodedSchema), {
+    decode: SchemaGetter.transform(normaliseTriggers),
+    encode: SchemaGetter.transform(denormaliseTriggers),
+  }),
   Schema.check(
     Schema.makeFilter((automation) =>
-      validateWebhookSignatureScheme(automation.name, automation.trigger)
+      automation.triggers.reduce<true | string>(
+        (verdict, trigger) =>
+          verdict === true ? validateWebhookSignatureScheme(automation.name, trigger) : verdict,
+        true
+      )
     )
   )
 )

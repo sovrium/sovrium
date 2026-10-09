@@ -40,7 +40,52 @@ import type { App } from '@/domain/models/app'
  * `renderer_unavailable` when no engine is configured.
  */
 
-const SVG_START = /^\s*(?:<\?xml[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*|<!DOCTYPE[^>]*>\s*)*<svg[\s>]/i
+/** The index of the first non-whitespace character at or after `from` (`\s`, as a regex reads it). */
+const skipSpace = (text: string, from: number): number => {
+  const rest = text.slice(from)
+  return from + rest.length - rest.trimStart().length
+}
+
+const startsWithAt = (text: string, at: number, prefix: string): boolean =>
+  text.slice(at, at + prefix.length).toLowerCase() === prefix
+
+/** Past one prolog item at `at` — a `<!-- … -->` comment or a `<!DOCTYPE …>` — or `undefined`. */
+const pastPrologItem = (text: string, at: number): number | undefined => {
+  if (startsWithAt(text, at, '<!--')) {
+    const close = text.indexOf('-->', at + 4)
+    return close === -1 ? undefined : close + 3
+  }
+  if (startsWithAt(text, at, '<!doctype')) {
+    const close = text.indexOf('>', at)
+    return close === -1 ? undefined : close + 1
+  }
+  return undefined
+}
+
+/** Past an `<?xml …>` declaration at `at`, `at` itself when there is none, `undefined` when it never closes. */
+const pastDeclaration = (text: string, at: number): number | undefined => {
+  if (!startsWithAt(text, at, '<?xml')) return at
+  const close = text.indexOf('>', at)
+  return close === -1 ? undefined : close + 1
+}
+
+/** Whether `<svg` stands at `at`, once the comments and doctype before it are skipped (a tail call per item). */
+const opensOnSvg = (text: string, at: number): boolean => {
+  const next = pastPrologItem(text, at)
+  if (next !== undefined) return opensOnSvg(text, skipSpace(text, next))
+  const after = text.charAt(at + 4)
+  return startsWithAt(text, at, '<svg') && (after === '>' || /\s/.test(after))
+}
+
+/**
+ * Whether the text opens on an `<svg` element: an optional `<?xml …>`
+ * declaration, then any comments and doctype. Each item is skipped with one
+ * `indexOf`, so the read stays linear in the text's length whatever it holds.
+ */
+export const startsWithSvgElement = (text: string): boolean => {
+  const start = pastDeclaration(text, skipSpace(text, 0))
+  return start !== undefined && opensOnSvg(text, skipSpace(text, start))
+}
 
 /** Whether the template is SVG: `templateType`, else the asset kind, the key extension, the text. */
 const isSvgTemplate = (props: Raw, template: TemplateText): boolean => {
@@ -50,7 +95,7 @@ const isSvgTemplate = (props: Raw, template: TemplateText): boolean => {
   if (template.kind === 'svg' || template.kind === 'html') return template.kind === 'svg'
   if (template.path !== undefined && /\.svg$/i.test(template.path)) return true
   if (template.path !== undefined && /\.html?$/i.test(template.path)) return false
-  return SVG_START.test(template.text)
+  return startsWithSvgElement(template.text)
 }
 
 const formatOf = (props: Raw): 'png' | 'jpeg' | 'webp' =>

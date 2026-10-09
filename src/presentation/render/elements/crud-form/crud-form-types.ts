@@ -88,6 +88,8 @@ export type ResolvedFieldDef = TypedColumnConfig & {
    */
   readonly description?: string
   readonly placeholder?: string
+  /** The browser autofill hint: the entry's `autocomplete`, else the one the column type implies. */
+  readonly autocomplete?: string
   readonly readOnly?: boolean
   readonly disabled?: boolean
   readonly defaultValue?: string | number | boolean

@@ -441,7 +441,7 @@ export default {
   'admin.automations.catalog.reason': 'Pause reason',
   'admin.automations.catalog.reason.automatic': 'Automatic, after repeated failures',
   'admin.automations.catalog.col.automation': 'Automation',
-  'admin.automations.catalog.col.trigger': 'Trigger',
+  'admin.automations.catalog.col.trigger': 'Triggers',
   'admin.automations.catalog.col.state': 'State',
   'admin.automations.catalog.col.pausedBy': 'Paused by',
   'admin.automations.catalog.col.pausedAt': 'Paused at',
@@ -465,6 +465,8 @@ export default {
     'Shows the 25 most recent runs. Search and the filters query every run and return the 25 most recent matches.',
   'admin.automations.runs.filter.all': 'All',
   'admin.automations.runs.filter.automation': 'Filter by automation',
+  'admin.automations.runs.filter.trigger': 'Filter by trigger',
+  'admin.automations.runs.filter.allTriggers': 'All',
   'admin.automations.runs.filter.status': 'Filter by status',
   // The operator's words for the engine's three terminal statuses — the status
   // filter's options AND the grid's status cells, so both read one vocabulary.
@@ -485,6 +487,7 @@ export default {
   // A step the run is parked inside until its wait ends.
   'admin.automations.runs.step.waiting': 'Waiting',
   'admin.automations.runs.col.automation': 'Automation',
+  'admin.automations.runs.col.trigger': 'Trigger',
   'admin.automations.runs.col.status': 'Status',
   'admin.automations.runs.col.started': 'Started',
   'admin.automations.runs.col.duration': 'Duration',

@@ -17,13 +17,14 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 type Page = NonNullable<App['pages']>[number]
 type Automation = NonNullable<App['automations']>[number]
 
-/** An automation whose trigger is `manual` — the only kind a page press reaches. */
-export type ManualAutomation = Automation & {
-  readonly trigger: Extract<Automation['trigger'], { readonly type: 'manual' }>
-}
+/**
+ * An automation with a `manual` trigger — the only kind a page press reaches.
+ * The press starts its manual entry, under that entry's own role rule.
+ */
+export type ManualAutomation = Automation
 
 const isManual = (automation: Automation): automation is ManualAutomation =>
-  automation.trigger.type === 'manual'
+  automation.triggers.some((trigger) => trigger.type === 'manual')
 
 /**
  * Whether `value` — a component node, or anything nested in one — carries an

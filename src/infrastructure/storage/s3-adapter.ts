@@ -5,129 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Data, Duration, Effect } from 'effect'
-import { egressRetrySchedule } from '@/infrastructure/egress/egress-retry'
+import { Effect } from 'effect'
+import { isCanonicalStorageKey } from '@/domain/kernel/identity/storage-key'
+import {
+  passThrough,
+  retryIdempotentS3,
+  s3Deadline,
+  S3_DATA_TIMEOUT_MS,
+  S3_METADATA_TIMEOUT_MS,
+} from './s3-call-policy'
 import type { S3StorageEnvConfig } from '@/domain/models/process-env/storage/storage'
-
-/**
- * Deadline for an S3 call that moves object BYTES — an upload or a download
- * (standing rule E6). Generous, because the wall clock here is dominated by
- * the payload and the link, not by the peer's latency: a large attachment over
- * a slow uplink legitimately takes a minute. What it rules out is the case it
- * exists for — an endpoint mid-failover that accepts the connection and never
- * finishes.
- */
-const S3_DATA_TIMEOUT_MS = 120_000
-
-/**
- * Deadline for an S3 call that moves only METADATA — one listing page, a
- * delete, a reachability check. These are fixed-size round trips against a
- * healthy endpoint, so 30 s is already an order of magnitude of headroom.
- * Applied PER PAGE in the paginated walk below, not to the whole walk: a
- * hundred pages against a slow endpoint is slow but not stuck, and bounding
- * the walk would truncate a legitimately large bucket.
- */
-const S3_METADATA_TIMEOUT_MS = 30_000
-
-/**
- * S3 `<Error><Code>` values that describe the REQUEST rather than a passing
- * condition. Bun surfaces the XML error code as the rejection's `code`, so a
- * missing key, a bad signature, or a denied ACL is recognisable — and retrying
- * any of them is three identical failures and three round trips.
- *
- * Everything else is treated as transient: `SlowDown`, `InternalError`,
- * `ServiceUnavailable`, `RequestTimeout`, and the connection-level rejections
- * that carry no S3 code at all.
- */
-const PERMANENT_S3_ERROR_CODES: ReadonlySet<string> = new Set([
-  'AccessDenied',
-  'EntityTooLarge',
-  'InvalidAccessKeyId',
-  'InvalidArgument',
-  'InvalidBucketName',
-  'InvalidRequest',
-  'MethodNotAllowed',
-  'NoSuchBucket',
-  'NoSuchKey',
-  'SignatureDoesNotMatch',
-])
-
-/** True when a rejection names an S3 error code that a retry cannot fix. */
-const isPermanentS3Error = (cause: unknown): boolean => {
-  if (typeof cause !== 'object' || cause === null) return false
-  const { code } = cause as { readonly code?: unknown }
-  return typeof code === 'string' && PERMANENT_S3_ERROR_CODES.has(code)
-}
-
-/**
- * Preserve an S3 rejection verbatim on the Effect's error channel.
- *
- * Every consumer of this adapter already wraps these functions in its own
- * `Effect.tryPromise` with its own error mapping (`storage-service-live.ts`
- * turns them into `StorageError`s naming the bucket), so nothing here should
- * re-shape the rejection. Effect 4's `runPromise` rejects with the RAW failure
- * value, so a caller still sees exactly what the S3 client produced — only the
- * timeout path substitutes an error of its own.
- */
-const passThrough = (cause: unknown): unknown => cause
-
-/**
- * A deadline expired with the request still in flight.
- *
- * Tagged rather than a bare `Error` so it stays distinguishable from a
- * rejection the object store itself produced once it reaches a caller's
- * `catch`: everything else on this module's error channel is the peer's own
- * value, passed through untouched, and this is the one failure Sovrium
- * invented.
- */
-class S3TimeoutError extends Data.TaggedError('S3TimeoutError')<{
-  readonly operation: string
-  readonly timeoutMs: number
-  readonly message: string
-}> {}
-
-/**
- * The `Effect.timeoutOrElse` options for one S3 operation.
- *
- * HONEST LIMIT, the same one `withFetchTimeout`'s docblock records for HTTP:
- * Bun's `S3Client` exposes neither a timeout option nor an `AbortSignal`
- * (checked against `bun-types@1.4.1`: `S3Options` carries `retry`, `partSize`
- * and `queueSize`, and nothing that cancels). So this bounds the RESPONSE, not
- * the SOCKET — the abandoned request keeps its connection until the peer gives
- * up. It bounds the caller's latency, which is the property that was missing.
- */
-const s3Deadline = (
-  operation: string,
-  timeoutMs: number
-): {
-  readonly duration: Duration.Duration
-  readonly orElse: () => Effect.Effect<never, S3TimeoutError>
-} => ({
-  duration: Duration.millis(timeoutMs),
-  orElse: () =>
-    Effect.fail(
-      new S3TimeoutError({
-        operation,
-        timeoutMs,
-        message: `S3 ${operation} exceeded ${String(timeoutMs)}ms and was abandoned`,
-      })
-    ),
-})
-
-/**
- * Retry an S3 operation that is idempotent from the object store's point of
- * view — a read, a listing page, a reachability check.
- *
- * A WRITE must never carry this. The caller cannot distinguish a lost response
- * from a lost request, so a retry there risks a second object; Bun's own
- * `S3Options.retry` (default 3) already covers the upload path from inside the
- * client, where it can tell the two apart.
- */
-const retryIdempotentS3 = <A>(effect: Effect.Effect<A, unknown>): Effect.Effect<A, unknown> =>
-  Effect.retry(effect, {
-    schedule: egressRetrySchedule(),
-    while: (cause: unknown) => !isPermanentS3Error(cause),
-  })
 
 /**
  * The S3 provider runs on Bun's native `Bun.S3Client`, not on `@aws-sdk/client-s3`.
@@ -157,6 +44,21 @@ export const createS3Client = (config: S3StorageEnvConfig): Bun.S3Client =>
   })
 
 /**
+ * Refuse a key the client would send as a different one.
+ *
+ * Bun's client trims a leading or trailing `/` and rewrites `\\` as `/` before
+ * signing, and leaves `.` / `..` segments for the endpoint, which some
+ * S3-compatible stores normalise. Ownership is recorded against the literal
+ * key, so any of those would let an unowned spelling replace an owned object.
+ * Exported for the sizing probe, which addresses objects the same way.
+ */
+export const assertCanonicalS3Key = (key: string): void => {
+  if (!isCanonicalStorageKey(key)) {
+    throw new Error(`Invalid storage key "${key}": it does not name exactly one stored object`)
+  }
+}
+
+/**
  * Parameters for {@link s3Upload}
  */
 export interface S3UploadParams {
@@ -169,6 +71,7 @@ export interface S3UploadParams {
 
 export const s3Upload = async (params: S3UploadParams): Promise<void> => {
   const { client, bucket, key, content, mimeType } = params
+  assertCanonicalS3Key(key)
   // No retry: a re-sent PUT after a lost response can write the object twice.
   await Effect.runPromise(
     Effect.timeoutOrElse(
@@ -186,8 +89,9 @@ export const s3Download = async (
   client: Bun.S3Client,
   bucket: string,
   key: string
-): Promise<Uint8Array> =>
-  Effect.runPromise(
+): Promise<Uint8Array> => {
+  assertCanonicalS3Key(key)
+  return Effect.runPromise(
     retryIdempotentS3(
       Effect.timeoutOrElse(
         // @effect-diagnostics-next-line unknownInEffectCatch:off -- see `passThrough`: this adapter's contract is that the peer's own rejection reaches the Promise boundary verbatim
@@ -196,12 +100,14 @@ export const s3Download = async (
       )
     )
   )
+}
 
 export const s3Delete = async (
   client: Bun.S3Client,
   bucket: string,
   key: string
 ): Promise<void> => {
+  assertCanonicalS3Key(key)
   // No retry. A DELETE is idempotent by the S3 spec, but a versioned bucket
   // turns a repeat into a second delete MARKER — so the safe-looking case is
   // the one that quietly differs, and a failed delete is better surfaced than
@@ -389,4 +295,7 @@ export const s3GetSignedUrl = async (
   bucket: string,
   key: string,
   expiresIn: number
-): Promise<string> => client.presign(key, { bucket, expiresIn, method: 'GET' })
+): Promise<string> => {
+  assertCanonicalS3Key(key)
+  return client.presign(key, { bucket, expiresIn, method: 'GET' })
+}

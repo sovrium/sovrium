@@ -9,6 +9,7 @@ import {
   batchDeleteWithSideEffects,
   batchUpdateWithSideEffects,
 } from '@/application/use-cases/tables/record-batch-orchestration'
+import { recordWriteRequester } from '@/application/use-cases/tables/record-create-orchestration'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
@@ -100,6 +101,7 @@ export async function handleFormBulkDelete(c: Context, app: App) {
     c,
     batchDeleteWithSideEffects({
       ...{ session, tableName, app, ids, permanent: false },
+      requester: recordWriteRequester(session.userId, userRole),
       processEnv: process.env,
     })
   )
@@ -333,6 +335,7 @@ export async function handleFormBulkUpdate(c: Context, app: App) {
       ...{ session, tableName, app, linkReader: getLinkReader(c), processEnv: process.env },
       records: recordsData,
       returnRecords: false,
+      requester: recordWriteRequester(session.userId, userRole),
     })
   )
 

@@ -13,6 +13,7 @@ import {
 } from '@/application/use-cases/automations/run-automation'
 import { runCronAutomationOnDemand } from '@/application/use-cases/automations/run-cron-automation'
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
+import { hasTriggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
 
@@ -24,8 +25,8 @@ import type { App } from '@/domain/models/app'
  * authorized operator — it runs the action chain once immediately WITHOUT
  * touching the background schedule, reusing the existing cron runner
  * (`runCronAutomationOnDemand`) and mirroring the manual trigger's auth gate
- * (default 'admin'; anonymous → 404). Non-cron automations route to the manual
- * path unchanged.
+ * (default 'admin'; anonymous → 404). An automation with a manual trigger —
+ * among others or alone — routes to the manual path, under that trigger's role.
  */
 export function selectTriggerProgram(input: {
   readonly name: string
@@ -46,7 +47,14 @@ export function selectTriggerProgram(input: {
     userRole,
     ...(userId !== undefined ? { userId } : {}),
   }
-  return app.automations?.find((a) => a.name === name)?.trigger.type === 'cron'
+  // A manual entry answers this endpoint; a "run now" of the schedule only
+  // when the automation has a cron entry and no manual one.
+  const automation = app.automations?.find((a) => a.name === name)
+  const runsNow =
+    automation !== undefined &&
+    !hasTriggerOfType(automation, 'manual') &&
+    hasTriggerOfType(automation, 'cron')
+  return runsNow
     ? runCronAutomationOnDemand({
         ...shared,
         triggerData: { body, type: 'cron', invokedOnDemand: true },

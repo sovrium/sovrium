@@ -96,6 +96,7 @@ export interface ResolvedFormField {
   /** For a `section` item: its heading level, `3` inside a multi-step form. */
   readonly sectionLevel?: 2 | 3
   readonly readOnly?: boolean // a `calculation`: read, never typed into
+  readonly autocomplete?: string // the browser autofill hint, declared or derived from the type
 }
 
 /**
@@ -145,6 +146,7 @@ const TextareaInput = ({
       required={field.required}
       {...ariaRequired(field.required)}
       disabled={field.conditionHidden}
+      autoComplete={field.autocomplete}
       placeholder={field.placeholder || undefined}
       defaultValue={defaultValue ?? undefined}
     />
@@ -209,6 +211,7 @@ const SelectInput = ({
       required={field.required}
       {...ariaRequired(field.required)}
       disabled={field.conditionHidden}
+      autoComplete={field.autocomplete}
       defaultValue={defaultValue ?? ''}
     >
       <option value="">{field.placeholder}</option>
@@ -345,6 +348,7 @@ const TextInput = ({
         {...typedAttributesOf(field)}
         disabled={field.conditionHidden}
         readOnly={field.readOnly}
+        autoComplete={field.autocomplete}
         placeholder={field.placeholder || undefined}
         defaultValue={defaultValue ?? undefined}
       />
@@ -438,16 +442,9 @@ const LockedHiddenInput = ({
  * value and can override it inline.
  */
 /**
- * Dispatch a non-hidden, non-locked field to the right input component
- * based on its `inputElement` discriminator. Pulled out of the
- * `FormFieldElement` body so the parent function stays under the
- * project's max-lines-per-function cap. The Prettier
- * `singleAttributePerLine` rule expands each `<XInput field={f} defaultValue={dv}/>`
- * across 4 lines, so 8 branches → 53 lines (3 over the function cap).
- * Splitting further would be more indirection than it's worth — this is the
- * leaf dispatcher.
- *
- * [internal ref] / the forms specs added the `'user'` branch.
+ * Dispatch a non-hidden, non-locked field to the right input component by its
+ * `inputElement` discriminator — pulled out of `FormFieldElement` so it stays
+ * under the max-lines-per-function cap. This is the leaf dispatcher.
  */
 
 /** A `section` item and a `rating` scale, the two items that are not a single input. */

@@ -26,9 +26,15 @@ import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolv
 import {
   substituteRecordVars,
   substituteScopedVars,
+  withRecordText,
+  withScopesText,
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { fillRecordIntoTypedField } from '@/presentation/render/elements/button-navigate-action'
-import { substituteRecordInProps, withDescriptionFieldValues } from './record-template-substitution'
+import {
+  fillProseField,
+  substituteRecordInProps,
+  withDescriptionFieldValues,
+} from './record-template-substitution'
 import { filterChildrenForRecord } from './record-visibility'
 import type { RowSubstitutionDepth } from './data-source-rows'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -105,13 +111,12 @@ const escapeRecordValueForHtml = escapeHtml
  *    `Q4 > Q3` in every bound record — and double-escaping is a display defect
  *    wearing a security fix's clothes.
  *
- * THE EXPOSURE WAS NEVER UNIFORM, and nothing in the schema signalled it:
- * `text` ends in `renderParagraph`/`renderHeading` (React children — always
- * escaped, always safe), while `container`, `flex`, `grid`, `card`,
- * `accordion`, `modal`, `sidebar`, `toast`, `list-item` and the unknown-type
- * fallback all route through the sniffing sink. This function runs for every
- * content site regardless, so the posture no longer depends on which component
- * type an author happened to wrap the value in.
+ * The exposure was never uniform (`text` renders React children; `container`,
+ * `card`, `list-item` and others route through the sniffing sink), so this runs
+ * for every content site regardless of the component type.
+ *
+ * Content is a TEXT site: a value its record formats (a date, an amount) prints
+ * formatted, except inside an author tag, where it keeps the stored value.
  */
 export function substituteRecordInContent(
   content: Component['content'],
@@ -131,13 +136,21 @@ export function substituteScopesInContent(
   scopes: Readonly<Record<string, Readonly<Record<string, unknown>>>>
 ): { readonly content: Component['content']; readonly forcePlainText: boolean } {
   if (typeof content !== 'string') return { content, forcePlainText: false }
+  const text = withScopesText(scopes)
   if (templateIsAuthorHtml(content)) {
+    // A tag keeps the stored value (an attribute is an address or a value);
+    // only the text between tags is prose.
+    const fill = (part: string) =>
+      substituteScopedVars(part, part.startsWith('<') ? scopes : text, escapeRecordValueForHtml)
     return {
-      content: substituteScopedVars(content, scopes, escapeRecordValueForHtml),
+      content: content
+        .split(/(<[^>]*>)/)
+        .map(fill)
+        .join(''),
       forcePlainText: false,
     }
   }
-  const substituted = substituteScopedVars(content, scopes)
+  const substituted = substituteScopedVars(content, text)
   // Only flag the case that would actually flip the sink — an author TEXT
   // template whose substituted result now begins with `<`.
   return { content: substituted, forcePlainText: templateIsAuthorHtml(substituted) }
@@ -245,20 +258,10 @@ export function substituteRecordInComponent(
     ...component,
     // Every OTHER string leaf — a component's own TYPED fields.
     //
-    // ─── WHY EVERY LEAF, AND NOT A LIST OF KEYS ─────────────────────────────
-    //
-    // The four keys handled explicitly below are the ones with SEMANTICS:
-    // `content` decides HTML-vs-text escaping from the author's own template,
-    // `props` carries the plain-text pin, `dataSource` rewrites filters, and
-    // `children` is where `visibility.record` is evaluated. Everything else had
-    // no substitution at all — a `specimen.subject.type`, a `swatch.token`
-    // and a `badge.foreground` each reached the browser as the literal
-    // text `$record.…`, which is the failure mode that looks most like success.
-    //
-    // Enumerating the keys a row value is useful in means the pass silently
-    // stops covering each new one. `$param` was widened to every string LEAF for
-    // exactly that reason (`route-param-props-resolver.ts`), and this reuses its
-    // walker rather than growing a second one that could disagree with it.
+    // Every leaf, not a list of keys: enumerating keys silently stops covering
+    // each new one (a `swatch.token` once reached the browser as `$record.…`).
+    // The four keys below carry semantics and are handled explicitly; this
+    // reuses `$param`'s walker rather than a second one that could disagree.
     ...substituteRecordInTypedFields(component, record),
     props: withPlainTextPin(
       component.props ? substituteRecordInProps(component.props, record) : component.props,
@@ -286,32 +289,23 @@ export function substituteRecordInComponent(
     // read ever runs. Everything else about this node is still substituted,
     // including its own `dataSource`, which is what makes the inner read a
     // DIFFERENT read per outer row.
-    //
-    // Only the children are withheld, and only under `stop-at-nested-binding`:
-    // the typed-field walk above still runs, which is the half a switch to
-    // `substituteRecordInCollectionTemplate` silently lost — that helper
-    // predates the typed-field widening, so a `swatch.token` or a
-    // `specimen.subject.type` stopped resolving the moment the system path went
-    // through it.
+    // Only the children are withheld; the typed-field walk above still runs.
     children:
       substitution === 'stop-at-nested-binding' && component.dataSource !== undefined
         ? (component.children ?? [])
         : filterChildrenForRecord(component.children ?? [], record).map(
             (child: Component | string) =>
               typeof child === 'string'
-                ? substituteRecordVars(child, record)
+                ? substituteRecordVars(child, withRecordText(record))
                 : substituteRecordInComponent(child, record, tableName, substitution)
           ),
   }
 }
 
 /**
- * The keys {@link substituteRecordInComponent} handles itself, and which the
- * generic leaf walk must therefore leave alone.
- *
- * Each has semantics a blind string replace would destroy — escaping decided
- * from the author's own template, the plain-text pin, filter rewriting, and the
- * per-child `visibility.record` gate.
+ * The keys {@link substituteRecordInComponent} handles itself, whose semantics
+ * (escaping, the plain-text pin, filters, `visibility.record`) a blind
+ * string replace would destroy.
  */
 const RECORD_SUBSTITUTION_OWN_KEYS = ['props', 'content', 'dataSource', 'children'] as const
 
@@ -333,7 +327,10 @@ function substituteRecordInTypedFields(
   return Object.fromEntries(
     Object.entries(component)
       .filter(([key]) => !(RECORD_SUBSTITUTION_OWN_KEYS as readonly string[]).includes(key))
-      .map(([key, value]) => [key, fillRecordIntoTypedField(key, value, substitute)])
+      .map(([key, value]) => [
+        key,
+        fillProseField(key, value, record) ?? fillRecordIntoTypedField(key, value, substitute),
+      ])
   ) as Partial<Component>
 }
 

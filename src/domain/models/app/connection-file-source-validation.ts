@@ -78,11 +78,13 @@ const isRecordAttachment = (
 /**
  * Why a `connection` / `call` step passes a file parameter a value the
  * trigger's caller chooses, or `undefined`. An unknown connection, operation
- * or parameter is reported by the call check, not here.
+ * or parameter is reported by the call check, not here. Any of the
+ * automation's triggers may start the run, so a record attachment is accepted
+ * only when EVERY trigger is a record trigger whose record carries that field.
  */
 export const fileSourceIssue = (
   call: Call,
-  trigger: Trigger,
+  triggers: ReadonlyArray<Trigger>,
   connections: ReadonlyArray<Connection>,
   tables: ReadonlyArray<Table>
 ): string | undefined => {
@@ -93,7 +95,7 @@ export const fileSourceIssue = (
     ([name, value]) =>
       operation?.params?.[name]?.type === 'file' &&
       TRIGGER_EXPRESSION.test(textOf(value)) &&
-      !isRecordAttachment(value, trigger, tables)
+      !triggers.every((trigger) => isRecordAttachment(value, trigger, tables))
   )
   return refused === undefined
     ? undefined
@@ -105,7 +107,7 @@ export const fileSourceIssue = (
  * or `undefined`: first the call against its operation, then its file sources.
  */
 export const connectionCallIssue = (
-  automation: { readonly trigger: Trigger },
+  automation: { readonly triggers: ReadonlyArray<Trigger> },
   call: Call,
   app: {
     readonly connections?:
@@ -118,4 +120,4 @@ export const connectionCallIssue = (
   }
 ): string | undefined =>
   callIssue(call, app.connections ?? []) ??
-  fileSourceIssue(call, automation.trigger, app.connections ?? [], app.tables ?? [])
+  fileSourceIssue(call, automation.triggers, app.connections ?? [], app.tables ?? [])

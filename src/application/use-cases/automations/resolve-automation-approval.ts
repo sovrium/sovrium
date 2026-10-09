@@ -57,7 +57,9 @@ import {
   type ApprovalCaller,
 } from '@/domain/models/app/automations/actions/approval/approver-validation'
 import { parseRelay, type RunRelay } from '@/domain/models/app/automations/run-relay-service'
+import { triggerNamedOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
+import { toleratedInRows } from './run/resume-plan'
 import {
   executeAutomationRun,
   resolveAutomationId,
@@ -69,6 +71,7 @@ import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationApprovalDatabaseError } from '@/application/ports/repositories/automations/automation-approval-repository'
 import type { AutomationRunDatabaseError } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Error tags surfaced by the approval-resolution flow. Mapped to HTTP
@@ -177,14 +180,14 @@ const startedByOf = (run: {
     : { userId: undefined }
 
 /**
- * The paused run an approval resolves: the automation it belongs to, its
- * persisted trigger payload, the request's position and deadline, and who the
- * run resumes as.
+ * The paused run an approval resolves: its automation and trigger entry, its
+ * trigger payload, the request's position and deadline, and who it resumes as.
  */
 export interface ApprovalRunTarget {
   readonly stepIndex: number
   readonly expiresAt: Date | null
   readonly automation: NonNullable<App['automations']>[number]
+  readonly trigger: Trigger
   readonly triggerData: TriggerData
   readonly startedBy: StartedBy
   /** The paused run's relay, which the resumed run keeps. */
@@ -252,6 +255,7 @@ export const loadApprovalRunTarget = (input: {
       stepIndex: approval.stepIndex,
       expiresAt: approval.expiresAt,
       automation,
+      trigger: triggerNamedOrFirst(automation, run.triggerName),
       triggerData: coerceTriggerData(run.triggerData),
       startedBy: startedByOf(run),
       relay: parseRelay(run.relay),
@@ -374,33 +378,29 @@ export const applyApprovalOutcome = (input: {
       return { decision, runId, approvalId } as const
     }
 
-    // Approve — or reject under `onReject: continue`: resume by
-    // re-running the tail.
-    //
-    // The automation itself was already resolved from `app.automations` in
-    // `loadApprovalRunTarget`, so `resolveAutomationId` cannot report it
-    // missing: it looks the registry row up and CREATES it when absent, and
-    // every way it fails is an `AutomationRegistrySeedError` carrying its
-    // cause. Re-labelling that as `AutomationNotFound` answered 404 for a
-    // registry write that failed.
+    // Approve (or reject under `onReject: continue`): re-run the tail. A failure of
+    // `resolveAutomationId` is a registry write (`AutomationRegistrySeedError`), never a 404.
     const { name } = target.automation
     const automationId = yield* resolveAutomationId(name, target.automation)
     const skipActionNames = collectActionsUpToIndex(
       target.automation.actions as readonly { readonly name?: unknown }[],
       target.stepIndex
     )
+    const stored = yield* runRepo.findStepsByRunId(runId)
+    const before = stored.filter((row) => row.stepIndex < target.stepIndex)
     const result = yield* executeAutomationRun({
       name,
       automation: target.automation,
+      trigger: target.trigger,
       automationId,
       app,
       processEnv,
       triggerData: target.triggerData,
       handlers: input.handlers ?? defaultActionHandlers,
-      // The original trigger's context is reused via the persisted
-      // `triggerData`, not a session. A hand-started run resumes as its caller;
-      // any other resumes system-side (no caller user).
+      // The persisted `triggerData`, never a session: a hand-started run resumes as
+      // its caller, any other system-side. A failure tolerated before the pause counts.
       ...target.startedBy,
+      priorTolerated: toleratedInRows(before),
       // A hand-started run's starter may have been banned while it waited.
       checkStarterStanding: true,
       skipActionNames,

@@ -6,7 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
-import type { Effect } from 'effect'
+import type { Effect, Option } from 'effect'
 
 /**
  * Error for storage operations
@@ -40,6 +40,34 @@ export const storageObjectNotFound = (key: string): Readonly<StorageObjectNotFou
 /** Whether a storage failure is the catalog's "no such object" verdict (never an outage). */
 export const isStorageObjectNotFound = (error: Readonly<StorageError>): boolean =>
   error.cause instanceof StorageObjectNotFound
+
+/**
+ * A key the store would resolve onto an object another stored key already
+ * names: the same text after Unicode normalisation, or after letter case too on
+ * a store that folds it. Keys are compared, never rewritten, so the write is
+ * refused rather than redirected. Carried as a `StorageError` `cause`; the
+ * message names the caller's key only, never the stored spelling.
+ */
+export class StorageKeySpellingTaken extends Data.TaggedError('StorageKeySpellingTaken')<{
+  readonly key: string
+  readonly message: string
+}> {}
+
+/** The second-spelling refusal for `key`, with its canonical message. */
+export const storageKeySpellingTaken = (key: string): Readonly<StorageKeySpellingTaken> =>
+  new StorageKeySpellingTaken({
+    key,
+    message: `A file is already stored under another spelling of ${key}`,
+  })
+
+/** A stored object another spelling of a key would land on, as the catalog records it. */
+export interface StoredSpelling {
+  readonly key: string
+  /** The bucket the object is bound to, absent when it belongs to none. */
+  readonly bucket?: string
+  /** Who uploaded it, absent when nobody is recorded. */
+  readonly uploadedBy?: string
+}
 
 /**
  * A caller that declines to attribute the operation to any bucket.
@@ -159,6 +187,29 @@ export class StorageService extends Context.Service<
       },
       StorageError
     >
+    /**
+     * The size of the object stored under `key`, answered by the OBJECT STORE
+     * itself — an S3 `HEAD`, a `stat` on local storage, the payload length on
+     * bytea — and never by the catalog. It requires no catalog row, so it sizes
+     * an object another app wrote into a shared store, which is why it takes no
+     * bucket: it is the unattributed size lookup, and a caller naming a bucket
+     * reads {@link getMetadata} instead, where the binding is checked. Fails
+     * with the not-found marker when nothing is stored under `key`, and with a
+     * `StorageError` naming `key` when the store reports no usable size.
+     */
+    readonly statObject: (key: string) => Effect.Effect<{ readonly size: number }, StorageError>
+    /**
+     * The stored object, other than `key` itself and in any bucket, that a
+     * write at `key` would land on: a key equal to it after Unicode NFC
+     * normalisation on every provider, and after letter case too where the
+     * store folds it (a local directory on a case-insensitive disk, measured
+     * when the provider starts). `None` when there is none. Every
+     * provider's `upload` already refuses such a write; this read lets a caller
+     * judge the refusal (who may replace the stored object) before it writes.
+     */
+    readonly findOtherSpelling: (
+      key: string
+    ) => Effect.Effect<Option.Option<StoredSpelling>, StorageError>
     readonly list: (prefix: string) => Effect.Effect<readonly string[], StorageError>
     /** Total bytes used across all keys for the active provider — used for quota enforcement. */
     readonly getTotalBytes: Effect.Effect<number, StorageError>

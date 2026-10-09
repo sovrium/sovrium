@@ -42,6 +42,7 @@ import { generateSearchIndex } from '@/application/use-cases/server/generate-sea
 import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
 import { prebuildSearchIndex as prebuildSearchIndexUseCase } from '@/application/use-cases/server/prebuild-search-index'
 import { startServer } from '@/application/use-cases/server/start-server'
+import { refuseUndersizedDatabaseBudget } from '@/application/use-cases/server/validate-boot-environment'
 import { ConfigRejectedError, isConfigRejectedError } from '@/domain/errors/config-rejected'
 import { isDatabaseUnreachable } from '@/domain/errors/driver-failure'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
@@ -175,7 +176,7 @@ export const start = async (
     // start rather than as a mid-boot surprise.
     provisionRootSecret()
 
-    const program = Effect.gen(function* () {
+    const startServerWithLayers = Effect.gen(function* () {
       const server = yield* startServer(rawApp, options)
       // Registered on THIS fiber, deliberately. A handler forked into a child
       // that parks on `Effect.never` would be interrupted when its parent
@@ -191,6 +192,13 @@ export const start = async (
       }
       return server
     }).pipe(Effect.provide(createAppLayer(validatedApp.auth)))
+    // The connection budget is checked before the layers are built: the
+    // storage layer checks the database as it is built, and a start this
+    // refuses must open no connection. `startServer` checks it again, for any
+    // other composition of it.
+    const program = refuseUndersizedDatabaseBudget(validatedApp).pipe(
+      Effect.andThen(startServerWithLayers)
+    )
 
     // EFFECT 4: run for an `Exit` rather than a Promise rejection, so the
     // code-action guard reads the CAUSE instead of whatever `Cause.squash`

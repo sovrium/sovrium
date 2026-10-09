@@ -11,6 +11,8 @@
  * the queued row (so the run id is known).
  */
 
+import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
+import { createRunWrittenFiles } from '../action-handlers/run-written-files'
 import { buildEnvLookup } from '../resolve-env-vars'
 import { buildAutomationContext, type TriggerData } from '../resolve-trigger-data'
 import { buildRecordEventChannel } from './record-event-channel'
@@ -18,6 +20,7 @@ import { toResolvedRetry, type StepContext } from './types'
 import type { ActionHandler, ActionKey } from '../action-handlers'
 import type { AutomationContext } from '../action-handlers/shared'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * The identity a step's handlers see: the automation, its caller (if any), the
@@ -39,6 +42,14 @@ const toAutomationContext = (input: {
   // account erased while the run waited on an approval) must write nothing,
   // never fall back to writing as the system.
   ...(input.startedByHand === true ? { startedByHand: true as const } : {}),
+  // One ledger per run: a step writing as nobody attaches only what this run stored.
+  writtenFiles: createRunWrittenFiles(),
+})
+
+/** What the steps read: the recorded data, and the entry that started the run. */
+const withStartedBy = (triggerData: TriggerData, trigger: Trigger): TriggerData => ({
+  ...triggerData,
+  startedBy: { type: trigger.type, name: triggerEntryName(trigger) },
 })
 
 /**
@@ -49,6 +60,8 @@ export const buildStepContext = (input: {
   readonly automationId: string
   readonly app: App
   readonly automation: NonNullable<App['automations']>[number]
+  /** The trigger entry that started the run. */
+  readonly trigger: Trigger
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly triggerData: TriggerData
   readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
@@ -71,7 +84,8 @@ export const buildStepContext = (input: {
   /** See `StepContext.templates` — read from the `TemplateEngine` port. */
   readonly templates: StepContext['templates']
 }): StepContext => {
-  const { name, automationId, app, automation, processEnv, triggerData, handlers } = input
+  const { name, automationId, app, automation, processEnv, handlers, trigger } = input
+  const triggerData = withStartedBy(input.triggerData, trigger)
   const recordEventDepth = input.recordEventDepth ?? 0
   const automationContext = toAutomationContext({ ...input, name, automationId })
   return {
@@ -83,6 +97,7 @@ export const buildStepContext = (input: {
     templateContext: buildAutomationContext(triggerData),
     templates: input.templates,
     automation: automationContext,
+    triggerType: trigger.type,
     triggerData: triggerData as Readonly<Record<string, unknown>>,
     automationRetry: toResolvedRetry(automation.retry),
     callDepth: input.callDepth ?? 0,

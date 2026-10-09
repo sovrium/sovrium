@@ -102,7 +102,7 @@ function listActionTools(appName: string, app: App): ReadonlyArray<McpToolListin
 function listAutomationTools(appName: string, app: App): ReadonlyArray<McpToolListing> {
   return (app.automations ?? []).flatMap((automation) => {
     if (!isAiAccessEnabled(automation.aiAccess)) return []
-    if (automation.trigger.type !== 'manual') return []
+    if (!automation.triggers.some((trigger) => trigger.type === 'manual')) return []
     return [
       {
         name: `${appName}_automation_${automation.name}`,

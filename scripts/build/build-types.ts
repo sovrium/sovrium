@@ -53,6 +53,12 @@ import { join } from 'node:path'
 import ts from 'typescript'
 import { escapeRegExp } from '@/domain/kernel/sanitize/escape-regexp'
 import { printStderr } from '@/infrastructure/logging/cli-output'
+import {
+  findUnresolvedSpecifiers,
+  inlineModuleReferences,
+  typeCheckDeclaration,
+} from './config-types-self-containment'
+import type { ExpandedReference, ModuleReference } from './config-types-self-containment'
 
 /**
  * The one typed failure this script raises.
@@ -318,7 +324,22 @@ function extractTypes(): string {
   const configFile = ts.readConfigFile(configPath, ts.sys.readFile)
   const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, PROJECT_ROOT)
 
-  const program = ts.createProgram(parsedConfig.fileNames, parsedConfig.options)
+  // An import-free module, added to the program only to print FROM (see
+  // PRINT_SCOPE). It sits beside `src/index.ts` so the specifiers the printer
+  // writes keep the same `./domain/…` shape, and it never touches the disk.
+  const scopeFileName = join(PROJECT_ROOT, 'src', '__config-types-print-scope__.ts')
+  const host = ts.createCompilerHost(parsedConfig.options)
+  const getSourceFile = host.getSourceFile.bind(host)
+  host.getSourceFile = (fileName, languageVersion, ...rest) =>
+    fileName === scopeFileName
+      ? ts.createSourceFile(fileName, 'export {}\n', languageVersion, true)
+      : getSourceFile(fileName, languageVersion, ...rest)
+
+  const program = ts.createProgram(
+    [...parsedConfig.fileNames, scopeFileName],
+    parsedConfig.options,
+    host
+  )
   const checker = program.getTypeChecker()
 
   // Find the main entry file
@@ -341,27 +362,146 @@ function extractTypes(): string {
    * below, so the emitted declaration and the in-repo type cannot disagree:
    * both are this one type, printed once.
    */
+  /**
+   * The scope types are printed FROM: a module that imports nothing.
+   *
+   * Printed from `src/index.ts`, a named type that file happens to import is
+   * written by its LOCAL name (`AutomationActionUnion` for the action union),
+   * which exists nowhere in the declaration. Printed from NO scope, the opposite
+   * breaks: a module-private alias (`Props<T>`, `HttpQueryValue`) is written by
+   * its bare name too. From an import-free module, an exported named type is
+   * always spelled as a module reference (which `inlineModuleReferences`
+   * hoists) and a private one is always expanded — every name takes one of two
+   * roads, and neither leaves a dangling identifier.
+   */
+  const printScope = program.getSourceFile(scopeFileName)
+  if (!printScope) {
+    throw new BuildTypesError('Could not create the print-scope module')
+  }
+  const PRINT_SCOPE: ts.Node = printScope
+
+  const PRINT_FLAGS =
+    ts.TypeFormatFlags.NoTruncation |
+    ts.TypeFormatFlags.MultilineObjectLiterals |
+    ts.TypeFormatFlags.UseFullyQualifiedType |
+    ts.TypeFormatFlags.WriteArrayAsGenericType
+
+  /**
+   * An interface, printed as the object literal it declares.
+   *
+   * The printer never expands an interface: in alias position it writes the
+   * interface's NAME, which is a self-reference once that name is the alias
+   * being declared (`export type StartOptions = StartOptions` — circular, and so
+   * `any` under `skipLibCheck`). So the members are printed one by one; a
+   * member type that is itself named comes out as a module reference and is
+   * hoisted like any other.
+   */
+  const printInterface = (sym: ts.Symbol): string => {
+    const type = checker.getDeclaredTypeOfSymbol(sym)
+    const unsupported =
+      checker.getSignaturesOfType(type, ts.SignatureKind.Call).length +
+      checker.getSignaturesOfType(type, ts.SignatureKind.Construct).length +
+      checker.getIndexInfosOfType(type).length +
+      ((type as ts.InterfaceType).typeParameters?.length ?? 0)
+    if (unsupported > 0) {
+      throw new BuildTypesError(
+        `Cannot print interface '${sym.getName()}' structurally: it declares call, construct or ` +
+          'index signatures, or type parameters. Express it as a type alias.'
+      )
+    }
+    const members = checker.getPropertiesOfType(type).map((prop) => {
+      const decl = prop.declarations?.[0]
+      const readonly =
+        decl !== undefined && (ts.getCombinedModifierFlags(decl) & ts.ModifierFlags.Readonly) !== 0
+      const optional = (prop.flags & ts.SymbolFlags.Optional) !== 0
+      const propType = checker.typeToString(
+        checker.getTypeOfSymbolAtLocation(prop, entryFile),
+        PRINT_SCOPE,
+        PRINT_FLAGS
+      )
+      const key = /^[A-Za-z_$][\w$]*$/.test(prop.getName())
+        ? prop.getName()
+        : JSON.stringify(prop.getName())
+      return `${readonly ? 'readonly ' : ''}${key}${optional ? '?' : ''}: ${propType};`
+    })
+    return `{ ${members.join(' ')} }`
+  }
+
+  /**
+   * One declared type, printed structurally in type-alias position.
+   *
+   * Shared by the TYPE_EXPORTS loop, the `CodeContext.actions` splice and the
+   * module-reference inlining below, so every alias the declaration carries is
+   * printed by this one function.
+   */
+  const printDeclared = (declared: ts.Symbol): string => {
+    const sym =
+      declared.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(declared) : declared
+    if (sym.flags & ts.SymbolFlags.Interface) return printInterface(sym)
+    let resolved = checker.getDeclaredTypeOfSymbol(sym)
+    if (sym.flags & ts.SymbolFlags.TypeAlias) {
+      const aliasDecl = sym.declarations?.[0]
+      if (aliasDecl && ts.isTypeAliasDeclaration(aliasDecl)) {
+        if ((aliasDecl.typeParameters?.length ?? 0) > 0) {
+          throw new BuildTypesError(
+            `Cannot print generic type alias '${sym.getName()}' structurally`
+          )
+        }
+        resolved = checker.getTypeAtLocation(aliasDecl)
+      }
+    }
+    return checker.typeToString(resolved, PRINT_SCOPE, PRINT_FLAGS | ts.TypeFormatFlags.InTypeAlias)
+  }
+
+  /**
+   * Expand an exported type alias of `src/index.ts` to its structural text.
+   *
+   * Shared by the TYPE_EXPORTS loop and by the `CodeContext.actions` splice
+   * below, so the emitted declaration and the in-repo type cannot disagree:
+   * both are this one type, printed once.
+   */
   const expandExport = (name: string): string => {
     const sym = exports.find((e) => e.getName() === name)
     if (!sym) {
       throw new BuildTypesError(`Type '${name}' not found in src/index.ts exports`)
     }
-    let resolved = checker.getDeclaredTypeOfSymbol(sym)
-    if (sym.flags & ts.SymbolFlags.TypeAlias) {
-      const aliasDecl = sym.declarations?.[0]
-      if (aliasDecl && ts.isTypeAliasDeclaration(aliasDecl)) {
-        resolved = checker.getTypeAtLocation(aliasDecl)
-      }
-    }
-    return checker.typeToString(
-      resolved,
-      entryFile,
-      ts.TypeFormatFlags.NoTruncation |
-        ts.TypeFormatFlags.MultilineObjectLiterals |
-        ts.TypeFormatFlags.UseFullyQualifiedType |
-        ts.TypeFormatFlags.InTypeAlias |
-        ts.TypeFormatFlags.WriteArrayAsGenericType
+    return printDeclared(sym)
+  }
+
+  /**
+   * Resolve one `import("<specifier>").<name>` the printer wrote, the way the
+   * printer meant it: the specifier is relative to the print scope, under the
+   * repository's own module resolution (so `@/` resolves through `paths`).
+   */
+  const expandModuleReference = ({ specifier, name }: ModuleReference): ExpandedReference => {
+    const { resolvedModule } = ts.resolveModuleName(
+      specifier,
+      scopeFileName,
+      parsedConfig.options,
+      ts.sys
     )
+    const sourceFile =
+      resolvedModule === undefined
+        ? undefined
+        : program.getSourceFile(resolvedModule.resolvedFileName)
+    const moduleSym = sourceFile === undefined ? undefined : checker.getSymbolAtLocation(sourceFile)
+    if (moduleSym === undefined) {
+      throw new BuildTypesError(`Cannot resolve module '${specifier}' named by the printed types`)
+    }
+    const exported = checker.getExportsOfModule(moduleSym).find((e) => e.getName() === name)
+    if (exported === undefined) {
+      throw new BuildTypesError(`'${specifier}' exports no '${name}'`)
+    }
+    const target =
+      exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported
+    const decl = target.declarations?.[0]
+    if (decl === undefined) {
+      throw new BuildTypesError(`'${name}' (from '${specifier}') has no declaration`)
+    }
+    return {
+      identity: `${decl.getSourceFile().fileName}#${target.getName()}`,
+      body: printDeclared(target),
+    }
   }
 
   /**
@@ -421,10 +561,39 @@ function extractTypes(): string {
     )
   }
 
+  const codeContextActions = expandExport('CodeContextActions')
+  const reserved = new Set<string>([
+    ...TYPE_EXPORTS.map((t) => t.exported),
+    COMPONENT_STYLE_TYPE_NAME,
+    'CodeContext',
+  ])
+  const inlined = (() => {
+    try {
+      return inlineModuleReferences(
+        [
+          ...collected.map((entry, index) => hoisted?.texts[index] ?? entry.typeString),
+          codeContextActions,
+        ],
+        expandModuleReference,
+        reserved
+      )
+    } catch (error) {
+      if (error instanceof BuildTypesError) throw error
+      throw new BuildTypesError(error instanceof Error ? error.message : String(error))
+    }
+  })()
+  console.log(
+    `  ${inlined.declarations.length} module-referenced type(s) inlined` +
+      (inlined.declarations.length > 0
+        ? ` — ${inlined.declarations.map((d) => d.name).join(', ')}`
+        : '')
+  )
+
   const emitted = collected.map((entry, index) => ({
     exported: entry.exported,
-    typeString: hoisted?.texts[index] ?? entry.typeString,
+    typeString: inlined.texts[index] ?? entry.typeString,
   }))
+  const inlinedCodeContextActions = inlined.texts[collected.length] ?? codeContextActions
 
   const lines: string[] = []
 
@@ -445,6 +614,14 @@ function extractTypes(): string {
     lines.push(' * scripts/build/build-types.ts.')
     lines.push(' */')
     lines.push(`export type ${COMPONENT_STYLE_TYPE_NAME} = ${hoisted.body}`)
+    lines.push('')
+  }
+
+  for (const { name, body } of inlined.declarations) {
+    lines.push(
+      `/** Referenced by the config types above; inlined so this declaration names nothing outside itself. */`
+    )
+    lines.push(`export type ${name} = ${body}`)
     lines.push('')
   }
 
@@ -506,7 +683,7 @@ function extractTypes(): string {
   lines.push(
     '    readonly ref: (templateName: string, vars?: Record<string, unknown>) => Promise<any>'
   )
-  lines.push(`  } & ${expandExport('CodeContextActions')}`)
+  lines.push(`  } & ${inlinedCodeContextActions}`)
   lines.push('  /** Environment variables (values redacted in logs when length >= 8) */')
   lines.push('  readonly env: Record<string, string>')
   // `log` is documented as a no-op deliberately: the sandbox is handed
@@ -539,7 +716,6 @@ function extractTypes(): string {
 }
 
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 // Verify
 // ---------------------------------------------------------------------------
 
@@ -567,6 +743,31 @@ function verify(dtsContent: string): void {
   }
   if (!dtsContent.includes('CodeContext')) {
     throw new BuildTypesError('Missing CodeContext export.')
+  }
+
+  // Self-containment. The declaration is written into a directory with no
+  // package and no `@/` alias, under `skipLibCheck: true` — so a reference to
+  // anything outside it degrades to `any` with no diagnostic at all.
+  const unresolved = findUnresolvedSpecifiers(dtsContent)
+  if (unresolved.length > 0) {
+    throw new BuildTypesError(
+      `Generated .d.ts names ${unresolved.length} module specifier(s) an author cannot resolve ` +
+        `(${unresolved.slice(0, 5).join(', ')}). Every type it uses must be declared in it.`
+    )
+  }
+
+  // And the declaration must type-check ON ITS OWN, with library checking ON —
+  // the setting the shipped tsconfig turns off, which is exactly why a broken
+  // reference (or a circular alias) never surfaces for an author.
+  const diagnostics = typeCheckDeclaration(dtsContent, OUT_DIR)
+  if (diagnostics.length > 0) {
+    throw new BuildTypesError(
+      `Generated .d.ts does not type-check on its own (${diagnostics.length} diagnostic(s)):\n` +
+        diagnostics
+          .slice(0, 10)
+          .map((d) => `  ${d}`)
+          .join('\n')
+    )
   }
 
   const dtsSize = Buffer.byteLength(dtsContent, 'utf-8')

@@ -18,6 +18,8 @@
  * stay distinct (matches the documented run-loop status contract).
  */
 
+import type { RunAccumulator } from './types'
+
 /**
  * Map the engine's internal status to the public API status enum exposed
  * via `system.automation_runs.status` and the runs API. `'timed-out'`
@@ -71,3 +73,16 @@ export const toApiStepStatus = (
   if (engineStatus === 'filtered') return 'filtered'
   return 'failed'
 }
+
+/**
+ * A failure `continueOnError` let a run go past before it paused — on a park
+ * or an approval — still ends the otherwise clean resumed run
+ * `completed-with-errors`, as it would have ended without the pause.
+ */
+export const withPriorTolerated = (
+  state: RunAccumulator,
+  priorTolerated: number
+): RunAccumulator =>
+  priorTolerated > 0 && state.runStatus === 'success'
+    ? { ...state, runStatus: 'completed-with-errors' }
+    : state

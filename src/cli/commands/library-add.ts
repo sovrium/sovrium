@@ -21,6 +21,7 @@
 import { rename, writeFile, mkdir } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { undeclaredEnvMessage } from './library-add-env'
+import { resolveParams } from './library-add-params'
 import {
   digest,
   findConfig,
@@ -30,7 +31,6 @@ import {
   planInstalls,
   readIfExists,
   refuse,
-  resolveParams,
   rootFormatOf,
 } from './library-add-plan'
 import { bindingName, libraryArticleAddress, planYamlWire, refLine } from './library-wire'

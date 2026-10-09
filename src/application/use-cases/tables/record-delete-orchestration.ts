@@ -43,6 +43,7 @@ import type {
   OutboxedWrite,
   RecordWebhookDispatcher,
 } from '@/application/ports/services/record-webhook-dispatcher'
+import type { TriggerRequester } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { TriggerRecordEventInput } from '@/application/use-cases/automations/trigger-record-event'
 import type { App } from '@/domain/models/app'
 
@@ -68,6 +69,8 @@ export interface RecordDeleteInput {
   readonly tableName: string
   readonly recordId: string
   readonly mode: DeleteMode
+  /** Who made the write, as the automations' `trigger.user`: absent for a write no person made. */
+  readonly requester?: TriggerRequester
   /** Process env captured at the route boundary, for the automations' `$env` lookups. */
   readonly processEnv: Readonly<Record<string, string | undefined>>
   /** Whether the request waits for its webhook deliveries (it does, by default). */
@@ -98,7 +101,7 @@ export const removedARow = (result: DeleteResult): boolean =>
  * Resolves to what the delete answered.
  */
 export function orchestrateRecordDelete<E, R, RD = never, RA = never>(
-  input: Pick<RecordDeleteInput, 'app' | 'tableName' | 'mode' | 'processEnv'> & {
+  input: Pick<RecordDeleteInput, 'app' | 'tableName' | 'mode' | 'processEnv' | 'requester'> & {
     readonly userId: string
   },
   steps: RecordDeleteSteps<E, R, RD, RA>
@@ -120,6 +123,7 @@ export function orchestrateRecordDelete<E, R, RD = never, RA = never>(
       record: { ...previous },
       processEnv: input.processEnv,
       userId: input.userId,
+      ...(input.requester === undefined ? {} : { requester: input.requester }),
     })
     yield* steps.deliverWebhooks(removed.deliveryIds)
     return result

@@ -22,13 +22,13 @@ Every property is optional; `requiredRole` defaults to `admin`, which the app's 
 
 Where a manual run reads what it was given depends on how it was started:
 
-| Started by                                                     | Input read at                                                                                     |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `POST /api/automations/{name}/trigger`, the MCP tool, the chat | **`{{trigger.data.*}}`**: the request body's keys, also at `{{trigger.data.body.*}}`              |
-| A page button, alert-dialog confirm or data form               | **`{{trigger.input.*}}`**, and the same values at `{{trigger.data.*}}`                            |
-| A table's button field                                         | **`{{trigger.input.table}}`**, **`{{trigger.input.recordId}}`** and **`{{trigger.input.field}}`** |
+| Started by                                                     | Input read at                                                                                                                    |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/automations/{name}/trigger`, the MCP tool, the chat | **`{{trigger.input.*}}`**: the request body's keys, also at `{{trigger.data.*}}`, with the raw body at `{{trigger.data.body.*}}` |
+| A page button, alert-dialog confirm or data form               | **`{{trigger.input.*}}`**, and the same values at `{{trigger.data.*}}`                                                           |
+| A table's button field                                         | **`{{trigger.input.table}}`**, **`{{trigger.input.recordId}}`** and **`{{trigger.input.field}}`**                                |
 
-So posting `{"warehouse": "north"}` to the trigger endpoint is read as `{{trigger.data.warehouse}}`, and `{{trigger.input.warehouse}}` is empty in that run. An automation meant to be started both from a page and over the API reads `{{trigger.data.*}}`, which both fill. `{{trigger.inputData}}` resolves nowhere: `inputData` is the property name on the calling side, not a path a run can read.
+So posting `{"warehouse": "north"}` to the trigger endpoint is read as `{{trigger.input.warehouse}}`, and still as `{{trigger.data.warehouse}}`. A body whose only key is an `input` object, `{"input": {"warehouse": "north"}}`, hands that object to the run: it is read as `{{trigger.input.warehouse}}` too, while `{{trigger.data.body}}` keeps the body exactly as it was posted, wrapper included. Any other body is the input as a whole, so a body with an `input` key beside other keys is read as `{{trigger.input.input.*}}`. An automation meant to be started both from a page and over the API reads `{{trigger.input.*}}`, which every road fills. `{{trigger.inputData}}` resolves nowhere: `inputData` is the property name on the calling side, not a path a run can read.
 
 ### From a page button
 

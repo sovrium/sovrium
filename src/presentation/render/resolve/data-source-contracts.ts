@@ -29,6 +29,7 @@ import type {
 import type { Component } from '@/domain/models/app/pages/components'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { InvitationFacts } from '@/domain/models/app/pages/invitation-vars-service'
+import type { RecordTextContext } from '@/presentation/render/props/record-value-format'
 
 export const SINGLE_RECORD_NOT_FOUND = Symbol('SINGLE_RECORD_NOT_FOUND')
 export const UNAUTHORIZED = Symbol('UNAUTHORIZED')
@@ -138,6 +139,13 @@ export interface DataSourceDb {
    * accepted or revoked invitation). Absent, every token reads as invalid.
    */
   readonly readInvitation?: (token: string) => Promise<InvitationFacts | undefined>
+
+  /**
+   * Optional — the page this render serves: its language and the app's tables,
+   * so a `$record.<field>` in page text prints a date or an amount formatted by
+   * its field type. Absent, every value prints as stored.
+   */
+  readonly recordText?: RecordTextContext
 }
 
 /** Injects a _dataSourceError prop into a component's props. */

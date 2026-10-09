@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import { firstMatchingTrigger } from '@/domain/models/app/automations/trigger-entries-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
@@ -15,6 +16,7 @@ import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements, RunAutomationResult } from './run-automation'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Submitter context surfaced to actions at `{{trigger.data.meta.<member>}}`.
@@ -90,12 +92,14 @@ const findMatchingFormAutomations = (
   app: App,
   formName: string,
   pausedNames: ReadonlySet<string>
-): readonly NonNullable<App['automations']>[number][] =>
-  (app.automations ?? []).filter((automation) => {
-    if (!isAutomationOperationallyEnabled(automation, pausedNames)) return false
-    const { trigger } = automation
-    if (trigger.type !== 'form') return false
-    return trigger.form === formName
+): ReadonlyArray<{
+  readonly automation: NonNullable<App['automations']>[number]
+  readonly trigger: Trigger
+}> =>
+  (app.automations ?? []).flatMap((automation) => {
+    if (!isAutomationOperationallyEnabled(automation, pausedNames)) return []
+    const trigger = firstMatchingTrigger(automation, 'form', (entry) => entry.form === formName)
+    return trigger === undefined ? [] : [{ automation, trigger }]
   })
 
 /**
@@ -229,9 +233,10 @@ export const triggerFormSubmissionAutomations = (
 
     const results = yield* Effect.forEach(
       matching,
-      (automation) =>
+      ({ automation, trigger }) =>
         dispatchAutomationOnce({
           automation,
+          trigger,
           app,
           processEnv,
           triggerData,

@@ -5,8 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
+import {
+  withRecordTextFields,
+  type RecordTextFields,
+} from '@/domain/models/app/tables/record-text-service'
 import { subscribe } from '@/presentation/islands/runtime/event-bus'
+import { resolvePageLocale } from '@/presentation/islands/runtime/page-locale'
 import { useRecordQuery } from '../hooks/use-record-query'
 import { addressedRecordId, clearDrawerAddress, writeDrawerAddress } from './record-drawer-address'
 import {
@@ -92,14 +104,24 @@ export function useRecordDrawer(
  * detail query is disabled (a no-op) for a DB-table binding. The resolved record
  * feeds the ONE shared body — so CAP-3 structured fields, CAP-1 footer `$record.*`
  * actions, and read-only display all read the SAME record regardless of binding.
+ *
+ * With `recordText` (how each formatted field of the table reads, resolved by the
+ * server) the record carries its formatted text in the page's language, which the
+ * slot and a confirm prompt print — the text a record page prints for the same
+ * value. Every address site keeps reading the stored value.
  */
 export function useDrawerRecord(
   system: SystemDetailSource | undefined,
   recordId: string | undefined,
-  tableRecord: RawRecord
+  tableRecord: RawRecord,
+  recordText?: RecordTextFields
 ): RawRecord {
   const systemQuery = useRecordQuery('record-drawer', system ? { system } : undefined, recordId)
-  return system ? (systemQuery.data ?? EMPTY_RECORD) : tableRecord
+  const record = system ? (systemQuery.data ?? EMPTY_RECORD) : tableRecord
+  return useMemo(
+    () => withRecordTextFields(record, recordText, resolvePageLocale()) as RawRecord,
+    [record, recordText]
+  )
 }
 
 /** The inline error, plus the field-edit + close handlers (a field edit clears the error). */

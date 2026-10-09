@@ -7,6 +7,10 @@
 
 import { Schema } from 'effect'
 import { AiAccessSchema } from '@/domain/models/app/auth/ai-access'
+import {
+  findDuplicateNestedStepNames,
+  findReservedNestedStepNames,
+} from '@/domain/models/app/automations/reserved-step-name-validation'
 import { ActionSchema } from './action'
 import { ActionTemplateVariablesSchema } from './variables'
 
@@ -73,10 +77,20 @@ export const ActionTemplateSchema = Schema.Struct({
   aiAccess: Schema.optional(AiAccessSchema),
 }).pipe(
   Schema.annotate({
-    identifier: 'ActionTemplate',
     title: 'Reusable Action Template',
     description: 'Preconfigured action template reusable across automations via $ref',
-  })
+  }),
+  // A template that is a loop or a path brings its body into every automation
+  // calling it: no step there may be named `loop` or `loops` either, nor may two
+  // of its steps share a name. Checked before the identifier is set, so the JSON
+  // Schema keeps one shared definition.
+  Schema.check(
+    Schema.makeFilter((template) => [
+      ...findReservedNestedStepNames(template.action, ['action']),
+      ...findDuplicateNestedStepNames(template.name, template.action, ['action']),
+    ])
+  ),
+  Schema.annotate({ identifier: 'ActionTemplate' })
 )
 
 export type ActionTemplate = Schema.Schema.Type<typeof ActionTemplateSchema>

@@ -19,7 +19,6 @@ import {
 import { type RunAutomationError } from '@/application/use-cases/automations/run-automation'
 import { runPagePressedAutomation } from '@/application/use-cases/automations/run-page-pressed-automation'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
-import { redactTriggerDataHeaders } from '@/domain/kernel/sanitize/http-header-redaction'
 import { runDetailSchema } from '@/domain/models/api/automations/automations'
 import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import {
@@ -35,7 +34,13 @@ import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import { handleListApprovals } from './approvals-handlers'
 import { automationsListedTo } from './automation-listing-reach'
 import { admitPageAction, type PageSessionResolver } from './page-action-gate'
-import { listedRuns } from './run-list-body'
+import {
+  listedRuns,
+  readListRunsQuery,
+  runTriggerDataOf,
+  runTriggerFields,
+  triggerNameFilterOf,
+} from './run-list-body'
 import { publishedNestedSteps } from './run-nested-steps'
 import { judgedRunOf, runDetailAsSeenByCaller, runsAsSeenByCaller } from './run-step-output-reach'
 import {
@@ -98,16 +103,17 @@ async function handleListAutomations(c: Context, app: App) {
   const userId = getSessionContext(c)?.userId
   const role = userId === undefined ? undefined : await runDomainPromise(c, getUserRole(userId))
   const automations = automationsListedTo(app, role).map((automation) => {
-    const trigger = automation.trigger as Record<string, unknown>
     // Every secret field is replaced, `$env.X` reference or literal alike.
-    const redactedTrigger = {
-      ...redactTriggerSecrets(trigger),
-      ...computeCronNextRunOverlay(trigger),
-    }
+    const triggers = automation.triggers.map((entry) => {
+      const trigger = entry as Record<string, unknown>
+      return { ...redactTriggerSecrets(trigger), ...computeCronNextRunOverlay(trigger) }
+    })
+    // `trigger` is the first entry, as before `triggers` existed.
     return {
       name: automation.name,
       enabled: automation.enabled ?? true,
-      trigger: redactedTrigger,
+      trigger: triggers[0],
+      triggers,
     }
   })
   return c.json(automations, 200)
@@ -240,6 +246,7 @@ async function handleListRunsByName(c: Context, app: App) {
  * parameters:
  *   - `automationName` — filter by automation user-facing name
  *   - `status`         — filter by run status (e.g. `completed`, `failed`)
+ *   - `triggerName`    — filter by the trigger entry that started the run
  *   - `page`           — 1-indexed page number (paired with `pageSize`)
  *   - `pageSize`       — items per page; when present, `pagination` envelope
  *                        is included in the response
@@ -247,12 +254,7 @@ async function handleListRunsByName(c: Context, app: App) {
  * The response is `{ runs, pagination? }`.
  */
 async function handleListRuns(c: Context, app: App) {
-  const automationName = c.req.query('automationName')
-  const status = c.req.query('status')
-  const pageStr = c.req.query('page')
-  const pageSizeStr = c.req.query('pageSize')
-  const page = pageStr !== undefined ? Number(pageStr) : undefined
-  const pageSize = pageSizeStr !== undefined ? Number(pageSizeStr) : undefined
+  const { automationName, status, triggerName, page, pageSize } = readListRunsQuery(c)
   // In the query, not after it: the total must count only the runs listed.
   const access = await gateRunAccess(c, app)
   if (!access.ok) return access.response
@@ -267,6 +269,9 @@ async function handleListRuns(c: Context, app: App) {
     const result = yield* repo.listAll({
       ...(automationName !== undefined ? { automationName } : {}),
       ...(status !== undefined ? { status } : {}),
+      ...(triggerName === undefined
+        ? {}
+        : { triggerName: triggerNameFilterOf(app, automationName, triggerName) }),
       ...(page !== undefined ? { page } : {}),
       ...(pageSize !== undefined ? { pageSize } : {}),
       ...(readableBy !== undefined ? { readableBy } : {}),
@@ -302,14 +307,6 @@ async function handleListRuns(c: Context, app: App) {
 }
 
 /**
- * Resolve the trigger type for a run by looking up the automation's schema
- * trigger.type. Defaults to `'webhook'` for runs whose automation has been
- * removed from the schema (mid-flight redeployment).
- */
-const resolveTriggerType = (app: App, automationName: string): string =>
-  app.automations?.find((a) => a.name === automationName)?.trigger.type ?? 'webhook'
-
-/**
  * Pull per-attempt history off the last failing step's `output.attempts`
  * (populated by `dispatchWithRetry` when an action's retry budget is in
  * play — an automation retry spec). Returns an empty array when no step
@@ -335,9 +332,8 @@ const buildDbRunDetailBody = (app: App, run: PersistedRun, steps: readonly Persi
   id: run.id,
   automationName: run.automationName,
   status: run.status,
-  triggerType: resolveTriggerType(app, run.automationName),
-  // See `persistedRunToApi`: the captured inbound headers carry credentials.
-  triggerData: redactTriggerDataHeaders(run.triggerData),
+  ...runTriggerFields(app, run),
+  triggerData: runTriggerDataOf(app, run),
   startedAt: run.startedAt,
   completedAt: run.completedAt,
   durationMs: run.durationMs,

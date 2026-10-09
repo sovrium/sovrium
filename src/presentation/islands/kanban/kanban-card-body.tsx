@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { withRecordTextFields } from '@/domain/models/app/tables/record-text-service'
 import {
   KANBAN_CARD_BODY_CLASSES,
   KANBAN_FOOTER_AVATAR_CLASSES,
@@ -46,6 +47,8 @@ export function KanbanCardBody({
   readonly coverImageSrc: string | undefined
 }): ReactElement {
   const format = useKanbanFormat()
+  // A TEXT site: each formatted field prints as the server prints it on a page.
+  const textRecord = withRecordTextFields(record, format.recordText, format.locale)
   return (
     <>
       {coverImageSrc && (
@@ -57,7 +60,7 @@ export function KanbanCardBody({
       )}
       <div className={KANBAN_CARD_BODY_CLASSES}>
         {card.children?.map((child, index) =>
-          renderCardChild(child, record, index, CARD_CHILD_CLASSES)
+          renderCardChild(child, textRecord, index, CARD_CHILD_CLASSES)
         )}
       </div>
       {/* The footer sits OUTSIDE the body's padding box so its top rule runs

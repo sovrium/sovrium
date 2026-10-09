@@ -45,6 +45,7 @@ import { FORMULA_ENGINE_VERSION } from '../formula/formula-engine-version'
 import { qualifiedSystemTable, systemObjectExistsSql, nowSqlLiteral } from '../sql/dialect-ddl'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import { isSqliteRuntime } from '../unsupported-in-sqlite'
+import { upgradeFormReferencedAttachments } from './apply-schema-defaults'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -66,10 +67,10 @@ const SCHEMA_CHECKSUM_TABLE = qualifiedSystemTable(getTableName(sovriumSchemaChe
  * IMPORTANT: Views are part of table definitions (table.views property).
  * Including tables in the snapshot automatically includes views, since views
  * are nested within table objects. This ensures that view changes trigger
- * schema migrations correctly.
+ * schema migrations correctly. Form-referenced attachment columns are resolved in.
  */
 const createSchemaSnapshot = (app: App): { readonly tables: readonly object[] } => ({
-  tables: app.tables ?? [],
+  tables: upgradeFormReferencedAttachments(app.tables ?? [], app),
 })
 
 /**

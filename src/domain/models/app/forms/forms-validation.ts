@@ -17,6 +17,7 @@
  */
 
 import { validateTranslatedFormAddresses } from './form-address-validation'
+import { validateFormAutocompleteHints } from './form-autocomplete-validation'
 import { validateCalculationFormulas } from './form-calculation-validation'
 import { validateFormCreatePaths } from './form-create-path-validation'
 import { validateFormOptionSources } from './form-option-source-validation'
@@ -718,6 +719,7 @@ export const validateAllFormsReferences = (app: AppForFormsValidation): string |
     () => validateFormOptionSources(app),
     // A `$t:` address a form sends its visitor to, checked in every language.
     () => validateTranslatedFormAddresses(app),
+    () => validateFormAutocompleteHints(app),
   ]
 
   const firstError = rules.reduce<string | undefined>((acc, rule) => acc ?? rule(), undefined)

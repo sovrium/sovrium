@@ -474,7 +474,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.catalog.col.pausedAt': 'Paused at',
         'admin.automations.catalog.col.pausedBy': 'Paused by',
         'admin.automations.catalog.col.state': 'State',
-        'admin.automations.catalog.col.trigger': 'Trigger',
+        'admin.automations.catalog.col.trigger': 'Triggers',
         'admin.automations.catalog.empty': 'No automations',
         'admin.automations.catalog.pause.message':
           'New runs stop until you resume. A run already in progress is not cancelled.',
@@ -502,6 +502,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.col.duration': 'Duration',
         'admin.automations.runs.col.started': 'Started',
         'admin.automations.runs.col.status': 'Status',
+        'admin.automations.runs.col.trigger': 'Trigger',
         'admin.automations.runs.detail.back': 'Back to runs',
         'admin.automations.runs.detail.blurb':
           'One run: what it was given, and what each step did and logged.',
@@ -528,8 +529,10 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.detail.steps': 'Steps',
         'admin.automations.runs.empty': 'No runs',
         'admin.automations.runs.filter.all': 'All',
+        'admin.automations.runs.filter.allTriggers': 'All',
         'admin.automations.runs.filter.automation': 'Filter by automation',
         'admin.automations.runs.filter.status': 'Filter by status',
+        'admin.automations.runs.filter.trigger': 'Filter by trigger',
         'admin.automations.runs.heading': 'Run history',
         'admin.automations.runs.noMatch': 'No run matches “{query}”',
         'admin.automations.runs.scope':
@@ -1218,7 +1221,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.catalog.col.pausedAt': 'Mise en pause le',
         'admin.automations.catalog.col.pausedBy': 'Mise en pause par',
         'admin.automations.catalog.col.state': 'État',
-        'admin.automations.catalog.col.trigger': 'Déclencheur',
+        'admin.automations.catalog.col.trigger': 'Déclencheurs',
         'admin.automations.catalog.empty': 'Aucune automatisation',
         'admin.automations.catalog.pause.message':
           'Les nouvelles exécutions s’arrêtent jusqu’à la reprise. Une exécution déjà en cours n’est pas annulée.',
@@ -1247,6 +1250,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.col.duration': 'Durée',
         'admin.automations.runs.col.started': 'Démarrée',
         'admin.automations.runs.col.status': 'Statut',
+        'admin.automations.runs.col.trigger': 'Déclencheur',
         'admin.automations.runs.detail.back': 'Retour aux exécutions',
         'admin.automations.runs.detail.blurb':
           'Une exécution : ce qu’elle a reçu, et ce que chaque étape a fait et journalisé.',
@@ -1273,8 +1277,10 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.detail.steps': 'Étapes',
         'admin.automations.runs.empty': 'Aucune exécution',
         'admin.automations.runs.filter.all': 'Toutes',
+        'admin.automations.runs.filter.allTriggers': 'Tous',
         'admin.automations.runs.filter.automation': 'Filtrer par automatisation',
         'admin.automations.runs.filter.status': 'Filtrer par statut',
+        'admin.automations.runs.filter.trigger': 'Filtrer par déclencheur',
         'admin.automations.runs.heading': 'Historique des exécutions',
         'admin.automations.runs.noMatch': 'Aucune exécution ne correspond à « {query} »',
         'admin.automations.runs.scope':
@@ -22477,6 +22483,31 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   type: 'select',
                                 },
                                 {
+                                  dataSource: {
+                                    labelKey: 'name',
+                                    system: {
+                                      endpoint: '/api/admin/automations',
+                                      idKey: 'name',
+                                      rowsKey: 'triggerNames',
+                                    },
+                                    valueKey: 'name',
+                                  },
+                                  emptyOption: {
+                                    label: '$t:admin.automations.runs.filter.allTriggers',
+                                  },
+                                  native: true,
+                                  props: {
+                                    className: 'w-56',
+                                    id: 'trigger-filter',
+                                    label: '$t:admin.automations.runs.filter.trigger',
+                                  },
+                                  publishes: {
+                                    bindTo: 'automation-runs-filter',
+                                    param: 'triggerName',
+                                  },
+                                  type: 'select',
+                                },
+                                {
                                   emptyOption: {
                                     label: '$t:admin.automations.runs.filter.all',
                                   },
@@ -22534,6 +22565,10 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 {
                                   field: 'automationName',
                                   label: '$t:admin.automations.runs.col.automation',
+                                },
+                                {
+                                  field: 'triggerName',
+                                  label: '$t:admin.automations.runs.col.trigger',
                                 },
                                 {
                                   cellStyle: [
@@ -22660,7 +22695,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   idKey: 'id',
                                   rowsKey: 'items',
                                   sharedFilter: {
-                                    params: ['automationName', 'status'],
+                                    params: ['automationName', 'triggerName', 'status'],
                                   },
                                 },
                               },
@@ -22699,115 +22734,105 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         {
                           children: [
                             {
-                              children: [
+                              columns: [
                                 {
-                                  columns: [
+                                  field: 'name',
+                                  label: '$t:admin.automations.catalog.col.automation',
+                                },
+                                {
+                                  field: 'triggers',
+                                  label: '$t:admin.automations.catalog.col.trigger',
+                                },
+                                {
+                                  field: 'state',
+                                  label: '$t:admin.automations.catalog.col.state',
+                                  valueLabels: {
+                                    active: '$t:admin.automations.catalog.state.active',
+                                    disabled: '$t:admin.automations.catalog.state.disabled',
+                                    paused: '$t:admin.automations.catalog.state.paused',
+                                  },
+                                },
+                                {
+                                  field: 'reason',
+                                  label: '$t:admin.automations.catalog.reason',
+                                  valueLabels: {
+                                    'consecutive-failures':
+                                      '$t:admin.automations.catalog.reason.automatic',
+                                  },
+                                },
+                                {
+                                  field: 'pausedBy',
+                                  label: '$t:admin.automations.catalog.col.pausedBy',
+                                },
+                                {
+                                  field: 'pausedAt',
+                                  format: 'datetime',
+                                  label: '$t:admin.automations.catalog.col.pausedAt',
+                                },
+                                {
+                                  actions: [
                                     {
-                                      field: 'name',
-                                      label: '$t:admin.automations.catalog.col.automation',
-                                    },
-                                    {
-                                      field: 'trigger',
-                                      label: '$t:admin.automations.catalog.col.trigger',
-                                    },
-                                    {
-                                      field: 'state',
-                                      label: '$t:admin.automations.catalog.col.state',
-                                      valueLabels: {
-                                        active: '$t:admin.automations.catalog.state.active',
-                                        disabled: '$t:admin.automations.catalog.state.disabled',
-                                        paused: '$t:admin.automations.catalog.state.paused',
+                                      action: {
+                                        method: 'POST',
+                                        onSuccess: {
+                                          message: '$t:admin.automations.catalog.pause.toast',
+                                          refetch: 'automations-catalog-grid',
+                                          type: 'toast',
+                                        },
+                                        type: 'fetch',
+                                        url: '/api/admin/automations/$record.name/pause',
+                                      },
+                                      confirm: {
+                                        cancelLabel: '$t:admin.automations.cancel',
+                                        confirmLabel: '$t:admin.automations.catalog.action.pause',
+                                        message: '$t:admin.automations.catalog.pause.message',
+                                        title: '$t:admin.automations.catalog.pause.title',
+                                      },
+                                      label: '$t:admin.automations.catalog.action.pause',
+                                      visibleWhen: {
+                                        eq: 'active',
+                                        field: 'state',
                                       },
                                     },
                                     {
-                                      field: 'reason',
-                                      label: '$t:admin.automations.catalog.reason',
-                                      valueLabels: {
-                                        'consecutive-failures':
-                                          '$t:admin.automations.catalog.reason.automatic',
+                                      action: {
+                                        method: 'POST',
+                                        onSuccess: {
+                                          message: '$t:admin.automations.catalog.resume.toast',
+                                          refetch: 'automations-catalog-grid',
+                                          type: 'toast',
+                                        },
+                                        type: 'fetch',
+                                        url: '/api/admin/automations/$record.name/resume',
                                       },
-                                    },
-                                    {
-                                      field: 'pausedBy',
-                                      label: '$t:admin.automations.catalog.col.pausedBy',
-                                    },
-                                    {
-                                      field: 'pausedAt',
-                                      format: 'datetime',
-                                      label: '$t:admin.automations.catalog.col.pausedAt',
-                                    },
-                                    {
-                                      actions: [
-                                        {
-                                          action: {
-                                            method: 'POST',
-                                            onSuccess: {
-                                              message: '$t:admin.automations.catalog.pause.toast',
-                                              refetch: 'automations-catalog-grid',
-                                              type: 'toast',
-                                            },
-                                            type: 'fetch',
-                                            url: '/api/admin/automations/$record.name/pause',
-                                          },
-                                          confirm: {
-                                            cancelLabel: '$t:admin.automations.cancel',
-                                            confirmLabel:
-                                              '$t:admin.automations.catalog.action.pause',
-                                            message: '$t:admin.automations.catalog.pause.message',
-                                            title: '$t:admin.automations.catalog.pause.title',
-                                          },
-                                          label: '$t:admin.automations.catalog.action.pause',
-                                          visibleWhen: {
-                                            eq: 'active',
-                                            field: 'state',
-                                          },
-                                        },
-                                        {
-                                          action: {
-                                            method: 'POST',
-                                            onSuccess: {
-                                              message: '$t:admin.automations.catalog.resume.toast',
-                                              refetch: 'automations-catalog-grid',
-                                              type: 'toast',
-                                            },
-                                            type: 'fetch',
-                                            url: '/api/admin/automations/$record.name/resume',
-                                          },
-                                          label: '$t:admin.automations.catalog.action.resume',
-                                          visibleWhen: {
-                                            eq: 'paused',
-                                            field: 'state',
-                                          },
-                                        },
-                                      ],
-                                      capability: 'edit-operations',
-                                      label: '',
-                                      type: 'actions',
+                                      label: '$t:admin.automations.catalog.action.resume',
+                                      visibleWhen: {
+                                        eq: 'paused',
+                                        field: 'state',
+                                      },
                                     },
                                   ],
-                                  dataSource: {
-                                    system: {
-                                      endpoint: '/api/admin/automations',
-                                      idKey: 'name',
-                                      rowsKey: 'items',
-                                    },
-                                  },
-                                  emptyMessage: '$t:admin.automations.catalog.empty',
-                                  props: {
-                                    'aria-label': '$t:admin.automations.region',
-                                    id: 'automations-catalog-grid',
-                                  },
-                                  toolbar: {
-                                    sort: true,
-                                  },
-                                  type: 'table',
+                                  capability: 'edit-operations',
+                                  label: '',
+                                  type: 'actions',
                                 },
                               ],
-                              element: 'div',
-                              props: {
-                                className: 'px-6',
+                              dataSource: {
+                                system: {
+                                  endpoint: '/api/admin/automations',
+                                  idKey: 'name',
+                                  rowsKey: 'items',
+                                },
                               },
-                              type: 'container',
+                              emptyMessage: '$t:admin.automations.catalog.empty',
+                              props: {
+                                'aria-label': '$t:admin.automations.region',
+                                id: 'automations-catalog-grid',
+                              },
+                              toolbar: {
+                                sort: true,
+                              },
+                              type: 'table',
                             },
                           ],
                           element: 'div',
@@ -23615,10 +23640,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                               type: 'text',
                             },
                             {
-                              content: '$record.triggerType',
+                              content: '$record.triggerName ($record.triggerType)',
                               element: 'span',
                               props: {
                                 className: 'text-foreground min-w-0 break-words',
+                                'data-testid': 'run-trigger',
                               },
                               type: 'text',
                             },

@@ -10,18 +10,10 @@
  *
  * Owns the end-to-end run lifecycle (resolve → expand → reduce-with-fold →
  * persist → record) and the `automation:call` / `automation-failure`
- * dispatch fan-out. The lower-level concerns are decomposed into sibling
- * modules under `./run/` (P1.2):
- *
- *  - `run/types.ts`           — shared run-loop types + small pure helpers
- *  - `run/step-executor.ts`   — single-step dispatch (retry, timeout, fold)
- *  - `run/prop-substitution.ts` — `{{trigger.X}}` / `$env.X` prop glue
- *  - `run/run-status.ts`      — engine-status → API-status mappers
- *  - `run/run-persistence.ts` — `system.automation_runs` + in-memory writes
- *
- * Public symbols are re-exported here so external callers (route handlers,
- * other entry-point modules) keep importing from `./run-automation`
- * regardless of the internal file structure.
+ * dispatch fan-out; the lower-level concerns live in sibling modules under
+ * `./run/` (types, step executor, prop substitution, status, persistence).
+ * Public symbols are re-exported here so external callers keep importing
+ * from `./run-automation`.
  */
 
 import { Effect, Ref } from 'effect'
@@ -32,6 +24,10 @@ import {
 import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import { TemplateEngine } from '@/application/ports/services/template-engine'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import {
+  firstTrigger,
+  triggerOfType,
+} from '@/domain/models/app/automations/trigger-entries-service'
 import { traceAutomationRun } from '@/infrastructure/telemetry/automation-run-trace'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { autoPauseOnFailures } from './auto-pause-on-failures'
@@ -43,6 +39,7 @@ import { buildAutomationInvoker } from './run/automation-call-invoker'
 import { finaliseOnAbandon } from './run/defect-finaliser'
 import { dispatchFailureHandlers } from './run/failure-dispatch'
 import { finaliseRun, markRunRunning, persistQueuedRun } from './run/run-persistence'
+import { withPriorTolerated } from './run/run-status'
 import {
   acquireSlot,
   isCancelled,
@@ -64,15 +61,14 @@ import {
 import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
+
+type Automation = NonNullable<App['automations']>[number]
 
 /**
- * Errors surfaced to the caller. `not-found` covers both "no automation by
- * that name" and "the automation is not webhook-triggered" — both should
- * result in a 4xx so the test can distinguish a triggered run from a noop.
- *
- * `AutomationRegistrySeedError` is raised when the lazy seed of
- * `system.automation_definitions` fails (DB unavailable, constraint
- * violation, etc.); the route maps it to a 500.
+ * Errors surfaced to the caller: the not-found family answers a 4xx (no such
+ * automation, or none with the entry asked for); `AutomationRegistrySeedError`
+ * — the lazy seed of `system.automation_definitions` failed — a 500.
  */
 export type RunAutomationError =
   | { readonly _tag: 'AutomationNotFound'; readonly name: string }
@@ -98,11 +94,8 @@ export type { RunAutomationResult } from './run/types'
 export type ExecuteAutomationRunRequirements = RunRequirements
 
 /**
- * Options bag for {@link runWebhookAutomation}. Consolidating into a single
- * object keeps the function call-site readable as the run loop accumulates
- * concerns over the migration specs (trigger data, custom handler registry,
- * future: cancellation signal, telemetry sink, etc.) and stays under the
- * `max-params` lint threshold.
+ * Options bag for {@link runWebhookAutomation}: one object keeps the call site
+ * readable as the run loop accumulates concerns, under `max-params`.
  */
 export interface RunWebhookAutomationOptions {
   readonly name: string
@@ -138,15 +131,17 @@ export interface RunWebhookAutomationOptions {
 }
 
 /**
- * Locate a webhook-triggered automation by name and reject any state that
- * should not produce a run (missing, operationally OFF, or non-webhook).
- * Centralised so the run loop can stay focused on execution.
+ * Locate a webhook-triggered automation by name, with its webhook entry, and reject
+ * any state that should not produce a run (missing, operationally OFF, or non-webhook).
  */
 const resolveWebhookAutomation = (
   app: App,
   name: string,
   pausedNames: ReadonlySet<string>
-): Effect.Effect<NonNullable<App['automations']>[number], RunAutomationError> => {
+): Effect.Effect<
+  { readonly automation: Automation; readonly trigger: Trigger },
+  RunAutomationError
+> => {
   const automation = app.automations?.find((a) => a.name === name)
   if (!automation) return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
   // Automations that are OFF — whether config-disabled or operationally
@@ -155,10 +150,11 @@ const resolveWebhookAutomation = (
   // off-states apart.
   if (!isAutomationOperationallyEnabled(automation, pausedNames))
     return Effect.fail({ _tag: 'AutomationNotFound' as const, name })
-  if (automation.trigger.type !== 'webhook') {
+  // The webhook ENTRY: an automation started otherwise has no webhook address.
+  const trigger = triggerOfType(automation, 'webhook')
+  if (trigger === undefined)
     return Effect.fail({ _tag: 'AutomationNotWebhookTriggered' as const, name })
-  }
-  return Effect.succeed(automation)
+  return Effect.succeed({ automation, trigger })
 }
 
 /**
@@ -203,7 +199,7 @@ export const resolveAutomationId = (
     const created = yield* repo
       .create({
         name,
-        trigger: automation.trigger,
+        trigger: firstTrigger(automation),
         actions: automation.actions,
         enabled: automation.enabled ?? true,
       })
@@ -372,11 +368,7 @@ const runAdmitted = (
     const rawActions = expandAutomationActions(app, automation)
     const runTimeoutMs = resolveRunTimeoutMs(automation, processEnv)
     const skipActionNames = input.skipActionNames ?? new Set<string>()
-    // The step context is built AFTER the scheduler persists the queued run row
-    // so the resolved `runId` reaches each handler's `AutomationContext` — the
-    // `approval/request` handler links its pending row to the run it pauses.
-    // Captured from THIS fiber, so anything the invokers dispatch across the
-    // sandbox's Promise boundary runs on the services this run already holds.
+    // Built after the queued row lands (`runId`); services captured from THIS fiber.
     const services = yield* Effect.context<RunRequirements>()
     const runProgram = (yield* AutomationFiberBridge).promiseRunner(services)
     const ctx = buildStepContext({ ...input, runId, runProgram, templates: yield* TemplateEngine })
@@ -387,13 +379,14 @@ const runAdmitted = (
       automationInvoker: boundAutomationInvoker,
     })
     // A resumed run whose starter was banned meanwhile runs no step at all.
-    const finalState = yield* unlessStarterGone(input, steps)
+    const ran = yield* unlessStarterGone(input, steps)
     const finishedAtDate = new Date()
     const { observedRunId, effectiveState } = yield* finaliseAndRelease({
       name,
       automationId,
       runId,
-      finalState,
+      // A failure tolerated before an approval still ends the run `completed-with-errors`.
+      finalState: withPriorTolerated(ran, input.priorTolerated ?? 0),
       triggerData,
       startedAt: admittedAt,
       finishedAt: finishedAtDate,
@@ -405,6 +398,7 @@ const runAdmitted = (
       app,
       processEnv,
       automation,
+      trigger: input.trigger,
       name,
       runId: observedRunId,
       finalState: effectiveState,
@@ -443,6 +437,8 @@ export const dispatchPostRunFailureEffects = (input: {
   readonly app: App
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly automation: NonNullable<App['automations']>[number]
+  /** The trigger entry that started the run: a failure handler's own run never cascades. */
+  readonly trigger: Trigger
   readonly name: string
   readonly runId: string
   readonly finalState: RunAccumulator
@@ -450,8 +446,8 @@ export const dispatchPostRunFailureEffects = (input: {
   readonly finishedAtDate: Date
 }): Effect.Effect<void, never, RunRequirements> =>
   Effect.gen(function* () {
-    const { app, automation, name, runId, finalState } = input
-    if (automation.trigger.type === 'automation-failure') return
+    const { app, name, runId, finalState } = input
+    if (input.trigger.type === 'automation-failure') return
     const timedOut = finalState.runStatus === 'timed-out'
     const failed = finalState.runStatus === 'failure' || finalState.runStatus === 'exhausted'
     if (!timedOut && !failed) return
@@ -479,6 +475,7 @@ const cascadeToFailureHandlers = (input: {
   readonly app: App
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly automation: NonNullable<App['automations']>[number]
+  readonly trigger: Trigger
   readonly name: string
   readonly runId: string
   readonly finalState: RunAccumulator
@@ -492,7 +489,7 @@ const cascadeToFailureHandlers = (input: {
         app,
         processEnv,
         failedAutomationName: name,
-        failedTriggerType: automation.trigger.type,
+        failedTriggerType: input.trigger.type,
         runId,
         error: finalState.runError ?? 'Automation failed',
         steps: finalState.steps,
@@ -535,11 +532,12 @@ export const runWebhookAutomation = ({
     // pure gate. See `domain/utils/automation-operational-state.ts` for why the
     // predicate is synchronous and the load lives here.
     const pausedNames = yield* loadPausedAutomationNames
-    const automation = yield* resolveWebhookAutomation(app, name, pausedNames)
+    const { automation, trigger } = yield* resolveWebhookAutomation(app, name, pausedNames)
     const automationId = yield* resolveAutomationId(name, automation)
     return yield* executeAutomationRun({
       name,
       automation,
+      trigger,
       automationId,
       app,
       processEnv,

@@ -26,6 +26,7 @@ import {
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
+import { triggerNameFilter } from './automation-run-list-repository-live'
 
 // Dialect-aware schema resolution for `automation_runs` / `automation_definitions`
 // — moved verbatim from the former presentation/api/routes/admin/automations.ts.
@@ -97,6 +98,7 @@ const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> 
   return [
     ...statusFilter,
     ...nameFilter,
+    ...triggerNameFilter(filters.triggerName),
     ...idFilter,
     ...fromFilter,
     ...toFilter,
@@ -120,6 +122,7 @@ const listAdminRunsImpl = async (
       id: automationRuns.id,
       automationName: automationDefinitions.name,
       status: automationRuns.status,
+      triggerName: automationRuns.triggerName,
       triggerData: automationRuns.triggerData,
       startedAt: automationRuns.startedAt,
       completedAt: automationRuns.completedAt,
@@ -178,6 +181,7 @@ export const AdminAutomationsRepositoryLive = Layer.succeed(AdminAutomationsRepo
           id: automationRuns.id,
           automationName: automationDefinitions.name,
           status: automationRuns.status,
+          triggerName: automationRuns.triggerName,
           triggerData: automationRuns.triggerData,
           startedAt: automationRuns.startedAt,
           completedAt: automationRuns.completedAt,

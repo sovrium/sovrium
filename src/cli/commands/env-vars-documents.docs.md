@@ -29,6 +29,8 @@ A sidecar name such as `http://renderer:9222` works: Sovrium resolves the name t
 
 The browser starts on the first render, not when Sovrium starts, so an install that never renders a document pays nothing for it.
 
+A Chrome that dies while it is starting — reported as "Chrome process closed the pipe", which happens under load and right after a previous browser closed — is started once more before the render fails. The second attempt runs inside the same `RENDERER_TIMEOUT_MS` and the same `RENDERER_CONCURRENCY` slot, and only when at least a second of that budget is left. A failure that names Chrome's sandbox, a timeout, an oversized result and a template error are never retried, since they would fail the same way again; a step's own `retry` is still there for anything else.
+
 Merging PDFs (`pdf/merge`) needs no browser but is held to the same page and size limits, counted over the pages taken from every input, and reads at most 100 inputs; each refusal names the limit it hit.
 
 ## What a template can and cannot do

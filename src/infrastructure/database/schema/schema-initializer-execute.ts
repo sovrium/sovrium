@@ -135,7 +135,7 @@ export const logRollbackError = (
       return
     }
 
-    const logDb = new SQL(postgresClientOptions(config.databaseUrl))
+    const logDb = new SQL(postgresClientOptions(config.databaseUrl, { max: 1 }))
     // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; it also runs under `Effect.ensuring`, where a failure would mask the audit-write outcome it is cleaning up after.
     const closeLogDb = Effect.promise(() => logDb.close())
     // effect-swallow: as in the SQLite arm above — the rollback audit row is best-effort, and the schema-init error it describes is already propagating.
@@ -158,27 +158,27 @@ const executeSchemaInitSqlite = (
   Effect.gen(function* () {
     const { config, tables, app, runMigrationSteps, runtime } = job
     const db = openSqliteDdlDatabase(config.path)
-    try {
-      yield* Effect.tryPromise({
-        try: () =>
-          runSqliteSchemaTransaction(db, async (tx) => {
-            await Effect.runPromiseWith(runtime)(runMigrationSteps(tx, tables, app))
-          }),
-        catch: asSchemaInitFailure,
-      }).pipe(
-        Effect.catch((error) =>
-          Effect.gen(function* () {
-            yield* logRollbackError(config, error.message, runtime)
-            return yield* error
-          })
-        )
+    // `Effect.ensuring`, not a `finally` around `yield*`: `Effect.gen` abandons
+    // its generator on failure, so a `finally` would never close a failed run's
+    // handle. Closed before the rollback is logged, on a connection of its own.
+    yield* Effect.tryPromise({
+      try: () =>
+        runSqliteSchemaTransaction(db, async (tx) => {
+          await Effect.runPromiseWith(runtime)(runMigrationSteps(tx, tables, app))
+        }),
+      catch: asSchemaInitFailure,
+    }).pipe(
+      Effect.ensuring(Effect.sync(() => db.close())),
+      Effect.catch((error) =>
+        Effect.gen(function* () {
+          yield* logRollbackError(config, error.message, runtime)
+          return yield* error
+        })
       )
-    } finally {
-      db.close()
-    }
+    )
   })
 
-/** Run the migration steps inside a PostgreSQL `db.begin` transaction. */
+/** Run the migration steps in a PostgreSQL transaction; close it before logging a rollback (one maintenance connection at a time). */
 const executeSchemaInitPostgres = (
   job: Readonly<SchemaInitJob> & {
     readonly config: Extract<DatabaseDialectConfig, { dialect: 'postgres' }>
@@ -187,26 +187,23 @@ const executeSchemaInitPostgres = (
   Effect.gen(function* () {
     const { config, tables, app, runMigrationSteps, runtime } = job
     const db = new SQL(postgresClientOptions(config.databaseUrl, { max: 1 }))
-    try {
-      yield* Effect.tryPromise({
-        try: async () => {
-          await db.begin(async (tx) => {
-            await Effect.runPromiseWith(runtime)(runMigrationSteps(tx, tables, app))
-          })
-        },
-        catch: asSchemaInitFailure,
-      }).pipe(
-        Effect.catch((error) =>
-          Effect.gen(function* () {
-            yield* logRollbackError(config, error.message, runtime)
-            return yield* error
-          })
-        )
+    yield* Effect.tryPromise({
+      try: async () => {
+        await db.begin(async (tx) => {
+          await Effect.runPromiseWith(runtime)(runMigrationSteps(tx, tables, app))
+        })
+      },
+      catch: asSchemaInitFailure,
+    }).pipe(
+      // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; this is the `ensuring` arm, where a teardown failure would displace the schema-init error the caller needs to see.
+      Effect.ensuring(Effect.promise(() => db.close())),
+      Effect.catch((error) =>
+        Effect.gen(function* () {
+          yield* logRollbackError(config, error.message, runtime)
+          return yield* error
+        })
       )
-    } finally {
-      // effect-promise: total -- `SQL.close()` resolves once the pool is drained and has no rejection path; this is the `finally` arm, where a teardown failure would displace the schema-init error the caller needs to see.
-      yield* Effect.promise(() => db.close())
-    }
+    )
   })
 
 /**
@@ -305,7 +302,8 @@ const openQuickConnection = (config: DatabaseDialectConfig): QuickConnection => 
       close: () => sqliteDb.close(),
     }
   }
-  const pgDb = new SQL(postgresClientOptions(config.databaseUrl))
+  // The maintenance slot: one connection. The view checks below queue on it.
+  const pgDb = new SQL(postgresClientOptions(config.databaseUrl, { max: 1 }))
   return {
     isSqlite: false,
     checksumSql: `SELECT checksum, formula_engine_version FROM system.schema_checksum WHERE id = 'singleton'`,

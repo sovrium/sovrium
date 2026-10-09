@@ -18,8 +18,8 @@ import { laterResponse } from './response-precedence'
 import {
   authoredActionProps,
   buildRunContextView,
+  fillNestedActionProps,
   finalNestedActionProps,
-  renderNestedActionProps,
   resolveOwnProp,
 } from './run-context-resolution'
 import { actionAttributes } from './shared'
@@ -161,16 +161,10 @@ const runSelectedBranches = (input: {
     previousSteps: ActionRunContext['previousSteps']
   ): RenderedActionProps => {
     if (runContext.propsFinal === true) return finalNestedActionProps(action)
-    // A loop fills in its own body per item: rendered here, its `{{loop.*}}`
-    // references would resolve to nothing before any item exists.
-    if (action['type'] === 'loop') {
-      return { props: (action['props'] ?? {}) as Record<string, unknown>, authored: true }
-    }
-    return renderNestedActionProps(
-      action,
-      buildRunContextView({ ...runContext, previousSteps }),
-      runContext.templates
-    )
+    // A nested loop or path fills in its own body as it runs (see
+    // `fillNestedActionProps`); every other action is filled in here.
+    const actionContext = { ...runContext, previousSteps }
+    return fillNestedActionProps(action, actionContext, buildRunContextView(actionContext))
   }
   return selected.reduce<Promise<BranchRun>>(
     async (prev, path, position) => {
@@ -181,6 +175,7 @@ const runSelectedBranches = (input: {
         actions: path.actions,
         runNested,
         previousSteps: { ...runContext.previousSteps, ...acc.sequence.outputs },
+        ...(runContext.loopScopes === undefined ? {} : { loopScopes: runContext.loopScopes }),
         fillProps,
         ...(resume === undefined ? {} : { resume }),
       })
@@ -190,6 +185,7 @@ const runSelectedBranches = (input: {
         paths: [...acc.paths, { name: path.name, steps: run.steps }],
         sequence: {
           ...run,
+          tolerated: acc.sequence.tolerated + run.tolerated,
           outputs: { ...acc.sequence.outputs, ...run.outputs },
           responseOverride: laterResponse(acc.sequence.responseOverride, run.responseOverride),
         },
@@ -203,11 +199,13 @@ const runSelectedBranches = (input: {
 
 /** The branch's outcome: its selection and results, and whatever ended it early. */
 const branchOutcome = (run: BranchRun, selected: readonly string[]): ActionOutcome => {
-  const { outputs, halt, responseOverride } = run.sequence
+  const { outputs, halt, responseOverride, tolerated } = run.sequence
+  const toleratedFailures = tolerated > 0 ? { toleratedFailures: tolerated } : {}
   const carried = {
     output: { matched: run.matched, results: run.results },
     nestedOutputs: outputs,
     nestedSteps: { paths: run.paths },
+    ...toleratedFailures,
     ...(responseOverride === undefined ? {} : { responseOverride }),
   }
   if (halt === undefined) return { ...carried, status: 'success' }
@@ -223,6 +221,7 @@ const branchOutcome = (run: BranchRun, selected: readonly string[]): ActionOutco
       error: halt.error ?? 'path.branch: an action of the path failed',
       nestedOutputs: outputs,
       nestedSteps: { paths: run.paths },
+      ...toleratedFailures,
     }
   )
 }

@@ -7,7 +7,11 @@
 
 import { Schema } from 'effect'
 import { SelectOptionSourceSchema } from '../../table-option-source'
-import { commonFieldProps, FormRecordAudioSchema } from '../form-field-props'
+import {
+  commonFieldProps,
+  FormFieldAutocompleteSchema,
+  FormRecordAudioSchema,
+} from '../form-field-props'
 
 /**
  * Standalone field input types — used when a form is NOT bound to a table.
@@ -111,6 +115,8 @@ export const StandaloneFieldSchema = Schema.Struct({
   ),
   /** In-browser microphone recorder for attachment fields. */
   recordAudio: Schema.optional(FormRecordAudioSchema),
+  /** Browser autofill hint; derived from the field's type when omitted. */
+  autocomplete: Schema.optional(FormFieldAutocompleteSchema),
   ...commonFieldProps,
 }).annotate({
   identifier: 'StandaloneField',

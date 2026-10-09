@@ -8,7 +8,7 @@
 import { resolveTriggerInString } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { TriggerData } from '@/application/use-cases/automations/resolve-trigger-data'
-import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Webhook per-trigger deduplication (in-memory, TTL-bounded). Mirrors the
@@ -21,8 +21,6 @@ import type { App } from '@/domain/models/app'
  * single-process caveat as the rate limiter — horizontal scale-out would
  * need a shared store.
  */
-
-type Trigger = NonNullable<App['automations']>[number]['trigger']
 type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
 
 interface DedupEntry {

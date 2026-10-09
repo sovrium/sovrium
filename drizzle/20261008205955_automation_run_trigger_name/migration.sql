@@ -1,0 +1,1 @@
+ALTER TABLE "system"."automation_runs" ADD COLUMN "trigger_name" text;

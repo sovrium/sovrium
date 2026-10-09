@@ -126,6 +126,14 @@ export class InstanceSupervisor extends Context.Service<
       options: { readonly lines: number; readonly since?: string }
     ) => Effect.Effect<readonly string[], InstanceSupervisorError>
     /**
+     * The journal of an app found unhealthy: its unit's latest lines since the
+     * release time `status.json` records (the last five minutes when none is),
+     * bounded in lines, bytes and time. Takes no window from the caller.
+     */
+    readonly crashJournal: (
+      slug: string
+    ) => Effect.Effect<readonly string[], InstanceSupervisorError>
+    /**
      * Run the app's backup unit and hand back the archive it left, deleting the
      * local copy.
      */

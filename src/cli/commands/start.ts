@@ -30,6 +30,7 @@ import {
   findPortHolderPid,
   isPortFree,
   portInUseMessage,
+  resolveHostAddresses,
 } from '@/infrastructure/server/port-availability'
 import { isPublicDirOptOut, readPublicDirEnv, resolveDefaultPublicDir } from './option-parsing'
 import { watchConfigGraph } from './start-watch'
@@ -82,12 +83,12 @@ const DEFAULT_PORT = 3000
  * file exists, which is what lets the refusal say it changed nothing. The real
  * bind refuses too (`startBunServer`), closing the window after this probe.
  */
-const refuseBusyStrictPort = (options: StartOptions): void => {
+const refuseBusyStrictPort = async (options: StartOptions): Promise<void> => {
   const port = options.port ?? DEFAULT_PORT
   // A socket-bound boot (`SOVRIUM_LISTEN_UNIX`) opens no port to collide on.
   if (port === 0 || !isStrictPortBoot() || resolveListenUnix() !== undefined) return
   const hostname = options.hostname ?? resolveBindHost(process.env).host
-  if (isPortFree(hostname, port)) return
+  if (isPortFree(hostname, port, await resolveHostAddresses(hostname))) return
   const holderPid = findPortHolderPid(port)
   printStderr(portInUseMessage({ hostname, port, holderPid, changedNothing: true }))
   process.exit(1)
@@ -179,7 +180,7 @@ export const handleStartCommand = async (
     process.exit(1)
   }
   // Before the stale-lock cleanup, so a refusal really leaves the disk untouched.
-  refuseBusyStrictPort(options)
+  await refuseBusyStrictPort(options)
   if (existingLock) {
     // Stale lock — clean up and continue
     printStderr(`Removing stale lock file (PID ${existingLock.pid} is not running)`)

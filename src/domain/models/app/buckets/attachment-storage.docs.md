@@ -40,6 +40,8 @@ An attachment value can reference a previously uploaded key only when that key w
 
 The writer's role must also be able to download from that bucket. A reference that fails either condition — or names a key storage has never recorded — is refused with a `400`, and the answer is the same in every case, so it never reveals whether a file exists.
 
+An automation's record steps are held to the same rule, and a refused reference fails the step without writing anything. A step running as the person who triggered it (`runAs: triggering-user`) is judged as that person. A step that writes as nobody — a webhook, a schedule, a record event, any run without `runAs` that no one started by hand — may attach only a file an earlier step of the same run stored in the column's bucket, or an inline value. Any key that existed before the run is refused with the same message, whoever triggered the run and whoever stored the file. The run's own files are counted until it pauses: after an approval or a wait, and in an `automation/call` child run, a step acting for nobody can no longer attach a file stored before the pause — store it again after the pause, or run the step as a person. To attach an existing file, run the step as a person (`runAs: triggering-user`, or a run started by hand); it is then judged on that person's download right. An inline value's `content` must be base64: text that is not is refused with a `400` naming the column, and nothing is written. An inline value is an upload, held to what an upload to the column's bucket is held to — its `name` is one file name, with no `/`, `\` or `..`, and its size and type fit the bucket's `maxFileSize` and `allowedMimeTypes` — and to the column's `maxFileSize`, `allowedFileTypes` and `maxFiles`. A value that breaks one is refused with a `400` naming the column. A record step of an automation stores an inline value the same way, and a refused one fails the step.
+
 An update checks only the columns it carries, and it checks them as new references. A client that echoes a whole record back therefore re-submits its attachment values too, and a seeded or legacy key that storage never recorded is refused there. Leave an unchanged attachment column out of the update rather than sending it back.
 
 ## What a read returns
@@ -68,7 +70,7 @@ A bucket counts as public either through its own `public: true` flag or through 
 
 The two are **mutually exclusive by design**: in public mode the signed URL is deliberately absent, so a client can rely on the plain one never carrying a token, and on a signed one always meaning "this expires".
 
-Because the URL is minted per read, a record fetched an hour ago carries a link that has since died. Re-read the record rather than caching the URL — the key is the durable handle, and the URL is not.
+Because the URL is minted per read, a record fetched an hour ago carries a link that has since died. Re-read the record rather than caching the URL — the key is the durable handle, and the URL is not. A page's row template gets the same address from `$record.<attachment>`, minted for each page view.
 
 ### The URL is bound to the field's own bucket
 

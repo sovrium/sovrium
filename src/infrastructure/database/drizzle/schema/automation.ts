@@ -147,6 +147,12 @@ export const automationRuns = systemSchema.table(
      * erased (the id set to NULL) resumes writing nothing.
      */
     startedByHand: boolean('started_by_hand').notNull().default(false),
+    /**
+     * The name of the trigger entry that started the run (its own `name`, else
+     * its type). NULL for a run recorded before an automation could declare
+     * several triggers: it reads as its automation's first trigger.
+     */
+    triggerName: text('trigger_name'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     durationMs: integer('duration_ms'),

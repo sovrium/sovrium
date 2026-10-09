@@ -6,8 +6,14 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
-import { readStoredObjectOwner } from '@/application/use-cases/buckets/bucket-file-programs'
+import {
+  StorageKeySpellingTaken,
+  StorageService,
+} from '@/application/ports/services/storage-service'
+import {
+  readOtherSpelling,
+  readStoredObjectOwner,
+} from '@/application/use-cases/buckets/bucket-file-programs'
 import {
   constraintRefusalMessage,
   constraintsForSign,
@@ -21,6 +27,7 @@ import {
   resolveExpiresIn,
   resolveSignBucket,
 } from '@/application/use-cases/buckets/signed-url-minting'
+import { checkUploadPath } from '@/application/use-cases/buckets/upload-policy'
 import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
@@ -92,9 +99,15 @@ export function buildSignedUrl(spec: SignedUrlSpec): {
  */
 export async function objectStoredAt(c: Context, path: string, bucket: string): Promise<boolean> {
   const result = await Effect.runPromise(
-    provideDomain(c, readStoredObjectOwner({ key: path, bucket })).pipe(Effect.result)
+    provideDomain(
+      c,
+      Effect.all([readStoredObjectOwner({ key: path, bucket }), readOtherSpelling({ key: path })])
+    ).pipe(Effect.result)
   )
-  return result._tag === 'Success' && result.success.stored
+  if (result._tag === 'Failure') return false
+  const [exact, other] = result.success
+  // A second spelling of an object this bucket holds is that object.
+  return exact.stored || other?.bucket === bucket
 }
 
 /** The 409 a signed upload aimed at a stored object earns, at signing and at `PUT`. */
@@ -198,12 +211,21 @@ async function storeSignedUpload(
     // A token names bucket and path independently, so a caller who may sign here
     // can aim one at a key another bucket owns. Storage refuses that write as
     // not-found; answer 404 like an absent key, keeping the boundary hidden (S1).
-    const missing = isNotFoundError((result.failure as { readonly cause?: unknown }).cause)
-    return missing
-      ? notFound(c, 'File not found')
-      : c.json(storageErrorBody('Upload failed', 'STORAGE_ERROR'), 500)
+    return signedUploadFailure(c, (result.failure as { readonly cause?: unknown }).cause)
   }
   return c.json({ success: true, path })
+}
+
+/**
+ * The answer to a signed upload the store refused: a second spelling of a key
+ * this bucket holds is that object (409), and another bucket's object answers
+ * like an absent key (404).
+ */
+const signedUploadFailure = (c: Context, cause: unknown): Response => {
+  if (cause instanceof StorageKeySpellingTaken) return objectAlreadyStored(c)
+  return isNotFoundError(cause)
+    ? notFound(c, 'File not found')
+    : c.json(storageErrorBody('Upload failed', 'STORAGE_ERROR'), 500)
 }
 
 /**
@@ -295,6 +317,9 @@ async function buildSignResponse(
   if (typeof path !== 'string' || path.length === 0) {
     return c.json(storageErrorBody('Missing path', 'BAD_REQUEST'), 400)
   }
+  // An upload names the key it creates, so it is held to the explicit-path rule.
+  const pathRejection = operation === 'upload' ? checkUploadPath(path) : undefined
+  if (pathRejection) return c.json(storageErrorBody(pathRejection.message, 'BAD_REQUEST'), 400)
 
   const expiresInSeconds = resolveExpiresIn(body.expiresIn)
   if (expiresInSeconds === undefined) {

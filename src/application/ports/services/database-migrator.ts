@@ -31,8 +31,17 @@ export type DatabaseMigrationError = DatabaseConnectionError | MigrationError
 export class DatabaseMigrator extends Context.Service<
   DatabaseMigrator,
   {
+    /**
+     * Migrate the database — the first step of a start's database work.
+     *
+     * `listeners` is how many `LISTEN` connections the server will hold for the
+     * app's AI listeners. They count against `DATABASE_POOL_MAX` like every
+     * other connection, so the request pool, built after this, is sized to
+     * leave them room. Omitted, none are reserved.
+     */
     readonly migrate: (
-      config: Readonly<DatabaseDialectConfig>
+      config: Readonly<DatabaseDialectConfig>,
+      options?: { readonly listeners?: number }
     ) => Effect.Effect<void, DatabaseMigrationError>
   }
 >()('DatabaseMigrator') {}

@@ -14,7 +14,9 @@
  * hand read as her, so she sees every value of it — but each person a record
  * step expanded reaches her with its address masked, as it reaches every
  * reader who is not an admin (`run-person-address-mask.ts`), and so does each
- * person in the trigger data of a run she did not start. Every other
+ * person in the trigger data of a run she did not start; the journal lines of
+ * a health or a logs step reach an admin only (`run-admin-only-output.ts`).
+ * Every other
  * reader is shown a value the run captured or produced only as far as it
  * stays within what she may read (`run-step-reach.ts`):
  *
@@ -31,6 +33,11 @@
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import {
+  adminOnlyLinesOfSteps,
+  stepWithoutAdminOnlyLines,
+  textWithoutAdminOnlyLines,
+} from '@/application/use-cases/automations/run-admin-only-output'
+import {
   stepWithMaskedAddresses,
   triggerDataWithMaskedAddresses,
 } from '@/application/use-cases/automations/run-person-address-mask'
@@ -39,8 +46,8 @@ import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { withheldStep } from './run-nested-steps'
-import { visibleStepCount, type JudgedRun } from './run-step-reach'
+import { publishedNestedSteps, withheldStep } from './run-nested-steps'
+import { visibleStepCount, type JudgedRun, type JudgedStep } from './run-step-reach'
 import type { Reader } from './run-record-reach'
 import type {
   PersistedRun,
@@ -77,9 +84,15 @@ const callerOfRun = async (c: Context, app: App, access: RunAccess): Promise<Run
   return { role, groups, accessRoles, userId }
 }
 
+/** A judged run whose steps also carry what they ran in a path or a loop, raw. */
+type ReadRun = Omit<JudgedRun, 'steps'> & {
+  readonly steps: ReadonlyArray<JudgedStep & { readonly nested?: unknown }>
+}
+
 /** A persisted run and its steps as the judgement reads them. */
-export const judgedRunOf = (run: PersistedRun, steps: readonly PersistedStep[]): JudgedRun => ({
+export const judgedRunOf = (run: PersistedRun, steps: readonly PersistedStep[]): ReadRun => ({
   automationName: run.automationName,
+  triggerName: run.triggerName,
   triggerData: run.triggerData,
   relay: run.relay,
   valuesErasedAt: run.valuesErasedAt,
@@ -88,8 +101,36 @@ export const judgedRunOf = (run: PersistedRun, steps: readonly PersistedStep[]):
     status: step.status,
     output: step.output,
     reads: step.reads,
+    nested: step.nested,
   })),
 })
+
+/** A nested step keeps no timings of its own; the lines it carries need none. */
+const NO_TIMINGS = { startedAt: null, completedAt: null } as const
+
+/**
+ * Every journal and log line the run's health and logs steps carry, nested
+ * ones included — what is painted over wherever a non-admin reads the run.
+ */
+const adminOnlyLinesOfRun = (app: App, judged: ReadRun): readonly string[] =>
+  adminOnlyLinesOfSteps(
+    app,
+    judged.automationName,
+    judged.steps.map((step) => ({
+      name: step.name,
+      output: step.output,
+      ...publishedNestedSteps(step.nested, NO_TIMINGS),
+    }))
+  )
+
+/** `body` with its own error as a non-admin reads it: each admin-only line painted over. */
+const withRunErrorPainted = <B extends { readonly error?: string | null }>(
+  body: B,
+  lines: readonly string[]
+): B =>
+  typeof body.error === 'string'
+    ? { ...body, error: textWithoutAdminOnlyLines(body.error, lines) }
+    : body
 
 /** What a reader is shown of one run: its trigger data, and how many leading steps whole. */
 interface Verdict {
@@ -146,17 +187,20 @@ export const runsAsSeenByCaller = <
   app: App,
   input: {
     readonly readsEveryRun: boolean
-    readonly runs: ReadonlyArray<readonly [RunAccess['run'], R, JudgedRun]>
+    readonly runs: ReadonlyArray<readonly [RunAccess['run'], R, ReadRun]>
   }
 ): Promise<ReadonlyArray<R>> =>
   Promise.all(
     input.runs.map(async ([run, body, judged]) => {
       const caller = await callerOfRun(c, app, { readsEveryRun: input.readsEveryRun, run })
-      // A listed run carries no step output: a starter's own trigger input is hers.
-      if (caller === 'whole' || caller === 'starter') return body
+      if (caller === 'whole') return body
+      // A listed run carries no step output, but its own error may quote a line.
+      const painted = withRunErrorPainted(body, adminOnlyLinesOfRun(app, judged))
+      // A starter's own trigger input is hers.
+      if (caller === 'starter') return painted
       const verdict = await verdictFor(c, app, caller, judged)
       return {
-        ...body,
+        ...painted,
         triggerData: triggerDataFor(app, { caller, verdict, judged }, body.triggerData),
         ...(isWhole(verdict) ? {} : { error: null }),
       }
@@ -183,19 +227,25 @@ export const runDetailAsSeenByCaller = async <
 >(
   c: Context,
   app: App,
-  input: { readonly access: RunAccess; readonly detail: D; readonly judged: JudgedRun }
+  input: { readonly access: RunAccess; readonly detail: D; readonly judged: ReadRun }
 ): Promise<D> => {
   const { access, detail, judged } = input
   const caller = await callerOfRun(c, app, access)
   if (caller === 'whole') return detail
   const verdict = await verdictFor(c, app, caller, judged)
+  const lines = adminOnlyLinesOfRun(app, judged)
   const steps = detail.steps.map((step, index) =>
     index < verdict.visibleSteps
-      ? stepWithMaskedAddresses(app, judged.automationName, step)
+      ? stepWithoutAdminOnlyLines(
+          app,
+          judged.automationName,
+          stepWithMaskedAddresses(app, judged.automationName, step),
+          lines
+        )
       : withheldStep(step)
   )
   return {
-    ...detail,
+    ...withRunErrorPainted(detail, lines),
     steps,
     triggerData: triggerDataFor(app, { caller, verdict, judged }, detail.triggerData),
     ...(isWhole(verdict) ? {} : { error: null }),
@@ -213,7 +263,7 @@ interface ApprovalLike {
 const loadRequestRun = (
   c: Context,
   runId: string
-): Promise<{ readonly run: PersistedRun; readonly judged: JudgedRun } | undefined> =>
+): Promise<{ readonly run: PersistedRun; readonly judged: ReadRun } | undefined> =>
   runDomainPromise(
     c,
     Effect.gen(function* () {
@@ -240,8 +290,12 @@ export const approvalsAsSeenByCaller = <A extends ApprovalLike>(
       const loaded = await loadRequestRun(c, approval.runId)
       if (loaded === undefined) return { ...approval, message: null }
       const caller = await callerOfRun(c, app, { readsEveryRun: false, run: loaded.run })
-      if (caller === 'whole' || caller === 'starter') return approval
+      if (caller === 'whole') return approval
+      // A message rendered from a journal line reaches an admin only.
+      const lines = adminOnlyLinesOfRun(app, loaded.judged)
+      const seen = { ...approval, message: textWithoutAdminOnlyLines(approval.message, lines) }
+      if (caller === 'starter') return seen
       const verdict = await verdictFor(c, app, caller, loaded.judged)
-      return verdict.visibleSteps > approval.stepIndex ? approval : { ...approval, message: null }
+      return verdict.visibleSteps > approval.stepIndex ? seen : { ...approval, message: null }
     })
   )

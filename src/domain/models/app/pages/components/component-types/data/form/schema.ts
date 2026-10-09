@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { FormFieldAutocompleteSchema } from '../../../../../forms/form-field-props'
 import {
   ConditionOperatorSchema,
   VisibleWhenSchema,
@@ -247,6 +248,14 @@ export const FormFieldConfigSchema = Schema.Struct({
       Schema.check(Schema.isGreaterThanOrEqualTo(1))
     )
   ),
+  /**
+   * Browser autofill hint for this control. Omitted, the control takes the
+   * hint its type implies — an `email` column or control `email`, a
+   * `phone-number` column or `tel` control `tel`, a `url` one `url` — and a
+   * `password` control takes none, because only the author knows whether it
+   * asks for the current password or a new one.
+   */
+  autocomplete: Schema.optional(FormFieldAutocompleteSchema),
   /** Render as non-editable display */
   readOnly: Schema.optional(
     Schema.Boolean.annotate({

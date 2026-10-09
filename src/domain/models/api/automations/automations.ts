@@ -167,6 +167,10 @@ export const runSchema = Schema.Struct({
   }),
   status: runStatusSchema,
   triggerType: Schema.String.annotate({ description: 'Trigger type that started this run' }),
+  triggerName: Schema.String.annotate({
+    description:
+      "Name of the trigger that started this run: the trigger's own `name`, else its type. A run recorded before triggers had names reads as its automation's first trigger.",
+  }),
   triggerData: optionalField(describedUnknown('Trigger payload data')),
   startedAt: Schema.NullOr(
     looseIsoDateTime({
@@ -346,6 +350,11 @@ export const listRunsQuerySchema = Schema.Struct({
     Schema.String.annotate({ description: 'Filter by automation name' })
   ),
   status: optionalField(runStatusSchema.annotate({ description: 'Filter by run status' })),
+  triggerName: optionalField(
+    Schema.String.annotate({
+      description: 'Filter by the name of the trigger that started the run (its type when unnamed)',
+    })
+  ),
   page: optionalField(
     coercedNumber
       .annotate({ description: 'Page number (default: 1)' })

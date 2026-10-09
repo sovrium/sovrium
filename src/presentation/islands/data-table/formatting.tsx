@@ -21,11 +21,11 @@ import {
   buildActionCellRenderer,
 } from './action-cell-renderer'
 import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
+import { ArrayChipsCell, type CellFieldOptions } from './cell-renderers'
 import { cellClassOf, columnPresentationMeta, drawsTextChip } from './column-presentation'
 import { textCellContent } from './text-chip-cell'
 import { withValueLabelOptions } from './value-label-options'
 import type { ActionControlLabels } from './action-cell'
-import type { CellFieldOptions } from './cell-renderers'
 import type { FieldMeta, FieldMetaMap } from '../hooks/use-inline-editing'
 import type { DataTableCellContext, DataTableColumnDef } from './island/table-features'
 import type { TableRecord } from '../runtime/types'
@@ -205,7 +205,7 @@ function buildFieldCellRenderer(col: FieldColumn, locale: string, options: MapCo
   const fieldOptions = chipLabels || baseOptions
   const currencyOptions = resolveCurrencyOptions(meta)
 
-  if (!fieldTypeRenderer && !shapesItsValue(col, meta?.type)) return undefined
+  if (!fieldTypeRenderer && !shapesItsValue(col, meta?.type)) return renderPlainCell
 
   return ({ getValue, row }: DataTableCellContext) =>
     renderValueCell(
@@ -213,6 +213,29 @@ function buildFieldCellRenderer(col: FieldColumn, locale: string, options: MapCo
       { col, locale, fieldTypeRenderer, fieldOptions, currencyOptions, chipLabels: !!chipLabels },
       readDisplayLabel(row.original, col.field)
     )
+}
+
+/** An entry of a listed value that is an object, e.g. a system row's `{ type, name }`. */
+const isObjectEntry = (entry: unknown): entry is Readonly<Record<string, unknown>> =>
+  typeof entry === 'object' && entry !== null
+
+/** An object entry reads by its `label`, else its `name`; any other entry as itself. */
+const entryText = (entry: unknown): string => {
+  if (!isObjectEntry(entry)) return String(entry ?? '')
+  return String(entry['label'] ?? entry['name'] ?? '')
+}
+
+/**
+ * A column with no type and no format of its own: the value as text, as TanStack
+ * prints it — except a list holding objects, which would print `[object Object]`
+ * and reads instead as one chip per entry.
+ */
+const renderPlainCell = ({ getValue }: DataTableCellContext): React.ReactNode => {
+  const value = getValue()
+  if (Array.isArray(value) && value.some(isObjectEntry)) {
+    return <ArrayChipsCell value={value.map(entryText)} />
+  }
+  return value === undefined || value === null ? null : String(value)
 }
 
 /** The field type's own renderer, unless the column draws a text chip instead. */

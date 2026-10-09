@@ -16,6 +16,7 @@ import React from 'react'
 import {
   substituteRecordVars,
   withDisplayLabels,
+  withRecordText,
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
 import { isColumnFormat } from '@/domain/models/app/tables/column-format-validation'
@@ -34,6 +35,7 @@ import { resolvePageLocale } from '../runtime/page-locale'
 import { resolvePageTimezone } from '../runtime/page-timezone'
 import { formatWeekdayDate, type WeekdayFields } from './weekday-dates'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
+import type { RecordTextFields } from '@/domain/models/app/tables/record-text-service'
 import type { ListRowClasses } from '@/presentation/design/list-row-classes'
 import type { OptionChipPaint } from '@/presentation/design/option-chip-paint'
 
@@ -48,6 +50,12 @@ export interface ListRowInputs {
   readonly badgeField?: string
   /** The date fields that print their weekday — a metadata entry reads as the grid's cell. */
   readonly weekdays?: WeekdayFields
+  /**
+   * How each formatted field reads in an item's text — as the server prints it.
+   * The list island attaches that text to each record it fetched; the search
+   * list's records arrive with it.
+   */
+  readonly recordText?: RecordTextFields
   /**
    * A click (or Enter) on an item — one handler on the list, which finds the
    * item it landed on. Present only when the list declares `onRowClick`.
@@ -152,19 +160,21 @@ function renderItemMetadata(
 
 /**
  * The item's slots, substituted. The text slots are TEXT sites: a relationship
- * reads as its `displayField` label and a user field as the account's name.
+ * reads as its `displayField` label, a user field as the account's name, and a
+ * formatted field (a date, an amount, an option) as the server prints it.
  * `image` is an ADDRESS site and keeps the stored value (see `withDisplayLabels`).
  */
 function resolveItemSlots(template: ItemTemplate, record: Record<string, unknown>) {
   const labelled = withDisplayLabels(record)
+  const text = withRecordText(labelled)
   const sub = (field: string | undefined, source: Readonly<Record<string, unknown>>) =>
     field ? substituteRecordVars(field, source) : undefined
   return {
     labelled,
-    title: sub(template.title, labelled),
+    title: sub(template.title, text),
     image: sub(template.image, record),
-    subtitle: sub(template.subtitle, labelled),
-    badge: sub(template.badge, labelled),
+    subtitle: sub(template.subtitle, text),
+    badge: sub(template.badge, text),
   }
 }
 

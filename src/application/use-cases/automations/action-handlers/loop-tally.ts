@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { executedFromStored } from '../run/nested-step-record'
+import { executedFromStored, toleratedInStored } from '../run/nested-step-record'
 import type { SequenceResume } from './nested-sequence'
 import type { ContainerResume } from './run-park'
 import type { ActionOutcome } from './shared'
@@ -27,10 +27,13 @@ export interface LoopTally {
   readonly responseOverride: Readonly<Record<string, unknown>> | undefined
   /** Each item that ran, with the steps run for it. */
   readonly iterations: NonNullable<ExecutedStep['iterations']>
+  /** Nested failures `continueOnError` let an item go past, across the items. */
+  readonly tolerated: number
 }
 
 export const EMPTY_TALLY: LoopTally = {
   iterations: [],
+  tolerated: 0,
   results: [],
   failed: 0,
   firstError: undefined,
@@ -43,6 +46,9 @@ const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Readonly<Record<string, unknown>>)
     : {}
+
+/** Whether a stored `results[]` entry is a failed item's `{ error }`. */
+const isFailedResult = (entry: unknown): boolean => 'error' in asRecord(entry)
 
 /**
  * Where a resumed loop stands: the tally of the items it finished before the
@@ -66,6 +72,11 @@ export const resumedLoopState = (
     ...EMPTY_TALLY,
     results: results.slice(0, item),
     failed,
+    tolerated: finished.reduce(
+      (sum, iteration) =>
+        sum + toleratedInStored(iteration.steps, isFailedResult(results[iteration.index])),
+      0
+    ),
     iterations: finished.map((iteration) => ({
       index: iteration.index,
       steps: iteration.steps.map(executedFromStored),

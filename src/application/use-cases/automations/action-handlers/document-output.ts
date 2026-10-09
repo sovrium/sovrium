@@ -11,11 +11,12 @@ import {
   UNATTRIBUTED_BUCKET,
   type BucketBinding,
 } from '@/application/ports/services/storage-service'
+import { isCanonicalStorageKey } from '@/domain/kernel/identity/storage-key'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { logError } from '@/infrastructure/logging/logger'
-import { attachGeneratedFile } from './document-attach'
+import { attachGeneratedFile, attachReusedFile } from './document-attach'
 import { GeneratedFileWriteError } from './document-output-error'
 import { tempKey, uploadArtifactTo } from './file-support'
 import { safeFilename } from './safe-filename'
@@ -42,7 +43,8 @@ import type { DocumentResult } from '@/domain/models/app/automations/actions/doc
  *
  * `ifExists` decides a taken key: `overwrite` (default) | `suffix` (up to
  * `name-1000.ext`) | `skip` (and, with `attachTo`, attach the file already
- * there) | `fail`. `overwrite` and `skip` only take a file THIS automation
+ * there under the attachment-reference rule: a run acting for nobody attaches
+ * only a file it wrote itself) | `fail`. `overwrite` and `skip` only take a file THIS automation
  * generated: a person's upload, or another automation's file, fails the step
  * and is kept. Every write records the automation that generated it.
  */
@@ -76,11 +78,7 @@ const refuse = (message: string): Effect.Effect<never, GeneratedFileWriteError> 
   Effect.fail(new GeneratedFileWriteError({ message }))
 
 /** Whether an authored key stays a plain relative key (no leading `/`, no `.`/`..` segment). */
-const isPlainKey = (key: string): boolean =>
-  key !== '' &&
-  !key.startsWith('/') &&
-  !key.includes('\\') &&
-  key.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..')
+export const isPlainKey = isCanonicalStorageKey
 
 /** `name-<n>.ext` for the n-th suffixed copy of a key. */
 export const suffixedKey = (key: string, n: number): string => {
@@ -187,6 +185,23 @@ const ownershipRefusal = (
     ? undefined
     : `"${key}" holds a file this automation did not generate; it only replaces its own`
 }
+
+/**
+ * Why `automation` may not write at `key` in `bucket`, or `undefined` when the
+ * key is free or holds a file this automation stored there itself. Shared with
+ * `file/upload`, which never replaces a file it did not store.
+ */
+export const takenKeyRefusal = (
+  key: string,
+  bucket: string,
+  automation: string
+): Effect.Effect<string | undefined, never, StorageService> =>
+  existingAt(key).pipe(
+    Effect.map((existing) =>
+      existing === undefined ? undefined : ownershipRefusal(key, existing, bucket, automation)
+    ),
+    Effect.withSpan('automations.taken-key-refusal')
+  )
 
 type KeyDecision =
   | { readonly kind: 'write'; readonly key: string }
@@ -308,10 +323,10 @@ export const writeGeneratedFile = (input: {
       ? yield* decideKey(placement, policy, input.automation.name)
       : ({ kind: 'write', key: placement.key } as const)
     if (decision.kind === 'skip') {
-      // The file already there is this automation's: attach it as if just written,
-      // and leave it in place when the record refuses it.
+      // The file already there was not written by this step: it is attached only
+      // under the attachment-reference rule, and left in place when refused.
       if (output.attachTo !== undefined) {
-        yield* attachGeneratedFile({ ...input, attachTo: output.attachTo, key: placement.key })
+        yield* attachReusedFile({ ...input, attachTo: output.attachTo, key: placement.key })
       }
       return resultOf(placement.key, placement.binding, filename, decision.existing)
     }
@@ -323,6 +338,10 @@ export const writeGeneratedFile = (input: {
       { bucket: placement.binding, uploadedById: undefined, generatedBy: input.automation.name }
     )
     if (!wrote) return yield* refuse(`the output could not be written at "${decision.key}"`)
+    if (placement.binding !== UNATTRIBUTED_BUCKET) {
+      const { binding } = placement
+      yield* Effect.sync(() => input.automation.writtenFiles?.record(binding, decision.key))
+    }
     const result = resultOf(decision.key, placement.binding, filename, {
       ...file,
       size: file.bytes.length,

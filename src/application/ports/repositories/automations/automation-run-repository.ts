@@ -36,6 +36,8 @@ export interface PersistedRun {
   readonly triggeredByUserId: string | null
   /** A person started the run by hand, so its record actions write as `triggeredByUserId`. */
   readonly startedByHand: boolean
+  /** The name of the trigger entry that started the run, or `null` for a run recorded before names. */
+  readonly triggerName: string | null
   /** The run that handed this one its trigger data (`RunRelay`, raw), or `null`. */
   readonly relay: unknown
   /** When the values this run captured were erased with an account (ISO 8601), or `null`. */
@@ -90,6 +92,8 @@ export interface CreateRunInput {
    * Kept with the run so a resume after an approval writes as the same person.
    */
   readonly startedByHand?: boolean
+  /** The name of the trigger entry that started the run (`PersistedRun.triggerName`). */
+  readonly triggerName?: string
   /** The run that handed this one its trigger data (`RunRelay`). Omitted for any other run. */
   readonly relay?: unknown
   readonly startedAt?: Date
@@ -146,6 +150,11 @@ export interface CreateStepInput {
 export interface ListRunsOptions {
   readonly automationName?: string
   readonly status?: string
+  /**
+   * Restrict to the runs one trigger entry started; `orUnrecorded` also keeps
+   * the runs that recorded no name (those read as the automation's first entry).
+   */
+  readonly triggerName?: { readonly name: string; readonly orUnrecorded: boolean }
   readonly page?: number
   readonly pageSize?: number
   /** Restrict to the runs one caller may read; omitted for a caller who reads every run. */

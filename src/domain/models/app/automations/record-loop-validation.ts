@@ -139,10 +139,26 @@ function createLoop(name: string, table: string, write: RecordWrite): string | u
     : undefined
 }
 
-/** Every visible loop of one automation. */
+/**
+ * The record triggers of one automation as written: its `trigger`, or every
+ * entry of its `triggers` list — any of them may start a run.
+ */
+function recordTriggersOf(automation: RawRecord): readonly RawRecord[] {
+  const list = Array.isArray(automation['triggers'])
+    ? automation['triggers']
+    : [automation['trigger']]
+  return list
+    .filter(isRecord)
+    .filter((trigger) => trigger['type'] === 'record' && typeof trigger['table'] === 'string')
+}
+
+/** Every visible loop of one automation, through each of its record triggers. */
 function loopsOf(automation: RawRecord): readonly string[] {
-  const trigger = isRecord(automation['trigger']) ? automation['trigger'] : {}
-  if (trigger['type'] !== 'record' || typeof trigger['table'] !== 'string') return []
+  return recordTriggersOf(automation).flatMap((trigger) => loopsThrough(automation, trigger))
+}
+
+/** Every visible loop of one automation through one record trigger. */
+function loopsThrough(automation: RawRecord, trigger: RawRecord): readonly string[] {
   const name = String(automation['name'] ?? 'unnamed')
   const { table } = trigger as { readonly table: string }
   const events = stringsOf(trigger['events'])
@@ -168,19 +184,18 @@ interface CycleNode {
   readonly writes: readonly RecordWrite[]
 }
 
-function cycleNodeOf(automation: RawRecord): CycleNode | undefined {
-  const trigger = isRecord(automation['trigger']) ? automation['trigger'] : {}
-  if (trigger['type'] !== 'record' || typeof trigger['table'] !== 'string') return undefined
-  return {
+/** One cycle node per record trigger of the automation. */
+function cycleNodesOf(automation: RawRecord): readonly CycleNode[] {
+  return recordTriggersOf(automation).map((trigger) => ({
     name: String(automation['name'] ?? 'unnamed'),
-    table: trigger['table'],
+    table: String(trigger['table']),
     events: stringsOf(trigger['events']),
     watchFields: Array.isArray(trigger['watchFields'])
       ? stringsOf(trigger['watchFields'])
       : undefined,
     conditioned: trigger['condition'] !== undefined,
     writes: recordWritesOf(automation),
-  }
+  }))
 }
 
 /** Whether one of `from`'s writes starts `to` — its table, an event it listens to, a field it watches. */
@@ -228,6 +243,6 @@ export function validateRecordEventLoops(config: unknown): readonly string[] {
   const automations = isRecord(config) ? config['automations'] : undefined
   if (!Array.isArray(automations)) return []
   const records = automations.filter(isRecord)
-  const nodes = records.map(cycleNodeOf).filter((node): node is CycleNode => node !== undefined)
+  const nodes = records.flatMap(cycleNodesOf)
   return [...records.flatMap(loopsOf), ...pairCycles(nodes)]
 }

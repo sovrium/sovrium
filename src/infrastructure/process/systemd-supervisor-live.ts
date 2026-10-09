@@ -20,6 +20,12 @@ import {
   resolveSystemctlPath,
 } from '@/domain/models/process-env/host-actions'
 import {
+  CRASH_JOURNAL_LINES,
+  CRASH_JOURNAL_TIMEOUT_MS,
+  crashJournalWindow,
+  keepNewestJournalLines,
+} from './instance-journal'
+import {
   checkedSlug,
   discard,
   fail,
@@ -185,6 +191,27 @@ const logs = Effect.fn('instance.logs')(function* (
   return result.stdout.split('\n').filter((line) => line !== '')
 })
 
+const crashJournal = Effect.fn('instance.crash-journal')(function* (runner: Runner, slug: string) {
+  const s = yield* checkedSlug(slug)
+  const since = yield* crashJournalWindow(readRelease(s))
+  const result = yield* runTool(
+    runner,
+    [
+      resolveJournalctlPath(process.env),
+      '-u',
+      unit.app(s),
+      '--no-pager',
+      '-n',
+      String(CRASH_JOURNAL_LINES),
+      `--since=${since}`,
+    ],
+    // Read under the generous cap, then trim from the oldest end: a cut at the
+    // byte limit would keep the head and lose the exit line.
+    { timeoutMs: CRASH_JOURNAL_TIMEOUT_MS, maxOutputBytes: JOURNAL_MAX_OUTPUT }
+  )
+  return keepNewestJournalLines(result.stdout.split('\n').filter((line) => line !== ''))
+})
+
 const backup = Effect.fn('instance.backup')(function* (
   runner: Runner,
   slug: string,
@@ -237,6 +264,7 @@ export const SystemdSupervisorLive = Layer.effect(
       status: (slug) => status(runner, slug),
       control: (slug, verb) => control(runner, slug, verb),
       logs: (slug, options) => logs(runner, slug, options),
+      crashJournal: (slug) => crashJournal(runner, slug),
       backup: (slug, timeoutMs) => backup(runner, slug, timeoutMs),
       restore: (slug, archive, timeoutMs) => restore(runner, slug, archive, timeoutMs),
       readRelease,

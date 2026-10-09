@@ -19,6 +19,7 @@ import { validateAllAiAccessRules } from './auth/ai-access-validation'
 import { validateAllRoleReferences, validateTableRoleReferences } from './auth/role-validation'
 import { type Action, AutomationsSchema } from './automations'
 import { validateSessionWebhookAuth } from './automations/trigger/webhook-session-validation'
+import { entriesOfType, hasTriggerOfType } from './automations/trigger-entries-service'
 import { BadgeSchema } from './badge'
 import { BucketsSchema } from './buckets'
 import { validateComponentPlacements } from './component-placement-validation'
@@ -620,14 +621,14 @@ export const AppSchema = Schema.Struct({
 
       const tableNames = new Set((app.tables ?? []).map((t) => t.name))
 
-      const triggerError = app.automations.find(
-        (a) =>
-          (a.trigger.type === 'record' || a.trigger.type === 'comment') &&
-          !tableNames.has(a.trigger.table)
-      )
+      // Every record and comment entry of every automation, not only the first.
+      const triggerError = [
+        ...entriesOfType(app.automations, 'record'),
+        ...entriesOfType(app.automations, 'comment'),
+      ].find(({ trigger }) => !tableNames.has(trigger.table))
       if (triggerError) {
-        const trigger = triggerError.trigger as { readonly type: string; readonly table: string }
-        return `Automation '${triggerError.name}' ${trigger.type} trigger references table '${trigger.table}' which does not exist`
+        const { automation, trigger } = triggerError
+        return `Automation '${automation}' ${trigger.type} trigger references table '${trigger.table}' which does not exist`
       }
 
       const actionError = app.automations
@@ -655,7 +656,7 @@ export const AppSchema = Schema.Struct({
   Schema.check(
     Schema.makeFilter((app) => {
       if (!app.automations) return true
-      const hasAuthTrigger = app.automations.some((a) => a.trigger.type === 'auth')
+      const hasAuthTrigger = app.automations.some((a) => hasTriggerOfType(a, 'auth'))
       if (hasAuthTrigger && !app.auth) {
         return 'Auth triggers require auth configuration to be enabled'
       }
@@ -692,21 +693,13 @@ export const AppSchema = Schema.Struct({
         app.tables.map((t) => [t.name, new Set(t.fields.map((f) => f.name))])
       )
 
-      const watchFieldError = app.automations
-        .filter(
-          (a): a is typeof a & { readonly trigger: { readonly type: 'record' } } =>
-            a.trigger.type === 'record'
-        )
-        .flatMap((a) => {
-          const trigger = a.trigger as {
-            readonly table: string
-            readonly watchFields?: readonly string[]
-          }
+      const watchFieldError = entriesOfType(app.automations, 'record')
+        .flatMap(({ automation, trigger }) => {
           const tableFields = tableFieldMap.get(trigger.table)
           if (!trigger.watchFields || !tableFields) return []
           return trigger.watchFields
             .filter((field) => !tableFields.has(field))
-            .map((field) => ({ automation: a.name, field, table: trigger.table }))
+            .map((field) => ({ automation, field, table: trigger.table }))
         })
         .at(0)
 
@@ -742,13 +735,9 @@ export const AppSchema = Schema.Struct({
         app.tables.map((t) => [t.name, new Set(t.fields.map((f) => f.name))])
       )
 
-      const conditionFieldError = app.automations
-        .filter(
-          (a): a is typeof a & { readonly trigger: { readonly type: 'record' } } =>
-            a.trigger.type === 'record'
-        )
-        .flatMap((a) => {
-          const trigger = a.trigger as {
+      const conditionFieldError = entriesOfType(app.automations, 'record')
+        .flatMap(({ automation, trigger: entry }) => {
+          const trigger = entry as {
             readonly table: string
             readonly condition?: { readonly conditions?: readonly { readonly field?: unknown }[] }
           }
@@ -759,7 +748,7 @@ export const AppSchema = Schema.Struct({
             .flatMap((condition) => (typeof condition.field === 'string' ? [condition.field] : []))
             .filter((field) => !isRuntimeResolvedValue(field))
             .filter((field) => !isResolvableColumnName(tableFields, field))
-            .map((field) => ({ automation: a.name, field, table: trigger.table }))
+            .map((field) => ({ automation, field, table: trigger.table }))
         })
         .at(0)
 
@@ -988,24 +977,12 @@ export const AppSchema = Schema.Struct({
     Schema.makeFilter((app) => {
       if (!app.automations) return true
 
-      const formTriggers = app.automations.filter(
-        (
-          a
-        ): a is typeof a & { readonly trigger: { readonly type: 'form'; readonly form: string } } =>
-          a.trigger.type === 'form'
-      )
-      if (formTriggers.length === 0) return true
-
       const formNames = new Set((app.forms ?? []).map((f) => f.name))
-
-      const missing = formTriggers.find((a) => {
-        const trigger = a.trigger as { readonly form: string }
-        return !formNames.has(trigger.form)
-      })
-
+      const missing = entriesOfType(app.automations, 'form').find(
+        ({ trigger }) => !formNames.has(trigger.form)
+      )
       if (missing) {
-        const trigger = missing.trigger as { readonly form: string }
-        return `Automation '${missing.name}' form trigger references form '${trigger.form}' which does not exist in app.forms[]`
+        return `Automation '${missing.automation}' form trigger references form '${missing.trigger.form}' which does not exist in app.forms[]`
       }
       return true
     })
@@ -1017,25 +994,12 @@ export const AppSchema = Schema.Struct({
 
       const automationNames = new Set(app.automations.map((a) => a.name))
 
-      const missingError = app.automations
-        .filter(
-          (
-            a
-          ): a is typeof a & {
-            readonly trigger: {
-              readonly type: 'automation-failure'
-              readonly automations?: ReadonlyArray<string>
-            }
-          } => a.trigger.type === 'automation-failure'
-        )
-        .flatMap((automation) => {
-          const trigger = automation.trigger as { readonly automations?: ReadonlyArray<string> }
-          const watched = trigger.automations
-          if (!watched) return []
-          return watched
+      const missingError = entriesOfType(app.automations, 'automation-failure')
+        .flatMap(({ automation, trigger }) =>
+          (trigger.automations ?? [])
             .filter((name) => !automationNames.has(name))
-            .map((missing) => ({ automation: automation.name, missing }))
-        })
+            .map((missing) => ({ automation, missing }))
+        )
         .at(0)
 
       if (missingError) {

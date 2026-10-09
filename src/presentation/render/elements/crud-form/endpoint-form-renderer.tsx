@@ -50,6 +50,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { autofillHintOverlay } from '@/domain/models/app/forms/form-autofill-hint-service'
 import {
   computeSubmitButtonClasses,
   type ButtonVariant,
@@ -245,7 +246,13 @@ function renderEndpointSwitchField(field: FormFieldConfig): ReactElement {
 function renderEndpointControl(field: FormFieldConfig, part: FormPart): ReactElement {
   const name = field.field
   const controlClass = part('input', CONTROL_CLASS)
-  const prefill = { ...describedByProps(field), ...prefillProps(field), ...ruleProps(field) }
+  const { autocomplete } = autofillHintOverlay(field.control ?? 'text', field.autocomplete)
+  const prefill = {
+    ...describedByProps(field),
+    ...prefillProps(field),
+    ...ruleProps(field),
+    ...(autocomplete === undefined ? {} : { autoComplete: autocomplete }),
+  }
   if (field.control === 'select') {
     const options = (field.options ?? []) as readonly EndpointFieldOption[]
     return (

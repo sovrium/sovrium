@@ -108,8 +108,10 @@ const keyFromBucketUrl = (url: unknown): string | undefined =>
  */
 const referencedKeysOfObject = (record: Readonly<Record<string, unknown>>): readonly string[] => {
   // An inline `{ name, content }` payload carries its own bytes: it is stored
-  // into the column's bucket by the write itself and references nothing.
-  if (typeof record['content'] === 'string') return []
+  // into the column's bucket by the write itself and references nothing. Only
+  // the whole shape is skipped — an object with a `content` but no string
+  // `name` is not stored by the write, so every address it carries is judged.
+  if (typeof record['content'] === 'string' && typeof record['name'] === 'string') return []
   const { key } = record
   return [
     typeof key === 'string' && key.length > 0 ? key : undefined,

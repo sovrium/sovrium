@@ -190,6 +190,12 @@ export const automationCollectionGroup: StaticGroupSpec = {
             Schema.Struct({
               name: Schema.String,
               enabled: Schema.Boolean,
+              trigger: Schema.Unknown.annotate({
+                description: 'The first of `triggers`, secrets redacted (kept for older clients)',
+              }),
+              triggers: Schema.Array(Schema.Unknown).annotate({
+                description: 'Every trigger that starts the automation, secrets redacted',
+              }),
             })
           ),
           'Automation list'

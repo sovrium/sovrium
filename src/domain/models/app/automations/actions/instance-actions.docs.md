@@ -88,7 +88,7 @@ Only `start`, `stop` and `restart` are ever asked of systemd, which is what lets
     env: '{{loop.item.env}}'
 ```
 
-The bundle comes from this app's own storage (`objectKey`) or inline (`base64`). `signature.value` is a detached Ed25519 signature over the exact bytes of the bundle's `manifest.json`; it must verify against the key `keyId` names in `SOVRIUM_BUNDLE_PUBLIC_KEYS`, and every entry must then match the manifest's size and sha256. Before either check, the bundle may weigh at most 100 MiB stored and unpack to at most 256 MiB — it is inflated against that cap, never unpacked whole — and the manifest is read and its signature checked before any other entry. A bundle failing any of these fails the step and nothing is written.
+The bundle comes from storage (`objectKey`) or inline (`base64`). A stored bundle is read from the object store itself, so one another app wrote into a shared bucket is applied like one this app uploaded: the object's size is read from the store, and no catalog row is required. `signature.value` is a detached Ed25519 signature over the exact bytes of the bundle's `manifest.json`; it must verify against the key `keyId` names in `SOVRIUM_BUNDLE_PUBLIC_KEYS`, and every entry must then match the manifest's size and sha256. Before either check, the bundle may weigh at most 100 MiB stored and unpack to at most 256 MiB — it is inflated against that cap, never unpacked whole — and the manifest is read and its signature checked before any other entry. A bundle failing any of these fails the step and nothing is written.
 
 The release is written whole under `rev-<revision>/` and only then made `current`; the `env` file is written with mode 0640 and `status.json` records the revision, the previous one and the release's `PORT`. Applying the revision already current answers `applied: false` and restarts nothing, so a reconcile loop can call it on every tick. `rollback` points `current` back at the previous release and restarts; rolling back twice returns to where it started.
 
@@ -98,12 +98,16 @@ The release is written whole under `rev-<revision>/` and only then made `current
 
 `health` sends `GET http://127.0.0.1:<port>/api/health` to the port the last `apply` recorded. The address is always loopback, so it never goes through the outbound URL checks an `http` step does. An app that does not answer is a successful step with `ok: false` to branch on; the default wait of 10 seconds covers an app the probe wakes from suspension.
 
+When the probe gets no healthy answer, its output also carries `journal`: the app's latest journal lines, oldest first, so the run history shows why it failed without an extra `logs` step. They are read with `journalctl -u sovrium-app@<slug>.service --no-pager -n 50 --since=<applied-at>`, from the moment the last `apply` recorded (the last five minutes when none was recorded or the record cannot be read), within 5 seconds, and at most 16 KiB of them are kept, dropping the oldest first; a newest line longer than that alone is cut to fit and kept. A healthy probe reads nothing and has no `journal`. If the journal cannot be read, `journal` is left out and the step still reports the app unhealthy. Reading from the release time needs systemd 255 or later.
+
 `logs` returns the last `lines` (100 by default, at most 1000) the app wrote to the journal, optionally from `since` — an ISO 8601 date or date-time.
+
+The `journal` of a health step and the `lines` of a logs step are shown only to admin-equivalent readers; anyone else allowed to read the run (whoever started it by hand, or an approver) sees the step and the rest of its output without those lines. This holds on every road that answers the run: its detail in the run history, the response to a manual trigger, and the MCP tools that start a run. The lines stay admin-only even when a later step copies them — `{{steps.probe.journal}}` written into an alert's message is replaced by `***` for anyone but an admin, who still reads the run whole. The same goes for the run's own error and for the message of an approval request the run asks for.
 
 ## Backup and restore
 
 A supervised app runs as its own system user, whose data the agent cannot read. So `backup` starts the one-shot unit `sovrium-backup@<slug>.service`, which runs `sovrium backup` as the app and leaves `backup/backup.tar.gz` in the app's folder; the step stores it at `destination.objectKey` in this app's storage and deletes the local copy. The app keeps running.
 
-`restore` copies the archive from `source.objectKey` to `restore/restore.tar.gz`, stops the app, starts `sovrium-restore@<slug>.service`, starts the app's socket again and deletes the copy. If the restore unit fails, the step fails and the app stays stopped, so a half-restored app is never served.
+`restore` copies the archive from `source.objectKey` — read from the object store, whichever app wrote it — to `restore/restore.tar.gz`, stops the app, starts `sovrium-restore@<slug>.service`, starts the app's socket again and deletes the copy. If the restore unit fails, the step fails and the app stays stopped, so a half-restored app is never served.
 
 Those two units are defined on the host beside `sovrium-app@.service`; the engine only starts them.

@@ -9,9 +9,18 @@ import { Effect } from 'effect'
 import { InvalidEnvVarError } from '@/application/errors/invalid-env-var-error'
 import { InvalidOperatorTimezoneError } from '@/application/errors/invalid-operator-timezone-error'
 import { validateRequiredEnvVars } from '@/application/use-cases/env/validate-required-env-vars'
+import { countDatabaseListeners } from '@/domain/models/app/app-database-listeners-service'
 import { hostActionsBootRefusal } from '@/domain/models/app/automations/actions/instance/host-actions-gate-validation'
 import { parseApiIpRateLimit } from '@/domain/models/process-env/api-ip-rate-limit'
 import { parseSovriumAutomationDefaultTimeoutMs } from '@/domain/models/process-env/automations'
+import {
+  describeDatabaseConnectionRefusal,
+  planDatabaseConnections,
+} from '@/domain/models/process-env/database/database-connection-plan'
+import {
+  parseDatabaseDialectConfig,
+  resolveDatabasePoolMax,
+} from '@/domain/models/process-env/database/database-dialect'
 import { parseSovriumDevClock } from '@/domain/models/process-env/dev-clock'
 import { parseEmailTransport } from '@/domain/models/process-env/email-transport'
 import {
@@ -38,6 +47,36 @@ import type { MissingRequiredEnvVarError } from '@/application/errors/missing-re
 import type { App } from '@/domain/models/app'
 
 /**
+ * `DATABASE_POOL_MAX` is the instance's whole PostgreSQL footprint: a value
+ * that cannot leave the request pool one connection, after the maintenance slot
+ * and the AI listeners this app opens, stops the boot here rather than starving
+ * the pool or exceeding the limit the operator sized it for. SQLite has no pool.
+ *
+ * Also run by the composition root BEFORE it builds the service layers: the
+ * storage layer checks the database as it is built, and a boot this check
+ * refuses should open no connection at all.
+ */
+export const refuseUndersizedDatabaseBudget = (
+  validatedApp: App
+): Effect.Effect<void, InvalidEnvVarError> =>
+  Effect.try({
+    try: () => {
+      if (parseDatabaseDialectConfig().dialect !== 'postgres') return
+      const planned = planDatabaseConnections({
+        poolMax: resolveDatabasePoolMax(),
+        listeners: countDatabaseListeners(validatedApp),
+      })
+      // eslint-disable-next-line functional/no-throw-statements -- turned into the boot refusal by the catch below.
+      if (!planned.ok) throw new Error(describeDatabaseConnectionRefusal(planned.refusal))
+    },
+    catch: (error) => new InvalidEnvVarError(error),
+  }).pipe(Effect.withSpan('server.refuse-undersized-database-budget'))
+
+/** What {@link validateBootEnvironment} refuses a boot with. */
+export type BootEnvironmentError =
+  MissingRequiredEnvVarError | InvalidOperatorTimezoneError | InvalidEnvVarError
+
+/**
  * The boot-time environment gates that need nothing but the environment and the
  * decoded config: every `required` app env var is present, and the operator
  * timezone names a real zone.
@@ -55,10 +94,6 @@ import type { App } from '@/domain/models/app'
  * the rate-limit window, whose bad value would switch every limit off, and the
  * email transport, whose missing key would lose every message at its first send.
  */
-/** What {@link validateBootEnvironment} refuses a boot with. */
-export type BootEnvironmentError =
-  MissingRequiredEnvVarError | InvalidOperatorTimezoneError | InvalidEnvVarError
-
 export const validateBootEnvironment = (
   validatedApp: App
 ): Effect.Effect<void, BootEnvironmentError> =>
@@ -104,6 +139,7 @@ export const validateBootEnvironment = (
         catch: (error) => new InvalidEnvVarError(error),
       })
     ),
+    Effect.andThen(refuseUndersizedDatabaseBudget(validatedApp)),
     Effect.asVoid,
     Effect.withSpan('server.validate-boot-environment')
   )

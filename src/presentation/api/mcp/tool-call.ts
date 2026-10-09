@@ -365,7 +365,7 @@ async function executeUpdate(input: ExecBranchInput): Promise<McpToolResult> {
 }
 
 async function executeDelete(input: ExecBranchInput): Promise<McpToolResult> {
-  const { app, envelope, table, session } = input
+  const { app, authority, envelope, table, session } = input
   const recordId = String(envelope.args['id'] ?? '')
   if (!recordId) {
     return toolFailure(-32_602, "Missing 'id' parameter")
@@ -375,7 +375,7 @@ async function executeDelete(input: ExecBranchInput): Promise<McpToolResult> {
   if (!(await rowIsInScope(input, recordId, 'delete')))
     return toolFailure(-32_603, RECORD_NOT_FOUND)
   return runMcpRecordDelete({
-    ...{ app, session, tableName: table.name, recordId },
+    ...{ app, session, tableName: table.name, recordId, userRole: authority.role },
     domainContext: input.domainContext,
   })
 }

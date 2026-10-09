@@ -6,7 +6,10 @@
  */
 
 import { Effect } from 'effect'
-import { readStoredObjectOwner } from '@/application/use-cases/buckets/bucket-file-programs'
+import {
+  readOtherSpelling,
+  readStoredObjectOwner,
+} from '@/application/use-cases/buckets/bucket-file-programs'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
@@ -37,18 +40,68 @@ import type { Context } from 'hono'
  * so it tells the caller nothing about whose object sits at the key.
  *
  * A declared grant is never narrowed here (`ownershipGovernsAction`), and the
- * caller's role is only looked up once an object is actually at stake.
+ * caller's role is only looked up once an object is actually at stake. An
+ * upload is also held to every other spelling of its key the storage would
+ * land on the same object ({@link refuseSecondSpelling}).
  */
 export async function refuseUnlessOwnerOrAdmin(
   c: Context,
-  input: {
-    readonly app: App
-    readonly bucket: Bucket
-    readonly action: ObjectReplacingAction
-    readonly session: UserSession | undefined
-    /** The key at stake; absent (an upload with no explicit path) is a NEW object. */
-    readonly key: string | undefined
+  input: ObjectGateInput
+): Promise<Response | undefined> {
+  const exact = await refuseUnlessOwnerOrAdminAt(c, input)
+  if (exact !== undefined || input.action !== 'upload' || input.key === undefined) return exact
+  return refuseSecondSpelling(c, { ...input, key: input.key })
+}
+
+/** What the gate judges: the caller, the bucket, and the key at stake. */
+interface ObjectGateInput {
+  readonly app: App
+  readonly bucket: Bucket
+  readonly action: ObjectReplacingAction
+  readonly session: UserSession | undefined
+  /** The key at stake; absent (an upload with no explicit path) is a NEW object. */
+  readonly key: string | undefined
+}
+
+/**
+ * Answer an explicit-path upload whose key is a second spelling of a stored key
+ * — equal after Unicode normalisation, or after letter case too where the
+ * storage disk ignores it — exactly as that stored key would be answered when
+ * the caller may not replace it: another bucket's object, or one the caller
+ * neither uploaded nor administers, earns the same 404. A caller who may
+ * replace it gets a 409 that does not echo the stored spelling: the object is
+ * reachable under the key it was stored with, never redirected.
+ */
+async function refuseSecondSpelling(
+  c: Context,
+  input: ObjectGateInput & { readonly key: string }
+): Promise<Response | undefined> {
+  const other = await runRequestEffect(
+    c,
+    provideDomain(c, readOtherSpelling({ key: input.key })).pipe(Effect.result)
+  )
+  if (other._tag === 'Failure') {
+    logError('[buckets] upload spelling check failed', other.failure)
+    return c.json(storageErrorBody('Storage unavailable', 'STORAGE_ERROR'), 500)
   }
+  const stored = other.success
+  if (stored === undefined) return undefined
+  if (stored.bucket !== input.bucket.name) return notFound(c, 'File not found')
+  const refusal = await refuseUnlessOwnerOrAdminAt(c, { ...input, key: stored.key })
+  return refusal ?? spellingTaken(c)
+}
+
+/** The 409 a second spelling of a stored key earns from a caller who may replace it. */
+export const spellingTaken = (c: Context): Response =>
+  c.json(
+    storageErrorBody('A file is already stored under another spelling of this path', 'CONFLICT'),
+    409
+  )
+
+/** The owner-or-admin judgement for the object stored at exactly `input.key`. */
+async function refuseUnlessOwnerOrAdminAt(
+  c: Context,
+  input: ObjectGateInput
 ): Promise<Response | undefined> {
   const { app, bucket, action, session, key } = input
   if (key === undefined) return undefined

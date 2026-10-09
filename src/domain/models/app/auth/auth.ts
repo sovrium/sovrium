@@ -108,6 +108,13 @@ export const getEnabledStrategies = (auth: Auth | undefined): readonly StrategyT
  * ```
  */
 /**
+ * An app-relative path: one leading `/`, not followed by `/` or `\` (both read
+ * by a browser as the start of another host), with no query, fragment,
+ * backslash or whitespace — the engine appends the way back to it itself.
+ */
+export const LOGIN_PAGE_PATTERN = /^\/(?![/\\])[^\s?#\\]*$/
+
+/**
  * Allow Sign-Up Schema
  *
  * Controls whether users can self-register or only admins can create accounts.
@@ -581,6 +588,42 @@ export const AuthSchema = Schema.Struct({
         examples: ['/403', '/portal/onboarding', '/no-access'],
       }),
       Schema.check(Schema.isPattern(/^\//))
+    )
+  ),
+
+  /**
+   * The app's sign-in page (optional, defaults to `/login`)
+   *
+   * Every redirect the engine makes to send a signed-out visitor to sign in
+   * lands here: an OAuth client's authorize request, the OAuth consent screen
+   * (with the way back as `callbackURL`), and the default sign-in link of the
+   * library's site header. A page access rule names its own `redirectTo` and
+   * is not changed by it, and the operator console keeps its own sign-in page.
+   *
+   * It is a path on this app, never a host, because the engine appends the way
+   * back to it: a leading `/`, no second `/` or `\` right after it (which a
+   * browser reads as another host), and no query, fragment or whitespace.
+   */
+  loginPage: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        defaultNote: '/login',
+        title: 'Login Page',
+        description:
+          'Path of the app’s sign-in page. Every engine redirect that sends a signed-out visitor to sign in lands here, carrying the way back. An app-relative path: it starts with a single / and carries no host, query or fragment.',
+        examples: ['/login', '/account/sign-in', '/fr/connexion'],
+      }),
+      // `makeFilter` first, then `isPattern`: the filter puts the refused value
+      // in a message a person can act on, and the pattern keeps the published
+      // JSON Schema `pattern` (the agent name schema records why this order).
+      Schema.check(
+        Schema.makeFilter((value) =>
+          LOGIN_PAGE_PATTERN.test(value)
+            ? true
+            : `auth.loginPage ${JSON.stringify(value)} must be a path on this app: it starts with a single / and carries no host, query, fragment or whitespace (e.g. "/account/sign-in").`
+        ),
+        Schema.isPattern(LOGIN_PAGE_PATTERN)
+      )
     )
   ),
 }).pipe(

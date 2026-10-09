@@ -22,7 +22,7 @@ import { Effect } from 'effect'
 import { actionKey, missingActionHandler, type ActionOutcome } from '../action-handlers'
 import { buildStepsResultView, resolveOwnProp } from '../action-handlers/run-context-resolution'
 import { authoredReferenceRoots, fillAuthoredReferences } from '../authored-references'
-import { readActionIdentity } from './action-identity'
+import { answersNoCaller, readActionIdentity } from './action-identity'
 import {
   buildNativeActionInvoker,
   buildNestedStepInvoker,
@@ -142,6 +142,9 @@ export const executeStep = (
   buildAutomationInvoker: (ctx: StepContext, stepIndex: number) => AutomationInvoker
 ): Effect.Effect<RunAccumulator, never, StepRequirements> =>
   Effect.gen(function* () {
+    // A `webhook/response` step answers the webhook caller; a run another
+    // trigger started has no caller waiting, and passes over the step.
+    if (answersNoCaller(rawAction, ctx.triggerType)) return appendSkippedStep(acc, rawAction)
     const { authored, resolvedProps, final, refusal } = fillStepProps(acc, rawAction, ctx)
     const tracker = createReadTracker()
     // One call invoker per step, shared by everything the step dispatches: a

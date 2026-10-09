@@ -33,6 +33,7 @@
 
 import { Effect } from 'effect'
 import { loadPausedAutomationNames } from '@/application/use-cases/automations/paused-automation-names'
+import { runErrorAsSeenBy } from '@/application/use-cases/automations/run-admin-only-output'
 import {
   type RunAutomationError,
   type RunAutomationResult,
@@ -43,6 +44,7 @@ import { isAiAccessEnabled } from '@/domain/models/app/auth/ai-access'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { mayStartAutomationByName } from '@/domain/models/app/automations/manual-trigger-role-service'
+import { hasTriggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
 import type { McpCaller } from './auth'
@@ -79,7 +81,7 @@ export const resolveAutomationTool = (app: App, toolName: string): Automation | 
   const automation = (app.automations ?? []).find((a) => a.name === automationName)
   if (automation === undefined) return undefined
   if (!isAiAccessEnabled(automation.aiAccess)) return undefined
-  if (automation.trigger.type !== 'manual') return undefined
+  if (!hasTriggerOfType(automation, 'manual')) return undefined
   return automation
 }
 
@@ -191,16 +193,14 @@ const buildAutomationResultBody = (
 ) => {
   const { caller, automationName, result } = input
   const publicStatus: 'completed' | 'failed' = result.status === 'success' ? 'completed' : 'failed'
-  const output = lastOutputAsSeenBy(app, {
-    automationName,
-    readsWhole: mcpCallerReadsWhole(app, caller),
-    result,
-  })
+  const readsWhole = mcpCallerReadsWhole(app, caller)
+  const output = lastOutputAsSeenBy(app, { automationName, readsWhole, result })
+  const error = runErrorAsSeenBy(app, { automationName, readsWhole, result })
   return {
     id: result.runId,
     status: publicStatus,
     ...(output !== undefined ? { output } : {}),
-    ...(result.error !== undefined ? { error: result.error } : {}),
+    ...(error !== undefined ? { error } : {}),
   }
 }
 

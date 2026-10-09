@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { withRecordTextFields } from '@/domain/models/app/tables/record-text-service'
 import {
   computeListLoadMoreClasses,
   computeListShellClasses,
@@ -17,6 +18,7 @@ import {
 } from '../parts/list-item-rows'
 import { LoadMoreButton } from '../parts/load-more-button'
 import { hasDataBinding } from '../runtime/data-binding'
+import { resolvePageLocale } from '../runtime/page-locale'
 import { useListRowClick } from './list-row-click'
 import { ListError, ListLoading, ListMissing, type ListStrings } from './list-status'
 import { useListRecords, type ListRecordsDataSource } from './use-list-records'
@@ -68,6 +70,10 @@ interface ListIslandProps extends ListRowInputs {
   readonly uiStrings?: Readonly<Record<string, string>>
 }
 
+/** A fetched record with the text its formatted fields print, in the page's language. */
+const withText = (record: Record<string, unknown>, inputs: ListRowInputs) =>
+  withRecordTextFields(record, inputs.recordText, resolvePageLocale())
+
 /**
  * The list's rows, or its empty message. One handler on the list answers a
  * click or an Enter on any item (`inputs.onItemEvent`, from `onRowClick`).
@@ -88,7 +94,10 @@ function renderRows(input: {
       onClick={inputs.onItemEvent}
       onKeyDown={inputs.onItemEvent}
     >
-      {records.map((record, i) => renderItemTemplate(itemTemplate, record, `item-${i}`, inputs))}
+      {records.map((record, i) =>
+        // A fetched record carries no text: attach how its formatted fields read.
+        renderItemTemplate(itemTemplate, withText(record, inputs), `item-${i}`, inputs)
+      )}
     </ul>
   )
 }

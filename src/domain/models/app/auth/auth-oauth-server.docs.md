@@ -72,3 +72,7 @@ Two things on the screen are therefore not the client's to choose.
 The self-chosen name is still shown — somebody who just pressed "connect" in an app needs to recognise it — but as a quoted claim subordinate to the origin, and escaped, because it arrives straight from a registration payload.
 
 Scopes are listed in plain language, and a scope the screen has no description for is shown **by its raw name rather than hidden**. The one it cannot describe is the one a user most needs to see.
+
+**Allow** and **Deny** both send the browser back to the client's registered redirect address: Allow with an authorization code and the `state` the client sent, Deny with `error=access_denied` and the same `state`, as the OAuth specification requires.
+
+A decision needs a signed-in user. A visitor who opens the consent screen without a session is redirected to `/login`, with the consent screen's own path and query as `callbackURL`, and the same happens when the session ends while the screen is open and the user then clicks a button. That redirect is answered before the client is looked up, so it is identical for a registered and an unknown client id. It never leaves your origin: the target is always the relative path `/login`, the way back is always a path on this server, and a `callbackURL` written into the consent link itself is carried inside that path rather than obeyed. A sign-in form on your `/login` page brings the user back to the consent screen once they have signed in, so an app that offers OAuth should declare one there.

@@ -29,6 +29,7 @@ import {
   HOST_ACTIONS_DISABLED_MESSAGE,
   isHostActionsEnabled,
 } from '@/domain/models/process-env/host-actions'
+import { logError } from '@/infrastructure/logging/logger'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type { InstanceSupervisorError } from '@/application/ports/services/instance-supervisor'
@@ -38,12 +39,11 @@ import type { StorageError } from '@/application/ports/services/storage-service'
  * `instance/*` action handlers — supervise the other Sovrium apps of this host
  * through the `InstanceSupervisor` port (systemd units + release directories).
  *
- * Every handler checks the operator switch FIRST, before reading a prop:
- * a code action reaches these handlers through `context.actions.instance.*`
- * without any schema decode, and an app that declares no instance step has
- * nothing for the boot check to refuse. Then every prop is checked again here
- * — the slug above all, since it is the only caller value that ever reaches a
- * command line or a path — because a templated prop, a loop item or a code
+ * Every handler checks the operator switch FIRST, before reading a prop: a code
+ * action reaches it through `context.actions.instance.*` with no schema decode,
+ * and an app declaring no instance step has nothing for the boot check to refuse.
+ * Then every prop is re-checked — the slug above all, the only caller value that
+ * reaches a command line or a path — as a templated prop, a loop item or a code
  * call arrives as whatever it resolved to.
  */
 
@@ -230,10 +230,9 @@ const bundleBytes = (bundle: unknown) =>
     const storage = yield* StorageService
     const toRefusal = (error: Readonly<StorageError>) =>
       new InstanceRefusal({ message: storageMessage(key, error) })
-    // The stored size is checked before a byte is downloaded; an unknown size is never downloaded.
-    const stored = yield* storage
-      .getMetadata(key, UNATTRIBUTED_BUCKET)
-      .pipe(Effect.mapError(toRefusal))
+    // The size the STORE reports — the control plane wrote this object, so this app's catalog has
+    // no row for it — is checked before a byte is downloaded; an unknown size is never downloaded.
+    const stored = yield* storage.statObject(key).pipe(Effect.mapError(toRefusal))
     if (stored.size > BUNDLE_MAX_STORED_BYTES) return yield* refuse(TOO_LARGE_STORED)
     return yield* storage.download(key, UNATTRIBUTED_BUCKET).pipe(Effect.mapError(toRefusal))
   })
@@ -333,7 +332,15 @@ export const handleInstanceHealth = instanceHandler('health', (props) =>
     })
     const supervisor = yield* InstanceSupervisor
     const probe = yield* supervisor.probe(slug, timeoutMs)
-    return { slug, ...probe }
+    if (probe.ok) return { slug, ...probe }
+    const journal = yield* supervisor.crashJournal(slug).pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => logError('[instance/health] journal read failed', cause, { slug }))
+      ),
+      // effect-swallow: logged above; an unreadable journal must not turn « unhealthy » into « broken ».
+      Effect.orElseSucceed((): readonly string[] | undefined => undefined)
+    )
+    return { slug, ...probe, ...(journal === undefined ? {} : { journal }) }
   })
 )
 

@@ -20,6 +20,7 @@ import {
 import { normalizeDateValuesIn } from '@/domain/models/app/tables/empty-date-service'
 import { buildSyntheticSession } from '../build-guest-session'
 import { resolveRunAsActor } from './record'
+import { admitAttachments } from './record-attachment-gate'
 import { callerRefusal, runLinkReader, updatesOf } from './record-caller-gate'
 import { createAndAnnounce, recordEventLoopRefusal, updateAndAnnounce } from './record-events'
 import { declaredFieldNames, failureFromError, resolveActionTargetIds } from './record-filters'
@@ -124,9 +125,7 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation, runCo
     // once here rather than inside `upsertCreate`/`upsertUpdate`: `data` is the
     // same payload on both branches, and neither branch receives `app`.
     const multiSelectError = findMultiSelectViolationMessage(app, tableName, data)
-    if (multiSelectError) {
-      return { status: 'failure', error: multiSelectError } as const
-    }
+    if (multiSelectError) return { status: 'failure', error: multiSelectError } as const
 
     // Lenient lookup — pre-existing behaviour, preserved explicitly. Note this
     // is the sharpest of the four lenient sites: a failed query reads as "no
@@ -142,20 +141,26 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation, runCo
     })
     if (!targets.resolved) return targets.outcome
     const matchedIds: readonly string[] = targets.ids
-    const refused = yield* callerRefusal(app, automation, upsertWrites(tableName, matchedIds, data))
+    const requests = upsertWrites(tableName, matchedIds, data)
+    const refused = yield* callerRefusal(app, automation, requests)
     if (refused !== undefined) return refused
 
-    // Actor authority: `runAs: 'triggering-user'` attributes both
-    // branches — create-branch `created-by` and update-branch `updated-by` —
-    // to the triggering user when one exists, else the system actor.
+    // `runAs: 'triggering-user'` attributes both branches (`created-by`, `updated-by`)
+    // to the triggering user when one exists, else the system actor; the files
+    // the step attaches are judged for that same writer.
     const actorId = resolveRunAsActor(props, automation)
+    const admitted = yield* admitAttachments({
+      ...{ app, actorId, tableName, values: data, requests, written: automation.writtenFiles },
+    })
+    if (admitted.status === 'failure') return admitted
+    const { values } = admitted
 
     return matchedIds.length === 0
       ? yield* upsertCreate({
           actorId,
           app,
           tableName,
-          data: normalizeDateValuesIn(app.tables, tableName, data),
+          data: normalizeDateValuesIn(app.tables, tableName, values),
           createOverrides: buildCreateAuthorshipOverrides(app.tables, tableName, actorId),
           runContext,
         })
@@ -163,7 +168,7 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation, runCo
           actorId,
           tableName,
           matchedIds,
-          data,
+          data: values,
           updateOverrides: buildUpdateAuthorshipOverrides(app.tables, tableName, actorId),
           runContext,
           app,

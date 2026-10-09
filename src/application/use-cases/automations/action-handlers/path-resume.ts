@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { executedFromStored, outputsOfStored } from '../run/nested-step-record'
+import { executedFromStored, outputsOfStored, toleratedInStored } from '../run/nested-step-record'
 import { EMPTY_SEQUENCE, type SequenceResume, type SequenceRun } from './nested-sequence'
 import type { ContainerResume } from './run-park'
 import type { ExecutedStep } from '../run/types'
@@ -52,7 +52,12 @@ export const resumedBranchRun = (
     matched: matched.filter((name) => name !== branch),
     results,
     paths: finished.map((path) => ({ name: path.name, steps: path.steps.map(executedFromStored) })),
-    sequence: { ...EMPTY_SEQUENCE, outputs: outputsOfStored(finished.flatMap((p) => p.steps)) },
+    sequence: {
+      ...EMPTY_SEQUENCE,
+      outputs: outputsOfStored(finished.flatMap((p) => p.steps)),
+      // A branch finished before the park went on past every failure in it.
+      tolerated: finished.reduce((sum, p) => sum + toleratedInStored(p.steps, false), 0),
+    },
   }
   const prior = pausedAt < 0 ? [] : (storedPaths[pausedAt]?.steps ?? [])
   return { run, resume: { frames: resume.inner, prior, resumedAt: resume.resumedAt } }

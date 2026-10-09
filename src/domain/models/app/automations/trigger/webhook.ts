@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { TemplateStringSchema } from '../template'
+import { TriggerNameSchema } from './trigger-name'
 
 /**
  * Webhook Trigger
@@ -30,7 +31,7 @@ import { TemplateStringSchema } from '../template'
  * - `ts=<ts>;h1=<sig>` — signed string `<ts>:<raw body>`. The layout Paddle
  *   Billing writes in `Paddle-Signature`.
  * - `t=<ts>,v0=<sig>` — signed string `<ts>.<raw body>`, the signature under
- *   a `v0` tag. The layout Unipile writes in `unipile-signature`.
+ *   a `v0` tag.
  *
  * A layout no preset names is spelled out with `timestampKey`,
  * `signatureKey`, `separator` and `join` instead.
@@ -42,7 +43,7 @@ const WebhookSignatureFormatSchema = Schema.Literals([
 ]).pipe(
   Schema.annotate({
     description:
-      "How the `hmac-timestamp` header lays out its timestamp and signature. 't=<ts>,v1=<sig>': the signature is the hex HMAC-SHA256 of `<ts>.<raw body>`, and any of several v1 entries may match (Stripe's layout, used by Calendly). 'ts=<ts>;h1=<sig>': the hex HMAC-SHA256 of `<ts>:<raw body>` (Paddle Billing). 't=<ts>,v0=<sig>': the hex HMAC-SHA256 of `<ts>.<raw body>` under a v0 tag (Unipile). With `hmac-timestamp`, give either `format` or `timestampKey` and `signatureKey`, never both; refused with any other scheme.",
+      "How the `hmac-timestamp` header lays out its timestamp and signature. 't=<ts>,v1=<sig>': the signature is the hex HMAC-SHA256 of `<ts>.<raw body>`, and any of several v1 entries may match (Stripe's layout, used by Calendly). 'ts=<ts>;h1=<sig>': the hex HMAC-SHA256 of `<ts>:<raw body>` (Paddle Billing). 't=<ts>,v0=<sig>': the hex HMAC-SHA256 of `<ts>.<raw body>` under a v0 tag. With `hmac-timestamp`, give either `format` or `timestampKey` and `signatureKey`, never both; refused with any other scheme.",
     examples: ['t=<ts>,v1=<sig>'],
   })
 )
@@ -151,7 +152,7 @@ const WebhookAuthSchema = Schema.Struct({
       Schema.annotate({
         defaultNote: 'hex',
         description:
-          "How an hmac signature is written. 'hex' or 'base64': a digest of the raw body in `header`, after `prefix` (Shopify signs base64). 'stripe': the Stripe-Signature header (t=, v1=). 'slack': X-Slack-Signature (v0=) over v0:<timestamp>:<body>. 'svix': svix-id, svix-timestamp and svix-signature, with a whsec_ secret (Clerk, Resend and other Svix senders). The three named schemes are always SHA-256 and fix their own headers. 'hmac-timestamp': a timestamp and a SHA-256 hex signature carried together in the header you name, laid out as `format` says or as `timestampKey` and `signatureKey` spell out (Calendly, Paddle and Unipile sign this way).",
+          "How an hmac signature is written. 'hex' or 'base64': a digest of the raw body in `header`, after `prefix` (Shopify signs base64). 'stripe': the Stripe-Signature header (t=, v1=). 'slack': X-Slack-Signature (v0=) over v0:<timestamp>:<body>. 'svix': svix-id, svix-timestamp and svix-signature, with a whsec_ secret (Clerk, Resend and other Svix senders). The three named schemes are always SHA-256 and fix their own headers. 'hmac-timestamp': a timestamp and a SHA-256 hex signature carried together in the header you name, laid out as `format` says or as `timestampKey` and `signatureKey` spell out (Calendly and Paddle sign this way).",
       })
     )
   ),
@@ -340,6 +341,9 @@ export const WebhookTriggerSchema = Schema.Struct({
       description: "Constant value 'webhook' for type discrimination in discriminated unions",
     })
   ),
+
+  /** Name of this trigger within its automation (defaults to its type) */
+  name: Schema.optional(TriggerNameSchema),
   method: Schema.Union([
     Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
     Schema.Array(Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])).pipe(

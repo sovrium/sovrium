@@ -45,6 +45,8 @@ Inside a branch — its `condition` and its actions — templates resolve as the
 
 An action inside a branch is a step of the run. Step names are unique within an automation, so a nested action's output reads as `{{<step>.<key>}}` from a later action of the same path, from an action of a later path, and from any step after the branch. A path's `condition` is evaluated when the branch selects its paths, before any of them runs, so it reads only what ran before the branch; a later path reads an earlier path's outputs in its actions. A `flow/stop`, or a filter that stops, inside a path ends the run there: no later action of the path and no step after the branch runs.
 
+A failing action inside a path ends the branch and fails the branch step — unless it is marked `continueOnError: true`. Then it is recorded failed with its error, the next action of the path runs, the branch step completes, and the run ends `completed-with-errors`.
+
 Each value is filled in once, when the branch runs its action. What a value carries is used as it is: trigger data holding `{{…}}` or `$env.` text is stored or sent as those characters, never read as a template a second time.
 
 ```yaml
@@ -86,7 +88,9 @@ An item is filled in once, as it is: an item holding `{{…}}` or `$env.` text r
 
 It defaults to **1000**, so a loop over 1,800 rows processes the first thousand and reports success. Nothing marks the run as incomplete, because from the loop's point of view it did what it was told. Raise it explicitly — up to 10000 — whenever the collection can exceed the cap, or page the source and loop per page.
 
-`continueOnItemError` keeps the loop going past a failing item; it defaults to `false`, which aborts the whole loop on the first failure. A tolerated item is still reported: the loop's output counts it in `failed`, and its place in `results` holds an `error` naming what refused it — for example a template that rendered nothing into a date column. A loop runs the same way inside a path as at the top level.
+A nested action marked `continueOnError: true` does not fail its item: when it fails, it is recorded failed with its error, the next action of the same item runs, the item is not counted in `failed`, and the run ends `completed-with-errors`.
+
+`continueOnItemError` keeps the loop going past a failing item; it defaults to `false`, which aborts the whole loop on the first failure. A skipped item is still reported: the loop's output counts it in `failed`, its place in `results` holds an `error` naming what refused it — for example a template that rendered nothing into a date column — and the run ends `completed-with-errors` rather than `completed`. A loop runs the same way inside a path as at the top level.
 
 ```yaml
 - name: notifyEach
@@ -101,6 +105,36 @@ It defaults to **1000**, so a loop over 1,800 rows processes the first thousand 
         type: email
         operator: send
         props: { to: '{{loop.item.email}}', subject: 'Update', body: 'Hi {{loop.item.name}}' }
+```
+
+### Loops inside loops
+
+A loop or a path can sit inside a loop or a path, at any depth. Each fills in its own actions as it runs them, so an action reads the steps that ran before it in its own path or item, and in the paths and items around it.
+
+`{{loop.item}}`, `{{loop.item.<field>}}` and `{{loop.index}}` always mean the **innermost** loop. Any loop around an action, the innermost included, also reads by its step name: `{{loops.<loop name>.item}}`, `{{loops.<loop name>.item.<field>}}` and `{{loops.<loop name>.index}}`. Outside the loop it names, `{{loops.<loop name>.*}}` reads nothing; after the loop, `{{<loop name>.*}}` still reads its output (`results`, `iterations`, `failed`). Because `loop` and `loops` are these two roots, no step may be named `loop` or `loops`: `sovrium validate` and startup refuse it, naming the step and its path.
+
+```yaml
+- name: eachCompany
+  type: loop
+  operator: each
+  props:
+    items: '{{trigger.data.companies}}'
+    actions:
+      - name: eachTag
+        type: loop
+        operator: each
+        props:
+          items: '{{loop.item.tags}}'
+          actions:
+            - name: writeTag
+              type: record
+              operator: create
+              props:
+                table: company_tags
+                data:
+                  company: '{{loops.eachCompany.item.name}}'
+                  tag: '{{loop.item}}'
+                  position: '{{loops.eachCompany.index}}.{{loop.index}}'
 ```
 
 ## Flow — stopping early

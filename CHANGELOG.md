@@ -1,3 +1,80 @@
+## [0.34.0](https://github.com/sovrium/sovrium/compare/v0.33.0...v0.34.0) (2026-10-09)
+
+### BREAKING CHANGES
+
+- **pages**: format dates, date-times and amounts written into page text
+- **pages**: make an attachment token in a row template the file's address
+- **automations**: nested loops and paths read their own item and earlier steps
+
+### Features
+
+- **admin**: name every automation trigger in the console and its admin APIs
+- **auth**: let an app name its own sign-in page with auth.loginPage
+- **automations**: an automation may start on several triggers
+- **forms**: browser autofill hints on form fields
+- **automations**: store a file/upload step's file in a named bucket
+
+### Bug Fixes
+
+- **pages**: ask for a typed confirmation's record value as stored inside row templates too
+- **storage**: find every stored spelling of an upload key, and check and write it as one step
+- **automations**: paint admin-only lines only in what a step carries, and in run errors and approval messages
+- **automations**: count inline files as the run's own and read a malformed data URI as a key
+- **automations**: keep credential header values out of webhook run data
+- **pages**: a drawer action's confirm dialog prints its record values formatted
+- **automations**: end an approved run completed-with-errors after a tolerated failure
+- **automations**: keep journal and log lines admin-only wherever a run copies them
+- **automations**: attach only files the run stored when a step writes as nobody
+- **pages**: format more record values, and print them alike in the browser
+- **pages**: a component with its own data source prints its own record
+- **pages**: ask for a typed confirmation's record value exactly as stored
+- **rendering**: count the first endpoint discovery against the render timeout
+- **storage**: compare chosen upload keys after normalisation and disk case folding
+- **automations**: detect SVG image templates with a linear-time scan
+- **assets**: read SVG comments in a single left-to-right pass when measuring
+- **automations**: refuse a reusable action template whose steps share a name
+- **automations**: keep the crash journal when its last line or the release record is malformed
+- **automations**: show instance journal lines to admins only
+- **automations**: list the triggers in the automation list contract
+- **automations**: pass over a nested webhook response on a run no webhook started
+- **automations**: judge a run's captured record by the trigger that started it
+- **rendering**: count a retry's endpoint discovery against the render timeout
+- **pages**: keep a record value fully literal in a type-to-confirm phrase
+- **pages**: never print [object Object] in a confirm filled from the record
+- **pages**: print nothing for a record token naming the internal text map
+- **storage**: refuse Windows-aliasing keys when files are stored on Windows
+- **storage**: refuse an overlong storage key with 400 instead of failing the write
+- **database**: count only whole connections of a fractional DATABASE_POOL_MAX
+- **database**: keep storage connectivity checks inside the connection budget
+- **database**: release the migration connection when a start fails
+- **pages**: fill a confirm dialog's button and input labels from the record
+- **buckets**: refuse an upload path that spells another key
+- **storage**: keep every stored file inside its bucket
+- **cli**: stop refusing a strict boot over a port held on an unrelated address
+- **auth**: never follow an executable redirect from the consent screen
+- **database**: hold DATABASE_POOL_MAX as the instance's total PostgreSQL connections
+- **automations**: fail a file/upload step whose bucket the app does not declare
+- **tables**: store inline attachment values from automation record steps, and hold every inline value to the upload rules
+- **automations**: refuse a step named loop or loops inside a reusable action template
+- **pages**: ask for a record value as written in a type-to-confirm phrase
+- **automations**: a loop that skipped an item ends the run completed-with-errors
+- **automations**: an unhealthy instance health probe carries the app's journal
+- **auth**: return to the page that sent a visitor to sign in
+- **tables**: check the files automation record steps attach, and store inline values on every attachment column
+- **rendering**: start Chrome once more when it dies while starting a render
+- **cli**: see a port held on any address the bind host reaches before a strict boot
+- **automations**: continueOnError holds for actions inside a loop or a path
+- **pages**: fill a record page button's confirm from its record
+- **tables**: convert an attachment column to JSON when a form starts using it on PostgreSQL
+- **pages**: raise the realtime conflict notice only over a pending edit
+- **auth**: make the OAuth consent screen's Allow and Deny buttons work, and send signed-out visitors to sign in
+- **pages**: start an automation from a data table row action
+- **automations**: read a stored bundle's size from the store, not the catalog
+- **forms**: keep accept-listed file picks working in the compiled binary
+- **automations**: read a manual run's posted body at trigger.input
+- **types**: ship self-contained config types (no unresolved path aliases)
+- **automations**: name the acting person in update, delete, restore and batch record runs
+
 ## [0.33.0](https://github.com/sovrium/sovrium/compare/v0.32.0...v0.33.0) (2026-10-08)
 
 ### BREAKING CHANGES

@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react'
+import { withRecordText } from '@/domain/models/app/pages/substitute-record-vars'
 import { renderResultsBody, substituteRecordVars } from './search-list-renderers'
 import { useBoundQuery, useUnboundQuery } from './search-query-binding'
 import type { ChildTemplate, ItemTemplate } from './search-list-renderers'
@@ -27,13 +28,14 @@ interface SearchListIslandProps {
 }
 
 // Search filtering — extractTemplateText verifies results display the query term
-function extractTemplateText(template: ChildTemplate, record: Record<string, unknown>): string {
+function extractTemplateText(template: ChildTemplate, raw: Record<string, unknown>): string {
+  const record = withRecordText(raw)
   return template
     .map((child) => {
       if (typeof child === 'string') return substituteRecordVars(child, record)
       const content =
         typeof child.content === 'string' ? substituteRecordVars(child.content, record) : ''
-      const childText = child.children ? extractTemplateText(child.children, record) : ''
+      const childText = child.children ? extractTemplateText(child.children, raw) : ''
       return content + ' ' + childText
     })
     .join(' ')

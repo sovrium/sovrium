@@ -35,6 +35,12 @@
  *   3. `[ … ]` containing NO token — ordinary punctuation, left verbatim,
  *      brackets included. Square brackets are prose in English and French, and a
  *      grammar that ate `[draft]` would corrupt pages nobody edited.
+ *   4. `\$session.<field>` — an ESCAPED token: printed as `$session.<field>`,
+ *      resolving nothing and never emptying a segment.
+ *
+ * A value the server fills into a template the browser resolves again is not
+ * escaped token by token: it carries every grammar character as an inert
+ * stand-in ({@link toInertTemplateValue}), restored after resolution.
  *
  * Groups do not nest: the inner character class excludes both brackets, so an
  * unmatched or nested bracket is simply text and survives untouched.
@@ -68,7 +74,7 @@ export interface SessionUser {
  * resets `lastIndex` to 0 at both ends of its walk. Nothing here observes the
  * regex's own cursor.
  */
-const SESSION_TOKEN = /\$session\.(\w+)/g
+const SESSION_TOKEN = /(\\?)\$session\.(\w+)/g
 
 /** A `[ … ]` group. Non-nesting BY CONSTRUCTION — the class excludes brackets. */
 const OPTIONAL_SEGMENT = /\[([^[\]]*)\]/g
@@ -84,13 +90,59 @@ function resolveField(user: SessionUser | undefined, field: string): string {
 
 /** Token substitution as it has always worked, outside any group. */
 function substituteTokens(text: string, user: SessionUser | undefined): string {
-  return text.replaceAll(SESSION_TOKEN, (_full, field: string) => resolveField(user, field))
+  return text.replaceAll(SESSION_TOKEN, (full: string, escape: string, field: string) =>
+    escape === '' ? resolveField(user, field) : full.slice(1)
+  )
+}
+
+/**
+ * The grammar's own characters, each with the inert stand-in a server-filled
+ * value carries it as: Unicode noncharacters, which the standard reserves for
+ * internal use and no record value is expected to hold.
+ */
+const INERT_STAND_INS: Readonly<Record<string, string>> = {
+  '\\': '\uFDD0',
+  '[': '\uFDD1',
+  ']': '\uFDD2',
+  $: '\uFDD3',
+}
+
+const GRAMMAR_CHARACTER = /[\\[\]$]/g
+
+const STAND_IN = /[\uFDD0-\uFDD3]/g
+
+const GRAMMAR_CHARACTER_OF: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(INERT_STAND_INS).map(([character, standIn]) => [standIn, character])
+)
+
+/**
+ * Make a value the SERVER filled into a template the browser reads again (a
+ * confirm's `matchValue`) inert to every grammar the browser runs over it.
+ *
+ * A record holding `$session.email` must ask for that text, never the reader's
+ * own address; one holding `[$session.email]` must keep its brackets; one ending
+ * in `\` must not escape the author's token written right after it. Escaping the
+ * token alone covers only the first, so every grammar character is carried as
+ * a stand-in instead, and {@link restoreInertTemplateValue} puts it back once
+ * the template is fully resolved.
+ */
+export function toInertTemplateValue(value: string): string {
+  return value.replaceAll(GRAMMAR_CHARACTER, (character) => INERT_STAND_INS[character] ?? character)
+}
+
+/**
+ * Put back the characters {@link toInertTemplateValue} stood in for. The LAST
+ * step of every resolution of a server-filled template, after the session and
+ * record tokens, so no grammar ever reads the value's own characters.
+ */
+export function restoreInertTemplateValue(text: string): string {
+  return text.replaceAll(STAND_IN, (standIn) => GRAMMAR_CHARACTER_OF[standIn] ?? standIn)
 }
 
 /** The all-or-nothing rule: a segment survives only if EVERY token in it fills. */
 function segmentSurvives(inner: string, user: SessionUser | undefined): boolean {
   return [...inner.matchAll(SESSION_TOKEN)].every(
-    ([, field]) => resolveField(user, field ?? '') !== ''
+    ([, escape, field]) => escape !== '' || resolveField(user, field ?? '') !== ''
   )
 }
 

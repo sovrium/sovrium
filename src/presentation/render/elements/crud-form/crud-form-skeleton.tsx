@@ -39,6 +39,7 @@ export type SkeletonFieldDef = TypedColumnConfig & {
   /** Persistent guidance under the control, linked by `aria-describedby`. */
   readonly description?: string
   readonly placeholder?: string
+  readonly autocomplete?: string
   readonly readOnly?: boolean
   readonly disabled?: boolean
   readonly defaultValue?: string | number | boolean
@@ -212,6 +213,7 @@ function renderDefaultSkeleton(field: SkeletonFieldDef): ReactElement {
           {...typedInputAttributes(field)}
           {...(field.required && { required: true, 'data-required': 'true' })}
           {...(field.placeholder && { placeholder: field.placeholder })}
+          {...(field.autocomplete && { autoComplete: field.autocomplete })}
           {...(field.readOnly && { readOnly: true })}
           {...(field.disabled && { disabled: true })}
           {...(field.defaultValue !== undefined && {
@@ -336,6 +338,7 @@ function renderUpdateInputSkeleton(field: SkeletonFieldDef, currentValue: string
           {...typedInputAttributes(field)}
           {...(field.required && { required: true, 'data-required': 'true' })}
           {...(field.placeholder && { placeholder: field.placeholder })}
+          {...(field.autocomplete && { autoComplete: field.autocomplete })}
           {...(field.readOnly && { readOnly: true })}
           {...(field.disabled && { disabled: true })}
           {...fieldDescribedBy(field)}

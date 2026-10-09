@@ -25,6 +25,7 @@ import { Effect, Ref } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import { TemplateEngine } from '@/application/ports/services/template-engine'
+import { triggerNamedOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   dispatchPostRunFailureEffects,
@@ -35,6 +36,7 @@ import { resolveRunTimeoutMs, runActionsWithTimeout } from './action-loop'
 import { buildAutomationInvoker } from './automation-call-invoker'
 import { finaliseOnAbandon } from './defect-finaliser'
 import { finaliseRun, stepRowOf } from './run-persistence'
+import { withPriorTolerated } from './run-status'
 import {
   acquireSlot,
   isCancelled,
@@ -53,6 +55,7 @@ import type {
   PersistedRun,
 } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /** What a resumed segment runs. */
 export interface ResumedSegmentInput {
@@ -72,6 +75,10 @@ const boundAutomationInvoker = buildAutomationInvoker({
 
 const triggerDataOf = (raw: unknown): TriggerData =>
   raw !== null && typeof raw === 'object' ? (raw as TriggerData) : {}
+
+/** The entry that started the run, by the name it recorded. */
+const runEntryOf = ({ automation, run }: ResumedSegmentInput): Trigger =>
+  triggerNamedOrFirst(automation, run.triggerName)
 
 /** Who the segment runs as: the person who started the run by hand, or the system. */
 const startedByOf = (run: PersistedRun) =>
@@ -119,7 +126,7 @@ const storeSegment = (
       finishedAt: timing.finishedAt,
       steps: reentered ? rest : state.steps,
       userId: startedByOf(run).userId,
-      source: { app: input.app, name: input.automation.name },
+      source: { app: input.app, name: input.automation.name, trigger: runEntryOf(input) },
       segment: { stepIndexBase: segment.pausedRow + 1, priorActiveMs: run.durationMs ?? 0 },
       ...(state.runStatus === 'waiting-delay' ? { park: state.park } : {}),
     })
@@ -137,6 +144,7 @@ const runSegmentActions = (input: ResumedSegmentInput) =>
       automationId: input.automationId,
       app,
       automation,
+      trigger: runEntryOf(input),
       processEnv,
       triggerData: triggerDataOf(run.triggerData),
       handlers,
@@ -168,7 +176,7 @@ const runAdmittedSegment = (
     const ran = isCancelled(run.id) ? EMPTY_RUN_ACCUMULATOR : yield* runSegmentActions(input)
     const state: RunAccumulator = isCancelled(run.id)
       ? { ...ran, runStatus: 'cancelled', runError: ran.runError ?? 'Run cancelled' }
-      : ran
+      : withPriorTolerated(ran, input.segment.priorTolerated)
     const finishedAt = new Date()
     yield* storeSegment(input, state, { admittedAt: admission.admittedAt, finishedAt })
     yield* Ref.set(admission.finalised, true)
@@ -178,6 +186,7 @@ const runAdmittedSegment = (
       app: input.app,
       processEnv: input.processEnv,
       automation,
+      trigger: runEntryOf(input),
       name: automation.name,
       runId: run.id,
       finalState: state,

@@ -8,6 +8,7 @@
 import { executeFetchAction } from '../../runtime/action-executor'
 import { dispatch as dispatchIslandEvent } from '../../runtime/event-bus'
 import { runAccountRowAction, type AccountRowAction } from './account-row-actions'
+import { runAutomationRowAction, type AutomationRowAction } from './automation-row-action'
 import { renderToast } from './toast'
 import type { RowActionHandler } from '../formatting'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
@@ -112,6 +113,25 @@ async function runCrudRowAction(
 }
 
 /**
+ * The row actions that issue their own request and report whether it was
+ * accepted: an item-level account method (`auth` with a `target`) and an
+ * automation press, whose `inputData` is filled from the clicked row.
+ * `undefined` for any other action.
+ */
+function runSelfReportingRowAction(
+  action: { readonly type: string },
+  record: Record<string, unknown>
+): Promise<boolean> | undefined {
+  if (action.type === 'auth') {
+    return runAccountRowAction(action as AccountRowAction, record, renderToast)
+  }
+  if (action.type === 'automation') {
+    return runAutomationRowAction(action as AutomationRowAction, record, renderToast)
+  }
+  return undefined
+}
+
+/**
  * Create a row-action handler closed over the current query client and
  * query key.
  *
@@ -153,15 +173,11 @@ export function createRowActionHandler({
       return
     }
 
-    // An item-level account method (`auth` with a `target`): one request to the
-    // engine's own endpoint, then the grid re-reads what the server now holds.
-    if (action.action.type === 'auth') {
-      const done = await runAccountRowAction(
-        action.action as AccountRowAction,
-        record as Record<string, unknown>,
-        renderToast
-      )
-      if (done) await queryClient.invalidateQueries({ queryKey })
+    // An item-level account method or an automation press: one request, then
+    // the grid re-reads what the server now holds.
+    const reported = runSelfReportingRowAction(action.action, record as Record<string, unknown>)
+    if (reported) {
+      if (await reported) await queryClient.invalidateQueries({ queryKey })
       return
     }
 

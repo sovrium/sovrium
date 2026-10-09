@@ -86,7 +86,7 @@ The console's whole surface, in sidebar order. A page whose address ends in a pa
 | `/_admin/buckets/:bucket`      | The files inside one bucket, with its own size beside the total of every bucket.               |
 | `/_admin/templates`            | The template assets the app ships: kind, sample data, and the steps that read them.            |
 | `/_admin/templates/:path*`     | One template with its sample data, in a sandboxed frame — or its `sovrium render` command.     |
-| `/_admin/automations`          | Automation-engine health, and run history with status, duration and a link to each run.        |
+| `/_admin/automations`          | Engine health, each automation's triggers, and run history filtered by automation or trigger.  |
 | `/_admin/automations/runs/:id` | One run: what it was given, each step's data in and out, what each step logged, and a Retry.   |
 | `/_admin/agents`               | The app's conversation-source agents; opens on the System Agent.                               |
 | `/_admin/agents/system`        | The built-in System Agent's conversation history.                                              |

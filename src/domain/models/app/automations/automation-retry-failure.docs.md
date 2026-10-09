@@ -58,6 +58,8 @@ When the server starts, it closes the runs a previous process left `running` or 
 
 `continueOnError: true` on an action means its failure does not abort the run: the following actions still execute and the run finishes as `completed-with-errors`.
 
+It holds the same way for an action inside a `path` or a `loop`, at any depth: once its `retry` is spent, the failed action is recorded `failed` with its error, the next action of its path or item runs, and its container is not failed for it. The run still finishes as `completed-with-errors`, unless a stronger outcome — `failed`, `exhausted`, `timed-out`, `cancelled` — applies.
+
 ```yaml
 - name: bestEffortLog
   type: analytics

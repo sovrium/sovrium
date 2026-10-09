@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { recordWriteRequester } from '@/application/use-cases/tables/record-create-orchestration'
 import { updateRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import { StaleWriteError } from '@/domain/errors'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
@@ -77,6 +78,7 @@ export function updateResponse(config: {
       recordId,
       fields: allowedData,
       userRole,
+      requester: recordWriteRequester(session.userId, userRole),
       userGroups: getTableContext(c).userGroups,
       linkReader: getLinkReader(c),
       ...(clientUpdatedAt === undefined ? {} : { expectedUpdatedAt: clientUpdatedAt }),

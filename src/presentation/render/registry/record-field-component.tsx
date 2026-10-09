@@ -23,29 +23,18 @@
  */
 
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
-import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
-import { serverNow } from '@/domain/models/process-env/dev-clock'
-import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { computeRecordFieldValueClasses } from '@/presentation/design/display-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
-import { resolveValueCurrency } from '@/presentation/render/props/resolve-chart-field-context'
+import { formatRecordValue } from '@/presentation/render/props/record-value-format'
 import type { ComponentRenderer } from './component-dispatch-config'
-import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { Tables } from '@/domain/models/app/tables'
 import type { ReactElement } from 'react'
 
-/**
- * The locale a server-rendered `record-field` formats in.
- *
- * Only `relative-time` reads it, and this renderer runs before a `<html lang>`
- * exists to read (the island's `resolvePageLocale` is the DOM-side answer), so
- * it takes the platform default the formatters themselves fall back to rather
- * than inventing a second one.
- */
-const SSR_FORMAT_LOCALE = 'en-US'
+/** The locale a `record-field` formats in when the page names no language. */
+const DEFAULT_FORMAT_LOCALE = 'en-US'
 
 /**
  * The author's declared `format`, read off the component ROOT — where
@@ -250,7 +239,8 @@ function renderRecordFieldSystemIsland(
 
 /**
  * Render any other field value as text — through the declared `format` when the
- * author set one, else verbatim.
+ * author set one, else the field type's default (`record-value-format.ts`, the
+ * table page text reads too), else verbatim. In the page's language.
  *
  * The format wins over the field-type dispatch above ONLY for the plain-text
  * tail: `rich-text` and the attachment family have their own chrome and no
@@ -260,18 +250,11 @@ function renderRecordFieldSystemIsland(
 function renderPlainText(
   chrome: RecordFieldChrome,
   value: unknown,
-  format: ColumnFormat | undefined,
-  { currency }: { readonly currency?: CurrencyDisplayOptions } = {}
+  binding: Parameters<typeof formatRecordValue>[1]
 ): ReactElement {
-  const text = format
-    ? formatCellValue(value, format, SSR_FORMAT_LOCALE, {
-        timeZone: parseSovriumTimezone().zoneId,
-        now: serverNow(),
-        ...(currency === undefined ? {} : { currency }),
-      })
-    : value === undefined || value === null
-      ? ''
-      : String(value)
+  const text =
+    formatRecordValue(value, binding) ??
+    (value === undefined || value === null ? '' : String(value))
   return (
     <div
       id={chrome.id}
@@ -285,46 +268,14 @@ function renderPlainText(
   )
 }
 
-/** The format a field type reads in when the author declared none. */
-const FORMAT_BY_FIELD_TYPE: Readonly<Record<string, ColumnFormat>> = {
-  currency: 'currency',
-  date: 'short-date',
-  datetime: 'datetime',
-  'created-at': 'datetime',
-  'updated-at': 'datetime',
-}
-
-/** The record's system timestamps, which read as their declared twins do. */
-const SYSTEM_TIMESTAMP_TYPES: Readonly<Record<string, string>> = {
-  createdAt: 'created-at',
-  updatedAt: 'updated-at',
-}
-
-const defaultFormatOf = (
-  fieldType: string | undefined,
-  fieldName: string | undefined
-): ColumnFormat | undefined => {
-  const type =
-    fieldType ?? (fieldName === undefined ? undefined : SYSTEM_TIMESTAMP_TYPES[fieldName])
-  return type === undefined ? undefined : FORMAT_BY_FIELD_TYPE[type]
-}
-
-/** The bound field's currency display, when it declares one. */
-function currencyOf(
-  tables: Tables | undefined,
-  tableName: string | undefined,
-  fieldName: string | undefined
-): CurrencyDisplayOptions | undefined {
-  const table = tables?.find((t) => t.name === tableName)
-  return table === undefined ? undefined : resolveValueCurrency(table, fieldName)
-}
-
 export const recordFieldComponent: ComponentRenderer = ({
   elementProps,
   rawProps,
   tables,
   component,
   designStyles,
+  currentLang,
+  languages,
 }): ReactElement => {
   const props = rawProps ?? {}
   const format = resolveFormat(component)
@@ -350,7 +301,11 @@ export const recordFieldComponent: ComponentRenderer = ({
   if (fieldType !== undefined && ATTACHMENT_FIELD_TYPES.has(fieldType)) {
     return renderAttachment(chrome, value, resolveBucket(field))
   }
-  return renderPlainText(chrome, value, format ?? defaultFormatOf(fieldType, fieldName), {
-    currency: currencyOf(tables, tableName, fieldName),
+  return renderPlainText(chrome, value, {
+    table: tables?.find((t) => t.name === tableName),
+    fieldName,
+    format,
+    locale: currentLang ?? DEFAULT_FORMAT_LOCALE,
+    languages,
   })
 }

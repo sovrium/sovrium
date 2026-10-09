@@ -95,7 +95,7 @@ import { withDefault } from '../../combinators/schema-defaults'
  * Filter query parameters accepted by `GET /api/admin/automations/runs`.
  *
  * Extends the shared cursor pagination query (`cursor`, `limit`) with the
- * runs-specific filters: `status`, `automationName`, `from`/`to`, and the
+ * runs-specific filters: `status`, `automationName`, `triggerName`, `from`/`to`, and the
  * D2-locked `include_deleted` opt-in.
  *
  * **Default `include_deleted=false`** is the D2 lock. The dashboard never
@@ -123,6 +123,12 @@ export const automationsRunsListQuerySchema = Schema.Struct({
     Schema.String.annotate({
       description:
         'Filter by automation definition name (matches the `name` field in the app schema `automations[]` array). Mirrors the public `?automationName` filter.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  triggerName: optionalField(
+    Schema.String.annotate({
+      description:
+        "Filter by the name of the trigger that started the run: the trigger's own `name`, else its type. Mirrors the public `?triggerName` filter, including its reading of a run recorded before triggers had names as its automation's first trigger. AND-combined with every other filter.",
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   automationId: optionalField(

@@ -6,7 +6,12 @@
  */
 
 import { transformRecord } from '@/application/use-cases/tables/record-transformer'
+import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import { COMPARATORS } from '@/domain/models/app/automations/comparison-operators'
+import {
+  firstMatchingTrigger,
+  type TriggerOfType,
+} from '@/domain/models/app/automations/trigger-entries-service'
 import { resolveTriggerInString } from './resolve-trigger-data'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
@@ -130,4 +135,77 @@ export const watchFieldsChanged = (input: {
     if (before[field] === after[field]) return false
     return JSON.stringify(before[field]) !== JSON.stringify(after[field])
   })
+}
+
+export interface RecordEventMatchInput {
+  readonly app: App
+  readonly tableName: string
+  readonly event: 'create' | 'update' | 'delete' | 'restore'
+  readonly record: Record<string, unknown>
+  readonly previousRecord: Record<string, unknown> | undefined
+  readonly pausedNames: ReadonlySet<string>
+  readonly templates: TemplateRenderer
+}
+
+/**
+ * The record-triggered automations the event starts, each with the record
+ * entry it matched: the (tableName, event) tuple AND, for `update` events, the
+ * `watchFields`/`condition` gates if configured. An automation starts once per
+ * event, under the first of its record entries that matches. Automations that
+ * are OFF — config-disabled OR operationally paused — are excluded, so an
+ * operator can stop a misbehaving workflow without editing config.
+ */
+export const findMatchingRecordAutomations = (
+  input: RecordEventMatchInput
+): readonly RecordMatch[] =>
+  (input.app.automations ?? []).flatMap((automation) => {
+    if (!isAutomationOperationallyEnabled(automation, input.pausedNames)) return []
+    const trigger = firstMatchingTrigger(automation, 'record', (entry) =>
+      recordEntryMatches(entry, input)
+    )
+    return trigger === undefined ? [] : [{ automation, trigger }]
+  })
+
+/** An automation the event starts, with the record entry that starts it. */
+export interface RecordMatch {
+  readonly automation: NonNullable<App['automations']>[number]
+  readonly trigger: TriggerOfType<'record'>
+}
+
+/** Whether one record entry matches the event, its gates included. */
+const recordEntryMatches = (
+  trigger: TriggerOfType<'record'>,
+  input: RecordEventMatchInput
+): boolean => {
+  const { app, tableName, event, record, previousRecord, templates } = input
+  if (trigger.table !== tableName) return false
+  if (!trigger.events.includes(event)) return false
+  // watchFields narrows update events to specific columns. Create/delete
+  // ignore watchFields per the schema convention (the column "doesn't
+  // exist before/after" semantics are undefined).
+  if (
+    event === 'update' &&
+    trigger.watchFields !== undefined &&
+    !watchFieldsChanged({
+      app,
+      tableName,
+      watchFields: trigger.watchFields,
+      record,
+      previousRecord,
+    })
+  ) {
+    return false
+  }
+  // condition filters by record content. Evaluated against a context
+  // exposing the new record at both `record.X` and `trigger.data.record.X`
+  // so spec authors can pick the more readable variant — and, on an update,
+  // the row before it at `trigger.data.previousRecord.X`, so a condition can
+  // name a transition rather than a state.
+  if (
+    trigger.condition !== undefined &&
+    !evaluateRecordTriggerCondition(templates, trigger.condition, record, previousRecord)
+  ) {
+    return false
+  }
+  return true
 }

@@ -11,6 +11,7 @@ import {
   collectDeprecationWarnings,
   type DeprecatedKey,
 } from '@/domain/models/app/app-deprecated-keys'
+import { collectAttachmentTokenWarnings } from '@/domain/models/app/attachment-token-validation'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 
 /**
@@ -71,7 +72,11 @@ const extraDeprecations = (): readonly DeprecatedKey[] => {
  * the exit code is untouched, because a deprecated key is still accepted.
  */
 export const printConfigDeprecationWarnings = (config: unknown): void => {
-  const warnings = collectDeprecationWarnings(config, [...DEPRECATED_KEYS, ...extraDeprecations()])
+  const warnings = [
+    ...collectDeprecationWarnings(config, [...DEPRECATED_KEYS, ...extraDeprecations()]),
+    // A bare attachment token inside a files address: still accepted, now an address.
+    ...collectAttachmentTokenWarnings(config),
+  ]
   if (warnings.length === 0) return
   printStderr(warnings.map((warning) => `Warning: ${warning.message}`).join('\n'))
 }

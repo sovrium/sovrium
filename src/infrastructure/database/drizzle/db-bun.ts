@@ -9,13 +9,11 @@ import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { Database as BunSqlite } from 'bun:sqlite'
 import { drizzle as drizzlePg } from 'drizzle-orm/bun-sql'
-import {
-  parseDatabaseDialectConfig,
-  resolveDatabasePoolMax,
-} from '@/domain/models/process-env/database/database-dialect'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { logError } from '@/infrastructure/logging/logger'
 import { recordDbQueryIssued } from '@/infrastructure/telemetry/db-query-counter'
 import { acceptsRuntimeSettings, postgresClientOptions } from '../sql/postgres-client-options'
+import { requestPoolSize } from '../sql/postgres-connection-budget'
 import { applySqlitePragmas } from '../sql/sqlite-pragmas'
 import { primeSqliteVec, resetSqliteVecCache } from '../sql/sqlite-vec-extension'
 import { UnsupportedInSqliteError } from '../unsupported-in-sqlite'
@@ -92,16 +90,24 @@ let cached: DrizzleDB | undefined
 /**
  * The PostgreSQL URL of a `cached` pool built WITHOUT the runtime settings
  * (`postgres-client-options.ts`), because no probe had yet seen the database
- * accept them. Something at start-up can reach `db` before the migrations run
- * the probe; once the probe accepts, the next `getDb()` rebuilds the pool with
- * the settings, so the requests the server serves get them. The early pool is
- * left as it is: whatever still holds it keeps working.
+ * accept them. The start probes before anything reads the database, so this
+ * stays `undefined` on a normal boot; it is the safety net for a reader that
+ * reaches `db` first. Once a probe accepts, the next `getDb()` rebuilds the
+ * pool with the settings and CLOSES the early one: a second pool left open
+ * would hold its connections on top of the instance's `DATABASE_POOL_MAX`.
  */
 let builtWithoutSettings: string | undefined
+
+/** The size `cached` was built with, so a changed budget rebuilds it. */
+let builtPoolSize: number | undefined
 
 /** Whether `cached` was built before the database was seen to accept the runtime settings. */
 const settingsArrivedSinceBuild = (): boolean =>
   builtWithoutSettings !== undefined && acceptsRuntimeSettings(builtWithoutSettings)
+
+/** Whether `cached` is a PostgreSQL pool sized for another budget than today's. */
+const budgetChangedSinceBuild = (): boolean =>
+  builtPoolSize !== undefined && builtPoolSize !== requestPoolSize()
 
 /**
  * Per-request query-count tap (the keystone of the query-count seam — see
@@ -135,11 +141,16 @@ const buildClient = (): DrizzleDB => {
     // is a stated number (see `resolveDatabasePoolMax`) instead of an assumption
     // about the driver — and so an operator on a larger Postgres can raise it
     // via `DATABASE_POOL_MAX` without patching code.
+    //
+    // The size is the REQUEST pool's share of `DATABASE_POOL_MAX`, not the
+    // whole of it: the maintenance slot and the AI listeners count against the
+    // same number (`postgres-connection-budget.ts`).
     builtWithoutSettings = acceptsRuntimeSettings(config.databaseUrl)
       ? undefined
       : config.databaseUrl
+    builtPoolSize = requestPoolSize()
     const pg = drizzlePg({
-      connection: postgresClientOptions(config.databaseUrl, { max: resolveDatabasePoolMax() }),
+      connection: postgresClientOptions(config.databaseUrl, { max: builtPoolSize }),
       logger: countingLogger,
     })
     // Undo the `bigint: true` that drizzle-orm 1.0.0-rc.4 forces on EVERY client.
@@ -171,6 +182,7 @@ const buildClient = (): DrizzleDB => {
   // Create the parent dir first; `{ create: true }` makes the file but not its
   // directory, and the zero-config default now nests under `./.sovrium/`. Skip
   // the in-memory sentinel (no filesystem path).
+  builtPoolSize = undefined
   if (config.path !== ':memory:') {
     mkdirSync(dirname(config.path), { recursive: true })
   }
@@ -200,12 +212,6 @@ const buildClient = (): DrizzleDB => {
   return sqliteDb as unknown as DrizzleDB
 }
 
-export const getDb = (): DrizzleDB => {
-  if (cached !== undefined && !settingsArrivedSinceBuild()) return cached
-  cached = buildClient()
-  return cached
-}
-
 /**
  * Release the driver handle of a client the memo no longer hands out.
  *
@@ -226,6 +232,24 @@ const closeRetiredClient = (client: DrizzleDB): void => {
         cause
       )
     )
+}
+
+/**
+ * Whether the request pool (or the SQLite handle) has been built. A check that
+ * runs before it — a start's first read — goes through the maintenance slot
+ * instead, so the pool is built once, after the runtime-settings probe; a check
+ * that runs after it reuses the pool rather than opening a connection beside it.
+ */
+export const hasBuiltDbClient = (): boolean => cached !== undefined
+
+export const getDb = (): DrizzleDB => {
+  if (cached !== undefined && !settingsArrivedSinceBuild() && !budgetChangedSinceBuild()) {
+    return cached
+  }
+  const retired = cached
+  cached = buildClient()
+  if (retired !== undefined) closeRetiredClient(retired)
+  return cached
 }
 
 /**
@@ -261,6 +285,7 @@ export const resetDbCache = (): void => {
   cached = undefined
   if (retired !== undefined) closeRetiredClient(retired)
   builtWithoutSettings = undefined
+  builtPoolSize = undefined
   // Keep the Phase 2 sqlite-vec acceleration memo in lock-step: a test that
   // re-points DATABASE_URL / toggles `RAG_SQLITE_VEC` must re-resolve
   // acceleration against the new connection rather than reuse a stale handle.

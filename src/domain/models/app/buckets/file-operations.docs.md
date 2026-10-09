@@ -46,7 +46,9 @@ curl -X POST https://app.example.com/api/buckets/system/files \
   -F "file=@logo.png" -F "path=public/logo.png"
 ```
 
-The path must be relative, non-empty, and free of parent-directory segments, backslashes and null bytes. Because you chose the key, you also own collisions — but only within one bucket.
+The path must be relative, non-empty, and free of parent-directory segments, backslashes and null bytes; it may not end with a slash or hold an empty or `.` segment (`public//logo.png`, `public/./logo.png`), since those spell another key. It is capped at 1024 bytes, and each segment at 255. A path breaking any of these is refused with `400`. Because you chose the key, you also own collisions — but only within one bucket.
+
+A key you choose is compared with the keys already stored after Unicode normalisation, and also ignoring letter case when the local storage directory is on a case-insensitive disk, which Sovrium checks when it starts. An upload whose key would land on a file another key already names is refused; stored keys are never rewritten and stay readable as written. The refusal is the one the stored key itself would earn: `404` when you could not replace that file, and `409` when you could, without naming the stored key.
 
 ## Download
 

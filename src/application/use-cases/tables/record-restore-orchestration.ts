@@ -30,6 +30,7 @@ import { storedRowOf } from './record-stored-row'
 import { deliverRecordWebhooks, withRecordWebhooks } from './record-webhook-outbox'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { OutboxedWrite } from '@/application/ports/services/record-webhook-dispatcher'
+import type { TriggerRequester } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { TriggerRecordEventInput } from '@/application/use-cases/automations/trigger-record-event'
 import type { App } from '@/domain/models/app'
 
@@ -44,6 +45,12 @@ export interface RecordRestoreInput {
   readonly recordId: string
   readonly userRole?: string
   readonly userGroups?: readonly string[]
+  /**
+   * Who restored the record, as the automations' `trigger.user`: absent for a
+   * write no person made. Named by the caller, never derived from `userRole`,
+   * which is the authority the restore is judged under and may be a door's own.
+   */
+  readonly requester?: TriggerRequester
   /** Process env captured at the route boundary, for the automations' `$env` lookups. */
   readonly processEnv: Readonly<Record<string, string | undefined>>
 }
@@ -57,7 +64,9 @@ export interface RecordRestoreSteps<E, R, RD = never, RA = never> {
 
 /** The restore, in the order the module header documents, over abstract steps. */
 export function orchestrateRecordRestore<E, R, RD = never, RA = never>(
-  input: Pick<RecordRestoreInput, 'app' | 'tableName' | 'processEnv'> & { readonly userId: string },
+  input: Pick<RecordRestoreInput, 'app' | 'tableName' | 'processEnv' | 'requester'> & {
+    readonly userId: string
+  },
   steps: RecordRestoreSteps<E, R, RD, RA>
 ): Effect.Effect<RestoredRecord, E, R | RD | RA> {
   const { app, tableName } = input
@@ -70,6 +79,7 @@ export function orchestrateRecordRestore<E, R, RD = never, RA = never>(
       record: { ...storedRowOf(restored.value.record) },
       processEnv: input.processEnv,
       userId: input.userId,
+      ...(input.requester === undefined ? {} : { requester: input.requester }),
     })
     yield* steps.deliverWebhooks(restored.deliveryIds)
     return restored.value

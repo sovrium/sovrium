@@ -59,7 +59,7 @@ export const auth = defineSection({
       sidebarLabel: 'Overview',
       body: authOverviewBody,
       documents: [AuthSchema],
-      stories: ['US-AUTH-ROLE-LANDING-ON-SUCCESS'],
+      stories: ['US-AUTH-ROLE-LANDING-ON-SUCCESS', 'US-AUTH-LOGIN-PAGE'],
     }),
     defineArticle({
       slug: 'auth-strategies',

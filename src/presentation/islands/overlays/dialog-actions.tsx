@@ -7,14 +7,19 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useEffect, useId, useState } from 'react'
-import { resolveSessionTemplate, type SessionUser } from '@/presentation/design/session-template'
+import {
+  resolveSessionTemplate,
+  restoreInertTemplateValue,
+  type SessionUser,
+} from '@/presentation/design/session-template'
 import { computeDialogActionsClasses } from './overlay-default-classes'
 import type { ReactElement } from 'react'
 
 /**
  * The text to type, with a `$session.<field>` token resolved against the
  * reader's OWN session, fetched here rather than served: a cached page must not
- * carry one reader's email to the next. `$record.` tokens arrive resolved.
+ * carry one reader's email to the next. `$record.` tokens arrive resolved and
+ * inert, so a record value is typed as stored and never read as a token.
  * Until the session answers, the text is `undefined` and confirm stays locked.
  */
 function useExpectedText(confirmText: string | undefined): string | undefined {
@@ -27,9 +32,10 @@ function useExpectedText(confirmText: string | undefined): string | undefined {
       .then((body) => setUser(body?.user ?? null))
       .catch(() => setUser(null))
   }, [bound])
-  if (!bound || confirmText === undefined) return confirmText
+  if (confirmText === undefined) return undefined
+  if (!bound) return restoreInertTemplateValue(confirmText)
   if (user === undefined) return undefined
-  return resolveSessionTemplate(confirmText, user ?? undefined).trim()
+  return restoreInertTemplateValue(resolveSessionTemplate(confirmText, user ?? undefined)).trim()
 }
 
 /** The one field a typed confirmation draws, labelled with the text to type. */

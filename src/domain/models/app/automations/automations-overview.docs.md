@@ -1,8 +1,8 @@
 # Automations Overview
 
-> One trigger paired with an ordered list of actions — how data flows between steps, and what the whole run is bounded by.
+> A trigger — or a list of them — paired with an ordered list of actions — how data flows between steps, and what the whole run is bounded by.
 
-An automation pairs **one trigger** — the event that starts it — with an **ordered list of actions**. When the trigger fires the actions run in sequence, passing data forward through template variables, until the run completes, stops or fails.
+An automation pairs **a trigger** — the event that starts it, or a `triggers` list of up to ten events that each start it — with an **ordered list of actions**. When a trigger fires the actions run in sequence, passing data forward through template variables, until the run completes, stops or fails.
 
 Automations are declared under the top-level `automations` array. Triggers react to record changes, schedules, inbound webhooks, auth events, form submissions, manual buttons, calls from another automation, another automation's failure, and comments. Actions span more than twenty families: HTTP, record writes, email, AI, file operations, flow control, approvals.
 
@@ -27,13 +27,13 @@ automations:
 
 ## Anatomy
 
-Exactly one `trigger`, at least one entry in `actions`. Everything else is optional.
+Either `trigger` or `triggers` (1 to 10 entries, never both), and at least one entry in `actions`. Everything else is optional. Triggers Overview covers the rules of a `triggers` list.
 
-<!-- sovrium:options AutomationSchema depth=1 -->
+<!-- sovrium:options AutomationInputSchema depth=1 -->
 
 `name` is the automation's identity everywhere it is referenced: in its webhook URL, and as the target of a call from another automation. `timeout` bounds the whole run, accepts 1000 to 3600000 milliseconds, and defaults to 900000 — fifteen minutes of active execution, since time spent waiting in the queue or for an approval does not count. The `SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS` environment variable changes that default for the whole instance.
 
-`aiAccess` declares a **manual-trigger** automation invokable through the MCP server. Setting it on an automation triggered any other way is a decode error rather than a no-op, because an assistant cannot meaningfully fire a cron.
+`aiAccess` declares an automation invokable through the MCP server, which starts it through its **manual** trigger. One of its triggers must be manual: setting `aiAccess` on an automation with none is a decode error rather than a no-op, because an assistant cannot meaningfully fire a cron.
 
 ## Template variables
 
@@ -42,6 +42,7 @@ Every string property of an action can interpolate runtime values.
 | Source           | Syntax                     | Notes                                                                                                                                 |
 | ---------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Trigger payload  | `{{trigger.data.field}}`   | What the trigger carried — a record row, a webhook body, form values                                                                  |
+| Trigger          | `{{trigger.name}}`         | The trigger that started the run: its `name`, else its type; `{{trigger.type}}` is its type                                           |
 | Previous step    | `{{stepName.result}}`      | The output of any earlier action, by its `name`                                                                                       |
 | Environment      | `$env.VAR_NAME`            | Resolved from the declared `env` block in the text you wrote, never in a value a template brings in; redacted in logs                 |
 | Connection       | `$connection.NAME`         | Resolved credentials for an external service                                                                                          |
@@ -74,6 +75,8 @@ subject: '{{formatDate trigger.data.created_at "dd MMMM yyyy" "Europe/Paris" "fr
 `{{now}}` and `{{today}}` take no value argument, and the template engine only calls a zero-argument helper in helper position. Passed bare to another helper, `now` becomes a variable lookup that resolves to nothing and the whole expression renders empty — silently. Wrap it in parentheses: `{{formatDate (now) "yyyy-MM-dd"}}`, never `{{formatDate now "yyyy-MM-dd"}}`.
 
 The pattern of `{{regex}}` and `{{matchAll}}` must be a quoted string written in the configuration: a pattern that reaches the helper from data — a trigger field, a step output, a variable, an `$env` reference or a subexpression — is refused, and the expression is kept as its own source text, as an unknown helper is. A pattern you write is compiled as written and runs on the server's only thread, so avoid nested quantifiers such as `(a+)+`: past the JavaScript engine's backtracking limit the match reports nothing rather than an error, and the helper renders an empty string even where the text matches. How long the match runs before the engine gives up depends on the server: around half a second on a fast, idle machine, and longer on a slower or busier one, during which that thread does nothing else.
+
+Besides `data`, a few keys sit directly under `trigger`: `type` and `name` on every run, and the payload keys Triggers Overview lists (`record`, `comment`, `input`, `caller` and others) on the runs whose trigger carries them.
 
 ## Concurrency
 

@@ -114,7 +114,8 @@ const resolveFailureRunStatus = (outcome: ActionOutcome): 'failure' | 'exhausted
  *  2. The step FAILED but declared `continueOnError: true` — the run becomes
  *     `'completed-with-errors'` (unless it was already in a terminal failure
  *     state, in which case we preserve that).
- *  3. The step succeeded (or filtered) — the run status is unchanged.
+ *  3. The step succeeded (or filtered) — the run status is unchanged, unless
+ *     it is a loop or a path that tolerated a nested failure (case 2 again).
  */
 const resolveRunStatusAfterStep = (
   rawAction: Readonly<Record<string, unknown>>,
@@ -127,9 +128,10 @@ const resolveRunStatusAfterStep = (
   // run to 'completed-with-errors' — but only if no earlier step has already
   // moved it to a stronger terminal state. Failure / exhausted / timed-out
   // win over completed-with-errors so a mixed run records the worst outcome.
-  if (outcome.status === 'failure' && acc.runStatus === 'success') {
-    return 'completed-with-errors'
-  }
+  // A loop or a path that went past a `continueOnError` failure inside it rolls
+  // that tolerated failure up to the run the same way.
+  const tolerated = outcome.status === 'failure' || (outcome.toleratedFailures ?? 0) > 0
+  if (tolerated && acc.runStatus === 'success') return 'completed-with-errors'
   return acc.runStatus
 }
 

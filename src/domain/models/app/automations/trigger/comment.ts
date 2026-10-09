@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { TriggerNameSchema } from './trigger-name'
 
 /**
  * Comment Trigger Filter Schema
@@ -87,6 +88,9 @@ export const CommentTriggerSchema = Schema.Struct({
       description: "Constant value 'comment' for type discrimination in discriminated unions",
     })
   ),
+
+  /** Name of this trigger within its automation (defaults to its type) */
+  name: Schema.optional(TriggerNameSchema),
   table: Schema.String.pipe(
     Schema.annotate({ description: 'Name of the table with comments enabled' }),
     Schema.check(Schema.isMinLength(1))

@@ -36,9 +36,12 @@ type LooseAiAccess =
       readonly whitelistFields?: ReadonlyArray<string>
     }
 
+type LooseTrigger = { readonly type: string; readonly name?: string | undefined }
+
 type LooseAutomation = {
   readonly name: string
-  readonly trigger: { readonly type: string }
+  /** Every trigger of the automation (the decoded list: a single `trigger` is one entry). */
+  readonly triggers: ReadonlyArray<LooseTrigger>
   readonly aiAccess?: LooseAiAccess
 }
 
@@ -81,22 +84,27 @@ const aiAccessConfig = (
 }
 
 /**
- * Rule 1: Only manual-trigger automations may have aiAccess.
+ * Rule 1: Only an automation with a manual trigger may have aiAccess.
  *
  * Record / cron / webhook triggers fire on their own and cannot be invoked
  * by an AI client; setting aiAccess on them would silently misrepresent the
- * MCP surface to clients.
+ * MCP surface to clients. With several triggers, one of them must be manual:
+ * an AI client starts the automation through that entry.
  */
 const checkManualTriggerOnly = (app: LooseApp): true | string => {
   if (!app.automations) return true
 
   const violator = app.automations.find(
-    (a) => aiAccessIsDeclared(a.aiAccess) && a.trigger.type !== 'manual'
+    (a) => aiAccessIsDeclared(a.aiAccess) && !a.triggers.some((t) => t.type === 'manual')
   )
-  if (violator) {
-    return `Automation '${violator.name}' has aiAccess but trigger type is '${violator.trigger.type}'; only manual-trigger automations can be AI-exposed`
+  if (!violator) return true
+  const { triggers } = violator
+  const [only] = triggers
+  if (triggers.length === 1 && only !== undefined) {
+    return `Automation '${violator.name}' has aiAccess but trigger type is '${only.type}'; only manual-trigger automations can be AI-exposed`
   }
-  return true
+  const listed = triggers.map((t) => `${t.type} '${t.name ?? t.type}'`).join(', ')
+  return `Automation '${violator.name}' has aiAccess but none of its triggers is manual (${listed}); only an automation with a manual trigger can be AI-exposed`
 }
 
 /**

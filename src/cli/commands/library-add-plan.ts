@@ -45,6 +45,7 @@ import { isPathWithin } from '@/domain/models/process-env/desktop'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { planBlockForms } from './library-add-forms'
 import { planOperationFragment } from './library-add-operations'
+import { resolveParams } from './library-add-params'
 import { missingTablesMessage } from './library-add-tables'
 import { bindingName, provenanceHeader, renderTsFragment, renderYamlFragment } from './library-wire'
 import { loadConfigGraph } from './mcp-config-graph'
@@ -132,57 +133,6 @@ export const digest = (content: string): string =>
 
 export const readIfExists = async (path: string): Promise<string | undefined> =>
   (await Bun.file(path).exists()) ? Bun.file(path).text() : undefined
-
-// =============================================================================
-// 1. Parameters
-// =============================================================================
-
-const parseParamValue = (
-  entryId: string,
-  param: LibraryEntry['params'][number],
-  raw: string
-): LibraryParamValue => {
-  if (param.type === 'string') return raw
-  const value = Number(raw)
-  return Number.isFinite(value) && raw.trim() !== ''
-    ? value
-    : refuse(`Error: ${entryId} expects a number for "${param.name}", got "${raw}".`)
-}
-
-/** `--set` pairs, validated against what the entry declares. */
-export const resolveParams = (
-  entryId: string,
-  entry: LibraryEntry,
-  sets: readonly string[]
-): Readonly<Record<string, LibraryParamValue | undefined>> => {
-  const accepted = entry.params.map((param) => param.name)
-  const given = new Map(
-    sets.map((pair) => {
-      const cut = pair.indexOf('=')
-      return cut <= 0
-        ? refuse(`Error: --set expects key=value, got "${pair}".`)
-        : ([pair.slice(0, cut), pair.slice(cut + 1)] as const)
-    })
-  )
-  const unknown = [...given.keys()].find((key) => !accepted.includes(key))
-  if (unknown !== undefined)
-    return refuse(
-      `Error: ${entryId} has no parameter "${unknown}".\n\n` +
-        `  Accepted parameters: ${accepted.length === 0 ? 'none' : accepted.join(', ')}.`
-    )
-  const missing = entry.params.find((param) => param.required === true && !given.has(param.name))
-  if (missing !== undefined)
-    return refuse(
-      `Error: ${entryId} needs the required parameter "${missing.name}" — ${missing.description}\n\n` +
-        `  Set it with --set ${missing.name}=<value>.`
-    )
-  return Object.fromEntries(
-    entry.params.map((param) => {
-      const raw = given.get(param.name)
-      return [param.name, raw === undefined ? param.default : parseParamValue(entryId, param, raw)]
-    })
-  )
-}
 
 // =============================================================================
 // 2. The config
@@ -417,7 +367,7 @@ const planForms = async (
 export const planInstalls = async (context: InstallContext): Promise<readonly PlannedInstall[]> => {
   const { request } = context
   const primaryId = request.catalogue.libraryEntryId(request.entry)
-  const params = resolveParams(primaryId, request.entry, request.sets)
+  const params = resolveParams(primaryId, request.entry, request.sets, context.parsed)
   const tablesProblem = missingTablesMessage({
     parsed: context.parsed,
     configPath: context.configPath,
@@ -438,7 +388,12 @@ export const planInstalls = async (context: InstallContext): Promise<readonly Pl
     ...requirements.map(async (required) =>
       planOne(context, required, {
         name: required.slug,
-        params: resolveParams(request.catalogue.libraryEntryId(required), required, []),
+        params: resolveParams(
+          request.catalogue.libraryEntryId(required),
+          required,
+          [],
+          context.parsed
+        ),
         requiredBy: primaryId,
       })
     ),

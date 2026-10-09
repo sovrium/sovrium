@@ -32,6 +32,7 @@
 
 import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
+import { triggersOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields/field'
 import { logError } from '@/infrastructure/logging/logger'
 import { triggerRecordEventAutomations } from '../trigger-record-event'
@@ -92,13 +93,15 @@ const isWatched = (
   event: RecordWriteEvent['event'],
   fields?: readonly string[]
 ): boolean =>
-  (app.automations ?? []).some(({ trigger }) => {
-    if (trigger.type !== 'record' || trigger.table !== tableName) return false
-    if (!trigger.events.includes(event)) return false
-    const { watchFields } = trigger
-    if (event !== 'update' || fields === undefined || watchFields === undefined) return true
-    return watchFields.some((field) => mayChange(app, tableName, fields, field))
-  })
+  (app.automations ?? []).some((automation) =>
+    triggersOfType(automation, 'record').some((trigger) => {
+      if (trigger.table !== tableName) return false
+      if (!trigger.events.includes(event)) return false
+      const { watchFields } = trigger
+      if (event !== 'update' || fields === undefined || watchFields === undefined) return true
+      return watchFields.some((field) => mayChange(app, tableName, fields, field))
+    })
+  )
 
 /** What the channel reads from the run it belongs to. */
 type ChannelContext = Pick<

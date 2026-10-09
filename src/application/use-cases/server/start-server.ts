@@ -24,6 +24,7 @@ import {
   validateBootEnvironment,
   type BootEnvironmentError,
 } from '@/application/use-cases/server/validate-boot-environment'
+import { countDatabaseListeners } from '@/domain/models/app/app-database-listeners-service'
 import { ENGINE_KEY_UNPREFIXED_TOKEN } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { prunePagesByRequirements } from '@/domain/models/app/pages/page-requires'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
@@ -119,7 +120,9 @@ const runBootSequenceAndBootstrap = (
     // can start a run, so the sweep below and its on-demand trigger route read
     // the same boundary.
     const bootedAt = publishServerBootInstant()
-    yield* (yield* DatabaseMigrator).migrate(parseDatabaseDialectConfig())
+    yield* (yield* DatabaseMigrator).migrate(parseDatabaseDialectConfig(), {
+      listeners: countDatabaseListeners(validatedApp),
+    })
     const bootstrapToken = yield* bootstrapAdminAndToken(validatedApp, logger)
     // After the admin bootstrap, so a first boot's admin is already a recipient
     // of the interrupted-run alerts this may send.
