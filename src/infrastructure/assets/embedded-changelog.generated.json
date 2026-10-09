@@ -3,6 +3,23 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.34.1",
+      "date": "2026-10-09",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.34.0...v0.34.1",
+      "sections": [
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "types",
+              "text": "build the config types on Windows"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.34.0",
       "date": "2026-10-09",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.33.0...v0.34.0",

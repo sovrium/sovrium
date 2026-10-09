@@ -175,6 +175,69 @@ export const inlineModuleReferences = (
   return { texts: rewritten, declarations }
 }
 
+// ---------------------------------------------------------------------------
+// In-memory files on a compiler host
+// ---------------------------------------------------------------------------
+
+/**
+ * WHY VIRTUAL FILES ARE MATCHED BY A NORMALISED KEY, NEVER BY `===`
+ * ----------------------------------------------------------------
+ * The compiler normalises every file name before it asks its host for it:
+ * `createProgram` turns a root `D:\a\repo\src\x.ts` into `D:/a/repo/src/x.ts`.
+ * A name built with `node:path` keeps the platform's separator, so on Windows
+ * the two spellings of one file never compare equal — the host falls through
+ * to the disk, finds nothing, and the in-memory file silently does not exist.
+ * That is how 0.34.0's Windows build lost the print-scope module. Matching on
+ * the slash-normalised name, case-folded where the host's file system is case
+ * insensitive (the compiler's own rule), makes the lookup independent of which
+ * spelling either side used.
+ */
+const virtualFileKey = (fileName: string, caseSensitive: boolean): string => {
+  const slashed = fileName.replace(/\\/g, '/')
+  return caseSensitive ? slashed : slashed.toLowerCase()
+}
+
+/** A compiler host that also serves `files` from memory, and the test for one of them. */
+export interface VirtualFileHost {
+  readonly host: ts.CompilerHost
+  /** Whether `fileName`, in any spelling the compiler uses, is one of the in-memory files. */
+  readonly isVirtual: (fileName: string) => boolean
+}
+
+/**
+ * Serve `files` (file name → text) from memory through `host`'s `getSourceFile`,
+ * `fileExists` and `readFile`; every other name falls through to `host`. The
+ * file names may be spelled with either separator (see above).
+ */
+export const withVirtualFiles = (
+  host: ts.CompilerHost,
+  files: ReadonlyMap<string, string>
+): VirtualFileHost => {
+  const caseSensitive = host.useCaseSensitiveFileNames()
+  const byKey = new Map(
+    [...files].map(([fileName, text]) => [virtualFileKey(fileName, caseSensitive), text] as const)
+  )
+  const textOf = (fileName: string): string | undefined =>
+    byKey.get(virtualFileKey(fileName, caseSensitive))
+  const getSourceFile = host.getSourceFile.bind(host)
+  const fileExists = host.fileExists.bind(host)
+  const readFile = host.readFile.bind(host)
+  return {
+    host: {
+      ...host,
+      getSourceFile: (fileName, languageVersion, ...rest) => {
+        const text = textOf(fileName)
+        return text === undefined
+          ? getSourceFile(fileName, languageVersion, ...rest)
+          : ts.createSourceFile(fileName, text, languageVersion, true)
+      },
+      fileExists: (fileName) => textOf(fileName) !== undefined || fileExists(fileName),
+      readFile: (fileName) => textOf(fileName) ?? readFile(fileName),
+    },
+    isVirtual: (fileName) => textOf(fileName) !== undefined,
+  }
+}
+
 /**
  * Type-check the declaration in isolation, as an author's project would see it:
  * wrapped in `declare module 'sovrium'`, imported from a one-line config, and
@@ -205,23 +268,12 @@ export const typeCheckDeclaration = (dtsContent: string, scratchDir: string): re
     noUncheckedIndexedAccess: true,
     types: [],
   }
-  const host = ts.createCompilerHost(options)
-  const getSourceFile = host.getSourceFile.bind(host)
-  const fileExists = host.fileExists.bind(host)
-  const readFile = host.readFile.bind(host)
-  host.getSourceFile = (fileName, languageVersion, ...rest) => {
-    const text = virtualFiles.get(fileName)
-    return text === undefined
-      ? getSourceFile(fileName, languageVersion, ...rest)
-      : ts.createSourceFile(fileName, text, languageVersion, true)
-  }
-  host.fileExists = (fileName) => virtualFiles.has(fileName) || fileExists(fileName)
-  host.readFile = (fileName) => virtualFiles.get(fileName) ?? readFile(fileName)
+  const { host, isVirtual } = withVirtualFiles(ts.createCompilerHost(options), virtualFiles)
 
   const program = ts.createProgram([declarationFile, configFile], options, host)
   return ts
     .getPreEmitDiagnostics(program)
-    .filter((d) => d.file === undefined || virtualFiles.has(d.file.fileName))
+    .filter((d) => d.file === undefined || isVirtual(d.file.fileName))
     .map((d) => {
       const message = ts.flattenDiagnosticMessageText(d.messageText, ' ')
       return `TS${d.code}: ${message.length > 300 ? `${message.slice(0, 300)}…` : message}`

@@ -1,3 +1,9 @@
+## [0.34.1](https://github.com/sovrium/sovrium/compare/v0.34.0...v0.34.1) (2026-10-09)
+
+### Bug Fixes
+
+- **types**: build the config types on Windows
+
 ## [0.34.0](https://github.com/sovrium/sovrium/compare/v0.33.0...v0.34.0) (2026-10-09)
 
 ### BREAKING CHANGES
