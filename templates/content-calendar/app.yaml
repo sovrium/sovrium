@@ -27,7 +27,7 @@ env:
     required: false
     default: http://localhost:3000
     secret: false
-  - key: SOVRIUM_DIGEST_TO
+  - key: DIGEST_TO
     description: The address the Monday digest goes to, usually the team's alias.
     required: false
     default: team@example.com

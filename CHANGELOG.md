@@ -1,3 +1,13 @@
+## [0.34.2](https://github.com/sovrium/sovrium/compare/v0.34.1...v0.34.2) (2026-10-09)
+
+### Bug Fixes
+
+- **instance**: create the restore workspace on hosts that refuse a setgid mode
+- **database**: keep a restored install booting when its search index needs migrating
+- **instance**: let the restore unit write to its workspace
+- **instance**: quote env file values so systemd passes them unchanged
+- **automations**: align the TypeScript action types with what the engine accepts
+
 ## [0.34.1](https://github.com/sovrium/sovrium/compare/v0.34.0...v0.34.1) (2026-10-09)
 
 ### Bug Fixes

@@ -3700,7 +3700,7 @@ dependencies = [
 
 [[package]]
 name = "sovrium-desktop"
-version = "0.34.1"
+version = "0.34.2"
 dependencies = [
  "libc",
  "log",

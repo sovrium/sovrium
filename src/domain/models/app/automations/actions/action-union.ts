@@ -114,6 +114,7 @@ export type Action =
         readonly body?: string | { readonly [key: string]: unknown }
         readonly contentType?: 'json' | 'form' | 'text' | 'xml'
         readonly timeout?: number
+        readonly connection?: string
       }>)
   | (ActionBase & {
       readonly type: 'http'
@@ -370,9 +371,13 @@ export type Action =
       readonly operator: 'send'
     } & Props<{
         readonly url: string
-        readonly event: string
+        readonly event?: string
+        readonly method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+        readonly headers?: { readonly [key: string]: string }
+        readonly body?: string | { readonly [key: string]: unknown }
         readonly data?: { readonly [key: string]: unknown }
         readonly secret?: string
+        readonly connection?: string
       }>)
   | (ActionBase & {
       readonly type: 'webhook'
@@ -405,6 +410,11 @@ export type Action =
     } & Props<{
         readonly name: string
         readonly inputData?: { readonly [key: string]: unknown }
+        // `sync` (default) waits for the called automation; `async` starts it and moves on.
+        readonly mode?: 'sync' | 'async'
+        readonly maxDepth?: number
+        // Accepted for compatibility and never read: `mode` alone decides sync
+        // versus async, and the action-level `timeout` bounds the step.
         readonly waitForCompletion?: boolean
         readonly timeout?: number
       }>)
@@ -431,7 +441,6 @@ export type Action =
         readonly temperature?: number
         readonly maxTokens?: number
         readonly responseFormat?: 'text' | 'json'
-        readonly baseUrl?: string
       }>)
   | (ActionBase & {
       readonly type: 'ai'
@@ -445,8 +454,11 @@ export type Action =
         readonly model: string
         readonly input: string
         readonly categories: readonly string[]
+        readonly prompt?: string
+        readonly systemPrompt?: string
+        readonly temperature?: number
+        readonly maxTokens?: number
         readonly connection?: string
-        readonly baseUrl?: string
       }>)
   | (ActionBase & {
       readonly type: 'ai'
@@ -460,8 +472,11 @@ export type Action =
         readonly model: string
         readonly input: string
         readonly schema: { readonly [key: string]: unknown }
+        readonly prompt?: string
+        readonly systemPrompt?: string
+        readonly temperature?: number
+        readonly maxTokens?: number
         readonly connection?: string
-        readonly baseUrl?: string
       }>)
   | (ActionBase & {
       readonly type: 'ai'
@@ -490,6 +505,7 @@ export type Action =
         }[]
         readonly timeout?: string
         readonly onTimeout?: 'approve' | 'reject' | 'escalate'
+        readonly onReject?: 'stop' | 'continue'
         readonly notifyVia?: 'email' | 'webhook' | 'both'
       }>)
   // ── record batch operators ──
@@ -538,6 +554,8 @@ export type Action =
     } & Props<{
         readonly source: string
         readonly path?: string
+        readonly headers?: { readonly [key: string]: string }
+        readonly bucket?: string
         readonly contentType?: string
       }>)
   | (ActionBase & {
@@ -556,15 +574,15 @@ export type Action =
       readonly type: 'file'
       readonly operator: 'copy'
     } & Props<{
-        readonly source: string
-        readonly destination: string
+        readonly sourceKey: string
+        readonly destinationKey: string
       }>)
   | (ActionBase & {
       readonly type: 'file'
       readonly operator: 'move'
     } & Props<{
-        readonly source: string
-        readonly destination: string
+        readonly sourceKey: string
+        readonly destinationKey: string
       }>)
   | (ActionBase & {
       readonly type: 'file'
@@ -587,6 +605,8 @@ export type Action =
         readonly key: string
         readonly expiresIn?: number
         readonly operation?: 'download' | 'upload'
+        // The type an upload URL accepts; ignored for a download.
+        readonly contentType?: string
       }>)
   | (ActionBase & {
       readonly type: 'file'
@@ -594,8 +614,10 @@ export type Action =
     } & Props<{
         readonly data: string
         readonly filename: string
+        // `field` is an alias of `key`.
         readonly columns?: readonly {
-          readonly key: string
+          readonly key?: string
+          readonly field?: string
           readonly header?: string
         }[]
         readonly delimiter?: ',' | ';' | '\t' | '|'
@@ -603,13 +625,22 @@ export type Action =
         readonly destination?: string
       }>)
   // Phase 2 — Advanced
+  // The input props below are aliases, so each is optional HERE; the schema's
+  // own filter refuses an action that sets none of them. TypeScript cannot say
+  // "at least one of" without splitting every arm into a union.
   | (ActionBase & {
       readonly type: 'file'
       readonly operator: 'parseCsv'
     } & Props<{
-        readonly source: string
+        // At least one of `source`, `key` (alias) or inline `content`.
+        readonly source?: string
+        readonly key?: string
+        readonly content?: string
+        // `name` is an alias of `key`; `index` picks a column by position.
         readonly columns?: readonly {
-          readonly key: string
+          readonly key?: string
+          readonly name?: string
+          readonly index?: number
           readonly header?: string
         }[]
         readonly skipRows?: number
@@ -619,17 +650,24 @@ export type Action =
       readonly type: 'file'
       readonly operator: 'extractText'
     } & Props<{
-        readonly source: string
+        // At least one of `key` or `source` (alias).
+        readonly key?: string
+        readonly source?: string
         readonly format?: 'plain' | 'markdown'
       }>)
   | (ActionBase & {
       readonly type: 'file'
       readonly operator: 'transformImage'
     } & Props<{
-        readonly source: string
+        // At least one of `key` or `source` (alias).
+        readonly key?: string
+        readonly source?: string
+        readonly operation?: 'resize' | 'convert'
         readonly width?: number
         readonly height?: number
         readonly fit?: 'fill' | 'inside'
+        // `format` is an alias of `outputFormat`.
+        readonly outputFormat?: 'jpeg' | 'png' | 'webp'
         readonly format?: 'jpeg' | 'png' | 'webp'
         readonly quality?: number
         readonly destination?: string
@@ -638,8 +676,10 @@ export type Action =
       readonly type: 'file'
       readonly operator: 'compress'
     } & Props<{
-        readonly files: string
-        readonly filename: string
+        // At least one of `keys` or `files` (a template resolving to the list).
+        readonly keys?: readonly string[]
+        readonly files?: string
+        readonly filename?: string
         readonly destination?: string
       }>)
   // Phase 3 — Spreadsheets (closed OOXML subset)

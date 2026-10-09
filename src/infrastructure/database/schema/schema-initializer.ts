@@ -53,7 +53,8 @@ import {
 } from '../table-operations'
 import * as viewGenerators from '../views/view-generators'
 import { applySchemaDefaults } from './apply-schema-defaults'
-import { dropCommandSearchFtsObjects, reconcileCommandSearchIndexes } from './command-search-fts'
+import { reconcileCommandSearchIndexes } from './command-search-fts'
+import { dropCommandSearchFtsObjects } from './command-search-fts-clear'
 import { ensureCommentReadStateTable } from './comment-read-state-table'
 import { recomputeFormulasForOlderEngine } from './formula-engine-recompute'
 import {

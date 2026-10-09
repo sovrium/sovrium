@@ -3,6 +3,39 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.34.2",
+      "date": "2026-10-09",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.34.1...v0.34.2",
+      "sections": [
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "instance",
+              "text": "create the restore workspace on hosts that refuse a setgid mode"
+            },
+            {
+              "scope": "database",
+              "text": "keep a restored install booting when its search index needs migrating"
+            },
+            {
+              "scope": "instance",
+              "text": "let the restore unit write to its workspace"
+            },
+            {
+              "scope": "instance",
+              "text": "quote env file values so systemd passes them unchanged"
+            },
+            {
+              "scope": "automations",
+              "text": "align the TypeScript action types with what the engine accepts"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.34.1",
       "date": "2026-10-09",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.34.0...v0.34.1",

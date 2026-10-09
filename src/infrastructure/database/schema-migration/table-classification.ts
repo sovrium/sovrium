@@ -110,6 +110,44 @@ export const classifyPhysicalTables = (
 export const isCommandSearchIndexTable = (tableName: string): boolean =>
   tableName.startsWith(SQLITE_FTS_PREFIX)
 
+/** The shadow tables SQLite keeps beside every FTS5 virtual table, by suffix. */
+const FTS5_SHADOW_SUFFIXES = ['data', 'idx', 'content', 'docsize', 'config'] as const
+
+/**
+ * Whether `tableName` is an FTS5 shadow table — `<virtual>_<suffix>` — of one of
+ * `virtualTables`. SQLite refuses to drop such a table on its own; dropping its
+ * virtual table removes it.
+ */
+export const isFts5ShadowTable = (tableName: string, virtualTables: ReadonlySet<string>): boolean =>
+  FTS5_SHADOW_SUFFIXES.some(
+    (suffix) =>
+      tableName.endsWith(`_${suffix}`) &&
+      virtualTables.has(tableName.slice(0, -(suffix.length + 1)))
+  )
+
+/**
+ * The tables of `tableNames` to DROP, in an order SQLite accepts: virtual tables
+ * first, then the rest, and never a shadow table of a virtual one — it goes with
+ * its virtual table, or stays with it when that one is kept. `virtualTables` is
+ * `[]` on PostgreSQL, where this returns `tableNames` unchanged.
+ *
+ * The catalog order is not that order: `VACUUM INTO`, which writes every backup,
+ * lists the shadow tables BEFORE their virtual table, so a database restored from
+ * one (or vacuumed by its operator) dropped in catalog order stops at the first
+ * shadow. Order is otherwise preserved within each group.
+ */
+export const sqliteDropOrder = (
+  tableNames: readonly string[],
+  virtualTables: readonly string[]
+): readonly string[] => {
+  const virtual = new Set(virtualTables)
+  const droppable = tableNames.filter((name) => !isFts5ShadowTable(name, virtual))
+  return [
+    ...droppable.filter((name) => virtual.has(name)),
+    ...droppable.filter((name) => !virtual.has(name)),
+  ]
+}
+
 /** `1 row`, `3 rows` — the count as an operator reads it. */
 export const formatRowCount = (rows: number): string => `${rows} ${rows === 1 ? 'row' : 'rows'}`
 

@@ -1,27 +1,58 @@
-name: Manual demo fleet deploy (upgrade / rollback)
+name: Deploy demo fleet
 
-# Manually-triggered companion to release.yml's deploy-demos job. Runs
-# host/upgrade-fleet.sh on sovrium-fleet-01 for the given version. Use it to:
-#   - re-run a demo deploy whose automatic run failed,
-#   - roll the fleet BACK to a prior version (pass the older version),
-#   - stage a specific release onto the demos out of band.
+# Deploys the template demos to Sovrium Cloud THROUGH THE PRODUCT: every demo is
+# shipped with the released binary's own `sovrium deploy`, exactly as a customer
+# ships an app. Two ways in, one body:
 #
-# upgrade-fleet.sh is self-healing: sha256-verified binary install, per-app tag
-# checkout, staggered restart, per-app health check, binary auto-rollback on
-# failure. A non-zero exit turns this run red.
+#   - workflow_call     — release.yml's `deploy-demos` job, after the template
+#                         mirrors are verified, with the release tag;
+#   - workflow_dispatch — by hand: re-run a failed deploy, or roll the demos BACK
+#                         by naming an older version (>= 0.33.0, the first
+#                         release that ships `sovrium deploy` and signed archives).
 #
-# upgrade-fleet.sh is executed HOST-RESIDENT (/usr/local/bin/upgrade-fleet.sh,
-# the entry wrapper that works as root and as the sudo-limited `deploy` user —
-# see release.yml's deploy-demos job), never
-# read from this job's checkout — docs/ is excluded from the public GitHub
-# mirror, so it can never exist there. See docs/development/cloud-fleet/
-# operations.md for the "scp before the next release" contract.
+# What runs, in order (docs/development/cloud-fleet/operations.md, "Deploying
+# the demos from CI"):
+#
+#   1. the checkout is the TAG of the version deployed, so `templates/<slug>` is
+#      exactly what that release published;
+#   2. the linux-x64 archive of that version is downloaded from this repository's
+#      GitHub release and checked twice — sha256 AND the detached Ed25519 `.sig`
+#      against the keys the engine embeds (update-signing-keys.ts);
+#   3. the CLI signs in with SOVRIUM_CLOUD_API_KEY (`sovrium login --api-key`);
+#   4. the demo list is DERIVED: every key of templates/catalog.json whose
+#      `<slug>-demo` is a `demo` app on the cloud account. Never hard-coded;
+#   5. every demo is bundled with `sovrium bundle` first, so an invalid config
+#      stops the job before the fleet is touched;
+#   6. ONE SSH step upgrades the fleet's shared engine binary
+#      (`upgrade-fleet.sh --binary-only`). The node applies BUNDLES per app, never
+#      an engine version: `instance/apply` takes slug, bundle, signature,
+#      revision and env, and every app on the machine runs the one host binary.
+#      So the binary still moves by SSH, and nothing else does;
+#   7. `sovrium deploy --app <slug>-demo` per demo, one at a time (the staggered
+#      start the fleet needs), each followed to `live` or `failed`;
+#   8. a final probe of https://<slug>-demo.cloud.sovrium.com/api/health?probe=db.
+#
+# One failed demo fails the job; the others are still deployed and probed, and
+# the cloud's own report for the failed one is printed by the CLI.
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version to deploy to the demos (e.g. 0.15.2 — no leading v)'
+        description: 'Release version to deploy to the demos (e.g. 0.33.0, no leading v; at least 0.33.0)'
+        required: true
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release version or tag (v0.33.0 or 0.33.0)'
+        required: true
+        type: string
+    secrets:
+      SOVRIUM_CLOUD_API_KEY:
+        required: true
+      DEMO_FLEET_SSH_KEY:
+        required: true
+      DEMO_FLEET_KNOWN_HOSTS:
         required: true
 
 # Nothing at the top level; the one job states its own block.
@@ -29,44 +60,190 @@ permissions: {}
 
 jobs:
   deploy-demos:
-    name: Deploy demo fleet (manual)
+    name: Deploy demo fleet
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # A release run and a manual run never deploy at the same time: two
+    # interleaved binary upgrades would race on the rollback slot.
+    concurrency:
+      group: demo-fleet-deploy
+      cancel-in-progress: false
+    timeout-minutes: 90
+    env:
+      CLOUD_HOST: https://cloud.sovrium.com
+      DEMO_DOMAIN: cloud.sovrium.com
+      FLEET_HOST: 78.232.50.251
     steps:
-      - name: Checkout sovrium repo
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # TODO(founder): DEMO_FLEET_KNOWN_HOSTS must pin sovrium-fleet-01's host key
-      # (78.232.50.251), not the retired sovrium-demos-01's — refresh it with
-      # `ssh-keyscan -t ed25519 78.232.50.251` checked against the key read on the
-      # host's console, then `gh secret set DEMO_FLEET_KNOWN_HOSTS`. Until then this
-      # job fails closed at the SSH host-key check, which is the intended failure.
-      - name: Verify demo fleet SSH key and host key are configured
+      # The input reaches a REMOTE shell and a checkout ref, so it travels through
+      # `env:` (never an expression inside `run:`) and must be a release version.
+      - name: Read version
+        id: version
         env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          VERSION="${REQUESTED#v}"
+          if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::refusing to deploy: '${VERSION}' is not a release version"
+            exit 1
+          fi
+          # `sovrium deploy`, `sovrium login` and the archive signatures all
+          # first shipped in 0.33.0: an older version cannot take this path.
+          LOWEST=$(printf '%s\n%s\n' "0.33.0" "${VERSION%%-*}" | sort -V | head -1)
+          if [ "${LOWEST}" != "0.33.0" ]; then
+            echo "::error::refusing to deploy: ${VERSION} predates 0.33.0, the first release that ships 'sovrium deploy'"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      # Fail before doing anything when a secret is missing, as the release's
+      # signing step does: a half-deployed fleet is worse than none.
+      - name: Verify the deploy secrets are configured
+        env:
+          SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
           DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
           DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
         run: |
+          MISSING=0
+          if [ -z "${SOVRIUM_CLOUD_API_KEY}" ]; then
+            echo "::error::SOVRIUM_CLOUD_API_KEY secret is not set — the demos are deployed with 'sovrium deploy' as the cloud's admin account, and this job has no key to sign in with. It is minted on cloud.sovrium.com for the account that owns the demo apps (operations.md, 'Deploying the demos from CI')."
+            MISSING=1
+          fi
           if [ -z "${DEMO_FLEET_SSH_KEY}" ]; then
-            echo "::error::DEMO_FLEET_SSH_KEY secret is not set — cannot deploy the demo fleet."
-            exit 1
+            echo "::error::DEMO_FLEET_SSH_KEY secret is not set — the fleet's engine binary cannot be upgraded."
+            MISSING=1
           fi
-          # Fail CLOSED without a pinned host key (see release.yml deploy-demos).
+          # Fail CLOSED without a pinned host key: `ssh-keyscan` would trust
+          # whatever key answered, and the session runs a root command.
           if [ -z "${DEMO_FLEET_KNOWN_HOSTS}" ]; then
-            echo "::error::DEMO_FLEET_KNOWN_HOSTS secret is not set — the demo host key is not pinned, so this job refuses to connect. Add the host's known_hosts line(s) as that secret."
-            exit 1
+            echo "::error::DEMO_FLEET_KNOWN_HOSTS secret is not set — the fleet host key is not pinned, so this job refuses to connect."
+            MISSING=1
           fi
+          exit "${MISSING}"
 
-      # The dispatch input reaches a REMOTE shell, so it travels through `env:`
-      # (never an expression inside `run:`) and must be a release version.
-      - name: Validate the requested version
+      - name: Checkout the release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: v${{ steps.version.outputs.version }}
+
+      # Bun runs the signature check (scripts/build/sign-asset.ts) and reads the
+      # embedded release keys from the source of the SAME tag.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Download and verify the released binary
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
-            echo "::error::'${VERSION}' is not a release version (expected e.g. 0.15.2, no leading v)"
+          set -euo pipefail
+          DIR="${RUNNER_TEMP}/sovrium-release"
+          mkdir -p "${DIR}/bin"
+          ASSET="sovrium-${VERSION}-linux-x64.tar.gz"
+          BASE="https://github.com/${REPOSITORY}/releases/download/v${VERSION}"
+          for FILE in "${ASSET}" "sovrium-${VERSION}-linux-x64.sha256" "${ASSET}.sig"; do
+            curl -fsSL --retry 3 -o "${DIR}/${FILE}" "${BASE}/${FILE}"
+          done
+          # The .sha256 names the archive: check it from its directory.
+          ( cd "${DIR}" && sha256sum -c "sovrium-${VERSION}-linux-x64.sha256" )
+          # The signature proves WHO built it. Judged against the keys this tag's
+          # engine embeds and has started trusting; any one of them is enough.
+          KEYS=$(bun -e "import { resolveReleaseSigningKeys } from '@/cli/commands/update-signing-keys'; for (const k of resolveReleaseSigningKeys({ loopbackDownload: false, now: Date.now(), env: {} })) console.log(k.publicKey)")
+          if [ -z "${KEYS}" ]; then
+            echo "::error::no release signing key is in force for ${VERSION} — refusing an unauthenticated binary"
             exit 1
           fi
+          VERIFIED=0
+          while IFS= read -r KEY; do
+            if bun run scripts/build/sign-asset.ts --verify "${DIR}/${ASSET}" "${DIR}/${ASSET}.sig" "${KEY}"; then
+              VERIFIED=1
+              break
+            fi
+          done <<< "${KEYS}"
+          if [ "${VERIFIED}" -ne 1 ]; then
+            echo "::error::${ASSET}.sig does not verify against any embedded release key — refusing to deploy with it"
+            exit 1
+          fi
+          tar -xzf "${DIR}/${ASSET}" -C "${DIR}/bin"
+          chmod 755 "${DIR}/bin/sovrium"
+          INSTALLED=$("${DIR}/bin/sovrium" --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?' | head -1)
+          if [ "${INSTALLED}" != "${VERSION}" ]; then
+            echo "::error::the archive for ${VERSION} holds sovrium ${INSTALLED}"
+            exit 1
+          fi
+          echo "${DIR}/bin" >> "$GITHUB_PATH"
+
+      # `--api-key` is the CLI's CI mode: the key is checked with the cloud once
+      # and stored 0600 in ~/.sovrium/credentials.json. A key the cloud refuses
+      # ends the job here, before anything is built or sent.
+      - name: Sign in to Sovrium Cloud
+        env:
+          SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
+        run: sovrium login --host "${CLOUD_HOST}" --api-key "${SOVRIUM_CLOUD_API_KEY}"
+
+      # The catalog says which templates exist; the cloud account says which of
+      # them are hosted as demos. A template with no `<slug>-demo` app is named
+      # and skipped (registering one is an operator step); a demo app with no
+      # template is named and fails the job — nothing here could redeploy it.
+      - name: Derive the demo list
+        id: demos
+        env:
+          SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
+        run: |
+          set -euo pipefail
+          HEADER="${RUNNER_TEMP}/cloud-key.header"
+          ( umask 077; printf 'x-api-key: %s\n' "${SOVRIUM_CLOUD_API_KEY}" > "${HEADER}" )
+          APPS="${RUNNER_TEMP}/cloud-apps.json"
+          curl -fsS -m 30 -H @"${HEADER}" -o "${APPS}" "${CLOUD_HOST}/api/tables/apps/records?limit=100"
+          rm -f "${HEADER}"
+          TOTAL=$(jq -r '.pagination.total // (.records | length)' "${APPS}")
+          if [ "${TOTAL}" -gt 100 ]; then
+            echo "::error::the account holds ${TOTAL} apps and this job reads one page of 100 — paginate the demo lookup"
+            exit 1
+          fi
+          jq -r '.records[] | select(.fields.demo == true) | .fields.slug' "${APPS}" | sort > "${RUNNER_TEMP}/cloud-demos.txt"
+          jq -r 'keys[]' templates/catalog.json | sort > "${RUNNER_TEMP}/templates.txt"
+          DEMOS=""
+          while IFS= read -r SLUG; do
+            if grep -qxF "${SLUG}-demo" "${RUNNER_TEMP}/cloud-demos.txt"; then
+              DEMOS="${DEMOS} ${SLUG}"
+            else
+              echo "::notice::${SLUG}: no '${SLUG}-demo' demo app on ${CLOUD_HOST} — not deployed"
+            fi
+          done < "${RUNNER_TEMP}/templates.txt"
+          ORPHANS=0
+          while IFS= read -r APP; do
+            if ! grep -qxF "${APP%-demo}" "${RUNNER_TEMP}/templates.txt"; then
+              echo "::error::${APP} is a demo app on ${CLOUD_HOST} with no templates/${APP%-demo} in this release"
+              ORPHANS=1
+            fi
+          done < "${RUNNER_TEMP}/cloud-demos.txt"
+          if [ "${ORPHANS}" -ne 0 ]; then exit 1; fi
+          DEMOS="${DEMOS# }"
+          if [ -z "${DEMOS}" ]; then
+            echo "::error::no template in templates/catalog.json is hosted as a demo on ${CLOUD_HOST}"
+            exit 1
+          fi
+          echo "Deploying $(wc -w <<< "${DEMOS}" | tr -d ' ') demos: ${DEMOS}"
+          echo "list=${DEMOS}" >> "$GITHUB_OUTPUT"
+
+      # `sovrium deploy` bundles again on its own; this pass exists so that one
+      # invalid template stops the job BEFORE the fleet's binary moves.
+      - name: Bundle every demo (validation pass)
+        env:
+          DEMOS: ${{ steps.demos.outputs.list }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/bundles"
+          mkdir -p "${OUT}"
+          for SLUG in ${DEMOS}; do
+            ( cd "templates/${SLUG}" && sovrium bundle --output "${OUT}/${SLUG}.tar.gz" )
+          done
 
       - name: Configure SSH
         env:
@@ -80,25 +257,86 @@ jobs:
           printf '%s\n' "${DEMO_FLEET_KNOWN_HOSTS}" > ~/.ssh/demo_fleet_known_hosts
           chmod 600 ~/.ssh/demo_fleet_known_hosts
 
-      - name: Upgrade fleet
+      # The ONE thing still done over SSH: the fleet's shared engine binary. The
+      # host-resident /usr/local/bin/upgrade-fleet.sh (never this checkout: docs/
+      # is not in the public mirror) installs the sha256-verified binary, restarts
+      # the apps it supervises, health-checks and rolls the binary back on any red.
+      # With --binary-only it no longer checks out, restores or re-seeds a demo:
+      # `sovrium deploy` does that below.
+      #
+      # `--capabilities` is asked first, and needs no VERSION: a host still on
+      # the pre-binary-only script answers "VERSION must be set" and changes
+      # nothing, so this job stops instead of running the old full upgrade.
+      - name: Upgrade the fleet's engine binary
         env:
-          VERSION: ${{ inputs.version }}
-          # A repository variable, so moving off root is a settings change:
-          # DEMO_FLEET_SSH_USER=deploy (see release.yml).
+          VERSION: ${{ steps.version.outputs.version }}
+          # A repository variable, so the login user is a settings change.
           DEMO_USER: ${{ vars.DEMO_FLEET_SSH_USER || 'root' }}
         run: |
-          # Runs the HOST-RESIDENT copy of upgrade-fleet.sh — see the header
-          # comment above for why this can't stream from the checkout.
-          ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts" \
-            "${DEMO_USER}@78.232.50.251" "
-            set -e
-            test -x /usr/local/bin/upgrade-fleet.sh || {
-              echo 'upgrade-fleet.sh missing (or not executable) on the host at /usr/local/bin/upgrade-fleet.sh —'
-              echo 'install docs/development/cloud-fleet/host/upgrade-fleet-entry.sh there on sovrium-fleet-01 first.'
-              echo 'See: docs/development/cloud-fleet/operations.md'
-              exit 1
-            }
-            VERSION='${VERSION}' /usr/local/bin/upgrade-fleet.sh
-          "
+          set -euo pipefail
+          SSH=(ssh -i "${HOME}/.ssh/demo_fleet" -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts"
+            "${DEMO_USER}@${FLEET_HOST}")
+          CAPABILITIES=$("${SSH[@]}" "/usr/local/bin/upgrade-fleet.sh --capabilities" 2>&1 || true)
+          if ! grep -qx 'binary-only' <<< "${CAPABILITIES}"; then
+            while IFS= read -r LINE; do echo "  host: ${LINE}"; done <<< "${CAPABILITIES}"
+            echo "::error::upgrade-fleet.sh on ${FLEET_HOST} has no --binary-only mode yet. Install the host change described in docs/development/cloud-fleet/operations.md ('Deploying the demos from CI') before this job can run."
+            exit 1
+          fi
+          # VERSION was validated above; it is the only value reaching the host.
+          "${SSH[@]}" "VERSION='${VERSION}' /usr/local/bin/upgrade-fleet.sh --binary-only"
+
+      - name: Deploy every demo with sovrium deploy
+        env:
+          DEMOS: ${{ steps.demos.outputs.list }}
+        run: |
+          FAILED=""
+          for SLUG in ${DEMOS}; do
+            echo "::group::${SLUG}-demo"
+            # Waits for `live` or `failed` (2 s polls, 10 min cap). Unchanged
+            # content is answered with the existing deployment (Idempotency-Key),
+            # but the bundle names the engine that built it, so a new release is
+            # always a new deployment — and a restart onto the new binary.
+            if ( cd "templates/${SLUG}" && sovrium deploy --app "${SLUG}-demo" --host "${CLOUD_HOST}" ); then
+              echo "::endgroup::"
+            else
+              echo "::endgroup::"
+              echo "::error::${SLUG}-demo was not deployed — the cloud's report is in the group above"
+              FAILED="${FAILED} ${SLUG}"
+            fi
+          done
+          if [ -n "${FAILED}" ]; then
+            echo "Failed:${FAILED}"
+            exit 1
+          fi
+
+      # Independent of the CLI's own `live`: the public hostname, through Caddy,
+      # with the database probed. Runs even after a failed deploy so the run
+      # shows which demos are serving.
+      - name: Health-check every demo
+        if: ${{ !cancelled() && steps.demos.outputs.list != '' }}
+        env:
+          DEMOS: ${{ steps.demos.outputs.list }}
+        run: |
+          DOWN=""
+          for SLUG in ${DEMOS}; do
+            URL="https://${SLUG}-demo.${DEMO_DOMAIN}/api/health?probe=db"
+            # Retries cover a cold wake (about 7 s for a sleeping app).
+            if curl -fsS -m 20 --retry 5 --retry-all-errors --retry-delay 5 -o /dev/null "${URL}"; then
+              echo "OK: ${URL}"
+            else
+              echo "::error::${URL} does not answer 200"
+              DOWN="${DOWN} ${SLUG}"
+            fi
+          done
+          if [ -n "${DOWN}" ]; then
+            echo "Unhealthy:${DOWN}"
+            exit 1
+          fi
+
+      # Forget the key on this runner. Never `sovrium login --logout`: that
+      # REVOKES the key on the cloud, for every future run too.
+      - name: Forget the stored sign-in
+        if: ${{ always() }}
+        run: rm -f "${HOME}/.sovrium/credentials.json" "${RUNNER_TEMP}/cloud-key.header"

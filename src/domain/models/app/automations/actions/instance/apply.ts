@@ -83,7 +83,7 @@ const EnvValuesSchema = Schema.Union([
   wholeTemplate('One whole {{template}} resolving to an object of variables'),
 ]).annotate({
   description:
-    'Environment the app runs with, written to its env file (mode 0640). Names are UPPER_SNAKE_CASE; a value holding a line break is refused. PORT is the loopback port the instance listens on, which health probes',
+    'Environment the app runs with, written to its env file (mode 0640), each value double-quoted and escaped so it reaches the app unchanged. Names are UPPER_SNAKE_CASE; a value holding a line break is refused. PORT is the loopback port the instance listens on, which health probes',
 })
 
 /**

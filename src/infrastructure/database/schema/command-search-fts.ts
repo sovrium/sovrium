@@ -42,7 +42,6 @@ import {
   searchableTextColumns,
   tableHasIdColumn,
 } from '@/domain/models/app/tables/searchable-text-columns'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-client-options'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generators'
@@ -57,8 +56,6 @@ import {
   sqliteFtsStatements,
   sqliteFtsTriggerIsKeyed,
   sqliteFtsTableName,
-  PG_FTS_INDEX_PREFIX_LIKE,
-  SQLITE_FTS_PREFIX_LIKE,
   SQLITE_FTS_RECORD_ID_COLUMN,
 } from './command-search-fts-ddl'
 import type { TransactionLike } from '../sql/sql-execution'
@@ -101,80 +98,6 @@ export const resolveTargets = (tables: readonly Table[]): readonly FtsTarget[] =
 const exec = (tx: TransactionLike, statement: string): Promise<unknown> => tx.unsafe(statement)
 
 // ─── SQLite ──────────────────────────────────────────────────────────────────
-
-/**
- * Tear down EVERY object in the command-search FTS namespace, on either engine,
- * ahead of the migration.
- *
- * Not an optimisation — a correctness requirement, and one that only shows up on
- * the second boot. SQLite evolves a table by rebuilding it (create the new
- * shape, copy, drop the old, rename), and it validates every trigger that
- * references a table it is about to rename or drop. A trigger left pointing at
- * the mid-flight table aborts the whole migration:
- *
- *     error in trigger fts__tasks_ai: no such table: main.tasks
- *
- * So the mirrors are dropped BEFORE any table DDL runs and rebuilt by
- * {@link reconcileCommandSearchIndexes} afterwards. Enumerating `sqlite_master`
- * rather than deriving names from the config is deliberate: a table that was
- * RENAMED or REMOVED in this very migration is no longer in the config, and its
- * orphaned trigger is exactly the one that would break the rename.
- *
- * PostgreSQL needs the same clearing for a DIFFERENT reason. Its indexes are
- * EXPRESSION indexes over `coalesce("col", '')`, and while dropping or
- * renaming a column is handled automatically, CHANGING ITS TYPE is not: the
- * expression is re-planned against the new type and a text column becoming
- * numeric aborts the migration with
- *
- *     COALESCE types integer and text cannot be matched
- *
- * which fails the boot outright. So on both engines the search structures are
- * dropped BEFORE any table DDL and rebuilt afterwards.
- *
- * Runs INSIDE the migration transaction, so a rollback restores the mirrors
- * along with everything else. Cost is a rebuild on every boot that actually
- * migrates; the checksum fast path never gets here.
- */
-export const dropCommandSearchFtsObjects = (tx: TransactionLike): Effect.Effect<void, never> =>
-  // effect-promise: total -- the thunk's entire body sits in a `try` whose `catch` logs and returns, so it has no rejection path. That shape is deliberate and explained inside: this runs inside the migration transaction, and nothing about clearing a search index is worth aborting a boot for.
-  Effect.promise(async () => {
-    try {
-      // Inside the `try`, not before it: this runs as `Effect.promise`, whose
-      // rejection is a DEFECT rather than a typed failure, so anything escaping
-      // this function aborts BOOT. Nothing about clearing a search index is
-      // worth that.
-      if (parseDatabaseDialectConfig().dialect !== 'sqlite') {
-        const pgIndexes = (await tx.unsafe(
-          `SELECT indexname FROM pg_indexes
-           WHERE schemaname = current_schema()
-             AND indexname LIKE '${PG_FTS_INDEX_PREFIX_LIKE}%' ESCAPE '\\'`
-        )) as readonly { readonly indexname?: unknown }[]
-        for (const row of pgIndexes) {
-          await exec(tx, `DROP INDEX IF EXISTS "${String(row.indexname).replace(/"/g, '""')}"`)
-        }
-        return
-      }
-      const rows = (await tx.unsafe(
-        `SELECT name, type FROM sqlite_master
-         WHERE type IN ('table', 'trigger') AND name LIKE '${SQLITE_FTS_PREFIX_LIKE}%' ESCAPE '\\'`
-      )) as readonly { readonly name?: unknown; readonly type?: unknown }[]
-
-      // Triggers first: dropping the FTS table out from under a live trigger is
-      // the same hazard this function exists to avoid, one level down.
-      const ordered = [
-        ...rows.filter((row) => row.type === 'trigger'),
-        ...rows.filter((row) => row.type === 'table'),
-      ]
-      for (const row of ordered) {
-        const keyword = row.type === 'trigger' ? 'TRIGGER' : 'TABLE'
-        await exec(tx, `DROP ${keyword} IF EXISTS "${String(row.name).replace(/"/g, '""')}"`)
-      }
-    } catch (error) {
-      logWarning(
-        `[command-search] could not clear the search-index mirrors before migration: ${String(error)}`
-      )
-    }
-  })
 
 /**
  * The column names of an existing FTS5 mirror, or `[]` when it does not exist.

@@ -1553,26 +1553,18 @@ jobs:
           fi
           echo "OK: all template mirrors at ${VERSION}"
 
-  # ── Auto-deploy the demo fleet to this release ──────────────
-  # Runs after mirrors verify. SSHes to sovrium-fleet-01 and runs
-  # upgrade-fleet.sh (sha256-verified binary install + per-app tag checkout +
-  # staggered restart + per-app health check + binary auto-rollback). Fails red
-  # if any demo does not come back (no continue-on-error). ubuntu-latest has open
-  # egress; the demo host's security group already allows inbound SSH.
+  # ── Deploy the template demos to Sovrium Cloud ──────────────
+  # Runs after the template mirrors verify, and ships every demo THROUGH THE
+  # PRODUCT: the released binary's own `sovrium bundle` + `sovrium deploy`
+  # against cloud.sovrium.com, signed in with SOVRIUM_CLOUD_API_KEY. The steps
+  # live in deploy-demos-manual.yml, which is also the manual re-run / rollback
+  # entry point, so the two can never drift apart.
   #
-  # upgrade-fleet.sh is executed HOST-RESIDENT (/usr/local/bin/upgrade-fleet.sh
-  # on sovrium-fleet-01), never read from this job's checkout. That path is an
-  # entry wrapper: as root it runs the real script
-  # (/usr/local/bin/upgrade-fleet-root.sh) directly; as the unprivileged
-  # `deploy` user (DEMO_FLEET_SSH_USER=deploy) it re-enters it through the one
-  # sudoers-allowed command, with VERSION kept by env_keep. Never /root/...:
-  # `deploy` cannot traverse /root. The checkout cannot hold it: docs/ is excluded
-  # from the public GitHub mirror (scripts/filtered-mirror.sh), so a checkout of
-  # this repo on GitHub can never contain it — piping it from `< docs/...` here
-  # 404s every single run. The host copy (+ /etc/sovrium/manifest.json) is provisioned
-  # and refreshed by the scaleway-infra-maintainer agent straight from the
-  # Forgejo repo; see docs/development/cloud-fleet/operations.md for the
-  # "any script/manifest change must be scp'd before the next release" runbook.
+  # The one step still done over SSH is the fleet's shared ENGINE BINARY
+  # (`upgrade-fleet.sh --binary-only`): the node applies bundles per app and
+  # never an engine version. Fails red if any demo does not come back (no
+  # continue-on-error). Contract, secrets and the host-side prerequisite:
+  # docs/development/cloud-fleet/operations.md, "Deploying the demos from CI".
   deploy-demos:
     name: Deploy demo fleet
     permissions:
@@ -1580,83 +1572,15 @@ jobs:
     needs: [verify-mirrors]
     # See verify-mirrors. The mirror check remains a hard gate on the deploy.
     if: ${{ !cancelled() && needs.verify-mirrors.result == 'success' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sovrium repo
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Read version
-        id: version
-        run: |
-          TAG="${{ github.ref_name }}"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
-
-      # TODO(founder): DEMO_FLEET_KNOWN_HOSTS must pin sovrium-fleet-01's host key
-      # (78.232.50.251), not the retired sovrium-demos-01's — refresh it with
-      # `ssh-keyscan -t ed25519 78.232.50.251` checked against the key read on the
-      # host's console, then `gh secret set DEMO_FLEET_KNOWN_HOSTS`. Until then this
-      # job fails closed at the SSH host-key check, which is the intended failure.
-      - name: Verify demo fleet SSH key and host key are configured
-        env:
-          DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
-          DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
-        run: |
-          if [ -z "${DEMO_FLEET_SSH_KEY}" ]; then
-            echo "::error::DEMO_FLEET_SSH_KEY secret is not set — cannot deploy the demo fleet."
-            exit 1
-          fi
-          # Fail CLOSED without a pinned host key. The previous `ssh-keyscan`
-          # trusted whatever key answered on every run, so anyone on the path
-          # could impersonate the host and receive a root session.
-          if [ -z "${DEMO_FLEET_KNOWN_HOSTS}" ]; then
-            echo "::error::DEMO_FLEET_KNOWN_HOSTS secret is not set — the demo host key is not pinned, so this job refuses to connect. Add the host's known_hosts line(s) as that secret."
-            exit 1
-          fi
-
-      - name: Configure SSH
-        env:
-          DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
-          DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "${DEMO_FLEET_SSH_KEY}" > ~/.ssh/demo_fleet
-          chmod 600 ~/.ssh/demo_fleet
-          printf '%s\n' "${DEMO_FLEET_KNOWN_HOSTS}" > ~/.ssh/demo_fleet_known_hosts
-          chmod 600 ~/.ssh/demo_fleet_known_hosts
-
-      - name: Upgrade fleet to this release
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          # The login user is a repository VARIABLE so moving off root is a
-          # settings change, not a workflow edit. The host has the
-          # unprivileged `deploy` user; set DEMO_FLEET_SSH_USER=deploy.
-          DEMO_USER: ${{ vars.DEMO_FLEET_SSH_USER || 'root' }}
-        run: |
-          # The version reaches a REMOTE shell, so it is validated here rather
-          # than trusted: a release version and nothing else.
-          if ! printf '%s' "${VERSION}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
-            echo "::error::refusing to deploy: '${VERSION}' is not a release version"
-            exit 1
-          fi
-          # Runs the HOST-RESIDENT copy of upgrade-fleet.sh (see the job
-          # comment above for why: docs/ is stripped from the public mirror,
-          # so this checkout never has the script). Its exit code is the job's
-          # gate (staggered restart + health check + auto-rollback happen
-          # host-side).
-          ssh -i ~/.ssh/demo_fleet -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts" \
-            "${DEMO_USER}@78.232.50.251" "
-            set -e
-            test -x /usr/local/bin/upgrade-fleet.sh || {
-              echo 'upgrade-fleet.sh missing (or not executable) on the host at /usr/local/bin/upgrade-fleet.sh —'
-              echo 'install docs/development/cloud-fleet/host/upgrade-fleet-entry.sh there on sovrium-fleet-01 first.'
-              echo 'See: docs/development/cloud-fleet/operations.md'
-              exit 1
-            }
-            VERSION='${VERSION}' /usr/local/bin/upgrade-fleet.sh
-          "
+    uses: ./.github/workflows/deploy-demos-manual.yml
+    with:
+      version: ${{ github.ref_name }}
+    # Named, never `inherit`: the release-signing key and the publish tokens
+    # have no business in a deploy job.
+    secrets:
+      SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
+      DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
+      DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
 
   # ── Build and push multi-arch Docker image ──────────────────
   build-docker:

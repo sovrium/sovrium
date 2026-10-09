@@ -5011,6 +5011,7 @@ export const EMBEDDED_DOCS_BEHAVIOUR = {
         "`sovrium restore` refuses while a server is running on the data directory, even with `--force`",
         "`sovrium restore` refuses a damaged or foreign archive before writing anything",
         "`sovrium backup` writes the archive readable and writable by its owner only (mode `0600`), not with what the umask leaves",
+        "A restored SQLite install starts on the next version of its config: the migration completes, the search index is rebuilt, and the palette finds restored and new records",
         "An operator backs up a running install, restores it elsewhere, and every refusal holds",
       ],
     },

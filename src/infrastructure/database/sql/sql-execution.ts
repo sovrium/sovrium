@@ -316,6 +316,29 @@ export const getExistingTableNames = (
       )
 
 /**
+ * The SQLite virtual tables (FTS5 indexes, in practice) — `[]` on PostgreSQL.
+ *
+ * A virtual table owns shadow tables that `sqlite_master` lists as ordinary
+ * tables, and SQLite refuses to drop one of those on its own ("may not be
+ * dropped"): only dropping the virtual table removes them. A caller that drops a
+ * list of tables needs this set to drop the virtual ones first and skip their
+ * shadows — the catalog order cannot be trusted for that, since `VACUUM INTO`
+ * (every restored backup) lists the shadows BEFORE their virtual table.
+ */
+export const getSqliteVirtualTableNames = (
+  tx: TransactionLike
+): Effect.Effect<readonly string[], SQLExecutionError> =>
+  isSqliteRuntime()
+    ? executeSQL(
+        tx,
+        `SELECT name AS tablename FROM sqlite_master
+         WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL TABLE%'`
+      ).pipe(
+        Effect.map((result) => (result as readonly TableNameResult[]).map((row) => row.tablename))
+      )
+    : Effect.succeed([])
+
+/**
  * Get all existing view names in the public schema
  *
  * SECURITY NOTE: This query is read-only and uses pg_views system catalog.

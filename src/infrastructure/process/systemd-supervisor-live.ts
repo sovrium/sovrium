@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { Effect, Layer } from 'effect'
 import {
   InstanceSupervisor,
@@ -30,7 +30,6 @@ import {
   discard,
   fail,
   fsStep,
-  GROUP_READABLE_MODE,
   instanceDir,
   isMissing,
   probeInstance,
@@ -39,6 +38,7 @@ import {
   removeRelease,
   rollbackRelease,
   writeRelease,
+  writeRestoreArchive,
 } from './instance-releases'
 
 /**
@@ -244,11 +244,7 @@ const restore = Effect.fn('instance.restore')(function* (
   const s = yield* checkedSlug(slug)
   const archivePath = join(dir, 'restore', 'restore.tar.gz')
   yield* Effect.gen(function* () {
-    yield* fsStep(`write ${archivePath}`, async () => {
-      await mkdir(dirname(archivePath), { recursive: true })
-      await writeFile(archivePath, archive, { mode: GROUP_READABLE_MODE })
-      await chmod(archivePath, GROUP_READABLE_MODE)
-    })
+    yield* writeRestoreArchive(archivePath, archive)
     yield* control(runner, s, 'stop')
     // A failed restore unit ends the step here: the app stays stopped, never half-restored.
     yield* systemctl(runner, ['start', unit.restore(s)], timeoutMs)

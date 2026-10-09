@@ -37,7 +37,7 @@ import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
  *
  *   rev-<revision>/   every bundle entry, manifest.json included, written whole
  *   current           relative symlink to the rev-<revision> in service
- *   env               KEY=value lines, mode 0640
+ *   env               KEY="value" lines (systemd EnvironmentFile syntax), mode 0640
  *   status.json       { revision, previousRevision?, appliedAt, port? }
  *
  * Every write goes to a temporary name in the same directory and is renamed
@@ -46,7 +46,16 @@ import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
  */
 
 /** Mode of the env file and of an archive handed to a unit: the app's group reads it. */
-export const GROUP_READABLE_MODE = 0o640
+const GROUP_READABLE_MODE = 0o640
+
+/**
+ * Mode of `restore/`: setgid, and writable by the app's group. The restore unit
+ * runs as the app's user, a member of that group, not as the directory's owner.
+ */
+const RESTORE_WORKSPACE_MODE = 0o2770
+
+/** `RESTORE_WORKSPACE_MODE` without its setgid bit: what a sandbox that refuses setgid allows. */
+const RESTORE_WORKSPACE_PERMISSIONS = 0o770
 
 export const fail = (
   message: string,
@@ -135,6 +144,37 @@ const writeAtomically = (path: string, content: string, mode: number) =>
     }
   })
 
+/**
+ * Set the restore workspace to `RESTORE_WORKSPACE_MODE`, whatever the umask and
+ * whatever mode an earlier version left it with. A mode that already matches is
+ * left alone: on Linux a directory created under a setgid parent inherits the
+ * bit, and a `chmod` naming it is exactly what `RestrictSUIDSGID=` refuses with
+ * EPERM. When that refusal comes, the mode falls back to 0770: group write is
+ * what the restore unit needs, and the setgid bit, which only steers the group
+ * of new files, is lost (Linux clears it on a chmod that does not name it).
+ */
+const setRestoreWorkspaceMode = async (workspace: string) => {
+  if (((await stat(workspace)).mode & 0o7777) === RESTORE_WORKSPACE_MODE) return
+  await chmod(workspace, RESTORE_WORKSPACE_MODE).catch((cause: unknown) => {
+    if ((cause as { readonly code?: string } | null)?.code !== 'EPERM') throw cause
+    return chmod(workspace, RESTORE_WORKSPACE_PERMISSIONS)
+  })
+}
+
+/**
+ * Hand `archive` to the restore unit at `archivePath`. The directory is created
+ * without a setgid bit in the requested mode (a sandbox refuses that mkdir), then
+ * set by `setRestoreWorkspaceMode`.
+ */
+export const writeRestoreArchive = (archivePath: string, archive: Uint8Array) =>
+  fsStep(`write ${archivePath}`, async () => {
+    const workspace = dirname(archivePath)
+    await mkdir(workspace, { recursive: true, mode: RESTORE_WORKSPACE_PERMISSIONS })
+    await setRestoreWorkspaceMode(workspace)
+    await writeFile(archivePath, archive, { mode: GROUP_READABLE_MODE })
+    await chmod(archivePath, GROUP_READABLE_MODE)
+  })
+
 /** Point `current` at `rev-<revision>`, atomically, with a relative link. */
 const pointCurrentAt = (dir: string, revision: string) =>
   fsStep(`point ${join(dir, 'current')} at rev-${revision}`, async () => {
@@ -170,9 +210,17 @@ const writeReleaseDirectory = (
     }
   })
 
-const envFileContent = (env: Readonly<Record<string, string>>): string =>
+/**
+ * The env file, one `NAME="value"` line per variable, in the syntax systemd's
+ * `EnvironmentFile=` reads. Unquoted, systemd trims the spaces around a value,
+ * drops its backslashes and strips one pair of wrapping quotes; inside double
+ * quotes it keeps every character and un-escapes only `"`, `\`, `` ` `` and `$`,
+ * so those four are escaped and the value arrives byte for byte. Line breaks
+ * never reach here: the action refuses a value that holds one.
+ */
+export const envFileContent = (env: Readonly<Record<string, string>>): string =>
   Object.entries(env)
-    .map(([key, value]) => `${key}=${value}\n`)
+    .map(([key, value]) => `${key}="${value.replace(/["\\`$]/g, '\\$&')}"\n`)
     .join('')
 
 const portOf = (env: Readonly<Record<string, string>>): number | undefined => {

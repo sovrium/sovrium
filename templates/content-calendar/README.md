@@ -87,7 +87,7 @@ The **Deploy on Scalingo** button above provisions the app with a PostgreSQL add
 uploads are stored in Postgres too). Secrets are generated automatically; you only fill in
 `BASE_URL`. Any other host works the same way: run the `sovrium` binary with this config
 (see the [deployment guides](https://sovrium.com/en/docs/installation)). Set
-`SOVRIUM_DIGEST_TO` to the address the Monday digest goes to.
+`DIGEST_TO` to the address the Monday digest goes to.
 
 > **The demo accounts are for trying the app, not for running it.** The seed gives every
 > account it creates, the admin included, the one password in `SOVRIUM_SEED_PASSWORD`, and

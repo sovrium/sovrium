@@ -1,7 +1,7 @@
 # Every Monday at 09:00, one email to the team with what goes out in the
 # coming seven days, day by day. Cron expressions are five numeric fields
 # (there is no @weekly alias); the time zone keeps 09:00 at 09:00 in Paris
-# through both clock changes. Set `SOVRIUM_DIGEST_TO` to your team's address.
+# through both clock changes. Set `DIGEST_TO` to your team's address.
 name: monday-digest
 label: Cron — the week's scheduled pieces
 description: Every Monday morning, email the team the pieces scheduled for the next seven days.
@@ -65,7 +65,7 @@ actions:
     type: email
     operator: send
     props:
-      to: $env.SOVRIUM_DIGEST_TO
+      to: $env.DIGEST_TO
       subject: 'Going out this week'
       body: |
         <p>What goes out in the next seven days:</p>

@@ -13,6 +13,7 @@ import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generator
 import {
   getExistingTableNames,
   getExistingViews,
+  getSqliteVirtualTableNames,
   executeSQL,
   executeSQLStatements,
   SQLExecutionError,
@@ -26,6 +27,7 @@ import {
   classifyPhysicalTables,
   formatPopulatedDropRefusal,
   isCommandSearchIndexTable,
+  sqliteDropOrder,
   storedTableIdentityFor,
 } from './table-classification'
 import type { Table } from '@/domain/models/app/tables'
@@ -44,13 +46,9 @@ import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table
  * non-`sqlite_%` table in one flat namespace. So the SQLite arm protects any
  * `auth_`- or `system_`-prefixed physical table.
  */
-const isProtectedTable = (tableName: string): boolean => {
-  if (PROTECTED_SYSTEM_TABLES.has(tableName)) return true
-  if (isSqliteRuntime()) {
-    return tableName.startsWith('auth_') || tableName.startsWith('system_')
-  }
-  return false
-}
+const isProtectedTable = (tableName: string): boolean =>
+  PROTECTED_SYSTEM_TABLES.has(tableName) ||
+  (isSqliteRuntime() && (tableName.startsWith('auth_') || tableName.startsWith('system_')))
 
 /**
  * `DROP TABLE` statement for the active dialect.
@@ -254,7 +252,8 @@ export interface ObsoleteTable {
  *
  * "Accounts for" is {@link classifyPhysicalTables}: config tables, the
  * `<name>_base` behind each view-backed one, and every many-to-many junction.
- * Managed Better Auth / system tables are never candidates.
+ * Managed Better Auth / system tables and FTS5 shadow tables are never candidates,
+ * and SQLite virtual tables come first ({@link sqliteDropOrder}).
  */
 export const findObsoleteTables = (
   tx: TransactionLike,
@@ -262,9 +261,10 @@ export const findObsoleteTables = (
 ): Effect.Effect<readonly ObsoleteTable[], SQLExecutionError> =>
   Effect.gen(function* () {
     const existingTableNames = yield* getExistingTableNames(tx)
+    const virtualTables = yield* getSqliteVirtualTableNames(tx)
     const { obsolete } = classifyPhysicalTables(existingTableNames, tables)
     return yield* Effect.forEach(
-      obsolete.filter((tableName) => !isProtectedTable(tableName)),
+      sqliteDropOrder(obsolete, virtualTables).filter((tableName) => !isProtectedTable(tableName)),
       (table): Effect.Effect<ObsoleteTable, SQLExecutionError> =>
         isCommandSearchIndexTable(table)
           ? Effect.succeed({ table, rows: 0, engineManaged: true })
@@ -318,7 +318,7 @@ export const dropObsoleteTables = (
       })
     }
 
-    // Drop all obsolete tables sequentially (dialect-aware — SQLite has no CASCADE).
+    // Drop all obsolete tables sequentially, in the order found (SQLite has no CASCADE).
     const dropStatements = obsolete.map((entry) => dropTableStatement(entry.table))
     yield* executeSQLStatements(tx, dropStatements)
   })
