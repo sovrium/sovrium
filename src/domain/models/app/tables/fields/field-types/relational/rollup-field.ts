@@ -13,6 +13,13 @@ import {
 } from '@/domain/models/app/tables/closed-vocabulary'
 import { ViewFiltersSchema } from '../../../views/filters'
 import { BaseFieldSchema } from '../base-field'
+import {
+  CurrencyCodeSchema,
+  CurrencyNegativeFormatSchema,
+  CurrencyPrecisionSchema,
+  CurrencySymbolPositionSchema,
+  CurrencyThousandsSeparatorSchema,
+} from '../currency-display'
 
 export const RollupFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
@@ -49,6 +56,28 @@ export const RollupFieldSchema = BaseFieldSchema.pipe(
         Schema.annotate({ description: 'Filters to apply before aggregation' })
       )
     ),
+    /**
+     * The currency a monetary rollup is rendered in.
+     *
+     * Unlike a formula, a rollup has exactly ONE source field, so when it
+     * sums, averages or picks the smallest or largest of a `currency` field
+     * the result is money in that field's currency, and it inherits the
+     * source's code and display settings. These five properties override what
+     * is inherited, and give a rollup over a plain number a currency of its
+     * own. A counting aggregation (COUNT, COUNTA, COUNTALL) is a number of
+     * records, never money, so it inherits nothing.
+     */
+    currency: Schema.optional(
+      CurrencyCodeSchema.annotate({
+        description:
+          'ISO 4217 code the aggregated amount is rendered in (e.g., USD, EUR, GBP). A SUM, AVG, MIN or MAX over a currency field inherits the code of that field when this is omitted; otherwise undeclared falls back to USD.',
+        examples: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'],
+      })
+    ),
+    precision: Schema.optional(CurrencyPrecisionSchema),
+    symbolPosition: Schema.optional(CurrencySymbolPositionSchema),
+    negativeFormat: Schema.optional(CurrencyNegativeFormatSchema),
+    thousandsSeparator: Schema.optional(CurrencyThousandsSeparatorSchema),
   }),
   // ANNOTATIONS FIRST, REFINEMENT SECOND — the order is load-bearing.
   // `JSONSchema.make` renders a struct refinement from its `from` side and DROPS

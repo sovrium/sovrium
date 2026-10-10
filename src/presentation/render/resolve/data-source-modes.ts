@@ -46,9 +46,10 @@ import {
   narrowRecordToComponent,
   withManyToManyLinks,
 } from './form-bound-record'
-import { readRecordForCaller, readRowsForCaller, type CallerRowsQuery } from './record-read-gate'
+import { readRowsForCaller, type CallerRowsQuery } from './record-read-gate'
 import { substituteRecordInComponent } from './record-substitution'
 import { addressRowAttachments } from './row-attachment-addresses'
+import { readBoundRecordForCaller } from './single-record-read'
 import {
   isReadWithheld,
   isWithheldOverUnreadableTable,
@@ -131,15 +132,14 @@ interface SingleModeOptions {
 /**
  * Resolve a `mode: single` binding for this visitor.
  *
- * The record reaches the page (its `$record.*` text, a form's prefilled
- * values, the island props), so it is read through the records gate
- * ({@link readRecordForCaller}): the route parameter's row, or — with no
- * `param` and no matching URL segment (`/profile/edit`) — the first row the
- * visitor may read. A row the table's row-level rule hides, or one in the
- * trash, answers exactly as a row that does not exist — the page's 404, so the
- * page cannot be used to learn which ids exist — and a readable row arrives
- * less the columns this visitor may not read. The table-read refusal is
- * answered before this runs (`denyWhenUnreadable`).
+ * The record reaches the page (its `$record.*` text, a form's values, the
+ * island props), so it is read through the records gate
+ * ({@link readBoundRecordForCaller}): among the rows the binding's `filter`
+ * matches, the route parameter's row, or — with no `param` and no matching URL
+ * segment (`/profile/edit`) — the first the visitor may read. A row outside the
+ * filter, hidden by the row-level rule or in the trash answers as a missing
+ * one — the page's 404, so ids cannot be probed — and a readable row arrives
+ * less the columns she may not read (`denyWhenUnreadable` refuses the table first).
  */
 async function resolveSingleMode(
   component: Component,
@@ -151,10 +151,11 @@ async function resolveSingleMode(
   if (!paramValue && param !== undefined) {
     return withDataSourceError(component, `Error: route parameter "${paramName}" not found`)
   }
-  const gatedRecord = await readRecordForCaller({
+  const gatedRecord = await readBoundRecordForCaller({
     ...options,
     at: paramValue ? { field: paramName, value: paramValue } : 'first-readable',
     fields: options.requestedFields,
+    binding: component.dataSource,
   })
   if (gatedRecord === undefined) return SINGLE_RECORD_NOT_FOUND
   const record = await withManyToManyLinks(gatedRecord, options)

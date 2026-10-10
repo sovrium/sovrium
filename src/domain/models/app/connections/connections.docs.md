@@ -50,7 +50,7 @@ The authorization-code flow, with PKCE, automatic token refresh, and a choice be
 
 ### Client credentials: no one authorizes anything
 
-`grantType: clientCredentials` is the machine-to-machine grant, for an API that authenticates the client itself rather than a user. The connection needs only `clientId`, `clientSecret` and `tokenUrl`; there is no consent step and no connect button to click.
+`grantType: clientCredentials` is the machine-to-machine grant, for an API that authenticates the client itself rather than a user. The connection needs only `clientId`, `clientSecret` and `tokenUrl`; there is no consent step and no connect button to click. All three accept `$env.VAR`, resolved before every token request, so the client's secret and a sandbox or production token address can stay in the environment.
 
 ```yaml
 # Requires env: [{ key: ANALYTICS_CLIENT_ID }, { key: ANALYTICS_CLIENT_SECRET }] at the top of the app

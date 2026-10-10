@@ -15,11 +15,17 @@
  * (one fetch, one of three outcomes).
  */
 
-import { readRecordForCaller } from '@/presentation/render/resolve/record-read-gate'
+import { utcCalendarDay } from '@/domain/models/app/pages/components/relative-date-filter'
+import { serverNow } from '@/domain/models/process-env/dev-clock'
+import { resolveCurrentUserFilters } from './current-user-filter-pass'
+import { scopeTablesOf } from './current-user-resolver'
+import { UNAUTHORIZED, type DataSourceDb } from './data-source-contracts'
+import { bindRouteParams } from './route-param-binding'
+import { readBoundRecordForCaller, type SingleBindingQuery } from './single-record-read'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
-import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
+import type { Component } from '@/domain/models/app/pages/components'
 
 /**
  * Outcome of resolving a page's host record.
@@ -49,6 +55,40 @@ export interface PageParentReader {
   readonly app: App
   readonly session: SessionInfo | undefined
   readonly db: DataSourceDb
+  /** The request's cookies — what `$currentUser.activeAssignment` reads. */
+  readonly cookies?: Readonly<Record<string, string>> | undefined
+}
+
+/** A page-level `dataSource`, as this resolver reads it. */
+interface PageSingleBinding extends SingleBindingQuery {
+  readonly table: string
+  readonly mode?: string
+  readonly param?: string
+}
+
+/**
+ * The binding's `filter` made concrete for this request, as a component's is
+ * before the data-source walk: each `$param.<name>` becomes the matched
+ * segment (`bindRouteParams`), each `$currentUser` reference and relative date
+ * its value (`resolveCurrentUserFilters`). Both read the binding alone, so the
+ * page's binding is handed to them as the one component they look at.
+ * `UNAUTHORIZED` for a `$currentUser` filter on a request with no session.
+ */
+async function concreteBindingOf(
+  binding: PageSingleBinding,
+  routeParams: Readonly<Record<string, string>>,
+  reader: PageParentReader
+): Promise<SingleBindingQuery | typeof UNAUTHORIZED> {
+  if (binding.filter === undefined || binding.filter.length === 0) return binding
+  const host = bindRouteParams({ type: 'container', dataSource: binding } as Component, routeParams)
+  const resolved = await resolveCurrentUserFilters(host, {
+    today: utcCalendarDay(serverNow()),
+    session: reader.session,
+    cookies: reader.cookies,
+    db: reader.db,
+    scopeTables: scopeTablesOf(reader.app),
+  })
+  return resolved === UNAUTHORIZED ? UNAUTHORIZED : (resolved.dataSource ?? binding)
 }
 
 /**
@@ -59,10 +99,11 @@ export interface PageParentReader {
  * `not-found` so the caller can 404 the page.
  *
  * Which row is bound follows the component-level single binding
- * (`resolveSingleMode`): the route parameter's row, or — with no `param` and
- * no segment named after the table (`/system/growth`) — the first row the
- * visitor may read, a row hidden from her being passed over rather than
- * answered as missing. A declared `param` the path does not carry is
+ * (`resolveSingleMode`): among the rows the binding's `filter` matches, the
+ * route parameter's row, or — with no `param` and no segment named after the
+ * table (`/system/growth`) — the first row the visitor may read, a row hidden
+ * from her being passed over rather than answered as missing. A declared
+ * `param` the path does not carry, and a row the filter leaves out, are
  * `not-found`.
  *
  * List-mode and search-mode page-level dataSources are intentionally
@@ -73,23 +114,23 @@ export async function resolvePageParentRecord(
   routeParams: Readonly<Record<string, string>>,
   reader: PageParentReader
 ): Promise<PageParentResolution> {
-  const { dataSource } = page as {
-    readonly dataSource?: {
-      readonly table: string
-      readonly mode?: string
-      readonly param?: string
-    }
-  }
+  const { dataSource } = page as { readonly dataSource?: PageSingleBinding }
   if (dataSource === undefined) return { kind: 'none' }
   if (dataSource.mode !== 'single') return { kind: 'none' }
   const paramName = dataSource.param ?? dataSource.table
   const paramValue = routeParams[paramName]
   if (paramValue === undefined && dataSource.param !== undefined) return { kind: 'not-found' }
-  // A trashed row answers as missing, as it does on the records API.
-  const record = await readRecordForCaller({
-    ...reader,
+  const binding = await concreteBindingOf(dataSource, routeParams, reader)
+  // A filter naming the signed-in person binds no record for a visitor.
+  if (binding === UNAUTHORIZED) return { kind: 'not-found' }
+  // A trashed row, or one outside the binding's filter, answers as missing.
+  const record = await readBoundRecordForCaller({
+    app: reader.app,
+    session: reader.session,
+    db: reader.db,
     tableName: dataSource.table,
     at: paramValue === undefined ? 'first-readable' : { field: paramName, value: paramValue },
+    binding,
   })
   if (record === undefined) return { kind: 'not-found' }
   return { kind: 'record', table: dataSource.table, record }

@@ -14,7 +14,6 @@ import {
   authFieldErrorId,
   authPendingLabel,
   authSubmitLabel,
-  defaultAuthFields,
   withAuthFieldHints,
   type AuthFormField,
 } from '@/presentation/design/auth-form-types'
@@ -34,57 +33,9 @@ import {
   type AuthFormAction,
   type AuthFormRenderContext,
 } from './auth-form-action'
-import { buildResolvedFieldDefs } from './crud-form/crud-form-field-resolver'
-import type { ResolvedFieldDef } from './crud-form/crud-form-types'
+import { boundTableOf, resolveAuthFormFields } from './auth-form-fields'
 import type { ElementProps } from './html-element-renderer'
 import type { Languages } from '@/domain/models/app/languages'
-import type { Component } from '@/domain/models/app/pages/components'
-import type { Tables } from '@/domain/models/app/tables'
-
-/**
- * Picks the native input type for an auth-form field.
- *
- * `email` columns become `<input type="email">`; any field whose name suggests
- * a password (`password`, `confirm_password`, …) becomes `<input
- * type="password">`; everything else falls back to a plain text input.
- */
-function resolveInputType(field: ResolvedFieldDef): AuthFormField['inputType'] {
-  if (field.type === 'email') return 'email'
-  if (/password/i.test(field.name)) return 'password'
-  return 'text'
-}
-
-/**
- * Resolves the list of fields an auth form should render (BEFORE action-level
- * `fields[]` overrides and localization are applied).
- *
- * When the form component is bound to a table via `dataSource.table`, those
- * fields (with their custom labels and placeholders) are resolved against the
- * table so the `required` flag and field type are accurate. Otherwise the
- * default email/password pair for the method is used.
- */
-export function resolveAuthFormFields(
-  method: string,
-  tables?: Tables,
-  component?: Component,
-  strategy?: string
-): readonly AuthFormField[] {
-  const dataSource = (component as { dataSource?: { table?: string } } | undefined)?.dataSource
-  const tableName = dataSource?.table
-  if (component && tableName) {
-    const resolved = buildResolvedFieldDefs(tables, tableName, component)
-    if (resolved.length > 0) {
-      return resolved.map((f) => ({
-        name: f.name,
-        label: f.displayLabel,
-        required: f.required ?? false,
-        placeholder: f.placeholder,
-        inputType: resolveInputType(f),
-      }))
-    }
-  }
-  return defaultAuthFields(method, strategy)
-}
 
 /**
  * Localize a label/placeholder string through the page language + app
@@ -152,6 +103,7 @@ function resolveAuthLabels(
  * Builds the serialized island props for the auth form island component.
  */
 function buildIslandPropsJson(config: {
+  readonly table: string | undefined
   readonly method: string
   readonly action: AuthFormAction
   readonly fields: readonly AuthFormField[]
@@ -163,6 +115,9 @@ function buildIslandPropsJson(config: {
   readonly uiStrings?: Readonly<Record<string, string>>
 }): string {
   return JSON.stringify({
+    // A bound form names its table, so the page's per-reader walk judges its
+    // fields against that table (`island-props-for-reader.ts`).
+    table: config.table,
     method: config.method,
     strategy: config.action.strategy,
     factor: config.action.factor,
@@ -369,6 +324,7 @@ export function renderAuthForm(
     ...(action._passkeyAutofill === true && { passkeyAutofill: true }),
   })
   const islandProps = buildIslandPropsJson({
+    table: boundTableOf(component),
     method,
     action,
     fields,

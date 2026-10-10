@@ -41,13 +41,13 @@ These are the columns a top-level form's submission fills. The table is shared w
 
 ## Lifecycle
 
-| State        | Meaning                                                    | Moves to                |
-| ------------ | ---------------------------------------------------------- | ----------------------- |
-| `received`   | Accepted and written to the ledger and the bound table     | `processing`, or `done` |
-| `processing` | The bound automation is running                            | `done`, or `failed`     |
-| `done`       | Terminal — every write and the bound automation completed  | —                       |
-| `spam`       | Terminal — classified as spam and preserved for moderation | —                       |
-| `failed`     | Terminal — a downstream step failed and was not retried    | —                       |
+| State        | Meaning                                                                                 | Moves to                |
+| ------------ | --------------------------------------------------------------------------------------- | ----------------------- |
+| `received`   | Accepted and written to the ledger and the bound table                                  | `processing`, or `done` |
+| `processing` | The bound automation is running                                                         | `done`, or `failed`     |
+| `done`       | Terminal — every write and the bound automation completed                               | —                       |
+| `spam`       | Terminal — classified as spam and preserved for moderation                              | —                       |
+| `failed`     | Terminal — the bound automation failed, used up its retries, timed out or was cancelled | —                       |
 
 A spam submission is **kept**, not discarded. A classifier that throws away what it rejects gives nobody a way to find out it was wrong.
 

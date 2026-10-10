@@ -337,8 +337,8 @@ async function filterComponents(
 async function resolveGatedParentRecord(
   input: ResolveAndFilterInput
 ): Promise<Readonly<Record<string, unknown>> | 'not-found' | undefined> {
-  const { rawPage, app, routeParams, session, db } = input
-  const resolution = await resolvePageParentRecord(rawPage, routeParams, { app, session, db })
+  const { rawPage, routeParams } = input
+  const resolution = await resolvePageParentRecord(rawPage, routeParams, input)
   if (resolution.kind === 'none') return undefined
   return resolution.kind === 'not-found' ? 'not-found' : resolution.record
 }

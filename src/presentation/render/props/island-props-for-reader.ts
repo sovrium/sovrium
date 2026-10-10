@@ -232,16 +232,34 @@ function walkValue(value: unknown, ctx: WalkContext): Walked {
 }
 
 /**
+ * True for a sign-in form's props that name no table: its inputs are the
+ * credentials of the method it signs in with (an address, a password, a code)
+ * and its other strings the method, the strategy and the provider — none of
+ * them read from a table, so none of them can name a field of one. Judged
+ * against the names hidden across tables, they lost the `email` input beside a
+ * table hiding its `email` column, and a social sign-in its `provider`. A form
+ * BOUND to a table names it (`table`), and is judged against it like any other
+ * island.
+ */
+function isTablelessAuthForm(island: string | undefined, bag: Bag | undefined): boolean {
+  return island === 'auth-form' && bag !== undefined && tableNamedBy(bag) === undefined
+}
+
+/**
  * `props` as the reader `model` describes may see them — see the module
  * header. The props object itself is never dropped, only emptied of what names
- * a hidden field; the same reference back when nothing does.
+ * a hidden field; the same reference back when nothing does. `island` is the
+ * island's name, when the host names it: a sign-in form naming no table is
+ * passed through whole ({@link isTablelessAuthForm}).
  */
 export function islandPropsForReader(
   props: unknown,
   model: ReaderFieldModel,
-  scrubHtml: (html: string) => string
+  scrubHtml: (html: string) => string,
+  island?: string
 ): unknown {
   const bag = bagOf(props)
+  if (isTablelessAuthForm(island, bag)) return props
   const ctx: WalkContext = { model, scope: model.everywhere, inData: false, scrubHtml }
   if (bag === undefined) {
     const walked = walkValue(props, ctx)

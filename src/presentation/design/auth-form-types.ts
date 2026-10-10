@@ -9,7 +9,7 @@
  * A field rendered inside an auth form.
  *
  * This is the serialized contract that crosses the SSR-renderer → island
- * boundary: the auth-form renderer (`resolveAuthFormFields`) produces an array
+ * boundary: the auth-form field resolver (`resolveAuthFormFields`) produces an array
  * of `AuthFormField`, serializes it into `data-island-props`, and the auth-form
  * island parses it back when it mounts. Both the renderer (`presentation/ui`)
  * and the island (`presentation/islands`) import this type so the produced and

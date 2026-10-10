@@ -10,6 +10,7 @@ import {
   type CurrencyDisplayOptions,
 } from '@/domain/kernel/format/currency-format'
 import { formatDurationValue } from '@/domain/kernel/format/duration-format'
+import { withInheritedCurrency } from '@/domain/models/app/tables/rollup-currency-service'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { App } from '@/domain/models/app'
 import type {
@@ -354,8 +355,11 @@ export function formatFieldForDisplay(options: FormatFieldOptions): FormatResult
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table) return undefined
 
-  const field = table.fields.find((f) => f.name === fieldName)
-  if (!field) return undefined
+  const declared = table.fields.find((f) => f.name === fieldName)
+  if (!declared) return undefined
+  // A SUM / AVG / MIN / MAX rollup over a `currency` field is money in that
+  // field's currency: it carries the source's display keys, its own winning.
+  const field = withInheritedCurrency(declared, table, app.tables ?? [])
 
   // Format based on field type.
   //

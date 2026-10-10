@@ -30,7 +30,8 @@ import type { Tables } from '@/domain/models/app/tables'
  * given no `format`, a `$record.<field>` token in page text, and the templates
  * an island fills in the browser, so none of them can print one value two ways.
  *
- * Only these types are formatted; every other prints as stored. A `number`,
+ * Only these types are formatted, plus a rollup that is money
+ * ({@link defaultFormatOf}); every other prints as stored. A `number`,
  * `integer` or `decimal` in particular stays as stored: a year, a reference or a
  * quantity printed with grouping (`2,026`) is wrong. The formatting itself is
  * the domain's (`record-text-service.ts`); this module resolves, per field, what
@@ -102,6 +103,8 @@ const zoneOf = (
 
 /** What a field's text resolution reads beyond the table: the zone, the clock, the labels. */
 interface FieldTextContext {
+  /** The app's tables: a rollup reads the currency of the field it aggregates. */
+  readonly tables: Tables | undefined
   readonly operatorZone: string
   readonly now: Readonly<Date>
   readonly locale: string
@@ -112,10 +115,11 @@ interface FieldTextContext {
 const formatOptionsOf = (
   table: TableDefinition | undefined,
   fieldName: string | undefined,
-  context: Pick<FieldTextContext, 'operatorZone' | 'now'>
+  context: Pick<FieldTextContext, 'operatorZone' | 'now' | 'tables'>
 ): CellFormatOptions => {
   const field = fieldOf(table, fieldName)
-  const currency = table === undefined ? undefined : resolveValueCurrency(table, fieldName)
+  const currency =
+    table === undefined ? undefined : resolveValueCurrency(table, fieldName, context.tables ?? [])
   return {
     timeZone: zoneOf(field, fieldTypeOf(field, fieldName), context.operatorZone),
     now: context.now,
@@ -158,6 +162,24 @@ const cellTextFieldOf = (
 }
 
 /**
+ * The format a field reads in by default: its type's, else `currency` for a
+ * rollup that is money — one summing, averaging or picking an extreme of a
+ * `currency` field, or declaring a code of its own — exactly when the grid and
+ * `?format=display` print it as money.
+ */
+const defaultFormatOf = (
+  table: TableDefinition | undefined,
+  field: TableField | undefined,
+  fieldName: string,
+  context: Pick<FieldTextContext, 'tables'>
+): RecordTextField['format'] | undefined => {
+  const byType = FORMAT_BY_FIELD_TYPE[fieldTypeOf(field, fieldName) ?? '']
+  if (byType !== undefined || field?.type !== 'rollup' || table === undefined) return byType
+  const money = resolveValueCurrency(table, fieldName, context.tables ?? [])
+  return money?.currency === undefined ? undefined : 'currency'
+}
+
+/**
  * How one field reads in a sentence when the author names no format, or
  * `undefined` when it prints as stored.
  */
@@ -167,7 +189,7 @@ const recordTextFieldOf = (
   context: FieldTextContext
 ): RecordTextField | undefined => {
   const field = fieldOf(table, fieldName)
-  const format = FORMAT_BY_FIELD_TYPE[fieldTypeOf(field, fieldName) ?? '']
+  const format = defaultFormatOf(table, field, fieldName, context)
   if (format === undefined) return undefined
   if (format === 'percent') return { format, precision: declared<number>(field, 'precision') }
   if (format === 'option' || format === 'options') {
@@ -180,7 +202,12 @@ const recordTextFieldOf = (
 }
 
 /** The server's context for one resolution: the operator zone and the render's clock. */
-const serverTextContext = (locale: string, languages: Languages | undefined): FieldTextContext => ({
+const serverTextContext = (
+  locale: string,
+  languages: Languages | undefined,
+  tables: Tables | undefined
+): FieldTextContext => ({
+  tables,
   operatorZone: parseSovriumTimezone().zoneId,
   now: serverNow(),
   locale,
@@ -200,9 +227,10 @@ export const formatRecordValue = (
     readonly format?: ColumnFormat | undefined
     readonly locale: string
     readonly languages?: Languages | undefined
+    readonly tables?: Tables | undefined
   }
 ): string | undefined => {
-  const context = serverTextContext(binding.locale, binding.languages)
+  const context = serverTextContext(binding.locale, binding.languages, binding.tables)
   if (binding.format !== undefined) {
     const options = formatOptionsOf(binding.table, binding.fieldName, context)
     return formatCellValue(value, binding.format, binding.locale, options)
@@ -265,7 +293,10 @@ const tablePlanOf = (
   const plans = TABLE_PLANS.get(context) ?? new Map<string, ReadonlyMap<string, FieldTextPlan>>()
   const cached = plans.get(table.name)
   if (cached !== undefined) return cached
-  const plan = buildTablePlan(table, serverTextContext(context.locale, context.languages))
+  const plan = buildTablePlan(
+    table,
+    serverTextContext(context.locale, context.languages, context.tables)
+  )
   // eslint-disable-next-line functional/immutable-data -- the memo writes ARE the per-render cache; a plan is a pure function of the table and the render's context
   TABLE_PLANS.set(context, plans.set(table.name, plan))
   return plan
@@ -316,7 +347,7 @@ export const recordTextFieldsOf = (
 ): RecordTextFields | undefined => {
   const table = tables?.find((candidate) => candidate.name === tableName)
   if (table === undefined) return undefined
-  const textContext = serverTextContext(context.locale, context.languages)
+  const textContext = serverTextContext(context.locale, context.languages, tables)
   const fields = table.fields.flatMap((field) => {
     const text = recordTextFieldOf(table, field.name, textContext)
     return text === undefined ? [] : [[field.name, text] as const]

@@ -153,6 +153,8 @@ export interface RunAccumulator {
   readonly returnData: Readonly<Record<string, unknown>> | undefined
   /** Set when a wait parked the run: when it resumes, and where (its resume cursor). */
   readonly park?: { readonly resumeAt: number; readonly frames: readonly ResumeFrame[] }
+  /** Set when a `flow/stop` with `status: error` ended the run (`runStatus` is then `'failure'`). */
+  readonly stopped?: boolean
 }
 
 /**
@@ -342,6 +344,8 @@ export interface RunAutomationResult {
    * declared no `return` action (the caller then sees `{ result: {} }`).
    */
   readonly returnData?: Readonly<Record<string, unknown>>
+  /** True when an error `flow/stop` ended the run: its answer stands, never escalated to 500. */
+  readonly stopped?: boolean
 }
 
 /** Inputs for `executeAutomationRun`, shared by every entry point (webhook, manual, record-event…). */
@@ -540,14 +544,12 @@ export const cryptoRandomId = (): string => {
 }
 
 /**
- * True when an earlier step has already propagated a failure that should
- * short-circuit the remaining actions in the run. `'failure'` and
- * `'exhausted'` halt the loop; `'completed-with-errors'` does NOT (its
- * defining property is that subsequent actions still run after a
- * `continueOnError` failure). `'timed-out'` is produced only by the
- * outer timeout wrapper, never reaches the per-step loop.
+ * True for a terminal failure: the run loop skips the remaining actions, and a
+ * synchronous `automation:call` fails. `'completed-with-errors'` is NOT one —
+ * later actions still run past a `continueOnError` failure. `'timed-out'`
+ * comes only from the outer timeout wrapper, never the per-step loop.
  */
 export const isTerminalFailureStatus = (status: RunAccumulator['runStatus']): boolean =>
-  status === 'failure' || status === 'exhausted' || status === 'cancelled'
+  status === 'failure' || status === 'exhausted' || status === 'cancelled' || status === 'timed-out'
 
 export { MAX_ERROR_LENGTH, truncateError } from './error-truncation'

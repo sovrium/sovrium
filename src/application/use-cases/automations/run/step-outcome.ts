@@ -116,12 +116,18 @@ const resolveFailureRunStatus = (outcome: ActionOutcome): 'failure' | 'exhausted
  *     state, in which case we preserve that).
  *  3. The step succeeded (or filtered) — the run status is unchanged, unless
  *     it is a loop or a path that tolerated a nested failure (case 2 again).
+ *
+ * An error `flow/stop` (`outcome.stopError`, at any depth) comes first: the
+ * run ends `'failure'`, over an earlier `'completed-with-errors'`, and the
+ * stop's own `continueOnError` does not tolerate it — it is not a failure the
+ * run went past, it is how the run ended.
  */
 const resolveRunStatusAfterStep = (
   rawAction: Readonly<Record<string, unknown>>,
   outcome: ActionOutcome,
   acc: RunAccumulator
 ): RunAccumulator['runStatus'] => {
+  if (outcome.stopError !== undefined) return 'failure'
   const propagateFailure = shouldPropagateFailure(rawAction, outcome)
   if (propagateFailure) return resolveFailureRunStatus(outcome)
   // A failure that didn't propagate (continueOnError === true) downgrades the
@@ -133,6 +139,21 @@ const resolveRunStatusAfterStep = (
   const tolerated = outcome.status === 'failure' || (outcome.toleratedFailures ?? 0) > 0
   if (tolerated && acc.runStatus === 'success') return 'completed-with-errors'
   return acc.runStatus
+}
+
+/** The run's error after a step: the failure it propagated, or the error stop that ended it. */
+const resolveRunErrorAfterStep = (
+  rawAction: Readonly<Record<string, unknown>>,
+  outcome: ActionOutcome,
+  acc: RunAccumulator,
+  ctx: StepContext
+): string | undefined => {
+  if (outcome.stopError !== undefined) {
+    return redactString(outcome.stopError, ctx.app, ctx.processEnv)
+  }
+  return shouldPropagateFailure(rawAction, outcome)
+    ? redactString(outcome.error ?? 'Action failed', ctx.app, ctx.processEnv)
+    : acc.runError
 }
 
 /**
@@ -153,20 +174,18 @@ const appendStepToAccumulator = (input: {
     outcome.output !== undefined && stepName !== ''
       ? (outcome.output as Record<string, unknown>)
       : undefined
-  const propagateFailure = shouldPropagateFailure(rawAction, outcome)
   const ret = pickReturnData(outcome, acc)
   const { actions, lastOutput } = foldStepOutput(acc, stepName, out)
   return {
     steps: [...acc.steps, buildStep(rawAction, resolvedProps, outcome, ctx)],
     runStatus: resolveRunStatusAfterStep(rawAction, outcome, acc),
-    runError: propagateFailure
-      ? redactString(outcome.error ?? 'Action failed', ctx.app, ctx.processEnv)
-      : acc.runError,
+    runError: resolveRunErrorAfterStep(rawAction, outcome, acc, ctx),
     actions,
     lastOutput,
     halted: acc.halted || ret.halt,
     responseOverride: pickResponseOverride(outcome, acc),
     returnData: ret.returnData,
+    ...(outcome.stopError === undefined ? {} : { stopped: true }),
   }
 }
 

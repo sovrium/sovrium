@@ -21,7 +21,7 @@ Invokes an automation that declares an automation-call trigger.
     maxDepth: 10
 ```
 
-`name` is required and names the target. `inputData` is what the callee reads at `{{trigger.input.*}}`. `mode` is `sync`, which waits for the callee and is the default, or `async`, which fires and continues. `maxDepth` accepts 1 to 100 and defaults to **10**.
+`name` is required and names the target. `inputData` is what the callee reads at `{{trigger.input.*}}`. `mode` is `sync`, which waits for the callee and is the default, or `async`, which fires and continues. `maxDepth` accepts 1 to 100 and defaults to **10**. A `sync` call fails when its callee fails, exhausts its retries, times out or is cancelled, and the calling run fails with it unless the call step is marked `continueOnError`.
 
 ### `waitForCompletion` and `props.timeout` are accepted but ignored
 

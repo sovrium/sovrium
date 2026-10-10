@@ -3,6 +3,63 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.34.3",
+      "date": "2026-10-10",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.34.2...v0.34.3",
+      "sections": [
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "tables",
+              "text": "apply a view filter condition that has no value"
+            },
+            {
+              "scope": "pages",
+              "text": "bind a single-record data source to the first record matching its filter"
+            },
+            {
+              "scope": "pages",
+              "text": "keep credential inputs on sign-in forms when a table hides a field of the same name"
+            },
+            {
+              "scope": "automations",
+              "text": "record a form submission failed when its run ends in any terminal failure"
+            },
+            {
+              "scope": "tables",
+              "text": "print a rollup over a currency field in that currency in page text"
+            },
+            {
+              "scope": "tables",
+              "text": "show a rollup over a currency field in that field's currency"
+            },
+            {
+              "scope": "tables",
+              "text": "apply and/or filter groups on rollup, count and lookup fields"
+            },
+            {
+              "scope": "connections",
+              "text": "resolve environment references in oauth2 client credentials before the token request"
+            },
+            {
+              "scope": "automations",
+              "text": "fail a synchronous call when the called automation exhausts its retries, times out or is cancelled"
+            },
+            {
+              "scope": "tables",
+              "text": "keep button fields out of the base-table triggers of view-backed tables"
+            },
+            {
+              "scope": "automations",
+              "text": "end the run failed when a stop carries an error status"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.34.2",
       "date": "2026-10-09",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.34.1...v0.34.2",

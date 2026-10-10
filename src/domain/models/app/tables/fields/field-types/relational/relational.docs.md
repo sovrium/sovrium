@@ -81,6 +81,8 @@ Aggregates one field across every related record — the sum of a line-item tota
   aggregation: sum
 ```
 
+`filters` takes a single condition or an `and` / `or` group, nested as deep as needed, exactly as a view's filter does.
+
 Like a lookup, a rollup is derived and read-only. Unlike a lookup it reads _many_ rows, so the aggregation is the whole of its meaning — and what an EMPTY set yields differs by aggregation:
 
 | Aggregation                   | Over no related rows |
@@ -90,6 +92,8 @@ Like a lookup, a rollup is derived and read-only. Unlike a lookup it reads _many
 | `sum`, `count`, anything else | `0`                  |
 
 A surface that displays several rollups side by side should expect that difference rather than treating a blank cell as a zero.
+
+A SUM, AVG, MIN or MAX rollup over a `currency` field is money in that field's currency: it takes the field's `currency`, `precision`, `symbolPosition`, `negativeFormat` and `thousandsSeparator`, so `format: currency` is enough, and so is nothing at all. Declare any of the five on the rollup to override that one setting (`precision: 0` keeps the source's currency). A COUNT, COUNTA, COUNTALL or ARRAYUNIQUE counts or lists records and is never shown as money.
 
 `sum` and `avg` accept `integer`, `decimal`, `number`, `currency`, `percentage`, `duration`, `rating` and `progress` fields, and a `formula` whose `resultType` is a number. An `autonumber` is refused: adding up a sequence means nothing. A `min` or `max` rollup over a date reads as that day (`2026-10-05`) on both engines.
 

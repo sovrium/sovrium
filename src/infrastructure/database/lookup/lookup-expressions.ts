@@ -8,8 +8,8 @@
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { stringAggExpression } from '../sql/dialect-ddl'
 import { generateJunctionTableName, junctionKeyColumns } from '../sql/sql-generators'
-import { buildWhereClause, relatedAliasOf, relationNameOf } from './lookup-view-helpers'
-import type { ViewFilterCondition } from '@/domain/models/app/tables/views/filters'
+import { compileRelationalFilter, relatedAliasOf, relationNameOf } from './lookup-view-helpers'
+import type { ViewFilterNode } from '@/domain/models/app/tables/views/filters'
 
 /**
  * Configuration for lookup expression generation
@@ -19,7 +19,7 @@ export type LookupExpressionConfig = {
   readonly relationshipField: string
   readonly relatedField: string
   readonly relatedTable: string
-  readonly filters: ViewFilterCondition | undefined
+  readonly filters: ViewFilterNode | undefined
   readonly tableAlias: string
   readonly actualTableName: string
 }
@@ -33,7 +33,7 @@ export type ManyToManyLookupConfig = {
   /** The relation read for the related rows — the related table's base table when it is this table. */
   readonly relatedRelation?: string
   readonly relatedField: string
-  readonly filters: ViewFilterCondition | undefined
+  readonly filters: ViewFilterNode | undefined
   readonly tableAlias: string
   readonly actualTableName: string
 }
@@ -48,7 +48,7 @@ export type ForwardLookupConfig = {
   /** The relation read for the related row — the related table's base table when it is this table. */
   readonly relatedRelation?: string
   readonly relatedField: string
-  readonly filters: ViewFilterCondition | undefined
+  readonly filters: ViewFilterNode | undefined
   readonly tableAlias: string
 }
 
@@ -63,6 +63,15 @@ export type ForwardLookupConfig = {
  */
 const notTrashed = (alias: string): string => `${alias}.deleted_at IS NULL`
 
+/** The lookup's own `filters` as a WHERE list entry, or nothing when it restricts nothing. */
+const filterConditionsOf = (
+  filters: ViewFilterNode | undefined,
+  alias: string
+): readonly string[] => {
+  const condition = filters ? compileRelationalFilter(filters, alias) : undefined
+  return condition === undefined ? [] : [condition]
+}
+
 /**
  * Generate reverse lookup expression (one-to-many)
  */
@@ -71,11 +80,7 @@ export const generateReverseLookupExpression = (config: LookupExpressionConfig):
 
   const alias = relatedAliasOf(relatedTable, lookupName)
   const baseCondition = `${alias}.${quoteSqlIdentifier(relationshipField)} = ${tableAlias}.id`
-  const whereConditions = [
-    baseCondition,
-    notTrashed(alias),
-    ...(filters ? [buildWhereClause(filters, alias)] : []),
-  ]
+  const whereConditions = [baseCondition, notTrashed(alias), ...filterConditionsOf(filters, alias)]
   const whereClause = whereConditions.join(' AND ')
 
   return `(
@@ -100,11 +105,7 @@ export const generateManyToManyLookupExpression = (config: ManyToManyLookupConfi
 
   const baseCondition = `${junctionAlias}.${quoteSqlIdentifier(foreignKeyInJunction)} = ${tableAlias}.id`
   const joinCondition = `${alias}.id = ${junctionAlias}.${quoteSqlIdentifier(relatedForeignKeyInJunction)}`
-  const whereConditions = [
-    baseCondition,
-    notTrashed(alias),
-    ...(filters ? [buildWhereClause(filters, alias)] : []),
-  ]
+  const whereConditions = [baseCondition, notTrashed(alias), ...filterConditionsOf(filters, alias)]
   const whereClause = whereConditions.join(' AND ')
 
   return `(
@@ -122,8 +123,8 @@ export const generateForwardLookupExpression = (config: ForwardLookupConfig): st
   const { lookupName, relationshipField, relatedTable, relatedField, filters, tableAlias } = config
   const alias = relatedAliasOf(relatedTable, lookupName)
 
-  if (filters) {
-    const whereClause = buildWhereClause(filters, alias)
+  const whereClause = filters ? compileRelationalFilter(filters, alias) : undefined
+  if (whereClause !== undefined) {
     return `(
       SELECT ${alias}.${quoteSqlIdentifier(relatedField)}
       FROM ${config.relatedRelation ?? relationNameOf(relatedTable)} AS ${alias}

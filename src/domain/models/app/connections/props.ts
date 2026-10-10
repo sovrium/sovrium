@@ -42,7 +42,9 @@ export const OAuth2PropsSchema = Schema.Struct({
   ),
   tokenUrl: Schema.optional(
     TemplateStringSchema.pipe(
-      Schema.annotate({ description: 'Token endpoint URL (required for custom providers)' })
+      Schema.annotate({
+        description: 'Token endpoint URL (required for custom providers, supports $env.VAR)',
+      })
     )
   ),
   scopes: Schema.optional(

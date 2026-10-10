@@ -64,9 +64,10 @@ interface ListShape {
  */
 function entryCurrency(
   entry: MetadataEntry,
-  table: NonNullable<App['tables']>[number]
+  table: NonNullable<App['tables']>[number],
+  tables: NonNullable<App['tables']>
 ): CurrencyDisplayOptions | undefined {
-  const fromField = resolveValueCurrency(table, entry.field)
+  const fromField = resolveValueCurrency(table, entry.field, tables)
   const named = entry.options?.currency
   if (fromField?.currency !== undefined || named === undefined) return fromField
   return { ...fromField, currency: named }
@@ -75,13 +76,14 @@ function entryCurrency(
 /** The currency of every `format: currency` metadata entry, from its field or its options. */
 function resolveCurrencies(
   list: ListShape,
-  table: NonNullable<App['tables']>[number]
+  table: NonNullable<App['tables']>[number],
+  tables: NonNullable<App['tables']>
 ): Readonly<Record<string, CurrencyDisplayOptions>> | undefined {
   const metadata = list.listDisplay?.itemTemplate?.metadata ?? []
   const entries = metadata
     .filter((entry) => entry.format === 'currency')
     .flatMap((entry) => {
-      const currency = entryCurrency(entry, table)
+      const currency = entryCurrency(entry, table, tables)
       return currency === undefined ? [] : [[entry.field, currency] as const]
     })
   return entries.length === 0 ? undefined : Object.fromEntries(entries)
@@ -112,7 +114,7 @@ export function resolveListIslandInputs(
   const click = list.onRowClick === undefined ? {} : { onRowClick: list.onRowClick }
   const table = app?.tables?.find((candidate) => candidate.name === list.dataSource?.table)
   if (app === undefined || table === undefined) return click
-  const currencies = resolveCurrencies(list, table)
+  const currencies = resolveCurrencies(list, table, app.tables ?? [])
   const weekdays = resolveWeekdayFields(table)
   return {
     ...click,

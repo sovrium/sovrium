@@ -230,6 +230,7 @@ const buildRunResult = (runId: string, finalState: RunAccumulator): RunAutomatio
     ? { responseOverride: finalState.responseOverride }
     : {}),
   ...(finalState.returnData !== undefined ? { returnData: finalState.returnData } : {}),
+  ...(finalState.stopped === true ? { stopped: true } : {}),
 })
 
 /**

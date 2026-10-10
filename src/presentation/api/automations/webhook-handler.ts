@@ -364,20 +364,15 @@ const dispatchSync = async (
     triggerData: input.triggerData,
     templates: await readTemplateEngine(c),
   })
-  // When the run failed and the operator did not configure a custom
-  // `trigger.response.status`, escalate the HTTP status to 500. A failing
-  // action (e.g. code action timeout, undeclared package access, sandbox
-  // violation, record-create with missing data) means the side effects
-  // the caller expected did not happen — returning 200 would mislead the
-  // caller into thinking the work was committed. The 500 surface lets
-  // monitoring / on-call see automation health via standard HTTP metrics.
-  //
-  // Operator override: when `trigger.response.status` is set explicitly,
-  // we honour that — they have shaped the response and accept the
-  // semantic of 200 even on partial failure.
+  // A failed run answers 500: the side effects the caller expected did not
+  // happen, and monitoring reads automation health off HTTP status. Not when
+  // the operator set `trigger.response.status` (they shaped the answer), nor
+  // when an error `flow/stop` ended the run — the automation chose that failure
+  // and its answer (the stop's, or an earlier `webhook/response`) stands.
   const cfg = input.trigger.response
   const operatorOverrodeStatus = cfg?.status !== undefined || cfg?.statusCode !== undefined
-  const finalStatus = result.success.status === 'failure' && !operatorOverrodeStatus ? 500 : status
+  const chosen = operatorOverrodeStatus || result.success.stopped === true
+  const finalStatus = result.success.status === 'failure' && !chosen ? 500 : status
   return webhookJson(c, respBody, finalStatus, headers)
 }
 

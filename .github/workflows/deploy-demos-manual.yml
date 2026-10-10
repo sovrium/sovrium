@@ -27,9 +27,13 @@ name: Deploy demo fleet
 #      (`upgrade-fleet.sh --binary-only`). The node applies BUNDLES per app, never
 #      an engine version: `instance/apply` takes slug, bundle, signature,
 #      revision and env, and every app on the machine runs the one host binary.
-#      So the binary still moves by SSH, and nothing else does;
+#      So the binary still moves by SSH, and nothing else does. The upgrade runs
+#      DETACHED on the host and is polled over short sessions, so a dropped SSH
+#      session can neither interrupt it nor turn it red;
 #   7. `sovrium deploy --app <slug>-demo` per demo, one at a time (the staggered
-#      start the fleet needs), each followed to `live` or `failed`;
+#      start the fleet needs), each followed to `live` or `failed`, and only when
+#      the host recorded exit 0 for the upgrade. A 5xx or an unreachable intake
+#      is retried once after 30 s;
 #   8. a final probe of https://<slug>-demo.cloud.sovrium.com/api/health?probe=db.
 #
 # One failed demo fails the job; the others are still deployed and probed, and
@@ -264,44 +268,172 @@ jobs:
       # With --binary-only it no longer checks out, restores or re-seeds a demo:
       # `sovrium deploy` does that below.
       #
+      # It runs DETACHED on the host and this step polls it. v0.34.2 (run
+      # 38001737382) held one SSH session for the whole upgrade; the session
+      # dropped mid-run, the hang-up cancelled an in-flight `systemctl restart`
+      # and left a demo stopped, and the step went red although the upgrade
+      # itself had worked, which skipped every demo deploy. Now:
+      #
+      #   - `--detach <run-id>` starts the upgrade in its own session on the host
+      #     and returns at once. It is idempotent per run id, so a launch whose
+      #     session drops is retried, never doubled;
+      #   - `--status <run-id>` is asked every POLL_SECONDS over a fresh, short
+      #     session. A dropped poll is a warning and the next poll goes on;
+      #   - the result is the exit code the HOST recorded, published as
+      #     `exit_code`. The SSH transport never decides it.
+      #
       # `--capabilities` is asked first, and needs no VERSION: a host still on
       # the pre-binary-only script answers "VERSION must be set" and changes
-      # nothing, so this job stops instead of running the old full upgrade.
+      # nothing, so this job stops instead of running the old full upgrade. A
+      # host whose wrapper predates `detach` gets the old attached call, with a
+      # warning.
       - name: Upgrade the fleet's engine binary
+        id: upgrade
         env:
           VERSION: ${{ steps.version.outputs.version }}
           # A repository variable, so the login user is a settings change.
           DEMO_USER: ${{ vars.DEMO_FLEET_SSH_USER || 'root' }}
+          RUN_ID: gh-${{ github.run_id }}-${{ github.run_attempt }}
+          POLL_SECONDS: '20'
+          POLL_TIMEOUT_SECONDS: '1500'
         run: |
-          set -euo pipefail
-          SSH=(ssh -i "${HOME}/.ssh/demo_fleet" -o IdentitiesOnly=yes
+          # Every exit status below is read and decided on: no errexit.
+          set +e
+          set -uo pipefail
+          SSH=(ssh -i "${HOME}/.ssh/demo_fleet" -o IdentitiesOnly=yes -o BatchMode=yes
             -o StrictHostKeyChecking=yes
             -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts"
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4
             "${DEMO_USER}@${FLEET_HOST}")
-          CAPABILITIES=$("${SSH[@]}" "/usr/local/bin/upgrade-fleet.sh --capabilities" 2>&1 || true)
+          ENTRY=/usr/local/bin/upgrade-fleet.sh
+          record() { echo "exit_code=$1" >> "$GITHUB_OUTPUT"; }
+          # Idempotent remote calls only. ssh exits 255 for its own failures, and
+          # only those are retried; any other code is the remote command's.
+          OUT=""
+          ssh_retry() {
+            local attempt rc=255
+            for attempt in 1 2 3 4 5; do
+              OUT=$(timeout 120 "${SSH[@]}" "$1" 2>&1); rc=$?
+              if [ "${rc}" -ne 255 ] && [ "${rc}" -ne 124 ]; then return "${rc}"; fi
+              echo "::warning::SSH to ${FLEET_HOST} failed (attempt ${attempt}, exit ${rc}) — retrying in 15 s"
+              sleep 15
+            done
+            return "${rc}"
+          }
+          # Inside the wrapper as far as the host is concerned; here, its last
+          # words and the fleet's state, whatever the outcome.
+          show_host_report() {
+            echo "::group::Host log and fleet summary (${RUN_ID})"
+            printf '%s\n' "$1" | sed 's/^/  host: /'
+            echo "::endgroup::"
+          }
+
+          ssh_retry "${ENTRY} --capabilities"
+          CAPABILITIES="${OUT}"
           if ! grep -qx 'binary-only' <<< "${CAPABILITIES}"; then
             while IFS= read -r LINE; do echo "  host: ${LINE}"; done <<< "${CAPABILITIES}"
             echo "::error::upgrade-fleet.sh on ${FLEET_HOST} has no --binary-only mode yet. Install the host change described in docs/development/cloud-fleet/operations.md ('Deploying the demos from CI') before this job can run."
+            record unsupported
             exit 1
           fi
-          # VERSION was validated above; it is the only value reaching the host.
-          "${SSH[@]}" "VERSION='${VERSION}' /usr/local/bin/upgrade-fleet.sh --binary-only"
 
+          # VERSION was validated above and RUN_ID is two numbers: they are the
+          # only values reaching the host.
+          if ! grep -qx 'detach' <<< "${CAPABILITIES}"; then
+            echo "::warning::upgrade-fleet.sh on ${FLEET_HOST} predates --detach, so this upgrade holds one SSH session for its whole run. Re-install host/upgrade-fleet-entry.sh (operations.md, 'Detached fleet upgrade')."
+            "${SSH[@]}" "VERSION='${VERSION}' ${ENTRY} --binary-only"
+            RC=$?
+            record "${RC}"
+            if [ "${RC}" -ne 0 ]; then
+              echo "::error::the attached fleet upgrade ended with exit ${RC} (255 is the SSH session itself, not the upgrade: read the host log)"
+            fi
+            exit "${RC}"
+          fi
+
+          if ! ssh_retry "VERSION='${VERSION}' ${ENTRY} --detach '${RUN_ID}' --binary-only"; then
+            printf '%s\n' "${OUT}" | sed 's/^/  host: /'
+            echo "::error::the fleet upgrade could not be started on ${FLEET_HOST}"
+            record unstarted
+            exit 1
+          fi
+          printf '%s\n' "${OUT}" | sed -n '1p'
+
+          DEADLINE=$(( $(date +%s) + POLL_TIMEOUT_SECONDS ))
+          STATE=""; RECORDED=""; LAST=""; DROPPED=0
+          while :; do
+            sleep "${POLL_SECONDS}"
+            if REPORT=$(timeout 90 "${SSH[@]}" "STATUS_TAIL_LINES=3 ${ENTRY} --status '${RUN_ID}'" 2>&1); then
+              STATE=$(sed -n 's/^state=//p' <<< "${REPORT}" | head -1)
+              RECORDED=$(sed -n 's/^exit=//p' <<< "${REPORT}" | head -1)
+              # The newest log line, when it changed: progress without the noise.
+              LINE=$(sed -n '/^--- log tail/,/^--- fleet summary/p' <<< "${REPORT}" | sed '1d;$d' | tail -1)
+              if [ -n "${LINE}" ] && [ "${LINE}" != "${LAST}" ]; then echo "  host: ${LINE}"; LAST="${LINE}"; fi
+              case "${STATE}" in done|lost|unknown) break ;; esac
+            else
+              DROPPED=$(( DROPPED + 1 ))
+              echo "::warning::status poll ${DROPPED} to ${FLEET_HOST} dropped — the upgrade keeps running on the host; polling again"
+            fi
+            if [ "$(date +%s)" -ge "${DEADLINE}" ]; then STATE=timeout; break; fi
+          done
+
+          ssh_retry "STATUS_TAIL_LINES=400 ${ENTRY} --status '${RUN_ID}'"
+          FINAL="${OUT}"
+          case "${STATE}" in
+            done)
+              record "${RECORDED}"
+              if [ "${RECORDED}" = "0" ]; then
+                echo "Fleet upgrade ${RUN_ID} finished on the host with exit 0"
+                sed -n '/^--- fleet summary/,/^--- failed sovrium units/p' <<< "${FINAL}" | sed '1d;$d' | sed 's/^/  host: /'
+                exit 0
+              fi
+              show_host_report "${FINAL}"
+              echo "::error::the fleet upgrade ended on the host with exit ${RECORDED}. The demos are NOT deployed; the health check below probes every one of them."
+              exit 1 ;;
+            timeout)
+              record timeout
+              show_host_report "${FINAL}"
+              echo "::error::no result from the fleet upgrade after ${POLL_TIMEOUT_SECONDS} s. It may still be running on ${FLEET_HOST} (~deploy/fleet-upgrades/${RUN_ID}); the demos are NOT deployed."
+              exit 1 ;;
+            *)
+              record "${STATE:-lost}"
+              show_host_report "${FINAL}"
+              echo "::error::the fleet upgrade on ${FLEET_HOST} ended without recording an exit code (state: ${STATE:-lost}) — the host rebooted or the run was killed. The demos are NOT deployed."
+              exit 1 ;;
+          esac
+
+      # Gated on the exit code the HOST recorded, not on the step's own status:
+      # the upgrade step only fails when the upgrade did.
       - name: Deploy every demo with sovrium deploy
+        if: ${{ !cancelled() && steps.upgrade.outputs.exit_code == '0' }}
         env:
           DEMOS: ${{ steps.demos.outputs.list }}
+          TRANSIENT_RETRY_SECONDS: '30'
         run: |
           FAILED=""
+          deploy_one() { # slug log
+            ( cd "templates/$1" && sovrium deploy --app "$1-demo" --host "${CLOUD_HOST}" ) 2>&1 | tee "$2"
+            return "${PIPESTATUS[0]}"
+          }
           for SLUG in ${DEMOS}; do
             echo "::group::${SLUG}-demo"
+            LOG="${RUNNER_TEMP}/deploy-${SLUG}.log"
             # Waits for `live` or `failed` (2 s polls, 10 min cap). Unchanged
             # content is answered with the existing deployment (Idempotency-Key),
             # but the bundle names the engine that built it, so a new release is
             # always a new deployment — and a restart onto the new binary.
-            if ( cd "templates/${SLUG}" && sovrium deploy --app "${SLUG}-demo" --host "${CLOUD_HOST}" ); then
-              echo "::endgroup::"
-            else
-              echo "::endgroup::"
+            RC=0
+            deploy_one "${SLUG}" "${LOG}" || RC=$?
+            # One retry when the intake itself stumbled (a 5xx, or unreachable):
+            # the same Idempotency-Key, so a deployment the cloud did record is
+            # answered again rather than duplicated. A refused config is final.
+            if [ "${RC}" -ne 0 ] && grep -Eq '\(HTTP 5[0-9]{2}\)|Could not reach ' "${LOG}"; then
+              echo "::warning::${SLUG}-demo: the cloud answered with a transient error — retrying once in ${TRANSIENT_RETRY_SECONDS} s"
+              sleep "${TRANSIENT_RETRY_SECONDS}"
+              RC=0
+              deploy_one "${SLUG}" "${LOG}" || RC=$?
+            fi
+            echo "::endgroup::"
+            if [ "${RC}" -ne 0 ]; then
               echo "::error::${SLUG}-demo was not deployed — the cloud's report is in the group above"
               FAILED="${FAILED} ${SLUG}"
             fi
@@ -312,8 +444,8 @@ jobs:
           fi
 
       # Independent of the CLI's own `live`: the public hostname, through Caddy,
-      # with the database probed. Runs even after a failed deploy so the run
-      # shows which demos are serving.
+      # with the database probed. Runs even after a failed upgrade or deploy, so
+      # the run shows which demos are serving whatever happened before.
       - name: Health-check every demo
         if: ${{ !cancelled() && steps.demos.outputs.list != '' }}
         env:

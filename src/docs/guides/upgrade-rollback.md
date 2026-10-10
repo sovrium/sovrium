@@ -30,6 +30,18 @@ sovrium stop && sovrium start app.yaml
 
 A refusal names the place in the config and, in most cases, what to write instead. Fix it, validate again, then restart. Environment variables are read when the server starts rather than by `validate`, so an invalid one surfaces at `start`, before the app serves traffic. Then read the breaking changes between your version and the new one — `sovrium changelog --since <the version you run>` gathers them in one list.
 
+## Upgrading from 0.34 to 0.34.3
+
+### Behaviour that changes without a config change
+
+- **A count filtered by an `or` group now counts every record meeting at least one condition.** It counted only the records meeting all of them. A rollup or a lookup whose `filters` is an `and` / `or` group, which stopped the server at start, now boots and applies the group.
+- **A rollup over a currency field now prints in that currency.** A SUM, AVG, MIN or MAX rollup over a `currency` field takes that field's currency and display settings, in the records API (`?format=display`) and on pages, where it printed a bare number or a dollar sign before. A rollup can also declare `currency`, `precision`, `symbolPosition`, `negativeFormat` and `thousandsSeparator` itself to override them.
+- **A table view filtered by `isEmpty` or `isNotEmpty` without a `value` now applies that condition.** It showed every row.
+- **A `flow/stop` with `status: error` — the default when `status` is omitted — now ends the run failed.** It used to store the run `completed` — or `completed-with-errors` after a step failed under `continueOnError` — at the top level, inside a path or a loop, whatever the trigger. The run now reads `failed`, with the stop's message as its error: every automation-failure trigger watching the automation fires, operators receive the automation-failure email, the run counts toward `SOVRIUM_AUTOMATION_AUTOPAUSE`, and a form submission the automation handled is recorded failed. `continueOnError` on the stop does not change this. A synchronous webhook caller still receives the stop's `{ status, message }` answer with HTTP 200, or the answer of an earlier `webhook/response`. Give every expected early exit `status: success`, and review any alert or filter that keys on `completed`, and any failure handler that will now see these runs.
+- **A synchronous `automation/call` now fails when the called automation exhausts its retries, times out or is cancelled.** It used to fail only when the called automation failed outright; in the other three endings the call was recorded `completed` with an empty result and the calling run went on. The call step now fails, and the calling run fails with it unless the step is marked `continueOnError`.
+- **A form submission is recorded `failed` whenever its bound automation ends in failure.** It used to read `done` when the automation used up its retries, timed out or was cancelled; only an outright failure recorded `failed`. Such a submission now reads `failed`, with the run's error as its reason, and no longer counts toward `maxSubmissions`.
+- **Single-mode data sources now apply their `filter`.** A config that relied on it being ignored binds a different record.
+
 ## Upgrading from 0.33 to 0.34
 
 Run `sovrium validate` with 0.34 before you restart: it refuses the configs below, naming the place to change.

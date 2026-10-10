@@ -10,6 +10,7 @@ import {
   type CurrencyDisplayOptions,
 } from '@/domain/kernel/format/currency-format'
 import { minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
+import { withInheritedCurrency } from '@/domain/models/app/tables/rollup-currency-service'
 import {
   optionLabel,
   optionValue,
@@ -83,11 +84,13 @@ export function resolveCategoryOptions(
  */
 export function resolveValueCurrency(
   table: Tables[number],
-  fieldName: string | undefined
+  fieldName: string | undefined,
+  tables: Tables
 ): CurrencyDisplayOptions | undefined {
   const field = findField(table, fieldName)
   if (!field) return undefined
-  const display = resolveFieldDisplayMeta(field as Readonly<Record<string, unknown>>)
+  // A SUM / AVG / MIN / MAX rollup over a `currency` field is money in that field's currency.
+  const display = resolveFieldDisplayMeta(withInheritedCurrency(field, table, tables))
   const currency = resolveCurrencyOptions({
     type: field.type,
     display: display as CurrencyDisplayOptions | undefined,
@@ -126,9 +129,10 @@ const sameCurrency = (a: CurrencyDisplayOptions, b: CurrencyDisplayOptions): boo
  */
 function resolveSeriesCurrency(
   table: Tables[number],
-  series: NonNullable<ChartComponent['series']>
+  series: NonNullable<ChartComponent['series']>,
+  tables: Tables
 ): CurrencyDisplayOptions | undefined {
-  const displays = series.map((entry) => resolveValueCurrency(table, entry.field))
+  const displays = series.map((entry) => resolveValueCurrency(table, entry.field, tables))
   const [first] = displays
   if (first === undefined) return undefined
   return displays.every((display) => display !== undefined && sameCurrency(display, first))
@@ -139,14 +143,15 @@ function resolveSeriesCurrency(
 /** Both halves of a chart's field context, from its source table. */
 export function resolveChartFieldContext(
   table: Tables[number],
-  component: ChartComponent
+  component: ChartComponent,
+  tables: Tables
 ): {
   readonly categoryOptions: readonly ChartCategoryOptionInput[] | undefined
   readonly valueCurrency: CurrencyDisplayOptions | undefined
 } {
   return {
     categoryOptions: resolveCategoryOptions(table, chartCategoryField(component)),
-    valueCurrency: resolveValueCurrency(table, chartValueField(component)),
+    valueCurrency: resolveValueCurrency(table, chartValueField(component), tables),
   }
 }
 
@@ -225,11 +230,12 @@ export const resolveKpiAggregateRead = (
 /** A KPI's aggregated field's currency display (none for a count). */
 export function resolveKpiValueCurrency(
   table: Tables[number],
-  component: KpiComponent
+  component: KpiComponent,
+  tables: Tables
 ): CurrencyDisplayOptions | undefined {
   const aggregate = component.kpiAggregate
   if (aggregate === undefined || aggregate.function === 'count') return undefined
-  return resolveValueCurrency(table, aggregate.field)
+  return resolveValueCurrency(table, aggregate.field, tables)
 }
 
 /**
@@ -254,16 +260,16 @@ export function resolveFigureFieldContext(
 } {
   if (figure.type === 'kpi') {
     return {
-      valueCurrency: resolveKpiValueCurrency(table, figure.component),
+      valueCurrency: resolveKpiValueCurrency(table, figure.component, tables),
       aggregateRead: resolveKpiAggregateRead(tables, table, figure.component),
     }
   }
   const { series } = figure.component
   const aggregateRead = resolveChartAggregateRead(tables, table, figure.component)
   if (series !== undefined && series.length > 0) {
-    return { valueCurrency: resolveSeriesCurrency(table, series), aggregateRead }
+    return { valueCurrency: resolveSeriesCurrency(table, series, tables), aggregateRead }
   }
-  return { ...resolveChartFieldContext(table, figure.component), aggregateRead }
+  return { ...resolveChartFieldContext(table, figure.component, tables), aggregateRead }
 }
 
 /**

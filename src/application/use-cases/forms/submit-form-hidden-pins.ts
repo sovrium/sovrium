@@ -27,7 +27,8 @@
  *    their groups and `user_access` roles, its row-level read rule (for someone
  *    not signed in, the rule as it reads for a visitor: one naming the
  *    signed-in person admits nothing), live rows only, the column readable by
- *    them, and on a `collection` page the collection's own `filter`;
+ *    them, and the page's own `filter` (a `collection`'s, or a single-record
+ *    binding's);
  *  - an empty value, which files the record under nothing.
  *
  * Which fields are pinned, and from which sources, is read off the
@@ -65,6 +66,7 @@ import {
   readPrincipalFromSession,
 } from '@/domain/models/app/tables/read-access-plan-service'
 import { submittedKeysOf } from './submit-form-offered-links'
+import { recordSourceOf, type PageRecordSource } from './submit-form-pin-sources'
 import type { FormOptionVisitor } from './resolve-form-option-sources'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
@@ -122,78 +124,6 @@ const directValues = (source: PinSource, submitter: Submitter): readonly string[
 }
 
 /**
- * The records-API operator for each collection-filter operator the query judges
- * as the page does. `contains` is absent on purpose: the page compares it
- * case-sensitively and the query would not, so a page filtering on it admits
- * no pinned record rather than one its page leaves out.
- */
-const COLLECTION_FILTER_OPERATORS: Readonly<Record<string, string>> = {
-  eq: 'equals',
-  neq: 'notEquals',
-  gt: 'greaterThan',
-  gte: 'greaterThanOrEqual',
-  lt: 'lessThan',
-  lte: 'lessThanOrEqual',
-  in: 'in',
-  isEmpty: 'isEmpty',
-  isNotEmpty: 'isNotEmpty',
-}
-
-/**
- * Whether the page can ever match `value` under `operator`: a `$currentUser`
- * object never matches, a range compares numbers only, and `in` needs a list.
- */
-const pageCanMatch = (operator: string, value: unknown): boolean => {
-  if (value !== null && typeof value === 'object' && !Array.isArray(value)) return false
-  if (['gt', 'gte', 'lt', 'lte'].includes(operator)) return typeof value === 'number'
-  return operator !== 'in' || Array.isArray(value)
-}
-
-/**
- * A collection's `filter` as a query clause — every condition ANDed, read off
- * the configuration and never the request — or `'nothing'` when one condition
- * cannot be judged as the page judges it (an unmapped operator, or a value the
- * page never matches — {@link pageCanMatch}).
- */
-const collectionClauseOf = (
-  filter: NonNullable<Page['collection']>['filter']
-): QueryFilterNode | 'nothing' | undefined => {
-  if (filter === undefined || filter.length === 0) return undefined
-  const leaves = filter.map(({ field, operator, value }) => {
-    const mapped = Object.hasOwn(COLLECTION_FILTER_OPERATORS, operator)
-      ? COLLECTION_FILTER_OPERATORS[operator]
-      : undefined
-    return mapped === undefined || !pageCanMatch(operator, value)
-      ? undefined
-      : { field, operator: mapped, value }
-  })
-  return leaves.every((leaf) => leaf !== undefined) ? { and: leaves } : 'nothing'
-}
-
-/** The table a page reads ONE record from, and the clause its own config narrows it by. */
-interface PageRecordSource {
-  readonly tableName: string
-  readonly pageClause: QueryFilterNode | undefined
-}
-
-/**
- * Where a page reads ONE record from, when it does: a `dataSource` in `single`
- * mode, or a `collection` — which shows a record only when its `filter` admits
- * it, so that filter rides with the source.
- */
-const recordSourceOf = (page: Page): PageRecordSource | undefined => {
-  const { dataSource } = page as {
-    readonly dataSource?: { readonly table?: unknown; readonly mode?: unknown }
-  }
-  if (dataSource?.mode === 'single' && typeof dataSource.table === 'string') {
-    return { tableName: dataSource.table, pageClause: undefined }
-  }
-  if (page.collection === undefined) return undefined
-  const pageClause = collectionClauseOf(page.collection.filter)
-  return pageClause === 'nothing' ? undefined : { tableName: page.collection.table, pageClause }
-}
-
-/**
  * The read gate a page applies to `tableName` for this submitter, as a filter
  * clause and a column test — or `undefined` when it reads them nothing. A
  * signed-in submitter meets the records API's gates (`callerReadScope`); anyone
@@ -246,7 +176,7 @@ const recordReads = (
 ): readonly (PageRecordSource & { readonly column: string })[] => {
   const reads = pin.embeddings.flatMap(({ page, source }) => {
     if (source.kind !== 'record' || !pageAdmits(app, page, submitter)) return []
-    const recordSource = recordSourceOf(page)
+    const recordSource = recordSourceOf(page, submitter.visitor)
     return recordSource === undefined ? [] : [{ ...recordSource, column: source.column }]
   })
   const keyOf = (read: Readonly<(typeof reads)[number]>): string =>

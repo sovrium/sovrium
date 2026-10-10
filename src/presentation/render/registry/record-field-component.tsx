@@ -307,5 +307,6 @@ export const recordFieldComponent: ComponentRenderer = ({
     format,
     locale: currentLang ?? DEFAULT_FORMAT_LOCALE,
     languages,
+    tables,
   })
 }

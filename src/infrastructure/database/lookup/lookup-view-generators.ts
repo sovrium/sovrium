@@ -17,8 +17,7 @@ import {
 import { resolveForeignKeyColumn } from './lookup-foreign-key'
 import { readThroughSelfLookup } from './lookup-self-read'
 import {
-  buildWhereClause,
-  flattenFilterNode,
+  compileRelationalFilter,
   relatedAliasOf,
   relationNameOf,
   mapAggregationToSql,
@@ -38,13 +37,13 @@ import {
 } from './lookup-view-triggers'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
-import type { ViewFilterCondition, ViewFilterNode } from '@/domain/models/app/tables/views/filters'
+import type { ViewFilterNode } from '@/domain/models/app/tables/views/filters'
 
 type LookupFieldInput = Fields[number] & {
   readonly type: 'lookup'
   readonly relationshipField: string
   readonly relatedField: string
-  readonly filters?: ViewFilterCondition
+  readonly filters?: ViewFilterNode
 }
 
 /**
@@ -67,7 +66,7 @@ const isRollupField = (
   relationshipField: string
   relatedField: string
   aggregation: string
-  filters?: ViewFilterCondition
+  filters?: ViewFilterNode
 } =>
   field.type === 'rollup' &&
   'relationshipField' in field &&
@@ -292,7 +291,7 @@ const generateRollupExpression = (
     readonly relationshipField: string
     readonly relatedField: string
     readonly aggregation: string
-    readonly filters?: ViewFilterCondition
+    readonly filters?: ViewFilterNode
   },
   context: ComputedFieldContext
 ): string => {
@@ -334,11 +333,12 @@ const generateRollupExpression = (
   // table carries a `deleted_at` column). Without this, "un-voting" (soft-
   // deleting a pain_vote) never lowers the pain's rollup.
   const notDeleted = `${alias}.deleted_at IS NULL`
-  const whereConditions = filters
-    ? [baseCondition, notDeleted, buildWhereClause(filters, alias)]
-    : [baseCondition, notDeleted]
-
-  const whereClause = whereConditions.join(' AND ')
+  const filterCondition = filters ? compileRelationalFilter(filters, alias) : undefined
+  const whereClause = [
+    baseCondition,
+    notDeleted,
+    ...(filterCondition ? [filterCondition] : []),
+  ].join(' AND ')
 
   // Use the VIEW name (not base table) for rollup queries
   // The VIEW will be created after all base tables exist, so it's safe to reference
@@ -397,12 +397,10 @@ const generateCountExpression = (
   // `deleted_at` column). Without this, un-voting never lowers the count.
   const notDeleted = `${alias}.deleted_at IS NULL`
 
-  // Convert filters to WHERE clauses (flatten nested AND/OR into leaf conditions)
-  const filterConditions = filters
-    ? flattenFilterNode(filters).map((condition) => buildWhereClause(condition, alias))
-    : []
+  // An and / or group keeps its own meaning (an `or` is no longer read as AND).
+  const filterCondition = filters ? compileRelationalFilter(filters, alias) : undefined
 
-  const whereConditions = [baseCondition, notDeleted, ...filterConditions]
+  const whereConditions = [baseCondition, notDeleted, ...(filterCondition ? [filterCondition] : [])]
   const whereClause = whereConditions.join(' AND ')
 
   // Use COALESCE to ensure 0 instead of NULL when no records match

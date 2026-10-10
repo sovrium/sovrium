@@ -26,7 +26,8 @@ import {
   triggerOfTypeOrFirst,
 } from '@/domain/models/app/automations/trigger-entries-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { cryptoRandomId } from './types'
+import { toApiStatus } from './run-status'
+import { cryptoRandomId, isTerminalFailureStatus } from './types'
 import type { AutomationInvoker, RunAutomationResult, RunRequirements, StepContext } from './types'
 import type { App } from '@/domain/models/app'
 import type { Trigger } from '@/domain/models/app/automations/trigger'
@@ -216,9 +217,13 @@ export const buildAutomationInvoker =
         return Promise.resolve({ result: {} })
       }
       return ctx.runProgram(subRun).then((result) => {
-        if (result.status === 'failure') {
+        // A callee that failed, used up its retries, timed out or was cancelled
+        // did not do its work: the call fails, and with it the caller unless
+        // the call step is marked `continueOnError`.
+        if (isTerminalFailureStatus(result.status)) {
+          const ending = toApiStatus(result.status).replace('-', ' ')
           // eslint-disable-next-line functional/no-throw-statements -- inside .then; throw-as-rejection is the unicorn-preferred form
-          throw new Error(result.error ?? `called automation '${name}' failed`)
+          throw new Error(result.error ?? `called automation '${name}' ${ending}`)
         }
         return { result: result.returnData ?? {} }
       })

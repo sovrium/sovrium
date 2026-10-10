@@ -145,13 +145,18 @@ function callerAccess(
 }
 
 /** The header of one column: its own label, then the field's, then the raw name. */
-function columnFor(field: string, ownLabel: unknown, table: Table): RelatedSectionColumn {
+function columnFor(
+  field: string,
+  ownLabel: unknown,
+  table: Table,
+  tables: Tables | undefined
+): RelatedSectionColumn {
   const declared = table.fields.find((candidate) => candidate.name === field)
   const label =
     (typeof ownLabel === 'string' && ownLabel !== '' ? ownLabel : undefined) ??
     declaredFieldLabel(declared) ??
     field
-  const currency = resolveValueCurrency(table, field)
+  const currency = resolveValueCurrency(table, field, tables ?? [])
   return {
     field,
     label,
@@ -167,14 +172,15 @@ function columnFor(field: string, ownLabel: unknown, table: Table): RelatedSecti
 function resolveColumns(
   entry: RawEntry,
   table: Table,
-  callerTable: CallerTableView | undefined
+  callerTable: CallerTableView | undefined,
+  tables: Tables | undefined
 ): readonly RelatedSectionColumn[] {
   const declared = entry['columns']
   if (Array.isArray(declared)) {
     return declared.flatMap((column: unknown) => {
       const record = column as RawEntry | null
       const field = record?.['field']
-      return typeof field === 'string' ? [columnFor(field, record?.['label'], table)] : []
+      return typeof field === 'string' ? [columnFor(field, record?.['label'], table, tables)] : []
     })
   }
   const readable =
@@ -183,7 +189,7 @@ function resolveColumns(
       : readableFieldsOf(table, callerTable)
   return readable
     .filter((name) => name !== entry['field'])
-    .map((name) => columnFor(name, undefined, table))
+    .map((name) => columnFor(name, undefined, table, tables))
 }
 
 /**
@@ -218,7 +224,7 @@ export function resolveRelatedSections(
         label: String(entry['label']),
         table: table.name,
         field: entry['field'],
-        columns: resolveColumns(entry, table, caller.callerTables?.[table.name]),
+        columns: resolveColumns(entry, table, caller.callerTables?.[table.name], tables),
         ...(Array.isArray(entry['sort'])
           ? { sort: entry['sort'] as RelatedSection['sort'] & object }
           : {}),

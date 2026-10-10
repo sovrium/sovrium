@@ -156,10 +156,11 @@ const optionsOverlay = (
 /** The `currency` overlay of one entry: the bound column's declared display, or nothing. */
 const currencyOverlay = (
   table: Tables[number] | undefined,
-  fieldName: unknown
+  fieldName: unknown,
+  tables: Tables | undefined
 ): { readonly currency?: CurrencyDisplayOptions } => {
   if (table === undefined || typeof fieldName !== 'string') return {}
-  const currency = resolveValueCurrency(table, fieldName)
+  const currency = resolveValueCurrency(table, fieldName, tables ?? [])
   return currency === undefined ? {} : { currency }
 }
 
@@ -210,7 +211,7 @@ function enrichDeclaredFields(
       Readonly<Record<string, unknown>> | undefined
     return {
       ...withResolvedFieldDisplay(record, boundField),
-      ...currencyOverlay(table, record['name']),
+      ...currencyOverlay(table, record['name'], tables),
       ...optionsOverlay(boundField, locale),
       ...paintsOverlay(table, record['name'], locale),
       ...weekdayOverlay(boundField),
@@ -256,7 +257,7 @@ export function resolveRecordDrawerFields(
       type: field.type,
       ...(label === undefined ? {} : { label }),
       ...(description === undefined ? {} : { description }),
-      ...currencyOverlay(table, field.name),
+      ...currencyOverlay(table, field.name, tables),
       ...optionsOverlay(declared, locale),
       ...paintsOverlay(table, field.name, locale),
       ...weekdayOverlay(declared),

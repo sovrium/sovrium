@@ -10,6 +10,25 @@ import { stopAnswer } from './response-precedence'
 import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import type { ActionHandler, ActionOutcome } from './shared'
 
+/** The run's error when an error stop carries no message. */
+const DEFAULT_STOP_ERROR = 'The automation stopped with status error'
+
+/** The stop's `{ status, message?, output? }` answer, its props resolved against the run. */
+const stopBody = (runContext: NonNullable<Parameters<ActionHandler>[3]>) => {
+  const props = authoredActionProps(runContext)
+  const rawStatus = resolveOwnProp(runContext, props['status'])
+  const status = rawStatus === 'success' ? 'success' : 'error'
+  const message =
+    props['message'] !== undefined
+      ? String(resolveOwnProp(runContext, props['message']))
+      : undefined
+  const output =
+    props['output'] !== undefined && typeof props['output'] === 'object' && props['output'] !== null
+      ? (resolveOwnProp(runContext, props['output']) as Record<string, unknown>)
+      : undefined
+  return { status, message, output } as const
+}
+
 /**
  * `flow/stop` handler — terminate the run early, optionally with a status,
  * message, and structured output that surface in the synchronous trigger
@@ -30,7 +49,10 @@ import type { ActionHandler, ActionOutcome } from './shared'
  * The HTTP status stays 200 regardless of the stop status (STOP-001 asserts
  * `response.status() === 200` even for `status: 'error'`), so the handler
  * itself records `status: 'success'` and lets `responseOverride` carry the
- * semantic stop status in the body.
+ * semantic stop status in the body. An error stop adds `stopError`: the step
+ * stands (its answer, its early exit), and the run folds it into a `failure`
+ * carrying the message — not a failed STEP, which would drop the answer inside
+ * a path and let `continueOnItemError` run a loop on past the stop.
  *
  * Spec: the automation action flow stop specs + REGRESSION.
  */
@@ -39,19 +61,7 @@ export const handleFlowStop: ActionHandler = (_action, _app, _automation, runCon
     if (runContext === undefined) {
       return { status: 'success' } as const satisfies ActionOutcome
     }
-    const props = authoredActionProps(runContext)
-    const rawStatus = resolveOwnProp(runContext, props['status'])
-    const status = rawStatus === 'success' ? 'success' : 'error'
-    const message =
-      props['message'] !== undefined
-        ? String(resolveOwnProp(runContext, props['message']))
-        : undefined
-    const output =
-      props['output'] !== undefined &&
-      typeof props['output'] === 'object' &&
-      props['output'] !== null
-        ? (resolveOwnProp(runContext, props['output']) as Record<string, unknown>)
-        : undefined
+    const { status, message, output } = stopBody(runContext)
     const body: Readonly<Record<string, unknown>> = {
       status,
       ...(message !== undefined ? { message } : {}),
@@ -62,5 +72,7 @@ export const handleFlowStop: ActionHandler = (_action, _app, _automation, runCon
       // The stop's answer is the caller's only when no response was set before it.
       responseOverride: stopAnswer(body),
       returnData: {},
+      // An error stop ends the RUN failed, with its message as the run's error.
+      ...(status === 'error' ? { stopError: message ?? DEFAULT_STOP_ERROR } : {}),
     } as const satisfies ActionOutcome
   }).pipe(Effect.withSpan('automations.handle-flow-stop'))

@@ -230,7 +230,9 @@ export const haltedOutcome = (
   if (halt.status === 'failure') return undefined
   if (halt.status === 'filtered') return { ...carried, status: 'filtered' }
   if (halt.returnData !== undefined) {
-    return { ...carried, status: 'success', returnData: halt.returnData }
+    // An error stop's marker travels up with it: the run still ends failed.
+    const stopError = halt.stopError === undefined ? {} : { stopError: halt.stopError }
+    return { ...carried, status: 'success', returnData: halt.returnData, ...stopError }
   }
   return { ...carried, status: 'success', pause: true }
 }

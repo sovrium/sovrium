@@ -93,9 +93,10 @@ async function stampOwnTable(component: Component, ctx: StampContext): Promise<C
 }
 
 /**
- * The table an edit form writes a record into: its `crud` update action's
- * table, or — for a form bound to one record with no action of its own, which
- * the renderer turns into an update form — the table it is bound to.
+ * The table a form draws inputs for: an edit form's — its `crud` update
+ * action's table, or, for a form bound to one record with no action of its
+ * own, which the renderer turns into an update form, the table it is bound to
+ * — or the table a sign-in or sign-up form is bound to, whose fields it draws.
  * `undefined` for any other form (a page form never creates a row).
  */
 function recordFormTable(component: Component): unknown {
@@ -108,6 +109,7 @@ function recordFormTable(component: Component): unknown {
     readonly dataSource?: { readonly mode?: unknown; readonly table?: unknown }
   }
   if (action === undefined) return dataSource?.mode === 'single' ? dataSource.table : undefined
+  if (action.type === 'auth') return dataSource?.table
   if (action.type !== 'crud') return undefined
   return action.operation === 'update' ? action.table : undefined
 }

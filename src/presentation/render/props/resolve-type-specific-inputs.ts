@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { withInheritedCurrency } from '@/domain/models/app/tables/rollup-currency-service'
 import { declaredFieldLabel } from '@/presentation/design/field-display'
 import { resolveCalendarDateInputs } from './calendar-date-fields'
 import { forReader } from './caller-table-inputs'
@@ -166,14 +167,18 @@ function resolveSystemSourceColumnInputs(component: Component): TypeSpecificReso
   }
 }
 
-function resolveDataTableInputs(table: Tables[number]): TypeSpecificResolvedInputs {
+function resolveDataTableInputs(
+  table: Tables[number],
+  tables: Tables | undefined
+): TypeSpecificResolvedInputs {
   return {
     ...EMPTY_RESOLVED,
     dataTableTableFields: table.fields.map((f) => f.name),
     dataTableFieldMeta: Object.fromEntries(
       table.fields.map((f) => {
         const field = f as Readonly<Record<string, unknown>>
-        const display = resolveFieldDisplayMeta(field)
+        // A rollup over a `currency` field displays in that field's currency.
+        const display = resolveFieldDisplayMeta(withInheritedCurrency(f, table, tables ?? []))
         const edit = resolveFieldEditMeta(field)
         return [
           f.name,
@@ -243,7 +248,7 @@ function resolveKanbanInputs(
   return {
     ...EMPTY_RESOLVED,
     dataTableFieldMeta: resolveKanbanFooterFieldMeta(
-      resolveDataTableInputs(table).dataTableFieldMeta,
+      resolveDataTableInputs(table, tables).dataTableFieldMeta,
       table,
       component,
       form
@@ -309,7 +314,7 @@ export function resolveTypeSpecificInputs(
     return {
       // Narrowed to what this grid's READER may see, in ONE place: `caller-table-inputs.ts`.
       ...withGridBadgeForm(
-        forReader(resolveDataTableInputs(table), table, component),
+        forReader(resolveDataTableInputs(table, tables), table, component),
         badgeForm,
         component
       ),

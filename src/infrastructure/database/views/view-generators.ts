@@ -17,9 +17,9 @@ import {
   type TransactionLike,
 } from '../sql/sql-execution'
 import { generateSqlCondition } from '../table-queries/filter-operators'
+import { compileFilterTree, isCompleteCondition } from '../table-queries/filter-tree'
 import type { Table } from '@/domain/models/app/tables'
 import type { View } from '@/domain/models/app/tables/views'
-import type { ViewFilterNode } from '@/domain/models/app/tables/views/filters'
 
 /**
  * `DROP VIEW` statement for the active dialect.
@@ -44,77 +44,26 @@ const dropViewStatement = (viewName: string): string => {
 }
 
 /**
- * Compile one filter node to a SQL boolean expression.
- *
- * `ViewFilterNodeSchema` is a THREE-arm union whose group arms recurse through
- * `Schema.suspend`, so the shape space is four: a bare condition, a flat group,
- * a group holding a group, and that nested to any depth. All four must be read.
- * Reading only the flat arms, a bare condition matches neither `'and' in
- * filters` nor `'or' in filters` and falls through to `''` (a view declared to
- * show active tasks selects EVERY row), and a nested group produces `''` from
- * the leaf mapper and is dropped by the `.filter()`, so `a AND (b OR c)`
- * compiles to `a`. Both failures are silent: the view is created, it just does
- * not filter.
- *
- * PARENTHESES ARE THE POINT, not cosmetics. `a AND (b OR c)` and
- * `a AND b OR c` select different rows, because SQL binds AND tighter than OR.
- * A recursion that joined without grouping would compile the config's meaning
- * into a different query and still look like it worked.
- *
- * The TOP-LEVEL group is deliberately NOT wrapped: `WHERE a AND b` rather than
- * `WHERE (a AND b)`. A single outer group cannot change precedence, and leaving
- * it bare keeps the emitted SQL identical to what flat configs produced before
- * — this is a repair, and it should not rewrite queries that were already right.
- *
- * A single-child group is likewise unwrapped: `{ and: [a] }` is just `a`.
- */
-interface FilterGroup {
-  readonly joiner: string
-  readonly children: readonly ViewFilterNode[]
-}
-
-/** The joiner and children of a group node; `undefined` for anything else. */
-const asFilterGroup = (node: ViewFilterNode): FilterGroup | undefined =>
-  'and' in node
-    ? { joiner: ' AND ', children: node.and }
-    : 'or' in node
-      ? { joiner: ' OR ', children: node.or }
-      : undefined
-
-const compileFilterNode = (node: ViewFilterNode, parenthesize: boolean): string => {
-  if ('field' in node && 'operator' in node && 'value' in node) {
-    return generateSqlCondition(quoteSqlIdentifier(node.field), node.operator, node.value)
-  }
-
-  const group = asFilterGroup(node)
-  if (!group) return ''
-
-  // Children are parenthesized: they sit INSIDE a group, so their precedence
-  // must be pinned. Empty children (an empty group) drop out rather than
-  // emitting a dangling joiner.
-  const parts = group.children
-    .map((child) => compileFilterNode(child, true))
-    .filter((part) => part !== '')
-
-  if (parts.length === 0) return ''
-  if (parts.length === 1) return parts[0] ?? ''
-
-  const body = parts.join(group.joiner)
-  return parenthesize ? `(${body})` : body
-}
-
-/**
  * Generate SQL WHERE clause from view filters.
  *
- * Supports every arm of `ViewFilterNodeSchema` — bare condition, `and`, `or`,
- * and arbitrarily nested groups. Values are escaped by `generateSqlCondition`
+ * Supports every arm of `ViewFilterNodeSchema` — bare condition (with or
+ * without a `value`), `and`, `or`, and arbitrarily nested groups, walked by
+ * {@link compileFilterTree}. Values are escaped by `generateSqlCondition`
  * (this is DDL, where bound parameters are illegal).
  */
 const generateWhereClause = (filters: View['filters']): string => {
   if (!filters) return ''
 
-  const condition = compileFilterNode(filters, false)
-  return condition === '' ? '' : `WHERE ${condition}`
+  // The top level stays unwrapped (`WHERE a AND b`), so a view whose SQL was
+  // already right keeps it byte for byte. A condition whose operator needs a
+  // value but carries none restricts nothing, as it always has here: compiling
+  // it would compare against `undefined` and throw while the view is created.
+  const condition = compileFilterTree(filters, (c) =>
+    isCompleteCondition(c)
+      ? generateSqlCondition(quoteSqlIdentifier(c.field), c.operator, c.value)
+      : undefined
+  )
+  return condition === undefined ? '' : `WHERE ${condition}`
 }
 
 /**

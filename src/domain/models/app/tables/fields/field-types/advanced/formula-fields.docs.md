@@ -14,7 +14,7 @@ A formula that is added or edited is computed for every row already in the table
 
 ## Money computed by a formula
 
-A formula over currency fields is money, but it does **not** inherit the currency of the fields it references. An expression may touch several currency fields or none at all, so there is nothing to inherit from without guessing. Declare the code:
+A formula over currency fields is money, but it does **not** inherit the currency of the fields it references. An expression may touch several currency fields or none at all, so there is nothing to inherit from without guessing. A rollup does inherit: it has exactly one source field, so there is nothing to choose between. Declare the code:
 
 ```yaml
 - id: 12

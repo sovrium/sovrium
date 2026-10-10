@@ -8,6 +8,7 @@
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getColumnDefaultExpression } from '../sql/sql-column-generators'
+import { shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -49,7 +50,8 @@ export const getInsertIdExpression = (table: Table, baseTableName: string): stri
 /**
  * Predicate: is this field a writable base column for the INSTEAD OF trigger?
  * Excludes lookup / rollup / count (handled by VIEW), ALL formula fields,
- * one-to-many / many-to-many relationship fields (no base column), and `id`.
+ * buttons and one-to-many / many-to-many relationship fields (no base column),
+ * and `id`.
  *
  * A `formula` field is NEVER a writable base column, on either dialect:
  *   - Postgres, immutable row-local formula → emitted as a `GENERATED ALWAYS AS
@@ -69,23 +71,21 @@ export const getInsertIdExpression = (table: Table, baseTableName: string): stri
  *     so excluding it is a no-op for the observable result.
  * In every case the formula's value is computed, never carried by the view's
  * INSTEAD OF trigger — so it must be excluded from the base write.
+ *
+ * Any field the base table carries no column for (a `button`, a `count`, a
+ * one-to-many or many-to-many relationship — {@link shouldCreateDatabaseColumn})
+ * is excluded too: naming it in the trigger's column list made every insert and
+ * update through the view fail on an unknown column.
  */
 const isBaseColumnField = (field: Fields[number]): boolean => {
-  if (field.type === 'lookup' || field.type === 'rollup' || field.type === 'count') return false
-  if (field.type === 'formula') return false
-  if (
-    field.type === 'relationship' &&
-    'relationType' in field &&
-    (field.relationType === 'one-to-many' || field.relationType === 'many-to-many')
-  ) {
-    return false
-  }
-  if (field.name === 'id') return false
-  return true
+  // count, one-to-many and many-to-many relationships are covered here too.
+  if (!shouldCreateDatabaseColumn(field)) return false
+  if (field.type === 'lookup' || field.type === 'rollup' || field.type === 'formula') return false
+  return field.name !== 'id'
 }
 
 /**
- * Get base fields (non-lookup, non-rollup, non-count, non-formula,
+ * Get base fields (non-lookup, non-rollup, non-count, non-formula, non-button,
  * non-one-to-many, non-many-to-many, non-id fields)
  */
 export const getBaseFields = (table: Table): readonly string[] =>

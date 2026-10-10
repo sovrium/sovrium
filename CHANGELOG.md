@@ -1,3 +1,19 @@
+## [0.34.3](https://github.com/sovrium/sovrium/compare/v0.34.2...v0.34.3) (2026-10-10)
+
+### Bug Fixes
+
+- **tables**: apply a view filter condition that has no value
+- **pages**: bind a single-record data source to the first record matching its filter
+- **pages**: keep credential inputs on sign-in forms when a table hides a field of the same name
+- **automations**: record a form submission failed when its run ends in any terminal failure
+- **tables**: print a rollup over a currency field in that currency in page text
+- **tables**: show a rollup over a currency field in that field's currency
+- **tables**: apply and/or filter groups on rollup, count and lookup fields
+- **connections**: resolve environment references in oauth2 client credentials before the token request
+- **automations**: fail a synchronous call when the called automation exhausts its retries, times out or is cancelled
+- **tables**: keep button fields out of the base-table triggers of view-backed tables
+- **automations**: end the run failed when a stop carries an error status
+
 ## [0.34.2](https://github.com/sovrium/sovrium/compare/v0.34.1...v0.34.2) (2026-10-09)
 
 ### Bug Fixes

@@ -13,6 +13,7 @@ import {
   nonEmptyValuePredicate,
 } from '../sql/dialect-ddl'
 import { generateSqlCondition } from '../table-queries/filter-operators'
+import { compileFilterTree } from '../table-queries/filter-tree'
 import type { ViewFilterCondition, ViewFilterNode } from '@/domain/models/app/tables/views/filters'
 
 /**
@@ -28,21 +29,6 @@ export const relationNameOf = (table: string): string =>
 /** The alias a computed field reads a related table under, built from the derived name. */
 export const relatedAliasOf = (relatedTable: string, fieldName: string): string =>
   quoteSqlIdentifier(`${sanitizeTableName(relatedTable)}_for_${fieldName}`)
-
-/**
- * Extract leaf conditions from a ViewFilterNode tree.
- * Flattens nested AND/OR groups into a flat array of conditions (treated as AND).
- * This is a bridge until full recursive SQL generation is implemented.
- */
-export const flattenFilterNode = (node: ViewFilterNode): readonly ViewFilterCondition[] => {
-  if ('and' in node) {
-    return node.and.flatMap(flattenFilterNode)
-  }
-  if ('or' in node) {
-    return node.or.flatMap(flattenFilterNode)
-  }
-  return [node]
-}
 
 /**
  * Build a WHERE clause fragment from a view filter condition.
@@ -66,6 +52,24 @@ export const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: strin
   const column = `${aliasPrefix}.${quoteSqlIdentifier(field)}`
   return generateSqlCondition(column, operator, value, { useEscapeSqlString: true })
 }
+
+/**
+ * Compile the `filters` of a `rollup`, `count` or `lookup` field into one
+ * WHERE fragment over the related rows read under `alias`, through the walker
+ * a table view uses ({@link compileFilterTree}).
+ *
+ * `filters` is a single condition or an `and` / `or` group nested as deep as
+ * needed, exactly as a view's filter is. A group joins its children with
+ * `AND` / `OR`, each child parenthesised so a nested group keeps its own
+ * meaning; a group of one is that one; an empty group restricts nothing and
+ * compiles to `undefined`, which the caller leaves out of its WHERE list.
+ *
+ * Leaves go through {@link buildWhereClause}, so value-less operators
+ * (`isEmpty`, `isNotEmpty`) compile like any other and values stay inline
+ * escaped literals, the only form a view definition can store.
+ */
+export const compileRelationalFilter = (node: ViewFilterNode, alias: string): string | undefined =>
+  compileFilterTree(node, (condition) => buildWhereClause(condition, alias), { wrapGroups: true })
 
 /**
  * Map a rollup `aggregation` term to the SQL that computes it, on the ACTIVE

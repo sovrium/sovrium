@@ -134,19 +134,28 @@ const encodeAttribute = (value: string): string =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
-const ISLAND_PROPS_ATTRIBUTE = /data-island-props="([^"]*)"/g
+/**
+ * An island's props, and the island's name when the host writes it just before
+ * them (`data-island="…" data-island-props="…"`, the order every island host
+ * renders). A host that orders them otherwise is judged without its name —
+ * the stricter walk.
+ */
+const ISLAND_PROPS_ATTRIBUTE = /(data-island="([^"]*)"\s+)?data-island-props="([^"]*)"/g
 
 /** Every `data-island-props` of `html`, filtered for the reader `model` describes. */
 export function scrubIslandPayloads(html: string, model: ReaderFieldModel): string {
   const scrub = (document: string): string =>
-    document.replace(ISLAND_PROPS_ATTRIBUTE, (attribute, encoded: string) => {
-      const parsed = parseJson(decodeAttribute(encoded))
-      if (parsed === undefined) return attribute
-      const filtered = islandPropsForReader(parsed.value, model, scrub)
-      return filtered === parsed.value
-        ? attribute
-        : `data-island-props="${encodeAttribute(JSON.stringify(filtered))}"`
-    })
+    document.replace(
+      ISLAND_PROPS_ATTRIBUTE,
+      (attribute, host: string | undefined, island: string | undefined, encoded: string) => {
+        const parsed = parseJson(decodeAttribute(encoded))
+        if (parsed === undefined) return attribute
+        const filtered = islandPropsForReader(parsed.value, model, scrub, island)
+        return filtered === parsed.value
+          ? attribute
+          : `${host ?? ''}data-island-props="${encodeAttribute(JSON.stringify(filtered))}"`
+      }
+    )
   return scrub(html)
 }
 

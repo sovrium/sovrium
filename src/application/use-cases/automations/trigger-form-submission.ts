@@ -12,6 +12,7 @@ import { firstMatchingTrigger } from '@/domain/models/app/automations/trigger-en
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
+import { isTerminalFailureStatus } from './run/types'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements, RunAutomationResult } from './run-automation'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
@@ -141,7 +142,8 @@ const buildFormTriggerData = (input: TriggerFormSubmissionInput): TriggerData =>
  * | done | failed | spam`), so when multiple automations are bound to one
  * form-submit event we collapse to the worst observed outcome:
  *
- *   - any `failed` -> `failed` (with the first non-empty error as reason)
+ *   - any terminal failure (failed, exhausted, timed out, cancelled) ->
+ *     `failed` (with the first non-empty error as reason)
  *   - all `success` -> `done`
  *   - empty list -> `done` (no automation, but the post-write hook still
  *     marks the lifecycle terminal)
@@ -149,7 +151,7 @@ const buildFormTriggerData = (input: TriggerFormSubmissionInput): TriggerData =>
 const collapseToLedgerOutcome = (
   results: ReadonlyArray<RunAutomationResult | undefined>
 ): { readonly status: 'done' | 'failed'; readonly reason?: string } => {
-  const firstFailure = results.find((r) => r !== undefined && r.status === 'failure')
+  const firstFailure = results.find((r) => r !== undefined && isTerminalFailureStatus(r.status))
   if (firstFailure !== undefined) {
     const reason = firstFailure.error ?? 'automation reported failure status'
     return { status: 'failed', reason }

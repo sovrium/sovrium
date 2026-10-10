@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import { logError } from '@/infrastructure/logging/logger'
-import { buildEnvLookup } from '../resolve-env-vars'
+import { buildEnvLookup, resolveEnvInValue } from '../resolve-env-vars'
 import { resolveAppScopedToken, resolveUserScopedToken } from './connection-token-lookup'
 import { connectionScope } from './connection-token-refresh'
 import { buildStaticAuthHeader, type ConnectionDef } from './static-auth-header'
@@ -60,6 +60,26 @@ const lookupConnectionRow = (name: string) =>
     const reason = `connection ${name}: lookup failed (the connection store could not be read)`
     return { ok: false, reason } as const
   })
+
+/**
+ * The oauth2 connection with every `$env.VAR` in its props resolved against
+ * the app's declared env vars and the OS environment — the client id, the
+ * client secret, the token URL and the rest. Connection definitions are read
+ * straight off `app.connections[]`, never through the action-prop env pass, so
+ * without this a client-credentials grant, a refresh or a long-lived renewal
+ * would send the literal `$env.` placeholder to the token endpoint. Resolved
+ * here, once, every token path below sees real values; the grant fingerprint
+ * therefore hashes the RESOLVED configuration, so rotating a secret in the
+ * environment makes the next call ask for a new token, as rotating it in the
+ * config does. Nothing here is logged.
+ */
+const withResolvedEnv = (app: App, conn: ConnectionDef): ConnectionDef => ({
+  ...conn,
+  props: resolveEnvInValue(conn.props, buildEnvLookup(app.env, process.env)) as Record<
+    string,
+    unknown
+  >,
+})
 
 const resolveOAuth2AccessToken = (
   conn: ConnectionDef,
@@ -165,7 +185,7 @@ export const resolveConnectionHeaders = (
       }
     }
     if (conn.type === 'oauth2') {
-      const result = yield* resolveOAuth2AccessToken(conn, automation)
+      const result = yield* resolveOAuth2AccessToken(withResolvedEnv(app, conn), automation)
       if (!result.ok) return { headers: baseHeaders, error: result.reason }
       const headers = { ...baseHeaders, Authorization: `Bearer ${result.token}` }
       return result.fields === undefined ? { headers } : { headers, tokenFields: result.fields }

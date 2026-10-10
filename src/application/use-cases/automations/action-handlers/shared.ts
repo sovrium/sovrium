@@ -48,14 +48,10 @@ export interface ActionOutcome {
   readonly logs?: readonly StepLogEntry[]
   readonly responseOverride?: Readonly<Record<string, unknown>>
   /**
-   * Set by the `automation:return` handler — the key-value payload the
-   * callee wants to hand back to its `automation:call` caller. When
-   * present the run loop short-circuits the remaining actions in the
-   * callee (early-exit semantics) and surfaces this object as
-   * `RunAutomationResult.returnData`, which the caller's `automation:call`
-   * step exposes as `steps.{name}.result`. Distinct from `output` — which
-   * is shallow-merged into `lastOutput`/the manual-trigger response — so a
-   * `return` action's payload does not pollute the parent's `output`.
+   * Set by `automation:return` (and `flow/stop`): the payload handed back to an
+   * `automation:call` caller as `steps.{name}.result`. Present, the run skips
+   * its remaining actions (early exit). Kept off `output`, which merges into
+   * `lastOutput`, so the payload does not pollute the parent's `output`.
    */
   readonly returnData?: Readonly<Record<string, unknown>>
   /**
@@ -83,6 +79,8 @@ export interface ActionOutcome {
   readonly nestedSteps?: NestedStepRuns
   /** Set by `path` and `loop`: how many nested `continueOnError` failures they tolerated. */
   readonly toleratedFailures?: number
+  /** An error `flow/stop`'s message, carried up through paths and loops: the run ends `failure`. */
+  readonly stopError?: string
 }
 
 /**
