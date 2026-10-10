@@ -6,6 +6,7 @@
  */
 
 import { installPageRuntime } from './browser-page-runtime'
+import { toScriptLiteral } from './browser-script-literal'
 
 /**
  * The input half of the page script ([internal ref] D6): what a step does to the
@@ -109,8 +110,22 @@ export function installPageInputs(): void {
 }
 /* eslint-enable max-lines-per-function, sovrium/no-double-assertion, unicorn/consistent-function-scoping -- end of the page script */
 
+/** The `window.__sovrium` methods {@link pageCall} reaches: a closed list, never a value a run supplies. */
+type PageMethod =
+  | 'attachFiles'
+  | 'clearTarget'
+  | 'focusTarget'
+  | 'href'
+  | 'isChecked'
+  | 'mask'
+  | 'read'
+  | 'resolve'
+  | 'selectOption'
+  | 'setChecked'
+  | 'unmask'
+
 /** The page-side call `method(...args)`, installing the page script first when the document lacks it. */
-export const pageCall = (method: string, ...args: readonly unknown[]): string =>
+export const pageCall = (method: PageMethod, ...args: readonly unknown[]): string =>
   `(() => { (${String(installPageRuntime)})(); (${String(installPageInputs)})(); return window.__sovrium.${method}(${args
-    .map((arg) => JSON.stringify(arg ?? null))
+    .map((arg) => toScriptLiteral(arg))
     .join(', ')}) })()`

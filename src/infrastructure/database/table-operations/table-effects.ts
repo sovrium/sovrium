@@ -45,7 +45,6 @@ import {
 } from '../views/view-generators'
 import { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
 import { recreateTableWithDataEffect } from './migration-utils'
-import { sqliteCheckClausesStale } from './sqlite-check-drift'
 import {
   applyTableFeatures,
   applyTableFeaturesWithoutIndexes,
@@ -57,6 +56,7 @@ import {
   planTypeChangeProbes,
   resolveProbeIdColumn,
 } from './type-change-preflight'
+import { guardUniqueDuplicates, sqliteConstraintsStale } from './unique-constraint-drift'
 import type { Table } from '@/domain/models/app/tables'
 
 type TableView = NonNullable<Table['views']>[number]
@@ -116,8 +116,7 @@ const guardSqliteTypeChanges = (params: {
     if (refusals.length === 0) return
 
     // `yield*` on the error value directly: a tagged error is yieldable, and
-    // wrapping it in `Effect.fail` is what `unnecessaryFailYieldableError`
-    // flags.
+    // wrapping it in `Effect.fail` is what `unnecessaryFailYieldableError` flags.
     return yield* new SQLExecutionError({ message: refusals.join('\n\n') })
   })
 
@@ -170,9 +169,9 @@ const reconcileTableStructure = (params: {
     if (alterStatements.length > 0) {
       // Incremental, column-level migration.
       yield* executeSQLStatements(tx, alterStatements)
-      // SQLite carries a CHECK only in the CREATE TABLE text, which no ALTER
-      // rewrites: an option added in the same edit as a field added or renamed
-      // would otherwise stay refused. Rebuild from the columns as they stand
+      // SQLite carries CHECK and UNIQUE only in the CREATE TABLE text, which no
+      // ALTER rewrites: an option or unique flag changed beside a field added or
+      // renamed would otherwise not apply. Rebuild from the columns as they stand
       // AFTER the ALTERs, so a renamed column is copied under its new name.
       yield* rebuildIfSqliteChecksStale({ tx, table, previousSchema, inputs })
       return
@@ -206,16 +205,16 @@ const reconcileTableStructure = (params: {
     // references it. The caller's constraint/index sync is idempotent and still
     // runs, so anything outside the CREATE TABLE DDL is reconciled regardless.
     //
-    // The one exception is a SQLite table whose stored CHECK clauses are not the
-    // declared ones — left so by an earlier boot that ALTERed it — which only a
-    // rebuild repairs.
+    // The one exception is a SQLite table whose stored CHECK clauses or unique
+    // columns are not the declared ones — left so by an earlier boot that
+    // ALTERed it — which only a rebuild repairs.
     yield* rebuildIfSqliteChecksStale({ tx, table, previousSchema, inputs })
   })
 
 /**
- * Rebuild a SQLite table whose stored CHECK clauses differ from the ones its
- * definition declares (see `sqlite-check-drift.ts`). A no-op on PostgreSQL and
- * on a table whose clauses are current, which is every table after one rebuild.
+ * Rebuild a SQLite table whose stored CHECK clauses or single-field unique
+ * columns differ from its definition (see `unique-constraint-drift.ts`). A no-op
+ * on PostgreSQL and on a current table, which is every table after one rebuild.
  */
 const rebuildIfSqliteChecksStale = (params: {
   readonly tx: TransactionLike
@@ -225,7 +224,7 @@ const rebuildIfSqliteChecksStale = (params: {
 }): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const { tx, table, previousSchema, inputs } = params
-    if (!(yield* sqliteCheckClausesStale(tx, table))) return
+    if (!(yield* sqliteConstraintsStale(tx, table))) return
     const existingColumns = yield* getExistingColumns(tx, getPhysicalTableName(table))
     yield* guardSqliteTypeChanges({ tx, table, existingColumns, previousSchema })
     yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
@@ -259,7 +258,8 @@ export const migrateExistingTableEffect = (
     // Read before the rebuild below repairs them: a drifted column is rebuilt
     // without its values, so its trigger formulas are computed again.
     const formulaTypesDrifted = hasDriftedFormulaColumns(table, existingColumns)
-
+    // Before any DDL: a field becoming unique over shared values is refused.
+    yield* guardUniqueDuplicates({ tx, table, existingColumns })
     yield* reconcileTableStructure({ tx, table, existingColumns, previousSchema, inputs })
 
     // Always add/update unique constraints for existing tables

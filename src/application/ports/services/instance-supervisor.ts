@@ -6,6 +6,7 @@
  */
 
 import { Context, Data, type Effect } from 'effect'
+import type { InstanceLogUnit } from '@/domain/models/app/automations/actions/instance/logs'
 
 /**
  * A supervision step the host did not carry out: a unit command it refused or
@@ -70,6 +71,11 @@ export interface ReleaseWrite {
   readonly bundle: VerifiedBundle
   readonly revision: string
   readonly env: Readonly<Record<string, string>>
+  /**
+   * The engine version the release runs on, already in the engine store: the
+   * release gets `.engine`, an absolute link to `<store>/<engine>/sovrium`.
+   */
+  readonly engine: string
 }
 
 /** The outcome of writing a release: whether anything changed. */
@@ -77,6 +83,20 @@ export interface ReleaseWriteResult {
   /** False when the revision was already current — nothing was written. */
   readonly applied: boolean
   readonly previousRevision?: string
+}
+
+/** What installing an engine version did: whether it was installed now, and where it sits. */
+export interface EngineInstallResult {
+  /** False when the version was already in the store — nothing was downloaded. */
+  readonly installed: boolean
+  /** `<store>/<version>/sovrium`. */
+  readonly path: string
+}
+
+/** What a prune of the engine store removed and kept, each sorted by version. */
+export interface EnginePruneResult {
+  readonly removed: readonly string[]
+  readonly kept: readonly string[]
 }
 
 /** The outcome of a health probe. An app that does not answer is `ok: false`, not an error. */
@@ -142,6 +162,41 @@ export class InstanceSupervisor extends Context.Service<
     readonly rollbackRelease: (
       slug: string
     ) => Effect.Effect<InstanceReleaseStatus, InstanceSupervisorError>
+    /**
+     * The engine version the app's current release links (`current/.engine`),
+     * or the one `rev-<revision>` links when a revision is named; `undefined`
+     * when that release has no link.
+     */
+    readonly releaseEngine: (
+      slug: string,
+      revision?: string
+    ) => Effect.Effect<string | undefined, InstanceSupervisorError>
+    /** `<store>/<version>/sovrium` when the version is in the engine store, else `undefined`. */
+    readonly enginePath: (
+      version: string
+    ) => Effect.Effect<string | undefined, InstanceSupervisorError>
+    /**
+     * Download a Sovrium release and install it in the engine store, after
+     * checking its published sha256, its release signature and the version
+     * its binary reports, under a lock per version held across processes. A
+     * version already in the store downloads nothing.
+     */
+    readonly installEngine: (
+      version: string
+    ) => Effect.Effect<EngineInstallResult, InstanceSupervisorError>
+    /**
+     * Put the running binary in the engine store under its own version when
+     * that version is missing; answers the version.
+     */
+    readonly adoptRunningEngine: Effect.Effect<string, InstanceSupervisorError>
+    /**
+     * Remove every version of the engine store that is neither in `keep` nor
+     * linked by an app's current release or by the previous one its
+     * `status.json` records.
+     */
+    readonly pruneEngines: (
+      keep: readonly string[]
+    ) => Effect.Effect<EnginePruneResult, InstanceSupervisorError>
     /** Delete the app's whole instance directory. */
     readonly removeRelease: (slug: string) => Effect.Effect<void, InstanceSupervisorError>
     /**
@@ -152,10 +207,10 @@ export class InstanceSupervisor extends Context.Service<
       slug: string,
       timeoutMs: number
     ) => Effect.Effect<InstanceProbeResult, InstanceSupervisorError>
-    /** The last journal lines of the app's service unit. */
+    /** The last journal lines of one of the app's units: app, seed, backup, restore or proxy. */
     readonly logs: (
       slug: string,
-      options: { readonly lines: number; readonly since?: string }
+      options: { readonly lines: number; readonly since?: string; readonly unit: InstanceLogUnit }
     ) => Effect.Effect<readonly string[], InstanceSupervisorError>
     /**
      * The journal of an app found unhealthy: one line saying what systemd

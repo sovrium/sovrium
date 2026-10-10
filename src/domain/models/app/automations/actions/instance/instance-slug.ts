@@ -19,8 +19,18 @@ import { Schema } from 'effect'
  *
  * 28 is the systemd ceiling, not a taste: the host runs each app as the system
  * user `sa-<slug>`, and systemd refuses a user name longer than 31 characters.
+ *
+ * `engines` is refused: the host keeps its engine store beside the instances
+ * under that name, so no app may take it.
  */
-export const INSTANCE_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,26}[a-z0-9]$/
+export const INSTANCE_SLUG_PATTERN = /^(?!engines$)[a-z0-9][a-z0-9-]{0,26}[a-z0-9]$/
+
+/**
+ * Slugs the host keeps for itself; {@link INSTANCE_SLUG_PATTERN} refuses each.
+ *
+ * @public
+ */
+export const INSTANCE_RESERVED_SLUGS: readonly string[] = ['engines']
 
 /**
  * A prop written as one whole template — `{{loop.item.slug}}` — whose value is
@@ -53,8 +63,8 @@ export const literalOrWholeTemplate = (
 
 export const InstanceSlugSchema = literalOrWholeTemplate(
   INSTANCE_SLUG_PATTERN,
-  'a slug of 2 to 28 lowercase letters, digits and "-", starting and ending with a letter or digit',
-  'Name of the supervised app: 2 to 28 lowercase letters, digits and "-", starting and ending with a letter or digit, or one whole {{template}} resolving to one. 28 keeps the app’s system user sa-<slug> within the 31-character limit systemd puts on a user name. It selects the units sovrium-app@<slug>.service and .socket and the directory <SOVRIUM_INSTANCES_DIR>/<slug>'
+  'a slug of 2 to 28 lowercase letters, digits and "-", starting and ending with a letter or digit, and not the reserved "engines"',
+  'Name of the supervised app: 2 to 28 lowercase letters, digits and "-", starting and ending with a letter or digit, other than "engines", which the host reserves, or one whole {{template}} resolving to one. 28 keeps the app’s system user sa-<slug> within the 31-character limit systemd puts on a user name. It selects the units sovrium-app@<slug>.service and .socket and the directory <SOVRIUM_INSTANCES_DIR>/<slug>'
 )
 
 /** @public */

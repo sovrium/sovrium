@@ -314,6 +314,17 @@ sovrium start app.yaml
 
 For **zero downtime**, run the new version as a second instance behind your proxy, verify it, then switch traffic — keeping the old instance until you are confident.
 
+## Per-app engines
+
+On a host that supervises several Sovrium apps with the `instance` actions, each app runs the engine its own release names rather than one binary shared by all. The host keeps one binary per version in its engine store, each release links the one it runs on, and the units start the app through that link. An app therefore moves to a new engine only when it is redeployed — built and deployed with the new version — and the apps beside it stay where they are.
+
+A rollback to the previous release brings back the engine that release linked, together with its config. That is the one place the downgrade rule applies:
+
+- **Never run an app on an engine older than one it has already run, except by restoring the backup taken before the move.** The newer engine may have migrated the database on its first start, and migrations do not reverse. Take a backup whenever an apply reports that it raises the app's engine, and when the new release fails, roll back and restore that backup together. Writes made between the move and the restore are lost; the app was failing in that window.
+- **Rolling back to an older config is not rolling back the engine.** To return to an earlier deployment without the restore, apply its config on the newer engine the app already runs.
+
+The **Instance Actions** article describes `engineInstall`, the `engine` an `apply` names, and `enginePrune`, which keeps the store to the versions a release still links.
+
 ## Next
 
 - **Schema Migrations** — why released migrations are immutable.

@@ -76,6 +76,8 @@ Adding a table's first lookup, rollup or count field, or removing its last one, 
 
 A few changes rebuild a table and copy its rows across. The exact statements for those depend on the state of the table at the moment they run, so they cannot be rendered in advance. They are **named and labelled as unsimulated rather than left out** — a preview that quietly under-reports is worse than none, because you use it to decide whether the change needs a maintenance window.
 
+A field that gains `unique: true`, whether it is new or already in the table, is planned with the unique constraint it would get: on PostgreSQL the `ADD CONSTRAINT <table>_<field>_key UNIQUE (<field>)` statement, on SQLite a `rebuild table <table> to enforce UNIQUE (<field>)` line, since SQLite writes uniqueness into the table definition. If existing rows already share a value of that field, the plan is refused and exits `1`, naming the table, the field and the duplicated values, exactly as the migration itself would refuse it. Once the constraint is in place, the plan lists nothing for it.
+
 After an upgrade to a version of Sovrium that computes formulas differently, the next migration recomputes each stored formula once, for the rows already in its table. The plan names every table it touches: `would recompute the formulas of table <name> (rows and their modification times kept)`, followed by the statements. No automation runs, and no row's modification time moves.
 
 ## Pre-flight with `--check`

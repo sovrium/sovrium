@@ -7,6 +7,7 @@
 
 import { installPageInputs } from './browser-page-inputs-runtime'
 import { installPageRuntime } from './browser-page-runtime'
+import { toScriptLiteral } from './browser-script-literal'
 
 /**
  * The reading half of the page script a model needs ([internal ref], the browser
@@ -130,7 +131,7 @@ export function installPageOutline(): void {
 /* eslint-enable sonarjs/cognitive-complexity, max-lines-per-function, complexity, max-statements, sovrium/no-double-assertion, unicorn/consistent-function-scoping, no-restricted-syntax -- end of the page script */
 
 /** The page-side call `method(...args)`, installing every half of the page script first. */
-export const outlineCall = (method: string, ...args: readonly unknown[]): string =>
+export const outlineCall = (method: 'outline', ...args: readonly unknown[]): string =>
   `(() => { (${String(installPageRuntime)})(); (${String(installPageInputs)})(); (${String(installPageOutline)})(); return window.__sovrium.${method}(${args
-    .map((arg) => JSON.stringify(arg ?? null))
+    .map((arg) => toScriptLiteral(arg))
     .join(', ')}) })()`

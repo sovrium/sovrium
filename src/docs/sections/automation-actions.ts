@@ -325,6 +325,7 @@ export const automationActions = defineSection({
         'US-AUTOMATIONS-ACTIONS-INSTANCE-HEALTH',
         'US-AUTOMATIONS-ACTIONS-INSTANCE-BACKUP',
         'US-AUTOMATIONS-ACTIONS-INSTANCE-SEED',
+        'US-AUTOMATIONS-ACTIONS-INSTANCE-ENGINE',
       ],
     }),
     defineArticle({

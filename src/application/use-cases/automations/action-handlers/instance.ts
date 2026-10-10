@@ -8,23 +8,13 @@
 import { Data, Effect } from 'effect'
 import { InstanceSupervisor } from '@/application/ports/services/instance-supervisor'
 import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
-import { BUNDLE_MANIFEST_ENTRY } from '@/application/use-cases/server/bundle-manifest'
-import {
-  manifestSignatureProblem,
-  verifySignedBundle,
-} from '@/application/use-cases/server/signed-bundle'
-import {
-  BUNDLE_MAX_STORED_BYTES,
-  BUNDLE_MAX_UNPACKED_BYTES,
-  gunzipBounded,
-} from '@/domain/kernel/format/bounded-gunzip'
-import { decodeBase64 } from '@/domain/kernel/identity/ed25519'
-import {
-  INSTANCE_ENV_KEY_PATTERN,
-  INSTANCE_REVISION_PATTERN,
-} from '@/domain/models/app/automations/actions/instance/apply'
+import { INSTANCE_ENGINE_VERSION_PATTERN } from '@/domain/models/app/automations/actions/instance/engine-install'
 import { INSTANCE_SLUG_PATTERN } from '@/domain/models/app/automations/actions/instance/instance-slug'
-import { INSTANCE_LOGS_SINCE_PATTERN } from '@/domain/models/app/automations/actions/instance/logs'
+import {
+  INSTANCE_LOG_UNITS,
+  INSTANCE_LOGS_SINCE_PATTERN,
+  type InstanceLogUnit,
+} from '@/domain/models/app/automations/actions/instance/logs'
 import {
   HOST_ACTIONS_DISABLED_MESSAGE,
   isHostActionsEnabled,
@@ -79,7 +69,7 @@ export const slugOf = (props: Readonly<Record<string, unknown>>) => {
   return typeof slug === 'string' && INSTANCE_SLUG_PATTERN.test(slug)
     ? Effect.succeed(slug)
     : refuse(
-        `instance: slug "${String(slug)}" is not a slug of 2 to 28 lowercase letters, digits and "-", starting and ending with a letter or digit`
+        `instance: slug "${String(slug)}" is not a slug of 2 to 28 lowercase letters, digits and "-", starting and ending with a letter or digit; "engines" is reserved for the host's engine store`
       )
 }
 
@@ -88,6 +78,12 @@ const textOf = (value: unknown, name: string) =>
   typeof value === 'string' && value.trim() !== ''
     ? Effect.succeed(value)
     : refuse(`instance: ${name} must be a non-empty string`)
+
+/** A release number `<major>.<minor>.<patch>`, or a refusal naming the value and the rule. */
+export const engineVersionOf = (value: unknown, name: string) =>
+  typeof value === 'string' && INSTANCE_ENGINE_VERSION_PATTERN.test(value)
+    ? Effect.succeed(value)
+    : refuse(`instance: ${name} "${String(value)}" is not a release number <major>.<minor>.<patch>`)
 
 /** A whole number within bounds, or the default when absent. */
 const boundedInteger = (
@@ -105,24 +101,6 @@ const boundedInteger = (
     : refuse(
         `instance: ${name} must be a whole number from ${String(bounds.min)} to ${String(bounds.max)} (got ${String(value)})`
       )
-}
-
-/** The release's environment: UPPER_SNAKE_CASE names, one-line values. */
-const envOf = (value: unknown) => {
-  if (!isRecord(value)) return refuse('instance: env must be an object of variables')
-  const entries = Object.entries(value).map(
-    ([key, raw]) =>
-      [key, typeof raw === 'number' || typeof raw === 'boolean' ? String(raw) : raw] as const
-  )
-  const badName = entries.find(([key]) => !INSTANCE_ENV_KEY_PATTERN.test(key))
-  if (badName !== undefined) {
-    return refuse(`instance: environment variable names are UPPER_SNAKE_CASE (got "${badName[0]}")`)
-  }
-  const badValue = entries.find(([, raw]) => typeof raw !== 'string' || /[\n\r\0]/.test(raw))
-  if (badValue !== undefined) {
-    return refuse(`instance: the value of ${badValue[0]} must be text on one line`)
-  }
-  return Effect.succeed(Object.fromEntries(entries) as Readonly<Record<string, string>>)
 }
 
 /** How long a backup or restore unit may run: the step's own `timeout`, else the maximum. */
@@ -182,7 +160,13 @@ export const handleInstanceStatus = instanceHandler('status', (props) =>
     const supervisor = yield* InstanceSupervisor
     const unit = yield* supervisor.status(slug)
     const release = yield* supervisor.readRelease(slug)
-    return { slug, ...unit, ...(release === undefined ? {} : { revision: release.revision }) }
+    const engine = release === undefined ? undefined : yield* supervisor.releaseEngine(slug)
+    return {
+      slug,
+      ...unit,
+      ...(release === undefined ? {} : { revision: release.revision }),
+      ...(engine === undefined ? {} : { engine }),
+    }
   })
 )
 
@@ -214,111 +198,20 @@ export const handleInstanceRemove = instanceHandler('remove', (props) =>
   })
 )
 
-/** The archive an `apply` names: inline base64, or an object in this app's storage. */
-const bundleBytes = (bundle: unknown) =>
-  Effect.gen(function* () {
-    if (!isRecord(bundle))
-      return yield* refuse('instance: bundle must be { objectKey } or { base64 }')
-    if (typeof bundle['base64'] === 'string') {
-      const text = bundle['base64'].trim()
-      // Measured before decoding: base64 carries 3 bytes in every 4 characters.
-      if ((text.length / 4) * 3 > BUNDLE_MAX_STORED_BYTES) return yield* refuse(TOO_LARGE_STORED)
-      const bytes = decodeBase64(text)
-      return bytes ?? (yield* refuse('instance: bundle.base64 is not base64'))
-    }
-    const key = yield* textOf(bundle['objectKey'], 'bundle.objectKey')
-    const storage = yield* StorageService
-    const toRefusal = (error: Readonly<StorageError>) =>
-      new InstanceRefusal({ message: storageMessage(key, error) })
-    // The size the STORE reports — the control plane wrote this object, so this app's catalog has
-    // no row for it — is checked before a byte is downloaded; an unknown size is never downloaded.
-    const stored = yield* storage.statObject(key).pipe(Effect.mapError(toRefusal))
-    if (stored.size > BUNDLE_MAX_STORED_BYTES) return yield* refuse(TOO_LARGE_STORED)
-    return yield* storage.download(key, UNATTRIBUTED_BUCKET).pipe(Effect.mapError(toRefusal))
-  })
-
-const TOO_LARGE_STORED = 'instance: the bundle is larger than 100 MiB, the most a bundle may weigh'
-
-/**
- * The bundle's tar, inflated against the 256 MiB unpacked cap — the defence
- * against a small upload that expands a thousandfold; nothing past the cap is
- * ever allocated.
- */
-const inflatedBundle = (archive: Uint8Array) => {
-  const inflated = gunzipBounded(archive, BUNDLE_MAX_UNPACKED_BYTES)
-  if (inflated._tag === 'TooLarge') {
-    return refuse('instance: the bundle unpacks to more than 256 MiB, the most a bundle may hold')
-  }
-  return inflated._tag === 'NotGzip'
-    ? refuse('instance: the bundle is not a tar.gz archive')
-    : Effect.succeed(inflated.bytes)
-}
-
-/**
- * The bundle an `apply` names, verified in this order: stored size, unpacked
- * size, the manifest's signature (read alone, before any other entry), then
- * every entry against the signed manifest.
- */
-const verifiedBundleOf = (
-  bundle: unknown,
-  signed: { readonly keyId: string; readonly signature: string }
-) =>
-  Effect.gen(function* () {
-    const tar = yield* inflatedBundle(yield* bundleBytes(bundle))
-    const supervisor = yield* InstanceSupervisor
-    const manifest = (yield* supervisor.readBundleEntries(tar, [BUNDLE_MANIFEST_ENTRY]))?.get(
-      BUNDLE_MANIFEST_ENTRY
-    )
-    if (manifest === undefined) {
-      return yield* refuse(`instance: the bundle holds no ${BUNDLE_MANIFEST_ENTRY}`)
-    }
-    const badSignature = manifestSignatureProblem(manifest, signed)
-    if (badSignature !== undefined) return yield* refuse(`instance: ${badSignature}`)
-    const entries = yield* supervisor.readBundleEntries(tar)
-    if (entries === undefined) return yield* refuse('instance: the bundle is not a tar.gz archive')
-    const verified = verifySignedBundle({ entries, ...signed })
-    return verified._tag === 'Refused' ? yield* refuse(`instance: ${verified.reason}`) : verified
-  })
-
-export const handleInstanceApply = instanceHandler('apply', (props) =>
-  Effect.gen(function* () {
-    const slug = yield* slugOf(props)
-    const { revision } = props
-    if (typeof revision !== 'string' || !INSTANCE_REVISION_PATTERN.test(revision)) {
-      return yield* refuse(
-        `instance: revision "${String(revision)}" is not 1 to 64 letters, digits, ".", "_" and "-", not starting with "." or "-"`
-      )
-    }
-    const env = yield* envOf(props['env'])
-    const signature = isRecord(props['signature']) ? props['signature'] : {}
-    if (signature['algorithm'] !== undefined && signature['algorithm'] !== 'ed25519') {
-      return yield* refuse('instance: signature.algorithm must be ed25519')
-    }
-    const keyId = yield* textOf(signature['keyId'], 'signature.keyId')
-    const value = yield* textOf(signature['value'], 'signature.value')
-    // Nothing touches the host until signature and entries check out; then the socket, the app.
-    const verified = yield* verifiedBundleOf(props['bundle'], { keyId, signature: value })
-    const { writeRelease, control } = yield* InstanceSupervisor
-    const written = yield* writeRelease(slug, { bundle: verified, revision, env })
-    if (written.applied) yield* Effect.andThen(control(slug, 'start'), control(slug, 'restart'))
-    return {
-      slug,
-      revision,
-      applied: written.applied,
-      ...(written.previousRevision === undefined
-        ? {}
-        : { previousRevision: written.previousRevision }),
-    }
-  })
-)
-
 export const handleInstanceRollback = instanceHandler('rollback', (props) =>
   Effect.gen(function* () {
     const slug = yield* slugOf(props)
     const supervisor = yield* InstanceSupervisor
     const { revision, previousRevision, rolledBackAt } = yield* supervisor.rollbackRelease(slug)
     yield* supervisor.control(slug, 'restart')
-    return { slug, revision, previousRevision, rolledBackAt }
+    const engine = yield* supervisor.releaseEngine(slug)
+    return {
+      slug,
+      revision,
+      previousRevision,
+      rolledBackAt,
+      ...(engine === undefined ? {} : { engine }),
+    }
   })
 )
 
@@ -344,6 +237,19 @@ export const handleInstanceHealth = instanceHandler('health', (props) =>
   })
 )
 
+const isLogUnit = (value: unknown): value is InstanceLogUnit =>
+  INSTANCE_LOG_UNITS.some((known) => known === value)
+
+/** The unit a `logs` step reads, `app` when it names none; any other value is refused. */
+const logUnitOf = (value: unknown) =>
+  value === undefined
+    ? Effect.succeed<InstanceLogUnit>('app')
+    : isLogUnit(value)
+      ? Effect.succeed(value)
+      : refuse(
+          `instance: unit must be one of ${INSTANCE_LOG_UNITS.join(', ')} (got "${String(value)}")`
+        )
+
 export const handleInstanceLogs = instanceHandler('logs', (props) =>
   Effect.gen(function* () {
     const slug = yield* slugOf(props)
@@ -361,8 +267,13 @@ export const handleInstanceLogs = instanceHandler('logs', (props) =>
         `instance: since must be an ISO 8601 date or date and time (got "${String(since)}")`
       )
     }
+    const unit = yield* logUnitOf(props['unit'])
     const supervisor = yield* InstanceSupervisor
-    const read = yield* supervisor.logs(slug, { lines, ...(since === undefined ? {} : { since }) })
+    const read = yield* supervisor.logs(slug, {
+      lines,
+      unit,
+      ...(since === undefined ? {} : { since }),
+    })
     return { slug, lines: read }
   })
 )

@@ -70,6 +70,9 @@ export async function withFetchTimeout(
  * two chunks of the body. Every chunk re-arms the timer. The body is read by
  * `read`, inside the deadline, and the timer is cleared once it settles.
  *
+ * The response handed to `read` keeps the status, the headers and the final
+ * `url` of the one fetched, redirects included.
+ *
  * The abort errors the body stream, so `read` rejects with the same
  * `AbortError` a timed-out `withFetchTimeout` rejects with.
  */
@@ -98,6 +101,9 @@ export async function withFetchStallTimeout<T>(
             ),
             { status: response.status, statusText: response.statusText, headers: response.headers }
           )
+    // A constructed Response has an empty `url`; the caller judges the FINAL url
+    // after redirects (an HTTPS downgrade hides there), so carry it across.
+    if (watched !== response) Object.defineProperty(watched, 'url', { value: response.url })
     return await read(watched)
   } finally {
     clearTimeout(timer)

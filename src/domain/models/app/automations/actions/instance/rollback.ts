@@ -16,7 +16,9 @@ import { InstanceSlugSchema } from './instance-slug'
  * one, records the swap — each release keeps its own `appliedAt`, the swap is
  * dated `rolledBackAt` — and restarts the app as `restart` does. Fails,
  * changing nothing, when no previous release is recorded or its directory is
- * gone. Rolling back twice returns to where it started.
+ * gone. Rolling back twice returns to where it started. Each release carries
+ * its own `.engine` link, so the app comes back on the engine that release
+ * linked.
  */
 export const InstanceRollbackActionSchema = Schema.Struct({
   ...ActionBaseFields,

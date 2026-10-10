@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
+import { InstanceEngineVersionSchema } from './engine-install'
 import { InstanceSlugSchema, literalOrWholeTemplate, wholeTemplate } from './instance-slug'
 
 /**
@@ -86,6 +87,13 @@ const EnvValuesSchema = Schema.Union([
     'Environment the app runs with, written to its env file (mode 0640), each value double-quoted and escaped so it reaches the app unchanged. Names are UPPER_SNAKE_CASE; a value holding a line break is refused. PORT is the loopback port the instance listens on, which health probes',
 })
 
+const EngineSchema = Schema.Struct({
+  version: InstanceEngineVersionSchema,
+}).annotate({
+  description:
+    'The engine the release runs on: a version already installed by engineInstall. The release links it as .engine. Absent: the version of the engine running this step, copied into the store when it is missing',
+})
+
 /**
  * Instance Apply Action (type: instance, operator: apply)
  *
@@ -96,13 +104,19 @@ const EnvValuesSchema = Schema.Union([
  * 2. verifies `signature` over the exact bytes of its `manifest.json` against
  *    the key `keyId` names in `SOVRIUM_BUNDLE_PUBLIC_KEYS`;
  * 3. checks every entry against the manifest's sizes and sha256s;
+ *    A bundle holding an entry named `.engine` is refused: the name is
+ *    reserved for the engine link;
  * 4. writes `<SOVRIUM_INSTANCES_DIR>/<slug>/rev-<revision>/` under a temporary
- *    name and renames it into place, then points `current` at it, writes
- *    `env` (0640) and `status.json`;
+ *    name, with `.engine` linking `<SOVRIUM_ENGINES_DIR>/<version>/sovrium`, and
+ *    renames it into place, then points `current` at it, writes `env` (0640)
+ *    and `status.json`;
  * 5. restarts `sovrium-app@<slug>.service`.
  *
- * Applying the revision `current` already points at is a no-op
- * (`applied: false`) — the reconcile loop calls this on every tick.
+ * `engine` names a version already in the engine store; without it the
+ * release links the version of the engine running the step. Applying the
+ * revision `current` already points at is a no-op (`applied: false`) — the
+ * reconcile loop calls this on every tick — unless `engine` names another
+ * version than the one that release links, which is refused.
  */
 export const InstanceApplyActionSchema = Schema.Struct({
   ...ActionBaseFields,
@@ -127,9 +141,10 @@ export const InstanceApplyActionSchema = Schema.Struct({
       'Revision identifier of the release, used as its directory name rev-<revision>: 1 to 64 letters, digits, ".", "_" and "-", not starting with "." or "-", or one whole {{template}} resolving to one'
     ),
     env: EnvValuesSchema,
+    engine: Schema.optional(EngineSchema),
   }).annotate({
     description:
-      'The app to update, its signed bundle, the revision it becomes, and the environment it runs with.',
+      'The app to update, its signed bundle, the revision it becomes, the environment it runs with, and the engine it runs on.',
   }),
 }).pipe(
   Schema.annotate({

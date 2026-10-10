@@ -24,6 +24,7 @@ import { withCauseInMessage } from '@/infrastructure/errors/with-cause-in-messag
 import { logDebug } from '@/infrastructure/logging/logger'
 import { acquireMaintenanceClient } from '../sql/postgres-connection-budget'
 import { applySqlitePragmas, sqliteLockHint } from '../sql/sqlite-pragmas'
+import { openSqliteReader } from '../sql/sqlite-reader'
 import {
   detectPostgresAccountCollisions,
   detectSqliteAccountCollisions,
@@ -495,13 +496,10 @@ const readAppliedNames = (
     return existsSync(config.path)
       ? Effect.try({
           try: () => {
-            const client = new BunSqlite(config.path, { create: false, readonly: true })
-            // Read-only, so the busy timeout alone: a reader is still refused
-            // outright by a writer holding the file, and `sovrium migrate
-            // --dry-run` reporting "locked" where it could simply have waited
-            // is the same defect in a quieter place.
-
-            applySqlitePragmas(client, { readOnly: true })
+            // A reader with the busy timeout: `sovrium migrate --dry-run`
+            // reporting "locked" where it could simply have waited is the same
+            // defect in a quieter place.
+            const client = openSqliteReader(config.path)
             try {
               return sqliteAppliedNames((sql) => client.query(sql).all(), shipped)
             } finally {

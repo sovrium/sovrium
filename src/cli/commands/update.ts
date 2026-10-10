@@ -36,12 +36,15 @@ import {
   UNVERIFIED_NOTE,
   VERIFIED_LINES,
   announceSkippedChecksum,
-  isTrustedFinalUrl,
-  originFor,
-  releaseAssetUrl,
   verifyRelease,
 } from '@/cli/commands/update-verify'
 import { UPDATE_HELP_TEXT } from '@/cli/runtime/command-help'
+import {
+  RELEASE_DOWNLOAD_STALL_TIMEOUT_MS,
+  isTrustedFinalUrl,
+  originFor,
+} from '@/domain/kernel/identity/release-signature'
+import { releaseAssetUrl } from '@/domain/models/process-env/release-download'
 import { withFetchStallTimeout, withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import {
   formatBytes,
@@ -56,14 +59,8 @@ const GITHUB_API_HOST_DEFAULT = 'api.github.com'
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const UPDATE_CHECK_FILE = join(homedir(), '.sovrium', 'last-update-check')
 
-/**
- * How long a release download may go without progress before it is abandoned.
- *
- * An INACTIVITY deadline, not a total one: the archive is ~70 MB, which an
- * honest slow link takes minutes to deliver, while a peer that accepted the
- * connection and stopped sending would otherwise hold `sovrium update` forever.
- */
-const DOWNLOAD_STALL_TIMEOUT_MS = 30_000
+/** How long a release download may go without progress; shared with `instance/engineInstall`. */
+const DOWNLOAD_STALL_TIMEOUT_MS = RELEASE_DOWNLOAD_STALL_TIMEOUT_MS
 
 /**
  * How Sovrium was installed. Determines what `sovrium update` actually does.

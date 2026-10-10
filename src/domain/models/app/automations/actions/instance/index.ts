@@ -9,6 +9,8 @@ export * from './instance-action'
 
 export * from './apply'
 export * from './backup'
+export * from './engine-install'
+export * from './engine-prune'
 export * from './health'
 export * from './instance-slug'
 export * from './logs'

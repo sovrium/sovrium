@@ -1239,7 +1239,7 @@ export type Action =
       readonly type: 'sovrium'
       readonly operator: 'validateBundle'
     } & Props<{ readonly objectKey: string }>)
-  // ── instance (12 operator variants) ──
+  // ── instance (14 operator variants) ──
   | (ActionBase & {
       readonly type: 'instance'
       readonly operator: 'status' | 'start' | 'stop' | 'restart' | 'rollback'
@@ -1257,6 +1257,7 @@ export type Action =
         }
         readonly revision: string
         readonly env: { readonly [key: string]: string } | string
+        readonly engine?: { readonly version: string }
       }>)
   | (ActionBase & {
       readonly type: 'instance'
@@ -1269,7 +1270,12 @@ export type Action =
   | (ActionBase & {
       readonly type: 'instance'
       readonly operator: 'logs'
-    } & Props<{ readonly slug: string; readonly lines?: number; readonly since?: string }>)
+    } & Props<{
+        readonly slug: string
+        readonly unit?: 'app' | 'seed' | 'backup' | 'restore' | 'proxy'
+        readonly lines?: number
+        readonly since?: string
+      }>)
   | (ActionBase & {
       readonly type: 'instance'
       readonly operator: 'backup'
@@ -1288,6 +1294,14 @@ export type Action =
         readonly today?: string
         readonly dryRun?: boolean | string
       }>)
+  | (ActionBase & {
+      readonly type: 'instance'
+      readonly operator: 'engineInstall'
+    } & Props<{ readonly version: string }>)
+  | (ActionBase & {
+      readonly type: 'instance'
+      readonly operator: 'enginePrune'
+    } & Props<{ readonly keep: readonly string[] | string }>)
   // ── delay:webhook (new operator) ──
   | (ActionBase & {
       readonly type: 'delay'

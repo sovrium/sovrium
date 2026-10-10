@@ -13,11 +13,22 @@ import {
   InstanceSupervisorError,
 } from '@/application/ports/services/instance-supervisor'
 import { ProcessRunner } from '@/application/ports/services/process-runner'
-import { INSTANCE_LOGS_SINCE_PATTERN } from '@/domain/models/app/automations/actions/instance/logs'
+import {
+  INSTANCE_LOG_UNITS,
+  INSTANCE_LOGS_SINCE_PATTERN,
+  type InstanceLogUnit,
+} from '@/domain/models/app/automations/actions/instance/logs'
 import {
   resolveJournalctlPath,
   resolveSystemctlPath,
 } from '@/domain/models/process-env/host-actions'
+import {
+  adoptRunningEngine,
+  enginePath,
+  installEngine,
+  pruneEngines,
+  releaseEngineIn,
+} from './instance-engines'
 import { handFileToUnit, readFileFromUnit, readJsonFromUnit } from './instance-handover'
 import {
   CRASH_JOURNAL_LINES,
@@ -192,9 +203,14 @@ const status = (runner: Runner, slug: string) =>
 const logs = Effect.fn('instance.logs')(function* (
   runner: Runner,
   slug: string,
-  options: { readonly lines: number; readonly since?: string }
+  options: { readonly lines: number; readonly since?: string; readonly unit: InstanceLogUnit }
 ) {
   const s = yield* checkedSlug(slug)
+  if (!INSTANCE_LOG_UNITS.includes(options.unit)) {
+    return yield* fail(
+      `unit must be one of ${INSTANCE_LOG_UNITS.join(', ')} (got "${String(options.unit)}")`
+    )
+  }
   if (!Number.isInteger(options.lines) || options.lines < 1 || options.lines > 1000) {
     return yield* fail(`lines must be a whole number from 1 to 1000 (got ${String(options.lines)})`)
   }
@@ -207,7 +223,7 @@ const logs = Effect.fn('instance.logs')(function* (
     [
       resolveJournalctlPath(process.env),
       '-u',
-      unit.app(s),
+      unit[options.unit](s),
       '--no-pager',
       '-n',
       String(options.lines),
@@ -358,6 +374,12 @@ export const SystemdSupervisorLive = Layer.effect(
       restore: (slug, archive, timeoutMs) => restore(runner, slug, archive, timeoutMs),
       seed: (slug, request, timeoutMs) => seed(runner, slug, request, timeoutMs),
       readRelease,
+      releaseEngine: (slug, revision) =>
+        instanceDir(slug).pipe(Effect.flatMap((dir) => releaseEngineIn(dir, revision))),
+      enginePath,
+      installEngine: (version) => installEngine(runner, version),
+      adoptRunningEngine,
+      pruneEngines,
       writeRelease,
       rollbackRelease,
       removeRelease,

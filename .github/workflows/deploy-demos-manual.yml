@@ -1,66 +1,99 @@
 name: Deploy demo fleet
 
-# Deploys the template demos to Sovrium Cloud THROUGH THE PRODUCT: every demo is
-# shipped with the released binary's own `sovrium deploy`, exactly as a customer
-# ships an app. Two ways in, one body:
+# Deploys the template demos to Sovrium Cloud THROUGH THE PRODUCT ONLY: every
+# demo is shipped with the released binary's own `sovrium deploy`, exactly as a
+# customer ships an app. Nothing here opens an SSH session — the engine an app
+# runs comes from its bundle, and the fleet's node installs and switches it per
+# app (operations.md, "Deploying the demos from CI"). Two ways in, one body:
 #
 #   - workflow_call     — release.yml's `deploy-demos` job, after the template
 #                         mirrors are verified, with the release tag;
-#   - workflow_dispatch — by hand: re-run a failed deploy, or roll the demos BACK
-#                         by naming an older version (>= 0.33.0, the first
-#                         release that ships `sovrium deploy` and signed archives).
+#   - workflow_dispatch — by hand: re-run a failed deploy, roll the demos BACK
+#                         (below), or `dry_run` a read-only check against
+#                         production.
 #
-# What runs, in order (docs/development/cloud-fleet/operations.md, "Deploying
-# the demos from CI"):
+# What runs, in order:
 #
 #   1. the checkout is the TAG of the version deployed, so `templates/<slug>` is
 #      exactly what that release published;
-#   2. the linux-x64 archive of that version is downloaded from this repository's
-#      GitHub release and checked twice — sha256 AND the detached Ed25519 `.sig`
-#      against the keys the engine embeds (update-signing-keys.ts);
-#   3. the CLI signs in with SOVRIUM_CLOUD_API_KEY (`sovrium login --api-key`);
-#   4. the demo list is DERIVED: every key of templates/catalog.json whose
+#   2. the demo list is DERIVED: every key of templates/catalog.json whose
 #      `<slug>-demo` is a `demo` app on the cloud account. Never hard-coded;
-#   5. every demo is bundled with `sovrium bundle` first, so an invalid config
-#      stops the job before the fleet is touched;
-#   6. ONE SSH step upgrades the fleet's shared engine binary
-#      (`upgrade-fleet.sh --binary-only`). The node applies BUNDLES per app, never
-#      an engine version: `instance/apply` takes slug, bundle, signature,
-#      revision and env, and every app on the machine runs the one host binary.
-#      So the binary still moves by SSH, and nothing else does. The upgrade runs
-#      DETACHED on the host and is polled over short sessions, so a dropped SSH
-#      session can neither interrupt it nor turn it red;
-#   7. `sovrium deploy --app <slug>-demo` per demo, one at a time (the staggered
-#      start the fleet needs), each followed to `live` or `failed`, and only when
-#      the host recorded exit 0 for the upgrade. A 5xx or an unreachable intake
-#      is retried once after 30 s;
-#   8. a final probe of https://<slug>-demo.cloud.sovrium.com/api/health?probe=db.
+#   3. PRE-FLIGHT, read-only, through the cloud API: every node that hosts a
+#      planned app must report the NODE_CAPABILITY capability (the node
+#      installs the engine a bundle names). A fleet that does not is NOT
+#      touched — the job stops red and points at the production-window
+#      runbook. There is no SSH fallback, by decision;
+#   4. the BATCH PLAN: `hello-world-demo` alone first (the canary), then the
+#      remaining demos in batches of BATCH_SIZE, in catalog order;
+#      — a `dry_run` stops here and prints the plan; nothing below runs —
+#   5. the linux-x64 archive of that version is downloaded from this
+#      repository's GitHub release and checked twice — sha256 AND the detached
+#      Ed25519 `.sig` against the keys the engine embeds (update-signing-keys.ts);
+#   6. the CLI signs in with SOVRIUM_CLOUD_API_KEY (`sovrium login --api-key`);
+#   7. every demo is bundled with `sovrium bundle` first, so an invalid config
+#      stops the job before anything is deployed;
+#   8. the CANARY: `sovrium deploy --app hello-world-demo`. The CLI ends only on
+#      `Live at …`, after its own 30 s check of the public address; this job
+#      then probes /api/health?probe=db as well. A red canary ends the run: the
+#      node's automatic rollback puts hello-world-demo back on its previous
+#      revision (and engine), and no other demo is touched;
+#   9. the remaining demos, BATCH_SIZE at a time in parallel. When any demo of a
+#      batch fails, that batch is allowed to finish and no further batch
+#      starts: those demos stay on the version they run. A 5xx or an
+#      unreachable intake is retried once after 30 s;
+#  10. a probe of https://<slug>-demo.cloud.sovrium.com/api/health?probe=db for
+#      every planned app, and a job summary table: demo, result, engine,
+#      deployment id.
 #
-# One failed demo fails the job; the others are still deployed and probed, and
-# the cloud's own report for the failed one is printed by the CLI.
+# ROLLBACK: dispatch with an older `version` (>= 0.33.0, the first release that
+# ships `sovrium deploy` and signed archives). The configs of that tag are
+# bundled by that tag's binary and redeployed, so each bundle names the older
+# engine. The node never runs an engine older than one the app already ran
+# (the high-water rule): the older CONFIG goes live on the newer engine the
+# node keeps, and the cloud's report says so. Rolling the ENGINE itself back is
+# a node-side restore, never a dispatch.
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version to deploy to the demos (e.g. 0.33.0, no leading v; at least 0.33.0)'
+        description: 'Release version to deploy to the demos (e.g. 0.36.0, no leading v; at least 0.33.0)'
         required: true
+      dry_run:
+        description: 'Read-only: run the pre-flight, the demo list and the batch plan, print the plan, deploy nothing'
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       version:
-        description: 'Release version or tag (v0.33.0 or 0.33.0)'
+        description: 'Release version or tag (v0.36.0 or 0.36.0)'
         required: true
         type: string
+      dry_run:
+        description: 'Read-only: pre-flight, demo list and batch plan only'
+        type: boolean
+        default: false
     secrets:
       SOVRIUM_CLOUD_API_KEY:
-        required: true
-      DEMO_FLEET_SSH_KEY:
-        required: true
-      DEMO_FLEET_KNOWN_HOSTS:
         required: true
 
 # Nothing at the top level; the one job states its own block.
 permissions: {}
+
+env:
+  CLOUD_HOST: https://cloud.sovrium.com
+  DEMO_DOMAIN: cloud.sovrium.com
+  # The pre-flight's one contract with the cloud: the `nodes` field that holds
+  # what a node reports it can do, and the capability this job needs. The node
+  # report writes it from the 0.36.0 cloud pin on. It may be a boolean column, a
+  # list (multi-select or array), or comma-separated or JSON text: the check
+  # reads all of them, so a rename is THIS line and nothing else.
+  NODE_CAPABILITY_FIELD: capabilities
+  NODE_CAPABILITY: engineStore
+  # The canary's template; its app is `<CANARY>-demo`. The legacy `hello-world`
+  # tenant is deleted: nothing in this job targets an app without `-demo`.
+  CANARY: hello-world
+  BATCH_SIZE: '4'
 
 jobs:
   deploy-demos:
@@ -68,18 +101,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    # A release run and a manual run never deploy at the same time: two
-    # interleaved binary upgrades would race on the rollback slot.
+    # A release run and a manual run never deploy at the same time: two runs
+    # would race competing revisions of the same demo, and neither batch plan
+    # would see the other's failures.
     concurrency:
       group: demo-fleet-deploy
       cancel-in-progress: false
-    timeout-minutes: 90
-    env:
-      CLOUD_HOST: https://cloud.sovrium.com
-      DEMO_DOMAIN: cloud.sovrium.com
-      FLEET_HOST: 78.232.50.251
+    timeout-minutes: 120
     steps:
-      # The input reaches a REMOTE shell and a checkout ref, so it travels through
+      # The input reaches a checkout ref and the cloud, so it travels through
       # `env:` (never an expression inside `run:`) and must be a release version.
       - name: Read version
         id: version
@@ -100,47 +130,192 @@ jobs:
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-      # Fail before doing anything when a secret is missing, as the release's
+      # Fail before doing anything when the key is missing, as the release's
       # signing step does: a half-deployed fleet is worse than none.
-      - name: Verify the deploy secrets are configured
+      - name: Verify the deploy secret is configured
         env:
           SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
-          DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
-          DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
         run: |
-          MISSING=0
           if [ -z "${SOVRIUM_CLOUD_API_KEY}" ]; then
             echo "::error::SOVRIUM_CLOUD_API_KEY secret is not set — the demos are deployed with 'sovrium deploy' as the cloud's admin account, and this job has no key to sign in with. It is minted on cloud.sovrium.com for the account that owns the demo apps (operations.md, 'Deploying the demos from CI')."
-            MISSING=1
+            exit 1
           fi
-          if [ -z "${DEMO_FLEET_SSH_KEY}" ]; then
-            echo "::error::DEMO_FLEET_SSH_KEY secret is not set — the fleet's engine binary cannot be upgraded."
-            MISSING=1
-          fi
-          # Fail CLOSED without a pinned host key: `ssh-keyscan` would trust
-          # whatever key answered, and the session runs a root command.
-          if [ -z "${DEMO_FLEET_KNOWN_HOSTS}" ]; then
-            echo "::error::DEMO_FLEET_KNOWN_HOSTS secret is not set — the fleet host key is not pinned, so this job refuses to connect."
-            MISSING=1
-          fi
-          exit "${MISSING}"
 
       - name: Checkout the release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: v${{ steps.version.outputs.version }}
 
+      # The catalog says which templates exist; the cloud account says which of
+      # them are hosted as demos. A template with no `<slug>-demo` app is named
+      # and skipped (registering one is an operator step); a demo app with no
+      # template is named and fails the job — nothing here could redeploy it.
+      - name: Derive the demo list
+        id: demos
+        env:
+          SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
+        run: |
+          set -euo pipefail
+          HEADER="${RUNNER_TEMP}/cloud-key.header"
+          ( umask 077; printf 'x-api-key: %s\n' "${SOVRIUM_CLOUD_API_KEY}" > "${HEADER}" )
+          APPS="${RUNNER_TEMP}/cloud-apps.json"
+          curl -fsS -m 30 -H @"${HEADER}" -o "${APPS}" "${CLOUD_HOST}/api/tables/apps/records?limit=100"
+          TOTAL=$(jq -r '.pagination.total // (.records | length)' "${APPS}")
+          if [ "${TOTAL}" -gt 100 ]; then
+            echo "::error::the account holds ${TOTAL} apps and this job reads one page of 100 — paginate the demo lookup"
+            exit 1
+          fi
+          jq -r '.records[] | select(.fields.demo == true) | .fields.slug' "${APPS}" | sort > "${RUNNER_TEMP}/cloud-demo-apps.txt"
+          # A `demo` app outside the `<template>-demo` address space is never
+          # this job's to deploy (the deleted legacy `hello-world` tenant was one).
+          grep -v -- '-demo$' "${RUNNER_TEMP}/cloud-demo-apps.txt" | while IFS= read -r APP; do
+            echo "::notice::${APP} is flagged demo but is not a '<template>-demo' app — never deployed by this job"
+          done || true
+          grep -- '-demo$' "${RUNNER_TEMP}/cloud-demo-apps.txt" > "${RUNNER_TEMP}/cloud-demos.txt" || true
+          jq -r 'keys[]' templates/catalog.json | sort > "${RUNNER_TEMP}/templates.txt"
+          DEMOS=""
+          while IFS= read -r SLUG; do
+            if grep -qxF "${SLUG}-demo" "${RUNNER_TEMP}/cloud-demos.txt"; then
+              DEMOS="${DEMOS} ${SLUG}"
+            else
+              echo "::notice::${SLUG}: no '${SLUG}-demo' demo app on ${CLOUD_HOST} — not deployed"
+            fi
+          done < "${RUNNER_TEMP}/templates.txt"
+          ORPHANS=0
+          while IFS= read -r APP; do
+            if ! grep -qxF "${APP%-demo}" "${RUNNER_TEMP}/templates.txt"; then
+              echo "::error::${APP} is a demo app on ${CLOUD_HOST} with no templates/${APP%-demo} in this release"
+              ORPHANS=1
+            fi
+          done < "${RUNNER_TEMP}/cloud-demos.txt"
+          if [ "${ORPHANS}" -ne 0 ]; then exit 1; fi
+          DEMOS="${DEMOS# }"
+          if [ -z "${DEMOS}" ]; then
+            echo "::error::no template in templates/catalog.json is hosted as a demo on ${CLOUD_HOST}"
+            exit 1
+          fi
+          echo "Planned: $(wc -w <<< "${DEMOS}" | tr -d ' ') demos: ${DEMOS}"
+          echo "list=${DEMOS}" >> "$GITHUB_OUTPUT"
+
+      # Read-only. Every node that hosts a planned app — and, when one of them
+      # is not placed yet, every `online` node — must report NODE_CAPABILITY in
+      # NODE_CAPABILITY_FIELD. Without it the node can neither install the
+      # engine a bundle names nor keep the high-water engine on a rollback, so
+      # nothing is deployed.
+      - name: Pre-flight — the fleet runs per-app engines
+        env:
+          DEMOS: ${{ steps.demos.outputs.list }}
+        run: |
+          set -euo pipefail
+          HEADER="${RUNNER_TEMP}/cloud-key.header"
+          NODES="${RUNNER_TEMP}/cloud-nodes.json"
+          RUNBOOK="fleet not on the per-app engine yet: run the production window runbook (docs/development/cloud-fleet/operations.md)"
+          STATUS=$(curl -sS -m 30 -H @"${HEADER}" -o "${NODES}" -w '%{http_code}' "${CLOUD_HOST}/api/tables/nodes/records?limit=100" || echo 000)
+          if [ "${STATUS}" != "200" ]; then
+            echo "::error::could not read the nodes table on ${CLOUD_HOST} (HTTP ${STATUS}) — the key's account needs read access to 'nodes'. ${RUNBOOK}"
+            exit 1
+          fi
+          read -r -a SLUGS <<< "${DEMOS}"
+          PLANNED=$(printf '%s-demo\n' "${SLUGS[@]}" | jq -R . | jq -s .)
+          # `<app>\t<node id>` per planned app; the id is empty while unplaced.
+          jq -r --argjson planned "${PLANNED}" '
+            def ref_id: if type == "object" then (.id // .value // "")
+              elif type == "array" then (.[0] // "" | if type == "object" then (.id // "") else . end)
+              else (. // "") end | tostring;
+            .records[] | select(.fields.slug | IN($planned[]))
+            | "\(.fields.slug)\t\(.fields.node | ref_id)"' "${RUNNER_TEMP}/cloud-apps.json" > "${RUNNER_TEMP}/app-nodes.tsv"
+          { cut -f2 "${RUNNER_TEMP}/app-nodes.tsv" | grep -v '^$' || true; } > "${RUNNER_TEMP}/needed-nodes.txt"
+          UNPLACED=$(awk -F'\t' '$2 == "" { printf "%s ", $1 }' "${RUNNER_TEMP}/app-nodes.tsv")
+          if [ -n "${UNPLACED}" ]; then
+            echo "::notice::not placed on a node yet: ${UNPLACED}— every online node must qualify"
+            jq -r '.records[] | select(.fields.state == "online") | .id | tostring' "${NODES}" >> "${RUNNER_TEMP}/needed-nodes.txt"
+          fi
+          sort -u -o "${RUNNER_TEMP}/needed-nodes.txt" "${RUNNER_TEMP}/needed-nodes.txt"
+          if [ ! -s "${RUNNER_TEMP}/needed-nodes.txt" ]; then
+            echo "::error::no node hosts the planned demos and none is online. ${RUNBOOK}"
+            exit 1
+          fi
+          NEEDED=$(jq -R . < "${RUNNER_TEMP}/needed-nodes.txt" | jq -s .)
+          # `<name>\t<state>\t<true|false>` per needed node.
+          jq -r --arg f "${NODE_CAPABILITY_FIELD}" --arg c "${NODE_CAPABILITY}" --argjson needed "${NEEDED}" '
+            def item_name: if type == "object" then (.name // .value // .id // "") else . end | tostring;
+            def has_cap:
+              if . == null then false
+              elif type == "boolean" then .
+              elif type == "array" then any(.[]; item_name == $c)
+              elif type == "object" then (.[$c] == true)
+              elif type == "string" then
+                ((try fromjson catch null) as $j
+                 | if $j == null then any(split(",")[]; gsub("^\\s+|\\s+$"; "") == $c)
+                   else ($j | has_cap) end)
+              else false end;
+            .records[] | select(.id | tostring | IN($needed[]))
+            | "\(.fields.name // .id)\t\(.fields.state // "?")\t\(.fields[$f] | has_cap)"' "${NODES}" > "${RUNNER_TEMP}/node-verdicts.tsv"
+          if [ "$(wc -l < "${RUNNER_TEMP}/node-verdicts.tsv")" -lt "$(wc -l < "${RUNNER_TEMP}/needed-nodes.txt")" ]; then
+            echo "::error::a planned app names a node the nodes table does not hold. ${RUNBOOK}"
+            exit 1
+          fi
+          BAD=0
+          while IFS=$'\t' read -r NAME STATE OK; do
+            if [ "${OK}" = "true" ]; then
+              echo "OK: node ${NAME} (${STATE}) reports ${NODE_CAPABILITY}"
+            else
+              echo "::error::node ${NAME} (${STATE}) does not report '${NODE_CAPABILITY}' in '${NODE_CAPABILITY_FIELD}' — ${RUNBOOK}"
+              BAD=1
+            fi
+          done < "${RUNNER_TEMP}/node-verdicts.tsv"
+          exit "${BAD}"
+
+      # The canary runs alone; the rest follow in fixed batches, in catalog
+      # order, one batch per line of batches.txt. The canary's app must exist:
+      # without it nothing proves the release on the fleet before the demos move.
+      - name: Plan the batches
+        id: plan
+        env:
+          DEMOS: ${{ steps.demos.outputs.list }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          read -r -a SLUGS <<< "${DEMOS}"
+          if ! printf '%s\n' "${SLUGS[@]}" | grep -qxF "${CANARY}"; then
+            echo "::error::the canary ${CANARY}-demo is not a demo app on ${CLOUD_HOST} — refusing to deploy the demos without it"
+            exit 1
+          fi
+          PLAN="${RUNNER_TEMP}/batches.txt"
+          { printf '%s\n' "${SLUGS[@]}" | grep -vxF "${CANARY}" || true; } | xargs -r -n "${BATCH_SIZE}" echo > "${PLAN}"
+          SUFFIX=""
+          if [ "${DRY_RUN}" = "true" ]; then SUFFIX=" (dry run: nothing deployed)"; fi
+          {
+            echo "### Demo deploy plan — ${VERSION}${SUFFIX}"
+            echo
+            echo "| Step | Apps |"
+            echo "| --- | --- |"
+            echo "| Canary | \`${CANARY}-demo\` |"
+            N=0
+            while read -r -a BATCH; do
+              N=$((N + 1))
+              echo "| Batch ${N} | $(printf '\x60%s-demo\x60 ' "${BATCH[@]}")|"
+            done < "${PLAN}"
+            echo
+          } > "${RUNNER_TEMP}/plan.md"
+          cat "${RUNNER_TEMP}/plan.md"
+          if [ "${DRY_RUN}" = "true" ]; then cat "${RUNNER_TEMP}/plan.md" >> "$GITHUB_STEP_SUMMARY"; fi
+
       # Bun runs the signature check (scripts/build/sign-asset.ts) and reads the
       # embedded release keys from the source of the SAME tag.
       - name: Setup Bun
+        if: ${{ !inputs.dry_run }}
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
 
       - name: Install dependencies
+        if: ${{ !inputs.dry_run }}
         run: bun install --frozen-lockfile
 
       - name: Download and verify the released binary
+        if: ${{ !inputs.dry_run }}
         env:
           VERSION: ${{ steps.version.outputs.version }}
           REPOSITORY: ${{ github.repository }}
@@ -186,268 +361,146 @@ jobs:
       # and stored 0600 in ~/.sovrium/credentials.json. A key the cloud refuses
       # ends the job here, before anything is built or sent.
       - name: Sign in to Sovrium Cloud
+        if: ${{ !inputs.dry_run }}
         env:
           SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
         run: sovrium login --host "${CLOUD_HOST}" --api-key "${SOVRIUM_CLOUD_API_KEY}"
 
-      # The catalog says which templates exist; the cloud account says which of
-      # them are hosted as demos. A template with no `<slug>-demo` app is named
-      # and skipped (registering one is an operator step); a demo app with no
-      # template is named and fails the job — nothing here could redeploy it.
-      - name: Derive the demo list
-        id: demos
-        env:
-          SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
-        run: |
-          set -euo pipefail
-          HEADER="${RUNNER_TEMP}/cloud-key.header"
-          ( umask 077; printf 'x-api-key: %s\n' "${SOVRIUM_CLOUD_API_KEY}" > "${HEADER}" )
-          APPS="${RUNNER_TEMP}/cloud-apps.json"
-          curl -fsS -m 30 -H @"${HEADER}" -o "${APPS}" "${CLOUD_HOST}/api/tables/apps/records?limit=100"
-          rm -f "${HEADER}"
-          TOTAL=$(jq -r '.pagination.total // (.records | length)' "${APPS}")
-          if [ "${TOTAL}" -gt 100 ]; then
-            echo "::error::the account holds ${TOTAL} apps and this job reads one page of 100 — paginate the demo lookup"
-            exit 1
-          fi
-          jq -r '.records[] | select(.fields.demo == true) | .fields.slug' "${APPS}" | sort > "${RUNNER_TEMP}/cloud-demos.txt"
-          jq -r 'keys[]' templates/catalog.json | sort > "${RUNNER_TEMP}/templates.txt"
-          DEMOS=""
-          while IFS= read -r SLUG; do
-            if grep -qxF "${SLUG}-demo" "${RUNNER_TEMP}/cloud-demos.txt"; then
-              DEMOS="${DEMOS} ${SLUG}"
-            else
-              echo "::notice::${SLUG}: no '${SLUG}-demo' demo app on ${CLOUD_HOST} — not deployed"
-            fi
-          done < "${RUNNER_TEMP}/templates.txt"
-          ORPHANS=0
-          while IFS= read -r APP; do
-            if ! grep -qxF "${APP%-demo}" "${RUNNER_TEMP}/templates.txt"; then
-              echo "::error::${APP} is a demo app on ${CLOUD_HOST} with no templates/${APP%-demo} in this release"
-              ORPHANS=1
-            fi
-          done < "${RUNNER_TEMP}/cloud-demos.txt"
-          if [ "${ORPHANS}" -ne 0 ]; then exit 1; fi
-          DEMOS="${DEMOS# }"
-          if [ -z "${DEMOS}" ]; then
-            echo "::error::no template in templates/catalog.json is hosted as a demo on ${CLOUD_HOST}"
-            exit 1
-          fi
-          echo "Deploying $(wc -w <<< "${DEMOS}" | tr -d ' ') demos: ${DEMOS}"
-          echo "list=${DEMOS}" >> "$GITHUB_OUTPUT"
-
       # `sovrium deploy` bundles again on its own; this pass exists so that one
-      # invalid template stops the job BEFORE the fleet's binary moves.
+      # invalid template stops the job BEFORE anything is deployed. It also
+      # records the engine each bundle names, for the summary.
       - name: Bundle every demo (validation pass)
+        if: ${{ !inputs.dry_run }}
         env:
           DEMOS: ${{ steps.demos.outputs.list }}
         run: |
           set -euo pipefail
           OUT="${RUNNER_TEMP}/bundles"
-          mkdir -p "${OUT}"
+          mkdir -p "${OUT}" "${RUNNER_TEMP}/engines"
           for SLUG in ${DEMOS}; do
             ( cd "templates/${SLUG}" && sovrium bundle --output "${OUT}/${SLUG}.tar.gz" )
+            tar -xzOf "${OUT}/${SLUG}.tar.gz" manifest.json | jq -r '.engine.minVersion' > "${RUNNER_TEMP}/engines/${SLUG}"
           done
 
-      - name: Configure SSH
-        env:
-          DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
-          DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
+      # One function for the canary and the batches: deploy `<slug>-demo` from
+      # templates/<slug>, its whole output in its own log, its outcome in
+      # results/<slug> as `<result>\t<deployment id>`. Success means `Live at`.
+      - name: Prepare the per-demo deploy
+        if: ${{ !inputs.dry_run }}
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "${DEMO_FLEET_SSH_KEY}" > ~/.ssh/demo_fleet
-          chmod 600 ~/.ssh/demo_fleet
-          printf '%s\n' "${DEMO_FLEET_KNOWN_HOSTS}" > ~/.ssh/demo_fleet_known_hosts
-          chmod 600 ~/.ssh/demo_fleet_known_hosts
-
-      # The ONE thing still done over SSH: the fleet's shared engine binary. The
-      # host-resident /usr/local/bin/upgrade-fleet.sh (never this checkout: docs/
-      # is not in the public mirror) installs the sha256-verified binary, restarts
-      # the apps it supervises, health-checks and rolls the binary back on any red.
-      # With --binary-only it no longer checks out, restores or re-seeds a demo:
-      # `sovrium deploy` does that below.
-      #
-      # It runs DETACHED on the host and this step polls it. v0.34.2 (run
-      # 38001737382) held one SSH session for the whole upgrade; the session
-      # dropped mid-run, the hang-up cancelled an in-flight `systemctl restart`
-      # and left a demo stopped, and the step went red although the upgrade
-      # itself had worked, which skipped every demo deploy. Now:
-      #
-      #   - `--detach <run-id>` starts the upgrade in its own session on the host
-      #     and returns at once. It is idempotent per run id, so a launch whose
-      #     session drops is retried, never doubled;
-      #   - `--status <run-id>` is asked every POLL_SECONDS over a fresh, short
-      #     session. A dropped poll is a warning and the next poll goes on;
-      #   - the result is the exit code the HOST recorded, published as
-      #     `exit_code`. The SSH transport never decides it.
-      #
-      # `--capabilities` is asked first, and needs no VERSION: a host still on
-      # the pre-binary-only script answers "VERSION must be set" and changes
-      # nothing, so this job stops instead of running the old full upgrade. A
-      # host whose wrapper predates `detach` gets the old attached call, with a
-      # warning.
-      - name: Upgrade the fleet's engine binary
-        id: upgrade
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          # A repository variable, so the login user is a settings change.
-          DEMO_USER: ${{ vars.DEMO_FLEET_SSH_USER || 'root' }}
-          RUN_ID: gh-${{ github.run_id }}-${{ github.run_attempt }}
-          POLL_SECONDS: '20'
-          POLL_TIMEOUT_SECONDS: '1500'
-        run: |
-          # Every exit status below is read and decided on: no errexit.
-          set +e
-          set -uo pipefail
-          SSH=(ssh -i "${HOME}/.ssh/demo_fleet" -o IdentitiesOnly=yes -o BatchMode=yes
-            -o StrictHostKeyChecking=yes
-            -o UserKnownHostsFile="${HOME}/.ssh/demo_fleet_known_hosts"
-            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4
-            "${DEMO_USER}@${FLEET_HOST}")
-          ENTRY=/usr/local/bin/upgrade-fleet.sh
-          record() { echo "exit_code=$1" >> "$GITHUB_OUTPUT"; }
-          # Idempotent remote calls only. ssh exits 255 for its own failures, and
-          # only those are retried; any other code is the remote command's.
-          OUT=""
-          ssh_retry() {
-            local attempt rc=255
-            for attempt in 1 2 3 4 5; do
-              OUT=$(timeout 120 "${SSH[@]}" "$1" 2>&1); rc=$?
-              if [ "${rc}" -ne 255 ] && [ "${rc}" -ne 124 ]; then return "${rc}"; fi
-              echo "::warning::SSH to ${FLEET_HOST} failed (attempt ${attempt}, exit ${rc}) — retrying in 15 s"
-              sleep 15
-            done
-            return "${rc}"
-          }
-          # Inside the wrapper as far as the host is concerned; here, its last
-          # words and the fleet's state, whatever the outcome.
-          show_host_report() {
-            echo "::group::Host log and fleet summary (${RUN_ID})"
-            printf '%s\n' "$1" | sed 's/^/  host: /'
-            echo "::endgroup::"
-          }
-
-          ssh_retry "${ENTRY} --capabilities"
-          CAPABILITIES="${OUT}"
-          if ! grep -qx 'binary-only' <<< "${CAPABILITIES}"; then
-            while IFS= read -r LINE; do echo "  host: ${LINE}"; done <<< "${CAPABILITIES}"
-            echo "::error::upgrade-fleet.sh on ${FLEET_HOST} has no --binary-only mode yet. Install the host change described in docs/development/cloud-fleet/operations.md ('Deploying the demos from CI') before this job can run."
-            record unsupported
-            exit 1
-          fi
-
-          # VERSION was validated above and RUN_ID is two numbers: they are the
-          # only values reaching the host.
-          if ! grep -qx 'detach' <<< "${CAPABILITIES}"; then
-            echo "::warning::upgrade-fleet.sh on ${FLEET_HOST} predates --detach, so this upgrade holds one SSH session for its whole run. Re-install host/upgrade-fleet-entry.sh (operations.md, 'Detached fleet upgrade')."
-            "${SSH[@]}" "VERSION='${VERSION}' ${ENTRY} --binary-only"
-            RC=$?
-            record "${RC}"
-            if [ "${RC}" -ne 0 ]; then
-              echo "::error::the attached fleet upgrade ended with exit ${RC} (255 is the SSH session itself, not the upgrade: read the host log)"
-            fi
-            exit "${RC}"
-          fi
-
-          if ! ssh_retry "VERSION='${VERSION}' ${ENTRY} --detach '${RUN_ID}' --binary-only"; then
-            printf '%s\n' "${OUT}" | sed 's/^/  host: /'
-            echo "::error::the fleet upgrade could not be started on ${FLEET_HOST}"
-            record unstarted
-            exit 1
-          fi
-          printf '%s\n' "${OUT}" | sed -n '1p'
-
-          DEADLINE=$(( $(date +%s) + POLL_TIMEOUT_SECONDS ))
-          STATE=""; RECORDED=""; LAST=""; DROPPED=0
-          while :; do
-            sleep "${POLL_SECONDS}"
-            if REPORT=$(timeout 90 "${SSH[@]}" "STATUS_TAIL_LINES=3 ${ENTRY} --status '${RUN_ID}'" 2>&1); then
-              STATE=$(sed -n 's/^state=//p' <<< "${REPORT}" | head -1)
-              RECORDED=$(sed -n 's/^exit=//p' <<< "${REPORT}" | head -1)
-              # The newest log line, when it changed: progress without the noise.
-              LINE=$(sed -n '/^--- log tail/,/^--- fleet summary/p' <<< "${REPORT}" | sed '1d;$d' | tail -1)
-              if [ -n "${LINE}" ] && [ "${LINE}" != "${LAST}" ]; then echo "  host: ${LINE}"; LAST="${LINE}"; fi
-              case "${STATE}" in done|lost|unknown) break ;; esac
-            else
-              DROPPED=$(( DROPPED + 1 ))
-              echo "::warning::status poll ${DROPPED} to ${FLEET_HOST} dropped — the upgrade keeps running on the host; polling again"
-            fi
-            if [ "$(date +%s)" -ge "${DEADLINE}" ]; then STATE=timeout; break; fi
-          done
-
-          ssh_retry "STATUS_TAIL_LINES=400 ${ENTRY} --status '${RUN_ID}'"
-          FINAL="${OUT}"
-          case "${STATE}" in
-            done)
-              record "${RECORDED}"
-              if [ "${RECORDED}" = "0" ]; then
-                echo "Fleet upgrade ${RUN_ID} finished on the host with exit 0"
-                sed -n '/^--- fleet summary/,/^--- failed sovrium units/p' <<< "${FINAL}" | sed '1d;$d' | sed 's/^/  host: /'
-                exit 0
-              fi
-              show_host_report "${FINAL}"
-              echo "::error::the fleet upgrade ended on the host with exit ${RECORDED}. The demos are NOT deployed; the health check below probes every one of them."
-              exit 1 ;;
-            timeout)
-              record timeout
-              show_host_report "${FINAL}"
-              echo "::error::no result from the fleet upgrade after ${POLL_TIMEOUT_SECONDS} s. It may still be running on ${FLEET_HOST} (~deploy/fleet-upgrades/${RUN_ID}); the demos are NOT deployed."
-              exit 1 ;;
-            *)
-              record "${STATE:-lost}"
-              show_host_report "${FINAL}"
-              echo "::error::the fleet upgrade on ${FLEET_HOST} ended without recording an exit code (state: ${STATE:-lost}) — the host rebooted or the run was killed. The demos are NOT deployed."
-              exit 1 ;;
-          esac
-
-      # Gated on the exit code the HOST recorded, not on the step's own status:
-      # the upgrade step only fails when the upgrade did.
-      - name: Deploy every demo with sovrium deploy
-        if: ${{ !cancelled() && steps.upgrade.outputs.exit_code == '0' }}
-        env:
-          DEMOS: ${{ steps.demos.outputs.list }}
-          TRANSIENT_RETRY_SECONDS: '30'
-        run: |
-          FAILED=""
-          deploy_one() { # slug log
-            ( cd "templates/$1" && sovrium deploy --app "$1-demo" --host "${CLOUD_HOST}" ) 2>&1 | tee "$2"
-            return "${PIPESTATUS[0]}"
-          }
-          for SLUG in ${DEMOS}; do
-            echo "::group::${SLUG}-demo"
-            LOG="${RUNNER_TEMP}/deploy-${SLUG}.log"
-            # Waits for `live` or `failed` (2 s polls, 10 min cap). Unchanged
-            # content is answered with the existing deployment (Idempotency-Key),
-            # but the bundle names the engine that built it, so a new release is
-            # always a new deployment — and a restart onto the new binary.
-            RC=0
-            deploy_one "${SLUG}" "${LOG}" || RC=$?
-            # One retry when the intake itself stumbled (a 5xx, or unreachable):
-            # the same Idempotency-Key, so a deployment the cloud did record is
-            # answered again rather than duplicated. A refused config is final.
+          mkdir -p "${RUNNER_TEMP}/deploy-logs" "${RUNNER_TEMP}/results"
+          cat > "${RUNNER_TEMP}/deploy-one.sh" <<'SCRIPT'
+          # Sourced by the canary and batch steps.
+          LOGS="${RUNNER_TEMP}/deploy-logs"
+          RESULTS="${RUNNER_TEMP}/results"
+          deploy_one() { # <template slug>
+            local SLUG="$1" APP="$1-demo" LOG="${LOGS}/$1.log" RC=0 ID
+            : > "${LOG}"
+            attempt() { ( cd "templates/${SLUG}" && sovrium deploy --app "${APP}" --host "${CLOUD_HOST}" ) >> "${LOG}" 2>&1; }
+            # Waits for `live` or `failed` (2 s polls, 10 min cap), then up to 30 s
+            # on the public address. The bundle names the engine that built it, so
+            # a new release is always a new deployment.
+            attempt || RC=$?
+            # One retry when the intake itself stumbled (a 5xx, or unreachable): the
+            # same Idempotency-Key, so a deployment the cloud did record is answered
+            # again rather than duplicated. A refused config is final.
             if [ "${RC}" -ne 0 ] && grep -Eq '\(HTTP 5[0-9]{2}\)|Could not reach ' "${LOG}"; then
-              echo "::warning::${SLUG}-demo: the cloud answered with a transient error — retrying once in ${TRANSIENT_RETRY_SECONDS} s"
+              echo "--- transient error from the cloud, retrying once in ${TRANSIENT_RETRY_SECONDS} s" >> "${LOG}"
               sleep "${TRANSIENT_RETRY_SECONDS}"
               RC=0
-              deploy_one "${SLUG}" "${LOG}" || RC=$?
+              attempt || RC=$?
             fi
-            echo "::endgroup::"
-            if [ "${RC}" -ne 0 ]; then
-              echo "::error::${SLUG}-demo was not deployed — the cloud's report is in the group above"
-              FAILED="${FAILED} ${SLUG}"
+            ID=$(grep -oE '(Deployment|revision) [0-9A-Za-z_-]+' "${LOG}" | tail -1 | awk '{print $2}')
+            # `replaced` also exits 0; only `Live at` proves THIS deployment serves.
+            if [ "${RC}" -eq 0 ] && ! grep -q '^Live at ' "${LOG}"; then RC=1; fi
+            if [ "${RC}" -eq 0 ]; then
+              printf 'upgraded\t%s\n' "${ID:--}" > "${RESULTS}/${SLUG}"
+            else
+              printf 'failed\t%s\n' "${ID:--}" > "${RESULTS}/${SLUG}"
             fi
-          done
-          if [ -n "${FAILED}" ]; then
-            echo "Failed:${FAILED}"
+            return "${RC}"
+          }
+          SCRIPT
+
+      - name: Canary — hello-world-demo
+        id: canary
+        if: ${{ !inputs.dry_run }}
+        env:
+          TRANSIENT_RETRY_SECONDS: '30'
+        run: |
+          # shellcheck source=/dev/null
+          . "${RUNNER_TEMP}/deploy-one.sh"
+          RC=0
+          deploy_one "${CANARY}" || RC=$?
+          sed 's/^/  /' "${LOGS}/${CANARY}.log"
+          if [ "${RC}" -ne 0 ]; then
+            echo "::error::the canary ${CANARY}-demo did not go live — no demo is deployed. The node's automatic rollback restores it to its previous revision."
+            exit 1
+          fi
+          URL="https://${CANARY}-demo.${DEMO_DOMAIN}/api/health?probe=db"
+          if ! curl -fsS -m 20 --retry 5 --retry-all-errors --retry-delay 5 -o /dev/null "${URL}"; then
+            printf 'failed\t%s\n' "$(cut -f2 "${RESULTS}/${CANARY}")" > "${RESULTS}/${CANARY}"
+            echo "::error::${CANARY}-demo went live but ${URL} does not answer 200 — no demo is deployed"
+            exit 1
+          fi
+          echo "Canary live: ${URL}"
+
+      # Batches of BATCH_SIZE in parallel, as shell background jobs. Chosen over
+      # a matrix: "no further batch after a failed one" is one flag in this
+      # loop, whereas a matrix has no batch boundary (max-parallel slides a
+      # window over the list) and its fail-fast CANCELS in-flight siblings
+      # mid-deploy. Logs are printed per demo once its batch ends, so they never
+      # interleave.
+      - name: Deploy the demos in batches
+        id: batches
+        if: ${{ !inputs.dry_run && steps.canary.outcome == 'success' }}
+        env:
+          TRANSIENT_RETRY_SECONDS: '30'
+          # Launches inside one batch are spaced, so the node never takes four
+          # deploy requests in the same second.
+          LAUNCH_STAGGER_SECONDS: '5'
+        run: |
+          # shellcheck source=/dev/null
+          . "${RUNNER_TEMP}/deploy-one.sh"
+          N=0
+          STOPPED=""
+          while read -r -a BATCH; do
+            N=$((N + 1))
+            if [ -n "${STOPPED}" ]; then
+              echo "Batch ${N} not started (${BATCH[*]}): batch ${STOPPED} failed"
+              continue
+            fi
+            echo "Batch ${N}: ${BATCH[*]}"
+            PIDS=()
+            for SLUG in "${BATCH[@]}"; do
+              deploy_one "${SLUG}" &
+              PIDS+=("$!")
+              sleep "${LAUNCH_STAGGER_SECONDS}"
+            done
+            FAILED=()
+            for I in "${!PIDS[@]}"; do
+              if ! wait "${PIDS[$I]}"; then FAILED+=("${BATCH[$I]}"); fi
+            done
+            for SLUG in "${BATCH[@]}"; do
+              echo "::group::${SLUG}-demo ($(cut -f1 "${RESULTS}/${SLUG}"))"
+              cat "${LOGS}/${SLUG}.log"
+              echo "::endgroup::"
+            done
+            for SLUG in "${FAILED[@]}"; do
+              echo "::error::${SLUG}-demo was not deployed — the cloud's report is in its group above; the node rolls it back"
+            done
+            if [ "${#FAILED[@]}" -gt 0 ]; then STOPPED="${N}"; fi
+          done < "${RUNNER_TEMP}/batches.txt"
+          if [ -n "${STOPPED}" ]; then
+            echo "::error::batch ${STOPPED} failed — no further batch was started; those demos stay on their previous version"
             exit 1
           fi
 
       # Independent of the CLI's own `live`: the public hostname, through Caddy,
-      # with the database probed. Runs even after a failed upgrade or deploy, so
+      # with the database probed. Runs even after a failed canary or batch, so
       # the run shows which demos are serving whatever happened before.
       - name: Health-check every demo
-        if: ${{ !cancelled() && steps.demos.outputs.list != '' }}
+        if: ${{ !cancelled() && !inputs.dry_run && steps.plan.outcome == 'success' }}
         env:
           DEMOS: ${{ steps.demos.outputs.list }}
         run: |
@@ -466,6 +519,46 @@ jobs:
             echo "Unhealthy:${DOWN}"
             exit 1
           fi
+
+      # Demo, result, engine and deployment id, in plan order. "Engine" is the
+      # one the bundle names; on a rollback the node keeps a newer one.
+      - name: Write the job summary
+        if: ${{ !cancelled() && !inputs.dry_run && steps.plan.outcome == 'success' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          CANARY_OUTCOME: ${{ steps.canary.outcome }}
+        run: |
+          RESULTS="${RUNNER_TEMP}/results"
+          read -r -a ORDER <<< "${CANARY} $(tr '\n' ' ' < "${RUNNER_TEMP}/batches.txt")"
+          {
+            echo "### Demo deploy — ${VERSION}"
+            echo
+            echo "| Demo | Result | Engine | Deployment |"
+            echo "| --- | --- | --- | --- |"
+            for SLUG in "${ORDER[@]}"; do
+              ENGINE=$(cat "${RUNNER_TEMP}/engines/${SLUG}" 2>/dev/null || echo '-')
+              RESULT="not-attempted"
+              ID="-"
+              if [ -f "${RESULTS}/${SLUG}" ]; then
+                RESULT=$(cut -f1 "${RESULTS}/${SLUG}")
+                ID=$(cut -f2 "${RESULTS}/${SLUG}")
+              fi
+              case "${RESULT}" in
+                upgraded) LABEL="upgraded" ;;
+                failed) LABEL="failed, rolled back by the node" ;;
+                *) LABEL="not attempted, left on the previous version"; ENGINE="unchanged" ;;
+              esac
+              echo "| \`${SLUG}-demo\` | ${LABEL} | ${ENGINE} | ${ID} |"
+            done
+            echo
+            if [ "${CANARY_OUTCOME}" = "failure" ]; then
+              echo "**The canary failed.** No demo was deployed. The node's automatic rollback restores \`${CANARY}-demo\` to its previous revision and engine."
+              echo
+            fi
+            echo "Engine is the one each bundle names. On a rollback dispatch the node keeps the newer engine an app already ran (the high-water rule) and runs the older config on it."
+          } > "${RUNNER_TEMP}/summary.md"
+          cat "${RUNNER_TEMP}/summary.md"
+          cat "${RUNNER_TEMP}/summary.md" >> "$GITHUB_STEP_SUMMARY"
 
       # Forget the key on this runner. Never `sovrium login --logout`: that
       # REVOKES the key on the cloud, for every future run too.

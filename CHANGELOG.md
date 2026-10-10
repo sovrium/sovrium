@@ -1,3 +1,18 @@
+## [0.36.0](https://github.com/sovrium/sovrium/compare/v0.35.0...v0.36.0) (2026-10-10)
+
+### Features
+
+- **automations**: read the seed, backup, restore or proxy unit's journal from an instance logs step
+- **automations**: run each supervised app on the engine its release names
+
+### Bug Fixes
+
+- **automations**: pass browser page-call arguments as escaped script literals
+- **tables**: enforce unique on an existing table and refuse duplicates before migrating
+- **cli**: read a SQLite database whose WAL files a clean shutdown removed
+- **cli**: accept only a bare loopback address as the local release stand-in
+- **cli**: check the final address of a redirected release download
+
 ## [0.35.0](https://github.com/sovrium/sovrium/compare/v0.34.3...v0.35.0) (2026-10-10)
 
 ### Features

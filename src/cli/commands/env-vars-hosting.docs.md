@@ -57,12 +57,14 @@ An app hosted on Sovrium Cloud receives `SOVRIUM_PLATFORM_SSO_ISSUER`, `SOVRIUM_
 
 A machine can run many Sovrium apps, each as its own systemd unit, with one more app — the fleet agent — supervising them through the `instance` automation actions. These variables set the agent up; every other app leaves them unset.
 
-| Variable                     | Default      | Description                                                                                                         |
-| ---------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `SOVRIUM_HOST_ACTIONS`       | unset (off)  | `1` or `true` enables the `instance` actions. With it set, an app that can run `code/runTypescript` refuses to boot |
-| `SOVRIUM_INSTANCES_DIR`      | unset        | Directory holding one folder per supervised app: its releases, `current`, `env` and `status.json`                   |
-| `SOVRIUM_BUNDLE_PUBLIC_KEYS` | unset        | `<id>:<base64>[,…]` — the Ed25519 public keys a release must be signed with, also read by `crypto/verify` `keyId`   |
-| `SOVRIUM_SYSTEMCTL_PATH`     | `systemctl`  | The `systemctl` binary the actions run                                                                              |
-| `SOVRIUM_JOURNALCTL_PATH`    | `journalctl` | The `journalctl` binary `instance/logs` runs                                                                        |
+| Variable                       | Default                    | Description                                                                                                         |
+| ------------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `SOVRIUM_HOST_ACTIONS`         | unset (off)                | `1` or `true` enables the `instance` actions. With it set, an app that can run `code/runTypescript` refuses to boot |
+| `SOVRIUM_INSTANCES_DIR`        | unset                      | Directory holding one folder per supervised app: its releases, `current`, `env` and `status.json`                   |
+| `SOVRIUM_BUNDLE_PUBLIC_KEYS`   | unset                      | `<id>:<base64>[,…]` — the Ed25519 public keys a release must be signed with, also read by `crypto/verify` `keyId`   |
+| `SOVRIUM_SYSTEMCTL_PATH`       | `systemctl`                | The `systemctl` binary the actions run                                                                              |
+| `SOVRIUM_JOURNALCTL_PATH`      | `journalctl`               | The `journalctl` binary `instance/logs` runs                                                                        |
+| `SOVRIUM_ENGINES_DIR`          | `/var/lib/sovrium/engines` | The engine store: one `<version>/sovrium` per Sovrium release a supervised app runs on                              |
+| `SOVRIUM_UPDATE_DOWNLOAD_HOST` | `github.com`               | Host Sovrium releases are downloaded from, by `instance/engineInstall` and `sovrium update`, reached over HTTPS     |
 
 The switch is deliberately an environment variable and never a config key: a config cannot grant itself reach over the machine it runs on. Set it only on a host dedicated to supervising other Sovrium apps — the **Instance Actions** article lists what it allows and what it forbids.

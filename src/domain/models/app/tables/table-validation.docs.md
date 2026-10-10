@@ -54,6 +54,7 @@ constraints:
 - Single-field: `unique: true` on the field, or a top-level `unique: [{ fields: [slug] }]`.
 - Composite: a top-level `unique: [{ fields: [tenant_id, slug] }]`, which becomes a unique index.
 - Partial: a unique index carrying a `where` clause — a unique slug only among rows that are not soft-deleted, for instance.
+- On an existing table: turning `unique` on, for a field already there or for one being added, is enforced on both engines, and turning it off drops the constraint. While two or more rows share a value of that field, the migration is refused before anything is written. The refusal names the table, the field, the number of rows and the duplicated values, and nothing is changed, so cleaning those rows or reverting the edit lets the next boot through. A new unique field with a default is refused the same way when the table already holds two rows, because each of them would get the default.
 - Relational: a `relationship` field creates its foreign key with `onDelete` and `onUpdate` actions; a reference spanning several columns is declared with `foreignKeys`.
 
 ## Check a configuration before deploying it

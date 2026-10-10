@@ -8,8 +8,11 @@
 /**
  * How `sovrium update` decides a download can be trusted: HTTPS-only URLs
  * (final redirect included), a published sha256 that must be fetched, read and
- * matched, and a detached Ed25519 signature by a release key the binary trusts. Split from `update.ts`, which owns the flow; this module owns the
- * rules, so each is testable without a network or a binary to replace.
+ * matched, and a detached Ed25519 signature by a release key the binary trusts.
+ * Split from `update.ts`, which owns the flow; this module owns the refusals.
+ * The pure rules themselves — the keys, the signature check, the trusted URLs —
+ * live in `domain/kernel/identity/release-signature.ts`, shared with the
+ * `instance/engineInstall` step, so both judge a release the same way.
  *
  * Every request is HTTPS, final redirect included. The host seams
  * (`SOVRIUM_UPDATE_API_HOST`, `SOVRIUM_UPDATE_DOWNLOAD_HOST`) fall back to plain
@@ -18,10 +21,15 @@
  */
 
 import {
-  resolveReleaseSigningKeys,
-  type ReleaseSigningKey,
-} from '@/cli/commands/update-signing-keys'
-import { importEd25519PublicKey, verifyDetached } from '@/domain/kernel/identity/ed25519'
+  isSignedByTrustedKey,
+  isTrustedFinalUrl,
+  parsePublishedSha256,
+  type TrustedReleaseKey,
+} from '@/domain/kernel/identity/release-signature'
+import {
+  releaseKeysFor,
+  resolveReleaseDownloadHost,
+} from '@/domain/models/process-env/release-download'
 import { withFetchStallTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import { printFailure, printProgress, printStderr } from '@/infrastructure/logging/cli-output'
 
@@ -46,36 +54,6 @@ export const announceSkippedChecksum = (): void =>
     `Warning: ${INSECURE_SKIP_CHECKSUM_FLAG} is set. The download will NOT be verified against its published sha256 nor its release signature.`
   )
 
-/** `host` or `host:port` names this machine (127.0.0.0/8, `localhost`, `::1`). */
-export const isLoopbackHost = (host: string): boolean => {
-  const hostname = host.startsWith('[')
-    ? host.slice(1, host.indexOf(']'))
-    : (host.split(':')[0] ?? '')
-  return hostname === 'localhost' || hostname === '::1' || /^127(?:\.\d{1,3}){3}$/.test(hostname)
-}
-
-/** `https://<host>`, or `http://<host>` for a loopback test host — never otherwise. */
-export const originFor = (host: string): string =>
-  `${isLoopbackHost(host) ? 'http' : 'https'}://${host}`
-
-/**
- * Whether a response's FINAL url (after redirects) may be trusted: HTTPS, or the
- * loopback test host. GitHub answers an asset download with a redirect to its
- * storage host, and a redirect is exactly where a downgrade to HTTP would hide.
- */
-export const isTrustedFinalUrl = (url: string): boolean => {
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === 'https:' || isLoopbackHost(parsed.host)
-  } catch {
-    return false
-  }
-}
-
-/** The download URL of one release asset; the host is overridable for tests. */
-export const releaseAssetUrl = (version: string, file: string): string =>
-  `${originFor(process.env.SOVRIUM_UPDATE_DOWNLOAD_HOST || 'github.com')}/sovrium/sovrium/releases/download/v${version}/${file}`
-
 /** Guidance shared by every checksum refusal: retry, then report — never work around it. */
 export const CHECKSUM_GUIDANCE =
   "Re-run 'sovrium update'. If it keeps failing, do not install by hand: report it to\n" +
@@ -85,12 +63,6 @@ export const CHECKSUM_GUIDANCE =
 
 /** The opt-out sentence every verification refusal ends with. */
 const OPT_OUT_GUIDANCE = `  To install without verification anyway (not recommended): sovrium update ${INSECURE_SKIP_CHECKSUM_FLAG}`
-
-/** A 64-character hex sha256, the first token of a published `.sha256` file. */
-export const parsePublishedSha256 = (text: string): string | undefined => {
-  const token = text.trim().split(/\s+/)[0]?.toLowerCase() ?? ''
-  return /^[0-9a-f]{64}$/.test(token) ? token : undefined
-}
 
 /**
  * Fetch the published `.sha256` for a release asset. `undefined` means it could
@@ -177,26 +149,6 @@ export const fetchPublishedSignature = async (
   }
 }
 
-/** A release key, as {@link verifySignature} needs it: its base64 public key. */
-export interface TrustedReleaseKey {
-  readonly publicKey: string
-}
-
-/**
- * Whether `signature` is a valid signature of `archive` by ANY of `keys`. A
- * `.sig` names no key, so every trusted key is tried; an unreadable key never
- * verifies anything.
- */
-export const isSignedByTrustedKey = (
-  archive: Readonly<Uint8Array>,
-  signature: string,
-  keys: readonly TrustedReleaseKey[]
-): boolean =>
-  keys.some((key) => {
-    const publicKey = importEd25519PublicKey(key.publicKey)
-    return publicKey !== undefined && verifyDetached(archive, signature, publicKey)
-  })
-
 /**
  * Verify the downloaded archive against its published signature, or stop.
  * Runs AFTER the checksum.
@@ -242,31 +194,10 @@ export const verifySignature = async (
   return true
 }
 
-/** The download host releases come from: `SOVRIUM_UPDATE_DOWNLOAD_HOST`, else `github.com`. */
-const downloadHost = (): string => process.env.SOVRIUM_UPDATE_DOWNLOAD_HOST || 'github.com'
-
-/**
- * The release keys a download from `host` is judged against, at `now`: the
- * `SOVRIUM_UPDATE_SIGNING_KEYS` override for a loopback host only, the
- * embedded keys for every other host. Throws on a malformed override.
- */
-export const releaseKeysFor = (options: {
-  readonly host: string
-  readonly now: number
-  readonly env?: Readonly<Record<string, string | undefined>>
-  readonly embedded?: readonly ReleaseSigningKey[]
-}): readonly ReleaseSigningKey[] =>
-  resolveReleaseSigningKeys({
-    loopbackDownload: isLoopbackHost(options.host),
-    now: options.now,
-    ...(options.env === undefined ? {} : { env: options.env }),
-    ...(options.embedded === undefined ? {} : { embedded: options.embedded }),
-  })
-
 /** This process's release keys; a malformed override is a refusal, never "trust nothing". */
 const readReleaseKeys = (): readonly TrustedReleaseKey[] => {
   try {
-    return releaseKeysFor({ host: downloadHost(), now: Date.now() })
+    return releaseKeysFor({ host: resolveReleaseDownloadHost(), now: Date.now() })
   } catch (error) {
     printFailure({
       headline: 'Could not read the release signing keys. Nothing was replaced.',

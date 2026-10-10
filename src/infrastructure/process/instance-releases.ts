@@ -26,14 +26,18 @@ import {
   type ReleaseWriteResult,
 } from '@/application/ports/services/instance-supervisor'
 import { INSTANCE_REVISION_PATTERN } from '@/domain/models/app/automations/actions/instance/apply'
+import { INSTANCE_ENGINE_VERSION_PATTERN } from '@/domain/models/app/automations/actions/instance/engine-install'
+import { ENGINE_LINK_ENTRY } from '@/domain/models/app/automations/actions/instance/engine-version-service'
 import { INSTANCE_SLUG_PATTERN } from '@/domain/models/app/automations/actions/instance/instance-slug'
-import { resolveInstancesDir } from '@/domain/models/process-env/host-actions'
+import { resolveEnginesDir, resolveInstancesDir } from '@/domain/models/process-env/host-actions'
+import { requireInstalledEngine, withEngineLinksLock } from './instance-engines'
 
 /**
  * The release directories of supervised apps, under
  * `SOVRIUM_INSTANCES_DIR/<slug>/`:
  *
- *   rev-<revision>/   every bundle entry, manifest.json included, written whole
+ *   rev-<revision>/   every bundle entry, manifest.json included, written whole,
+ *                     plus `.engine`: an absolute link to the engine binary it runs on
  *   current           relative symlink to the rev-<revision> in service
  *   env               KEY="value" lines (systemd EnvironmentFile syntax), mode 0640
  *   status.json       { revision, previousRevision?, appliedAt, previousAppliedAt?,
@@ -71,7 +75,9 @@ export const isMissing = (cause: unknown): boolean =>
 export const checkedSlug = (slug: string): Effect.Effect<string, InstanceSupervisorError> =>
   INSTANCE_SLUG_PATTERN.test(slug)
     ? Effect.succeed(slug)
-    : fail(`"${slug}" is not an instance slug (2 to 28 lowercase letters, digits and "-")`)
+    : fail(
+        `"${slug}" is not an instance slug (2 to 28 lowercase letters, digits and "-", other than the reserved "engines")`
+      )
 
 const instancesRoot: Effect.Effect<string, InstanceSupervisorError> = Effect.suspend(() => {
   const root = resolveInstancesDir(process.env)
@@ -149,23 +155,33 @@ const pointCurrentAt = (dir: string, revision: string) =>
 const writeStatus = (dir: string, status: InstanceReleaseStatus) =>
   writeAtomically(join(dir, 'status.json'), `${JSON.stringify(status, undefined, 2)}\n`, 0o644)
 
-/** Write every entry under `rev-<revision>`, through a temporary directory renamed into place. */
+/**
+ * Write every entry under `rev-<revision>`, and `.engine` linking the engine
+ * binary, through a temporary directory renamed into place — so the link
+ * exists exactly when the release does.
+ */
 const writeReleaseDirectory = (
   dir: string,
   revision: string,
-  entries: ReadonlyMap<string, Uint8Array>
+  entries: ReadonlyMap<string, Uint8Array>,
+  engine: string
 ) =>
   fsStep(`write ${join(dir, `rev-${revision}`)}`, async () => {
     const staging = join(dir, `.rev-${revision}.${randomUUID()}.tmp`)
     const target = join(dir, `rev-${revision}`)
+    const link = join(staging, ENGINE_LINK_ENTRY)
     try {
       await mkdir(staging, { recursive: true })
       for (const [path, bytes] of entries) {
         const file = resolve(staging, path)
         if (!file.startsWith(staging + sep)) throw new Error(`entry ${path} leaves the release`)
+        if (file === link || file.startsWith(link + sep)) {
+          throw new Error(`entry ${path} is under ${ENGINE_LINK_ENTRY}, which the host reserves`)
+        }
         await mkdir(dirname(file), { recursive: true })
         await writeFile(file, bytes)
       }
+      await symlink(resolve(resolveEnginesDir(process.env), engine, 'sovrium'), link)
       await rm(target, { recursive: true, force: true })
       await rename(staging, target)
     } finally {
@@ -203,15 +219,24 @@ export const readRelease = Effect.fn('instance.read-release')(function* (slug: s
   return yield* readStatusFile(join(root, s))
 })
 
+/** Why the revision or the engine of a release cannot name a path, or `undefined`. */
+const releaseNameProblem = (release: ReleaseWrite): string | undefined => {
+  if (!INSTANCE_REVISION_PATTERN.test(release.revision)) {
+    return `"${release.revision}" is not a revision name`
+  }
+  return INSTANCE_ENGINE_VERSION_PATTERN.test(release.engine)
+    ? undefined
+    : `"${release.engine}" is not an engine release number`
+}
+
 /** Write a verified bundle as `rev-<revision>` and make it current; the current revision is a no-op. */
 export const writeRelease = (
   slug: string,
   release: ReleaseWrite
 ): Effect.Effect<ReleaseWriteResult, InstanceSupervisorError> =>
   Effect.gen(function* () {
-    if (!INSTANCE_REVISION_PATTERN.test(release.revision)) {
-      return yield* fail(`"${release.revision}" is not a revision name`)
-    }
+    const badName = releaseNameProblem(release)
+    if (badName !== undefined) return yield* fail(badName)
     const dir = yield* instanceDir(slug)
     const before = yield* readStatusFile(dir)
     const linked = yield* currentTarget(dir)
@@ -224,21 +249,27 @@ export const writeRelease = (
           : { previousRevision: before.previousRevision }),
       }
     }
-    yield* fsStep(`create ${dir}`, () => mkdir(dir, { recursive: true, mode: 0o750 }))
-    yield* writeReleaseDirectory(dir, release.revision, release.bundle.entries)
-    yield* writeAtomically(join(dir, 'env'), envFileContent(release.env), GROUP_READABLE_MODE)
-    yield* pointCurrentAt(dir, release.revision)
     const port = portOf(release.env)
-    // A fresh `appliedAt`; the replaced revision's time is kept, and no rollback date survives.
-    yield* writeStatus(dir, {
-      revision: release.revision,
-      ...previous,
-      appliedAt: yield* nowIso,
-      ...(before === undefined || before.appliedAt === ''
-        ? {}
-        : { previousAppliedAt: before.appliedAt }),
-      ...(port === undefined ? {} : { port }),
-    })
+    // From the engine check until the release is current, a prune cannot remove that engine.
+    yield* withEngineLinksLock(
+      Effect.gen(function* () {
+        yield* requireInstalledEngine(release.engine)
+        yield* fsStep(`create ${dir}`, () => mkdir(dir, { recursive: true, mode: 0o750 }))
+        yield* writeReleaseDirectory(dir, release.revision, release.bundle.entries, release.engine)
+        yield* writeAtomically(join(dir, 'env'), envFileContent(release.env), GROUP_READABLE_MODE)
+        yield* pointCurrentAt(dir, release.revision)
+        // A fresh `appliedAt`; the replaced revision's time is kept, and no rollback date survives.
+        yield* writeStatus(dir, {
+          revision: release.revision,
+          ...previous,
+          appliedAt: yield* nowIso,
+          ...(before === undefined || before.appliedAt === ''
+            ? {}
+            : { previousAppliedAt: before.appliedAt }),
+          ...(port === undefined ? {} : { port }),
+        })
+      })
+    )
     return { applied: true, ...previous }
   }).pipe(Effect.withSpan('instance.write-release'))
 

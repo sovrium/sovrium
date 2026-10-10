@@ -88,7 +88,6 @@ import {
   handleHttpRequest,
 } from './http'
 import {
-  handleInstanceApply,
   handleInstanceBackup,
   handleInstanceHealth,
   handleInstanceLogs,
@@ -100,6 +99,8 @@ import {
   handleInstanceStatus,
   handleInstanceStop,
 } from './instance'
+import { handleInstanceApply } from './instance-apply'
+import { handleInstanceEngineInstall, handleInstanceEnginePrune } from './instance-engine'
 import { handleInstanceSeed } from './instance-seed'
 import { handleLinkCreate, handleLinkDelete, handleLinkUpdate } from './link'
 import { handleLoopEach } from './loop'
@@ -258,6 +259,8 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['instance/backup', handleInstanceBackup],
   ['instance/restore', handleInstanceRestore],
   ['instance/seed', handleInstanceSeed],
+  ['instance/engineInstall', handleInstanceEngineInstall],
+  ['instance/enginePrune', handleInstanceEnginePrune],
   ['flow/stop', handleFlowStop],
   ['sovrium/validateConfig', handleSovriumValidateConfig],
   ['sovrium/validateBundle', handleSovriumValidateBundle],

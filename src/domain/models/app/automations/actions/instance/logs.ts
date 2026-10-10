@@ -13,11 +13,25 @@ import { InstanceSlugSchema, literalOrWholeTemplate } from './instance-slug'
 export const INSTANCE_LOGS_SINCE_PATTERN = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?)?$/
 
 /**
+ * The units of a supervised app whose journal `logs` may read, each naming one
+ * fixed unit `sovrium-<unit>@<slug>.service`. A word, never a unit name: the
+ * host lets the engine read the `sovrium-*@` units only, and a free name would
+ * reach any unit on the machine.
+ *
+ * @public
+ */
+export const INSTANCE_LOG_UNITS = ['app', 'seed', 'backup', 'restore', 'proxy'] as const
+
+/** @public */
+export type InstanceLogUnit = (typeof INSTANCE_LOG_UNITS)[number]
+
+/**
  * Instance Logs Action (type: instance, operator: logs)
  *
- * Returns the last lines `sovrium-app@<slug>.service` wrote to the journal, read
- * with `journalctl -u sovrium-app@<slug>.service --no-pager -n <lines>` (plus
- * `--since=<since>` when given). Both values are checked before they reach the
+ * Returns the last lines one unit of a supervised app wrote to the journal —
+ * the app itself unless `unit` names another — read with
+ * `journalctl -u sovrium-<unit>@<slug>.service --no-pager -n <lines>` (plus
+ * `--since=<since>` when given). Every value is checked before it reaches the
  * command line.
  */
 export const InstanceLogsActionSchema = Schema.Struct({
@@ -35,6 +49,12 @@ export const InstanceLogsActionSchema = Schema.Struct({
   ),
   props: Schema.Struct({
     slug: InstanceSlugSchema,
+    unit: Schema.optional(
+      Schema.Literals(INSTANCE_LOG_UNITS).annotate({
+        description:
+          'Which unit of the app to read: app (the app itself), seed, backup or restore (the one-shot runs of those steps), or proxy (the idle-exit proxy in front of the app). Default app',
+      })
+    ),
     lines: Schema.optional(
       Schema.Number.pipe(
         Schema.annotate({
@@ -51,7 +71,8 @@ export const InstanceLogsActionSchema = Schema.Struct({
       )
     ),
   }).annotate({
-    description: 'The supervised app whose journal is read, how many lines, and from when.',
+    description:
+      'The supervised app and which of its units is read, how many lines, and from when.',
   }),
 }).pipe(
   Schema.annotate({

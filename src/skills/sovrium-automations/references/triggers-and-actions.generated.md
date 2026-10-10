@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every trigger an automation can start from (9) and every action a step can run (122), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
+Every trigger an automation can start from (9) and every action a step can run (124), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
 
 ## Contents
 
@@ -142,7 +142,7 @@ Read: `sovrium docs automation-actions`
 | `flow` | `stop` | Immediately stop automation execution with optional status and output |
 | `sovrium` | `validateConfig` | Decode a candidate app config against AppSchema and expose { valid, errors } |
 | `sovrium` | `validateBundle` | Check a stored bundle archive — its manifest, every entry against its sha256, and the config it carries — and expose { valid, name, manifest, errors } |
-| `instance` | `status` | Read a supervised app's unit state, restart count, memory use, how its last run ended and current revision |
+| `instance` | `status` | Read a supervised app's unit state, restart count, memory use, how its last run ended, current revision and the engine it runs |
 | `instance` | `start` | Start a supervised app's socket, so the next request wakes the app |
 | `instance` | `stop` | Suspend a supervised app: stop its socket, its proxy and the app |
 | `instance` | `restart` | Restart a supervised app so it reads its current release and environment again: its proxy and the app stop in one call, then the app starts |
@@ -154,4 +154,6 @@ Read: `sovrium docs automation-actions`
 | `instance` | `backup` | Back up a supervised app and store the archive in this app's storage |
 | `instance` | `restore` | Restore a supervised app from a backup archive in this app's storage |
 | `instance` | `seed` | Load a supervised app's seed data from the release it runs, as the app, and return the per-table report |
+| `instance` | `engineInstall` | Download a Sovrium release, verify its checksum, its release signature and its version, and install it into the engine store |
+| `instance` | `enginePrune` | Remove the engine versions no current or previous release links and that are not listed to keep |
 | `ref` | — | Reference to a reusable action template defined in app.actions[], with optional variable overrides |

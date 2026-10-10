@@ -69,6 +69,8 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # SOVRIUM_BUNDLE_PUBLIC_KEYS=cloud-2026:<base64>  # <id>:<32-byte Ed25519 key>[,…]
 # SOVRIUM_SYSTEMCTL_PATH=/usr/bin/systemctl      # default: systemctl on the PATH
 # SOVRIUM_JOURNALCTL_PATH=/usr/bin/journalctl    # default: journalctl on the PATH
+# SOVRIUM_ENGINES_DIR=/var/lib/sovrium/engines   # engine store: <version>/sovrium per release
+# SOVRIUM_UPDATE_DOWNLOAD_HOST=github.com         # release mirror; reached over HTTPS
 
 # ── Auth (only when app.auth is enabled) ──────────────────────────────
 # Generate both with: sovrium secret generate

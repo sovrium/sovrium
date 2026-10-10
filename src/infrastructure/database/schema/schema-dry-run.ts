@@ -39,7 +39,6 @@
 
 import { existsSync } from 'node:fs'
 import { SQL } from 'bun'
-import { Database as BunSqlite } from 'bun:sqlite'
 import { Cause, Effect } from 'effect'
 import {
   NO_AUTHORED_TABLE_IDS,
@@ -69,7 +68,7 @@ import {
   postgresTransactionLike,
   tableExists,
 } from '../sql/sql-execution'
-import { applySqlitePragmas } from '../sql/sqlite-pragmas'
+import { openSqliteReader } from '../sql/sqlite-reader'
 import { buildTablePrimaryKeyTypesMap, generateCreateTableSQL } from '../table-operations'
 import {
   detectUnconvertibleRows,
@@ -81,6 +80,7 @@ import { planFormulaRecomputes } from './formula-engine-recompute'
 import { getPreviousSchema } from './migration-audit-trail'
 import { sortTablesByDependencies } from './schema-dependency-sorting'
 import { planRelationSet, type RelationPlan } from './schema-dry-run-relations'
+import { withUniquePlan } from './schema-dry-run-unique'
 import { planViewRebuilds } from './schema-dry-run-views'
 import type { TransactionLike } from '../sql/sql-execution'
 import type { App } from '@/domain/models/app'
@@ -285,7 +285,7 @@ const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =
       previousSchema,
     })
 
-    return planExistingTable({
+    const change = planExistingTable({
       table,
       existingColumns,
       previousSchema,
@@ -294,6 +294,7 @@ const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =
       refusals,
       physical,
     })
+    return yield* withUniquePlan({ tx, table, source, existingColumns, change })
   }).pipe(
     // A table whose plan cannot be computed is reported as unsimulated rather
     // than aborting the whole report. `generateAlterTableStatements` THROWS on
@@ -301,9 +302,8 @@ const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =
     // table's plan to one such table would make the mode useless exactly when
     // the operator most needs it. The throw is REPORTED as the refusal it is
     // (see `describePlanRefusal`) rather than swallowed: an operator whose plan
-    // would be rejected needs the sentence naming what to do about it, and it
-    // is the only thing about an unsimulated recreate that is knowable ahead of
-    // time.
+    // would be rejected needs the sentence naming what to do about it, the one
+    // thing about an unsimulated recreate that is knowable ahead of time.
     Effect.catchCause((cause) =>
       Effect.succeed({
         table: inputs.table.name,
@@ -318,7 +318,7 @@ const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =
 
 /**
  * Open a read-only connection satisfying `TransactionLike`, and close it after.
- * SQLite opens `{ create: false, readonly: true }` on purpose: the apply path's
+ * SQLite opens through `openSqliteReader` on purpose: the apply path's
  * opener CREATES the file and writes WAL pages, so `--dry-run` would bring a
  * database into existence by describing it. (An absent file never gets here;
  * see {@link planConfigTableChanges}.)
@@ -336,15 +336,9 @@ const withReadOnlyTx = <A>(
         (client) => Effect.promise(() => client.close())
       )
     : Effect.acquireUseRelease(
-        Effect.sync(() => {
-          const client = new BunSqlite(config.path, { create: false, readonly: true })
-          // The busy timeout alone — the other two PRAGMAs need write access
-          // this handle deliberately does not have. Without it a `--dry-run`
-          // run concurrent with any writer is refused rather than delayed.
-
-          applySqlitePragmas(client, { readOnly: true })
-          return client
-        }),
+        // Never creates the file, and writes nothing; the busy timeout is set,
+        // so a `--dry-run` concurrent with a writer is delayed, not refused.
+        Effect.sync(() => openSqliteReader(config.path)),
         (client) => use(sqliteTransactionLike(client)),
         (client) => Effect.sync(() => client.close())
       )

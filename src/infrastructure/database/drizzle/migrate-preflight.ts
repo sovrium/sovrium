@@ -42,10 +42,9 @@
 
 import { existsSync } from 'node:fs'
 import { SQL } from 'bun'
-import { Database as BunSqlite } from 'bun:sqlite'
 import { Effect } from 'effect'
 import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-client-options'
-import { applySqlitePragmas } from '../sql/sqlite-pragmas'
+import { openSqliteReader } from '../sql/sqlite-reader'
 import {
   detectPostgresAccountCollisions,
   detectSqliteAccountCollisions,
@@ -191,12 +190,9 @@ const postgresPreflight = async (
 const sqlitePreflight = (path: string, migrationsFolder: string): MigrationPreflightReport => {
   // `create: false`: `--check` must not bring a database into existence merely
   // by asking after it. A missing file is a legitimate "nothing applied yet".
-  const client = new BunSqlite(path, { create: false, readonly: true })
-  // Read-only, so the busy timeout alone: a reader is still refused outright by
-  // a writer holding the file, and `sovrium migrate --check` reporting "locked"
-  // where it could simply have waited is the same defect in a quieter place.
-
-  applySqlitePragmas(client, { readOnly: true })
+  // A reader with the busy timeout: `sovrium migrate --check` reporting
+  // "locked" where it could simply have waited would be a defect of its own.
+  const client = openSqliteReader(path)
   try {
     const query = (sql: string): readonly unknown[] => client.query(sql).all()
     return {

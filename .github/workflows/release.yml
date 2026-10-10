@@ -1560,10 +1560,11 @@ jobs:
   # live in deploy-demos-manual.yml, which is also the manual re-run / rollback
   # entry point, so the two can never drift apart.
   #
-  # The one step still done over SSH is the fleet's shared ENGINE BINARY
-  # (`upgrade-fleet.sh --binary-only`): the node applies bundles per app and
-  # never an engine version. Fails red if any demo does not come back (no
-  # continue-on-error). Contract, secrets and the host-side prerequisite:
+  # Nothing moves over SSH: each bundle names its engine and the fleet's node
+  # installs it per app. A read-only pre-flight refuses a node without the
+  # per-app engine store; `hello-world-demo` goes first as the canary, then the
+  # demos in batches of 4, and a failed batch stops the rest. Fails red if any
+  # demo does not come back (no continue-on-error). Contract and secret:
   # docs/development/cloud-fleet/operations.md, "Deploying the demos from CI".
   deploy-demos:
     name: Deploy demo fleet
@@ -1579,8 +1580,6 @@ jobs:
     # have no business in a deploy job.
     secrets:
       SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
-      DEMO_FLEET_SSH_KEY: ${{ secrets.DEMO_FLEET_SSH_KEY }}
-      DEMO_FLEET_KNOWN_HOSTS: ${{ secrets.DEMO_FLEET_KNOWN_HOSTS }}
 
   # ── Build and push multi-arch Docker image ──────────────────
   build-docker:

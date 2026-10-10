@@ -8,6 +8,8 @@
 import { Schema } from 'effect'
 import { InstanceApplyActionSchema } from './apply'
 import { InstanceBackupActionSchema } from './backup'
+import { InstanceEngineInstallActionSchema } from './engine-install'
+import { InstanceEnginePruneActionSchema } from './engine-prune'
 import { InstanceHealthActionSchema } from './health'
 import { InstanceLogsActionSchema } from './logs'
 import { InstanceRemoveActionSchema } from './remove'
@@ -43,12 +45,14 @@ export const InstanceActionSchema = Schema.Union([
   InstanceBackupActionSchema,
   InstanceRestoreActionSchema,
   InstanceSeedActionSchema,
+  InstanceEngineInstallActionSchema,
+  InstanceEnginePruneActionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'InstanceAction',
     title: 'Instance Action',
     description:
-      'Supervise other Sovrium apps on this host: read their state, start, stop, restart, apply a signed release, roll back, remove, probe, read logs, back up, restore and seed. Requires SOVRIUM_HOST_ACTIONS=1',
+      'Supervise other Sovrium apps on this host: read their state, start, stop, restart, apply a signed release, roll back, remove, probe, read logs, back up, restore, seed, and install and prune the engines they run on. Requires SOVRIUM_HOST_ACTIONS=1',
   })
 )
 

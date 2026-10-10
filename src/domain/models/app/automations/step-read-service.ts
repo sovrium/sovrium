@@ -203,6 +203,9 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'instance/restore',
   // Per-table counts of the supervised app's seed: what was written there, not read here.
   'instance/seed',
+  // Engine versions and their place in the host's engine store: never any app's data.
+  'instance/engineInstall',
+  'instance/enginePrune',
   'link/create',
   'link/delete',
   'pdf/merge',

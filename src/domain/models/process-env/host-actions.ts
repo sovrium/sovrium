@@ -11,7 +11,7 @@
  *
  * The switch is an environment variable and never a config key: a config
  * cannot grant itself reach over the machine it runs on. Every other app on the
- * machine leaves all five variables unset.
+ * machine leaves all six variables unset.
  */
 
 type Env = Readonly<Record<string, string | undefined>>
@@ -21,6 +21,10 @@ export const SOVRIUM_INSTANCES_DIR_VAR = 'SOVRIUM_INSTANCES_DIR'
 export const SOVRIUM_BUNDLE_PUBLIC_KEYS_VAR = 'SOVRIUM_BUNDLE_PUBLIC_KEYS'
 export const SOVRIUM_SYSTEMCTL_PATH_VAR = 'SOVRIUM_SYSTEMCTL_PATH'
 export const SOVRIUM_JOURNALCTL_PATH_VAR = 'SOVRIUM_JOURNALCTL_PATH'
+export const SOVRIUM_ENGINES_DIR_VAR = 'SOVRIUM_ENGINES_DIR'
+
+/** Where the engine store sits when `SOVRIUM_ENGINES_DIR` is unset. */
+export const DEFAULT_ENGINES_DIR = '/var/lib/sovrium/engines'
 
 /**
  * What an `instance/*` action answers, and an app declaring one refuses to boot
@@ -54,6 +58,13 @@ export const resolveInstancesDir = (env: Env = process.env): string | undefined 
   const raw = env[SOVRIUM_INSTANCES_DIR_VAR]?.trim() ?? ''
   return raw === '' ? undefined : raw
 }
+
+/**
+ * The engine store — one `<version>/sovrium` per Sovrium release a supervised
+ * app runs on: `SOVRIUM_ENGINES_DIR`, else {@link DEFAULT_ENGINES_DIR}.
+ */
+export const resolveEnginesDir = (env: Env = process.env): string =>
+  env[SOVRIUM_ENGINES_DIR_VAR]?.trim() || DEFAULT_ENGINES_DIR
 
 /** The `systemctl` to run: `SOVRIUM_SYSTEMCTL_PATH`, else `systemctl` on the `PATH`. */
 export const resolveSystemctlPath = (env: Env = process.env): string =>
