@@ -31,7 +31,7 @@ import { existsSync } from 'node:fs'
 import { chmod, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { Console, Data, Effect, Schema } from 'effect'
+import { Console, Data, Effect, Option, Schema } from 'effect'
 import {
   isPrivateOutboundHost,
   validateOutboundUrl,
@@ -289,6 +289,44 @@ export const describeUnreachable =
       headline: `Could not reach ${error.host} — ${outcome}.`,
       guidance: 'Check the address and your connection, then run the command again.',
     })
+
+/** A record read from the cloud's records API: its `fields`, whatever their shape. */
+const cloudRecordSchema = Schema.Struct({ fields: Schema.Record(Schema.String, Schema.Unknown) })
+
+/**
+ * One read of a record the cloud keeps for a command — a deployment, a seed
+ * run — at `GET /api/tables/<table>/records/<id>`, its fields decoded by
+ * `decode`. Anything but a `200` that decodes is the refusal naming the record.
+ */
+export const readCloudRecord = <A>(options: {
+  readonly origin: URL
+  readonly apiKey: string
+  readonly table: string
+  readonly id: string
+  /** The record as the developer reads it, for example `deployment <id>`. */
+  readonly label: string
+  readonly decode: (fields: Readonly<Record<string, unknown>>) => Option.Option<A>
+  /** What the record's owner may still be doing, said when the cloud is unreachable. */
+  readonly stillRunning: string
+  readonly guidance: string
+}): Effect.Effect<A, CliRefusal> =>
+  Effect.gen(function* () {
+    const { origin, id } = options
+    const path = `/api/tables/${options.table}/records/${encodeURIComponent(id)}`
+    const answer = yield* callCloud(new URL(path, origin), {
+      method: 'GET',
+      headers: { 'x-api-key': options.apiKey },
+    }).pipe(Effect.mapError(describeUnreachable(options.stillRunning)))
+    const fields = Option.flatMap(
+      Schema.decodeUnknownOption(cloudRecordSchema)(answer.body),
+      (record) => options.decode(record.fields)
+    )
+    if (answer.status === 200 && Option.isSome(fields)) return fields.value
+    return yield* new CliRefusal({
+      headline: `Sovrium could not read ${options.label} on ${origin.origin} (HTTP ${answer.status}).`,
+      guidance: options.guidance,
+    })
+  })
 
 /** Print a line to stdout. */
 export const say = (line: string): Effect.Effect<void> => Console.log(line)

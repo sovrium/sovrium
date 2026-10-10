@@ -39,6 +39,10 @@ A `$env.NAME` written in `inputData` is resolved before its templates, like any 
 
 An update that names no row — neither an `id` nor a `filter` — fails the step with an error saying so, rather than reporting a success that changed nothing. An update whose filter matches nothing succeeds with `{ updated: 0, ids: [] }`.
 
+### Managing accounts from code
+
+`context.actions.auth.<operator>(props)` takes the props of the matching `auth` step. `await context.actions.auth.addToGroup({ userId, group })` and `removeFromGroup({ userId, group })` resolve to `{ userId, group, changed }`; a group the configuration does not declare rejects the call, and the run fails unless the code catches it.
+
 ```yaml
 - name: qualify
   type: code

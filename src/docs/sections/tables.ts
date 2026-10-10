@@ -21,7 +21,9 @@ import {
   TablePermissionsSchema,
 } from '@/domain/models/app/tables/permissions'
 import { PrimaryKeySchema } from '@/domain/models/app/tables/primary-key'
+import { TableRetentionSchema } from '@/domain/models/app/tables/retention'
 import tablePermissionsBody from '@/domain/models/app/tables/table-permissions.docs.md' with { type: 'file' }
+import tableRetentionBody from '@/domain/models/app/tables/table-retention.docs.md' with { type: 'file' }
 import tableValidationBody from '@/domain/models/app/tables/table-validation.docs.md' with { type: 'file' }
 import tablesOverviewBody from '@/domain/models/app/tables/tables-overview.docs.md' with { type: 'file' }
 import {
@@ -243,6 +245,28 @@ export const tables = defineSection({
         'US-TABLES-TABLE-WEBHOOKS-005',
         'US-TABLES-TABLE-WEBHOOKS-006',
       ],
+    }),
+    defineArticle({
+      slug: 'table-retention',
+      title: 'Table Retention',
+      description:
+        'Keep a Sovrium table to a fixed window: a daily sweep deletes for good the rows older than the days the table declares, in batches, without firing automations — and keep a busy table out of the activity log.',
+      keywords: [
+        'sovrium',
+        'retention',
+        'data retention',
+        'purge',
+        'delete old rows',
+        'log rotation',
+        'window',
+        'days',
+        'activity log',
+      ],
+      order: 2070,
+      sidebarLabel: 'Retention',
+      body: tableRetentionBody,
+      documents: [TableRetentionSchema],
+      stories: ['US-TABLES-TABLE-RETENTION'],
     }),
   ],
 })

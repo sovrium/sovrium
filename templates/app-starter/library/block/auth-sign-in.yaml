@@ -1,7 +1,7 @@
 # sovrium-library: block/auth-sign-in@0.30.0
 name: auth-sign-in
 type: container
-element: main
+element: section
 props:
   className: flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6
 children:
@@ -43,6 +43,10 @@ children:
           submitLabel: Sign in
           onSuccess: &onSuccess
             navigate: /
+          # An account with two-step on is sent here for its code once its
+          # password is right; the code page then finishes the sign-in.
+          onTwoFactor:
+            navigate: /two-step
       - type: link
         props:
           href: /reset-password

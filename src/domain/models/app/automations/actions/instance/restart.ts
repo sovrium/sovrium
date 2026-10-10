@@ -12,7 +12,9 @@ import { InstanceSlugSchema } from './instance-slug'
 /**
  * Instance restart Action (type: instance, operator: restart)
  *
- * Restarts `sovrium-app@<slug>.service`. Its socket is left as it is.
+ * Stops `sovrium-proxy@<slug>.service` and `sovrium-app@<slug>.service` in one
+ * call, then starts the app: a plain restart is cancelled by the proxy's own
+ * stop of the app while the proxy runs. Its socket is left as it is.
  */
 export const InstanceRestartActionSchema = Schema.Struct({
   ...ActionBaseFields,
@@ -36,7 +38,8 @@ export const InstanceRestartActionSchema = Schema.Struct({
   Schema.annotate({
     identifier: 'InstanceRestartAction',
     title: 'Instance Restart Action',
-    description: 'Restart a supervised app so it reads its current release and environment again',
+    description:
+      'Restart a supervised app so it reads its current release and environment again: its proxy and the app stop in one call, then the app starts',
   })
 )
 

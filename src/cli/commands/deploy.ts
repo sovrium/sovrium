@@ -6,19 +6,28 @@
  */
 
 /**
- * `sovrium deploy [config] --app <slug> [--host <url>] [--no-wait]`
+ * `sovrium deploy [config] [--app <slug>] [--host <url>] [--yes] [--env <file>] [--no-wait] [--seed]`
  *
  * Ship an app to the Sovrium cloud this machine is signed in to:
  *
  * 1. bundle it exactly as `sovrium bundle` does, into a temporary file;
- * 2. upload the archive to the cloud's `deployments` bucket
+ * 2. settle the app it goes to — `--app`, the project's link, or the address
+ *    the config `name` gives — creating it when the address is free, set the
+ *    variables of `--env <file>`, and refuse a bundle whose required variables
+ *    the app lacks (`deploy-target.ts`), all before anything is uploaded;
+ * 3. upload the archive to the cloud's `deployments` bucket
  *    (`POST /api/buckets/deployments/files`) — never retried, abandoned when
  *    the transfer stalls;
- * 3. post the small deploy request to `POST /api/automations/deploy/webhook`
+ * 4. post the small deploy request to `POST /api/automations/deploy/webhook`
  *    with an `Idempotency-Key`, so unchanged content deployed twice to the
  *    same app is answered with the first deployment;
- * 4. unless `--no-wait`, read the deployment record every 2 seconds for up to
- *    10 minutes, printing each state, until it is `live` or `failed`.
+ * 5. remember the app in the project's link file once the request is accepted;
+ * 6. unless `--no-wait`, read the deployment record every 2 seconds for up to
+ *    10 minutes, printing each state and each new attempt the cloud makes,
+ *    until it is `live`, `failed` or `replaced` — and on `live`, wait for the
+ *    app's address to answer before saying so;
+ * 7. under `--seed`, once it is live, seed it `if-empty` from the bundle's
+ *    `seed/` folder, as `sovrium seed --app <slug> --yes` does (`seed-remote.ts`).
  *
  * The archive never travels in the webhook body: a body is kept with its run.
  * Every answer is decoded through the deploy wire contract before it is read.
@@ -29,37 +38,38 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Effect, Option, Schema } from 'effect'
-import { BUNDLE_MANIFEST_ENTRY } from '@/application/use-cases/server/bundle-manifest'
-import { getFlagValue } from '@/cli/runtime/flag-vocabulary'
 import {
+  BUNDLE_CONFIG_ENTRY,
+  BUNDLE_MANIFEST_ENTRY,
+} from '@/application/use-cases/server/bundle-manifest'
+import {
+  deployMissingEnvRefusalSchema,
   deployRefusalSchema,
   deployRequestSchema,
   deployResponseSchema,
-  deploymentRecordFieldsSchema,
 } from '@/domain/models/api/automations/automations'
 import { bucketUploadResponseSchema } from '@/domain/models/api/buckets'
 import { errorResponseSchema } from '@/domain/models/api/combinators/error'
-import { getRecordResponseSchema } from '@/domain/models/api/tables/tables'
 import { formatBytes, inflect } from '@/infrastructure/logging/cli-output'
 import { buildValidatedBundle } from './bundle'
+import { explicitAddress, resolveAddress, writeLink } from './cloud-app-lookup'
 import {
   CliRefusal,
-  DEFAULT_CLOUD_HOST,
   assertNetworkAllowed,
   callCloud,
   describeUnreachable,
-  readCredentials,
-  resolveCloudOrigin,
   runCliProgram,
   say,
 } from './cloud-session'
+import { signedInCloud } from './cloud-sign-in'
+import { adminLineOf, follow } from './deploy-follow'
+import { attemptLines, describeDeploymentStatus } from './deploy-progress'
+import { configPathOf, pushEnvFile, refuseMissingEnv, settleTarget } from './deploy-target'
+import { seedAfterDeploy } from './seed-remote'
+import type { SignedInCloud } from './cloud-sign-in'
 import type { BundleManifest } from '@/application/use-cases/server/bundle-manifest'
-import type { DeploymentStatus } from '@/domain/models/api/automations/automations'
 
-/** How often the deployment is read while the command waits. */
-const POLL_INTERVAL_MS = 2000
-
-/** How long the command waits for `live` or `failed`. */
+/** How long the command waits for `live`, `failed` or `replaced`. */
 const WAIT_LIMIT_MS = 10 * 60 * 1000
 
 /** The upload is abandoned after this long without a byte moving. */
@@ -85,25 +95,11 @@ export const deployIdempotencyKey = (app: string, manifest: BundleManifest): str
     .digest('hex')
 }
 
-/**
- * A state as a person reads it: `waking-up` is printed `waking up`.
- *
- * @public
- */
-export const describeDeploymentStatus = (status: DeploymentStatus): string =>
-  status.replace('-', ' ')
-
 /** The `message` of an engine error envelope, when the body is one. */
 const errorMessageOf = (body: unknown): string | undefined =>
   Option.getOrUndefined(
     Option.map(Schema.decodeUnknownOption(errorResponseSchema)(body), (error) => error.message)
   )
-
-const signInFirst = (origin: URL): CliRefusal =>
-  new CliRefusal({
-    headline: `This machine is not signed in to ${origin.origin} — nothing was built or sent.`,
-    guidance: `Run 'sovrium login --host ${origin.origin}' first.`,
-  })
 
 const keyRefused = (origin: URL): CliRefusal =>
   new CliRefusal({
@@ -111,41 +107,28 @@ const keyRefused = (origin: URL): CliRefusal =>
     guidance: "Run 'sovrium login' to sign in again.",
   })
 
-/** The app slug `--app` names, checked against the intake's own rule before anything is built. */
-const requireAppSlug = (argv: readonly string[]): Effect.Effect<string, CliRefusal> => {
-  const app = getFlagValue(argv, '--app')
-  const valid =
-    app !== undefined && Option.isSome(Schema.decodeOption(deployRequestSchema.fields.app)(app))
-  return valid
-    ? Effect.succeed(app)
-    : Effect.fail(
-        new CliRefusal({
-          headline:
-            app === undefined
-              ? 'sovrium deploy needs the hosted app to deploy to — nothing was sent.'
-              : `"${app}" is not an app slug: 2 to 28 characters, lowercase letters, digits and '-', starting and ending with a letter or digit — nothing was sent.`,
-          guidance: "Name it with --app, for example 'sovrium deploy --app atelier-crm'.",
-        })
-      )
-}
-
 /**
  * The `manifest.json` entry of the archive just written, as its exact UTF-8
- * text. Read back from the archive rather than re-serialised: the host signs
+ * text, and the config document it carries. Read back from the archive rather than re-serialised: the host signs
  * these bytes, and the machine applying the release verifies them as they sit
  * in the archive.
  */
-const readManifestText = async (archive: Uint8Array): Promise<string> => {
-  const entry = (await new Bun.Archive(archive).files()).get(BUNDLE_MANIFEST_ENTRY)
-  if (entry === undefined) {
+const readArchiveTexts = async (
+  archive: Uint8Array
+): Promise<{ readonly manifestText: string; readonly document: Record<string, unknown> }> => {
+  const files = await new Bun.Archive(archive).files()
+  const textOf = async (name: string): Promise<string> => {
+    const entry = files.get(name)
     // Thrown inside Effect.tryPromise, whose catch turns it into the refusal.
-    throw new Error(`the archive holds no ${BUNDLE_MANIFEST_ENTRY}`)
+    if (entry === undefined) throw new Error(`the archive holds no ${name}`)
+    return new TextDecoder('utf-8', { fatal: true }).decode(await entry.arrayBuffer())
   }
-  return new TextDecoder('utf-8', { fatal: true }).decode(await entry.arrayBuffer())
+  const document = JSON.parse(await textOf(BUNDLE_CONFIG_ENTRY)) as Record<string, unknown>
+  return { manifestText: await textOf(BUNDLE_MANIFEST_ENTRY), document }
 }
 
 /** Build the bundle into a temporary directory; the caller removes it. */
-const bundleInto = (directory: string, configFile: string | undefined) =>
+const bundleInto = (directory: string, configFile: string) =>
   Effect.tryPromise({
     try: async () => {
       const summary = await buildValidatedBundle({
@@ -155,7 +138,7 @@ const bundleInto = (directory: string, configFile: string | undefined) =>
         outcome: 'nothing was sent',
       })
       const bytes = Uint8Array.from(await readFile(summary.archivePath))
-      return { summary, bytes, manifestText: await readManifestText(bytes) }
+      return { summary, bytes, ...(await readArchiveTexts(bytes)) }
     },
     catch: (cause) =>
       new CliRefusal({
@@ -221,87 +204,24 @@ const requestDeployment = (
     if ((answer.status === 200 || answer.status === 201) && Option.isSome(deployment)) {
       return deployment.value
     }
+    const host = origin.origin
     const refusal = Schema.decodeUnknownOption(deployRefusalSchema)(answer.body)
+    if (answer.status === 404 && Option.isSome(refusal) && refusal.value.error === 'unknown-app') {
+      return yield* new CliRefusal({
+        headline: `No app ${request.app} on your account at ${host}.`,
+        guidance: `Run 'sovrium deploy' to create it, or create it at ${host}/apps.`,
+      })
+    }
+    const missingEnv = Schema.decodeUnknownOption(deployMissingEnvRefusalSchema)(answer.body)
     return yield* new CliRefusal({
-      headline: `${origin.origin} refused the deployment (HTTP ${answer.status}) — nothing was deployed.`,
+      headline: `${host} refused the deployment (HTTP ${answer.status}) — nothing was deployed.`,
       ...(Option.isSome(refusal) ? { detail: [refusal.value.message] } : {}),
-      guidance:
-        answer.status === 404
-          ? "Check that the cloud has a deploy intake, and run 'sovrium login' if your key was revoked."
+      guidance: Option.isSome(missingEnv)
+        ? "Set the variables it names with 'sovrium deploy --env <file>' or 'sovrium env push <file>', then deploy again."
+        : answer.status === 404
+          ? "Check the app's address, and run 'sovrium login' if your key was revoked."
           : 'Run the command again; if it persists, the cloud may be misconfigured.',
     })
-  })
-
-/** One read of the deployment record. */
-const readDeployment = (origin: URL, apiKey: string, id: string) =>
-  Effect.gen(function* () {
-    const answer = yield* callCloud(
-      new URL(`/api/tables/deployments/records/${encodeURIComponent(id)}`, origin),
-      { method: 'GET', headers: { 'x-api-key': apiKey } }
-    ).pipe(Effect.mapError(describeUnreachable(`deployment ${id} is still in progress there`)))
-    const record = Schema.decodeUnknownOption(getRecordResponseSchema)(answer.body)
-    const fields = Option.flatMap(record, (read) =>
-      Schema.decodeUnknownOption(deploymentRecordFieldsSchema)(read.fields)
-    )
-    if (answer.status === 200 && Option.isSome(fields)) return fields.value
-    return yield* new CliRefusal({
-      headline: `Sovrium could not read deployment ${id} on ${origin.origin} (HTTP ${answer.status}).`,
-      guidance: 'The deployment may still go live; check it in the cloud.',
-    })
-  })
-
-/** A signed-in cloud: where it is and the key every call carries. */
-interface SignedInCloud {
-  readonly origin: URL
-  readonly apiKey: string
-}
-
-/**
- * Read the deployment until it is `live` or `failed`, printing each state it
- * enters. Recursive so the last printed state is a parameter.
- */
-const follow = (
-  cloud: SignedInCloud,
-  deployment: { readonly id: string; readonly url: string; readonly deadline: number },
-  printed: DeploymentStatus
-): Effect.Effect<void, CliRefusal> =>
-  Effect.gen(function* () {
-    const fields = yield* readDeployment(cloud.origin, cloud.apiKey, deployment.id)
-    if (fields.status === 'live') {
-      return yield* say(`Live at ${fields.url ?? deployment.url}.`)
-    }
-    if (fields.status !== printed) {
-      yield* say(`Deployment ${deployment.id}: ${describeDeploymentStatus(fields.status)}`)
-    }
-    if (fields.status === 'failed') {
-      return yield* new CliRefusal({
-        headline: `Deployment ${deployment.id} failed on ${cloud.origin.origin}.`,
-        ...(fields.report == null ? {} : { detail: fields.report.split('\n') }),
-        guidance: "Fix what the report names, then run 'sovrium deploy' again.",
-      })
-    }
-    if (Date.now() > deployment.deadline) {
-      return yield* new CliRefusal({
-        headline: `Deployment ${deployment.id} is still ${describeDeploymentStatus(fields.status)} after 10 minutes; the command stopped waiting.`,
-        guidance: 'The deployment may still go live; check it in the cloud.',
-      })
-    }
-    yield* Effect.sleep(POLL_INTERVAL_MS)
-    return yield* follow(cloud, deployment, fields.status)
-  })
-
-/** The signed-in cloud this deploy targets, or the refusal telling the developer to sign in. */
-const signedInCloud = (argv: readonly string[]): Effect.Effect<SignedInCloud, CliRefusal> =>
-  Effect.gen(function* () {
-    const stored = yield* readCredentials
-    const target = getFlagValue(argv, '--host') ?? stored?.host
-    if (target === undefined) return yield* signInFirst(new URL(DEFAULT_CLOUD_HOST))
-    const origin = yield* resolveCloudOrigin(target)
-    // A key for one cloud is never sent to another.
-    if (stored === undefined || URL.parse(stored.host)?.origin !== origin.origin) {
-      return yield* signInFirst(origin)
-    }
-    return { origin, apiKey: stored.apiKey }
   })
 
 const temporaryDirectory = Effect.tryPromise({
@@ -314,31 +234,61 @@ const temporaryDirectory = Effect.tryPromise({
     }),
 })
 
-/** Bundle, upload and request the deployment; the temporary archive is removed either way. */
-const ship = (cloud: SignedInCloud, app: string, configFile: string | undefined) =>
+/** What one deploy run ships: the command line, the config, and the app `--app` names. */
+interface ShipRequest {
+  readonly argv: readonly string[]
+  readonly configPath: string
+  readonly explicit: string | undefined
+}
+
+/**
+ * Bundle into `directory`, settle the app, set its variables, upload and
+ * request the deployment, then link the project to the app.
+ */
+const shipFrom = (directory: string, cloud: SignedInCloud, request: ShipRequest) =>
+  Effect.gen(function* () {
+    const { argv, configPath } = request
+    const { summary, bytes, manifestText, document } = yield* bundleInto(directory, configPath)
+    const { manifest } = summary
+    const address = yield* resolveAddress({
+      explicit: request.explicit,
+      configPath,
+      appName: manifest.app.name,
+      origin: cloud.origin,
+    })
+    const target = yield* settleTarget(cloud, address, {
+      appName: manifest.app.name,
+      yes: argv.includes('--yes'),
+    })
+    const justSet = yield* pushEnvFile(argv, cloud, target, document)
+    yield* refuseMissingEnv(cloud, target, manifest.requiredEnv ?? [], justSet)
+    const app = target.slug
+    yield* say(
+      `Bundled ${manifest.app.name} (${inflect(manifest.entries.length, 'file')}, ${formatBytes(bytes.byteLength)}).`
+    )
+    const objectKey = yield* upload(cloud.origin, cloud.apiKey, app, bytes)
+    yield* say(`Uploaded to ${cloud.origin.origin}.`)
+    const deployment = yield* requestDeployment(
+      cloud,
+      {
+        app,
+        objectKey,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+        configHash: manifest.configHash,
+        engineVersion: manifest.engine.minVersion,
+        manifest: manifestText,
+      },
+      deployIdempotencyKey(app, manifest)
+    )
+    if (address.source !== 'link') yield* writeLink(configPath, cloud.origin.origin, app)
+    return { deployment, target }
+  })
+
+/** {@link shipFrom} in a temporary directory, removed either way. */
+const ship = (cloud: SignedInCloud, request: ShipRequest) =>
   Effect.gen(function* () {
     const directory = yield* temporaryDirectory
-    return yield* Effect.gen(function* () {
-      const { summary, bytes, manifestText } = yield* bundleInto(directory, configFile)
-      const { manifest } = summary
-      yield* say(
-        `Bundled ${manifest.app.name} (${inflect(manifest.entries.length, 'file')}, ${formatBytes(bytes.byteLength)}).`
-      )
-      const objectKey = yield* upload(cloud.origin, cloud.apiKey, app, bytes)
-      yield* say(`Uploaded to ${cloud.origin.origin}.`)
-      return yield* requestDeployment(
-        cloud,
-        {
-          app,
-          objectKey,
-          sha256: createHash('sha256').update(bytes).digest('hex'),
-          configHash: manifest.configHash,
-          engineVersion: manifest.engine.minVersion,
-          manifest: manifestText,
-        },
-        deployIdempotencyKey(app, manifest)
-      )
-    }).pipe(
+    return yield* shipFrom(directory, cloud, request).pipe(
       Effect.ensuring(
         Effect.tryPromise({
           try: () => rm(directory, { recursive: true, force: true }),
@@ -352,29 +302,74 @@ const ship = (cloud: SignedInCloud, app: string, configFile: string | undefined)
     )
   })
 
-/** Sign-in check, ship, and (unless `--no-wait`) follow the deployment to its end. */
+/** `--seed` seeds once the deployment is live, so it cannot return before it is. */
+const refuseSeedWithoutWait = (argv: readonly string[]): Effect.Effect<void, CliRefusal> =>
+  argv.includes('--seed') && argv.includes('--no-wait')
+    ? Effect.fail(
+        new CliRefusal({
+          headline:
+            '--seed seeds the app once the deployment is live, and --no-wait returns before it is — nothing was built or sent.',
+          guidance: 'Drop one of the two flags.',
+        })
+      )
+    : Effect.void
+
+/** `--seed`, once {@link follow} ended: seed a deployment that went live, else say why not. */
+const seedWhenLive = (
+  cloud: SignedInCloud,
+  deployment: { readonly id: string; readonly app: string; readonly ended: 'live' | 'replaced' }
+) =>
+  deployment.ended === 'live'
+    ? seedAfterDeploy(cloud, deployment.app)
+    : Effect.fail(
+        new CliRefusal({
+          headline: `Deployed, but not seeded: deployment ${deployment.id} was replaced by a newer one before it went live.`,
+          guidance: `Seed the live deployment with 'sovrium seed --app ${deployment.app}'.`,
+        })
+      )
+
+/**
+ * Sign-in check, ship, and (unless `--no-wait`) follow the deployment to its
+ * end; under `--seed`, then seed it as `sovrium seed --app <slug> --yes` does.
+ */
 const deploy = (options: DeployCommandOptions) =>
   Effect.gen(function* () {
     const { argv } = options
-    const app = yield* requireAppSlug(argv)
+    yield* refuseSeedWithoutWait(argv)
+    const explicit = yield* explicitAddress(argv)
     yield* assertNetworkAllowed('deploy')
     const cloud = yield* signedInCloud(argv)
-    const deployment = yield* ship(cloud, app, options.configFile)
+    const configPath = yield* configPathOf(options.configFile)
+    const { deployment, target } = yield* ship(cloud, { argv, configPath, explicit })
+    const id = deployment.deploymentId
     yield* say(
       deployment.replayed
-        ? `Already deployed (revision ${deployment.deploymentId}).`
-        : `Deployment ${deployment.deploymentId}: ${describeDeploymentStatus(deployment.status)}`
+        ? `Already deployed (revision ${id}).`
+        : `Deployment ${id}: ${describeDeploymentStatus(deployment.status)}`
     )
+    if (deployment.placement === 'waiting') {
+      yield* say(
+        `Deployment ${id}: waiting for a machine — it starts once one takes ${target.slug}.`
+      )
+    }
+    if (deployment.hint !== undefined) yield* say(`Deployment ${id}: ${deployment.hint}`)
+    const first = { attempt: deployment.attempt, previous: deployment.previousAttempt }
+    yield* Effect.forEach(attemptLines(id, undefined, first), say, { discard: true })
+    const printed = { status: deployment.status, attempt: deployment.attempt }
     if (argv.includes('--no-wait')) return
-    yield* follow(
+    const url = deployment.url === '' ? (target.app?.url ?? '') : deployment.url
+    const adminLine = adminLineOf(deployment)
+    const ended = yield* follow(
       cloud,
       {
-        id: deployment.deploymentId,
-        url: deployment.url,
+        id,
+        url,
         deadline: Date.now() + WAIT_LIMIT_MS,
+        ...(adminLine === undefined ? {} : { adminLine }),
       },
-      deployment.status
+      printed
     )
+    if (argv.includes('--seed')) yield* seedWhenLive(cloud, { id, app: target.slug, ended })
   })
 
 /** Handle `sovrium deploy`. Exits 1 on any refusal; returns on success. */

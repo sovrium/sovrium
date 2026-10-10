@@ -13,6 +13,7 @@ import { findReservedStepNames } from './reserved-step-name-validation'
 import { RetryConfigSchema } from './retry'
 import { type Trigger, TriggerSchema } from './trigger'
 import { validateWebhookSignatureScheme } from './trigger/webhook-signature-validation'
+import { validateWebhookTelemetryTrigger } from './trigger/webhook-telemetry-validation'
 import { validateTriggerList } from './trigger-list-validation'
 import { TriggerListSchema } from './triggers'
 
@@ -324,6 +325,17 @@ const denormaliseTriggers = (
     : { ...rest, triggers }
 }
 
+/** Every load-time rule one trigger can be judged on alone: signature schemes, then telemetry protocols. */
+const validateWebhookTrigger = (
+  automationName: string,
+  trigger: AutomationDecoded['triggers'][number]
+): true | string => {
+  const signatureVerdict = validateWebhookSignatureScheme(automationName, trigger)
+  return signatureVerdict === true
+    ? validateWebhookTelemetryTrigger(automationName, trigger)
+    : signatureVerdict
+}
+
 /**
  * Single Automation Schema — decodes the authored shape
  * ({@link AutomationInputSchema}) into one where `triggers` always lists every
@@ -338,7 +350,7 @@ export const AutomationSchema = AutomationInputSchema.pipe(
     Schema.makeFilter((automation) =>
       automation.triggers.reduce<true | string>(
         (verdict, trigger) =>
-          verdict === true ? validateWebhookSignatureScheme(automation.name, trigger) : verdict,
+          verdict === true ? validateWebhookTrigger(automation.name, trigger) : verdict,
         true
       )
     )

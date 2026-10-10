@@ -119,6 +119,16 @@ export const bundleManifestSchema = Schema.Struct({
         "Every entry of the archive except manifest.json itself, with its size and sha256. Always holds 'project/app.json'",
     })
     .check(Schema.isMinLength(1)),
+  requiredEnv: optionalField(
+    Schema.Array(
+      Schema.String.annotate({ description: 'Name of a variable the config requires' }).check(
+        Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*$/)
+      )
+    ).annotate({
+      description:
+        'NAMES of the environment variables the config requires to boot — every env entry with no default whose required flag is not false — so a host can refuse a bundle it could not start before it applies it. Never a value. Absent from a bundle written before this field existed',
+    })
+  ),
   signature: optionalField(bundleSignatureSchema),
 }).annotate({
   identifier: 'BundleManifest',

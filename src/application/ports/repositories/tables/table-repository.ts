@@ -15,6 +15,10 @@ import type {
   UniqueConstraintViolationError,
 } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
+import type {
+  PercentileFields,
+  PercentileFigures,
+} from '@/domain/models/app/tables/aggregate-percentile-service'
 
 /**
  * A single filter leaf clause (`field <operator> value`).
@@ -120,10 +124,8 @@ export interface RecordLinkWrite {
   readonly hasReciprocal: boolean
 }
 
-/**
- * Aggregation query configuration
- */
-export interface AggregateQuery {
+/** Aggregation query configuration */
+export interface AggregateQuery extends PercentileFields {
   readonly count?: boolean
   readonly sum?: readonly string[]
   readonly avg?: readonly string[]
@@ -131,10 +133,8 @@ export interface AggregateQuery {
   readonly max?: readonly string[]
 }
 
-/**
- * Aggregation result from database
- */
-export interface AggregationResult {
+/** Aggregation result from database */
+export interface AggregationResult extends PercentileFigures {
   readonly count?: string
   /** A number, or `null` over no values. */
   readonly sum?: Record<string, number | null>
@@ -146,8 +146,8 @@ export interface AggregationResult {
   readonly max?: Record<string, number | string | null>
 }
 
-/** A calendar bucket a date field can be grouped by. */
-export type GroupInterval = 'day' | 'week' | 'month' | 'quarter' | 'year'
+/** A UTC bucket a date field (day and up) or a datetime field (any) can be grouped by. */
+export type GroupInterval = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
 
 /** One grouping level: a field, optionally bucketed by calendar interval. */
 export interface GroupLevel {

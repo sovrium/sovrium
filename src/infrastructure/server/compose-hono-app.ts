@@ -24,6 +24,7 @@ import { requestedPath } from '@/domain/kernel/url/requested-path'
 import { resolvesToDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 import { createInvitationServices } from '@/infrastructure/auth/better-auth/invitation-services'
+import { isIngestRequest } from '@/infrastructure/logging/ingest-request-scope'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
 import { isLiveReloadEligible } from '@/infrastructure/process/env'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
@@ -442,7 +443,9 @@ export async function createHonoApp(
         // public endpoint sees most — is answered correctly below and belongs in
         // the log, not in the operator's paging surface. A 5xx (including
         // `hono/timeout`'s 504) is reported here exactly as before.
-        if (isOperatorActionable(error)) {
+        // A failure while serving a telemetry ingest request is logged below
+        // and never reported: the app may be its own receiver ([internal ref] D2 a).
+        if (isOperatorActionable(error) && !isIngestRequest(c.req.raw)) {
           void reportException(error, {
             method: c.req.method,
             url: c.req.url,

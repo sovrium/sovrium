@@ -49,6 +49,10 @@ For socket-activated hosting, `SOVRIUM_LISTEN_UNIX` serves HTTP on a Unix socket
 
 What dependencies print through the console is captured too — the stylesheet optimiser's warnings when the CSS is compiled at start, for one — with its terminal colours removed. Two things stay outside it: native code writing to the process streams directly, and the runtime's own report of a crash. The format applies to `sovrium start` alone; other commands keep printing text.
 
+## Signing in with Sovrium Cloud
+
+An app hosted on Sovrium Cloud receives `SOVRIUM_PLATFORM_SSO_ISSUER`, `SOVRIUM_PLATFORM_SSO_CLIENT_ID`, `SOVRIUM_PLATFORM_SSO_CLIENT_SECRET` and, for the first admin, `SOVRIUM_PLATFORM_SSO_ADMIN_SUBJECT`: they let its owner open the console with their Cloud account. The Cloud sets them; a self-hosted app leaves them unset, and setting only some of them refuses to boot. The **User Management** article describes what they do.
+
 ## Supervising other Sovrium apps
 
 A machine can run many Sovrium apps, each as its own systemd unit, with one more app — the fleet agent — supervising them through the `instance` automation actions. These variables set the agent up; every other app leaves them unset.

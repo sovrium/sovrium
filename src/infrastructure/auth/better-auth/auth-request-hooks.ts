@@ -27,7 +27,8 @@ import type { Languages } from '@/domain/models/app/languages/language'
 
 /**
  * Better Auth's request hooks: the password rule on admin-created users, and
- * the backup codes captured when two-factor is enabled.
+ * the backup codes captured when two-factor is enabled or a new set replaces
+ * them.
  */
 
 type AuthMiddlewareCtx = Parameters<typeof createAuthMiddleware>[0] extends (
@@ -65,7 +66,16 @@ async function validateAdminCreateUserPassword(ctx: AuthMiddlewareCtx) {
 }
 
 /**
- * Extract backup codes from the two-factor enable response.
+ * The paths whose answer carries a fresh set of recovery codes, and so mail
+ * them: the enrolment, and a new set replacing the previous one.
+ */
+const BACKUP_CODE_PATHS: ReadonlySet<string> = new Set([
+  '/two-factor/enable',
+  '/two-factor/generate-backup-codes',
+])
+
+/**
+ * Extract backup codes from a two-factor response (enrolment or a new set).
  * Handles both direct object and Response (when called via HTTP) formats.
  */
 async function extractBackupCodes(
@@ -175,7 +185,7 @@ export function buildAuthHooks(
       await applyAuthEventBeforeHooks(ctx)
     }),
     after: createAuthMiddleware(async (ctx) => {
-      if (ctx.path === '/two-factor/enable' && handlers?.twoFactorBackupCodes) {
+      if (BACKUP_CODE_PATHS.has(ctx.path) && handlers?.twoFactorBackupCodes) {
         await handleTwoFactorEnable(ctx, handlers.twoFactorBackupCodes)
       }
       await applyAccountDeletionAfterHooks(ctx)

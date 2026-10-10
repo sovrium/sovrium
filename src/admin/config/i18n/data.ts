@@ -324,11 +324,11 @@ export default {
   // needs to be told where it went rather than left looking.
   'admin.users.heading': 'Users',
   'admin.users.blurb':
-    'Manage your app’s accounts: search for a user, adjust their role, or suspend access. Account creation goes through the admin API (see Developers → API).',
+    'Manage your app’s accounts: search for a user, adjust their role or groups, or suspend access. Account creation goes through the admin API (see Developers → API).',
   'admin.users.tabs.region': 'Users sub-views',
   'admin.users.account.heading': 'Account',
   'admin.users.account.blurb':
-    'One account: its role and status, the writes an administrator may make on it, and what the console cannot show about it yet.',
+    'One account: its role, groups and status, the writes an administrator may make on it, and what the console cannot show about it yet.',
   'admin.users.account.region': 'Account',
   'admin.users.account.back': 'Back to users',
   'admin.users.account.roles.region': 'Assignable roles',
@@ -340,12 +340,9 @@ export default {
   'admin.users.account.gaps.sessions.heading': 'Open sessions',
   'admin.users.account.gaps.sessions.body':
     'Ending every session is above, under the row actions. Listing them is not: the endpoint that returns them answers a POST, and a console read is a GET.',
-  'admin.users.account.gaps.teams.heading': 'Teams',
-  'admin.users.account.gaps.teams.body':
-    'Teams are declared in auth.groups[]. No admin read publishes which ones an account belongs to, so membership cannot be shown or changed here.',
   'admin.users.account.gaps.activity.heading': 'Last active',
   'admin.users.account.gaps.activity.body':
-    'The directory returns id, email, name, role and status. A per-account last-activity moment needs the session table joined in, which no read does.',
+    'The directory returns id, email, name, role, status and groups. A per-account last-activity moment needs the session table joined in, which no read does.',
 
   // ── Invitations (`/users/invitations`) ──────────────────────────────────
   'admin.invitations.heading': 'Invitations',

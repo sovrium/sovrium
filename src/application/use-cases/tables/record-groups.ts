@@ -19,6 +19,7 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import { AGGREGATE_PERCENTILES } from '@/domain/models/app/tables/aggregate-percentile-service'
 import { asMinMaxAnswer, minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
 import {
   answerOrderedAggregations,
@@ -126,6 +127,13 @@ const mergeRows = (a: GroupedAggregationRow, b: GroupedAggregationRow): GroupedA
     ...(x.max === undefined
       ? {}
       : { max: mergeRecords(x.max, y.max, (p, q) => pickOrdered(p, q, 'max')) }),
+    // A percentile cannot be merged from two partial ones: the larger side's stands.
+    ...Object.fromEntries(
+      AGGREGATE_PERCENTILES.flatMap((p) => {
+        const figure = (a.count >= b.count ? x : y)[p]
+        return figure === undefined ? [] : [[p, figure] as const]
+      })
+    ),
   }
   return { values: a.values, count: a.count + b.count, aggregations: merged, valued }
 }

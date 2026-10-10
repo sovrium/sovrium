@@ -51,6 +51,7 @@
  */
 
 import { escapeLikeMetacharacters } from '@/domain/kernel/sql/sql-formatting'
+import { searchWords } from '@/domain/models/app/tables/word-search-service'
 
 /** Prefix of every per-table FTS5 virtual table (SQLite). Reserved namespace. */
 export const SQLITE_FTS_PREFIX = 'fts__'
@@ -149,14 +150,13 @@ export const pgSearchVectorExpression = (columns: readonly string[]): string => 
  * would return nothing at all. Both engines fold `Müller` to a single token, so
  * a single token is what the query has to offer them.
  *
+ * The cut itself is `searchWords`, the one tokenizer the long-text word search
+ * shares, so the palette and `?q=` never disagree about where a word ends.
+ *
  * Returns an empty list for punctuation-only input — the caller's signal to skip
  * the candidate gate entirely and let the escaped `LIKE` answer alone.
  */
-export const toFtsTokens = (query: string): readonly string[] =>
-  query
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((token) => token.length > 0)
+export const toFtsTokens = (query: string): readonly string[] => searchWords(query)
 
 /**
  * The PostgreSQL `to_tsquery` argument for `tokens`, as a prefix-OR.

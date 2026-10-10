@@ -21,7 +21,6 @@ import { dirname, join, resolve, sep } from 'node:path'
 import { DateTime, Effect } from 'effect'
 import {
   InstanceSupervisorError,
-  type InstanceProbeResult,
   type InstanceReleaseStatus,
   type ReleaseWrite,
   type ReleaseWriteResult,
@@ -29,7 +28,6 @@ import {
 import { INSTANCE_REVISION_PATTERN } from '@/domain/models/app/automations/actions/instance/apply'
 import { INSTANCE_SLUG_PATTERN } from '@/domain/models/app/automations/actions/instance/instance-slug'
 import { resolveInstancesDir } from '@/domain/models/process-env/host-actions'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 
 /**
  * The release directories of supervised apps, under
@@ -38,24 +36,16 @@ import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
  *   rev-<revision>/   every bundle entry, manifest.json included, written whole
  *   current           relative symlink to the rev-<revision> in service
  *   env               KEY="value" lines (systemd EnvironmentFile syntax), mode 0640
- *   status.json       { revision, previousRevision?, appliedAt, port? }
+ *   status.json       { revision, previousRevision?, appliedAt, previousAppliedAt?,
+ *                       rolledBackAt?, port? }
  *
  * Every write goes to a temporary name in the same directory and is renamed
  * into place, so a crash never leaves a half-written release current. Nothing
  * here runs a unit; `systemd-supervisor-live.ts` does that.
  */
 
-/** Mode of the env file and of an archive handed to a unit: the app's group reads it. */
-const GROUP_READABLE_MODE = 0o640
-
-/**
- * Mode of `restore/`: setgid, and writable by the app's group. The restore unit
- * runs as the app's user, a member of that group, not as the directory's owner.
- */
-const RESTORE_WORKSPACE_MODE = 0o2770
-
-/** `RESTORE_WORKSPACE_MODE` without its setgid bit: what a sandbox that refuses setgid allows. */
-const RESTORE_WORKSPACE_PERMISSIONS = 0o770
+/** Mode of the env file and of a file handed to a unit: the app's group reads it. */
+export const GROUP_READABLE_MODE = 0o640
 
 export const fail = (
   message: string,
@@ -104,7 +94,7 @@ export const discard = (path: string): Effect.Effect<void> =>
     Effect.ignore
   )
 
-const readStatusFile = (dir: string) =>
+export const readStatusFile = (dir: string) =>
   fsStep(`read ${join(dir, 'status.json')}`, async () => {
     const text = await readFile(join(dir, 'status.json'), 'utf8').catch((cause: unknown) => {
       if (isMissing(cause)) return undefined
@@ -119,6 +109,10 @@ const readStatusFile = (dir: string) =>
       ...(typeof parsed.previousRevision === 'string'
         ? { previousRevision: parsed.previousRevision }
         : {}),
+      ...(typeof parsed.previousAppliedAt === 'string'
+        ? { previousAppliedAt: parsed.previousAppliedAt }
+        : {}),
+      ...(typeof parsed.rolledBackAt === 'string' ? { rolledBackAt: parsed.rolledBackAt } : {}),
       ...(typeof parsed.port === 'number' ? { port: parsed.port } : {}),
     } satisfies InstanceReleaseStatus
   })
@@ -142,37 +136,6 @@ const writeAtomically = (path: string, content: string, mode: number) =>
     } finally {
       await rm(temporary, { force: true })
     }
-  })
-
-/**
- * Set the restore workspace to `RESTORE_WORKSPACE_MODE`, whatever the umask and
- * whatever mode an earlier version left it with. A mode that already matches is
- * left alone: on Linux a directory created under a setgid parent inherits the
- * bit, and a `chmod` naming it is exactly what `RestrictSUIDSGID=` refuses with
- * EPERM. When that refusal comes, the mode falls back to 0770: group write is
- * what the restore unit needs, and the setgid bit, which only steers the group
- * of new files, is lost (Linux clears it on a chmod that does not name it).
- */
-const setRestoreWorkspaceMode = async (workspace: string) => {
-  if (((await stat(workspace)).mode & 0o7777) === RESTORE_WORKSPACE_MODE) return
-  await chmod(workspace, RESTORE_WORKSPACE_MODE).catch((cause: unknown) => {
-    if ((cause as { readonly code?: string } | null)?.code !== 'EPERM') throw cause
-    return chmod(workspace, RESTORE_WORKSPACE_PERMISSIONS)
-  })
-}
-
-/**
- * Hand `archive` to the restore unit at `archivePath`. The directory is created
- * without a setgid bit in the requested mode (a sandbox refuses that mkdir), then
- * set by `setRestoreWorkspaceMode`.
- */
-export const writeRestoreArchive = (archivePath: string, archive: Uint8Array) =>
-  fsStep(`write ${archivePath}`, async () => {
-    const workspace = dirname(archivePath)
-    await mkdir(workspace, { recursive: true, mode: RESTORE_WORKSPACE_PERMISSIONS })
-    await setRestoreWorkspaceMode(workspace)
-    await writeFile(archivePath, archive, { mode: GROUP_READABLE_MODE })
-    await chmod(archivePath, GROUP_READABLE_MODE)
   })
 
 /** Point `current` at `rev-<revision>`, atomically, with a relative link. */
@@ -266,16 +229,25 @@ export const writeRelease = (
     yield* writeAtomically(join(dir, 'env'), envFileContent(release.env), GROUP_READABLE_MODE)
     yield* pointCurrentAt(dir, release.revision)
     const port = portOf(release.env)
+    // A fresh `appliedAt`; the replaced revision's time is kept, and no rollback date survives.
     yield* writeStatus(dir, {
       revision: release.revision,
       ...previous,
       appliedAt: yield* nowIso,
+      ...(before === undefined || before.appliedAt === ''
+        ? {}
+        : { previousAppliedAt: before.appliedAt }),
       ...(port === undefined ? {} : { port }),
     })
     return { applied: true, ...previous }
   }).pipe(Effect.withSpan('instance.write-release'))
 
-/** Point `current` back at the previous release, swapping the two. */
+/**
+ * Point `current` back at the previous release, swapping the two. Each keeps
+ * its own release time: the restored one gets back `previousAppliedAt` (the
+ * moment of the swap when a file written before that field has none), the
+ * other's becomes `previousAppliedAt`, and the swap is dated `rolledBackAt`.
+ */
 export const rollbackRelease = (
   slug: string
 ): Effect.Effect<InstanceReleaseStatus, InstanceSupervisorError> =>
@@ -288,10 +260,13 @@ export const rollbackRelease = (
     const previous = before.previousRevision
     yield* fsStep(`find ${join(dir, `rev-${previous}`)}`, () => stat(join(dir, `rev-${previous}`)))
     yield* pointCurrentAt(dir, previous)
+    const rolledBackAt = yield* nowIso
     const after: InstanceReleaseStatus = {
       revision: previous,
       previousRevision: before.revision,
-      appliedAt: yield* nowIso,
+      appliedAt: before.previousAppliedAt ?? rolledBackAt,
+      ...(before.appliedAt === '' ? {} : { previousAppliedAt: before.appliedAt }),
+      rolledBackAt,
       ...(before.port === undefined ? {} : { port: before.port }),
     }
     yield* writeStatus(dir, after)
@@ -306,45 +281,6 @@ export const removeRelease = (slug: string): Effect.Effect<void, InstanceSupervi
     ),
     Effect.withSpan('instance.remove-release')
   )
-
-/** One probe of the loopback health endpoint. Total: an app that does not answer is `ok: false`. */
-const probePort = async (port: number, timeoutMs: number): Promise<InstanceProbeResult> => {
-  const started = performance.now()
-  const elapsed = () => Math.round(performance.now() - started)
-  try {
-    const response = await withFetchTimeout(
-      `http://127.0.0.1:${String(port)}/api/health`,
-      { method: 'GET' },
-      timeoutMs
-    )
-    await response.body?.cancel().catch(() => undefined)
-    return { ok: response.ok, status: response.status, latencyMs: elapsed() }
-  } catch {
-    return { ok: false, latencyMs: elapsed() }
-  }
-}
-
-/**
- * `GET http://127.0.0.1:<port>/api/health` on the port the last apply
- * recorded. The address is fixed to loopback and built here, never from a
- * caller's URL, so it does not go through the outbound URL checks.
- */
-export const probeInstance = (
-  slug: string,
-  timeoutMs: number
-): Effect.Effect<InstanceProbeResult, InstanceSupervisorError> =>
-  Effect.gen(function* () {
-    const dir = yield* instanceDir(slug)
-    const recorded = yield* readStatusFile(dir)
-    if (recorded?.port === undefined) {
-      return yield* fail(
-        `${slug} has no recorded port; apply a release whose env sets PORT before probing it`
-      )
-    }
-    const { port } = recorded
-    // effect-promise: total -- probePort catches every rejection and answers ok: false.
-    return yield* Effect.promise(() => probePort(port, timeoutMs))
-  }).pipe(Effect.withSpan('instance.probe'))
 
 /**
  * The entries of an inflated bundle tar (or only those named), read in memory;

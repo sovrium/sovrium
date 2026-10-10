@@ -13,7 +13,7 @@ import {
   type AuthFormAction,
   type AuthFormRenderContext,
 } from './auth-form-action'
-import { authSkeletonFormProps, buildAuthWrapperStyle } from './auth-form-renderer'
+import { authSkeletonFormProps, buildAuthWrapperStyle, localize } from './auth-form-renderer'
 import type { ElementProps } from './html-element-renderer'
 
 /**
@@ -34,8 +34,9 @@ import type { ElementProps } from './html-element-renderer'
 function renderOAuthSkeleton(config: {
   readonly props: ElementProps
   readonly provider: string
+  readonly label: string
 }): ReactElement {
-  const { props, provider } = config
+  const { props, provider, label } = config
   return (
     <form
       {...authSkeletonFormProps(props)}
@@ -48,7 +49,7 @@ function renderOAuthSkeleton(config: {
         data-oauth-provider={provider}
         className={computeButtonDefaultClasses({ variant: 'secondary' })}
       >
-        {oauthSubmitLabel(provider)}
+        {label}
       </button>
     </form>
   )
@@ -92,11 +93,17 @@ export function renderOAuthForm(
 ): ReactElement {
   const provider = action.provider ?? ''
   const callbackUrl = resolveOnSuccessRedirect(action, context.landingPath)
+  // The action's own label (`submitLabel`, `$t:` resolved), else "Sign in with <Provider>".
+  const label =
+    action.submitLabel === undefined
+      ? oauthSubmitLabel(provider)
+      : localize(action.submitLabel, context.lang, context.languages)
 
   const islandProps = JSON.stringify({
     method: 'login',
     strategy: 'oauth',
     provider,
+    submitLabel: label,
     redirectUrl: callbackUrl,
     'data-testid': props['data-testid'],
     id: props.id,
@@ -113,7 +120,7 @@ export function renderOAuthForm(
     >
       {/* SSR skeleton — the Suspense fallback, and the painted control the
           reader sees before the island mounts. */}
-      {renderOAuthSkeleton({ props, provider })}
+      {renderOAuthSkeleton({ props, provider, label })}
     </div>
   )
 }

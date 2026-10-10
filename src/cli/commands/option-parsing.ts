@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { dirname, join, resolve } from 'node:path'
+import { existsSync, statSync } from 'node:fs'
+import { dirname, join, relative, resolve } from 'node:path'
+import {
+  BUNDLE_CONFIG_ENTRY,
+  BUNDLE_MANIFEST_ENTRY,
+} from '@/application/use-cases/server/bundle-manifest'
 
 /**
  * Shared CLI option-parsing helpers.
@@ -56,7 +61,8 @@ export const isPublicDirOptOut = (value: string | undefined): boolean =>
 
 /**
  * Resolve the default static-assets directory for `sovrium start` / `sovrium
- * build`: `./public` next to the config file (NOT next to the process CWD).
+ * build`: `./public` next to the config file (NOT next to the process CWD),
+ * or at the root of an unpacked bundle (see {@link resolveProjectRoot}).
  *
  * Anchoring to the config-file directory is intentional — it makes the default
  * stable across `cd` operations, and prevents the same binary in two different
@@ -67,5 +73,41 @@ export const isPublicDirOptOut = (value: string | undefined): boolean =>
  */
 export const resolveDefaultPublicDir = (configFilePath: string | undefined): string | undefined => {
   if (!configFilePath) return undefined
-  return join(dirname(resolve(configFilePath)), 'public')
+  return join(resolveProjectRoot(configFilePath), 'public')
+}
+
+/**
+ * The directory a config's default `public/` and `seed/` sit in.
+ *
+ * For a plain project that is the config file's own directory. An unpacked
+ * bundle is laid out differently: the config is `<root>/project/app.json`
+ * while `public/`, `seed/` and `manifest.json` sit at `<root>`. So when the
+ * config is the bundle's config entry AND `<root>/manifest.json` exists, the
+ * anchor is `<root>` — `sovrium start` and `sovrium seed` run an unpacked
+ * bundle as it is, with no flag. Both conditions are required, so a project
+ * that merely keeps its config under a `project/` folder is unaffected.
+ */
+export const resolveProjectRoot = (configFilePath: string): string => {
+  const configPath = resolve(configFilePath)
+  const entryParts = BUNDLE_CONFIG_ENTRY.split('/')
+  const bundleRoot = resolve(dirname(configPath), ...entryParts.slice(1).map(() => '..'))
+  const isConfigEntry = relative(bundleRoot, configPath) === join(...entryParts)
+  return isConfigEntry && existsSync(join(bundleRoot, BUNDLE_MANIFEST_ENTRY))
+    ? bundleRoot
+    : dirname(configPath)
+}
+
+/**
+ * The public directory the OPERATOR named (`--publicDir` or
+ * `SOVRIUM_PUBLIC_DIR`) when it is not a directory on disk, else `undefined`.
+ *
+ * A missing DEFAULT `./public` is normal — most apps have none — and stays
+ * quiet. A path somebody typed and got wrong is a mistake worth one line at
+ * boot, because the server otherwise starts and answers 404 for every file.
+ */
+export const missingNamedPublicDir = (named: string | undefined): string | undefined => {
+  if (named === undefined || named === '' || isPublicDirOptOut(named)) return undefined
+  const path = resolve(named)
+  const isDirectory = existsSync(path) && statSync(path).isDirectory()
+  return isDirectory ? undefined : path
 }

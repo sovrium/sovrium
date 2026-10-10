@@ -31,6 +31,7 @@ import {
   capturePdf,
   runSandboxedRender,
 } from './webview-renderer'
+import type { BackendSource } from './webview-lifecycle'
 import type { Semaphore } from 'effect'
 
 /**
@@ -121,19 +122,6 @@ const declaredAreaFits = (area: {
 }): Effect.Effect<void, RenderLimitExceededError> => {
   const refusal = imageAreaRefusal(area)
   return refusal === undefined ? Effect.void : Effect.fail(overLimit(refusal))
-}
-
-/**
- * The browser backend, produced once per render; a failure means the engine
- * is unreachable. `invalidate` forgets a memoised connect address after a
- * render that could not use it, so a restarted sidecar is found again.
- * `explain` adds what the operator can do to a failed render's message.
- */
-export interface BackendSource {
-  /** Finds the backend; a discovery it runs is bounded by `budgetMs` when given. */
-  readonly acquire: (budgetMs?: number) => Promise<Bun.WebView.Backend>
-  readonly invalidate: () => void
-  readonly explain?: (message: string) => string
 }
 
 type Viewport = { readonly width: number; readonly height: number; readonly scale: number }

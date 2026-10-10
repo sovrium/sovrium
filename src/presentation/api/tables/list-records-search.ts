@@ -6,6 +6,11 @@
  */
 
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import {
+  WORD_SEARCH_OPERATOR,
+  wordSearchFields,
+  wordSearchValue,
+} from '@/domain/models/app/tables/word-search-service'
 import type { FilterStructure } from './row-level-read-helpers'
 import type { App, Table } from '@/domain/models/app'
 import type { PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
@@ -64,11 +69,20 @@ const resolveSearchableColumns = (
   const searchable = (table?.fields ?? [])
     .filter((field) => SEARCHABLE_FIELD_TYPES.has(field.type))
     .map((field) => field.name)
-  if (searchable.length === 0) return []
+  return readableColumns(app, tableName, caller, searchable)
+}
 
-  const probe = Object.fromEntries(searchable.map((name) => [name, '']))
+/** The `columns` this caller may read, in their given order. */
+const readableColumns = (
+  app: App,
+  tableName: string,
+  caller: PermissionCaller,
+  columns: readonly string[]
+): readonly string[] => {
+  if (columns.length === 0) return []
+  const probe = Object.fromEntries(columns.map((name) => [name, '']))
   const readable = filterReadableFields({ app, tableName, caller, record: probe })
-  return searchable.filter((name) => name in readable)
+  return columns.filter((name) => name in readable)
 }
 
 export interface SearchFilterInput {
@@ -115,6 +129,17 @@ export const buildSearchFilter = (input: SearchFilterInput): FilterStructure => 
   if (!term) return undefined
 
   const caller = { role: userRole, groups: input.userGroups }
+  const declared = wordSearchFields(table)
+  if (table !== undefined && declared.length > 0) {
+    // A table declaring `fullTextSearch` fields is searched by word on those
+    // fields only: OR-ing the substring scan of the others back in
+    // would turn every query into the full scan the index exists to remove.
+    const readable = readableColumns(app, tableName, caller, declared)
+    const value = wordSearchValue(table, term)
+    return {
+      and: [{ or: readable.map((field) => ({ field, operator: WORD_SEARCH_OPERATOR, value })) }],
+    }
+  }
   const columns = resolveSearchableColumns(app, tableName, caller, table)
   return {
     and: [{ or: columns.map((field) => ({ field, operator: 'contains', value: term })) }],

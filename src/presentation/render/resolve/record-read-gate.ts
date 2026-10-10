@@ -47,6 +47,7 @@ import {
   type CallerReader,
   type CallerTableGate,
 } from '@/domain/models/app/tables/caller-record-gate-service'
+import { filterWithFieldLiterals } from '@/domain/models/app/tables/checkbox-literal-service'
 import {
   chainedLookupLinksOf,
   lookupKeyColumnsFor,
@@ -462,8 +463,7 @@ async function readUncheckedRows(
  *  2. a row the table's row-level rule hides is not read, nor counted;
  *  3. every row arrives less the columns the visitor may not read.
  *
- * A row in the trash is not read either: the records API answers it as one
- * that does not exist ({@link CallerRowsQuery.liveOnly}).
+ * A trashed row is not read either, as on the records API ({@link CallerRowsQuery.liveOnly}).
  *
  * `withTotal` asks for the count of admitted rows across every page (a pager's
  * total). An app with no `auth` block is the full-access model.
@@ -485,10 +485,10 @@ export async function readRowsForCaller(input: {
   const { app, tableName, session, db } = input
   const withTotal = input.withTotal === true
   const table = (app.tables ?? []).find((t) => t.name === tableName) as TableLike | undefined
-  // A trashed row answers as missing on the records API, so it is drawn on no
-  // page either: live rows only, unless the caller asks otherwise. A source
-  // that is not a declared table (a system source) has no trash.
-  const query = { ...input.query, liveOnly: input.query.liveOnly ?? table !== undefined }
+  // A trashed row is drawn on no page (live rows only, unless asked); a system
+  // source has no trash. A filter literal is read through its field's type.
+  const filter = filterWithFieldLiterals(input.query.filter, table?.fields)
+  const query = { ...input.query, filter, liveOnly: input.query.liveOnly ?? table !== undefined }
   if (!app.auth || table === undefined) {
     return readUncheckedRows(tableName, query, { db, withTotal })
   }

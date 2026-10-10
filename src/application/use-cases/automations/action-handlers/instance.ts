@@ -74,7 +74,7 @@ const propsOf = (action: Readonly<Record<string, unknown>>): Readonly<Record<str
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
-const slugOf = (props: Readonly<Record<string, unknown>>) => {
+export const slugOf = (props: Readonly<Record<string, unknown>>) => {
   const { slug } = props
   return typeof slug === 'string' && INSTANCE_SLUG_PATTERN.test(slug)
     ? Effect.succeed(slug)
@@ -126,7 +126,7 @@ const envOf = (value: unknown) => {
 }
 
 /** How long a backup or restore unit may run: the step's own `timeout`, else the maximum. */
-const unitJobTimeout = (action: Readonly<Record<string, unknown>>): number => {
+export const unitJobTimeout = (action: Readonly<Record<string, unknown>>): number => {
   const { timeout } = action
   return typeof timeout === 'number' && Number.isInteger(timeout) && timeout > 0
     ? timeout
@@ -149,7 +149,7 @@ const messageOf = (error: Readonly<StepError>): string =>
  * Wrap an operator: the gate first, then the body; any refusal or host failure
  * becomes a failed step carrying its message.
  */
-const instanceHandler =
+export const instanceHandler =
   (
     operator: string,
     body: (
@@ -296,11 +296,11 @@ export const handleInstanceApply = instanceHandler('apply', (props) =>
     }
     const keyId = yield* textOf(signature['keyId'], 'signature.keyId')
     const value = yield* textOf(signature['value'], 'signature.value')
-    // Nothing touches the host before both the signature and every entry check out.
+    // Nothing touches the host until signature and entries check out; then the socket, the app.
     const verified = yield* verifiedBundleOf(props['bundle'], { keyId, signature: value })
-    const supervisor = yield* InstanceSupervisor
-    const written = yield* supervisor.writeRelease(slug, { bundle: verified, revision, env })
-    if (written.applied) yield* supervisor.control(slug, 'restart')
+    const { writeRelease, control } = yield* InstanceSupervisor
+    const written = yield* writeRelease(slug, { bundle: verified, revision, env })
+    if (written.applied) yield* Effect.andThen(control(slug, 'start'), control(slug, 'restart'))
     return {
       slug,
       revision,
@@ -316,9 +316,9 @@ export const handleInstanceRollback = instanceHandler('rollback', (props) =>
   Effect.gen(function* () {
     const slug = yield* slugOf(props)
     const supervisor = yield* InstanceSupervisor
-    const release = yield* supervisor.rollbackRelease(slug)
+    const { revision, previousRevision, rolledBackAt } = yield* supervisor.rollbackRelease(slug)
     yield* supervisor.control(slug, 'restart')
-    return { slug, revision: release.revision, previousRevision: release.previousRevision }
+    return { slug, revision, previousRevision, rolledBackAt }
   })
 )
 

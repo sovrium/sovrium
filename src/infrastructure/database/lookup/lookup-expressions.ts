@@ -8,13 +8,18 @@
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { stringAggExpression } from '../sql/dialect-ddl'
 import { generateJunctionTableName, junctionKeyColumns } from '../sql/sql-generators'
-import { compileRelationalFilter, relatedAliasOf, relationNameOf } from './lookup-view-helpers'
+import {
+  compileRelationalFilter,
+  relatedAliasOf,
+  relationNameOf,
+  type RelatedFilterScope,
+} from './lookup-view-helpers'
 import type { ViewFilterNode } from '@/domain/models/app/tables/views/filters'
 
 /**
  * Configuration for lookup expression generation
  */
-export type LookupExpressionConfig = {
+export type LookupExpressionConfig = Pick<RelatedFilterScope, 'allTables'> & {
   readonly lookupName: string
   readonly relationshipField: string
   readonly relatedField: string
@@ -27,7 +32,7 @@ export type LookupExpressionConfig = {
 /**
  * Configuration for many-to-many lookup expression
  */
-export type ManyToManyLookupConfig = {
+export type ManyToManyLookupConfig = Pick<RelatedFilterScope, 'allTables'> & {
   readonly lookupName: string
   readonly relatedTable: string
   /** The relation read for the related rows — the related table's base table when it is this table. */
@@ -41,7 +46,7 @@ export type ManyToManyLookupConfig = {
 /**
  * Configuration for forward lookup expression
  */
-export type ForwardLookupConfig = {
+export type ForwardLookupConfig = Pick<RelatedFilterScope, 'allTables'> & {
   readonly lookupName: string
   readonly relationshipField: string
   readonly relatedTable: string
@@ -66,9 +71,10 @@ const notTrashed = (alias: string): string => `${alias}.deleted_at IS NULL`
 /** The lookup's own `filters` as a WHERE list entry, or nothing when it restricts nothing. */
 const filterConditionsOf = (
   filters: ViewFilterNode | undefined,
-  alias: string
+  alias: string,
+  scope: RelatedFilterScope
 ): readonly string[] => {
-  const condition = filters ? compileRelationalFilter(filters, alias) : undefined
+  const condition = compileRelationalFilter(filters, alias, scope)
   return condition === undefined ? [] : [condition]
 }
 
@@ -80,7 +86,8 @@ export const generateReverseLookupExpression = (config: LookupExpressionConfig):
 
   const alias = relatedAliasOf(relatedTable, lookupName)
   const baseCondition = `${alias}.${quoteSqlIdentifier(relationshipField)} = ${tableAlias}.id`
-  const whereConditions = [baseCondition, notTrashed(alias), ...filterConditionsOf(filters, alias)]
+  const filterConditions = filterConditionsOf(filters, alias, config)
+  const whereConditions = [baseCondition, notTrashed(alias), ...filterConditions]
   const whereClause = whereConditions.join(' AND ')
 
   return `(
@@ -105,7 +112,8 @@ export const generateManyToManyLookupExpression = (config: ManyToManyLookupConfi
 
   const baseCondition = `${junctionAlias}.${quoteSqlIdentifier(foreignKeyInJunction)} = ${tableAlias}.id`
   const joinCondition = `${alias}.id = ${junctionAlias}.${quoteSqlIdentifier(relatedForeignKeyInJunction)}`
-  const whereConditions = [baseCondition, notTrashed(alias), ...filterConditionsOf(filters, alias)]
+  const filterConditions = filterConditionsOf(filters, alias, config)
+  const whereConditions = [baseCondition, notTrashed(alias), ...filterConditions]
   const whereClause = whereConditions.join(' AND ')
 
   return `(
@@ -123,7 +131,7 @@ export const generateForwardLookupExpression = (config: ForwardLookupConfig): st
   const { lookupName, relationshipField, relatedTable, relatedField, filters, tableAlias } = config
   const alias = relatedAliasOf(relatedTable, lookupName)
 
-  const whereClause = filters ? compileRelationalFilter(filters, alias) : undefined
+  const whereClause = compileRelationalFilter(filters, alias, config)
   if (whereClause !== undefined) {
     return `(
       SELECT ${alias}.${quoteSqlIdentifier(relatedField)}

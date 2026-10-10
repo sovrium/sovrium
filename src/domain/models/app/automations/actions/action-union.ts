@@ -11,6 +11,7 @@ import { AnalyticsActionSchema } from './analytics'
 import { ApprovalActionSchema } from './approval'
 import { AuthActionSchema } from './auth'
 import { AutomationActionSchema } from './automation'
+import { BrowserActionSchema } from './browser'
 import { CodeActionSchema } from './code'
 import { ConnectionActionSchema } from './connection'
 import { CryptoActionSchema } from './crypto'
@@ -34,6 +35,7 @@ import { ActionRefSchema } from './ref'
 import { SovriumActionSchema } from './sovrium'
 import { StateActionSchema } from './state'
 import { WebhookActionSchema } from './webhook'
+import type { BrowserStep } from './browser'
 import type { DocumentOutput, FileRef } from './document'
 import type { ConditionGroup } from '../conditions'
 import type { RetryConfig } from '../retry'
@@ -280,7 +282,7 @@ export type Action =
         readonly locale?: string
         readonly attachments?: FileRefListDef<FileRef>
       }>)
-  // ── auth (4 operator variants) ──
+  // ── auth (9 operator variants) ──
   | (ActionBase & {
       readonly type: 'auth'
       readonly operator: 'createUser'
@@ -309,6 +311,39 @@ export type Action =
       readonly operator: 'unbanUser'
     } & Props<{
         readonly userId: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'auth'
+      readonly operator: 'addToGroup'
+    } & Props<{
+        readonly userId: string
+        readonly group: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'auth'
+      readonly operator: 'removeFromGroup'
+    } & Props<{
+        readonly userId: string
+        readonly group: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'auth'
+      readonly operator: 'registerOAuthClient'
+    } & Props<{
+        readonly name: string
+        readonly redirectUri: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'auth'
+      readonly operator: 'rotateOAuthClientSecret'
+    } & Props<{
+        readonly clientId: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'auth'
+      readonly operator: 'deleteOAuthClient'
+    } & Props<{
+        readonly clientId: string
       }>)
   // ── analytics ──
   | (ActionBase & {
@@ -507,6 +542,42 @@ export type Action =
         readonly onTimeout?: 'approve' | 'reject' | 'escalate'
         readonly onReject?: 'stop' | 'continue'
         readonly notifyVia?: 'email' | 'webhook' | 'both'
+      }>)
+  // ── browser ──
+  // `steps` is typed from the step schema itself: twelve verbs, each with a
+  // nested locator, are one definition rather than two that can drift.
+  | (ActionBase & {
+      readonly type: 'browser'
+      readonly operator: 'run'
+    } & Props<{
+        readonly allowedHosts: readonly string[]
+        readonly session?: string
+        readonly idempotencyKey?: string
+        readonly timeouts?: { readonly stepMs?: number; readonly runMs?: number }
+        readonly artifacts?: {
+          readonly bucket?: string
+          readonly screenshots?: 'failure' | 'steps' | 'off'
+        }
+        readonly selfHeal?: true | { readonly agent?: string }
+        readonly steps: readonly BrowserStep[]
+      }>)
+  | (ActionBase & {
+      readonly type: 'browser'
+      readonly operator: 'agent'
+    } & Props<{
+        readonly goal: string
+        readonly startUrl: string
+        readonly allowedHosts: readonly string[]
+        readonly session?: string
+        readonly maxSteps?: number
+        readonly credentials?: { readonly [name: string]: string }
+        readonly output?: { readonly [field: string]: 'string' | 'number' | 'boolean' }
+        readonly approveSubmit?: boolean
+        readonly timeouts?: { readonly stepMs?: number; readonly runMs?: number }
+        readonly artifacts?: {
+          readonly bucket?: string
+          readonly screenshots?: 'failure' | 'steps' | 'off'
+        }
       }>)
   // ── record batch operators ──
   | (ActionBase & {
@@ -1168,7 +1239,7 @@ export type Action =
       readonly type: 'sovrium'
       readonly operator: 'validateBundle'
     } & Props<{ readonly objectKey: string }>)
-  // ── instance (11 operator variants) ──
+  // ── instance (12 operator variants) ──
   | (ActionBase & {
       readonly type: 'instance'
       readonly operator: 'status' | 'start' | 'stop' | 'restart' | 'rollback'
@@ -1207,6 +1278,16 @@ export type Action =
       readonly type: 'instance'
       readonly operator: 'restore'
     } & Props<{ readonly slug: string; readonly source: { readonly objectKey: string } }>)
+  | (ActionBase & {
+      readonly type: 'instance'
+      readonly operator: 'seed'
+    } & Props<{
+        readonly slug: string
+        readonly mode?: string
+        readonly tables?: readonly string[] | string
+        readonly today?: string
+        readonly dryRun?: boolean | string
+      }>)
   // ── delay:webhook (new operator) ──
   | (ActionBase & {
       readonly type: 'delay'
@@ -1261,6 +1342,7 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   ConnectionActionSchema,
   AiActionSchema,
   ApprovalActionSchema,
+  BrowserActionSchema,
   FileActionSchema,
   DocumentActionSchema,
   PdfActionSchema,

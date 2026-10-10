@@ -53,6 +53,7 @@ import {
 } from '@/domain/models/app/app-excess-property-report'
 import { validateAssetReferences } from '@/domain/models/app/asset-reference-validation'
 import { validateApprovalTimeouts } from '@/domain/models/app/automations/actions/approval/approval-timeout-validation'
+import { validateBrowserActions } from '@/domain/models/app/automations/actions/browser/browser-action-validation'
 import { validateDelayLimits } from '@/domain/models/app/automations/actions/delay/delay-limits-validation'
 import { validateRecordEventLoops } from '@/domain/models/app/automations/record-loop-validation'
 import { reportRetiredActionOperators } from '@/domain/models/app/automations/retired-operator-validation'
@@ -60,6 +61,7 @@ import { validatePreviewOptionPaths } from '@/domain/models/app/design/preview-o
 import { collectProseSpacingNotices } from '@/domain/models/app/design/prose-spacing-service'
 import { collectSupersededDesignNotices } from '@/domain/models/app/design/superseded-notices'
 import { validateDocumentOutputBuckets } from '@/domain/models/app/document-output-validation'
+import { undeclaredEnvReferenceRefusals } from '@/domain/models/app/env-reference-validation'
 import { collectUnprefixedEngineKeyNotices } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { validateComponentFieldReferences } from '@/domain/models/app/pages/components/component-field-references'
 import { validateComponentXorRules } from '@/domain/models/app/pages/components/component-types/component-xor-rules'
@@ -370,23 +372,21 @@ export const decodeAppConfigObject = (
 ): DecodeAppConfigResult => {
   const { refSources = EMPTY_REF_SOURCES, configFile } = options
 
-  // BEFORE the decode, because the decode is where the evidence disappears. A
-  // `__proto__` key at a `Schema.Struct` position is refused by name below; at
-  // a `Schema.Record` position — `theme.colors`, `theme.fonts`, the rest —
-  // Effect v4 drops the entry silently and reports success, so running this
-  // afterwards would be asking a question of an object the key had already been
-  // removed from. Ordering it first also keeps the top-level case reported once
-  // rather than twice. A removed action operator is refused here too, by name.
-  //
-  // This is the header's "never quietly repaired and never silently stripped"
-  // clause, enforced for the one key where the strip has a security reading.
-  // See `prototype-key-guard.ts` for why the other pollution-adjacent names are
-  // deliberately NOT covered.
+  // BEFORE the decode, because the decode is where the evidence disappears: a `__proto__` key at
+  // a `Schema.Record` position (`theme.colors`, `theme.fonts`) is dropped by Effect v4 silently,
+  // so checking afterwards would ask an object the key was already removed from. A removed action
+  // operator and a browser step are refused here too, by name, with any undeclared `$env` the
+  // skipped decode would have named. This is the header's "never silently stripped" clause, for
+  // the one key where the strip has a security reading (`prototype-key-guard.ts`).
   const refusals = [
     ...reportPrototypePollutingKeys(parsed),
     ...reportRetiredActionOperators(parsed),
+    ...validateBrowserActions(parsed),
   ]
-  if (refusals.length > 0) return { valid: false, ...refusalFromMessages(refusals) }
+  if (refusals.length > 0) {
+    const alongside = undeclaredEnvReferenceRefusals(parsed)
+    return { valid: false, ...refusalFromMessages([...refusals, ...alongside]) }
+  }
 
   // `reportInput: true` is NOT cosmetic and NOT the v4 default. Without it a
   // type failure renders as `Expected number` where v3 rendered

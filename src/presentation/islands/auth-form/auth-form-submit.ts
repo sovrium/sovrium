@@ -61,25 +61,51 @@ const signInDestination = (configured: string | undefined): string | undefined =
     new URLSearchParams(globalThis.location?.search ?? '').get('callbackURL') ?? undefined
   ) ?? configured
 
-/** The banner a password sign-in shows when the account still owes its second step. */
+/**
+ * The banner a password sign-in shows when the account still owes its second
+ * step: the English built-in, which the page-language words replace
+ * (`twoFactor.pendingSignIn`, handed to the island by the server).
+ */
 const TWO_FACTOR_PENDING_MESSAGE =
   'Two-step verification is on — enter your code to finish signing in'
+
+/** What an auth method resolved to: a refusal, a banner, or a page to open now. */
+interface AuthOutcome {
+  readonly error?: string
+  readonly success?: string
+  /** A same-origin path to open at once (a sign-in that still owes its code). */
+  readonly navigate?: string
+}
 
 /**
  * A password sign-in. An account with two-step on is NOT signed in yet: the
  * server answers `twoFactorRedirect` and holds the attempt in a short-lived
- * cookie until the page's `verifyTwoFactor` form checks the code, so the form
- * says so instead of navigating to a page the reader cannot see.
+ * cookie until a `verifyTwoFactor` form checks the code.
+ *
+ * A form naming its code page (`onTwoFactor.navigate`) opens it, the cookie
+ * untouched, and sends where it was headed as `callbackURL`: the server keeps
+ * that beside the attempt for the code page. Without one, the form says a code
+ * is needed and stays — its code form sits on the same page.
  */
 async function handleLogin(
-  email: string,
-  password: string
-): Promise<{ error?: string; success?: string }> {
-  const result = await trackSignIn(authClient.signIn.email({ email, password }))
+  input: AuthMethodInput,
+  destination: string | undefined
+): Promise<AuthOutcome> {
+  const codePage = toSafeRedirectPath(input.twoFactorPath)
+  const callbackURL = codePage === undefined ? undefined : destination
+  const result = await trackSignIn(
+    authClient.signIn.email({
+      email: input.email,
+      password: input.password,
+      ...(callbackURL !== undefined && { callbackURL }),
+    })
+  )
   if (result.error) return { error: result.error.message ?? 'Authentication failed' }
   const pending = (result.data as { readonly twoFactorRedirect?: unknown } | null)
     ?.twoFactorRedirect
-  return pending === true ? { success: TWO_FACTOR_PENDING_MESSAGE } : {}
+  if (pending !== true) return {}
+  if (codePage !== undefined) return { navigate: codePage }
+  return { success: input.pendingSignIn ?? TWO_FACTOR_PENDING_MESSAGE }
 }
 
 async function handleSignup(email: string, password: string): Promise<string | undefined> {
@@ -180,6 +206,10 @@ interface AuthMethodInput {
   readonly redirectUrl: string | undefined
   /** The form's `onSuccess.toast` config, when it declares one. */
   readonly successToast: ToastConfig | undefined
+  /** The two-step pending banner in the page language, where it differs from English. */
+  readonly pendingSignIn?: string
+  /** `login`: the page an account still owing its code is sent to (`onTwoFactor.navigate`). */
+  readonly twoFactorPath?: string
 }
 
 /**
@@ -194,14 +224,12 @@ async function executeMagicLinkLogin(
   return { success: input.successToast?.message ?? MAGIC_LINK_SENT_MESSAGE }
 }
 
-async function executeAuthMethod(
-  input: AuthMethodInput
-): Promise<{ error?: string; success?: string }> {
+async function executeAuthMethod(input: AuthMethodInput): Promise<AuthOutcome> {
   const { method, email, password } = input
   switch (method) {
     case 'login':
       if (input.strategy === 'magicLink') return executeMagicLinkLogin(input)
-      return handleLogin(email, password)
+      return handleLogin(input, toSafeRedirectPath(signInDestination(input.redirectUrl)))
     case 'signup':
       return { error: await handleSignup(email, password) }
     case 'logout':
@@ -232,6 +260,10 @@ export interface SubmitContext {
   readonly errorToast: ToastConfig | undefined
   /** The form declares `onSuccess.type: 'successPage'`. */
   readonly hasSuccessPage?: boolean
+  /** The two-step pending banner in the page language, where it differs from English. */
+  readonly pendingSignIn?: string
+  /** `login`: the page an account still owing its code is sent to. */
+  readonly twoFactorPath?: string
   readonly setState: (s: AuthState) => void
 }
 
@@ -280,7 +312,15 @@ export async function submitAuthForm(ctx: SubmitContext): Promise<void> {
       password,
       redirectUrl: ctx.redirectUrl,
       successToast: ctx.successToast,
+      pendingSignIn: ctx.pendingSignIn,
+      twoFactorPath: ctx.twoFactorPath,
     })
+    const codePage = toSafeRedirectPath(result.navigate)
+    if (codePage !== undefined) {
+      // Pending stays on: the page is about to change.
+      globalThis.location.assign(codePage)
+      return
+    }
     if (result.error) {
       fireToast(ctx.errorToast)
       ctx.setState({ error: result.error, isPending: false })

@@ -7,6 +7,7 @@
 
 import configValidationBody from '@/cli/commands/config-validation.docs.md' with { type: 'file' }
 import configurationTypescriptBody from '@/cli/commands/configuration-typescript.docs.md' with { type: 'file' }
+import envVarsBrowserBody from '@/cli/commands/env-vars-browser.docs.md' with { type: 'file' }
 import envVarsDocumentsBody from '@/cli/commands/env-vars-documents.docs.md' with { type: 'file' }
 import envVarsHostingBody from '@/cli/commands/env-vars-hosting.docs.md' with { type: 'file' }
 import envVarsProjectBody from '@/cli/commands/env-vars-project.docs.md' with { type: 'file' }
@@ -215,6 +216,28 @@ export const configuration = defineSection({
       documents: [],
       // No `stories:` yet: the document-action stories are claimed by the
       // articles that document the actions themselves.
+      stories: [],
+    }),
+    defineArticle({
+      slug: 'env-vars-browser',
+      title: 'Environment Variables: Browser Automation',
+      description:
+        'The browser that browser automation steps drive — off on a server until switched on — the one Chrome it shares with document rendering, its limits, and what it may reach.',
+      keywords: [
+        'sovrium',
+        'BROWSER_PROVIDER',
+        'BROWSER_BACKEND',
+        'BROWSER_CHROME_PATH',
+        'BROWSER_CDP_URL',
+        'BROWSER_HOLD_MAX_MS',
+        'browser automation',
+        'Chrome',
+      ],
+      order: 1218,
+      sidebarLabel: 'Env Vars: Browser',
+      body: envVarsBrowserBody,
+      documents: [],
+      // The browser stories are claimed by the article that documents the action.
       stories: [],
     }),
     defineArticle({

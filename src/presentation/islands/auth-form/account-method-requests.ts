@@ -18,6 +18,8 @@ import { afterSignIn } from './sign-in-in-flight'
 /** What a request answered: a refusal's message, or the body it returned. */
 export interface AccountOutcome {
   readonly error?: string
+  /** The refusal's error code, when the server named one. */
+  readonly code?: string
   readonly data?: Readonly<Record<string, unknown>>
 }
 
@@ -36,8 +38,14 @@ export async function postAccount(
   await afterSignIn()
   const result = await authClient.$fetch(path, { method: 'POST', body: { ...body } })
   if (result.error) {
-    const { message } = result.error as { readonly message?: unknown }
-    return { error: typeof message === 'string' && message !== '' ? message : 'Request failed' }
+    const { message, code } = result.error as {
+      readonly message?: unknown
+      readonly code?: unknown
+    }
+    return {
+      error: typeof message === 'string' && message !== '' ? message : 'Request failed',
+      ...(typeof code === 'string' && { code }),
+    }
   }
   const data = result.data as Readonly<Record<string, unknown>> | null
   return data === null ? {} : { data }
@@ -76,6 +84,10 @@ const BUILDERS: Readonly<Record<string, RequestBuilder>> = {
     path: '/two-factor/disable',
     body: { password: input.values['password'] ?? '' },
   }),
+  regenerateBackupCodes: (input) => ({
+    path: '/two-factor/generate-backup-codes',
+    body: { password: input.values['password'] ?? '' },
+  }),
   acceptInvitation: (input) => ({
     path: '/admin/accept-invitation',
     body: { token: invitationToken(input.tokenParam), password: input.values['password'] ?? '' },
@@ -100,6 +112,17 @@ export function accountRequest(
 ): ReturnType<RequestBuilder> | undefined {
   return BUILDERS[method]?.({ values, ...options })
 }
+
+/** The error code Better Auth answers a code with once its waiting sign-in is gone. */
+const LAPSED_ATTEMPT_CODE = 'INVALID_TWO_FACTOR_COOKIE'
+
+/**
+ * Whether a refused code means the waiting sign-in lapsed — its cookie expired
+ * or never existed — rather than a wrong code. Never the server's wording: the
+ * form shows the notice instead.
+ */
+export const isLapsedAttempt = (method: string, code: string | undefined): boolean =>
+  method === 'verifyTwoFactor' && code === LAPSED_ATTEMPT_CODE
 
 /** The confirmation each method's form shows once the server accepts (no navigation). */
 export const ACCOUNT_SUCCESS_MESSAGES: Readonly<Record<string, string>> = {

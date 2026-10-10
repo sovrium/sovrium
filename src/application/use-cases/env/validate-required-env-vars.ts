@@ -71,3 +71,41 @@ export const validateRequiredEnvVars = (
     Effect.withSpan('env.validate-required-env-vars')
   )
 }
+
+/** One `env` entry of a config document, as a host needs it: its name, and whether it must be set. */
+export interface DeclaredEnvVar {
+  readonly key: string
+  /** Required and with no `default`: a host that does not set it cannot boot the app. */
+  readonly mustBeSet: boolean
+}
+
+/**
+ * The `env` entries of a config DOCUMENT (the validated config as written, not
+ * decoded), in declaration order. An entry that is not an object with a string
+ * `key` is skipped: the document was validated before it reaches here.
+ */
+export const declaredEnvOf = (
+  document: Readonly<Record<string, unknown>>
+): readonly DeclaredEnvVar[] => {
+  const entries = document['env']
+  if (!Array.isArray(entries)) return []
+  return entries.flatMap((entry: unknown) => {
+    if (entry === null || typeof entry !== 'object') return []
+    const { key, required, default: fallback } = entry as Readonly<Record<string, unknown>>
+    if (typeof key !== 'string') return []
+    const flag = required === false ? { required: false } : {}
+    return [{ key, mustBeSet: isEnvVarRequired(flag) && fallback === undefined }]
+  })
+}
+
+/**
+ * The NAMES of the variables a config needs to boot — every `env` entry with
+ * no `default` whose `required` is not `false` — in declaration order. Never a
+ * value: a bundle carries this list so a host can refuse what it could not start.
+ */
+export const requiredEnvNamesOf = (
+  document: Readonly<Record<string, unknown>>
+): readonly string[] =>
+  declaredEnvOf(document)
+    .filter((entry) => entry.mustBeSet)
+    .map((entry) => entry.key)

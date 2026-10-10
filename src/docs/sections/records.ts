@@ -153,6 +153,7 @@ export const records = defineSection({
         'includeDeleted',
         'trash',
         'aggregate read',
+        'percentile',
       ],
       order: 2424,
       sidebarLabel: 'Grouping & Saved Views',
@@ -161,6 +162,7 @@ export const records = defineSection({
       stories: [
         'US-RECORDS-API-FILTERING-SORTING-VIEWS-GROUPING',
         'US-RECORDS-API-FILTERING-SORTING-AGGREGATE-READ',
+        'US-RECORDS-API-AGGREGATE-PERCENTILES',
       ],
     }),
     defineArticle({

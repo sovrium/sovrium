@@ -5,12 +5,52 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, type Context } from 'effect'
 import {
   AccountCreationError,
   AccountProvisioner,
+  type NewBoundAccount,
 } from '@/application/ports/services/account-provisioner'
+import { logError } from '@/infrastructure/logging/logger'
 import { Auth } from './auth-service'
+
+/**
+ * A user with no credential and the one account binding it to an external
+ * identity. A failed binding removes the user again: a lone row would block
+ * the next boot's seed. The binding's failure is the one reported, even when
+ * the cleanup fails too.
+ */
+const createBoundUserWith = async (
+  auth: Context.Service.Shape<typeof Auth>,
+  account: Readonly<NewBoundAccount>
+): Promise<{ readonly userId: string }> => {
+  const internalAdapter = await auth.accountWriter()
+  const user = await internalAdapter.createUser(
+    {
+      email: account.email.toLowerCase(),
+      name: account.name,
+      emailVerified: true,
+      role: account.role,
+    },
+    // Seeded by the server itself, like the admin plugin's own createUser.
+    { method: 'admin' }
+  )
+  try {
+    await internalAdapter.createAccount({
+      userId: user.id,
+      providerId: account.providerId,
+      accountId: account.accountId,
+    })
+  } catch (cause) {
+    await internalAdapter
+      .deleteUser(user.id)
+      .catch((cleanup: unknown) =>
+        logError('[auth] could not remove a seeded user whose binding failed', cleanup)
+      )
+    throw cause
+  }
+  return { userId: user.id }
+}
 
 /**
  * Live `AccountProvisioner` over the Better Auth instance the app layer built.
@@ -49,6 +89,11 @@ export const AccountProvisionerLive: Layer.Layer<AccountProvisioner, never, Auth
           })),
           Effect.withSpan('auth.create-user')
         ),
+      createBoundUser: (account) =>
+        Effect.tryPromise({
+          try: () => createBoundUserWith(auth, account),
+          catch: (cause) => new AccountCreationError({ cause }),
+        }).pipe(Effect.withSpan('auth.create-bound-user')),
     })
   })
 )

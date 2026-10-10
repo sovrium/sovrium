@@ -49,6 +49,10 @@ import {
   type MapTilesEnvError,
 } from '@/infrastructure/server/validate-map-tiles-env'
 import {
+  validatePlatformSsoEnv,
+  type PlatformSsoEnvError,
+} from '@/infrastructure/server/validate-platform-sso-env'
+import {
   validatePostureFlagEnv,
   type PostureFlagEnvError,
 } from '@/infrastructure/server/validate-posture-flag-env'
@@ -66,10 +70,12 @@ export const validateOperatorEnv: Effect.Effect<
   | StoragePublicAccessEnvError
   | EcoEnvError
   | MapTilesEnvError
+  | PlatformSsoEnvError
 > = Effect.all([
   validatePostureFlagEnv,
   validateTransformPresetEnv,
   validateStoragePublicAccessEnv,
   validateEcoEnv,
   validateMapTilesEnv,
+  validatePlatformSsoEnv,
 ]).pipe(Effect.asVoid)

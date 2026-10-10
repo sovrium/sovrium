@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { fieldLiteralOf } from '@/domain/models/app/tables/checkbox-literal-service'
 import type { ViewFilterCondition, ViewFilterNode } from '@/domain/models/app/tables/views/filters'
+
+/** The fields a filter tree reads, by name and type — enough to read its literals. */
+export type FilterTreeFields = readonly { readonly name: string; readonly type?: string }[]
 
 /**
  * The one walker over a filter tree — a single condition or an `and` / `or`
@@ -40,16 +44,25 @@ import type { ViewFilterCondition, ViewFilterNode } from '@/domain/models/app/ta
  * that expand to an `OR` (`isEmpty`) already parenthesise themselves. It may
  * return `undefined` for a condition that restricts nothing, which drops out
  * like an empty group.
+ *
+ * Given the `fields` the tree reads, each condition's literal is read through
+ * the type of the field it names before it is compiled (`fieldLiteralOf`, the
+ * one coercion every filter shares): a checkbox compared with `1`, `'true'` or
+ * `'f'` compiles as the boolean it names, on both engines, where the bare
+ * literal was a type error on PostgreSQL and matched nothing on SQLite.
  */
 export const compileFilterTree = (
   node: ViewFilterNode,
   compileLeaf: (condition: ViewFilterCondition) => string | undefined,
-  options?: { readonly wrapGroups?: boolean }
+  options?: { readonly wrapGroups?: boolean; readonly fields?: FilterTreeFields }
 ): string | undefined => {
   const wrapGroups = options?.wrapGroups ?? false
+  const fields = options?.fields
 
   const compileNode = (current: ViewFilterNode, nested: boolean): string | undefined => {
-    if (!('and' in current) && !('or' in current)) return compileLeaf(current)
+    if (!('and' in current) && !('or' in current)) {
+      return compileLeaf(conditionWithFieldLiteral(current, fields))
+    }
 
     const [children, joiner] = 'and' in current ? [current.and, ' AND '] : [current.or, ' OR ']
     const parts = children
@@ -64,6 +77,17 @@ export const compileFilterTree = (
   }
 
   return compileNode(node, false)
+}
+
+/** A condition whose literal is read through the type of the field it names. */
+const conditionWithFieldLiteral = (
+  condition: ViewFilterCondition,
+  fields: FilterTreeFields | undefined
+): ViewFilterCondition => {
+  if (fields === undefined || condition.value === undefined) return condition
+  const type = fields.find((field) => field.name === condition.field)?.type
+  const value = fieldLiteralOf(type, condition.value)
+  return value === condition.value ? condition : { ...condition, value }
 }
 
 /**

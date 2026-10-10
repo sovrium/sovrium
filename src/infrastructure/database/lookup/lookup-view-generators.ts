@@ -212,7 +212,7 @@ const generateLookupExpression = (
   lookupField: LookupFieldInput,
   context: LookupContext
 ): string => {
-  const { tableAlias, allFields, actualTableName, allTables } = context
+  const { allFields, actualTableName, allTables } = context
   const { name: lookupName, relationshipField, relatedField, filters } = lookupField
   const relationshipFieldDef = allFields.find((f) => f.name === relationshipField)
 
@@ -226,8 +226,7 @@ const generateLookupExpression = (
       relatedField,
       relatedTable,
       filters,
-      tableAlias,
-      actualTableName,
+      ...context,
     })
   }
 
@@ -239,8 +238,7 @@ const generateLookupExpression = (
       relatedRelation: relationFor(relationshipFieldDef.relatedTable, actualTableName),
       relatedField,
       filters,
-      tableAlias,
-      actualTableName,
+      ...context,
     })
   }
 
@@ -258,7 +256,7 @@ const generateLookupExpression = (
       relatedRelation: relationFor(relationshipFieldDef.relatedTable, actualTableName),
       relatedField,
       filters,
-      tableAlias,
+      ...context,
     })
   }
 
@@ -333,7 +331,7 @@ const generateRollupExpression = (
   // table carries a `deleted_at` column). Without this, "un-voting" (soft-
   // deleting a pain_vote) never lowers the pain's rollup.
   const notDeleted = `${alias}.deleted_at IS NULL`
-  const filterCondition = filters ? compileRelationalFilter(filters, alias) : undefined
+  const filterCondition = compileRelationalFilter(filters, alias, { allTables, relatedTable })
   const whereClause = [
     baseCondition,
     notDeleted,
@@ -398,7 +396,7 @@ const generateCountExpression = (
   const notDeleted = `${alias}.deleted_at IS NULL`
 
   // An and / or group keeps its own meaning (an `or` is no longer read as AND).
-  const filterCondition = filters ? compileRelationalFilter(filters, alias) : undefined
+  const filterCondition = compileRelationalFilter(filters, alias, { allTables, relatedTable })
 
   const whereConditions = [baseCondition, notDeleted, ...(filterCondition ? [filterCondition] : [])]
   const whereClause = whereConditions.join(' AND ')

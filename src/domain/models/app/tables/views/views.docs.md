@@ -37,6 +37,8 @@ A filter is either one condition or a boolean group combining conditions with `a
 
 `isEmpty` and `isNotEmpty` take no `value` and follow the one rule every surface shares: a field is empty when it is NULL, an empty text, an empty list or an empty object — so a multi-select with nothing picked and a JSON field holding `{}` are empty, on PostgreSQL and SQLite alike. Nothing else is: `0`, `false`, a blank space, `{"a": null}` and `[null]` are values. The same rule applies to the `filters` of a lookup, rollup or count field.
 
+A `value` compared with a checkbox is read as yes or no, on PostgreSQL and SQLite alike: `true`, `1`, `"true"`, `"1"` and `"t"` mean ticked, `false`, `0`, `"false"`, `"0"` and `"f"` unticked, alone or inside a group. A lookup, rollup or count reads the checkbox of its related table the same way. Prefer `true` and `false`.
+
 `notIn` takes a list and keeps the records whose value is none of the listed values. A record with no value is kept by neither `in` nor `notIn`. `notIn` over an empty list leaves out nothing that has a value. A single value counts as a list of one, and a `null` in the list matches nothing.
 
 <!-- sovrium:options ViewFilterConditionSchema -->

@@ -30,9 +30,9 @@ import { defineArticle, defineSection } from './define'
  *     `component-search.ts` and the root `palette` property — and `pages/` is
  *     the narrowest declared directory that contains four of the five.
  *   - `full-text-search` documents `indexed` (on `field-types/base-field.ts`)
- *     and `fullTextSearch` (on `field-types/text/rich-text-field.ts`), so it
- *     sits at the `field-types/` root, which is the narrowest directory
- *     holding both.
+ *     and `fullTextSearch` (on `field-types/text/long-text-field.ts` and
+ *     `rich-text-field.ts`), so it sits at the `field-types/` root, which is
+ *     the narrowest directory holding all three.
  *
  * ─── WHY TWO OF THE THREE CARRY NO DIRECTIVE ───────────────────────────────
  *
@@ -94,7 +94,7 @@ export const section = defineSection({
       sidebarLabel: 'Full-Text Search',
       body: fullTextSearchBody,
       documents: [],
-      stories: [],
+      stories: ['US-TABLES-FIELD-TYPES-LONG-TEXT-SEARCH'],
     }),
     defineArticle({
       slug: 'search-components',

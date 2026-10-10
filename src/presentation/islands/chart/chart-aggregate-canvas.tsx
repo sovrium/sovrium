@@ -98,7 +98,8 @@ function renderStyledAggregate(
   return renderSeriesChart({
     ...args,
     records: rows,
-    xAxis: { field: chartAggregate.groupBy },
+    // The declared X axis keeps its `format`: a date axis of hour buckets reads as times.
+    xAxis: { ...args.xAxis, field: chartAggregate.groupBy },
     yAxis,
     series: [
       {

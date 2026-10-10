@@ -250,6 +250,17 @@ export const USERS_OVERVIEW_ENDPOINT = '/api/admin/users/overview'
  */
 export const ADMIN_ROLES_ENDPOINT = '/api/admin/roles'
 
+/**
+ * The groups this app declares in `auth.groups[]`, as rows of
+ * `{ name, description? }` — the option list of the directory's group picker.
+ *
+ * It says nothing about who belongs: membership travels on each directory row
+ * (`groups`), and is changed by `PUT /api/admin/users/:userId/groups`. Like
+ * roles, a group is declared in configuration and never created from the
+ * console, so this read is the whole of what the picker may offer.
+ */
+export const ADMIN_GROUPS_ENDPOINT = '/api/admin/groups'
+
 // ─── The page-view analytics readers ────────────────────────────────────────
 //
 // Every metric on the Analytics and Links consoles comes from these six. There

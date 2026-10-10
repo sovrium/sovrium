@@ -13,6 +13,8 @@ import {
   ApprovalRequestActionSchema,
   AutomationCallActionSchema,
   AutomationReturnActionSchema,
+  BrowserAgentActionSchema,
+  BrowserRunActionSchema,
   CodeRunTypescriptActionSchema,
   CryptoActionSchema,
   DataActionSchema,
@@ -28,6 +30,8 @@ import {
 } from '@/domain/models/app/automations/actions'
 import automationActionsOverviewBody from '@/domain/models/app/automations/actions/actions-overview.docs.md' with { type: 'file' }
 import automationApprovalDelayBody from '@/domain/models/app/automations/actions/approval-delay-actions.docs.md' with { type: 'file' }
+import automationBrowserActionsBody from '@/domain/models/app/automations/actions/browser-actions.docs.md' with { type: 'file' }
+import automationBrowserAgentBody from '@/domain/models/app/automations/actions/browser-agent.docs.md' with { type: 'file' }
 import automationCodeActionsBody from '@/domain/models/app/automations/actions/code-actions.docs.md' with { type: 'file' }
 import automationCryptoDigestBody from '@/domain/models/app/automations/actions/crypto-digest-actions.docs.md' with { type: 'file' }
 import automationDataActionsBody from '@/domain/models/app/automations/actions/data-state-actions.docs.md' with { type: 'file' }
@@ -295,7 +299,7 @@ export const automationActions = defineSection({
       slug: 'automation-instance-actions',
       title: 'Instance Actions',
       description:
-        'Supervise other Sovrium apps on the same machine from an automation: state, start, suspend, signed releases, rollback, health, logs, backup and restore, behind an operator switch.',
+        'Supervise other Sovrium apps on the same machine from an automation: state, start, suspend, signed releases, rollback, health, logs, backup, restore and seeding, behind an operator switch.',
       keywords: [
         'sovrium',
         'instance action',
@@ -307,6 +311,7 @@ export const automationActions = defineSection({
         'health probe',
         'journal logs',
         'backup restore',
+        'seed data',
         'SOVRIUM_HOST_ACTIONS',
       ],
       order: 5244,
@@ -319,7 +324,60 @@ export const automationActions = defineSection({
         'US-AUTOMATIONS-ACTIONS-INSTANCE-RELEASE',
         'US-AUTOMATIONS-ACTIONS-INSTANCE-HEALTH',
         'US-AUTOMATIONS-ACTIONS-INSTANCE-BACKUP',
+        'US-AUTOMATIONS-ACTIONS-INSTANCE-SEED',
       ],
+    }),
+    defineArticle({
+      slug: 'automation-browser-actions',
+      title: 'Browser Actions',
+      description:
+        'Drive a real browser through fixed steps on a site with no API — sign in, fill a form, submit it once, read the result — held to the hosts the action lists.',
+      keywords: [
+        'sovrium',
+        'browser action',
+        'browser automation',
+        'web form',
+        'locator',
+        'allowedHosts',
+        'one-time code',
+        'irreversible',
+        'idempotencyKey',
+        'selfHeal',
+        'BROWSER_PROVIDER',
+      ],
+      order: 5248,
+      sidebarLabel: 'Browser Actions',
+      body: automationBrowserActionsBody,
+      documents: [BrowserRunActionSchema],
+      stories: [
+        'US-AUTOMATIONS-ACTIONS-BROWSER-001',
+        'US-AUTOMATIONS-ACTIONS-BROWSER-002',
+        'US-AUTOMATIONS-ACTIONS-BROWSER-003',
+        'US-AUTOMATIONS-ACTIONS-BROWSER-004',
+        'US-AUTOMATIONS-ACTIONS-BROWSER-005',
+        'US-AUTOMATIONS-ACTIONS-BROWSER-SELF-HEAL',
+      ],
+    }),
+    defineArticle({
+      slug: 'automation-browser-agent',
+      title: 'Browser Agent',
+      description:
+        'Let an AI agent drive a browser towards a goal on a site with no API, within listed hosts, typing secrets it never sees, its submissions held for a person to approve.',
+      keywords: [
+        'sovrium',
+        'browser agent',
+        'AI agent',
+        'browser automation',
+        'credentials',
+        'approveSubmit',
+        'maxSteps',
+        'prompt injection',
+      ],
+      order: 5249,
+      sidebarLabel: 'Browser Agent',
+      body: automationBrowserAgentBody,
+      documents: [BrowserAgentActionSchema],
+      stories: ['US-AUTOMATIONS-ACTIONS-BROWSER-AGENT'],
     }),
   ],
 })

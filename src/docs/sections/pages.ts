@@ -24,6 +24,7 @@ import pagesDataBindingBody from '@/domain/models/app/pages/pages-data-binding.d
 import pagesLayoutsAccessBody from '@/domain/models/app/pages/pages-layouts-access.docs.md' with { type: 'file' }
 import pagesOverviewBody from '@/domain/models/app/pages/pages-overview.docs.md' with { type: 'file' }
 import pagesReferencesBody from '@/domain/models/app/pages/pages-references.docs.md' with { type: 'file' }
+import pagesRelativeDatesBody from '@/domain/models/app/pages/pages-relative-dates.docs.md' with { type: 'file' }
 import pagesRoutingBody from '@/domain/models/app/pages/pages-routing.docs.md' with { type: 'file' }
 import { PageParamPropSchema } from '@/domain/models/app/pages/params'
 import { PageQueryPropSchema } from '@/domain/models/app/pages/query'
@@ -41,7 +42,7 @@ import { defineArticle, defineSection } from './define'
 /**
  * Pages — the section manifest.
  *
- * Nine articles over ONE property directory, `src/domain/models/app/pages/`,
+ * Ten articles over ONE property directory, `src/domain/models/app/pages/`,
  * plus one that documents a sibling property. The fragments are sub-fragments
  * named after the article rather than after the directory, for the same reason
  * `design`'s are: `pages` is a single key of `AppSchema` whose members split
@@ -60,21 +61,18 @@ import { defineArticle, defineSection } from './define'
  *
  * `interactions` documents `pages[].components[].interactions` and
  * `interactivity-scripts` documents `pages[].scripts`. The published corpus
- * filed both under theming — they are about behaviour that LOOKS like design —
- * and the theming manifest carried them until this section existed. Neither is
- * about `design`, so by the placement rule both moved here, fragment and row
- * together. Their orders are kept from the published corpus, which puts them
- * after the rest of the section; that is the right reading position anyway,
- * since a page has to exist before its behaviour is worth describing.
+ * filed both under theming — they are about behaviour that LOOKS like design.
+ * None is about `design`, so by the placement rule both moved here, fragment
+ * and row together, keeping their published orders: after the rest of the
+ * section, since a page must exist before its behaviour matters.
  *
  * ─── WHERE THE SEO ARTICLES WENT ───────────────────────────────────────────
  *
- * `seo-meta` and `seo-structured-data` are in `pages-seo.ts`. A section
- * manifest is capped at 400 lines and this file reads 434 with them; the split
- * follows the reading rather than only the ceiling, since both are about what
- * a machine makes of the page. `pages-references` is likewise a split of the
- * published `pages-data-binding`, which is 21 KB of two subjects: the binding,
- * and the reference families that read what it resolved.
+ * `seo-meta` and `seo-structured-data` are in `pages-seo.ts`: a section
+ * manifest is capped at 400 lines, and both are about what a machine makes of
+ * the page. `pages-references` and `pages-relative-dates` are splits of
+ * `pages-data-binding` — the reference families that read what a binding
+ * resolved, and the relative filter values — each one subject per fragment.
  */
 export const section = defineSection({
   slug: 'pages',
@@ -230,6 +228,26 @@ export const section = defineSection({
         'US-PAGES-DATA-COMPONENTS-PAGE-SYSTEM-RECORD-SSR',
         'US-PAGES-DATA-COMPONENTS-SYSTEM-ROWS-TEMPLATE',
       ],
+    }),
+    defineArticle({
+      slug: 'pages-relative-dates',
+      title: 'Relative Dates',
+      description:
+        'Filter on a day or an instant relative to the request — `$today`, `$startOfMonth`, `$now-1h` — resolved on the server for every request.',
+      keywords: [
+        'sovrium',
+        'relative date',
+        '$today',
+        '$startOfMonth',
+        '$now',
+        'filter',
+        'last hour',
+      ],
+      order: 3011,
+      sidebarLabel: 'Relative Dates',
+      body: pagesRelativeDatesBody,
+      documents: [],
+      stories: ['US-PAGES-DATA-COMPONENTS-DATA-BINDING-RELATIVE-DATE-FILTER'],
     }),
     defineArticle({
       slug: 'pages-collections',

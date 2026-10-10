@@ -10,9 +10,16 @@ import {
   parseRequestedLabels,
   type RequestedLabel,
 } from '@/application/use-cases/tables/relationship-display-fields'
+import {
+  AGGREGATE_PERCENTILES,
+  isAggregatePercentile,
+  looksLikePercentile,
+  type AggregatePercentile,
+  type PercentileFields,
+} from '@/domain/models/app/tables/aggregate-percentile-service'
 import type { Context } from 'hono'
 
-type AggregateParams = {
+type AggregateParams = PercentileFields & {
   readonly count?: boolean
   readonly sum?: readonly string[]
   readonly avg?: readonly string[]
@@ -28,10 +35,10 @@ type AggregateParams = {
 }
 
 const AGGREGATE_OPS = ['sum', 'count', 'avg', 'min', 'max'] as const
-type AggregateOp = (typeof AGGREGATE_OPS)[number]
+type AggregateOp = (typeof AGGREGATE_OPS)[number] | AggregatePercentile
 
 function isAggregateOp(value: string): value is AggregateOp {
-  return (AGGREGATE_OPS as readonly string[]).includes(value)
+  return (AGGREGATE_OPS as readonly string[]).includes(value) || isAggregatePercentile(value)
 }
 
 type ShortcutEntry = { readonly field: string; readonly op: AggregateOp }
@@ -48,8 +55,13 @@ function entriesToAggregateParams(entries: readonly ShortcutEntry[]): AggregateP
   const avg = fieldsFor('avg')
   const min = fieldsFor('min')
   const max = fieldsFor('max')
+  const percentiles = Object.fromEntries(
+    AGGREGATE_PERCENTILES.map((p) => [p, fieldsFor(p)] as const).filter(([, f]) => f.length > 0)
+  ) as PercentileFields
   const hasCount = entries.some((e) => e.op === 'count')
-  const hasAny = hasCount || sum.length + avg.length + min.length + max.length > 0
+  const hasAny =
+    hasCount ||
+    sum.length + avg.length + min.length + max.length + Object.keys(percentiles).length > 0
   if (!hasAny) return undefined
   return {
     ...(hasCount ? { count: true } : {}),
@@ -57,6 +69,7 @@ function entriesToAggregateParams(entries: readonly ShortcutEntry[]): AggregateP
     ...(avg.length > 0 ? { avg } : {}),
     ...(min.length > 0 ? { min } : {}),
     ...(max.length > 0 ? { max } : {}),
+    ...percentiles,
     shortcut: true,
   }
 }
@@ -98,6 +111,37 @@ export function parseAggregateParam(
   }
 
   return parseAggregateShortcut(trimmed)
+}
+
+/**
+ * The first function name in an aggregate parameter that is shaped like a
+ * percentile (`p` and digits) and is not one of the five — in the shortcut
+ * form (`duration_ms:p97`) or as a JSON key (`{"p97":[…]}`). Unlike any other
+ * unknown function, which the grammar drops, it is refused: dropping it would
+ * answer a chart with no figure and no reason.
+ */
+export function unknownPercentileIn(aggregateParam: string | undefined): string | undefined {
+  const trimmed = aggregateParam?.trim()
+  if (!trimmed) return undefined
+  const names = trimmed.startsWith('{')
+    ? Object.keys(parseAggregateParam(trimmed) ?? {})
+    : trimmed.split(',').map((part) => part.split(':')[1]?.trim() ?? '')
+  return names.find((name) => looksLikePercentile(name) && !isAggregatePercentile(name))
+}
+
+/**
+ * The aggregate parameter without its percentiles: the records list shares
+ * the grammar but answers a page's totals, never a population's percentiles.
+ */
+const withoutPercentiles = (
+  aggregate: AggregateParams | undefined
+): AggregateParams | undefined => {
+  if (aggregate === undefined) return undefined
+  const kept = Object.fromEntries(
+    Object.entries(aggregate).filter(([key]) => !isAggregatePercentile(key))
+  ) as AggregateParams
+  const asked = Object.keys(kept).filter((key) => key !== 'shortcut')
+  return asked.length === 0 && aggregate.shortcut ? undefined : kept
 }
 
 /**
@@ -151,7 +195,7 @@ export function parseListRecordsParams(c: Context): {
   const limitParam = c.req.query('limit')
   const limit = limitParam ? Number(limitParam) : undefined
   const offset = resolveOffset(c.req.query('offset'), c.req.query('page'), limit)
-  const aggregate = parseAggregateParam(c.req.query('aggregate'))
+  const aggregate = withoutPercentiles(parseAggregateParam(c.req.query('aggregate')))
   const groupBy = c.req.query('groupBy')
   // Relationship labels a page column asks for. Malformed pairs are dropped
   // here, and pairs naming no relationship later: a label is decoration, and a

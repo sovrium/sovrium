@@ -16,9 +16,11 @@ import { BuiltInAnalyticsSchema } from './analytics'
 import { AssetsSchema } from './assets'
 import { AuthSchema } from './auth'
 import { validateAllAiAccessRules } from './auth/ai-access-validation'
+import { validateAllGroupActionReferences } from './auth/groups/group-action-validation'
 import { validateAllRoleReferences, validateTableRoleReferences } from './auth/role-validation'
 import { type Action, AutomationsSchema } from './automations'
 import { validateSessionWebhookAuth } from './automations/trigger/webhook-session-validation'
+import { validateTelemetryProjectReferences } from './automations/trigger/webhook-telemetry-validation'
 import { entriesOfType, hasTriggerOfType } from './automations/trigger-entries-service'
 import { BadgeSchema } from './badge'
 import { BucketsSchema } from './buckets'
@@ -248,16 +250,20 @@ const validateSelectDeclarations = (
 
 /**
  * The declaration checks closing the final filter, as one branch: table
- * permission groups, then every `$env.NAME` anywhere in the configuration
- * against the variables `app.env` declares. Grouped for the same
- * complexity-budget reason as {@link validateSelectDeclarations}.
+ * permission groups, the groups the `auth` group operators name literally, then
+ * every `$env.NAME` anywhere in the configuration against the variables
+ * `app.env` declares. Grouped for the same complexity-budget reason as
+ * {@link validateSelectDeclarations}.
  */
 const validateDeclaredReferences = (
   app: Parameters<typeof validateAllTablePermissionGroups>[0] &
+    Parameters<typeof validateAllGroupActionReferences>[0] &
     Parameters<typeof validateAllEnvReferences>[0]
 ): true | string => {
   const permissionGroupError = validateAllTablePermissionGroups(app)
   if (permissionGroupError !== true) return permissionGroupError
+  const groupActionError = validateAllGroupActionReferences(app)
+  if (groupActionError !== true) return groupActionError
   return validateAllEnvReferences(app)
 }
 
@@ -667,7 +673,8 @@ export const AppSchema = Schema.Struct({
       if (hasAuthAction && !app.auth) {
         return 'Auth actions require auth configuration to be enabled'
       }
-      return validateSessionWebhookAuth(app)
+      const sessionVerdict = validateSessionWebhookAuth(app)
+      return sessionVerdict === true ? validateTelemetryProjectReferences(app) : sessionVerdict
     })
   ),
   // Automation cross-validation: analytics actions require analytics config

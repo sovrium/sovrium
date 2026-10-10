@@ -10,6 +10,7 @@ import { openAPI } from 'better-auth/plugins'
 import { getStrategy, hasStrategy } from '@/domain/models/app/auth'
 import { resolvePasswordPolicy } from '@/domain/models/app/auth/password-policy'
 import { AUTH_COOKIE_PREFIX } from '@/domain/models/app/auth/session-cookie'
+import { parsePlatformSso } from '@/domain/models/process-env/platform-sso'
 import { resolveAuthSecret } from '@/infrastructure/auth/auth-secret'
 import { isEmailConfigured } from '@/infrastructure/process/env'
 import { isTransportRelaxed } from '@/infrastructure/process/security-posture'
@@ -31,6 +32,7 @@ import { buildMagicLinkPlugin } from './plugins/magic-link'
 import { buildOauthServerPlugin } from './plugins/oauth-server'
 import { buildOrganizationPlugin } from './plugins/organization'
 import { buildPasskeyPlugin } from './plugins/passkey'
+import { buildPlatformSsoPlugin } from './plugins/platform-sso'
 import * as ssoPlugin from './plugins/sso'
 import { buildTwoFactorPlugin } from './plugins/two-factor'
 import { SESSION_ADDITIONAL_FIELDS } from './session-database-hooks'
@@ -61,8 +63,11 @@ export const buildAuthPlugins = (
   ...buildEmailOtpPlugin(handlers.emailOtp, authConfig),
   ...buildOauthServerPlugin(authConfig),
   ...buildOrganizationPlugin(authConfig),
-  ...buildTwoFactorPlugin(authConfig),
+  ...buildTwoFactorPlugin(authConfig, extras.appName),
   ...ssoPlugin.buildSsoPlugin(authConfig, ssoContext),
+  // "Sign in with Sovrium Cloud", from the environment only — never `auth.sso`.
+  // A partial set is refused at boot (`validateOperatorEnv`): here it is whole or absent.
+  ...buildPlatformSsoPlugin(parsePlatformSso(), authConfig),
   ...buildPasskeyPlugin(authConfig, extras.appName),
   // Last, so `signIn` reads the session the other plugins let the request keep.
   ...(extras.hookContext === undefined ? [] : [buildAuthEventPlugin(extras.hookContext)]),

@@ -50,6 +50,7 @@ const CURRENT_PASSWORD_METHODS: ReadonlySet<string> = new Set([
   'login',
   'enableTwoFactor',
   'disableTwoFactor',
+  'regenerateBackupCodes',
 ])
 
 /** The factors whose code a device can autofill: digits from an authenticator app. */
@@ -118,11 +119,33 @@ const ACCOUNT_FORM_METHODS: ReadonlySet<string> = new Set([
   'verifyTwoFactor',
   'enableTwoFactor',
   'disableTwoFactor',
+  'regenerateBackupCodes',
   'acceptInvitation',
   'declineInvitation',
   'createApiKey',
   'revokeOtherSessions',
+  'linkAccount',
+  'unlinkAccount',
 ])
+
+/** The account methods that connect or disconnect a sign-in provider (`provider`). */
+export const isAccountLinkMethod = (method: string | undefined): boolean =>
+  method === 'linkAccount' || method === 'unlinkAccount'
+
+/**
+ * The engine strings (`twoFactor.*` catalogue keys, by prefix) each auth form
+ * speaks in the page language: the enrolment and recovery-codes screens, and
+ * the banner a password sign-in shows while a two-step code is owed.
+ */
+const ENGINE_STRING_PREFIXES: Readonly<Record<string, readonly string[]>> = {
+  login: ['twoFactor.pendingSignIn'],
+  enableTwoFactor: ['twoFactor.'],
+  regenerateBackupCodes: ['twoFactor.'],
+}
+
+/** The catalogue key prefixes an auth form of `method` resolves for its island. */
+export const authFormStringPrefixes = (method: string): readonly string[] =>
+  ENGINE_STRING_PREFIXES[method] ?? []
 
 /** Whether a form's method is one of the account methods. */
 export const isAccountFormMethod = (method: string | undefined): boolean =>
@@ -138,10 +161,13 @@ const SUBMIT_LABELS: Readonly<Record<string, string>> = {
   verifyTwoFactor: 'Verify',
   enableTwoFactor: 'Turn on two-step verification',
   disableTwoFactor: 'Turn off two-step verification',
+  regenerateBackupCodes: 'Regenerate codes',
   acceptInvitation: 'Accept invitation',
   declineInvitation: 'Decline',
   createApiKey: 'Create key',
   revokeOtherSessions: 'Sign out of other devices',
+  linkAccount: 'Connect',
+  unlinkAccount: 'Disconnect',
 }
 
 /**
@@ -208,6 +234,14 @@ const codeField = (factor: string | undefined): AuthFormField => ({
   inputType: 'text',
 })
 
+/** The account methods whose form is one password field confirming the change. */
+const PASSWORD_ONLY_METHODS: ReadonlySet<string> = new Set([
+  'enableTwoFactor',
+  'disableTwoFactor',
+  'regenerateBackupCodes',
+  'acceptInvitation',
+])
+
 /** The fields of an account method's form; `undefined` for any other method. */
 function accountMethodFields(
   method: string,
@@ -216,8 +250,7 @@ function accountMethodFields(
   if (method === 'verifyTwoFactor') return [codeField(factor)]
   if (method === 'createApiKey')
     return [{ name: 'name', label: 'Name', required: true, inputType: 'text' }]
-  if (['enableTwoFactor', 'disableTwoFactor', 'acceptInvitation'].includes(method))
-    return [PASSWORD_FIELD]
+  if (PASSWORD_ONLY_METHODS.has(method)) return [PASSWORD_FIELD]
   return isAccountFormMethod(method) ? [] : undefined
 }
 

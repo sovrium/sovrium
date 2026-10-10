@@ -94,7 +94,7 @@ The console's whole surface, in sidebar order. A page whose address ends in a pa
 | `/_admin/links`                | Every short link the instance serves, and which ones this operator may change.                 |
 | `/_admin/links/:slug`          | One link: its traffic split across targets, and the mint, re-point and kill controls.          |
 | `/_admin/connections`          | Outbound credentials this app presents to third parties, with token and expiry status.         |
-| `/_admin/users`                | The account directory and role distribution, with an invite affordance and per-user role edit. |
+| `/_admin/users`                | Every account, with its figures, an invite affordance, and per-user role, group and ban edits. |
 | `/_admin/users/invitations`    | Outstanding invitations — issue, resend, revoke.                                               |
 | `/_admin/users/:email`         | One account.                                                                                   |
 | `/_admin/organisation`         | The access graph: who reaches what, resolved in one read.                                      |

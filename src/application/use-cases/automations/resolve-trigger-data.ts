@@ -144,6 +144,13 @@ export interface TriggerData {
    */
   readonly requester?: TriggerRequester
   /**
+   * The sender of a telemetry protocol request (`auth: { type: projectKey }`):
+   * the matched row reduced to its `id` and, when declared, its `projectField`
+   * value — never its key. Surfaces at `{{trigger.project.<field>}}`, a
+   * TOP-LEVEL key, never under `trigger.data`, so a payload cannot shadow it.
+   */
+  readonly project?: Readonly<Record<string, unknown>>
+  /**
    * The trigger entry that started the run, as `{{trigger.type}}` and
    * `{{trigger.name}}`: set by the run loop on the data its steps read, never on
    * the data a run records, so a replay or a resume takes it from the run's own
@@ -223,7 +230,7 @@ export const resolveTriggerInValue = (
 ): unknown => mapStringsDeep(value, (s) => resolveTriggerInString(s, context, templates))
 
 /** Keys read only at `trigger.<key>`, never under `trigger.data`. */
-const LIFTED_ONLY_KEYS: ReadonlySet<string> = new Set(['requester', 'startedBy'])
+const LIFTED_ONLY_KEYS: ReadonlySet<string> = new Set(['requester', 'startedBy', 'project'])
 
 /**
  * Build the substitution context an action sees during a run.
@@ -261,9 +268,13 @@ export const buildAutomationContext = (
       : {}
   // Pass through every non-body key on triggerData. `body` itself is also
   // re-exposed (so `{{trigger.data.body.X}}` keeps working) — only its
-  // already-flattened scalar children would otherwise duplicate.
+  // already-flattened scalar children would otherwise duplicate. A telemetry
+  // protocol run (the only one carrying `project`) is normalised by definition:
+  // its decoded item IS `trigger.data`, so it gets no raw `body` copy.
+  const keptKeys =
+    td['project'] === undefined ? Object.keys(td) : Object.keys(td).filter((key) => key !== 'body')
   const envelopeAdditions = Object.fromEntries(
-    Object.keys(td)
+    keptKeys
       .filter((key) => !LIFTED_ONLY_KEYS.has(key) && td[key] !== undefined && !(key in fromBody))
       .map((key) => [key, td[key]] as const)
   )
@@ -285,6 +296,7 @@ export const buildAutomationContext = (
     'input',
     'caller',
     'depth',
+    'project',
   ] as const
   const triggerTopLevel = Object.fromEntries(
     TOPLEVEL_KEYS.filter((key) => td[key] !== undefined).map((key) => [key, td[key]] as const)

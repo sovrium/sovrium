@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { fieldLiteralOf } from '@/domain/models/app/tables/checkbox-literal-service'
 import type { Context } from 'hono'
 
 /**
@@ -27,6 +28,31 @@ export type ParseFilterResult =
   { success: true; filter: FilterParameter } | { success: false; error: Response }
 
 /**
+ * A parsed filter whose every condition's `value` is read through the type of
+ * the field it names (`fieldLiteralOf`, the one coercion every filter shares),
+ * through `and` / `or` groups at any depth: a checkbox compared with `1`,
+ * `"true"` or `"f"` binds the boolean it names, on both engines. Anything that
+ * is no condition is returned as it is, for the shape checks downstream.
+ */
+const withFieldLiterals = (
+  node: unknown,
+  fieldTypeOf: ((field: string) => string | undefined) | undefined
+): unknown => {
+  if (fieldTypeOf === undefined || typeof node !== 'object' || node === null) return node
+  if (Array.isArray(node)) return node.map((child) => withFieldLiterals(child, fieldTypeOf))
+  const record = node as Readonly<Record<string, unknown>>
+  if (typeof record['field'] === 'string' && 'value' in record) {
+    const value = fieldLiteralOf(fieldTypeOf(record['field']), record['value'])
+    return value === record['value'] ? record : { ...record, value }
+  }
+  return Object.fromEntries(
+    Object.entries(record).map(([key, child]) =>
+      key === 'and' || key === 'or' ? [key, withFieldLiterals(child, fieldTypeOf)] : [key, child]
+    )
+  )
+}
+
+/**
  * Parse the `?filter=` query parameter into a filter structure.
  *
  * SHAPE ONLY — this parser deliberately performs no field-permission check.
@@ -38,26 +64,14 @@ export type ParseFilterResult =
  * @param config - Configuration object with filter details
  * @returns ParseFilterResult indicating success with filter or failure with error response
  */
-/** The boolean a checkbox shorthand value names, or the value itself otherwise. */
-const CHECKBOX_SHORTHAND: Readonly<Record<string, boolean>> = {
-  true: true,
-  false: false,
-  '1': true,
-  '0': false,
-}
-
-const shorthandValue = (fieldType: string | undefined, value: string): unknown =>
-  fieldType === 'checkbox' && value.toLowerCase() in CHECKBOX_SHORTHAND
-    ? CHECKBOX_SHORTHAND[value.toLowerCase()]
-    : value
-
 export function parseFilterParameter(config: {
   filterParam: string | undefined
   c: Context
   /**
-   * The declared type of a field, so the `field:value` shorthand can read a
-   * checkbox's `true` / `false` as the boolean it names — compared as text, it
-   * matched no row on SQLite.
+   * The declared type of a field, so a literal compared with a checkbox — in
+   * the JSON filter or the `field:value` shorthand — reads as the boolean it
+   * names: compared as text it matched no row on SQLite, and as a number it
+   * failed the query on PostgreSQL.
    */
   fieldTypeOf?: (field: string) => string | undefined
 }): ParseFilterResult {
@@ -68,13 +82,16 @@ export function parseFilterParameter(config: {
   }
 
   try {
-    return { success: true, filter: JSON.parse(filterParam) }
+    return {
+      success: true,
+      filter: withFieldLiterals(JSON.parse(filterParam), fieldTypeOf) as FilterParameter,
+    }
   } catch {
     // Try field:value simple equality format (e.g., "priority:high")
     const colonIdx = filterParam.indexOf(':')
     if (colonIdx > 0) {
       const field = filterParam.substring(0, colonIdx)
-      const value = shorthandValue(fieldTypeOf?.(field), filterParam.substring(colonIdx + 1))
+      const value = fieldLiteralOf(fieldTypeOf?.(field), filterParam.substring(colonIdx + 1))
       return { success: true, filter: { and: [{ field, operator: 'equals', value }] } }
     }
 

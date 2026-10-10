@@ -38,6 +38,7 @@ import {
 import { resolveRouteBoundTables } from '@/presentation/render/resolve/route-bound-table-resolver'
 import { resolvePageRouteParams } from '@/presentation/render/resolve/route-param-props-resolver'
 import { resolveTabsLazyPanels } from '@/presentation/render/resolve/tabs-lazy-resolver'
+import { resolvePageTwoFactorAttempt } from '@/presentation/render/resolve/two-factor-attempt-resolver'
 import { resolvePageWindowProps } from '@/presentation/render/resolve/window-props-resolver'
 import { resolvePageLanguage } from './page-lang-resolver'
 import { definedOnly, resolveAndFilterPage } from './page-row-scope-resolver'
@@ -183,6 +184,10 @@ interface ResolveCollectionAndFilterInput {
   readonly callerCapabilities?: readonly CallerCapability[]
 }
 
+/** The passes reading the request itself: the page's invitation, then its code forms. */
+const resolveRequestBoundPasses = async (input: ResolveCollectionAndFilterInput): Promise<Page> =>
+  resolvePageTwoFactorAttempt(await resolvePageInvitation(input.matchedPage, input), input)
+
 /**
  * Apply the collection-page resolver to the matched page (if any) and
  * then run the standard component-filter pipeline.
@@ -200,7 +205,7 @@ export async function resolveCollectionAndFilter(
   const { app, routeParams, session, cookies, previewMode } = input
   // P7 then the four `$`-reference passes, in one step — see
   // `prepareRequestPage`. `'not-found'` is the route-bound-table 404.
-  const invited = await resolvePageInvitation(input.matchedPage, input)
+  const invited = await resolveRequestBoundPasses(input)
   const matchedPage = prepareRequestPage({ ...input, matchedPage: invited })
   if (matchedPage === 'not-found') return undefined
   // Pure pass-throughs to `resolveAndFilterPage` — the per-request locale and

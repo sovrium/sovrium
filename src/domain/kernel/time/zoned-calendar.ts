@@ -60,6 +60,16 @@ export const zonedStartOfDayYearsBefore = (now: Readonly<Date>, zoneId: string, 
   DateTime.toDateUtc(DateTime.subtract(DateTime.startOf(zonedAt(now, zoneId), 'day'), { years }))
 
 /**
+ * Midnight, in `zoneId`, of the calendar day `days` days before `now`'s.
+ *
+ * @param now - the reference instant.
+ * @param zoneId - an IANA zone identifier.
+ * @param days - how many calendar days to step back.
+ */
+export const zonedStartOfDayDaysBefore = (now: Readonly<Date>, zoneId: string, days: number) =>
+  DateTime.toDateUtc(DateTime.subtract(DateTime.startOf(zonedAt(now, zoneId), 'day'), { days }))
+
+/**
  * The instant `days` calendar days before `now`, keeping its wall-clock time
  * in `zoneId` (so a day across a DST change is 23 or 25 hours, as on a clock).
  *

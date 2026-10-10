@@ -7,6 +7,11 @@
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { wordSearchFields } from '@/domain/models/app/tables/word-search-service'
+import {
+  pgWordSearchIndexName,
+  pgWordSearchVectorExpression,
+} from '@/infrastructure/database/schema/word-search-ddl'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
   isRelationshipField,
@@ -146,6 +151,36 @@ const generateFullTextSearchIndexes = (table: Table): readonly string[] => {
 }
 
 /**
+ * The GIN expression index of each `long-text` field declared `fullTextSearch`
+ * (PostgreSQL), over the word-search expression the records query repeats byte
+ * for byte (`schema/word-search-ddl.ts`). SQLite needs none: the full-text
+ * mirror `fts__<table>` already holds every long-text column.
+ */
+const generateWordSearchIndexes = (table: Table): readonly string[] => {
+  if (isSqliteRuntime()) return []
+  const sanitized = sanitizeTableName(table.name)
+  return wordSearchFields(table).map(
+    (field) =>
+      `CREATE INDEX IF NOT EXISTS ${pgWordSearchIndexName(sanitized, field)} ON public.${sanitized} USING gin (${pgWordSearchVectorExpression(field)})`
+  )
+}
+
+/**
+ * `DROP INDEX IF EXISTS` for the word-search index of every `long-text` field
+ * NOT declared `fullTextSearch` (PostgreSQL), so removing the flag removes its
+ * index. Keyed on the current config rather than the stored one, so an index
+ * left behind by any earlier boot is collected too; a no-op where none exists.
+ */
+export const generateWordSearchIndexDrops = (table: Table): readonly string[] => {
+  if (isSqliteRuntime()) return []
+  const sanitized = sanitizeTableName(table.name)
+  const declared = new Set(wordSearchFields(table))
+  return table.fields
+    .filter((field) => field.type === 'long-text' && !declared.has(field.name))
+    .map((field) => `DROP INDEX IF EXISTS ${pgWordSearchIndexName(sanitized, field.name)}`)
+}
+
+/**
  * Generate custom indexes from table.indexes configuration.
  *
  * Custom indexes are plain b-tree indexes on a column list — portable across
@@ -211,6 +246,7 @@ export const generateIndexStatements = (table: Table): readonly string[] => [
   ...generateAutonumberIndexes(table),
   ...generateGeolocationConstraints(table),
   ...generateFullTextSearchIndexes(table),
+  ...generateWordSearchIndexes(table),
   ...generateCustomIndexes(table),
   ...generateForeignKeyIndexes(table),
   ...generateDeletedAtIndex(table),

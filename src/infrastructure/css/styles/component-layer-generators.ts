@@ -277,6 +277,15 @@ const SINGLE_LINE_CONTROL_SELECTOR = [
 ].join(', ')
 
 /**
+ * The controls the bare-element box paints: every text-like `<input>`, every
+ * `<select>` and `<textarea>`. A checkbox or a radio is left out — it draws a
+ * mark at its own size, and the box's `block w-full` would stretch it into a
+ * bar the width of its form beside its label.
+ */
+export const BARE_CONTROL_SELECTOR =
+  'input:not([type="checkbox"]):not([type="radio"]), select, textarea'
+
+/**
  * The bare-ELEMENT rule. Unlike a component class rule,
  * this one has no recipe to be overpainted by: it is what a plain `<input>`
  * looks like when nobody styled it, which is exactly the case a component
@@ -284,7 +293,7 @@ const SINGLE_LINE_CONTROL_SELECTOR = [
  */
 function generateElementRules(): string {
   return `
-      input, select, textarea { @apply ${buildInputClasses()}; }
+      ${BARE_CONTROL_SELECTOR} { @apply ${buildInputClasses()}; }
       ${SINGLE_LINE_CONTROL_SELECTOR} { @apply h-9; }
 ${buildFormShellRules()}`
 }

@@ -100,6 +100,7 @@ The last row is the other one you do not declare. Each admin read tool runs the 
 | `{app}_admin_users_list`                  | `GET /api/admin/users` (JSON)                              | `q`, `sort`, `order`, `page`, `limit`                                            |
 | `{app}_admin_invitations_list`            | `GET /api/admin/invitations`                               | none                                                                             |
 | `{app}_admin_roles_list`                  | `GET /api/admin/roles`                                     | none                                                                             |
+| `{app}_admin_groups_list`                 | `GET /api/admin/groups`                                    | none                                                                             |
 | `{app}_admin_organisation_graph`          | `GET /api/admin/organisation/graph`                        | `node`                                                                           |
 | `{app}_admin_audit_log_list`              | `GET /api/admin/audit-log`                                 | `actorId`, `action`, `transport`, `resourceType`                                 |
 

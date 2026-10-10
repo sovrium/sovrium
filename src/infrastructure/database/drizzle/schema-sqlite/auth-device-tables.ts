@@ -26,6 +26,10 @@ export const deviceCodes = authTable(
     pollingInterval: integer('polling_interval'),
     clientId: text('client_id'),
     scope: text('scope'),
+    redirectUri: text('redirect_uri'),
+    deviceName: text('device_name'),
+    returnCodeHash: text('return_code_hash'),
+    requestedAt: integer('requested_at', { mode: 'timestamp_ms' }),
   },
   (table) => [
     uniqueIndex('deviceCode_deviceCode_uidx').on(table.deviceCode),

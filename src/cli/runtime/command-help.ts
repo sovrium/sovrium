@@ -9,6 +9,7 @@ import { BACKUP_HELP_TEXT, RESTORE_HELP_TEXT } from './backup-help'
 import { CLOUD_COMMAND_HELP } from './cloud-help'
 import { REFERENCE_HELP } from './reference-help'
 import { RENDER_HELP_TEXT } from './render-help'
+import { SEED_HELP_TEXT } from './seed-help'
 
 /**
  * Per-command `--help` text for every dispatchable `sovrium` command.
@@ -219,36 +220,6 @@ const MCP_HELP_TEXT = [
   'Examples:',
   '  sovrium mcp --project .',
   '  sovrium mcp --project ~/apps/crm',
-].join('\n')
-
-const SEED_HELP_TEXT = [
-  'Usage: sovrium seed [config] [options]',
-  '',
-  'Load `seed/<table>.yaml` data files into the configured tables.',
-  '',
-  'Arguments:',
-  '  config                        Path to config file (.json, .yaml, .yml, .ts)',
-  '',
-  'Options:',
-  '  --dir <path>                  Seed-file directory (default: <config>/seed)',
-  '  --mode <mode>                 if-empty | upsert | replace (default: if-empty)',
-  '                                if-empty  seed only tables that have no rows',
-  '                                upsert    replay idempotently on each file mergeOn',
-  '                                replace   delete every row, then insert',
-  '  --table <name>                Restrict to one table (repeatable)',
-  '  --as <email>                  Write every row as this account (default: system)',
-  '  --today <YYYY-MM-DD>          The day {{today}} resolves against',
-  '                                (default: SOVRIUM_SEED_TODAY, else the clock)',
-  '  --dry-run                     Report the plan and write nothing',
-  '  --help, -h                    Show this help message',
-  '',
-  'Accounts in seed/users.yaml are created first; a password left out of the',
-  'file is taken from SOVRIUM_SEED_PASSWORD.',
-  '',
-  'Examples:',
-  '  sovrium seed app.yaml                         # Seed empty tables only',
-  '  sovrium seed app.yaml --mode replace          # Deterministic full refresh',
-  '  sovrium seed app.yaml --table deals --dry-run # Preview one table',
 ].join('\n')
 
 const MIGRATE_HELP_TEXT = [

@@ -112,6 +112,14 @@ type DynamicSignalId =
   | 'sidebar'
   | 'paramPath'
   | 'appOrigin'
+  | 'twoFactorCode'
+
+/** Whether a node is a form checking a two-step code. */
+const isTwoFactorCodeForm = (node: Readonly<Record<string, unknown>>): boolean => {
+  const action = node['action'] as
+    { readonly type?: unknown; readonly method?: unknown } | undefined
+  return action?.type === 'auth' && action.method === 'verifyTwoFactor'
+}
 
 /**
  * Page-level signals that make a page's HTML vary per request — each reads the
@@ -138,6 +146,12 @@ const DYNAMIC_PAGE_SIGNALS: readonly {
   // cache is keyed by path, so serving a second front host from an entry minted
   // for the first would print the wrong address to every one of its visitors.
   { id: 'appOrigin', trips: (page, placed) => referencesRequestOrigin(page, placed) },
+  // A code form reads the sign-in waiting for it from the visitor's cookie: its
+  // field, or the notice that none waits, and where the code sends her.
+  {
+    id: 'twoFactorCode',
+    trips: (page, placed) => someRenderedNode(page.components ?? [], placed, isTwoFactorCodeForm),
+  },
 ]
 
 /**
@@ -313,6 +327,12 @@ export interface RenderablePathCacheability {
    * varies only with its URL, its request or its session.
    */
   readonly readsRecordData: boolean
+  /**
+   * The page reads the visitor's own cookie (a two-step code form reads the
+   * sign-in waiting for its code): its HTML is never stored anywhere, not even
+   * briefly by a browser. Absent when it does not.
+   */
+  readonly perVisit?: true
 }
 
 /** The verdict for a path that resolves to no authored page. */
@@ -344,7 +364,11 @@ export function classifyRenderablePath(app: App, path: string): RenderablePathCa
   if (!match) return unmatched(path)
 
   const page = pages[match.index]
-  if (!page) return unmatched(path)
+  return page === undefined ? unmatched(path) : classifyMatchedPage(app, page)
+}
+
+/** {@link classifyRenderablePath} for the page a path matched. */
+function classifyMatchedPage(app: App, page: Page): RenderablePathCacheability {
   // [internal ref] / a forms spec: a page whose form starts from `$query.*` or `$now`
   // (its prefill, its fields' defaults, or the host's inline prefill) renders
   // per-request output. The page cache is keyed by path only (no query string)
@@ -352,8 +376,9 @@ export function classifyRenderablePath(app: App, path: string): RenderablePathCa
   // request's `?param` values, or freeze `$now` — exclude it.
   const placed = placedTemplatesOf(page.components ?? [], app.components ?? [])
   const readsRecords = readsRecordData(page, placed)
-  if (componentTreeHasRequestPrefillForm(page.components ?? [], app.forms ?? [], placed)) {
-    return { verdict: 'dynamic', page, readsRecordData: readsRecords }
-  }
-  return { verdict: verdictFor(page, placed), page, readsRecordData: readsRecords }
+  const perVisit = someRenderedNode(page.components ?? [], placed, isTwoFactorCodeForm)
+  const verdict = componentTreeHasRequestPrefillForm(page.components ?? [], app.forms ?? [], placed)
+    ? 'dynamic'
+    : verdictFor(page, placed)
+  return { verdict, page, readsRecordData: readsRecords, ...(perVisit && { perVisit: true }) }
 }

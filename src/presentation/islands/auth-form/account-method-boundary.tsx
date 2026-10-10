@@ -22,10 +22,14 @@ import { computeSubmitButtonClasses } from '@/presentation/design/button-default
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { useDeferredComponent } from '../parts/deferred-component'
 import { AuthFieldRow } from './auth-form-fields'
+import { TwoFactorNoticeView } from './two-factor-notice'
 import type { AccountMethodFormProps } from './account-method-form'
 
 const loadAccountMethodForm = () =>
   import('./account-method-form').then((module) => module.AccountMethodForm)
+// The same lazy module: a connect/disconnect control costs a sign-in page nothing.
+const loadAccountLinkControl = () =>
+  import('./account-method-form').then((module) => module.AccountLinkControl)
 
 const noop = (): void => undefined
 
@@ -38,7 +42,33 @@ export type AccountMethodBoundaryProps = Omit<
 
 const NO_FIELDS: AccountMethodFormProps['fields'] = []
 
-/** The account form once loaded; its server-drawn shape until then. */
+/**
+ * `linkAccount` / `unlinkAccount` once loaded; nothing drawn until then — and
+ * nothing until the control knows which of the pair applies.
+ */
+export function AccountLinkBoundary(input: AccountMethodBoundaryProps): ReactElement {
+  const Link = useDeferredComponent(loadAccountLinkControl)
+  if (Link === undefined)
+    return (
+      <form
+        id={input.id}
+        hidden
+      />
+    )
+  return (
+    <Link
+      {...input}
+      provider={input.provider ?? ''}
+      submitLabel={input.submitLabel ?? authSubmitLabel(input.method)}
+      pendingLabel={input.pendingLabel ?? authPendingLabel(input.method)}
+    />
+  )
+}
+
+/**
+ * The account form once loaded; its server-drawn shape until then. A code form
+ * with no sign-in waiting draws its notice at once: it needs nothing the form loads.
+ */
 export function AccountMethodBoundary(input: AccountMethodBoundaryProps): ReactElement {
   const Form = useDeferredComponent(loadAccountMethodForm)
   const [typed, setTyped] = useState<Readonly<Record<string, string>>>({})
@@ -52,6 +82,13 @@ export function AccountMethodBoundary(input: AccountMethodBoundaryProps): ReactE
     () => ({ ...input.initialValues, ...typed }),
     [input.initialValues, typed]
   )
+  if (input.twoFactorNotice?.shown === true)
+    return (
+      <TwoFactorNoticeView
+        {...input}
+        notice={input.twoFactorNotice}
+      />
+    )
   if (Form !== undefined)
     return (
       <Form

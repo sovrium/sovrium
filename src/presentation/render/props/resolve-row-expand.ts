@@ -77,6 +77,17 @@ function narrowFields(
 }
 
 /**
+ * A derived entry as the drawer draws it: a `json` field reads as its keys and
+ * values (`renderAs: key-value`, one `key: value` line each), read-only — an
+ * input would print an object as `[object Object]` and could not edit the
+ * structure without losing it. Every other entry is drawn as derived.
+ */
+const withStructuredRendering = (
+  field: DerivedRecordField
+): DerivedRecordField | (DerivedRecordField & { readonly renderAs: 'key-value' }) =>
+  field.type === 'json' ? { ...field, renderAs: 'key-value' } : field
+
+/**
  * The island props for a grid's synthesized expand drawer, or `undefined` when
  * the grid declares no expand.
  *
@@ -108,7 +119,7 @@ export function resolveRowExpandDrawerProps(params: {
     title: expand.title ?? resolveInterpreterString('recordDrawer.title', currentLang, languages),
     role: 'dialog',
     table: dataSource?.table,
-    recordFields: narrowFields(derived, expand.fields),
+    recordFields: narrowFields(derived, expand.fields).map(withStructuredRendering),
     canEdit: expand.canEdit !== false,
     saveLabel: resolveInterpreterString('recordDrawer.save', currentLang, languages),
     closeLabel: resolveInterpreterString('recordDrawer.close', currentLang, languages),

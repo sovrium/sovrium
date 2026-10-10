@@ -23,6 +23,12 @@ export interface ToolbarFlags {
   readonly filters: boolean
   readonly sort: boolean
   readonly export: boolean
+  /**
+   * The selection export ("Export selected") of a multi-select grid. `export`
+   * reads three ways: `true` offers both controls, left undeclared the
+   * selection export only, and `false` neither.
+   */
+  readonly exportSelection: boolean
   readonly refresh: boolean
 }
 
@@ -31,6 +37,7 @@ export function resolveToolbarFlags(config: DataTableToolbar | undefined): Toolb
     filters: config?.filters === true,
     sort: config?.sort === true,
     export: config?.export === true,
+    exportSelection: config?.export !== false,
     refresh: config?.refresh === true,
   }
 }

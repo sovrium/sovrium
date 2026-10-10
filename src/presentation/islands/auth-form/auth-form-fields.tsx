@@ -48,11 +48,14 @@ export function AuthFieldRow({
   defaultValue,
   error,
   onBlur,
+  autoFocus = false,
 }: {
   readonly field: AuthFormField
   readonly defaultValue: string
   readonly error: string | undefined
   readonly onBlur: (name: string, value: string) => void
+  /** Take focus as the form mounts — the code field of a page of its own. */
+  readonly autoFocus?: boolean
 }) {
   // The server scopes it per form; a payload without one keeps the bare id.
   const errorId = field.errorId ?? `${field.name}-error`
@@ -67,6 +70,7 @@ export function AuthFieldRow({
           autoComplete={field.autoComplete}
           inputMode={field.inputMode}
           defaultValue={defaultValue}
+          autoFocus={autoFocus}
           aria-invalid={error ? 'true' : 'false'}
           aria-describedby={errorId}
           // Wire the auth island into the canonical, theme-aware input recipe

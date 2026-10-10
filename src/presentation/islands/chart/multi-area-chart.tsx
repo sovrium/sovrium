@@ -8,9 +8,13 @@
 import { Group } from '@visx/group'
 import { scalePoint } from '@visx/scale'
 import { AreaClosed } from '@visx/shape'
+import { Fragment } from 'react'
 import {
   CHART_AREA_FILL_OPACITY,
   CHART_LINE_STROKE_WIDTH,
+  CHART_POINT_FILL,
+  CHART_POINT_RADIUS,
+  CHART_POINT_STROKE_WIDTH,
 } from '@/presentation/design/chart-default-classes'
 import { PointScaleAxes } from './chart-axes'
 import {
@@ -27,12 +31,15 @@ import {
   type LegendPosition,
 } from './chart-series-shared'
 import { ChartShell } from './chart-shell'
+import type { ChartAxisFormat } from './chart-format'
 import type { TableRecord } from '../runtime/types'
 import type { ReactElement } from 'react'
 
 interface MultiAreaChartProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
+  /** The declared `xAxis.format`: `date` labels instant keys by their time of day. */
+  readonly xFormat?: ChartAxisFormat | undefined
   readonly series: readonly ChartSeriesConfig[]
   /** Value-axis display configuration forwarded from the chart's `yAxis`. */
   readonly yAxis?: ChartAxisDisplay
@@ -69,11 +76,37 @@ function plotSeries(args: {
   })
 }
 
+/**
+ * The one point of a single-point area, drawn as the line draws a vertex: one
+ * point closes no shape, and a first measurement must be seen rather than read
+ * as an empty plot.
+ */
+function SinglePoint({
+  point,
+  color,
+}: {
+  readonly point: PlottedPoint
+  readonly color: string
+}): ReactElement {
+  return (
+    <circle
+      cx={point.x}
+      cy={point.y}
+      r={CHART_POINT_RADIUS}
+      fill={CHART_POINT_FILL}
+      stroke={color}
+      strokeWidth={CHART_POINT_STROKE_WIDTH}
+      data-point-key={point.key}
+    />
+  )
+}
+
 interface MultiAreaSvgProps {
   readonly width: number
   readonly height: number
   readonly records: readonly TableRecord[]
   readonly xField: string
+  readonly xFormat?: ChartAxisFormat | undefined
   readonly series: readonly ChartSeriesConfig[]
   readonly yAxis?: ChartAxisDisplay
   readonly hidden: ReadonlySet<string>
@@ -108,7 +141,7 @@ function buildAreaLayout(args: MultiAreaSvgProps): AreaLayout {
 }
 
 function MultiAreaSvg(props: MultiAreaSvgProps): ReactElement {
-  const { width, height, records, xField, series, yAxis, accessibleName } = props
+  const { width, height, records, xField, xFormat, series, yAxis, accessibleName } = props
   const { innerWidth, innerHeight, keys, visibleSeries, xScale, yScale } = buildAreaLayout(props)
 
   return (
@@ -129,33 +162,34 @@ function MultiAreaSvg(props: MultiAreaSvgProps): ReactElement {
           innerHeight={innerHeight}
           valueScale={yScale}
           valueAxis={yAxis}
+          format={xFormat}
         />
         {visibleSeries.map((s) => {
-          const index = series.indexOf(s)
-          const color = seriesColor(s, index)
-          const points = plotSeries({
-            records,
-            keys,
-            xField,
-            field: s.field,
-            xScale,
-            yScale,
-          })
+          const color = seriesColor(s, series.indexOf(s))
+          const points = plotSeries({ records, keys, xField, field: s.field, xScale, yScale })
+          const [only] = points.length === 1 ? points : []
           return (
-            <AreaClosed<PlottedPoint>
-              key={`area-${s.field}`}
-              data={points}
-              x={accessX}
-              y={accessY}
-              // The PIXEL scale, not the value axis: `AreaClosed` reads only
-              // `range()[0]` off it, to find the baseline its fill closes onto.
-              yScale={yScale.pixels}
-              fill={color}
-              fillOpacity={s.fillOpacity ?? CHART_AREA_FILL_OPACITY}
-              stroke={color}
-              strokeWidth={CHART_LINE_STROKE_WIDTH}
-              data-series-field={s.field}
-            />
+            <Fragment key={`area-${s.field}`}>
+              <AreaClosed<PlottedPoint>
+                data={points}
+                x={accessX}
+                y={accessY}
+                // The PIXEL scale, not the value axis: `AreaClosed` reads only
+                // `range()[0]` off it, to find the baseline its fill closes onto.
+                yScale={yScale.pixels}
+                fill={color}
+                fillOpacity={s.fillOpacity ?? CHART_AREA_FILL_OPACITY}
+                stroke={color}
+                strokeWidth={CHART_LINE_STROKE_WIDTH}
+                data-series-field={s.field}
+              />
+              {only === undefined ? undefined : (
+                <SinglePoint
+                  point={only}
+                  color={color}
+                />
+              )}
+            </Fragment>
           )
         })}
       </Group>
@@ -173,6 +207,7 @@ function MultiAreaSvg(props: MultiAreaSvgProps): ReactElement {
 export function MultiAreaChart({
   records,
   xField,
+  xFormat,
   series,
   yAxis,
   legendPosition,
@@ -191,6 +226,7 @@ export function MultiAreaChart({
           height={height}
           records={records}
           xField={xField}
+          xFormat={xFormat}
           series={series}
           yAxis={yAxis}
           hidden={hidden}

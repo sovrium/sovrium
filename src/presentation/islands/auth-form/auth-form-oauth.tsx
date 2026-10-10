@@ -20,6 +20,8 @@ export interface OAuthSignInFormProps {
    * applies its own default.
    */
   readonly callbackUrl?: string
+  /** The button's label, as the server resolved it; "Sign in with <Provider>" when absent. */
+  readonly label?: string
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
@@ -72,7 +74,7 @@ export function OAuthSignInForm(props: OAuthSignInFormProps): React.ReactElement
         data-oauth-provider={provider}
         className={computeButtonDefaultClasses({ variant: 'secondary' })}
       >
-        {oauthSubmitLabel(provider)}
+        {props.label ?? oauthSubmitLabel(provider)}
       </button>
     </form>
   )

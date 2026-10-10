@@ -10,37 +10,9 @@ import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { appendQueryObject } from '@/domain/kernel/url/query-string'
 import { guardedFetch, guardedText } from '@/infrastructure/egress/guarded-fetch'
 import { resolveConnectionHeaders } from './auth-headers'
+import { blockedRequestFailure, httpStatusFailure, requestFailure } from './http-failure'
 import { actionAttributes, numberProp, serializeActionBody, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, BodySerializationError } from './shared'
-
-/**
- * Map an HTTP status code to a stable, low-cardinality error category that
- * downstream consumers (run-history, retry policies, refresh-token logic)
- * can pattern-match without re-parsing free-form messages.
- *
- * 401 is split from a generic 4xx because a token-refresh path needs to
- * distinguish "token expired / scopes insufficient / grant revoked" from
- * "the request itself was malformed". 403 stays separate because it
- * usually signals an authorization problem the user cannot self-resolve
- * by re-auth. 429 is called out so backoff schedulers can branch on it.
- *
- * The `bodyExcerpt` (first 200 chars of the response body, when readable)
- * is included to help operators distinguish the three 401 sub-cases
- * without making them part of the structured error category — IdPs vary
- * widely in what they put in the body, so we surface it instead of
- * trying to classify it.
- */
-const classifyHttpError = (status: number, bodyExcerpt: string | undefined): string => {
-  const suffix = bodyExcerpt !== undefined && bodyExcerpt !== '' ? ` — ${bodyExcerpt}` : ''
-  if (status === 401) return `HTTP 401 unauthorized${suffix}`
-  if (status === 403) return `HTTP 403 forbidden${suffix}`
-  if (status === 404) return `HTTP 404 not_found${suffix}`
-  if (status === 408) return `HTTP 408 request_timeout${suffix}`
-  if (status === 429) return `HTTP 429 rate_limited${suffix}`
-  if (status >= 500) return `HTTP ${String(status)} upstream_error${suffix}`
-  if (status >= 400) return `HTTP ${String(status)} client_error${suffix}`
-  return `HTTP ${String(status)}${suffix}`
-}
 
 /**
  * The declared `props.timeout` window, in ms. Mirrors the schema's
@@ -207,7 +179,8 @@ const performHttpWithResponseOutput = async (input: {
       { method, headers, ...(requestBody !== undefined ? { body: requestBody } : {}) },
       { timeoutMs, maxBodyBytes: RESPONSE_BODY_CAP }
     )
-    if (!sent.ok) return { status: 'failure', error: sent.message }
+    // A refusal of the outbound guard: nothing was sent (`error.code: 'blocked'`).
+    if (!sent.ok) return blockedRequestFailure(sent.message)
     const { response } = sent
     const { truncated } = response
     const body = guardedText(response)
@@ -230,18 +203,16 @@ const performHttpWithResponseOutput = async (input: {
     const parsedBody = parseJsonResponseBody(body, responseHeaders)
     const parsedBodyField = parsedBody !== undefined ? { body: parsedBody } : {}
     if (!response.ok) {
-      return {
-        status: 'failure',
-        error: classifyHttpError(response.status, body.slice(0, 200)),
-        output: { response: responseEnvelope, ...parsedBodyField },
-      }
+      return httpStatusFailure(response.status, body, {
+        response: responseEnvelope,
+        ...parsedBodyField,
+      })
     }
     return { status: 'success', output: { response: responseEnvelope, ...parsedBodyField } }
   } catch (error) {
-    return {
-      status: 'failure',
-      error: error instanceof Error ? error.message : String(error),
-    }
+    // Sent and unanswered: a timeout, an unresolved host, a refused or
+    // reset connection, an untrusted certificate (`error.code`).
+    return requestFailure(error)
   }
 }
 

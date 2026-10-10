@@ -35,12 +35,13 @@ import {
   computeTableActionButtonClasses,
   computeTableInlineConfirmClasses,
   computeTablePanelCaptionClasses,
-  computeTablePanelControlClasses,
 } from '@/presentation/design/table-default-classes'
 import { ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
 import { InlineAccountAction } from './account-action-controls'
 import { isInlineAccountAction } from './account-action-kind'
 import { useArmedConfirm } from './armed-confirm'
+import { EditSelectEditor } from './edit-select-editor'
+import { claimTriggerFocus, requestTriggerFocus } from './trigger-focus'
 import type { TableRecord } from '../runtime/types'
 import type { ActionColumnItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
@@ -141,78 +142,6 @@ function ConfirmDialog({
 }
 
 /**
- * The inline single-select EDITOR shown when an `editSelect` action is armed.
- *
- * Renders a `<select>` (accessible name `editSelect.label`) preset to the clicked
- * row's `editSelect.field` value, plus a commit button (the author's
- * `editSelect.saveLabel`, else the interpreter's language-resolved default) and
- * a cancel button. On commit the picked value is handed to
- * `onCommit`, which dispatches the action with the row record's `editSelect.field`
- * OVERRIDDEN by the selection — so the action body's `$record.<field>` resolves to
- * the picked value, not the row's stored value.
- */
-function EditSelectEditor({
-  action,
-  record,
-  onCommit,
-  onCancel,
-  labels,
-}: {
-  readonly action: ActionColumnItem
-  readonly record: TableRecord
-  readonly onCommit: (value: string) => void
-  readonly onCancel: () => void
-  readonly labels: ActionControlLabels
-}): ReactElement {
-  // Present only when the caller has armed the editor (guarded in ActionButton).
-  const editSelect = action.editSelect!
-  const [value, setValue] = useState(String(record[editSelect.field] ?? ''))
-
-  return (
-    <div className={computeTableInlineConfirmClasses()}>
-      <select
-        data-component-type="select"
-        aria-label={editSelect.label}
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        className={computeTablePanelControlClasses()}
-      >
-        {/*
-          `options` is optional since `optionsSource`, but never absent HERE: a
-          source is resolved server-side and REPLACED with an array before the
-          grid's props are serialised, so an island receiving neither is a
-          resolver bug, not a config one — an empty listbox is the honest answer.
-        */}
-        {(editSelect.options ?? []).map((option) => (
-          <option
-            key={option.value}
-            value={option.value}
-          >
-            {option.label ?? option.value}
-          </option>
-        ))}
-      </select>
-      <button
-        {...NAMED_BUTTON}
-        data-action-type={actionTypeAttr(action)}
-        className={computeTableActionButtonClasses({ tone: 'primary' })}
-        onClick={() => onCommit(value)}
-      >
-        {editSelect.saveLabel ?? labels.save}
-      </button>
-      <button
-        {...NAMED_BUTTON}
-        aria-label={labels.cancel}
-        className={computeTableActionButtonClasses()}
-        onClick={onCancel}
-      >
-        {labels.cancel}
-      </button>
-    </div>
-  )
-}
-
-/**
  * The recipe tone an authored `variant` asks for.
  *
  * An UNNAMED variant returns `undefined` so the recipe applies its own default
@@ -240,11 +169,14 @@ function ActionTriggerButton({
   record,
   onActionClick,
   onArm,
+  focusKey,
 }: {
   readonly action: ActionColumnItem
   readonly record: TableRecord
   readonly onActionClick?: ActionClickHandler
   readonly onArm: () => void
+  /** The key focus returns to this trigger by after its editor closes. */
+  readonly focusKey: string
 }): ReactElement {
   // A role or a passkey name is chosen in the row itself, beside its button.
   if (isInlineAccountAction(action)) {
@@ -261,6 +193,7 @@ function ActionTriggerButton({
   return (
     <button
       {...NAMED_BUTTON}
+      ref={(node) => claimTriggerFocus(focusKey, node)}
       className={computeTableActionButtonClasses({
         disabled: !onActionClick,
         ...(tone === undefined ? {} : { tone }),
@@ -290,6 +223,11 @@ function ActionTriggerButton({
  * A gate that survived a rebuild is handed the row's CURRENT record rather than
  * the one it was armed against, so it answers for the row as the server last
  * described it.
+ *
+ * The editor commits with the edited field OVERRIDDEN by the picked value, so
+ * the dispatched action's `$record.<field>` resolves to the selection, not the
+ * stored row value; the shared row-action handler then runs the action's
+ * `onSuccess.refetch`. Saved or dismissed, focus goes back to the trigger.
  */
 export function ActionButton({
   action,
@@ -308,21 +246,22 @@ export function ActionButton({
   const confirm = useArmedConfirm(confirmKey)
   const [editing, setEditing] = useState(false)
   const { editSelect } = action
+  const closeEditor = () => {
+    requestTriggerFocus(confirmKey)
+    setEditing(false)
+  }
 
   if (editSelect && editing && onActionClick) {
     return (
       <EditSelectEditor
         action={action}
+        dataActionType={actionTypeAttr(action)}
         record={record}
         onCommit={(value) => {
-          setEditing(false)
-          // Override the edited field with the picked value so the dispatched
-          // action's `$record.<field>` resolves to the selection (not the stored
-          // row value). The shared row-action handler then runs the action's
-          // `onSuccess.refetch` to refresh the grid.
+          closeEditor()
           void onActionClick(action, { ...record, [editSelect.field]: value })
         }}
-        onCancel={() => setEditing(false)}
+        onCancel={closeEditor}
         labels={labels}
       />
     )
@@ -345,6 +284,7 @@ export function ActionButton({
       action={action}
       record={record}
       onActionClick={onActionClick}
+      focusKey={confirmKey}
       onArm={() => (editSelect ? setEditing(true) : confirm.arm())}
     />
   )

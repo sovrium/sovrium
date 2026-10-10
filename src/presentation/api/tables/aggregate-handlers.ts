@@ -7,6 +7,7 @@
 
 import { createAggregateRecordsProgram } from '@/application/use-cases/tables/aggregate-records-program'
 import { aggregateRecordsResponseSchema } from '@/domain/models/api/tables/aggregate'
+import { describeUnknownPercentile } from '@/domain/models/app/tables/aggregate-percentile-service'
 import { minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runEffect } from '@/presentation/api/runtime'
@@ -14,7 +15,7 @@ import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateAggregateParam, validateGroupByParam } from './field-permission-validation'
 import { parseFilter } from './list-records-filter'
 import { buildSearchFilter } from './list-records-search'
-import { parseAggregateParam } from './param-parsers'
+import { parseAggregateParam, unknownPercentileIn } from './param-parsers'
 import { resolveGuardForTable } from './row-level-guard'
 import { buildListFilter, checkListReadGate, mergeFilters } from './row-level-read-helpers'
 import type { FilterStructure } from './row-level-read-helpers'
@@ -31,10 +32,22 @@ import type { Context } from 'hono'
  * term is ANDed in, over the readable text fields only), then the
  * aggregated and grouped fields' read check — each refusal a `404`, so a hidden
  * field and a missing one cannot be told apart (S1). A grouping wider than the
- * cap, or a calendar interval on a field that holds no date, is a `400`.
+ * cap, a calendar interval on a field that holds no date, an hour or minute on
+ * a field that holds no time, or a percentile outside the five, is a `400`.
  */
 
-const INTERVALS: ReadonlySet<string> = new Set(['day', 'week', 'month', 'quarter', 'year'])
+const INTERVALS: ReadonlySet<string> = new Set([
+  'minute',
+  'hour',
+  'day',
+  'week',
+  'month',
+  'quarter',
+  'year',
+])
+
+/** The buckets shorter than a day: a `date` holds no hour, so they take a datetime. */
+const SUB_DAY_INTERVALS: ReadonlySet<string> = new Set(['minute', 'hour'])
 
 /** A single grouping field, trimmed; the aggregate read groups by one field. */
 const readGroupBy = (c: Context): string | undefined => {
@@ -63,6 +76,12 @@ const readInterval = (
       : minMaxKindOf(input.app, input.tableName, input.groupBy)
   if (kind !== 'date' && kind !== 'date-time') {
     return badRequest(c, 'An interval groups by a date or datetime field; name one in groupBy')
+  }
+  if (SUB_DAY_INTERVALS.has(raw) && kind !== 'date-time') {
+    return badRequest(
+      c,
+      `An interval of a ${raw} groups by a datetime field; a date holds no ${raw}`
+    )
   }
   return { interval: raw as GroupInterval }
 }
@@ -114,6 +133,10 @@ const readQuestion = (c: Context, access: ReadAccess): ReadAggregateQuestion => 
   const { app, tableName, userRole, userGroups } = access
   const filter = parseFilter(c, app, tableName, { userRole, userGroups })
   if (filter.error) return filter.response ?? badRequest(c, 'Invalid filter')
+  const unknownPercentile = unknownPercentileIn(c.req.query('aggregate'))
+  if (unknownPercentile !== undefined) {
+    return badRequest(c, describeUnknownPercentile(unknownPercentile))
+  }
   const aggregate = parseAggregateParam(c.req.query('aggregate'))
   const groupBy = readGroupBy(c)
   const fieldError =

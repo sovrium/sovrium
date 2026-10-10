@@ -35,6 +35,24 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
    * things; sharing one key would leave the second un-nameable.
    */
   'datatable.cancel': { en: 'Cancel', fr: 'Annuler' },
+  /**
+   * A row action's inline select editor whose options resolved to none — the
+   * source it reads is empty. `{label}` is the editor's own label, so the same
+   * hint serves a roles picker and a groups picker alike.
+   */
+  'datatable.rowEditNoOptions': {
+    en: 'No {label} to choose from',
+    fr: 'Aucun choix disponible pour {label}',
+  },
+  /**
+   * A row action's inline LIST editor (`multiple`) opened on a row that does
+   * not carry the list at all — the server could not read it. The editor
+   * offers no preset and no save: saving an unknown list would replace it.
+   */
+  'datatable.rowEditUnreadable': {
+    en: 'The current {label} could not be read',
+    fr: 'Impossible de lire la valeur actuelle de {label}',
+  },
 
   // ---- Data table: toolbar ----
   'datatable.import': { en: 'Import', fr: 'Importer' },
@@ -200,6 +218,18 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'twoFactor.recoveryCodes': { en: 'Recovery codes', fr: 'Codes de récupération' },
   'twoFactor.codesSaved': { en: 'I have saved these codes', fr: 'J’ai enregistré ces codes' },
   'twoFactor.done': { en: 'Done', fr: 'Terminé' },
+  /** A password sign-in whose account still owes its second step. */
+  'twoFactor.pendingSignIn': {
+    en: 'Two-step verification is on — enter your code to finish signing in',
+    fr: 'La vérification en deux étapes est activée — saisissez votre code pour terminer la connexion',
+  },
+  /** A code page with no sign-in waiting for its code, or one that lapsed. */
+  'twoFactor.attemptExpired': {
+    en: 'Your sign-in has expired — start again.',
+    fr: 'Votre connexion a expiré — recommencez.',
+  },
+  /** That notice's link back to the sign-in page. */
+  'twoFactor.signInAgain': { en: 'Back to sign in', fr: 'Retour à la connexion' },
 
   // ---- Passkeys: the one-button forms ----
   'passkey.add': { en: 'Add a passkey', fr: 'Ajouter une clé d’accès' },

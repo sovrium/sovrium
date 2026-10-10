@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import {
   CommittedRowChanges,
   RecordChangeFeed,
+  UnauditedTables,
   type CommittedRowChange,
   type RowChangeCollector,
 } from '@/application/ports/services/record-change-feed'
@@ -84,11 +85,19 @@ const announceReported = (
         })
       })
 
+/** The tables of `app` declaring `activityLog: false`. */
+const unauditedTablesOf = (app: App | undefined): ReadonlySet<string> =>
+  new Set(
+    (app?.tables ?? []).filter((table) => table.activityLog === false).map((table) => table.name)
+  )
+
 /**
  * Run a record write in an announcing scope for `app`. See the module header.
  *
  * `app` may be absent only where no change stream exists to announce to (a
  * write run with no app in hand); the rows are then collected and dropped.
+ * The scope also tells the activity-log writer which of the app's tables
+ * declare `activityLog: false` ({@link UnauditedTables}).
  */
 export const announceRecordWrites =
   (app: App | undefined) =>
@@ -107,6 +116,7 @@ export const announceRecordWrites =
       }
       return yield* write.pipe(
         Effect.provideService(CommittedRowChanges, collector),
+        Effect.provideService(UnauditedTables, unauditedTablesOf(app)),
         Effect.onExit(() => announceReported(app, reported))
       )
     }).pipe(Effect.withSpan('tables.announce-record-writes'))

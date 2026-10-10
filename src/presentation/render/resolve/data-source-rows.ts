@@ -158,15 +158,15 @@ export type RowSubstitutionDepth = 'deep' | 'stop-at-nested-binding'
  * wrapped in `<li>` closes the OUTER row's `<li>` and the browser re-parents the
  * inner rows as SIBLINGS of the card that was supposed to contain them. The
  * server's HTML is well-formed by every other measure, the resolved tree is
- * correct, and `renderToString` emits the right string; only the DOM disagrees,
- * which is why this cost a full trace from the resolver to the parser to find.
+ * correct, and `renderToString` emits the right string; only the DOM disagrees.
  */
 export type RowWrapperElement = 'li' | 'div'
 
-/** How a row template is expanded — the two knobs the nested path turns. */
+/** How a row template is expanded, and the table its rows come from (a field's type). */
 export interface RowExpansionOptions {
   readonly substitution?: RowSubstitutionDepth
   readonly rowWrapper?: RowWrapperElement
+  readonly tableName?: string
 }
 
 /**
@@ -244,7 +244,7 @@ export function expandDataSourceChildren(
         children: kept.map((child: Component | string) =>
           typeof child === 'string'
             ? substituteRecordVars(child, withRecordText(record))
-            : substituteRecordInComponent(child, record, undefined, substitution)
+            : substituteRecordInComponent(child, record, expansion.tableName, substitution)
         ),
       },
     ]

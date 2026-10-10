@@ -1,7 +1,7 @@
 # sovrium-library: block/auth-magic-link@0.30.0
 name: auth-magic-link
 type: container
-element: main
+element: section
 props:
   className: flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6
 children:

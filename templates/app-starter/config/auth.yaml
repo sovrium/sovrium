@@ -7,6 +7,10 @@ strategies:
 passkeys: true
 # Two-step verification with an authenticator app, offered on the security page.
 twoFactor: true
+# The app's sign-in page. Every way back to sign in the engine draws lands here,
+# such as the link on the code page when a sign-in has lapsed. Without it they
+# would point at /login, which this app does not have.
+loginPage: /sign-in
 # Personal API keys, listed and created on the API keys page.
 apiKeys: true
 # How long an invitation link works. The team page and the invitation dialog

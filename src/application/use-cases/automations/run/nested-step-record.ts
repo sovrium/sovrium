@@ -221,7 +221,8 @@ export const outputsOfStored = (
 const itemFailed = (output: unknown, index: number): boolean => {
   const results = asOutput(output)?.['results']
   const entry = Array.isArray(results) ? asOutput(results[index]) : undefined
-  return entry !== undefined && 'error' in entry
+  // A failed item's entry is `{ error: <text> }`; an `error` object is an output's own.
+  return typeof entry?.['error'] === 'string'
 }
 
 /**

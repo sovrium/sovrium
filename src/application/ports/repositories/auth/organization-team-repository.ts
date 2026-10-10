@@ -64,6 +64,14 @@ export interface OrganizationTeamMembershipRecord {
 }
 
 /**
+ * What {@link OrganizationTeamRepository.applyMembershipChange} came to: the
+ * change committed, or a team in `add` was already at its `maxMembers` and
+ * nothing was written.
+ */
+export type MembershipChangeResult =
+  { readonly _tag: 'Applied' } | { readonly _tag: 'AtCapacity'; readonly teamId: string }
+
+/**
  * Read port over Better Auth's organization / team membership tables, scoped to
  * THIS instance's single organization.
  *
@@ -82,15 +90,22 @@ export interface OrganizationTeamMembershipRecord {
  * stays inside infrastructure where its writer lives. A caller that forgets to
  * scope a query is not a bug you can write against this interface.
  *
- * ### Why a read port and not a team service
+ * ### Reads, and the one write Sovrium owns
  *
- * Better Auth's `organization` plugin owns every WRITE — create team, add
- * member, remove member — and Sovrium forwards to it rather than
- * re-implementing it. What these reads back is the thin layer Sovrium adds on
- * top of endpoints upstream scopes more tightly than the product does: an
- * organization owner may list any team's roster, a repeat add is an error
- * rather than a silent no-op, and a group may declare a `maxMembers` cap
- * upstream has no concept of.
+ * Better Auth's `organization` plugin owns the team routes — create team, add
+ * member, remove member over `/api/auth/organization/*` — and Sovrium forwards
+ * to them rather than re-implementing them. What most of these reads back is
+ * the thin layer Sovrium adds on top of endpoints upstream scopes more tightly
+ * than the product does: an organization owner may list any team's roster, a
+ * repeat add is an error rather than a silent no-op, and a group may declare a
+ * `maxMembers` cap upstream has no concept of.
+ *
+ * The membership WRITE below ({@link applyMembershipChange}) serves the doors
+ * that address a group by its NAME rather than by a team id and act for the
+ * one organization without being told which: the `auth` automation operators
+ * and the console's account-groups route. It writes the same `team_member`
+ * rows the native routes write — the same membership key, the same member
+ * count — so a row either door wrote is one the other reads.
  */
 export class OrganizationTeamRepository extends Context.Service<
   OrganizationTeamRepository,
@@ -164,5 +179,43 @@ export class OrganizationTeamRepository extends Context.Service<
       teamId: string,
       userId: string
     ) => Effect.Effect<boolean, OrganizationTeamDatabaseError>
+
+    /**
+     * Every team in this organization, by id and name — what resolves a group
+     * NAME to the team that stores it.
+     */
+    readonly listTeams: Effect.Effect<
+      ReadonlyArray<Pick<OrganizationTeamRecord, 'id' | 'name'>>,
+      OrganizationTeamDatabaseError
+    >
+
+    /** Every membership this user holds in this organization, with each team's name. */
+    readonly listUserMemberships: (
+      userId: string
+    ) => Effect.Effect<
+      ReadonlyArray<OrganizationTeamMembershipRecord>,
+      OrganizationTeamDatabaseError
+    >
+
+    /**
+     * Apply one account's membership change in ONE transaction: unlink it from
+     * `removeTeamIds`, then link it to each team in `add`. The caller has
+     * already resolved every team id inside this organization.
+     *
+     * A team in `add` that declares `maxMembers` is checked under a lock on its
+     * row, inside the same transaction as the link it guards, so two concurrent
+     * adds cannot both take the last seat. When one is full the WHOLE change
+     * rolls back and the answer names that team: nothing is half applied.
+     * Linking a member already linked, or unlinking a non-member, writes
+     * nothing, and each team's `member_count` moves with its rows.
+     */
+    readonly applyMembershipChange: (input: {
+      readonly userId: string
+      readonly removeTeamIds: ReadonlyArray<string>
+      readonly add: ReadonlyArray<{
+        readonly teamId: string
+        readonly maxMembers?: number | undefined
+      }>
+    }) => Effect.Effect<MembershipChangeResult, OrganizationTeamDatabaseError>
   }
 >()('OrganizationTeamRepository') {}

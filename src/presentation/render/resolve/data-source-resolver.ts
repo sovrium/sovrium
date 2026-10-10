@@ -20,7 +20,7 @@
  * page-level walk, and nothing else.
  */
 
-import { utcCalendarDay } from '@/domain/models/app/pages/components/relative-date-filter'
+import { utcMinuteInstant } from '@/domain/models/app/pages/components/relative-date-filter'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
 import { bindAuthSource, bindAuthSourcesInTree } from './auth-source-binding'
@@ -360,9 +360,9 @@ export async function resolvePageDataSources(
   // becomes a concrete value here — before the island stamps serialise a
   // binding for the browser. An anonymous request whose page needs one is 401.
   const components = await resolveCurrentUserFiltersInTree(page.components, {
-    // Relative date tokens in a filter name a day of THIS request.
+    // Relative date tokens in a filter name a day or an instant of THIS request.
     // `SOVRIUM_DEV_CLOCK` pins it on a development server.
-    today: utcCalendarDay(serverNow()),
+    now: utcMinuteInstant(serverNow()),
     session: ctx.session,
     cookies: ctx.cookies,
     db: ctx.db,

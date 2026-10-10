@@ -23,7 +23,7 @@ import {
   computeChartShellClasses,
 } from '@/presentation/design/chart-default-classes'
 import { BarPlot } from './bar-chart-hover'
-import { formatAxisLabel, formatAxisValue, monthKeyLabeller } from './chart-format'
+import { axisKeyLabeller, formatAxisLabel, formatAxisValue } from './chart-format'
 import { buildCategoryData, buildValueScale, minPositiveInCategories } from './chart-series-shared'
 import type { ChartTooltipDisplay } from './bar-chart-hover'
 import type { CategoryDatum, ChartAxisDisplay, ChartValueScale } from './chart-series-shared'
@@ -144,7 +144,10 @@ function XAxisLabels({
   readonly axis: ChartAxisDisplay | undefined
 }): ReactElement {
   const bandwidth = xScale.bandwidth()
-  const monthLabel = axis?.format === 'date' ? undefined : monthKeyLabeller(data.map((d) => d.key))
+  const keyLabel = axisKeyLabeller(
+    data.map((d) => d.key),
+    axis?.format
+  )
   return (
     <g>
       <line
@@ -165,9 +168,7 @@ function XAxisLabels({
             fill={CHART_TICK_FILL}
             textAnchor="middle"
           >
-            {d.label === undefined && monthLabel !== undefined
-              ? monthLabel(d.key)
-              : formatAxisLabel(d.label ?? d.key, axis?.format)}
+            {d.label === undefined ? keyLabel(d.key) : formatAxisLabel(d.label, axis?.format)}
           </text>
         )
       })}

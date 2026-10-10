@@ -141,6 +141,32 @@ const emailAddressRefusal = (
   ).find((reason) => reason !== undefined)
 
 /**
+ * Props a handler fills in itself, one piece at a time, which the run keeps AS
+ * WRITTEN: never referenced for `$env`, never rendered. A `browser/run` fills
+ * each of its `steps` when the step is reached, inside the driver, so a `$env`
+ * secret or a one-time code it types never reaches the stored input; a
+ * `browser/agent` fills its `credentials` the same way.
+ */
+export const handlerFilledPropsFor = (type: string, operator: string): readonly string[] =>
+  type === 'browser' ? (operator === 'run' ? ['steps'] : ['credentials']) : []
+
+/** `referenced` (the authored props, `$env` referenced) with the handler-filled props put back as written. */
+export const keepHandlerFilledProps = <A>(
+  referenced: A,
+  written: unknown,
+  type: string,
+  operator: string
+): A => {
+  const keys = handlerFilledPropsFor(type, operator)
+  if (keys.length === 0 || written === null || typeof written !== 'object') return referenced
+  const original = written as Props
+  return {
+    ...(referenced as Props),
+    ...Object.fromEntries(keys.filter((key) => key in original).map((key) => [key, original[key]])),
+  } as A
+}
+
+/**
  * Render `value` with `renderValue`, except at the `skip` paths (relative to
  * `value`), which are kept as written: template TEXT its action renders itself
  * (the `templateContext` annotation). Only an object is descended into; a
@@ -190,7 +216,10 @@ export const renderActionProps = (input: {
   }
   const authored = input.authored as Props
   const encodings = encodingsFor(type, operator, authored)
-  const skipped = templateContextPathsFor(type, operator).map((entry) => entry.path)
+  const skipped = [
+    ...templateContextPathsFor(type, operator).map((entry) => entry.path),
+    ...handlerFilledPropsFor(type, operator),
+  ]
   const entries = Object.entries(authored).map(([key, value]) => {
     const encoding = encodings[key]
     const under = skipped

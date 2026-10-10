@@ -48,20 +48,24 @@ const dropViewStatement = (viewName: string): string => {
  *
  * Supports every arm of `ViewFilterNodeSchema` — bare condition (with or
  * without a `value`), `and`, `or`, and arbitrarily nested groups, walked by
- * {@link compileFilterTree}. Values are escaped by `generateSqlCondition`
- * (this is DDL, where bound parameters are illegal).
+ * {@link compileFilterTree}, which reads each literal through the type of the
+ * table field it names. Values are escaped by `generateSqlCondition` (this is
+ * DDL, where bound parameters are illegal).
  */
-const generateWhereClause = (filters: View['filters']): string => {
+const generateWhereClause = (filters: View['filters'], fields: Table['fields']): string => {
   if (!filters) return ''
 
   // The top level stays unwrapped (`WHERE a AND b`), so a view whose SQL was
   // already right keeps it byte for byte. A condition whose operator needs a
   // value but carries none restricts nothing, as it always has here: compiling
   // it would compare against `undefined` and throw while the view is created.
-  const condition = compileFilterTree(filters, (c) =>
-    isCompleteCondition(c)
-      ? generateSqlCondition(quoteSqlIdentifier(c.field), c.operator, c.value)
-      : undefined
+  const condition = compileFilterTree(
+    filters,
+    (c) =>
+      isCompleteCondition(c)
+        ? generateSqlCondition(quoteSqlIdentifier(c.field), c.operator, c.value)
+        : undefined,
+    { fields }
   )
   return condition === undefined ? '' : `WHERE ${condition}`
 }
@@ -133,7 +137,7 @@ export const generateViewSQL = (table: Table, view: View): string => {
   // be named `values` or `window`, key words a bare column cannot be).
   const fields =
     view.fields && view.fields.length > 0 ? view.fields.map(quoteSqlIdentifier).join(', ') : '*'
-  const whereClause = generateWhereClause(view.filters)
+  const whereClause = generateWhereClause(view.filters, table.fields)
   const orderByClause = generateOrderByClause(view.sorts, view.groupBy)
 
   // The DATABASE name, quoted: the config name (`report-requests`) is not an

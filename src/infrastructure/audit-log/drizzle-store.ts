@@ -32,6 +32,7 @@
  */
 
 import { eq, and, asc, desc, gte, inArray, lt, sql, type Column } from 'drizzle-orm'
+import { parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
 import { db } from '@/infrastructure/database'
 import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
@@ -98,14 +99,32 @@ function rowFromEntry(entry: Readonly<AuditLogEntry>): Readonly<NewAuditLogRow> 
 }
 
 /**
+ * The entry's details as an object, whichever engine stored them.
+ *
+ * PostgreSQL decodes the `jsonb` column itself; SQLite keeps it as TEXT and the
+ * pg-core column hands the serialized document back as a string. That string
+ * goes through the shared JSON-cell reader. Anything that is not an object
+ * after that (a malformed cell, an array, a scalar) is left out of the entry
+ * rather than answered as something the wire schema would refuse.
+ */
+function metadataFromCell(cell: unknown): Readonly<Record<string, unknown>> | undefined {
+  if (typeof cell === 'string') return parseJsonObjectCell(cell)
+  return cell !== null && typeof cell === 'object' && !Array.isArray(cell)
+    ? (cell as Readonly<Record<string, unknown>>)
+    : undefined
+}
+
+/**
  * Re-nest a flat DB row back into the API `AuditLogEntry` shape.
  *
  * The reverse of `rowFromEntry`: optional `actor.email` and `resource.name`
  * are dropped when null so the JSON response stays clean; the same applies to
- * `metadata` (we only attach the key when the column carries an object).
+ * `metadata` (attached only when the column carries an object — see
+ * {@link metadataFromCell}). Exported for its co-located test.
  */
-function rowToEntry(row: Readonly<AuditLogRow>): Readonly<AuditLogEntry> {
-  const { actorEmail, resourceName, metadata } = row
+export function rowToEntry(row: Readonly<AuditLogRow>): Readonly<AuditLogEntry> {
+  const { actorEmail, resourceName } = row
+  const metadata = metadataFromCell(row.metadata)
 
   return {
     id: row.id,
@@ -130,9 +149,7 @@ function rowToEntry(row: Readonly<AuditLogRow>): Readonly<AuditLogEntry> {
     transport: (typeof row.transport === 'string' && row.transport.length > 0
       ? row.transport
       : 'api') as AuditTransport,
-    ...(metadata !== null && metadata !== undefined
-      ? { metadata: metadata as Record<string, unknown> }
-      : {}),
+    ...(metadata !== undefined ? { metadata: { ...metadata } } : {}),
   }
 }
 

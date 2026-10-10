@@ -32,8 +32,7 @@
  * compare as written.
  */
 
-/** The field types stored as a boolean. */
-const BOOLEAN_FIELD_TYPES: ReadonlySet<string> = new Set(['checkbox', 'boolean', 'bool'])
+import { CHECKBOX_FIELD_TYPES, checkboxLiteralOf } from './checkbox-literal-service'
 
 /** The field types stored as a number. */
 export const NUMBER_FIELD_TYPES: ReadonlySet<string> = new Set([
@@ -64,16 +63,8 @@ interface TableShape {
     ReadonlyArray<{ readonly name: string; readonly type?: string | undefined }> | undefined
 }
 
-/** A stored boolean as a JS boolean: `1`/`0` and their text spellings; anything else unchanged. */
-const readStoredBoolean = (value: unknown): unknown => {
-  if (typeof value === 'number') return value !== 0
-  if (typeof value === 'bigint') return value !== BigInt(0)
-  if (typeof value !== 'string') return value
-  const spelled = value.trim().toLowerCase()
-  if (spelled === '1' || spelled === 'true') return true
-  if (spelled === '0' || spelled === 'false') return false
-  return value
-}
+/** A stored boolean as a JS boolean ({@link checkboxLiteralOf}); anything else unchanged. */
+const readStoredBoolean = (value: unknown): unknown => checkboxLiteralOf(value) ?? value
 
 /** A stored number as a JS number: a `bigint` or the text of a number; anything else unchanged. */
 const readStoredNumber = (value: unknown): unknown => {
@@ -96,7 +87,7 @@ const readStoredDatetime = (value: unknown): unknown => validDate(value)?.toISOS
 
 /** The reader of one declared field type, or `undefined` for a type read as it is. */
 const readerOf = (type: string): ((value: unknown) => unknown) | undefined => {
-  if (BOOLEAN_FIELD_TYPES.has(type)) return readStoredBoolean
+  if (CHECKBOX_FIELD_TYPES.has(type)) return readStoredBoolean
   if (NUMBER_FIELD_TYPES.has(type)) return readStoredNumber
   if (DATE_FIELD_TYPES.has(type)) return readStoredDate
   if (DATETIME_FIELD_TYPES.has(type)) return readStoredDatetime

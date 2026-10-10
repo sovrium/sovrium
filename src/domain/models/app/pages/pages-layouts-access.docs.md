@@ -83,6 +83,12 @@ components:
 
 A component whose visibility is not met is left out of the server-rendered HTML together with everything inside it, at any depth of the page, including a breakpoint's `responsive` children. Inside `tabs`, a withheld body takes its tab with it. It is not styled invisible: a reader the gate excludes never receives the text, so it cannot be found by viewing the source, searching the page or copying it. The gate configuration itself is not written into the markup either.
 
+### Gating on a field of the reader's account
+
+`condition` compares one field of the signed-in reader with a value, by `eq` or `neq`. The value keeps its type: a text field compares with a string, a yes/no field with `true` or `false`, and the string `'true'` never equals the boolean `true`. `$user.twoFactorEnabled` is such a yes/no field on an app that configures `auth.twoFactor` — `true` once the reader has turned two-step verification on — so one card can say which state the account is in: `condition: { field: $user.twoFactorEnabled, operator: eq, value: true }` keeps a block for a reader who is protected, `value: false` keeps one for a reader who is not, and a signed-out visitor receives neither.
+
+The condition is judged when the page is served, like every other gate here. A form that changes the field — turning two-step on or off — brings the page up to date by naming the page itself in its `onSuccess.navigate`.
+
 ## Gating one component on the caller's powers
 
 `access` gates a whole page on a role NAME. A component's `visibility.capability` gates ONE component on what the caller may actually DO:

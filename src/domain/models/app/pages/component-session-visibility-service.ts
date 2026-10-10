@@ -39,11 +39,14 @@ import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 
-/** A `$user.*` comparison, as authored. */
+/**
+ * A `$user.*` comparison, as authored. The comparison keeps the type: the
+ * string `'true'` never equals the boolean `true`.
+ */
 interface VisibilityCondition {
   readonly field: string
   readonly operator: 'eq' | 'neq'
-  readonly value: string
+  readonly value: string | boolean
 }
 
 /** The session gates of a `visibility` block, duck-typed off the authored node. */

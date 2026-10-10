@@ -101,7 +101,22 @@ export function substituteRecordInBody(
   return Object.fromEntries(
     Object.entries(body).map(([key, value]) => [
       key,
-      typeof value === 'string' ? substituteRecord(value, record) : value,
+      typeof value === 'string' ? substituteBodyValue(value, record) : value,
     ])
   )
+}
+
+/** A body value that is ONE `$record.<field>` reference and nothing else. */
+const WHOLE_RECORD_REFERENCE = /^\$record\.(\w+)$/
+
+/**
+ * One body value. A value that is exactly `$record.<field>` over a LIST field
+ * sends the list itself — a multi-select's picked groups travel as an array,
+ * not as their text joined into one string. Every other value is substituted
+ * as text, as it always was.
+ */
+function substituteBodyValue(value: string, record: Record<string, unknown>): unknown {
+  const field = WHOLE_RECORD_REFERENCE.exec(value)?.[1]
+  const listed = field === undefined ? undefined : record[field]
+  return Array.isArray(listed) ? listed : substituteRecord(value, record)
 }

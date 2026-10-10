@@ -57,12 +57,13 @@ export const ColumnFormatSchema = Schema.Literals([
   'short-date',
   'long-date',
   'datetime',
+  'time-ms',
   'yes-no',
   'check-cross',
 ]).annotate({
   title: 'Column Format',
   description:
-    'Display format override for a rendered value (a table column or a record-field). bytes = binary B/KB/MB/GB, NOT the SI compact 11.5K; relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable; short-date = day and short month in the page language order (Sep 22, 22 sept.), with the year only when the date falls in another year (Mar 5, 2024).',
+    'Display format override for a rendered value (a table column or a record-field). bytes = binary B/KB/MB/GB, NOT the SI compact 11.5K; relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable; short-date = day and short month in the page language order (Sep 22, 22 sept.), with the year only when the date falls in another year (Mar 5, 2024); time-ms = the time of day to the millisecond (14:03:07.512) in the operator timezone, for log and event timestamps.',
 })
 
 // ---------------------------------------------------------------------------
@@ -265,10 +266,26 @@ export const EditSelectSchema = Schema.Struct({
   optionsSource: Schema.optional(SelectOptionSourceBindingSchema),
   /** Commit button label (defaults to "Enregistrer"). */
   saveLabel: optStr('Commit button label (defaults to "Enregistrer")'),
+  /**
+   * Edit a LIST rather than one value.
+   *
+   * For a row field holding an array — the groups an account belongs to — the
+   * editor becomes a multi-select preset to every value the row holds, and the
+   * commit overrides `$record.<field>` with the ARRAY of picked values, in the
+   * order the options list them. Picking nothing commits an empty array, which
+   * is a meaningful answer ("in no group"), not a cancelled edit. Omitted, the
+   * editor is the single `<select>` it has always been.
+   */
+  multiple: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Edit a list instead of one value: the editor becomes a multi-select preset to every value of the row field (an array), and the commit overrides $record.<field> with the array of picked values, possibly empty. Default false.',
+    })
+  ),
 }).annotate({
   title: 'Edit Select',
   description:
-    'Inline single-select editor for an action item: the trigger reveals a per-row <select> whose picked value overrides $record.<field> in the item action (POSTing an arbitrary endpoint), then composes with the action onSuccess.refetch.',
+    'Inline select editor for an action item: the trigger reveals a per-row <select> (a multi-select with `multiple`) whose picked value, or values, override $record.<field> in the item action (POSTing an arbitrary endpoint), then composes with the action onSuccess.refetch.',
 })
 
 /**

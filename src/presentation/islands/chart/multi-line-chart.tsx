@@ -31,6 +31,7 @@ import {
 } from './chart-series-shared'
 import { ChartShell } from './chart-shell'
 import { ChartTooltip, type TooltipState } from './chart-tooltip'
+import type { ChartAxisFormat } from './chart-format'
 import type { TableRecord } from '../runtime/types'
 import type { ReactElement } from 'react'
 
@@ -48,6 +49,8 @@ export type SeriesMarkVariant = 'line' | 'scatter'
 interface MultiLineChartProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
+  /** The declared `xAxis.format`: `date` labels instant keys by their time of day. */
+  readonly xFormat?: ChartAxisFormat | undefined
   readonly series: readonly ChartSeriesConfig[]
   /** Value-axis display configuration forwarded from the chart's `yAxis`. */
   readonly yAxis?: ChartAxisDisplay
@@ -254,6 +257,7 @@ interface SvgChartProps {
   readonly height: number
   readonly records: readonly TableRecord[]
   readonly xField: string
+  readonly xFormat?: ChartAxisFormat | undefined
   readonly series: readonly ChartSeriesConfig[]
   readonly yAxis: ChartAxisDisplay | undefined
   readonly hidden: ReadonlySet<string>
@@ -293,7 +297,7 @@ function buildLineLayout(args: SvgChartProps): LineLayout {
 
 function MultiLineSvg(props: SvgChartProps): ReactElement {
   const { width, height, records, xField, series, yAxis, tooltip, tooltipFormat } = props
-  const { variant, accessibleName, onHover } = props
+  const { variant, accessibleName, onHover, xFormat } = props
   const { innerWidth, innerHeight, keys, visibleSeries, xScale, yScale } = buildLineLayout(props)
 
   return (
@@ -314,6 +318,7 @@ function MultiLineSvg(props: SvgChartProps): ReactElement {
           innerHeight={innerHeight}
           valueScale={yScale}
           valueAxis={yAxis}
+          format={xFormat}
         />
         {visibleSeries.map((s) => (
           <SeriesLine
@@ -355,6 +360,7 @@ function MultiLineSvg(props: SvgChartProps): ReactElement {
 export function MultiLineChart({
   records,
   xField,
+  xFormat,
   series,
   yAxis,
   legendPosition,
@@ -377,6 +383,7 @@ export function MultiLineChart({
           height={height}
           records={records}
           xField={xField}
+          xFormat={xFormat}
           series={series}
           yAxis={yAxis}
           hidden={hidden}

@@ -10,6 +10,8 @@ import { AiServiceLive } from '@/infrastructure/ai/ai-service-live'
 import { SpeechServiceLive } from '@/infrastructure/ai/speech/speech-service-live'
 import { SvgRasterizerLive } from '@/infrastructure/assets/svg-rasterizer-live'
 import { ConfigAccountProvisionerLive } from '@/infrastructure/auth/better-auth/config-account-provisioner-live'
+import { OAuthClientRegistrarLive } from '@/infrastructure/auth/better-auth/oauth-client-registrar-live'
+import { BrowserDriverLive } from '@/infrastructure/browser/browser-driver-live'
 import { OAuthTokenClientLive } from '@/infrastructure/connections/oauth-token-client-live'
 import { SentinelTokensLive } from '@/infrastructure/connections/sentinel-tokens-live'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
@@ -17,6 +19,7 @@ import { AuditLogRepositoryLive } from '@/infrastructure/database/repositories/a
 import { AiEmbeddingRepositoryActive } from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
+import { OrganizationTeamRepositoryLive } from '@/infrastructure/database/repositories/auth/organization-team-repository-live'
 import { AutomationApprovalRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-approval-repository-live'
 import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-digest-repository-live'
 import { AutomationPauseRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-pause-repository-live'
@@ -24,6 +27,7 @@ import { AutomationRepositoryLive } from '@/infrastructure/database/repositories
 import { AutomationRunOutcomeRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-outcome-repository-live'
 import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
 import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
+import { BrowserSessionRepositoryLive } from '@/infrastructure/database/repositories/automations/browser-session-repository-live'
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
@@ -122,6 +126,10 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   EmailSenderLive,
   AutomationApprovalRepositoryLive,
   AuthRepositoryLive,
+  // `OrganizationTeamRepository` — the `auth/addToGroup` / `auth/removeFromGroup`
+  // steps write the group membership through the same team store the console's
+  // account-groups route writes.
+  OrganizationTeamRepositoryLive,
   AutomationStateRepositoryLive,
   AutomationDigestRepositoryLive,
   ConnectionRepositoryLive,
@@ -142,6 +150,9 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // `ConfigAccountProvisioner` — the `auth/createUser` step; loads the auth
   // engine lazily, so a deployment without `auth:` never pays for it.
   ConfigAccountProvisionerLive,
+  // `OAuthClientRegistrar` — the sign-in client steps (`auth/*OAuthClient*`),
+  // over the app's own OAuth provider; loads the engine lazily like the above.
+  OAuthClientRegistrarLive,
   AiServiceLive,
   // `SpeechService` — the `ai/transcribe` handler's speech endpoint (`STT_*`).
   // Its construction reads env only and cannot fail; an unset `STT_PROVIDER`
@@ -177,6 +188,11 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // (`RENDERER_*`, [internal ref]). Building it starts no browser: Chrome is spawned
   // or connected on the first render and closed when the layer is released.
   DocumentRendererLive,
+  // `BrowserDriver` — the `browser/run` steps (`BROWSER_*`, [internal ref]). Building it
+  // starts nothing; the first session starts the process's one Chrome, shared
+  // with the renderer above. `BrowserSessionRepository` keeps sealed jars.
+  BrowserDriverLive,
+  BrowserSessionRepositoryLive,
   // `SvgRasterizer` — SVG → PNG in the binary (resvg-wasm, loaded on first use).
   SvgRasterizerLive,
   // `PdfToolkit` — PDF structure for `pdf/*` (pure JS, loaded on first use).

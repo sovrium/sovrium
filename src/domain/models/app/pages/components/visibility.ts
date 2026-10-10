@@ -253,6 +253,15 @@ export type RuntimeCapability = Schema.Schema.Type<typeof RuntimeCapabilitySchem
  *     operator: neq
  *     value: premium
  *
+ * # Show only to a reader who has turned two-step verification on (a boolean
+ * # field compares with a boolean value)
+ * visibility:
+ *   when: authenticated
+ *   condition:
+ *     field: $user.twoFactorEnabled
+ *     operator: eq
+ *     value: true
+ *
  * # Inside a list/gallery/kanban row template: show the "Declare" link only on
  * # rows that have not been declared yet
  * visibility:
@@ -469,18 +478,30 @@ export const VisibilitySchema = Schema.Struct({
   /** Field-based condition (SSR-excluded when condition doesn't match) */
   condition: Schema.optional(
     Schema.Struct({
-      /** Field reference (e.g., $user.plan, $user.role, $invitation.status) */
+      /**
+       * Field reference (e.g., $user.role, $user.twoFactorEnabled,
+       * $invitation.status). `$user.twoFactorEnabled` is `true` once the reader
+       * has turned two-step verification on and `false` otherwise, on an app
+       * that configures `auth.twoFactor`.
+       */
       field: Schema.String.annotate({
         description:
-          'Field reference to evaluate: a signed-in user field (e.g., $user.plan), or, on a page declaring `invitation`, an invitation field (e.g., $invitation.status)',
+          'Field reference to evaluate: a signed-in user field (e.g., $user.role, or $user.twoFactorEnabled — true once the reader has turned two-step verification on, false otherwise), or, on a page declaring `invitation`, an invitation field (e.g., $invitation.status)',
       }),
       /** Comparison operator */
       operator: Schema.Literals(['eq', 'neq']).annotate({
         description: 'Comparison operator: eq (equals) or neq (not equals)',
       }),
-      /** Value to compare against */
-      value: Schema.String.annotate({
-        description: 'Value to compare the field against',
+      /**
+       * Value to compare against. A boolean compares a yes/no field such as
+       * `$user.twoFactorEnabled`; a string compares a text field. The
+       * comparison keeps the type: the string `'true'` never equals the
+       * boolean `true`.
+       */
+      value: Schema.Union([Schema.String, Schema.Boolean]).annotate({
+        description:
+          'Value to compare the field against: a string for a text field (e.g., admin), or true / false for a yes/no field (e.g., $user.twoFactorEnabled). The type is kept — the string "true" does not equal the boolean true.',
+        examples: ['admin', true],
       }),
     }).annotate({
       title: 'Visibility Condition',

@@ -6,12 +6,12 @@ Search is not a feature domain with a configuration block of its own. There is n
 
 ## Four mechanisms, and what each one searches
 
-| Mechanism         | Declared by                                      | Runs                                                         | Searches                                 |
-| ----------------- | ------------------------------------------------ | ------------------------------------------------------------ | ---------------------------------------- |
-| Bound-component   | `dataSource.mode: search` on a data component    | in the browser, over the records the page already fetched    | one table                                |
-| Records endpoint  | `?q=` on `GET /api/tables/<table>/records`       | in the database, as a case-insensitive substring match       | one table                                |
-| Command palette   | ⌘K, on by default; `command-palette` to place it | in the database, over the palette's own full-text index      | every table you may read, and your pages |
-| Public-page index | `search-input` with `scope: page`                | in the browser, over a static index built at `build`/`start` | the text of your public pages            |
+| Mechanism         | Declared by                                      | Runs                                                                                         | Searches                                 |
+| ----------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Bound-component   | `dataSource.mode: search` on a data component    | in the browser over the fetched records, or in the database with `searchEngine: fts`         | one table                                |
+| Records endpoint  | `?q=` on `GET /api/tables/<table>/records`       | in the database: by word from an index on `fullTextSearch` fields, else as a substring match | one table                                |
+| Command palette   | ⌘K, on by default; `command-palette` to place it | in the database, over the palette's own full-text index                                      | every table you may read, and your pages |
+| Public-page index | `search-input` with `scope: page`                | in the browser, over a static index built at `build`/`start`                                 | the text of your public pages            |
 
 The first two read RECORDS, the last reads PAGE CONTENT, and the palette reads both. They are different features at different layers, and a visitor cannot tell which one a box in front of them is using — so the choice is yours to make deliberately.
 
@@ -45,22 +45,43 @@ The whole bound set travels to the browser, so this mode suits a reference list,
 
 ### What `searchEngine` selects
 
-`searchEngine` accepts four values, and `client` is both the default and the one the bound-component mode implements:
+`searchEngine` accepts four values; `client` is the default:
 
-| Engine    | Intended backend                       | Status                                                             |
-| --------- | -------------------------------------- | ------------------------------------------------------------------ |
-| `client`  | Browser JavaScript over fetched rows   | **Implemented.** The default when the key is omitted.              |
-| `fts`     | PostgreSQL `tsvector` / `tsquery`      | Accepted by `sovrium validate`; not yet dispatched by the binding. |
-| `trigram` | PostgreSQL `pg_trgm`, typo-tolerant    | Accepted by `sovrium validate`; not yet dispatched by the binding. |
-| `hybrid`  | Ranked full text with a fuzzy fallback | Accepted by `sovrium validate`; not yet dispatched by the binding. |
+| Engine    | What answers the visitor's query                    | Status                                                             |
+| --------- | --------------------------------------------------- | ------------------------------------------------------------------ |
+| `client`  | Browser JavaScript, over the rows the page was sent | **Implemented.** The default when the key is omitted.              |
+| `fts`     | The database, through the records endpoint's `?q=`  | **Implemented.**                                                   |
+| `trigram` | Intended: typo-tolerant matching                    | Accepted by `sovrium validate`; searches exactly as `client` does. |
+| `hybrid`  | Intended: ranked words with a fuzzy fallback        | Accepted by `sovrium validate`; searches exactly as `client` does. |
 
-A component declaring `fts`, `trigram` or `hybrid` validates, starts and searches exactly as `client` does. The values are reserved so that a configuration written today keeps its stated intent when the server-side engines land; nothing in your app breaks either way, and nothing about it gets faster yet. Where you need the DATABASE to do the searching now, use one of the other three mechanisms.
+With `fts`, the page no longer carries the whole bound set: it renders the first `limit` rows the binding selects (at most 100, the endpoint's largest page, which is also the size used when `limit` is omitted), and each query the visitor types is sent to `GET /api/tables/<table>/records?q=…`, within the binding's own `filter`. What comes back is what `?q=` answers — a ranked word search when the table declares `fullTextSearch` fields, a substring search otherwise — so a search list over a table of a million log lines costs one indexed query per keystroke rather than a million rows in the page. Clearing the box brings back the first rows. `searchFields` does not narrow an `fts` search: the fields searched are the ones `?q=` searches.
+
+```yaml
+name: monitoring
+tables:
+  - name: logs
+    fields:
+      - { name: service, type: single-line-text }
+      - { name: body, type: long-text, fullTextSearch: true }
+pages:
+  - name: Logs
+    path: /logs
+    components:
+      - type: list
+        dataSource:
+          table: logs
+          mode: search
+          searchEngine: fts
+          limit: 50
+        children:
+          - { type: text, content: '$record.body' }
+```
 
 ## `?q=` — searching in the query
 
 `GET /api/tables/<table>/records?q=<term>` searches in SQL, across the whole table rather than across one loaded page, so the total the response reports is the count of MATCHING rows and the pager offers only pages that still exist.
 
-Three things decide what it can match:
+On a table declaring `fullTextSearch` on a `long-text` field, `q` is a ranked word search over the declared fields, read from an index — prefixes, phrases in double quotes, every word required. **Full-Text Search** documents that grammar. Everywhere else it is a case-insensitive substring match, and three things decide what it can match:
 
 - **Field type.** Only text-shaped fields are searched: `single-line-text`, `long-text`, `rich-text`, `email`, `url`, `phone-number`, `single-select`, `status`, `code` and `barcode`. A substring match against a number, a date or a boolean is not meaningful, and on PostgreSQL it is an outright error.
 - **Computed fields are excluded**, even when they render as text. `formula`, `lookup`, `rollup` and `count` are view expressions rather than stored columns.
@@ -93,18 +114,18 @@ A `search-input` with `scope: page` searches the TEXT OF YOUR PAGES rather than 
 
 ## Choosing an approach
 
-| Need                                                 | Reach for                                                 |
-| ---------------------------------------------------- | --------------------------------------------------------- |
-| Narrow a small bound list already on the page        | `dataSource.mode: search`                                 |
-| Find a row that may sit on any page of a large table | `?q=`, or a `table` with `toolbar.search: true`           |
-| Search across every table at once                    | the ⌘K palette                                            |
-| Search the content of your public pages              | `search-input` with `scope: page`                         |
-| Declare which fields are worth indexing              | `indexed` and `fullTextSearch` — see **Full-Text Search** |
+| Need                                                 | Reach for                                                          |
+| ---------------------------------------------------- | ------------------------------------------------------------------ |
+| Narrow a small bound list already on the page        | `dataSource.mode: search`                                          |
+| Find a row that may sit on any page of a large table | `?q=`, or a `table` with `toolbar.search: true`                    |
+| Search across every table at once                    | the ⌘K palette                                                     |
+| Search the content of your public pages              | `search-input` with `scope: page`                                  |
+| Search a large text field by word, ranked            | `fullTextSearch` on a `long-text` field — see **Full-Text Search** |
 
 ## Related reading
 
 - **Search Components** — `search-input` and its two scopes, the `list` display, the palette, the toolbar box.
-- **Full-Text Search** — what `indexed` and `fullTextSearch` emit, per dialect.
+- **Full-Text Search** — what `indexed` and `fullTextSearch` emit, per dialect, and the word-search grammar.
 - **Data Binding** — every `dataSource` property, including the search ones.
 - **Records: Filtering & Sorting** — the `?q=`, `filter` and `sort` query parameters.
 - **Data Components** — `table`, `kanban`, `calendar`, `list` and their toolbars.

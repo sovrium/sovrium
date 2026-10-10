@@ -118,6 +118,7 @@ export function renderCategoryChart(args: CategoryChartArgs): ReactElement {
     return (
       <LineChartCanvas
         data={data}
+        xFormat={xAxis?.format}
         accessibleName={accessibleName}
       />
     )

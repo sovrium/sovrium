@@ -14,6 +14,7 @@ import {
   resolveClientScriptPaths,
 } from '@/infrastructure/assets/client-entries'
 import { readInvitationFacts } from '@/infrastructure/auth/better-auth/invitation-page-reader'
+import { readTwoFactorAttempt } from '@/infrastructure/auth/better-auth/two-factor-attempt-reader'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import { buildIslands } from '@/infrastructure/server/route-setup/island-assets'
 import { renderErrorPage, renderNotFoundPage } from '@/presentation/render/page/render-error-pages'
@@ -49,6 +50,8 @@ function createDataSourceDbAdapter(
     fetchAccountChoices: (limit) => Effect.runPromise(auth.listAccountChoices(limit)),
     // A `page.invitation` page's lookup of the token in its address.
     readInvitation: readInvitationFacts,
+    // A code page's lookup of the sign-in waiting for its code.
+    readTwoFactorAttempt,
   }
 }
 

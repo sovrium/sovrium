@@ -196,6 +196,12 @@ export const adminDirectoryUserSchema = Schema.Struct({
     description:
       'Whether the account is banned (`auth.user.banned`). Drives the Statut pill: `false` → actif, `true` → banni.',
   }),
+  groups: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description:
+        'The groups the account belongs to, by name, sorted. Empty for an account in no group, and for every account of an app that declares no group. It is what the console\'s Groups editor opens preset to. ABSENT when the memberships could not be read: an absent list is unknown, never "no group", so the editor offers no save that could clear them.',
+    })
+  ),
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'AdminDirectoryUser' })
 
 // ─── Directory List Response ─────────────────────────────────────────────────

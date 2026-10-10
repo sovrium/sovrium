@@ -118,6 +118,7 @@ function buildSearchIslandProps(
     searchFields: JSON.parse((elementProps['_searchFields'] as string) ?? '[]'),
     debounceMs: elementProps['_searchDebounceMs'] as number | undefined,
     limit: elementProps['_searchLimit'] as number | undefined,
+    server: JSON.parse((elementProps['_searchServer'] as string | undefined) ?? 'null'),
     childTemplate: JSON.parse((elementProps['_searchChildTemplate'] as string) ?? '[]'),
     itemTemplate: listDisplay?.itemTemplate,
     emptyMessage: listDisplay?.emptyMessage,

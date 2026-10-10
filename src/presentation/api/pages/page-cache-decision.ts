@@ -112,7 +112,8 @@ export function decidePageCache(
 }
 
 /**
- * The `Cache-Control` a bypass carries: never stored for an invitation page;
+ * The `Cache-Control` a bypass carries: never stored for an invitation page or
+ * a page reading the visitor's own cookie (a two-step code page);
  * otherwise private unless the render is anonymous
  * with the cache on; otherwise revalidated on every visit when the page reads
  * record data, and briefly shareable when it varies only with its URL.
@@ -121,7 +122,9 @@ function bypassCacheControlFor(
   shareableBypass: boolean,
   classification: RenderablePathCacheability
 ): string {
-  if (classification.page?.invitation !== undefined) return PER_VISIT_CACHE_CONTROL
+  if (classification.page?.invitation !== undefined || classification.perVisit === true) {
+    return PER_VISIT_CACHE_CONTROL
+  }
   if (!shareableBypass) return PRIVATE_CACHE_CONTROL
   return classification.readsRecordData
     ? REVALIDATED_PAGE_CACHE_CONTROL

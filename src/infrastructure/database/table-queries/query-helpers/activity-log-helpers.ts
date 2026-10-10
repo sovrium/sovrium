@@ -6,13 +6,16 @@
  */
 
 import { Cause, Effect } from 'effect'
+import {
+  UnauditedTables,
+  type CommittedRowChange,
+} from '@/application/ports/services/record-change-feed'
 import { resolveActorUserId } from '@/domain/models/app/auth/guest-session'
 import { db, DatabaseError } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
 import { logError } from '@/infrastructure/logging/logger'
-import type { CommittedRowChange } from '@/application/ports/services/record-change-feed'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -63,12 +66,8 @@ const activityRow = (actor: Readonly<Session>, entry: ActivityEntry) => {
  */
 const ENTRIES_PER_INSERT = 500
 
-/**
- * Write audit entries in as few statements as the parameter limit allows: one
- * multi-row INSERT for any batch the records API accepts. Non-fatal and
- * logged, as {@link logActivity} documents.
- */
-const insertActivityEntries = (
+/** {@link insertActivityEntries}, once the entries of unaudited tables are dropped. */
+const insertAuditedEntries = (
   actor: Readonly<Session>,
   entries: readonly ActivityEntry[]
 ): Effect.Effect<void, never> => {
@@ -106,6 +105,25 @@ const insertActivityEntries = (
     Effect.ignore
   )
 }
+
+/**
+ * Write audit entries in as few statements as the parameter limit allows: one
+ * multi-row INSERT for any batch the records API accepts. Non-fatal and
+ * logged, as {@link logActivity} documents. The entries of a table declaring
+ * `activityLog: false` are dropped first: the announcing scope every write runs
+ * in names those tables ({@link UnauditedTables}).
+ */
+const insertActivityEntries = (
+  actor: Readonly<Session>,
+  entries: readonly ActivityEntry[]
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const unaudited = yield* UnauditedTables
+    yield* insertAuditedEntries(
+      actor,
+      unaudited.size === 0 ? entries : entries.filter((entry) => !unaudited.has(entry.tableName))
+    )
+  })
 
 /**
  * Common activity logging helper

@@ -193,6 +193,15 @@ export const computeFormRequiredMarkClasses = (): string => 'text-error-solid'
 export const computeAuthFeedbackBannerClasses = (): string => 'rounded-md px-3 py-2 text-md'
 
 /**
+ * The link under an auth form's notice (a code page's "Back to sign in"): the
+ * auth blocks' footer link — `text-md`, the foreground tone, underlined four
+ * pixels down — so the way back reads at the size of every other way back on
+ * an auth page, in classes the candidate set already compiles.
+ */
+export const AUTH_NOTICE_LINK_CLASSES =
+  'text-md font-medium text-foreground underline underline-offset-4'
+
+/**
  * Inline tone for the ERROR banner. Reads the theme's error tokens
  * (`--sv-error-bg` / `--sv-error-fg`) with the design-system default fallbacks
  * pulled from the canonical {@link TOKENS} catalog (`errorBg` / `errorFg`) — so

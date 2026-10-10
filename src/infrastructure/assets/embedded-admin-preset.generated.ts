@@ -829,6 +829,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.locked.audit.schema.redactionNotice':
           'The configuration this instance booted from, exactly as it is running. Credentials are redacted before the page is built.',
         'admin.login.blurb': 'The operator console for ',
+        'admin.login.cloudSignIn': 'Sign in with Sovrium Cloud',
         'admin.login.forgotLink': 'Forgot your password?',
         'admin.login.heading': 'Sign in',
         'admin.login.pending': 'Signing in…',
@@ -1002,6 +1003,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.pages.technology.heading': 'Technology',
         'admin.pages.top.region': 'Most-viewed pages',
         'admin.pages.trend.region': 'Audience trend',
+        'admin.profile.cloud.connect': 'Connect Sovrium Cloud account',
+        'admin.profile.cloud.disconnect': 'Disconnect Sovrium Cloud account',
+        'admin.profile.cloud.label': 'Sovrium Cloud',
         'admin.profile.data.hint':
           'Export everything this instance holds about you, or erase your account.',
         'admin.profile.data.label': 'Your data',
@@ -1127,18 +1131,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.templates.row.sample': 'Sample data',
         'admin.users.account.back': 'Back to users',
         'admin.users.account.blurb':
-          'One account: its role and status, the writes an administrator may make on it, and what the console cannot show about it yet.',
+          'One account: its role, groups and status, the writes an administrator may make on it, and what the console cannot show about it yet.',
         'admin.users.account.gaps.activity.body':
-          'The directory returns id, email, name, role and status. A per-account last-activity moment needs the session table joined in, which no read does.',
+          'The directory returns id, email, name, role, status and groups. A per-account last-activity moment needs the session table joined in, which no read does.',
         'admin.users.account.gaps.activity.heading': 'Last active',
         'admin.users.account.gaps.heading': 'Not shown here',
         'admin.users.account.gaps.region': 'Not shown here',
         'admin.users.account.gaps.sessions.body':
           'Ending every session is above, under the row actions. Listing them is not: the endpoint that returns them answers a POST, and a console read is a GET.',
         'admin.users.account.gaps.sessions.heading': 'Open sessions',
-        'admin.users.account.gaps.teams.body':
-          'Teams are declared in auth.groups[]. No admin read publishes which ones an account belongs to, so membership cannot be shown or changed here.',
-        'admin.users.account.gaps.teams.heading': 'Teams',
         'admin.users.account.heading': 'Account',
         'admin.users.account.region': 'Account',
         'admin.users.account.roles.body':
@@ -1146,7 +1147,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.users.account.roles.heading': 'Assignable roles',
         'admin.users.account.roles.region': 'Assignable roles',
         'admin.users.blurb':
-          'Manage your app’s accounts: search for a user, adjust their role, or suspend access. Account creation goes through the admin API (see Developers → API).',
+          'Manage your app’s accounts: search for a user, adjust their role or groups, or suspend access. Account creation goes through the admin API (see Developers → API).',
         'admin.users.heading': 'Users',
         'admin.users.metrics.region': 'User metrics',
         'admin.users.region': 'Users',
@@ -1578,6 +1579,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.locked.audit.schema.redactionNotice':
           'La configuration depuis laquelle cette instance a démarré, exactement telle qu’elle tourne. Les identifiants sont expurgés avant la construction de la page.',
         'admin.login.blurb': 'La console d’exploitation de ',
+        'admin.login.cloudSignIn': 'Se connecter avec Sovrium Cloud',
         'admin.login.forgotLink': 'Mot de passe oublié ?',
         'admin.login.heading': 'Connexion',
         'admin.login.pending': 'Connexion…',
@@ -1751,6 +1753,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.pages.technology.heading': 'Technologie',
         'admin.pages.top.region': 'Pages les plus vues',
         'admin.pages.trend.region': 'Tendance de l’audience',
+        'admin.profile.cloud.connect': 'Connecter le compte Sovrium Cloud',
+        'admin.profile.cloud.disconnect': 'Déconnecter le compte Sovrium Cloud',
+        'admin.profile.cloud.label': 'Sovrium Cloud',
         'admin.profile.data.hint':
           'Exporte tout ce que cette instance détient sur toi, ou efface ton compte.',
         'admin.profile.data.label': 'Tes données',
@@ -1880,18 +1885,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.templates.row.sample': 'Données d’exemple',
         'admin.users.account.back': 'Retour aux utilisateurs',
         'admin.users.account.blurb':
-          'Un compte : son rôle et son statut, les écritures qu’une administratrice peut y faire, et ce que la console ne sait pas encore en montrer.',
+          'Un compte : son rôle, ses groupes et son statut, les écritures qu’une administratrice peut y faire, et ce que la console ne sait pas encore en montrer.',
         'admin.users.account.gaps.activity.body':
-          'L’annuaire renvoie id, e-mail, nom, rôle et statut. Un instant de dernière activité par compte demande une jointure sur la table des sessions, qu’aucune lecture ne fait.',
+          'L’annuaire renvoie id, e-mail, nom, rôle, statut et groupes. Un instant de dernière activité par compte demande une jointure sur la table des sessions, qu’aucune lecture ne fait.',
         'admin.users.account.gaps.activity.heading': 'Dernière activité',
         'admin.users.account.gaps.heading': 'Non montré ici',
         'admin.users.account.gaps.region': 'Non montré ici',
         'admin.users.account.gaps.sessions.body':
           'Fermer toutes les sessions se fait ci-dessus, dans les actions de la ligne. Les lister, non : le point d’accès qui les renvoie répond à un POST, et une lecture de console est un GET.',
         'admin.users.account.gaps.sessions.heading': 'Sessions ouvertes',
-        'admin.users.account.gaps.teams.body':
-          'Les équipes sont déclarées dans auth.groups[]. Aucune lecture admin ne publie l’appartenance d’un compte, donc elle ne peut être ni montrée ni changée ici.',
-        'admin.users.account.gaps.teams.heading': 'Équipes',
         'admin.users.account.heading': 'Compte',
         'admin.users.account.region': 'Compte',
         'admin.users.account.roles.body':
@@ -1899,7 +1901,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.users.account.roles.heading': 'Rôles assignables',
         'admin.users.account.roles.region': 'Rôles assignables',
         'admin.users.blurb':
-          'Gère les comptes de ton app : cherche un utilisateur, ajuste son rôle, ou suspends son accès. La création de compte passe par l’API admin (voir Développeurs → API).',
+          'Gère les comptes de ton app : cherche un utilisateur, ajuste son rôle ou ses groupes, ou suspends son accès. La création de compte passe par l’API admin (voir Développeurs → API).',
         'admin.users.heading': 'Utilisateurs',
         'admin.users.metrics.region': 'Indicateurs des utilisateurs',
         'admin.users.region': 'Utilisateurs',
@@ -4594,6 +4596,59 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                               props: {
                                 className:
                                   'grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0',
+                              },
+                              type: 'container',
+                            },
+                            {
+                              children: [
+                                {
+                                  content: '$t:admin.profile.cloud.label',
+                                  element: 'h2',
+                                  props: {
+                                    className:
+                                      'text-foreground block text-base font-medium sm:leading-8',
+                                  },
+                                  type: 'text',
+                                },
+                                {
+                                  children: [
+                                    {
+                                      action: {
+                                        method: 'linkAccount',
+                                        provider: 'sovrium-cloud',
+                                        submitLabel: '$t:admin.profile.cloud.connect',
+                                        type: 'auth',
+                                      },
+                                      props: {
+                                        id: 'profile-cloud-connect',
+                                      },
+                                      type: 'form',
+                                    },
+                                    {
+                                      action: {
+                                        method: 'unlinkAccount',
+                                        provider: 'sovrium-cloud',
+                                        submitLabel: '$t:admin.profile.cloud.disconnect',
+                                        type: 'auth',
+                                      },
+                                      props: {
+                                        id: 'profile-cloud-disconnect',
+                                      },
+                                      type: 'form',
+                                    },
+                                  ],
+                                  element: 'div',
+                                  props: {
+                                    className: 'flex min-w-0 flex-col gap-2',
+                                  },
+                                  type: 'container',
+                                },
+                              ],
+                              element: 'div',
+                              props: {
+                                className:
+                                  'grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0',
+                                'data-testid': 'profile-cloud-account',
                               },
                               type: 'container',
                             },
@@ -16348,6 +16403,10 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   label: 'Role',
                                 },
                                 {
+                                  field: 'groups',
+                                  label: 'Groups',
+                                },
+                                {
                                   cellStyle: [
                                     {
                                       className:
@@ -16417,6 +16476,36 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                         saveLabel: 'Save',
                                       },
                                       label: 'Change role',
+                                    },
+                                    {
+                                      action: {
+                                        body: {
+                                          groups: '$record.groups',
+                                        },
+                                        method: 'PUT',
+                                        onSuccess: {
+                                          message: 'Groups updated',
+                                          refetch: 'admin-users-grid',
+                                          type: 'toast',
+                                        },
+                                        type: 'fetch',
+                                        url: '/api/admin/users/$record.id/groups',
+                                      },
+                                      editSelect: {
+                                        field: 'groups',
+                                        label: 'Groups',
+                                        multiple: true,
+                                        optionsSource: {
+                                          labelKey: 'name',
+                                          system: {
+                                            endpoint: '/api/admin/groups',
+                                            rowsKey: 'groups',
+                                          },
+                                          valueKey: 'name',
+                                        },
+                                        saveLabel: 'Save',
+                                      },
+                                      label: 'Change groups',
                                     },
                                     {
                                       action: {
@@ -17432,6 +17521,10 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   label: 'Role',
                                 },
                                 {
+                                  field: 'groups',
+                                  label: 'Groups',
+                                },
+                                {
                                   cellStyle: [
                                     {
                                       className:
@@ -17501,6 +17594,36 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                         saveLabel: 'Save',
                                       },
                                       label: 'Change role',
+                                    },
+                                    {
+                                      action: {
+                                        body: {
+                                          groups: '$record.groups',
+                                        },
+                                        method: 'PUT',
+                                        onSuccess: {
+                                          message: 'Groups updated',
+                                          refetch: 'admin-users-grid',
+                                          type: 'toast',
+                                        },
+                                        type: 'fetch',
+                                        url: '/api/admin/users/$record.id/groups',
+                                      },
+                                      editSelect: {
+                                        field: 'groups',
+                                        label: 'Groups',
+                                        multiple: true,
+                                        optionsSource: {
+                                          labelKey: 'name',
+                                          system: {
+                                            endpoint: '/api/admin/groups',
+                                            rowsKey: 'groups',
+                                          },
+                                          valueKey: 'name',
+                                        },
+                                        saveLabel: 'Save',
+                                      },
+                                      label: 'Change groups',
                                     },
                                     {
                                       action: {
@@ -18456,6 +18579,10 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                               label: 'Role',
                             },
                             {
+                              field: 'groups',
+                              label: 'Groups',
+                            },
+                            {
                               cellStyle: [
                                 {
                                   className:
@@ -18511,6 +18638,36 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                     saveLabel: 'Save',
                                   },
                                   label: 'Change role',
+                                },
+                                {
+                                  action: {
+                                    body: {
+                                      groups: '$record.groups',
+                                    },
+                                    method: 'PUT',
+                                    onSuccess: {
+                                      message: 'Groups updated',
+                                      refetch: 'admin-user-account',
+                                      type: 'toast',
+                                    },
+                                    type: 'fetch',
+                                    url: '/api/admin/users/$record.id/groups',
+                                  },
+                                  editSelect: {
+                                    field: 'groups',
+                                    label: 'Groups',
+                                    multiple: true,
+                                    optionsSource: {
+                                      labelKey: 'name',
+                                      system: {
+                                        endpoint: '/api/admin/groups',
+                                        rowsKey: 'groups',
+                                      },
+                                      valueKey: 'name',
+                                    },
+                                    saveLabel: 'Save',
+                                  },
+                                  label: 'Change groups',
                                 },
                                 {
                                   action: {
@@ -18725,33 +18882,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 {
                                   children: [
                                     {
-                                      content: '$t:admin.users.account.gaps.teams.heading',
-                                      element: 'h3',
-                                      props: {
-                                        className: 'text-foreground text-md font-medium',
-                                      },
-                                      type: 'text',
-                                    },
-                                    {
-                                      content: '$t:admin.users.account.gaps.teams.body',
-                                      element: 'p',
-                                      props: {
-                                        className:
-                                          'text-foreground-muted max-w-2xl text-md leading-relaxed',
-                                      },
-                                      type: 'text',
-                                    },
-                                  ],
-                                  element: 'div',
-                                  props: {
-                                    className:
-                                      'border-border bg-background-raised flex flex-col gap-1 rounded-lg border p-4',
-                                  },
-                                  type: 'container',
-                                },
-                                {
-                                  children: [
-                                    {
                                       content: '$t:admin.users.account.gaps.activity.heading',
                                       element: 'h3',
                                       props: {
@@ -18778,7 +18908,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 },
                               ],
                               props: {
-                                className: 'grid grid-cols-1 gap-4 lg:grid-cols-3',
+                                className: 'grid grid-cols-1 gap-4 lg:grid-cols-2',
                               },
                               type: 'container',
                             },
@@ -119981,6 +120111,23 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                   },
                   props: {
                     id: 'admin-login-form',
+                  },
+                  type: 'form',
+                },
+                {
+                  action: {
+                    method: 'login',
+                    onSuccess: {
+                      navigate: '/',
+                    },
+                    provider: 'sovrium-cloud',
+                    strategy: 'oauth',
+                    submitLabel: '$t:admin.login.cloudSignIn',
+                    type: 'auth',
+                  },
+                  props: {
+                    className: 'mt-4 flex flex-col',
+                    id: 'admin-cloud-sign-in',
                   },
                   type: 'form',
                 },

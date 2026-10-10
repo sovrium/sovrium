@@ -51,6 +51,7 @@ import {
   type OptionSourceQuery,
 } from '@/domain/models/app/forms/form-option-source-service'
 import { normalizeCurrentUserRef } from '@/domain/models/app/pages/current-user-ref'
+import { filterWithFieldLiterals } from '@/domain/models/app/tables/checkbox-literal-service'
 import {
   admittedWindow,
   visitorRowRule,
@@ -150,12 +151,16 @@ export const readAdmittedSourceRows = (
 ) =>
   Effect.gen(function* () {
     const repo = yield* DataSourceRepository
-    const table = app.auth ? app.tables?.find((t) => t.name === query.table) : undefined
+    const declared = app.tables?.find((t) => t.name === query.table)
+    const table = app.auth ? declared : undefined
     const reader = readerOf(visitor, app)
     const rule = visitorRowRule(table, reader)
-    if (rule.kind === 'all') return yield* repo.fetchRecords(query.table, query.options)
+    // A literal compared with a checkbox binds a boolean, as on a page's own read.
+    const filter = filterWithFieldLiterals(query.options.filter, declared?.fields)
+    const options = { ...query.options, filter }
+    if (rule.kind === 'all') return yield* repo.fetchRecords(query.table, options)
     if (rule.kind === 'none') return []
-    const { fields, pageSize, ...whole } = query.options
+    const { fields, pageSize, ...whole } = options
     const rows = yield* repo.fetchRecords(query.table, whole)
     const assignments = yield* loadAssignments(reader, rule.scopeTables)
     const verdicts = rows.map((row) => rule.admits(row, assignments))

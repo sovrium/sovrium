@@ -6,6 +6,10 @@
  */
 
 import {
+  percentileFieldsOf,
+  type PercentileFields,
+} from '@/domain/models/app/tables/aggregate-percentile-service'
+import {
   isFieldReadableByCaller,
   isSystemField,
 } from '@/domain/models/app/tables/field-read-filter-service'
@@ -14,7 +18,7 @@ import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
-type AggregateParams = {
+type AggregateParams = PercentileFields & {
   readonly count?: boolean
   readonly sum?: readonly string[]
   readonly avg?: readonly string[]
@@ -206,7 +210,7 @@ function unorderedAggregateField(
 }
 
 /**
- * The first `sum`/`avg` field that is not a number: they add values up, so a
+ * The first `sum`/`avg`/percentile field that is not a number: they add or rank values, so a
  * text, a choice, a date or a lookup copying one is refused rather than
  * answered with `0` (SQLite) or a driver error (PostgreSQL). A lookup is judged
  * as the field it copies, as `min`/`max` judge it; a kind this list does not
@@ -216,7 +220,12 @@ function nonNumericAggregateField(
   aggregate: AggregateParams,
   { app, tableName }: Pick<FieldAccessContext, 'app' | 'tableName'>
 ): string | undefined {
-  return [...(aggregate.sum ?? []), ...(aggregate.avg ?? [])].find((fieldName) => {
+  const numeric = [
+    ...(aggregate.sum ?? []),
+    ...(aggregate.avg ?? []),
+    ...percentileFieldsOf(aggregate),
+  ]
+  return numeric.find((fieldName) => {
     const kind = minMaxKindOf(app, tableName, fieldName)
     return kind !== 'number' && kind !== 'unknown'
   })
@@ -239,6 +248,7 @@ export function validateAggregateParam(
     ...(aggregate.avg ?? []),
     ...(aggregate.min ?? []),
     ...(aggregate.max ?? []),
+    ...percentileFieldsOf(aggregate),
   ]
 
   // A name the table does not have and a field the caller may not read get the
@@ -250,7 +260,7 @@ export function validateAggregateParam(
 
   const nonNumeric = nonNumericAggregateField(aggregate, access)
   if (nonNumeric !== undefined) {
-    const message = `\`sum\` and \`avg\` take numbers; '${nonNumeric}' is not a number`
+    const message = `\`sum\` and \`avg\` take numbers, as the percentiles do; '${nonNumeric}' is not a number`
     return c.json({ success: false, message, code: 'VALIDATION_ERROR' }, 400)
   }
 

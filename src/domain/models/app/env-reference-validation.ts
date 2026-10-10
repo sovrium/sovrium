@@ -121,3 +121,18 @@ export const validateAllEnvReferences = (app: AppForEnvReferenceValidation): tru
   if (refusal === undefined) return true
   return `${refusal.location} references $env.${refusal.name}, a variable the app does not declare — declare ${refusal.name} in app.env`
 }
+
+/**
+ * {@link validateAllEnvReferences} over a configuration not yet decoded: its
+ * refusal as a list, empty when every reference is declared. For a refusal
+ * raised before the decode, so the same run still names an undeclared
+ * variable. An `env` that is not a list declares nothing it can read.
+ */
+export const undeclaredEnvReferenceRefusals = (config: unknown): readonly string[] => {
+  if (!isRecord(config)) return []
+  const env = (Array.isArray(config['env']) ? config['env'] : [])
+    .filter(isRecord)
+    .flatMap((entry) => (typeof entry['key'] === 'string' ? [{ key: entry['key'] }] : []))
+  const verdict = validateAllEnvReferences({ ...config, env })
+  return verdict === true ? [] : [verdict]
+}

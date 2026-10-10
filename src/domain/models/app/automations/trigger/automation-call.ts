@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { TriggerHistorySchema } from './trigger-history'
 import { TriggerNameSchema } from './trigger-name'
 
 /**
@@ -29,6 +30,9 @@ export const AutomationCallTriggerSchema = Schema.Struct({
 
   /** Name of this trigger within its automation (defaults to its type) */
   name: Schema.optional(TriggerNameSchema),
+
+  /** How much of a run this trigger starts is kept once it ends (defaults to `full`) */
+  history: Schema.optional(TriggerHistorySchema),
   inputSchema: Schema.optional(
     Schema.Record(Schema.String, Schema.Unknown).pipe(
       Schema.annotate({

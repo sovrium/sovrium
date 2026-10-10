@@ -25,6 +25,7 @@ import { hostname } from 'node:os'
 import { HTTPException } from 'hono/http-exception'
 import { classifyDriverFailure } from '@/domain/errors/driver-failure'
 import { isErrorReportingEnabled } from '@/domain/models/process-env/telemetry/telemetry'
+import { isInIngestScope } from '@/infrastructure/logging/ingest-request-scope'
 import { writeStderrText } from '@/infrastructure/logging/log-format'
 import { formatErrorChain } from './error-chain'
 import { initErrorReporter, registerProcessErrorHandlers, reportException } from './error-reporter'
@@ -213,8 +214,10 @@ export const emitTelemetryLog = (
     // The local record above is UNCONDITIONAL and stays that way: stdout is the
     // operator's own log, where a declined write is ordinary, searchable
     // context. Only the error STORE — the paging, triage-me surface — is
-    // filtered, and only for faults that are not ours.
-    if (isOperatorActionable(cause)) {
+    // filtered, and only for faults that are not ours. A failure raised while
+    // serving a telemetry ingest request is never reported: the app may be its
+    // own receiver, and reporting it would feed the request back to itself.
+    if (isOperatorActionable(cause) && !isInIngestScope()) {
       void reportException(cause)
     }
   }

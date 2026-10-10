@@ -295,3 +295,36 @@ export const withoutFieldsReadByNoOne = (
   Object.fromEntries(
     Object.entries(record).filter(([name]) => !isFieldReadByNoOne(app, tableName, name))
   )
+
+/**
+ * Whether `fieldName` on `tableName` is kept for admins alone — a judgement on
+ * the declaration, with no caller.
+ *
+ * A field qualifies when its `permissions.fields` entry has a `read` role list
+ * every entry of which is admin-equivalent (the built-in `admin` or a role equal
+ * to the app's top role, see `isAdminEquivalent`) and none of which is a
+ * `group:` reference; `read: []` qualifies too. No entry, an entry without
+ * `read`, `'all'`, `'authenticated'`, and any list naming a role below the admin
+ * tier or a group do not. System columns never do.
+ *
+ * Used where a row leaves for an audience that is not one caller: the data a
+ * record trigger hands its run, which every step may forward and run history
+ * stores.
+ */
+export const isFieldAdminOnly = (app: App, tableName: string, fieldName: string): boolean => {
+  if (isSystemField(fieldName)) return false
+  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  const read = table?.permissions?.fields?.find((entry) => entry.field === fieldName)?.read
+  if (read === undefined || !Array.isArray(read)) return false
+  return read.every((entry: string) => !isGroupReference(entry) && isAdminEquivalent(entry, app))
+}
+
+/** `record` without the fields of `tableName` kept for admins alone. */
+export const withoutAdminOnlyFields = (
+  app: App,
+  tableName: string,
+  record: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> =>
+  Object.fromEntries(
+    Object.entries(record).filter(([name]) => !isFieldAdminOnly(app, tableName, name))
+  )

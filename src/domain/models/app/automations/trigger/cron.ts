@@ -6,6 +6,7 @@
  */
 
 import { Cron, DateTime, Result, Schema } from 'effect'
+import { TriggerHistorySchema } from './trigger-history'
 import { TriggerNameSchema } from './trigger-name'
 
 /**
@@ -40,6 +41,9 @@ export const CronTriggerSchema = Schema.Struct({
 
   /** Name of this trigger within its automation (defaults to its type) */
   name: Schema.optional(TriggerNameSchema),
+
+  /** How much of a run this trigger starts is kept once it ends (defaults to `full`) */
+  history: Schema.optional(TriggerHistorySchema),
   expression: Schema.String.pipe(
     Schema.annotate({
       description:

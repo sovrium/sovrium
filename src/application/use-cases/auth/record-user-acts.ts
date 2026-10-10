@@ -7,7 +7,7 @@
 
 /**
  * The admin audit-trail entries for privileged acts on an account: a change of
- * role, the start and stop of an impersonation, a ban and a lifted ban, and a
+ * role or of groups, the start and stop of an impersonation, a ban and a lifted ban, and a
  * password set by an admin — and a person's own request to delete their account.
  *
  * Every door that performs one of these acts calls in here once the act has
@@ -177,6 +177,26 @@ export const recordUnban = (input: {
       input.author.kind === 'automation' ? automationMetadata(input.author) : undefined
     )
   }).pipe(Effect.withSpan('auth.record-unban'))
+
+/**
+ * Record a change of the groups an account belongs to: `user.groups.changed`,
+ * with the group NAMES it joined and left, each sorted. The caller records only
+ * a change that moved something — a write that changed nothing records nothing.
+ */
+export const recordGroupsChange = (input: {
+  readonly author: UserActAuthor
+  readonly userId: string
+  readonly added: readonly string[]
+  readonly removed: readonly string[]
+}): Effect.Effect<void, never, AuthRepository | AuditLogRepository> =>
+  Effect.gen(function* () {
+    const actor = yield* authorActor(input.author)
+    yield* emitUserAct(AUDIT_ACTIONS.USER_GROUPS_CHANGED, actor, input.userId, {
+      added: input.added,
+      removed: input.removed,
+      ...automationMetadata(input.author),
+    })
+  }).pipe(Effect.withSpan('auth.record-groups-change'))
 
 /**
  * Record a password an admin set on an account: `user.password.set`. Nothing

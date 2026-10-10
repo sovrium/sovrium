@@ -13,7 +13,31 @@ import {
   computeTableToolbarButtonClasses,
   computeTableToolbarPrimaryButtonClasses,
 } from '@/presentation/design/table-default-classes'
+import { useGridString } from './grid-strings'
 import type { DataTableBulkAction } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+
+/** A bulk action's prompt and the two labels that answer it, the defaults filled in. */
+interface ConfirmWords {
+  readonly message: string
+  readonly confirmLabel: string
+  readonly cancelLabel: string
+}
+
+/**
+ * The words of a confirm: a string is the prompt alone, answered by the
+ * language-resolved Confirm / Cancel; the object form may name its own buttons.
+ */
+function confirmWords(
+  confirm: NonNullable<DataTableBulkAction['confirm']>,
+  defaults: Omit<ConfirmWords, 'message'>
+): ConfirmWords {
+  if (typeof confirm === 'string') return { message: confirm, ...defaults }
+  return {
+    message: confirm.message,
+    confirmLabel: confirm.confirmLabel ?? defaults.confirmLabel,
+    cancelLabel: confirm.cancelLabel ?? defaults.cancelLabel,
+  }
+}
 
 interface BulkActionBarProps {
   readonly bulkActions: readonly DataTableBulkAction[]
@@ -63,6 +87,8 @@ function HiddenBulkActionsPlaceholder({
  */
 export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkActionBarProps) {
   const [confirmAction, setConfirmAction] = useState<DataTableBulkAction | undefined>(undefined)
+  const confirmLabel = useGridString('confirmGate.confirm', 'Confirm')
+  const cancelLabel = useGridString('confirmGate.cancel', 'Cancel')
 
   if (selectedCount === 0) {
     return <HiddenBulkActionsPlaceholder bulkActions={bulkActions} />
@@ -88,28 +114,45 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
             {action.label}
           </button>
         ))}
-      {confirmAction && confirmAction.confirm && (
-        <div className={`ml-auto flex items-center gap-2 ${computeTablePanelCaptionClasses()}`}>
-          {confirmAction.confirm.replace('{count}', String(selectedCount))}
-          <button
-            type="button"
-            className={computeTableToolbarPrimaryButtonClasses()}
-            onClick={() => {
-              onExecute(confirmAction)
-              setConfirmAction(undefined)
-            }}
-          >
-            Confirm
-          </button>
-          <button
-            type="button"
-            className={computeTableToolbarButtonClasses()}
-            onClick={() => setConfirmAction(undefined)}
-          >
-            Cancel
-          </button>
-        </div>
+      {confirmAction?.confirm !== undefined && (
+        <ConfirmPrompt
+          words={confirmWords(confirmAction.confirm, { confirmLabel, cancelLabel })}
+          selectedCount={selectedCount}
+          onConfirm={() => {
+            onExecute(confirmAction)
+            setConfirmAction(undefined)
+          }}
+          onCancel={() => setConfirmAction(undefined)}
+        />
       )}
+    </div>
+  )
+}
+
+/** The inline question and its two answers, right-aligned on the bar. */
+function ConfirmPrompt(props: {
+  readonly words: ConfirmWords
+  readonly selectedCount: number
+  readonly onConfirm: () => void
+  readonly onCancel: () => void
+}) {
+  return (
+    <div className={`ml-auto flex items-center gap-2 ${computeTablePanelCaptionClasses()}`}>
+      {props.words.message.replace('{count}', String(props.selectedCount))}
+      <button
+        type="button"
+        className={computeTableToolbarPrimaryButtonClasses()}
+        onClick={props.onConfirm}
+      >
+        {props.words.confirmLabel}
+      </button>
+      <button
+        type="button"
+        className={computeTableToolbarButtonClasses()}
+        onClick={props.onCancel}
+      >
+        {props.words.cancelLabel}
+      </button>
     </div>
   )
 }

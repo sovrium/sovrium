@@ -8,7 +8,7 @@ The figure is computed by the server over every record the binding matches, thro
 
 <!-- sovrium:options type:kpi depth=3 -->
 
-`label` is the metric's name and `icon` draws beside the value. `kpiAggregate` is `{ function, field }` — `function` is required, and `field` is omitted for `count` and `ratio`. `kpiFormat` is `{ type, options }`, where `type` is `number`, `currency`, `percentage`, `compact` or `bytes`. A `number` format writes the figure in the page's language — a page whose `meta.lang` is `fr-FR` groups thousands with a space and uses a decimal comma — and reads `minimumFractionDigits` and `maximumFractionDigits` from `options`, so `options: { maximumFractionDigits: '1' }` shows an average of 493.875 as `493.9`, or `493,9` on a French page. A `currency` format shows the precision of the field it summarises — a whole-euro field reads `€667,000`, a field with two decimals keeps its cents — and `currency` and `compact` write the figure in the page language, as `number` does (`667 000 €`, `1,2 M` on a French page). `options.currency` names the currency when declared; a field that declares its own `thousandsSeparator` keeps it on any page. `thresholds` are `{ value, color }` entries that recolour the card once a value is crossed, over `red`, `green`, `yellow`, `blue` and `gray`.
+`label` is the metric's name and `icon` draws beside the value. `kpiAggregate` is `{ function, field }` — `function` is required, and `field` is omitted for `count` and `ratio`. `function` is `count`, `sum`, `avg`, `min`, `max`, `ratio`, or a percentile of a number field: `p50` (the median), `p75`, `p90`, `p95` or `p99`, interpolated between the two values around its rank and read from the aggregate read like a sum. Over records with no value a percentile has no figure, and the card shows the neutral dash rather than a `0` that would read as instant. `kpiFormat` is `{ type, options }`, where `type` is `number`, `currency`, `percentage`, `compact` or `bytes`. A `number` format writes the figure in the page's language — a page whose `meta.lang` is `fr-FR` groups thousands with a space and uses a decimal comma — and reads `minimumFractionDigits` and `maximumFractionDigits` from `options`, so `options: { maximumFractionDigits: '1' }` shows an average of 493.875 as `493.9`, or `493,9` on a French page. `percentage` reads `minimumFractionDigits` / `maximumFractionDigits` like `number`. A `currency` format shows the precision of the field it summarises — a whole-euro field reads `€667,000`, a field with two decimals keeps its cents — and `currency` and `compact` write the figure in the page language, as `number` does (`667 000 €`, `1,2 M` on a French page). `options.currency` names the currency when declared; a field that declares its own `thousandsSeparator` keeps it on any page. `thresholds` are `{ value, color }` entries that recolour the card once a value is crossed, over `red`, `green`, `yellow`, `blue` and `gray`.
 
 ```yaml
 tables:
@@ -52,7 +52,7 @@ A rate — replies over conversations, meetings over calls — is two counts, an
   kpiFormat: { type: percentage }
 ```
 
-When nothing matches the denominator the card shows no figure — the neutral dash — over `0 / 0`, rather than a `0%` that would read as "none of them". `ratio` is a KPI function only: a chart and a table footer keep `count`, `sum`, `avg`, `min` and `max`.
+When nothing matches the denominator the card shows no figure — the neutral dash — over `0 / 0`, rather than a `0%` that would read as "none of them". `ratio` is a KPI function only: a chart keeps `count`, `sum`, `avg`, `min`, `max` and the percentiles, and a table footer keeps the first five.
 
 The aggregate read answers a ratio when it is sent `numerator` and `denominator` filter expressions beside `filter`; its response then carries `ratio: { numerator, denominator, percent }`, with `percent` `null` over an empty denominator. Sending one side without the other answers `400`.
 
@@ -64,7 +64,7 @@ All three of `comparisonPeriod`, `direction` and `changePercent` are required on
 
 ## `sparkline`
 
-All four properties are required once `sparkline` is present: `field` is plotted along the line, `groupBy` buckets the points, `interval` is `day`, `week` or `month`, and `days` is how far back the line covers.
+All four properties are required once `sparkline` is present: `field` is plotted along the line, `groupBy` buckets the points, `interval` is `minute`, `hour`, `day`, `week` or `month` (a minute or an hour is a UTC one), and `days` is how far back the line covers — `interval: hour` with `days: 1` draws the last 24 hours, one point per hour holding a record.
 
 ## Size and tone
 

@@ -11,6 +11,7 @@ import {
   toleratedInStored,
   type StoredNestedStep,
 } from '../run/nested-step-record'
+import { withMetadataOf, withStepMetadata, type StepMetadataMap } from '../run/step-metadata'
 import { laterResponse } from './response-precedence'
 import { parkedAt, resumedWaitOutput } from './run-park'
 import type { LoopScope } from './loop-scope'
@@ -35,6 +36,8 @@ type StepOutputs = Readonly<Record<string, Record<string, unknown>>>
 export interface SequenceRun {
   /** Outputs produced inside the sequence, by step name (nested ones included). */
   readonly outputs: StepOutputs
+  /** How each of its steps went, read beside its output by the steps after it (`step-metadata`). */
+  readonly metadata: StepMetadataMap
   /** The last action's output, `undefined` when it produced none. */
   readonly last: unknown
   /** The outcome that ended the sequence early: a failure, a stop, a filter halt or a pause. */
@@ -51,6 +54,7 @@ export const EMPTY_SEQUENCE: SequenceRun = {
   steps: [],
   tolerated: 0,
   outputs: {},
+  metadata: {},
   last: undefined,
   halt: undefined,
   responseOverride: undefined,
@@ -92,6 +96,7 @@ const settle = (
     steps: [...run.steps, settled.step],
     tolerated: run.tolerated + tolerated,
     outputs: { ...run.outputs, ...(outcome.nestedOutputs ?? {}), ...own },
+    metadata: withMetadataOf(run.metadata, name, settled.step),
     last: outcome.output,
     halt: endsSequence(action, outcome) ? outcome : undefined,
     responseOverride: laterResponse(run.responseOverride, outcome.responseOverride),
@@ -129,7 +134,7 @@ const runOne = async (
   action: Readonly<Record<string, unknown>>,
   extra: { readonly index: number; readonly resume?: Parameters<NestedStepInvoker>[0]['resume'] }
 ): Promise<SequenceRun> => {
-  const reads = { ...input.previousSteps, ...run.outputs }
+  const reads = { ...input.previousSteps, ...withStepMetadata(run.outputs, run.metadata) }
   const { props, refusal, authored, templateVars } = input.fillProps(action, reads)
   const refused = refusal === undefined ? {} : { refusal }
   const asWritten = authored === true ? { authored } : {}

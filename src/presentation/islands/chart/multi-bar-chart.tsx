@@ -23,12 +23,15 @@ import {
   type LegendPosition,
 } from './chart-series-shared'
 import { ChartShell } from './chart-shell'
+import type { ChartAxisFormat } from './chart-format'
 import type { TableRecord } from '../runtime/types'
 import type { ReactElement } from 'react'
 
 interface MultiBarChartProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
+  /** The declared `xAxis.format`: `date` labels instant keys by their time of day. */
+  readonly xFormat?: ChartAxisFormat | undefined
   readonly series: readonly ChartSeriesConfig[]
   /**
    * The value axis' display configuration — its title, tick format, scale and
@@ -153,6 +156,7 @@ interface MultiBarSvgProps {
   readonly height: number
   readonly records: readonly TableRecord[]
   readonly xField: string
+  readonly xFormat?: ChartAxisFormat | undefined
   readonly series: readonly ChartSeriesConfig[]
   readonly yAxis?: ChartAxisDisplay
   readonly hidden: ReadonlySet<string>
@@ -231,6 +235,7 @@ function MultiBarSvg({
   height,
   records,
   xField,
+  xFormat,
   series,
   yAxis,
   hidden,
@@ -264,6 +269,7 @@ function MultiBarSvg({
           innerHeight={innerHeight}
           valueScale={yScale}
           valueAxis={yAxis}
+          format={xFormat}
         />
         {bars.map((b) => (
           <Bar
@@ -294,6 +300,7 @@ function MultiBarSvg({
 export function MultiBarChart({
   records,
   xField,
+  xFormat,
   series,
   yAxis,
   legendPosition,
@@ -312,6 +319,7 @@ export function MultiBarChart({
           height={height}
           records={records}
           xField={xField}
+          xFormat={xFormat}
           series={series}
           yAxis={yAxis}
           hidden={hidden}

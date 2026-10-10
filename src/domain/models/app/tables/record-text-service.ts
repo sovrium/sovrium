@@ -31,6 +31,7 @@ import {
 import { usableLocale } from '../../../kernel/format/usable-locale'
 import { RECORD_TEXT_KEY } from '../pages/substitute-record-vars'
 import { formatCellValue, formatDateTimeJoined } from './cell-value-format'
+import { checkboxLiteralOf } from './checkbox-literal-service'
 import type { CurrencyDisplayOptions } from '../../../kernel/format/currency-format'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
@@ -73,7 +74,7 @@ export type RecordTextFields = Readonly<Record<string, RecordTextField>>
  * The values a multi-select holds, whatever shape the driver handed back: a list
  * (PostgreSQL), its JSON text (SQLite), or a comma-joined string.
  */
-const listValuesOf = (value: unknown): readonly string[] => {
+export const listValuesOf = (value: unknown): readonly string[] => {
   if (Array.isArray(value)) return value.map(String)
   const text = String(value).trim()
   if (text.startsWith('[')) {
@@ -91,9 +92,8 @@ const listValuesOf = (value: unknown): readonly string[] => {
     .filter((entry) => entry !== '')
 }
 
-/** A stored checkbox as a boolean: the drivers answer `true`, `1`, `'true'` or `'1'`. */
-const isChecked = (value: unknown): boolean =>
-  value === true || value === 1 || value === 'true' || value === '1' || value === 't'
+/** A stored checkbox as a boolean, through the one checkbox reading. */
+const isChecked = (value: unknown): boolean => checkboxLiteralOf(value) === true
 
 const formatPercent = (value: unknown, precision: number | undefined, locale: string): string => {
   const num = Number(value)

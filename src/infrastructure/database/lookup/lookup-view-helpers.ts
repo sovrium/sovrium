@@ -14,7 +14,25 @@ import {
 } from '../sql/dialect-ddl'
 import { generateSqlCondition } from '../table-queries/filter-operators'
 import { compileFilterTree } from '../table-queries/filter-tree'
+import type { Table } from '@/domain/models/app/tables'
 import type { ViewFilterCondition, ViewFilterNode } from '@/domain/models/app/tables/views/filters'
+
+/**
+ * Where a computed field's filter reads its fields: the app's tables and the
+ * related table, by config name or by its derived database name (a reverse
+ * lookup knows only the latter).
+ */
+export type RelatedFilterScope = {
+  readonly allTables?: readonly Table[]
+  readonly relatedTable: string
+}
+
+/** The fields of the related table a scope names, or `undefined` when none is declared. */
+const relatedFieldsOf = (scope: RelatedFilterScope | undefined) =>
+  scope?.allTables?.find(
+    (table) =>
+      table.name === scope.relatedTable || sanitizeTableName(table.name) === scope.relatedTable
+  )?.fields
 
 /**
  * A table as a view body names it: its derived database name (the config name
@@ -66,10 +84,22 @@ export const buildWhereClause = (filter: ViewFilterCondition, aliasPrefix: strin
  *
  * Leaves go through {@link buildWhereClause}, so value-less operators
  * (`isEmpty`, `isNotEmpty`) compile like any other and values stay inline
- * escaped literals, the only form a view definition can store.
+ * escaped literals, the only form a view definition can store. Given its
+ * `scope`, each literal is first read through the type of the related field it
+ * names, so a checkbox compared with `1` or `'true'` reads as a boolean. No
+ * `filters` at all restricts nothing.
  */
-export const compileRelationalFilter = (node: ViewFilterNode, alias: string): string | undefined =>
-  compileFilterTree(node, (condition) => buildWhereClause(condition, alias), { wrapGroups: true })
+export const compileRelationalFilter = (
+  node: ViewFilterNode | undefined,
+  alias: string,
+  scope?: RelatedFilterScope
+): string | undefined =>
+  node === undefined
+    ? undefined
+    : compileFilterTree(node, (condition) => buildWhereClause(condition, alias), {
+        wrapGroups: true,
+        fields: relatedFieldsOf(scope),
+      })
 
 /**
  * Map a rollup `aggregation` term to the SQL that computes it, on the ACTIVE

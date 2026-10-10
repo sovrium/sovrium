@@ -112,6 +112,20 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # RENDERER_CONCURRENCY=2            # renders at once
 # RENDERER_NO_SANDBOX=1             # only where Chrome cannot start its sandbox
 
+# ── Browser automation (browser/run steps) ────────────────────────────
+# Off on a server unless set; the desktop app turns it on. Uses the same
+# Chrome as document rendering, so the two must not disagree.
+# BROWSER_PROVIDER=webview          # webview | off
+# BROWSER_BACKEND=auto              # auto | chrome | webkit (desktop app on macOS only)
+# BROWSER_CHROME_PATH=/usr/bin/chromium    # a Chrome to start, or…
+# BROWSER_CDP_URL=http://browser:9222      # …a running Chrome (not both)
+# BROWSER_STEP_TIMEOUT_MS=15000     # longest wait of one step
+# BROWSER_RUN_TIMEOUT_MS=300000     # longest run, confirmation wait excluded
+# BROWSER_CONCURRENCY=1             # browser runs at once (1 with Chrome)
+# BROWSER_HOLD_MAX_MS=600000        # longest a run waits for a confirmation
+# BROWSER_ARTIFACT_RETENTION_DAYS=30   # how long screenshots are kept
+# BROWSER_NO_SANDBOX=1              # only where Chrome cannot start its sandbox
+
 # ── Storage (auto: local files with SQLite, Postgres bytea otherwise) ──
 # STORAGE_PROVIDER=s3         # s3 | local   (omit → auto)
 # STORAGE_S3_ENDPOINT=https://s3.amazonaws.com
@@ -143,6 +157,8 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # How long a run of an automation that sets no timeout may execute, in ms
 # (1000 to 3600000). Time spent waiting for a concurrency slot does not count.
 # SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS=900000   # default 15 minutes
+# How many days an ended run is kept (1 to 36500). Unset keeps every run.
+# SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS=30
 
 # ── Ecoconception (performance-first defaults; opt IN to frugality) ────
 # Win-win defaults — smaller AND faster. Change only for a specific reason.
@@ -158,7 +174,8 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # ECO_FORM_ANALYTICS=on                   # off stops recording form analytics
 
 # ── Observability export (all OFF unless set; any Sentry/OTLP backend) ─
-# Point these at a self-hosted GlitchTip (or any Sentry/OTLP backend). Every
+# Point these at any Sentry-compatible error backend and any OTLP/HTTP JSON log
+# backend: your own Sovrium monitoring app, GlitchTip, or another. Every
 # signal is off unless its gate is set; secrets are never printed to the console.
 # SENTRY_DSN=https://<key>@monitor.example.com/<project_id>   # errors + performance
 # SENTRY_ENVIRONMENT=production               # event environment (else NODE_ENV)
@@ -166,7 +183,7 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # OTEL_EXPORTER_OTLP_ENDPOINT=https://monitor.example.com   # OTLP logs base (+ /v1/logs)
 # OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=           # full logs URL, used verbatim (overrides base)
 # OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=         # explicit endpoint to arm dormant OTel traces
-# OTEL_EXPORTER_OTLP_HEADERS=                 # k=v,k2=v2 — GlitchTip: Authorization=Bearer <dsn-public-key>
+# OTEL_EXPORTER_OTLP_HEADERS=                 # k=v,k2=v2 — e.g. Authorization=Bearer <dsn-public-key>
 # OTEL_SERVICE_NAME=                          # OTLP service.name (else app name)
 
 # Full reference (SMTP, OAuth providers, MCP, advanced tuning):

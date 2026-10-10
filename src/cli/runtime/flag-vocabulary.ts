@@ -32,6 +32,29 @@ export const getFlagPathValue = (argv: readonly string[], flag: string): string 
 }
 
 /**
+ * A value-flag read in both spellings, `--flag value` and `--flag=value`.
+ *
+ * `given` says the flag is on the command line; `value` is absent when it was
+ * given none — at the end of the line, before another flag, or as `--flag=`.
+ * A command that addresses something remote refuses that case rather than
+ * falling back to a default: `--app` with no slug deploying to the linked app
+ * is the wrong guess in the most expensive direction.
+ */
+export const readValueFlag = (
+  argv: readonly string[],
+  flag: string
+): { readonly given: boolean; readonly value?: string } => {
+  const joined = argv.find((arg) => arg.startsWith(`${flag}=`))
+  if (joined !== undefined) {
+    const value = joined.slice(flag.length + 1)
+    return value === '' ? { given: true } : { given: true, value }
+  }
+  if (!argv.includes(flag)) return { given: false }
+  const next = argv[argv.indexOf(flag) + 1]
+  return next === undefined || next.startsWith('-') ? { given: true } : { given: true, value: next }
+}
+
+/**
  * Every value of a repeatable value-flag, in argv order.
  *
  * `getFlagValue` uses `indexOf`, which stops at the first occurrence — correct
@@ -112,6 +135,16 @@ export const FLAG_VALUE_OPTIONS = [
   '--host',
   '--api-key',
   '--app',
+  // `sovrium deploy --env <file>`, `sovrium env push --plain <NAME>`,
+  // `sovrium seed --confirm <slug>`. Both lists: absent here, the file or the
+  // name would be read as the config path.
+  '--env',
+  '--plain',
+  '--confirm',
+  // `sovrium seed --request <file> --report <file>`. Both lists: absent here,
+  // the file would be read as the config path.
+  '--request',
+  '--report',
 ] as const
 
 /** Commands that use two-level noun-verb dispatch (verb in 2nd positional slot). */
@@ -160,15 +193,25 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   // `sovrium library add <provider> --all [--yes]`.
   '--all',
   '--yes',
+  // `sovrium seed --remote`: seed the app the project's link file names, on the
+  // signed-in cloud. A plain `sovrium seed` stays local, link or not.
+  '--remote',
   // `sovrium changelog --list`.
   '--list',
   '--insecure-skip-checksum', // `sovrium update`: opt out of the fail-closed checksum
   '--email', // `sovrium render`: as `email/send` delivers it
   // `sovrium login --open | --status | --logout`, `sovrium deploy --no-wait`.
   '--open',
+  // `sovrium login --device`: the code flow instead of the one-click return.
+  '--device',
   '--status',
   '--logout',
   '--no-wait',
+  // `sovrium deploy --seed`: seed the app, if-empty, once it is live.
+  '--seed',
+  // `sovrium env push --overwrite | --redeploy`.
+  '--overwrite',
+  '--redeploy',
 ])
 
 const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
@@ -230,6 +273,14 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--host',
   '--api-key',
   '--app',
+  // `sovrium deploy --env <file>`, `sovrium env push --plain <NAME>`, `--confirm <slug>`.
+  '--env',
+  '--plain',
+  '--confirm',
+  // `sovrium seed --request <file> --report <file>`: how a hosting machine's
+  // seed unit hands the command its options and reads its result.
+  '--request',
+  '--report',
 ])
 
 /** Strip `=value` from `--flag=value` so the bare flag name can be matched. */

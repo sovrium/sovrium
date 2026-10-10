@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { TriggerHistorySchema } from './trigger-history'
 import { TriggerNameSchema } from './trigger-name'
 
 /**
@@ -22,6 +23,9 @@ export const AuthTriggerSchema = Schema.Struct({
 
   /** Name of this trigger within its automation (defaults to its type) */
   name: Schema.optional(TriggerNameSchema),
+
+  /** How much of a run this trigger starts is kept once it ends (defaults to `full`) */
+  history: Schema.optional(TriggerHistorySchema),
   events: Schema.Array(
     Schema.Literals(['signUp', 'signIn', 'signOut', 'passwordReset', 'emailVerified'])
   ).pipe(

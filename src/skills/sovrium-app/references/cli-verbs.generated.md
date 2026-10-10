@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every verb the `sovrium` binary dispatches (29), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
+Every verb the `sovrium` binary dispatches (30), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
 
 ## Verbs
 
@@ -15,9 +15,10 @@ Every verb the `sovrium` binary dispatches (29), with its usage line and what it
 | `build` | `sovrium build [config] [options]` | Build static site files |
 | `bundle` | `sovrium bundle [config] [options]` | Package the validated config, public/ and seed/ for deployment |
 | `changelog` | `sovrium changelog [<version>] [--list] [--since <version>] [--format md\|json]` | Read the release notes this binary carries |
-| `deploy` | `sovrium deploy [config] --app <slug> [options]` | Ship the app to your Sovrium cloud, follow it until live |
+| `deploy` | `sovrium deploy [config] [--app <slug>] [options]` | Ship the app to your Sovrium cloud, follow it until live |
 | `design-system` | `sovrium design-system [config] [options]` | Export the design system as an agent brief or DTCG JSON |
 | `docs` | `sovrium docs [address] [options]`<br>`sovrium docs <subcommand> <argument> [options]` | Read the platform manual out of this binary |
+| `env` | `sovrium env push <file> [config] [options]`<br>`sovrium env list [config] [--json]`<br>`sovrium env unset <NAME>… [config] [--yes]` | Set, list or remove the variables of a hosted app |
 | `help` | `sovrium help` | Show this help message |
 | `init` | `sovrium init [dir] [options]` | Scaffold a new project (in [dir], or cwd) |
 | `library` | `sovrium library list [--kind <kind>] [--category <c>] [--format md\|json]`<br>`sovrium library search <query> [--format md\|json]`<br>`sovrium library show <id> [--format md\|json]`<br>`sovrium library add <id> [--set key=value]… [--as <name>] [--into <config>]` | Browse and install ready-made blocks, connections, recipes |
@@ -31,7 +32,7 @@ Every verb the `sovrium` binary dispatches (29), with its usage line and what it
 | `restore` | `sovrium restore <file> [options]` | Put a backup back (never over a running server) |
 | `schema` | `sovrium schema [options]` | Print JSON Schema to stdout |
 | `secret` | `sovrium secret generate [scope]` | Print fresh secrets as .env lines; Persist $SOVRIUM_ENCRYPTION_KEY to the data dir |
-| `seed` | `sovrium seed [config] [options]` | Load seed/<table>.yaml data into the tables |
+| `seed` | `sovrium seed [config] [options]`<br>`sovrium seed --app <slug> \| --remote [options]` | Load seed/<table>.yaml data into the tables |
 | `skills` | `sovrium skills [--output <dir>] [--target claude\|agents\|all] [--check] [--force]` | Write this version's agent skills into .claude/skills/ |
 | `start` | `sovrium start [config] [options]` | Start the server (default command) |
 | `stop` | `sovrium stop` | Stop the running server |

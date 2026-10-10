@@ -28,13 +28,28 @@ export interface InstanceUnitStatus {
   readonly restarts: number
   /** `memory.current` of the unit, absent when systemd reports none. */
   readonly memoryBytes?: number
+  /**
+   * systemd's `Result` for the unit's last run (`success`, `exit-code`,
+   * `signal`, `timeout`, …). Not `result`: `{{steps.<name>.result}}` already
+   * names a step's whole output.
+   */
+  readonly unitResult?: string
+  /** The main process's exit status, as systemd reports it. */
+  readonly execMainStatus?: number
+  /** The 32-hex id of the unit's current run; absent when systemd names none. */
+  readonly invocationId?: string
 }
 
 /** `status.json` of an app's instance directory: what the last apply or rollback recorded. */
 export interface InstanceReleaseStatus {
   readonly revision: string
   readonly previousRevision?: string
+  /** When the revision now current was applied (a rollback gives it back its own time). */
   readonly appliedAt: string
+  /** When the other revision, `previousRevision`, was applied. */
+  readonly previousAppliedAt?: string
+  /** When the last rollback swapped the two; the next apply drops it. */
+  readonly rolledBackAt?: string
   /** The loopback port the release listens on, from its `PORT`. */
   readonly port?: number
 }
@@ -73,6 +88,17 @@ export interface InstanceProbeResult {
 }
 
 /**
+ * What the app's seed unit left: its `report.json` as written — a seed report,
+ * or `{ error }` when the seeder refused — and why the unit failed, if it did.
+ */
+export interface SeedUnitOutcome {
+  /** `report.json`, parsed; `undefined` when the unit left none. */
+  readonly report: unknown
+  /** The unit's own failure, when `systemctl start` did not succeed. */
+  readonly unitError?: string
+}
+
+/**
  * InstanceSupervisor — drive other Sovrium apps on this host: their systemd
  * units and their release directories under `SOVRIUM_INSTANCES_DIR`.
  *
@@ -84,7 +110,10 @@ export class InstanceSupervisor extends Context.Service<
   InstanceSupervisor,
   {
     readonly status: (slug: string) => Effect.Effect<InstanceUnitStatus, InstanceSupervisorError>
-    /** start = the socket; stop = socket, proxy and app in one call; restart = the app. */
+    /**
+     * start = the socket; stop = socket, proxy and app in one call; restart =
+     * the proxy and the app stopped in one call, then the app started.
+     */
     readonly control: (
       slug: string,
       verb: 'start' | 'stop' | 'restart'
@@ -115,7 +144,10 @@ export class InstanceSupervisor extends Context.Service<
     ) => Effect.Effect<InstanceReleaseStatus, InstanceSupervisorError>
     /** Delete the app's whole instance directory. */
     readonly removeRelease: (slug: string) => Effect.Effect<void, InstanceSupervisorError>
-    /** `GET http://127.0.0.1:<port>/api/health` on the recorded port. Loopback only. */
+    /**
+     * `GET http://127.0.0.1:<port>/api/health` on the recorded port, asked again
+     * at a short interval until it answers or `timeoutMs` runs out. Loopback only.
+     */
     readonly probe: (
       slug: string,
       timeoutMs: number
@@ -126,9 +158,12 @@ export class InstanceSupervisor extends Context.Service<
       options: { readonly lines: number; readonly since?: string }
     ) => Effect.Effect<readonly string[], InstanceSupervisorError>
     /**
-     * The journal of an app found unhealthy: its unit's latest lines since the
-     * release time `status.json` records (the last five minutes when none is),
-     * bounded in lines, bytes and time. Takes no window from the caller.
+     * The journal of an app found unhealthy: one line saying what systemd
+     * reports about its unit, then the lines of the unit's current run when it
+     * started at or after the release time `status.json` records — or a line
+     * saying no process started since then. With no run named, the unit's lines
+     * since the release time (the last five minutes when none is). Bounded in
+     * lines, bytes and time; takes no window from the caller.
      */
     readonly crashJournal: (
       slug: string
@@ -151,5 +186,16 @@ export class InstanceSupervisor extends Context.Service<
       archive: Uint8Array,
       timeoutMs: number
     ) => Effect.Effect<void, InstanceSupervisorError>
+    /**
+     * Seed the app from the `seed/` folder of its current release: refuse when
+     * it has none, before anything is written or started; hand `request` to the
+     * seed unit, run it, and hand back what it left. Both files are deleted
+     * either way. A failed unit is an outcome, not an error: its report says why.
+     */
+    readonly seed: (
+      slug: string,
+      request: Readonly<Record<string, unknown>>,
+      timeoutMs: number
+    ) => Effect.Effect<SeedUnitOutcome, InstanceSupervisorError>
   }
 >()('InstanceSupervisor') {}

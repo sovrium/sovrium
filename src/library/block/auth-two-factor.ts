@@ -26,7 +26,8 @@ export const entry = defineLibraryEntry({
     'The second sign-in step for accounts with two-step on: the six-digit code from an authenticator app, autofilled where the device can, with a swap to a recovery code.',
   notes: [
     AUTH_PLACE_NOTE,
-    'It needs `auth.twoFactor`. Place it on the page your sign-in sends two-step accounts to (`/two-step` by default). The code field accepts the device’s one-time-code autofill.',
+    'It needs `auth.twoFactor`. Place it on the page your sign-in sends two-step accounts to — the `twoStepPath` of the `auth-sign-in` block, `/two-step` by default, which a sign-in form names in `onTwoFactor.navigate`. The code field accepts the device’s one-time-code autofill.',
+    'Opened with no sign-in waiting for its code, the page says the sign-in has expired and links to your sign-in page (`auth.loginPage`), and draws nothing else of the step: no code field, no recovery-code toggle, no second link. Set `auth.loginPage` to the page this block’s `signInPath` names.',
     'The recovery-code form is folded under "Use a recovery code instead", for a reader who lost the authenticator.',
     THEME_NOTE,
   ],

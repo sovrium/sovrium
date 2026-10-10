@@ -119,6 +119,15 @@ export const EnvVarSchema = Schema.Struct({
 export type EnvVar = Schema.Schema.Type<typeof EnvVarSchema>
 
 /**
+ * The key prefix of the platform sign-in variables ("Sign in with Sovrium
+ * Cloud"), which the Cloud writes for an app it hosts. A config cannot declare
+ * one: a declared key is readable as `$env.<KEY>` by every automation, and the
+ * client secret must not be. Kept equal to `SOVRIUM_PLATFORM_SSO_PREFIX` of the
+ * environment model by its unit test.
+ */
+export const RESERVED_ENV_KEY_PREFIX = 'SOVRIUM_PLATFORM_SSO_'
+
+/**
  * Environment Variables Array
  */
 export const EnvVarsSchema = Schema.Array(EnvVarSchema).pipe(
@@ -132,6 +141,13 @@ export const EnvVarsSchema = Schema.Array(EnvVarSchema).pipe(
       const keys = vars.map((v) => v.key)
       const uniqueKeys = new Set(keys)
       return keys.length === uniqueKeys.size || 'Environment variable keys must be unique'
+    }),
+    Schema.makeFilter((vars) => {
+      const reserved = vars.find((v) => v.key.startsWith(RESERVED_ENV_KEY_PREFIX))
+      return (
+        reserved === undefined ||
+        `Environment variable key '${reserved.key}' is reserved: keys starting with ${RESERVED_ENV_KEY_PREFIX} belong to Sign in with Sovrium Cloud and are set by the platform, not declared by the app`
+      )
     })
   )
 )

@@ -52,6 +52,7 @@ import {
 import { toolSafeTableName } from '@/domain/models/app/auth/ai-access'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { recordActivityLogRow, recordChatActivity } from '@/presentation/api/ai/chat-activity-log'
+import { executeOtherTool } from './chat-browser-tool'
 import { appendConversationTurn } from './chat-conversation-store'
 import { persistChatTurnDurably } from './chat-durable-memory'
 import {
@@ -275,10 +276,8 @@ const executeToolCall = async (
     description: `Tool ${call.name} executed.`,
   }
 
-  // Unknown tool family — the model fabricated a tool name we do not emit.
-  if (parsed.kind === 'unknown') {
-    return { content: `Error: unknown tool "${call.name}".`, action, denied: false }
-  }
+  // Not a table tool: `browser_use` for an agent granted it, else an unknown-tool error.
+  if (parsed.kind === 'unknown') return executeOtherTool(call, input, action)
 
   // RBAC gate — the role must be able to read the target table
   // An unknown table or a denied role both yield an

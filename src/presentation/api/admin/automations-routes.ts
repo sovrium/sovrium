@@ -83,6 +83,12 @@ function retryErrorResponse(c: Context, error: ReplayAutomationRunError): Respon
   ) {
     return notFound(c, 'Not found')
   }
+  if (error._tag === 'AutomationRunHistoryNotKept') {
+    return c.json(
+      { success: false, message: 'This run kept no trigger data to retry', code: 'CONFLICT' },
+      409
+    )
+  }
   if (error._tag === 'AutomationRegistrySeedError') {
     return c.json(
       { success: false, message: 'Failed to register automation', code: 'INTERNAL_ERROR' },

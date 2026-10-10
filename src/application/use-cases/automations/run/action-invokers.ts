@@ -15,7 +15,7 @@
  * gets fresh invokers) and share one cycle-detection `invocationStack`.
  */
 
-import { Effect } from 'effect'
+import { Duration, Effect } from 'effect'
 import { announceRecordWrites } from '@/application/use-cases/tables/record-change-announcement'
 import { actionKey, missingActionHandler } from '../action-handlers'
 import {
@@ -25,7 +25,8 @@ import {
 } from '../authored-references'
 import { answersNoCaller, readActionIdentity } from './action-identity'
 import { findTemplate, renderAuthoredTemplateProps } from './prop-substitution'
-import { buildStep } from './step-record'
+import { withStepMetadata } from './step-metadata'
+import { buildStep, maskRunSecrets, withDuration } from './step-record'
 import type { ReadTracker } from './read-tracker'
 import type { AutomationInvoker, RunAccumulator, StepContext } from './types'
 import type { ActionHandler, ActionRunContext, NestedStepInvoker } from '../action-handlers/shared'
@@ -111,7 +112,7 @@ const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> =
   // (see below), which the calling handler records as its own failure.
   const handler = ctx.handlers.get(handlerKey) ?? missingActionHandler
   const subRunContext = {
-    previousSteps: acc.actions,
+    previousSteps: withStepMetadata(acc.actions, acc.stepMetadata),
     triggerData: ctx.triggerData,
     rawAction: action,
     authoredProps: input.authoredProps,
@@ -328,10 +329,13 @@ export const buildNestedStepInvoker = (
     const program = announceRecordWrites(ctx.app)(
       handler(rawAction, ctx.app, ctx.automation, subRunContext)
     )
-    return ctx.runProgram(program).then((outcome) => {
+    return ctx.runProgram(Effect.timed(program)).then(([elapsed, outcome]) => {
       scope.tracker.dispatched(ctx.app, rawAction, outcome.output)
-      // Recorded, and masked, exactly as a top-level step is.
-      return { outcome, step: buildStep(rawAction, props, outcome, ctx) }
+      // Recorded, and masked, exactly as a top-level step is — timed from
+      // dispatch to settle, which the steps after it in its path or item read.
+      const durationMs = Math.round(Duration.toMillis(elapsed))
+      const step = maskRunSecrets(buildStep(rawAction, props, outcome, ctx), acc)
+      return { outcome, step: withDuration(step, durationMs) }
     })
   }
 }

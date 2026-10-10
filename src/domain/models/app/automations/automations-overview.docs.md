@@ -48,6 +48,16 @@ Every string property of an action can interpolate runtime values.
 | Connection       | `$connection.NAME`         | Resolved credentials for an external service                                                                                          |
 | Helper functions | `{{helperName arg "lit"}}` | Formatting helpers for text, numbers, dates, logic and collections; nest with parentheses. Every helper is listed in Template Helpers |
 
+### What a later step reads about an earlier one
+
+Beside its output, every named step that ran exposes three values under `steps.<name>`:
+
+- `durationMs` — how long the step took, in whole milliseconds, from the moment its action started to the moment it settled. A step with a retry policy counts every attempt and every wait between them, so measure a single request on a step that declares no retry.
+- `status` — `completed`, or `failed` for a step whose failure `continueOnError` let the run go past. These are the words the run history uses for the step.
+- `error.message` — present when the step failed: the error text the run history records. An `http` step adds `error.code` (HTTP & Webhook Actions lists the codes).
+
+The output always wins: an action whose output already has a `status` or an `error` keeps its own, so `{{steps.ship.status}}` still reads what a `code` step returned. Inside a loop or a path, the steps that follow read these values for the current item or path. They are not added to the step's recorded output; the run history shows `durationMs` on each top-level step it lists (a step inside a loop or a path shows none).
+
 ### Dates
 
 `{{formatDate value pattern [timezone] [locale]}}` renders an instant and `{{parseDate text pattern [timezone]}}` reads one back. Both accept a **closed** set of tokens: anything else is an error and renders an empty string, so a mistyped pattern fails visibly rather than producing a wrong date.

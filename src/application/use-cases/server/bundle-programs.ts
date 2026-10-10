@@ -8,6 +8,8 @@
 import { dirname, join } from 'node:path'
 import { Data, Effect, Schema } from 'effect'
 import { BackupWorkspace } from '@/application/ports/services/backup-workspace'
+import { requiredEnvNamesOf } from '@/application/use-cases/env/validate-required-env-vars'
+import { deriveAppSlug } from '@/domain/models/app/name-service'
 import {
   BUNDLE_CONFIG_ENTRY,
   BUNDLE_FORMAT,
@@ -54,16 +56,10 @@ export class BundleRefusal extends Data.TaggedError('BundleRefusal')<{
 }> {}
 
 /**
- * The URL-safe form of an app name: lowercase, a scope's `@` dropped, every
- * other run of characters outside `[a-z0-9]` written `-` (so `@atelier/crm`
- * becomes `atelier-crm`), `app` when nothing is left.
+ * The URL-safe form of an app name for the archive's file name — the address
+ * `sovrium deploy` derives ({@link deriveAppSlug}), or `app` when nothing is left.
  */
-const bundleSlug = (name: string): string =>
-  name
-    .toLowerCase()
-    .replace(/@/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'app'
+const bundleSlug = (name: string): string => deriveAppSlug(name) || 'app'
 
 const twoDigits = (value: number): string => String(value).padStart(2, '0')
 
@@ -161,6 +157,7 @@ export const createBundle = (
       configHash: listed[0]?.sha256 ?? '',
       createdAt: request.now.toISOString(),
       entries: listed,
+      requiredEnv: requiredEnvNamesOf(request.document),
     })
     const archivePath =
       request.outputPath ?? join(request.workingDirectory, defaultBundleName(slug, request.now))

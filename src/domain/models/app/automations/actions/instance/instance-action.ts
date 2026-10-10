@@ -14,6 +14,7 @@ import { InstanceRemoveActionSchema } from './remove'
 import { InstanceRestartActionSchema } from './restart'
 import { InstanceRestoreActionSchema } from './restore'
 import { InstanceRollbackActionSchema } from './rollback'
+import { InstanceSeedActionSchema } from './seed'
 import { InstanceStartActionSchema } from './start'
 import { InstanceStatusActionSchema } from './status'
 import { InstanceStopActionSchema } from './stop'
@@ -41,12 +42,13 @@ export const InstanceActionSchema = Schema.Union([
   InstanceLogsActionSchema,
   InstanceBackupActionSchema,
   InstanceRestoreActionSchema,
+  InstanceSeedActionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'InstanceAction',
     title: 'Instance Action',
     description:
-      'Supervise other Sovrium apps on this host: read their state, start, stop, restart, apply a signed release, roll back, remove, probe, read logs, back up and restore. Requires SOVRIUM_HOST_ACTIONS=1',
+      'Supervise other Sovrium apps on this host: read their state, start, stop, restart, apply a signed release, roll back, remove, probe, read logs, back up, restore and seed. Requires SOVRIUM_HOST_ACTIONS=1',
   })
 )
 

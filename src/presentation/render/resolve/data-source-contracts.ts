@@ -141,6 +141,15 @@ export interface DataSourceDb {
   readonly readInvitation?: (token: string) => Promise<InvitationFacts | undefined>
 
   /**
+   * Optional — the two-step sign-in the request's cookies carry, for a page
+   * holding a `verifyTwoFactor` form: whether one waits for its code, and where
+   * it was headed. Absent, a code form draws its field as it always did.
+   */
+  readonly readTwoFactorAttempt?: (
+    cookies: Readonly<Record<string, string>> | undefined
+  ) => Promise<{ readonly live: boolean; readonly destination?: string }>
+
+  /**
    * Optional — the page this render serves: its language and the app's tables,
    * so a `$record.<field>` in page text prints a date or an amount formatted by
    * its field type. Absent, every value prints as stored.

@@ -60,6 +60,15 @@ export interface SessionInfo {
   readonly notifyAutomationAlerts?: boolean
   /** Whether this account receives the operator's weekly summary email. */
   readonly notifyWeeklyDigest?: boolean
+  /**
+   * Whether this account has two-step verification turned on — `true` once a
+   * first authenticator code has confirmed the enrolment, `false` otherwise
+   * (a column never written reads `false`). Present whenever the app configures
+   * `auth.twoFactor`; absent on an app without it. Read by a component's
+   * `visibility.condition` as `$user.twoFactorEnabled`, compared with a boolean
+   * `value`, so a security card can say whether the account is protected.
+   */
+  readonly twoFactorEnabled?: boolean
   readonly isUnrestricted?: boolean
   readonly groups?: readonly string[]
   /**

@@ -57,6 +57,7 @@ function renderBarOrAreaSeries(args: SeriesChartArgs, xField: string): ReactElem
     <Chart
       records={records}
       xField={xField}
+      xFormat={args.xAxis?.format}
       series={series}
       yAxis={yAxis}
       legendPosition={legend?.position}
@@ -84,6 +85,7 @@ export function renderSeriesChart(args: SeriesChartArgs): ReactElement {
     <MultiLineChart
       records={records}
       xField={xField}
+      xFormat={xAxis?.format}
       series={series}
       yAxis={yAxis}
       legendPosition={legend?.position}

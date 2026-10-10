@@ -246,6 +246,12 @@ export class AutomationRunRepository extends Context.Service<
       readonly park?: { readonly resumeAt: Date; readonly cursor: unknown }
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
     /**
+     * Drop what a run of a `history: 'minimal'` trigger keeps no longer once it
+     * ended: its trigger data (set to NULL) and every step row. The run row —
+     * status, trigger name, timings, error — stays.
+     */
+    readonly clearRunHistory: (runId: string) => Effect.Effect<void, AutomationRunDatabaseError>
+    /**
      * Whether any run is `waiting-delay`, due or not — a probe that stops at the
      * first row, asked once per boot to decide whether the resume sweep is needed.
      */

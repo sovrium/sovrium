@@ -12,6 +12,7 @@ import {
 } from '@/domain/models/app/languages/translation-resolver'
 import {
   authFieldErrorId,
+  authFormStringPrefixes,
   authPendingLabel,
   authSubmitLabel,
   withAuthFieldHints,
@@ -34,6 +35,7 @@ import {
   type AuthFormRenderContext,
 } from './auth-form-action'
 import { boundTableOf, resolveAuthFormFields } from './auth-form-fields'
+import { renderTwoFactorNotice, twoFactorNoticeOf, type TwoFactorNotice } from './two-factor-notice'
 import type { ElementProps } from './html-element-renderer'
 import type { Languages } from '@/domain/models/app/languages'
 
@@ -42,7 +44,7 @@ import type { Languages } from '@/domain/models/app/languages'
  * translations. Resolves `$t:key` references server-side and passes plain
  * strings through unchanged (falling back to the English literal).
  */
-function localize(text: string, lang?: string, languages?: Languages): string {
+export function localize(text: string, lang?: string, languages?: Languages): string {
   if (!lang) return resolveTranslationPattern(text, languages?.default ?? '', languages)
   return resolveTranslationPattern(text, lang, languages)
 }
@@ -109,10 +111,10 @@ function buildIslandPropsJson(config: {
   readonly fields: readonly AuthFormField[]
   readonly submitLabel: string
   readonly pendingLabel: string
-  readonly testId: unknown
-  readonly id: unknown
+  readonly props: ElementProps
   readonly redirectUrl: string | undefined
   readonly uiStrings?: Readonly<Record<string, string>>
+  readonly twoFactorNotice?: TwoFactorNotice
 }): string {
   return JSON.stringify({
     // A bound form names its table, so the page's per-reader walk judges its
@@ -129,11 +131,15 @@ function buildIslandPropsJson(config: {
     pendingLabel: config.pendingLabel,
     submitVariant: config.action.submitVariant,
     redirectUrl: config.redirectUrl,
+    // `login`: where an account still owing its code is sent; a code form's notice.
+    twoFactorPath: config.action.onTwoFactor?.navigate,
+    twoFactorNotice: config.twoFactorNotice,
     successToast: config.action.onSuccess?.toast,
     successPage: successPageOf(config.action),
     errorToast: config.action.onError?.toast,
-    'data-testid': config.testId,
-    id: config.id,
+    'data-testid': config.props['data-testid'],
+    id: config.props.id,
+    className: config.props.className,
   })
 }
 
@@ -314,6 +320,7 @@ export function renderAuthForm(
   const { tables, component, lang, languages, landingPath } = context
   const method = action.method ?? 'login'
   const redirectUrl = resolveOnSuccessRedirect(action, landingPath)
+  const twoFactorNotice = twoFactorNoticeOf(method, action, { lang, languages })
   const { submitLabel, pendingLabel } = resolveAuthLabels(action, method, lang, languages)
   // The base field set (a second-factor step names its code by `factor`), then overrides.
   const variant = action.strategy ?? action.factor
@@ -330,13 +337,11 @@ export function renderAuthForm(
     fields,
     submitLabel,
     pendingLabel,
-    testId: props['data-testid'],
-    id: props.id,
+    props,
     redirectUrl,
-    // The enrolment screens after `enableTwoFactor` speak the page language.
-    ...(method === 'enableTwoFactor' && {
-      uiStrings: resolveInterpreterStringOverrides(['twoFactor.'], lang, languages),
-    }),
+    // The two-step screens, and a sign-in's pending banner, speak the page language.
+    uiStrings: resolveInterpreterStringOverrides(authFormStringPrefixes(method), lang, languages),
+    twoFactorNotice,
   })
   const formDataAttrs = buildFormDataAttrs(method, action, redirectUrl)
   const wrapperStyle = buildAuthWrapperStyle(props.style)
@@ -350,7 +355,14 @@ export function renderAuthForm(
       style={wrapperStyle}
     >
       {/* SSR skeleton — used as Suspense fallback and progressive enhancement */}
-      {renderAuthFormSkeleton({ props, formDataAttrs, fields, submit: { ...action, submitLabel } })}
+      {twoFactorNotice?.shown === true
+        ? renderTwoFactorNotice(props, twoFactorNotice)
+        : renderAuthFormSkeleton({
+            props,
+            formDataAttrs,
+            fields,
+            submit: { ...action, submitLabel },
+          })}
     </div>
   )
 }

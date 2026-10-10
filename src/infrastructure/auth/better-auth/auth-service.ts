@@ -51,11 +51,36 @@ type AuthInstance = ReturnType<typeof createAuthInstance>
  * })
  * ```
  */
+/**
+ * The engine's own account writes, below its HTTP API: a user with no
+ * credential and the one account binding it to an external identity — what the
+ * platform seed of a hosted app's first admin needs, and nothing more.
+ */
+export interface AuthAccountWriter {
+  readonly createUser: (
+    user: {
+      readonly email: string
+      readonly name: string
+      readonly emailVerified: boolean
+      readonly role: string
+    },
+    source: { readonly method: string }
+  ) => Promise<{ readonly id: string }>
+  readonly createAccount: (account: {
+    readonly userId: string
+    readonly providerId: string
+    readonly accountId: string
+  }) => Promise<unknown>
+  readonly deleteUser: (userId: string) => Promise<unknown>
+}
+
 export class Auth extends Context.Service<
   Auth,
   {
     readonly api: AuthInstance['api']
     readonly handler: AuthInstance['handler']
+    /** The engine's internal account writes (see {@link AuthAccountWriter}). */
+    readonly accountWriter: () => Promise<AuthAccountWriter>
     readonly getSession: (
       headers: Headers
     ) => Effect.Effect<Awaited<ReturnType<AuthInstance['api']['getSession']>>, AuthError>
@@ -108,6 +133,7 @@ export const NoAuthLayer: Layer.Layer<Auth> = Layer.succeed(
   Auth.of({
     api: unavailableApi,
     handler: refuse,
+    accountWriter: () => Promise.reject(new Error(NOT_CONFIGURED)),
     getSession: () => Effect.fail(new AuthError(NOT_CONFIGURED)),
     requireSession: () => Effect.fail(new AuthError(NOT_CONFIGURED)),
   })

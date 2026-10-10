@@ -6,23 +6,36 @@
  */
 
 import { Schema } from 'effect'
-import { AggregateFunctionSchema } from '../../../shared-schemas'
+import { AggregateFunctionSchema, AggregatePercentileFunctionSchema } from '../../../shared-schemas'
 
 /**
  * Aggregate function for chart data summarization.
  *
- * Alias of the shared `AggregateFunctionSchema`. The chart-specific name is
- * kept for callsite clarity and a chart-targeted description annotation.
+ * The shared `AggregateFunctionSchema` (count, sum, avg, min, max) widened with
+ * the five percentiles a chart reads from the aggregate read — a p95 per route
+ * is a performance chart's question. A table footer shares the five functions
+ * and not the percentiles, which is why they are added here.
  */
-export const ChartAggregateFunctionSchema = AggregateFunctionSchema.annotate({
+export const ChartAggregateFunctionSchema = Schema.Union([
+  AggregateFunctionSchema,
+  AggregatePercentileFunctionSchema,
+]).annotate({
   title: 'Chart Aggregate Function',
-  description: 'Aggregate function applied to the Y-axis field',
+  description:
+    'Aggregate function applied to the Y-axis field: count, sum, avg, min, max, or a percentile (p50, p75, p90, p95, p99) interpolated between the two nearest values',
 })
 
 /**
  * Date grouping interval for aggregate queries.
+ *
+ * `minute` and `hour` bucket a datetime field by UTC minute or hour, keyed by
+ * the bucket's first instant; the calendar intervals bucket by UTC day and
+ * up. A chart keeps the aggregate read's 500-group cap, so a minute series is
+ * read over a bounded window.
  */
 export const ChartDateIntervalSchema = Schema.Literals([
+  'minute',
+  'hour',
   'day',
   'week',
   'month',
@@ -30,7 +43,8 @@ export const ChartDateIntervalSchema = Schema.Literals([
   'year',
 ]).annotate({
   title: 'Date Interval',
-  description: 'Time interval for date-based grouping',
+  description:
+    'Time interval for date-based grouping: minute or hour (a datetime field only, in UTC), day, week, month, quarter or year',
 })
 
 /**

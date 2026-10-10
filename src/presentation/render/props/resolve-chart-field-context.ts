@@ -207,6 +207,8 @@ export function resolveChartAggregateRead(
   if (!numericFigure(tables, table.name, aggregate)) return false
   if (aggregate.interval === undefined) return true
   const kind = minMaxKindOf({ tables }, table.name, aggregate.groupBy)
+  // An hour or a minute buckets a datetime only: a date holds no time of day.
+  if (aggregate.interval === 'hour' || aggregate.interval === 'minute') return kind === 'date-time'
   return kind === 'date' || kind === 'date-time'
 }
 

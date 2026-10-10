@@ -52,9 +52,11 @@ The config a command reads is always a **positional** argument, never a flag —
 1. `--no-publicDir` — opt out entirely; nothing else is consulted.
 2. `--publicDir <path>` — the explicit path.
 3. `SOVRIUM_PUBLIC_DIR` — the same thing from the environment. The literal value `none` is the env-var spelling of `--no-publicDir`.
-4. Otherwise, `public/` **next to the config file**.
+4. Otherwise, `public/` **next to the config file** — or, for the `project/app.json` of an unpacked bundle (with `manifest.json` one level up), the bundle's own `public/` beside `project/`.
 
 The default is anchored to the config file rather than to the working directory on purpose: the same command serves the same files no matter where you run it from. With an inline `APP_SCHEMA` there is no config file to anchor to, so no default applies.
+
+A directory you name with `--publicDir` or `SOVRIUM_PUBLIC_DIR` that does not exist is reported at startup by one `⚠ Public directory not found: <path>` line, and the server starts without static files. A missing default `public/` prints nothing, since most apps have none.
 
 ```bash
 sovrium start app.yaml --publicDir ./assets

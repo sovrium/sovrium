@@ -134,6 +134,8 @@ export const columnPresentationMeta = (
  * The `cellStyle` rules as they apply to the cell around the value. A column
  * drawn as a chip (`badgeForm`) gives a rule's `tone` to the chip alone, so the
  * cell keeps only the rule's `className` — the tone never recolours the text.
+ * A text chip takes the tone itself (`text-chip-cell.tsx`); an option chip
+ * takes it from the wrapper {@link optionChipCellClassOf} draws around it.
  */
 export const cellStyleOutsideChip = (
   col: Pick<FieldColumn, 'badgeForm' | 'cellStyle'>
@@ -163,3 +165,15 @@ export const cellClassOf = (
   const rules = cellStyleOutsideChip(col)
   return rules ? evaluateCellStyle(value, rules) : ''
 }
+
+/**
+ * The classes around an option field's own chip (`status`, `single-select`,
+ * `multi-select`): every matching rule whole, its `tone` included. The tone's
+ * classes reach the chip inside the wrapper through an important utility (see
+ * `TONE_CELL`), which beats the option's inline paint — so an option column
+ * drawn with `badgeForm` keeps the colour its `cellStyle` asks for.
+ */
+export const optionChipCellClassOf = (
+  value: unknown,
+  col: Pick<FieldColumn, 'cellStyle'>
+): string => (col.cellStyle ? evaluateCellStyle(value, col.cellStyle) : '')

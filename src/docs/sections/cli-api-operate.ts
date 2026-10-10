@@ -9,6 +9,7 @@ import backupBody from '@/cli/commands/backup.docs.md' with { type: 'file' }
 import bundleBody from '@/cli/commands/bundle.docs.md' with { type: 'file' }
 import cliAdminBody from '@/cli/commands/cli-admin.docs.md' with { type: 'file' }
 import deployBody from '@/cli/commands/deploy.docs.md' with { type: 'file' }
+import envBody from '@/cli/commands/env.docs.md' with { type: 'file' }
 import loginBody from '@/cli/commands/login.docs.md' with { type: 'file' }
 import { defineArticle } from './define'
 import type { DocArticle } from './define'
@@ -110,7 +111,7 @@ export const operateCliArticles: readonly DocArticle[] = [
     slug: 'deploy',
     title: 'Deploy to a Sovrium Cloud',
     description:
-      'Ship an app with sovrium deploy: the bundle uploaded, a small request with an idempotency key, and every state printed until the app is live.',
+      'Ship an app with sovrium deploy: the app found or created from the config name, its required variables checked, the bundle uploaded with an idempotency key, and every state printed until its address answers.',
     keywords: [
       'sovrium deploy',
       'deploy',
@@ -119,12 +120,40 @@ export const operateCliArticles: readonly DocArticle[] = [
       'Idempotency-Key',
       '--app',
       '--no-wait',
+      '--yes',
+      '--env',
       'waking up',
+      '.sovrium/cloud.json',
+      'requiredEnv',
+      '--seed',
+      'sovrium seed --app',
     ],
     order: 1439,
     sidebarLabel: 'Deploy',
     body: deployBody,
     documents: [],
-    stories: ['US-CLI-COMMANDS-DEPLOY'],
+    stories: ['US-CLI-COMMANDS-DEPLOY', 'US-CLI-COMMANDS-SEED-REMOTE'],
+  }),
+  defineArticle({
+    slug: 'cloud-env',
+    title: "A Hosted App's Variables",
+    description:
+      'Set, list and remove the environment variables of an app on a Sovrium Cloud with sovrium env: from a file you name, names only, secret by default, never a value printed.',
+    keywords: [
+      'sovrium env',
+      'sovrium env push',
+      'sovrium env list',
+      'sovrium env unset',
+      'environment variables',
+      'secrets',
+      '--overwrite',
+      '--plain',
+      '--redeploy',
+    ],
+    order: 1441,
+    sidebarLabel: 'Cloud variables',
+    body: envBody,
+    documents: [],
+    stories: ['US-CLI-COMMANDS-ENV'],
   }),
 ]

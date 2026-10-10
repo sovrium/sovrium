@@ -44,7 +44,12 @@
  * addresses seen in the last two windows (see `createSlidingWindowLimiter`).
  */
 
+import {
+  declaresTelemetryProtocol,
+  isSentryEnvelopePath,
+} from '@/domain/models/app/automations/trigger/webhook-telemetry-service'
 import { resolveApiIpRateLimit } from '@/domain/models/process-env/api-ip-rate-limit'
+import { isIngestRequest, markIngestRequest } from '@/infrastructure/logging/ingest-request-scope'
 import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
 import { getRateLimitWindowMs } from '@/presentation/api/auth/auth-route-utils'
@@ -67,7 +72,7 @@ const counted = new WeakSet<Request>()
 export const createApiIpCeilingMiddleware = (): MiddlewareHandler => {
   const limiter = createSlidingWindowLimiter()
   return async (c: Context, next: Next) => {
-    if (counted.has(c.req.raw)) {
+    if (counted.has(c.req.raw) || isIngestRequest(c.req.raw)) {
       await next()
       return
     }
@@ -92,6 +97,58 @@ const ceilingOf = (hono: Readonly<Hono>): MiddlewareHandler => {
   return created
 }
 
+/** The first segment of every `/api/<segment>/…` path a route or guard is registered under. */
+const ENGINE_SEGMENT = /^\/api\/([^/:*]+)\//
+
+const engineSegments = new WeakMap<object, ReadonlySet<string>>()
+
+/**
+ * The `/api/` namespaces the server's own routes claim (`auth`, `tables`, …),
+ * read from its route table on the first request, once every route is
+ * registered. A `POST /api/auth/envelope` is Better Auth's to answer, not the
+ * telemetry route's, and must stay under the ceiling like any auth request.
+ */
+const engineSegmentsOf = (hono: Readonly<Hono>): ReadonlySet<string> => {
+  const existing = engineSegments.get(hono)
+  if (existing !== undefined) return existing
+  const segments = new Set(
+    hono.routes.flatMap((route) => {
+      const segment = ENGINE_SEGMENT.exec(route.path)?.[1]
+      return segment === undefined ? [] : [segment]
+    })
+  )
+  engineSegments.set(hono, segments)
+  return segments
+}
+
+/**
+ * Mark a `POST` to the Sentry envelope path as a telemetry ingest request,
+ * ahead of every `/api/*` guard. Ingest is OUTSIDE this ceiling: every app on
+ * a shared host reports through one address, and a Sentry-compatible client
+ * mutes all of its reporting for the `Retry-After` it is given, so one
+ * address budget would silence a whole host. Each sender has its own budget
+ * instead, counted by the protocol route once its key is known.
+ *
+ * A path whose `<project>` segment is a namespace of the engine's own routes
+ * is NOT marked, so no other route answering under `/api/<x>/envelope`
+ * escapes the ceiling through this exemption. A sender whose project segment
+ * happens to equal one is still served by the telemetry route (which marks
+ * the request itself); it is merely counted against the ceiling as well.
+ */
+const markSentryIngestOf =
+  (hono: Readonly<Hono>): MiddlewareHandler =>
+  async (c, next) => {
+    const { path } = c.req
+    if (
+      c.req.method === 'POST' &&
+      isSentryEnvelopePath(path) &&
+      !engineSegmentsOf(hono).has(path.split('/')[2] ?? '')
+    ) {
+      markIngestRequest(c.req.raw)
+    }
+    await next()
+  }
+
 /**
  * Mount the ceiling on every path that can reach a session lookup: all of
  * `/api/*` (the health check is registered earlier and never reaches it;
@@ -106,7 +163,10 @@ export const applyApiIpCeiling = <T extends Hono>(
   authConfigured: boolean
 ): T => {
   const ceiling = ceilingOf(hono)
-  const withApi = hono.use('/api/*', ceiling) as T
+  const marked = declaresTelemetryProtocol(app.automations, 'sentry')
+    ? (hono.use('/api/*', markSentryIngestOf(hono)) as T)
+    : hono
+  const withApi = marked.use('/api/*', ceiling) as T
   if (!authConfigured) return withApi
   return (app.forms ?? []).reduce<T>(
     (acc, form) => (typeof form.path === 'string' ? (acc.use(form.path, ceiling) as T) : acc),

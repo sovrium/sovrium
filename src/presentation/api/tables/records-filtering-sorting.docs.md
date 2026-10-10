@@ -85,7 +85,7 @@ The shortcut is a single equality:
 GET /api/tables/tasks/records?filter=status:active
 ```
 
-On a checkbox field the shorthand reads `true`/`false` (and `1`/`0`) as the boolean they name, on both engines.
+On a checkbox field the shorthand reads `true`/`false` (and `1`/`0`) as the boolean they name, on both engines. A JSON filter reads a checkbox's `value` the same way.
 
 Anything richer is a JSON tree whose top level is an `and` array of `{ field, operator, value }` conditions:
 
@@ -96,6 +96,8 @@ GET /api/tables/tasks/records?filter={"and":[{"field":"status","operator":"in","
 **`?filter` is an `and` list.** A flat object (`{"status":"active"}`), a lone condition, a bare array or a top-level `or` is refused with a `400` naming the `and` list the API takes. Use the shortcut or the `and` tree.
 
 The operators are `equals`, `notEquals`, `greaterThan`, `lessThan`, `greaterThanOrEqual`, `lessThanOrEqual`, `contains`, `startsWith`, `endsWith`, `isNull`, `isNotNull`, `isEmpty`, `isNotEmpty`, `isTrue`, `isFalse`, `in` and `notIn`. `isEmpty` keeps the rows whose field is NULL, empty text, an empty list or an empty object, `isNotEmpty` the others, on any column type; neither takes a `value`. `isTrue` and `isFalse` take a checkbox, a formula whose `resultType` is `boolean`, or a lookup of a checkbox; on any other field they are refused with a `400` naming the field.
+
+A `value` compared with a checkbox, in a JSON filter or the shorthand, is read as yes or no on both engines: `true`, `1`, `"true"`, `"1"` and `"t"` mean ticked, `false`, `0`, `"false"`, `"0"` and `"f"` unticked, in any case and inside `or` groups and `in` lists alike. Prefer `true` and `false`.
 
 A filter naming a field the caller may not read, or a field the table does not have, is answered with the same `404`, so the two cannot be told apart.
 
@@ -109,6 +111,8 @@ An operator outside that set is refused with a `400` naming it and listing the s
 
 A condition's `value` may be a relative date — `$today`, `$today+Nd`, `$today-Nd`, `$today+Nw`, `$today-Nw`, `$startOfMonth` or `$startOfNextMonth` — which the server resolves to the calendar day it names on the day of the request, before the filter reaches the database. A value that starts like one of these but is outside the list — `$today+1m`, `$startOfYear` — is refused with a `400` naming the value and the tokens that exist, rather than compared as text.
 
+A condition on a `datetime` field may name an instant instead: `$now`, or `$now+N` / `$now-N` with a unit of `m` (minutes), `h` (hours), `d` (days) or `w` (weeks) — `$now-1h` is the last hour, `$now-7d` the last seven days to the minute rather than since a midnight. The server resolves it once per request to a UTC instant rounded down to the minute, and every token in one request reads the same instant. A value that starts with `$now` but is outside the list — `$now-1y`, `$now-90s` — is refused with a `400` naming the value and the tokens that exist.
+
 ## Searching
 
 ```
@@ -116,6 +120,8 @@ GET /api/tables/contacts/records?q=zinc
 ```
 
 `q` matches case-insensitively and runs in the query across the whole table, not over the page the caller happens to hold. Because it is applied as a filter, `total` reports the number of _matching_ rows, so the pager stops offering pages the narrowed result no longer has. `q` combines with `filter`: a record must satisfy both.
+
+When the table declares `fullTextSearch` on one or more `long-text` fields, `q` searches **those fields only**, by word and from an index: each word of the term must appear in the same field and matches a word that starts with it, a double-quoted span is a phrase, and with no `sort` the most relevant records come first. Characters such as `-`, `*`, `:` or parentheses are plain text, never syntax. **Full-Text Search** documents the grammar. The rest of this section describes a table declaring no such field.
 
 The term is matched against text-shaped fields only — single-line text, long text, rich text, email, URL, phone number, single-select, status, code and barcode. Numbers, dates and booleans are not searched, and computed fields are excluded because they are view expressions rather than stored columns.
 

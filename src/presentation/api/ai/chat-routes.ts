@@ -10,14 +10,12 @@ import {
   AiService,
   type ChatReply,
   type ChatMessage,
-  type ChatToolDefinition,
 } from '@/application/ports/services/ai-service'
 import { chatRequestSchema } from '@/domain/models/api/ai/chat'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { isSystemAgentName } from '@/domain/models/app/agents/agent-identity'
 import { type ContextPageScope } from '@/domain/models/app/agents/ai-chat-context'
-import { buildChatToolDefinitions } from '@/domain/models/app/agents/ai-chat-tools'
 import {
   provideDomain,
   requireDomainContext,
@@ -36,6 +34,7 @@ import {
   type AiAnonRateLimit,
 } from '@/presentation/api/ai/ai-anon-rate-limit'
 import { recordChatActivity } from '@/presentation/api/ai/chat-activity-log'
+import { buildTurnTools } from '@/presentation/api/ai/chat-browser-tool'
 import { buildChatContextPrompt } from '@/presentation/api/ai/chat-context-prompt'
 import { appendConversationTurn } from '@/presentation/api/ai/chat-conversation-store'
 import {
@@ -513,7 +512,7 @@ const runChatTurn = async (c: Context, input: ChatTurnInput): Promise<Response> 
 
   const toolTables = resolveTurnToolTables(input)
   const toolDefs = toolTables.map((t) => ({ name: t.name, columns: t.readableColumns }))
-  const tools: ReadonlyArray<ChatToolDefinition> = buildChatToolDefinitions(toolDefs)
+  const tools = buildTurnTools(toolDefs, input.app, input.agent)
 
   // Kept in a local so the tool-calling loop can extend it with tool results.
   const baseMessages: ReadonlyArray<ChatMessage> = [

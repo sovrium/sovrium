@@ -6,5 +6,6 @@
  */
 
 export * from './directory'
+export * from './groups'
 export * from './overview'
 export * from './roles'

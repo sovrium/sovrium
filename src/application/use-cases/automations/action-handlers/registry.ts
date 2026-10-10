@@ -17,7 +17,15 @@ import {
   handleAuthCreateUser,
   handleAuthUnbanUser,
 } from './auth'
+import { handleAuthAddToGroup, handleAuthRemoveFromGroup } from './auth-groups'
+import {
+  handleAuthDeleteOAuthClient,
+  handleAuthRegisterOAuthClient,
+  handleAuthRotateOAuthClientSecret,
+} from './auth-oauth-client'
 import { handleAutomationCall, handleAutomationReturn } from './automation'
+import { handleBrowserRun } from './browser'
+import { handleBrowserAgent } from './browser-agent'
 import { handleCodeRun } from './code'
 import { handleConnectionCall } from './connection'
 import { handleCryptoHash, handleCryptoHmac, handleCryptoSign, handleCryptoVerify } from './crypto'
@@ -92,6 +100,7 @@ import {
   handleInstanceStatus,
   handleInstanceStop,
 } from './instance'
+import { handleInstanceSeed } from './instance-seed'
 import { handleLinkCreate, handleLinkDelete, handleLinkUpdate } from './link'
 import { handleLoopEach } from './loop'
 import { handlePathBranch } from './path'
@@ -147,6 +156,8 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ActionKey,
   ActionHandler
 >([
+  ['browser/run', handleBrowserRun],
+  ['browser/agent', handleBrowserAgent],
   ['code/runTypescript', handleCodeRun],
   ['connection/call', handleConnectionCall],
   ['crypto/hash', handleCryptoHash],
@@ -184,6 +195,11 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['auth/banUser', handleAuthBanUser],
   ['auth/createUser', handleAuthCreateUser],
   ['auth/unbanUser', handleAuthUnbanUser],
+  ['auth/addToGroup', handleAuthAddToGroup],
+  ['auth/removeFromGroup', handleAuthRemoveFromGroup],
+  ['auth/registerOAuthClient', handleAuthRegisterOAuthClient],
+  ['auth/rotateOAuthClientSecret', handleAuthRotateOAuthClientSecret],
+  ['auth/deleteOAuthClient', handleAuthDeleteOAuthClient],
   ['filter/continue', handleFilterContinue],
   ['record/create', handleRecordCreate],
   ['record/read', handleRecordRead],
@@ -241,6 +257,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['instance/logs', handleInstanceLogs],
   ['instance/backup', handleInstanceBackup],
   ['instance/restore', handleInstanceRestore],
+  ['instance/seed', handleInstanceSeed],
   ['flow/stop', handleFlowStop],
   ['sovrium/validateConfig', handleSovriumValidateConfig],
   ['sovrium/validateBundle', handleSovriumValidateBundle],

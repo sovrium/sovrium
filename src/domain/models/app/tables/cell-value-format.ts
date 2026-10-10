@@ -37,6 +37,7 @@ import {
   type CurrencyDisplayOptions,
 } from '../../../kernel/format/currency-format'
 import { usableLocale } from '../../../kernel/format/usable-locale'
+import { relativeOffset } from '../../../kernel/time/relative-offset'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 // ---------------------------------------------------------------------------
@@ -201,18 +202,34 @@ function formatYesNo(value: unknown, locale: string): string {
 
 /**
  * Signed, locale-aware relative-time format — the bidirectional counterpart to
- * the past-only `relative-date`. A FUTURE date renders forward
- * ("dans 5 j" in fr), a PAST date backward ("il y a 5 j"), via
- * `Intl.RelativeTimeFormat(locale, { style: 'short' }).format(diffDays, 'day')`.
- * `diffDays` is positive for the future (so a grace-window "scheduled erasure"
- * date reads as a countdown) and negative for the past.
+ * the past-only `relative-date`. The instant reads in the largest unit that
+ * holds a whole one ({@link relativeOffset}): under a minute is "now", then
+ * minutes, hours and days, a FUTURE instant forward ("in 5 min.", « dans 5 j »)
+ * and a PAST one backward ("3 hr. ago", « il y a 5 j »). Every word is
+ * `Intl.RelativeTimeFormat`'s short form in the page language, with
+ * `numeric: 'auto'` so the neighbouring day reads "yesterday" / "tomorrow".
  */
-function formatRelativeTime(value: unknown, locale: string): string {
+function formatRelativeTime(value: unknown, locale: string, now: Readonly<Date>): string {
   const date = toDate(value)
   if (date === undefined) return String(value)
-  const diffDays = Math.round((date.getTime() - Date.now()) / 86_400_000)
-  return new Intl.RelativeTimeFormat(locale, { style: 'short' }).format(diffDays, 'day')
+  const { count, unit } = relativeOffset(date.getTime() - now.getTime())
+  const phrase = new Intl.RelativeTimeFormat(locale, { style: 'short', numeric: 'auto' })
+  return count === 0 ? phrase.format(0, 'second') : phrase.format(count, unit)
 }
+
+/**
+ * A `time-ms`: the time of day to the millisecond, `HH:mm:ss.SSS`, on a 24-hour
+ * clock in the operator time zone. It is written in `en-US` whatever the page
+ * language, so the separators — and the lines of one second — read alike on
+ * every page.
+ */
+const TIME_MS = {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  fractionalSecondDigits: 3,
+  hourCycle: 'h23',
+} as const
 
 // ---------------------------------------------------------------------------
 // Value formatting
@@ -296,13 +313,13 @@ export function formatCellValue(
       return Number.isNaN(num) ? str : formatByteCount(num)
     },
     'relative-date': () => formatRelativeDate(value, tag),
-    // Signed counterpart to the past-only `relative-date`:
-    // a future date renders "dans 5 j" (fr) and a past one "il y a 5 j" via
-    // `Intl.RelativeTimeFormat(<page locale>, { style: 'short' })`.
-    'relative-time': () => formatRelativeTime(value, tag),
+    // Signed counterpart to the past-only `relative-date`, in the largest
+    // whole unit: "5 min. ago", "in 3 hr.", « dans 5 j ».
+    'relative-time': () => formatRelativeTime(value, tag, now ?? new Date()),
     'short-date': () => formatShortDate(value, tag, timeZone, now),
     'long-date': () => formatDate(value, tag, { ...MONTH_DAY, ...YEAR, month: 'long' }, timeZone),
     datetime: () => formatDate(value, tag, DATE_TIME, timeZone),
+    'time-ms': () => formatDate(value, 'en-US', TIME_MS, timeZone),
     'yes-no': () => formatYesNo(value, tag),
     'check-cross': () => (value ? '✓' : '✗'),
   }

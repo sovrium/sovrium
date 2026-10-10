@@ -43,10 +43,9 @@
  * `resolvedBy` is `user` or `timeout`, `resolverId` the account that answered.
  * It is written into the paused run's step row AND seeded into a resumed run.
  *
- * Re-running the tail with `skipActionNames` is observationally identical to
- * resuming the same run (the downstream side-effect appears) and reuses the
- * existing engine path rather than threading a half-finished accumulator
- * through a second invocation.
+ * Re-running the tail with `skipActionNames` reuses the existing engine path. A
+ * browser step that asked before its click settles in its own row instead
+ * (`browser-confirmation-resume.ts`); its deadline always rejects.
  */
 
 import { Clock, Effect } from 'effect'
@@ -58,16 +57,16 @@ import {
 } from '@/domain/models/app/automations/actions/approval/approver-validation'
 import { parseRelay, type RunRelay } from '@/domain/models/app/automations/run-relay-service'
 import { triggerNamedOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
-import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
-import { toleratedInRows } from './run/resume-plan'
-import {
-  executeAutomationRun,
-  resolveAutomationId,
-  type ExecuteAutomationRunRequirements,
-  type RunAutomationError,
-  type RunAutomationResult,
-} from './run-automation'
+import { isBrowserConfirmation, settleBrowserConfirmation } from './browser-confirmation-resume'
+import { resumePastApproval } from './resume-past-approval'
+import { dropEndedMinimalHistory } from './run/run-persistence'
+import type { ActionHandler, ActionKey } from './action-handlers'
 import type { TriggerData } from './resolve-trigger-data'
+import type {
+  ExecuteAutomationRunRequirements,
+  RunAutomationError,
+  RunAutomationResult,
+} from './run-automation'
 import type { AutomationApprovalDatabaseError } from '@/application/ports/repositories/automations/automation-approval-repository'
 import type { AutomationRunDatabaseError } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { App } from '@/domain/models/app'
@@ -127,32 +126,9 @@ export interface ResolveApprovalOptions {
 export type ResolveRequirements =
   AutomationApprovalRepository | AutomationRunRepository | ExecuteAutomationRunRequirements
 
-/**
- * Coerce the persisted `triggerData` JSON column into a `TriggerData` shape.
- * Null / non-object payloads degrade to an empty object (the resume still
- * runs, with no trigger context).
- */
-const coerceTriggerData = (raw: unknown): TriggerData => {
-  if (raw === null || raw === undefined || typeof raw !== 'object') return {}
-  return raw as TriggerData
-}
-
-/**
- * Build the set of action names to skip on resume: every action at index
- * ≤ the approval's `stepIndex` (the approval itself + everything before it).
- * Those already ran in the original (now-paused) run, so re-running them
- * would duplicate their side effects.
- */
-const collectActionsUpToIndex = (
-  actions: readonly { readonly name?: unknown }[],
-  stepIndex: number
-): ReadonlySet<string> =>
-  new Set(
-    actions
-      .slice(0, stepIndex + 1)
-      .map((a) => String(a.name ?? ''))
-      .filter((name) => name !== '')
-  )
+/** The persisted `triggerData` as a `TriggerData`; a null or non-object payload reads as `{}`. */
+const coerceTriggerData = (raw: unknown): TriggerData =>
+  raw === null || raw === undefined || typeof raw !== 'object' ? {} : (raw as TriggerData)
 
 /** An approval request, located and checked against its caller and run. */
 type CheckedApproval = {
@@ -328,7 +304,7 @@ export const timeoutOutcomeOf = (
   if (target.expiresAt === null || target.expiresAt.getTime() > nowMs) return undefined
   const { onTimeout } = approvalStepOf(target.automation, target.stepIndex)
   if (onTimeout === 'approve') return 'approved'
-  if (onTimeout === 'reject') return 'rejected'
+  if (onTimeout === 'reject' || isBrowserConfirmation(target)) return 'rejected'
   return undefined
 }
 
@@ -344,13 +320,7 @@ const decisionOutput = (
     : {}),
 })
 
-/**
- * Resolve a pending request as `decision`, by `resolver`: claim the row, write
- * the outcome into the paused run's approval step, then either end the run
- * (a rejection under `onReject: stop`) or resume it past the approval. Shared
- * by a person's answer and the timeout sweep, so both resolve identically.
- */
-export const applyApprovalOutcome = (input: {
+export interface ApplyApprovalOutcomeInput {
   readonly runId: string
   readonly approvalId: string
   readonly target: ApprovalRunTarget
@@ -359,12 +329,23 @@ export const applyApprovalOutcome = (input: {
   readonly app: App
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly handlers?: ReadonlyMap<ActionKey, ActionHandler>
-}): Effect.Effect<ResolveApprovalResult, ResolveApprovalError, ResolveRequirements> =>
+}
+
+/**
+ * Resolve a pending request as `decision`, by `resolver`: claim the row, write
+ * the outcome into the paused run's approval step, then either end the run
+ * (a rejection under `onReject: stop`) or resume it past the approval. Shared
+ * by a person's answer and the timeout sweep, so both resolve identically.
+ */
+export const applyApprovalOutcome = (
+  input: ApplyApprovalOutcomeInput
+): Effect.Effect<ResolveApprovalResult, ResolveApprovalError, ResolveRequirements> =>
   Effect.gen(function* () {
-    const { runId, approvalId, target, decision, resolver, app, processEnv } = input
+    const { runId, approvalId, target, decision, resolver } = input
     const approvalStep = approvalStepOf(target.automation, target.stepIndex)
     yield* claimPendingApproval(approvalId, decision, resolver)
-
+    if (isBrowserConfirmation(target))
+      return yield* settleBrowserConfirmation({ ...input, decision })
     // The paused run's log reads what was decided and by whom, whether or not
     // the run goes on — a rejected run is never re-run, so this is its only record.
     const output = decisionOutput(decision, resolver)
@@ -375,41 +356,12 @@ export const applyApprovalOutcome = (input: {
       // Terminate: the row is rejected; mark the paused run rejected. No
       // re-run — the downstream actions never execute.
       yield* runRepo.updateStatus({ id: runId, status: 'rejected' })
+      yield* dropEndedMinimalHistory(target.trigger, 'rejected', runId)
       return { decision, runId, approvalId } as const
     }
 
-    // Approve (or reject under `onReject: continue`): re-run the tail. A failure of
-    // `resolveAutomationId` is a registry write (`AutomationRegistrySeedError`), never a 404.
-    const { name } = target.automation
-    const automationId = yield* resolveAutomationId(name, target.automation)
-    const skipActionNames = collectActionsUpToIndex(
-      target.automation.actions as readonly { readonly name?: unknown }[],
-      target.stepIndex
-    )
-    const stored = yield* runRepo.findStepsByRunId(runId)
-    const before = stored.filter((row) => row.stepIndex < target.stepIndex)
-    const result = yield* executeAutomationRun({
-      name,
-      automation: target.automation,
-      trigger: target.trigger,
-      automationId,
-      app,
-      processEnv,
-      triggerData: target.triggerData,
-      handlers: input.handlers ?? defaultActionHandlers,
-      // The persisted `triggerData`, never a session: a hand-started run resumes as
-      // its caller, any other system-side. A failure tolerated before the pause counts.
-      ...target.startedBy,
-      priorTolerated: toleratedInRows(before),
-      // A hand-started run's starter may have been banned while it waited.
-      checkStarterStanding: true,
-      skipActionNames,
-      // A later step reads the outcome as `{{<approval step>.result.decision}}`,
-      // and who decided as `{{<approval step>.result.resolvedBy}}`.
-      ...(approvalStep.name === undefined ? {} : { seedOutputs: { [approvalStep.name]: output } }),
-      ...(target.relay === undefined ? {} : { relay: target.relay }),
-    })
-    return { decision, runId, approvalId, result } as const
+    // Approve (or reject under `onReject: continue`): re-run the tail.
+    return yield* resumePastApproval(input, approvalStep.name, output)
   }).pipe(Effect.withSpan('automations.apply-approval-outcome'))
 
 /**
@@ -434,8 +386,7 @@ export const resolveAutomationApproval = (
       ...(options.handlers === undefined ? {} : { handlers: options.handlers }),
     }
 
-    // The deadline decides, not the sweep's tick: an answer after it applies
-    // the timeout's outcome, then is refused as already decided.
+    // The deadline decides, not the sweep's tick: a late answer applies the timeout, then is refused.
     const timedOut = timeoutOutcomeOf(target, yield* Clock.currentTimeMillis)
     if (timedOut !== undefined) {
       yield* applyApprovalOutcome({ ...shared, decision: timedOut, resolver: { by: 'timeout' } })

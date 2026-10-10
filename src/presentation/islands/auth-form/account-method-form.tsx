@@ -28,6 +28,7 @@ import {
   AUTH_ERROR_BANNER_STYLE,
   AUTH_SUCCESS_BANNER_STYLE,
   computeAuthFeedbackBannerClasses,
+  computeFormFieldLabelClasses,
   computeFormLayoutClasses,
 } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
@@ -36,15 +37,26 @@ import {
   ACCOUNT_SUCCESS_MESSAGES,
   CHANGED_ACCOUNT_LIST,
   accountRequest,
+  isLapsedAttempt,
   postAccount,
 } from './account-method-requests'
 import { KeyReveal } from './api-key-reveal'
 import { AuthErrorSummary, AuthFieldRow } from './auth-form-fields'
-import { validateAllFields, type AuthFormField, type FieldErrors } from './auth-form-validation'
+import {
+  takesCodeFocus,
+  validateAllFields,
+  type AuthFormField,
+  type FieldErrors,
+} from './auth-form-validation'
 import { RecoveryCodesStep, ScanStep, type EnrolmentStrings } from './two-factor-enrolment'
+import { TwoFactorNoticeView, type TwoFactorNotice } from './two-factor-notice'
+
+export { AccountLinkControl } from './account-link-control'
 
 export interface AccountMethodFormProps {
   readonly method: string
+  /** `linkAccount` / `unlinkAccount`: the sign-in provider connected or disconnected. */
+  readonly provider?: string
   readonly fields: readonly AuthFormField[]
   readonly submitLabel: string
   readonly pendingLabel: string
@@ -54,6 +66,8 @@ export interface AccountMethodFormProps {
   readonly factor?: string
   readonly trustDevice?: boolean
   readonly tokenParam?: string
+  /** `verifyTwoFactor`: what it says when no sign-in waits for its code. */
+  readonly twoFactorNotice?: TwoFactorNotice
   /** The enrolment screens' strings in the page language (`twoFactor.*`). */
   readonly uiStrings?: EnrolmentStrings
   readonly className?: string
@@ -69,19 +83,36 @@ type Stage =
   | { readonly kind: 'scan'; readonly totpURI: string; readonly codes: readonly string[] }
   | { readonly kind: 'codes'; readonly codes: readonly string[] }
   | { readonly kind: 'key'; readonly key: string }
+  | { readonly kind: 'expired' }
 
-/** The methods that end with the reader signed in, and so follow `onSuccess.navigate`. */
-const SIGNS_IN: ReadonlySet<string> = new Set(['verifyTwoFactor', 'acceptInvitation'])
+/**
+ * The methods that follow `onSuccess.navigate` as soon as the server accepts:
+ * the two that end with the reader signed in, and turning two-step off (a
+ * page gated on the two-step state is rendered again with the new state).
+ * Enrolment and a new set of recovery codes follow it from their Done instead,
+ * once the codes have been seen.
+ */
+const NAVIGATES_ON_SUCCESS: ReadonlySet<string> = new Set([
+  'verifyTwoFactor',
+  'acceptInvitation',
+  'disableTwoFactor',
+])
 
 const FORM_STAGE: Stage = { kind: 'form' }
+const EXPIRED_STAGE: Stage = { kind: 'expired' }
 const noop = (): void => undefined
+
+/** The recovery codes an answer carries, or `undefined` when it carries none. */
+const codesOf = (data: Readonly<Record<string, unknown>> | undefined): string[] | undefined =>
+  Array.isArray(data?.['backupCodes']) ? data['backupCodes'].map(String) : undefined
 
 /** The stage a successful request leads to, from what it answered. */
 function nextStage(method: string, data: Readonly<Record<string, unknown>> | undefined): Stage {
+  const codes = codesOf(data)
   if (method === 'enableTwoFactor' && typeof data?.['totpURI'] === 'string') {
-    const codes = Array.isArray(data['backupCodes']) ? data['backupCodes'].map(String) : []
-    return { kind: 'scan', totpURI: data['totpURI'], codes }
+    return { kind: 'scan', totpURI: data['totpURI'], codes: codes ?? [] }
   }
+  if (method === 'regenerateBackupCodes' && codes !== undefined) return { kind: 'codes', codes }
   if (method === 'createApiKey' && typeof data?.['key'] === 'string') {
     return { kind: 'key', key: data['key'] }
   }
@@ -111,7 +142,9 @@ function Feedback({
 /** The form's submit and what it leads to: its screen, its errors, its result. */
 function useAccountSubmit(props: AccountMethodFormProps) {
   const { method, fields } = props
-  const [stage, setStage] = useState<Stage>(FORM_STAGE)
+  const [stage, setStage] = useState<Stage>(
+    props.twoFactorNotice?.shown === true ? EXPIRED_STAGE : FORM_STAGE
+  )
   const [errors, setErrors] = useState<FieldErrors>({})
   const [result, setResult] = useState<{ error?: string; success?: string }>({})
   const [pending, setPending] = useState(false)
@@ -120,7 +153,7 @@ function useAccountSubmit(props: AccountMethodFormProps) {
     const changed = CHANGED_ACCOUNT_LIST[method]
     if (changed !== undefined) dispatchIslandEvent('sovrium:refetch', { id: changed })
     const target = toSafeRedirectPath(props.redirectUrl)
-    if (SIGNS_IN.has(method) && target !== undefined) {
+    if (NAVIGATES_ON_SUCCESS.has(method) && target !== undefined) {
       globalThis.location.assign(target)
       return
     }
@@ -143,23 +176,41 @@ function useAccountSubmit(props: AccountMethodFormProps) {
     setPending(true)
     void postAccount(request.path, request.body).then((outcome) => {
       setPending(false)
+      if (isLapsedAttempt(method, outcome.code)) return setStage(EXPIRED_STAGE)
       if (outcome.error !== undefined) return setResult({ error: outcome.error })
       return succeed(outcome.data)
     })
   }
 
-  return { stage, setStage, errors, result, setResult, pending, submit }
+  /** Done on the recovery codes: the page `onSuccess.navigate` names, else the form again. */
+  const closeCodes = (): void => {
+    const target = toSafeRedirectPath(props.redirectUrl)
+    if (target === undefined) return setStage(FORM_STAGE)
+    return globalThis.location.assign(target)
+  }
+
+  return { stage, setStage, errors, result, setResult, pending, submit, closeCodes }
 }
 
 /** The screens that follow the form, or `undefined` while the form itself is shown. */
 function NextScreen({
   state,
   strings,
+  form,
 }: {
   readonly state: ReturnType<typeof useAccountSubmit>
   readonly strings: EnrolmentStrings
+  readonly form: AccountMethodFormProps
 }): ReactElement | undefined {
-  const { stage, setStage, result, setResult } = state
+  const { stage, setStage, result, setResult, closeCodes } = state
+  // No sign-in waits for this code (none on load, or it lapsed at submit).
+  if (stage.kind === 'expired')
+    return form.twoFactorNotice === undefined ? undefined : (
+      <TwoFactorNoticeView
+        {...form}
+        notice={form.twoFactorNotice}
+      />
+    )
   if (stage.kind === 'scan')
     return (
       <ScanStep
@@ -174,7 +225,7 @@ function NextScreen({
     return (
       <RecoveryCodesStep
         codes={stage.codes}
-        onDone={() => setStage(FORM_STAGE)}
+        onDone={closeCodes}
         strings={strings}
       />
     )
@@ -198,6 +249,7 @@ export function AccountMethodForm(props: AccountMethodFormProps): ReactElement {
       <NextScreen
         state={state}
         strings={props.uiStrings}
+        form={props}
       />
     )
 
@@ -222,10 +274,11 @@ export function AccountMethodForm(props: AccountMethodFormProps): ReactElement {
           defaultValue={props.initialValues?.[field.name] ?? ''}
           error={errors[field.name]}
           onBlur={noop}
+          autoFocus={takesCodeFocus(field, props.twoFactorNotice)}
         />
       ))}
       {method === 'verifyTwoFactor' && props.trustDevice === true ? (
-        <label className="flex items-center gap-2">
+        <label className={`flex items-center gap-2 ${computeFormFieldLabelClasses()}`}>
           <input
             type="checkbox"
             name="trustDevice"

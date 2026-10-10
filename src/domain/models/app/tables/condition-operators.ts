@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { isEmptyCell } from '@/domain/kernel/matching/empty-value'
+import { fieldLiteralOf } from './checkbox-literal-service'
 
 /**
  * Scalar accepted by the comparison operators.
@@ -37,7 +38,7 @@ const ConditionValueArraySchema = Schema.Array(ConditionValueSchema)
  *   neither `eq: ''` nor `gt` can express it: `eq` compares the stringified
  *   value (NULL reads as `"null"`), and `gt` is numeric.
  *
- * Lives in `shared/` rather than beside any one consumer because three
+ * Lives with the `tables` property rather than beside any one consumer because three
  * unrelated surfaces now spend it — `table` `cellStyle[].when`, a
  * `table` action item's `visibleWhen`, and a `button` field's
  * `visibleWhen`. Co-locating it with the first of those would make the other
@@ -145,7 +146,10 @@ export type FieldCondition = Schema.Schema.Type<typeof FieldConditionSchema>
  * rather than throwing — the schema already constrains the vocabulary, and a
  * value arriving from a rehydrated JSON blob must not crash a render.
  */
-const matchesCondition = (operator: string, expected: unknown, value: unknown): boolean => {
+const matchesCondition = (operator: string, given: unknown, value: unknown): boolean => {
+  // A boolean value is a checkbox read through its type: the literal it is
+  // compared with is read the same way, so `eq: 1` matches a ticked row.
+  const expected = typeof value === 'boolean' ? fieldLiteralOf('checkbox', given) : given
   const strValue = String(value)
   const numValue = Number(value)
   const matchers: Readonly<Record<string, () => boolean>> = {

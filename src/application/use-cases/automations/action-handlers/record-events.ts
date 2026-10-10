@@ -22,6 +22,7 @@ import {
 } from '@/application/use-cases/tables/record-create-orchestration'
 import { deleteRecordVia } from '@/application/use-cases/tables/record-delete-orchestration'
 import { updateRecordVia } from '@/application/use-cases/tables/record-update-orchestration'
+import { normalizeTemplatedWriteValuesIn } from '@/domain/models/app/tables/templated-write-value-service'
 import type { buildSyntheticSession, buildSystemSession } from '../build-guest-session'
 import type { ActionOutcome, ActionRunContext, RecordWriteEvent } from './shared'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
@@ -79,7 +80,13 @@ const STEP_WRITE = {
   forgetDerivedVariants: () => undefined,
 } as const
 
-/** Create one record through the create road, its automations started through the channel. */
+/**
+ * Create one record through the create road, its automations started through
+ * the channel. Every write a step makes passes here or through
+ * {@link updateAndAnnounce}, so a templated value is read as its column expects
+ * (an empty number or key is `null`, JSON text in a `json` column its structure)
+ * once, for create, update, upsert and the batch operators alike.
+ */
 export const createAndAnnounce = (input: {
   readonly session: ReturnType<typeof buildSyntheticSession>
   readonly app: App
@@ -93,7 +100,7 @@ export const createAndAnnounce = (input: {
       session: input.session,
       app: input.app,
       tableName: input.tableName,
-      fields: input.fields,
+      fields: normalizeTemplatedWriteValuesIn(input.app.tables, input.tableName, input.fields),
     },
     throughChannel(input.runContext)
   ).pipe(Effect.withSpan('automations.create-and-announce'))
@@ -114,7 +121,8 @@ export const updateAndAnnounce = (input: {
       {
         ...STEP_WRITE,
         ...{ session: input.session, app: input.app, tableName: input.tableName },
-        ...{ recordId: input.recordId, fields: input.fields },
+        recordId: input.recordId,
+        fields: normalizeTemplatedWriteValuesIn(input.app.tables, input.tableName, input.fields),
         ...(input.linkReader === undefined ? {} : { linkReader: input.linkReader }),
       },
       throughChannel(input.runContext)

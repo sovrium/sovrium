@@ -25,95 +25,24 @@
  */
 
 import { elidedLabel, resolveCauseChain } from './error-chain'
+import type {
+  SentryEvent,
+  SentryExceptionValue,
+  SentrySpan,
+  SentryStackFrame,
+  SentryTransaction,
+} from '@/domain/models/api/automations/ingest/sentry-envelope'
 import type { SentryDsn } from '@/domain/models/process-env/telemetry/sentry-dsn'
 import type { Tracer } from 'effect'
 
-/** A parsed V8 stack frame in Sentry's `stacktrace.frames[]` shape. */
-export interface SentryStackFrame {
-  readonly filename: string
-  readonly function?: string
-  readonly lineno?: number
-  readonly colno?: number
-  /** `true` for application frames (outside `node_modules`). */
-  readonly in_app: boolean
-}
-
 /**
- * One link of a Sentry `exception.values[]` chain — a single `Error` in a
- * `cause` chain, with its own type, message, and stack.
+ * The five payload shapes are the shared wire model
+ * (`src/domain/models/api/automations/ingest/sentry-envelope.ts`): derived from the
+ * Effect Schemas a Sovrium receiver decodes, so this emitter and that receiver
+ * cannot drift. Re-exported for the reporter; the builders below are the only
+ * writers.
  */
-export interface SentryExceptionValue {
-  readonly type: string
-  readonly value: string
-  readonly stacktrace: { readonly frames: ReadonlyArray<SentryStackFrame> }
-}
-
-/** A Sentry error event payload (the subset Sovrium emits). */
-export interface SentryEvent {
-  readonly event_id: string
-  readonly timestamp: number
-  readonly platform: 'javascript'
-  readonly level: 'error'
-  readonly release: string
-  readonly environment: string
-  readonly server_name: string
-  readonly exception: {
-    readonly values: ReadonlyArray<SentryExceptionValue>
-  }
-  readonly request?: {
-    readonly method: string
-    readonly url: string
-    readonly headers: Readonly<Record<string, string>>
-  }
-}
-
-/**
- * ONE entry of a transaction's `spans[]`, in GlitchTip's shape.
- *
- * The schema is FLAT and this type mirrors it exactly. There is no
- * `parent_span_id` and no `trace_id` field on the receiver's `SpanSchema`, so
- * parentage travels inside `data` — which is typed as a free-form `JsonValue`
- * and therefore survives ingest. Putting them at the top level instead would
- * cost nothing visible: every schema is a `LaxIngestSchema` with pydantic's
- * default `extra='ignore'`, so an unknown key is silently DROPPED and the
- * payload still gets a 2xx. That silence is exactly why this type is written
- * against the dumped receiver schema rather than against Sentry's own SDK.
- */
-export interface SentrySpan {
-  readonly span_id: string
-  readonly op: string
-  readonly description: string
-  readonly start_timestamp: number
-  readonly timestamp: number
-  readonly status: string
-  readonly data: Readonly<Record<string, string>>
-}
-
-/** A Sentry performance transaction payload. */
-export interface SentryTransaction {
-  readonly event_id: string
-  readonly type: 'transaction'
-  readonly transaction: string
-  readonly start_timestamp: number
-  readonly timestamp: number
-  readonly platform: 'javascript'
-  readonly release: string
-  readonly environment: string
-  readonly contexts: {
-    readonly trace: {
-      readonly trace_id: string
-      readonly span_id: string
-      readonly op: 'http.server'
-      readonly status: string
-    }
-  }
-  /** Flat list of the CHILD spans the request opened; the root is the transaction. */
-  readonly spans: ReadonlyArray<SentrySpan>
-  /** Filterable key/value pairs (GlitchTip: KeyValueFormat). */
-  readonly tags: Readonly<Record<string, string>>
-  /** Numeric per-transaction measurements (GlitchTip: free-form JsonValue). */
-  readonly measurements: Readonly<Record<string, { readonly value: number; readonly unit: string }>>
-}
+export type { SentryEvent, SentryTransaction }
 
 /** Inputs for {@link buildTransaction}, gathered by the timing middleware. */
 export interface TransactionInput {

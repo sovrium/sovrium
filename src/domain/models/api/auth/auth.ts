@@ -360,6 +360,63 @@ export type ListSessionsResponse = typeof listSessionsResponseSchema.Type
 export const SOVRIUM_CLI_CLIENT_ID = 'sovrium-cli'
 
 /**
+ * Response header a cloud sets on `POST /api/auth/device/code` when it accepted
+ * the `redirect_uri` and will return the person to it. A cloud that predates
+ * the loopback return drops the unknown field silently, so the CLI reads this
+ * header — never the absence of an error — before it waits on its listener.
+ *
+ * @public
+ */
+export const DEVICE_RETURN_HEADER = 'Sovrium-Device-Return'
+
+/**
+ * The one value of {@link DEVICE_RETURN_HEADER}.
+ *
+ * @public
+ */
+export const DEVICE_RETURN_LOOPBACK = 'loopback'
+
+/**
+ * Longest `device_name` a code request may carry.
+ *
+ * @public
+ */
+export const DEVICE_NAME_MAX_LENGTH = 40
+
+/** Ports a loopback listener may name: never a privileged one. */
+const LOOPBACK_PORT_MIN = 1024
+const LOOPBACK_PORT_MAX = 65_535
+
+/**
+ * `http://127.0.0.1:<port>/callback` or `http://[::1]:<port>/callback`, and
+ * nothing else: no `localhost` (RFC 8252 §8.3 — a name can be re-pointed, an
+ * address cannot), no `https`, no other path, no query or fragment.
+ */
+const LOOPBACK_REDIRECT_URI_PATTERN = /^http:\/\/(?:127\.0\.0\.1|\[::1\]):(\d{1,5})\/callback$/
+
+/**
+ * Whether `value` is a redirect URI the loopback return accepts, port range
+ * included.
+ *
+ * @public
+ */
+export const isLoopbackRedirectUri = (value: string): boolean => {
+  const port = Number(LOOPBACK_REDIRECT_URI_PATTERN.exec(value)?.[1])
+  return Number.isInteger(port) && port >= LOOPBACK_PORT_MIN && port <= LOOPBACK_PORT_MAX
+}
+
+const loopbackRedirectUriSchema = Schema.String.annotate({
+  description:
+    "Where the browser returns once the person decides: 'http://127.0.0.1:<port>/callback' or 'http://[::1]:<port>/callback', port 1024-65535. 'localhost' is refused",
+}).check(
+  Schema.makeFilter((value: string) =>
+    isLoopbackRedirectUri(value)
+      ? undefined
+      : 'redirect_uri must be http://127.0.0.1:<port>/callback or http://[::1]:<port>/callback, port 1024-65535'
+  )
+)
+
+/**
  * Body of `POST /api/auth/device/code`, the request that starts the flow. Sent
  * without a session.
  *
@@ -369,6 +426,12 @@ export const deviceCodeRequestSchema = Schema.Struct({
   client_id: Schema.Literal(SOVRIUM_CLI_CLIENT_ID).annotate({
     description: "The client asking for a code; only 'sovrium-cli' is served",
   }),
+  redirect_uri: optionalField(loopbackRedirectUriSchema),
+  device_name: optionalField(
+    Schema.String.annotate({
+      description: `Name of the machine asking, shown on the approval page; at most ${DEVICE_NAME_MAX_LENGTH} characters`,
+    }).check(Schema.isMinLength(1), Schema.isMaxLength(DEVICE_NAME_MAX_LENGTH))
+  ),
 })
 
 /** @public */
@@ -414,6 +477,12 @@ export const deviceApiKeyRequestSchema = Schema.Struct({
   client_id: Schema.Literal(SOVRIUM_CLI_CLIENT_ID).annotate({
     description: "The client that requested the code; always 'sovrium-cli'",
   }),
+  code: optionalField(
+    Schema.String.annotate({
+      description:
+        'The single-use code the browser carried back to the redirect_uri. Required to redeem a loopback request approved at POST /api/auth/device/decide; without it such a request answers authorization_pending',
+    }).check(Schema.isMinLength(1))
+  ),
 })
 
 export type DeviceApiKeyRequest = Schema.Schema.Type<typeof deviceApiKeyRequestSchema>
@@ -454,3 +523,63 @@ export const deviceApiKeyErrorSchema = Schema.Struct({
 })
 
 export type DeviceApiKeyError = Schema.Schema.Type<typeof deviceApiKeyErrorSchema>
+
+// ============================================================================
+// Device Authorization — loopback return (auth.deviceAuthorization)
+// ============================================================================
+
+/**
+ * What the approval page reads about a request, in the answer of
+ * `GET /api/auth/device?user_code=` — to the person who claimed the code only,
+ * spread beside `user_code` and `status`.
+ *
+ * @public
+ */
+export const deviceVerificationContextSchema = Schema.Struct({
+  mode: Schema.Literals(['loopback', 'code']).annotate({
+    description:
+      "'loopback': deciding returns the browser to the CLI, decide with POST /api/auth/device/decide. 'code': the CLI is polling, approve with POST /api/auth/device/approve",
+  }),
+  requested_at: looseIsoDateTime({ description: 'When the CLI asked for the code' }),
+  device_name: optionalField(
+    Schema.String.annotate({ description: 'The machine that asked, as it named itself' })
+  ),
+})
+
+/** @public */
+export type DeviceVerificationContext = Schema.Schema.Type<typeof deviceVerificationContextSchema>
+
+/**
+ * Body of `POST /api/auth/device/decide`: the claimant's decision on a
+ * loopback request. Requires the session of the person who claimed the code.
+ *
+ * @public
+ */
+export const deviceDecisionRequestSchema = Schema.Struct({
+  userCode: Schema.String.annotate({ description: 'The user code being decided' }).check(
+    Schema.isMinLength(1)
+  ),
+  decision: Schema.Literals(['approve', 'deny']).annotate({
+    description: "'approve' signs the CLI in; 'deny' refuses it",
+  }),
+})
+
+/** @public */
+export type DeviceDecisionRequest = Schema.Schema.Type<typeof deviceDecisionRequestSchema>
+
+/**
+ * Answer of `POST /api/auth/device/decide`: where to send the browser next.
+ * On approval the address carries `?code=<single-use code>`, valid two
+ * minutes at most; on denial it carries `?error=access_denied`.
+ *
+ * @public
+ */
+export const deviceDecisionResponseSchema = Schema.Struct({
+  redirectTo: Schema.String.annotate({
+    description:
+      "The request's redirect_uri with '?code=…' (approved) or '?error=access_denied' (denied)",
+  }).check(Schema.isMinLength(1)),
+})
+
+/** @public */
+export type DeviceDecisionResponse = Schema.Schema.Type<typeof deviceDecisionResponseSchema>

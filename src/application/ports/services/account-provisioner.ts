@@ -33,6 +33,20 @@ export interface NewAccount {
   readonly role: string
 }
 
+/**
+ * An account with no credential, bound to an external identity instead — the
+ * first admin of an app hosted on Sovrium Cloud, who signs in as their Cloud
+ * user (`providerId` + `accountId`). Its address is taken as verified: the
+ * platform vouches for it.
+ */
+export interface NewBoundAccount {
+  readonly email: string
+  readonly name: string
+  readonly role: string
+  readonly providerId: string
+  readonly accountId: string
+}
+
 export class AccountProvisioner extends Context.Service<
   AccountProvisioner,
   {
@@ -44,6 +58,13 @@ export class AccountProvisioner extends Context.Service<
     readonly createUser: (
       account: Readonly<NewAccount>
     ) => Effect.Effect<{ readonly userId: string | undefined }, AccountCreationError>
+    /**
+     * Create one user with no password and the one account binding it to an
+     * external identity. Nothing is created when either write is refused.
+     */
+    readonly createBoundUser: (
+      account: Readonly<NewBoundAccount>
+    ) => Effect.Effect<{ readonly userId: string }, AccountCreationError>
   }
 >()('AccountProvisioner') {}
 

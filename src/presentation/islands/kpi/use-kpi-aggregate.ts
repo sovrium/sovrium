@@ -49,7 +49,7 @@ const EMPTY_RATIO: NonNullable<AggregateAnswer['ratio']> = {
 
 /**
  * The figure a KPI shows, read off the aggregate read's answer: `0` over no
- * values; for a ratio, its percentage — `null` over an empty denominator —
+ * values, but no figure for a percentile over none; for a ratio, its percentage — `null` over an empty denominator —
  * and its two counts as the `x / y` caption.
  */
 const figureOf = (
@@ -57,7 +57,10 @@ const figureOf = (
   aggregate: KpiAggregateConfig
 ): KpiFigure => {
   if (aggregate.function === 'ratio') return ratioFigure(answer?.ratio)
-  const value = Number(answer?.aggregations?.[aggregate.function])
+  const figure = answer?.aggregations?.[aggregate.function]
+  // A percentile over no values is no figure — the neutral dash — never a 0 that reads as instant.
+  if (figure === null && aggregate.function.startsWith('p')) return { metric: null }
+  const value = Number(figure)
   return { metric: Number.isFinite(value) ? value : 0 }
 }
 

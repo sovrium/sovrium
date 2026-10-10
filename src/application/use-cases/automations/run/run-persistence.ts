@@ -19,6 +19,7 @@ import {
   runRecordRefs,
   type RunReads,
 } from '@/domain/models/app/automations/run-record-refs-service'
+import { dropsRunHistory } from '@/domain/models/app/automations/trigger/trigger-history-service'
 import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
 import { logError } from '@/infrastructure/logging/logger'
 import { storedNestedOf } from './nested-step-record'
@@ -166,6 +167,7 @@ const buildStepsInput = (
     ...nestedColumn(step),
     startedAt,
     completedAt: finishedAt,
+    ...(step.durationMs !== undefined ? { durationMs: step.durationMs } : {}),
     ...(step.error !== undefined ? { error: step.error } : {}),
   }))
 
@@ -235,6 +237,41 @@ const refsOverlay = (reads: RunReads | undefined) =>
   reads === undefined ? {} : { refs: reads.refs, refsFromRuns: reads.calledRuns }
 
 /**
+ * Whether this finalisation ends a run of a `history: 'minimal'` trigger: its
+ * trigger data and steps are then not kept (a paused run keeps both, since its
+ * resume reads them).
+ */
+const minimalEnd = (input: FinaliseRunInput): boolean =>
+  dropsRunHistory(triggerOf(input), input.engineStatus)
+
+/** The trigger entry that started the run, when the caller said. */
+const triggerOf = (input: FinaliseRunInput): Trigger | undefined => input.source?.trigger
+
+/** The step rows a finalisation appends from position `base`: none when a minimal run ends. */
+const storedSteps = (input: FinaliseRunInput, base: number) =>
+  minimalEnd(input) ? [] : buildStepsInput(input.steps, input.startedAt, input.finishedAt, base)
+
+/**
+ * Drop the trigger data and every step row of a run of a `history: 'minimal'`
+ * trigger once `status` says it ended — the steps an earlier paused segment
+ * wrote included, and, called by the approval road, the paused parent a run
+ * resumed from. Logged and swallowed: the run itself is finalised either way.
+ */
+export const dropEndedMinimalHistory = (
+  trigger: Trigger | undefined,
+  status: string,
+  runId: string
+): Effect.Effect<void, never, AutomationRunRepository> =>
+  Effect.gen(function* () {
+    if (!dropsRunHistory(trigger, status)) return
+    const repo = yield* AutomationRunRepository
+    const cleared = yield* Effect.result(repo.clearRunHistory(runId))
+    if (cleared._tag === 'Failure') {
+      logError('[automation] failed to drop the history of a minimal run', cleared.failure)
+    }
+  }).pipe(Effect.withSpan('automations.drop-ended-minimal-history'))
+
+/**
  * Fallback path: the queued/running row vanished (race with manual delete,
  * truncate). Insert a fresh row + steps via the legacy `repo.create` path
  * so the run still lands in the DB even though its id is now different
@@ -247,7 +284,7 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
       repo.create({
         automationId: input.automationId,
         status: toApiStatus(input.engineStatus),
-        triggerData: input.triggerData as unknown,
+        triggerData: (minimalEnd(input) ? null : input.triggerData) as unknown,
         startedAt: input.startedAt,
         completedAt: input.finishedAt,
         durationMs: input.finishedAt.getTime() - input.startedAt.getTime(),
@@ -258,7 +295,7 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
         ...(input.source?.relay === undefined ? {} : { relay: input.source.relay }),
         ...(input.engineError !== undefined ? { error: input.engineError } : {}),
         ...refsOverlay(readsOfRun(input)),
-        steps: buildStepsInput(input.steps, input.startedAt, input.finishedAt),
+        steps: storedSteps(input, 0),
       })
     )
     if (fallback._tag === 'Failure') {
@@ -296,7 +333,7 @@ export const finaliseRun = (
         durationMs: activeMs + (input.segment?.priorActiveMs ?? 0),
         ...parkOverlay(input),
         ...(input.engineError !== undefined ? { error: input.engineError } : {}),
-        steps: buildStepsInput(input.steps, input.startedAt, input.finishedAt, base),
+        steps: storedSteps(input, base),
         ...refsOverlay(readsOfRun(input)),
       })
     )
@@ -308,5 +345,6 @@ export const finaliseRun = (
       // A resumed run's row was there when it was claimed: a second row would split its log.
       return input.segment === undefined ? yield* finaliseRunFallback(input) : undefined
     }
+    yield* dropEndedMinimalHistory(triggerOf(input), input.engineStatus, input.runId)
     return input.runId
   }).pipe(Effect.withSpan('automations.finalise-run'))

@@ -182,30 +182,7 @@ pages:
 
 Conditions combine with AND. There is no OR at this level; express alternatives as a view on the table or a separate component.
 
-### Relative dates
-
-A filter value may name a day relative to the day the page is read: `$today`, `$today+Nd` and `$today-Nd` for N days, `$today+Nw` and `$today-Nw` for N weeks, `$startOfMonth` and `$startOfNextMonth`. Each is resolved on the server for every request to a calendar day (the server's UTC day), on both SQLite and PostgreSQL, so a view of what is due in the next two weeks is right on the day it is read rather than on the day a record was saved. The records API resolves the same tokens in its `filter` parameter.
-
-```yaml
-name: my-app
-tables:
-  - name: tasks
-    fields:
-      - { name: title, type: single-line-text }
-      - { name: due_on, type: date }
-pages:
-  - name: due-soon
-    path: /due-soon
-    components:
-      - type: table
-        dataSource:
-          table: tasks
-          filter:
-            - { field: due_on, operator: gte, value: $today }
-            - { field: due_on, operator: lte, value: $today+14d }
-```
-
-Months and years are anchors, never offsets: they have no fixed length. A value beginning with `$today` or `$startOf` that is not one of these tokens — `$today+1m`, say — is refused at boot, naming the tokens a filter may use.
+A filter value may also be a day or an instant relative to the request — `$today+14d`, `$startOfMonth`, `$now-1h` — resolved on the server for every request; **Relative Dates** lists the tokens.
 
 ## Single and search modes
 
@@ -254,6 +231,7 @@ A container bound to a table with per-row `children` — a feed of event cards �
 
 - **Page References** — `$record`, `$vars`, `$currentUser`, `$session`, `$invitation`, and the page inputs `query` and `window`.
 - **Data Components** — the components that consume a source.
+- **Relative Dates** — `$today`, `$startOfMonth` and `$now` filter values.
 - **System Sources** — binding to platform endpoints by name.
 - **Table Views** — saved filters and sorts.
 - **Layouts, Sidebars & Access** — the `access` gate.

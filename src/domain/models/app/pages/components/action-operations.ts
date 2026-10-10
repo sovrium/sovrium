@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { LOGIN_PAGE_PATTERN } from '../../auth/auth'
 import { ActionResponseSchema } from './action-response'
 import { ButtonVariantSchema } from './button-variant'
 
@@ -35,11 +36,12 @@ export const AuthActionSchema = Schema.Struct({
     'setNewPassword',
     'verifyEmail',
     'registerPasskey',
-    // Second factor: the sign-in step after a password, and the enrolment and
-    // removal a security page offers
+    // Second factor: the sign-in step after a password, and the enrolment,
+    // removal and fresh set of recovery codes a security page offers
     'verifyTwoFactor',
     'enableTwoFactor',
     'disableTwoFactor',
+    'regenerateBackupCodes',
     // Invitations, from the invitee's side (token read from the page address)
     // and from the inviter's side (one pending invitation, by `target`)
     'acceptInvitation',
@@ -55,9 +57,13 @@ export const AuthActionSchema = Schema.Struct({
     'revokeOtherSessions',
     // A member's role, set by someone allowed to administer accounts
     'setRole',
+    // The reader's binding to an external sign-in provider, named by
+    // `provider`: connect it through the provider, or disconnect it
+    'linkAccount',
+    'unlinkAccount',
   ]).annotate({
     description:
-      'What the action performs: the authentication operation under `type: auth`, or the HTTP verb under `type: fetch` (default GET). The account methods act on the signed-in reader’s own sessions, passkeys and API keys; `setRole`, `resendInvitation` and `revokeInvitation` need the administer-accounts capability.',
+      'What the action performs: the authentication operation under `type: auth`, or the HTTP verb under `type: fetch` (default GET). The account methods act on the signed-in reader’s own sessions, passkeys, API keys and two-step verification — `regenerateBackupCodes` replaces the reader’s recovery codes with a new set, shown once, after her password; `setRole`, `resendInvitation` and `revokeInvitation` need the administer-accounts capability. `linkAccount` connects the signed-in reader’s account to the sign-in provider named by `provider` (sending the browser through it and back), `unlinkAccount` disconnects it; disconnecting the reader’s only way in is refused.',
   }),
   /** Auth strategy */
   strategy: Schema.optional(
@@ -70,7 +76,7 @@ export const AuthActionSchema = Schema.Struct({
   provider: Schema.optional(
     Schema.String.annotate({
       description:
-        'OAuth provider name when strategy is oauth (e.g. google, github), or the id of one auth.sso provider when strategy is sso.',
+        'OAuth provider name when strategy is oauth (e.g. google, github), the id of one auth.sso provider when strategy is sso, or the provider linkAccount and unlinkAccount connect (sovrium-cloud on an app hosted on Sovrium Cloud).',
       examples: ['google', 'github', 'okta'],
     })
   ),
@@ -254,6 +260,57 @@ export const AuthActionSchema = Schema.Struct({
   ),
   onSuccess: Schema.optional(ActionResponseSchema),
   onError: Schema.optional(ActionResponseSchema),
+  /**
+   * Where a password sign-in sends an account that still owes its second step.
+   *
+   * Without it, a `login` form on an account with two-step on stays on its
+   * page and says a code is needed, so the `verifyTwoFactor` form must sit on
+   * that same page. With it, the form opens `navigate` instead — the usual
+   * two-screen sign-in: the password first, then the code on its own page,
+   * only for the accounts that have two-step on. The pending attempt goes with
+   * the reader, and so does where the sign-in was headed: the code page's own
+   * `onSuccess.navigate` wins when it names one, and the sign-in form's
+   * destination applies otherwise. That destination is kept on the server
+   * beside the attempt, never read from the code page's address.
+   *
+   * A path on this app, never a host, and with no query or fragment: the same
+   * rule as `auth.loginPage`. Inert on every method but `login`.
+   *
+   * @example
+   * ```yaml
+   * action:
+   *   type: auth
+   *   method: login
+   *   strategy: email
+   *   onSuccess: { navigate: /apps }
+   *   onTwoFactor: { navigate: /two-step }
+   * ```
+   */
+  onTwoFactor: Schema.optional(
+    Schema.Struct({
+      navigate: Schema.String.pipe(
+        Schema.annotate({
+          description:
+            'Path of the page holding the `verifyTwoFactor` form. An app-relative path: it starts with a single / and carries no host, query or fragment.',
+          examples: ['/two-step', '/sign-in/code'],
+        }),
+        // `makeFilter` first, then `isPattern`: the filter puts the refused
+        // value in a message a person can act on, and the pattern keeps the
+        // published JSON Schema `pattern` (as `auth.loginPage` does).
+        Schema.check(
+          Schema.makeFilter((value) =>
+            LOGIN_PAGE_PATTERN.test(value)
+              ? true
+              : `onTwoFactor.navigate ${JSON.stringify(value)} must be a path on this app: it starts with a single / and carries no host, query, fragment or whitespace (e.g. "/two-step").`
+          ),
+          Schema.isPattern(LOGIN_PAGE_PATTERN)
+        )
+      ),
+    }).annotate({
+      description:
+        'Where a `login` form sends an account that still owes its two-step code, instead of staying on the page with a message. The code page’s own `onSuccess.navigate` applies after the code, else this form’s. Inert on every other method.',
+    })
+  ),
 }).annotate({
   title: 'Auth Action',
   description: 'Authentication action (login, signup, logout, etc.)',

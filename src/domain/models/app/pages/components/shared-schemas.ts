@@ -494,6 +494,37 @@ export const AggregateFunctionSchema = Schema.Literals([
 /** @public */
 export type AggregateFunction = Schema.Schema.Type<typeof AggregateFunctionSchema>
 
+/**
+ * Percentile functions for a chart or a KPI.
+ *
+ * Kept OUT of the shared {@link AggregateFunctionSchema}, which a table
+ * footer also reads: a footer reduces the rows on screen, and the slow tail
+ * of a page of rows is not a figure anyone asks for. A chart and a KPI read
+ * the aggregate read, which ranks every matching record.
+ *
+ * Five literals rather than a `percentile: N` key: the aggregate read's
+ * grammar (`field:p95`) and its answer (`aggregations.p95`) name each one, so
+ * the binding, the request and the answer spell it the same way. A
+ * percentile is interpolated linearly between the two nearest values, the
+ * same figure on SQLite and on PostgreSQL.
+ */
+export const AggregatePercentileFunctionSchema = Schema.Literals([
+  'p50',
+  'p75',
+  'p90',
+  'p95',
+  'p99',
+]).annotate({
+  title: 'Aggregate Percentile Function',
+  description:
+    'A percentile of a numeric field, interpolated linearly between the two nearest values: p50 (the median), p75, p90, p95 or p99',
+})
+
+/** @public */
+export type AggregatePercentileFunction = Schema.Schema.Type<
+  typeof AggregatePercentileFunctionSchema
+>
+
 // ---------------------------------------------------------------------------
 // Type exports
 // ---------------------------------------------------------------------------

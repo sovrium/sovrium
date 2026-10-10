@@ -114,3 +114,11 @@ export const urlPathHelper = (value: unknown): string => urlPath(toStr(value))
 
 export const safeHtmlHelper = (value: unknown): Handlebars.SafeString =>
   new Handlebars.SafeString(sanitizeRichTextHTML(toStr(value)))
+
+/** `{{base64Encode value}}` — the UTF-8 bytes of the value, base64-encoded. */
+export const base64EncodeHelper = (v: unknown): string =>
+  Buffer.from(toStr(v), 'utf8').toString('base64')
+
+/** `{{base64Decode value}}` — the base64 value decoded as UTF-8 text. */
+export const base64DecodeHelper = (v: unknown): string =>
+  Buffer.from(toStr(v), 'base64').toString('utf8')

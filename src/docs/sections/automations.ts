@@ -57,6 +57,7 @@ export const automations = defineSection({
         'US-AUTOMATIONS-AUTOMATION-DEFINITIONS-001',
         'US-AUTOMATIONS-AUTOMATION-DEFINITIONS-002',
         'US-AUTOMATIONS-RUNS-API',
+        'US-AUTOMATIONS-STEP-METADATA',
       ],
     }),
     defineArticle({

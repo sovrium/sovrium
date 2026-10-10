@@ -13,6 +13,7 @@ import {
   parseRelay,
   type RunRelay,
 } from '@/domain/models/app/automations/run-relay-service'
+import { keepsMinimalHistory } from '@/domain/models/app/automations/trigger/trigger-history-service'
 import { redactRunTriggerData } from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
 import { triggerNamedOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
@@ -45,6 +46,8 @@ export type ReplayAutomationRunError =
   | AutomationRunDatabaseError
   | { readonly _tag: 'AutomationRunNotFound'; readonly runId: string }
   | { readonly _tag: 'AutomationRunMismatch'; readonly runId: string; readonly name: string }
+  /** A `history: 'minimal'` run kept no trigger data, and none was supplied: nothing to replay. */
+  | { readonly _tag: 'AutomationRunHistoryNotKept'; readonly runId: string }
 
 /**
  * Options for {@link replayAutomationRun}. Mirrors the manual/webhook entry
@@ -193,6 +196,12 @@ export const replayAutomationRun = (
     // Entry point: one read of the operational pauses, threaded into the gate.
     const pausedNames = yield* loadPausedAutomationNames
     const automation = yield* resolveReplayTarget(app, name, pausedNames)
+    // A run of a `history: 'minimal'` trigger keeps no trigger data once it
+    // ended: replaying it needs new trigger data, or there is nothing to replay.
+    const trigger = triggerNamedOrFirst(automation, run.triggerName)
+    if (triggerData === undefined && run.triggerData === null && keepsMinimalHistory(trigger)) {
+      return yield* Effect.fail({ _tag: 'AutomationRunHistoryNotKept' as const, runId })
+    }
     const steps = yield* repo.findStepsByRunId(runId)
     const skipActionNames = collectSkipActionNames(
       automation.actions as ReadonlyArray<{ readonly name?: unknown }>,
@@ -209,7 +218,7 @@ export const replayAutomationRun = (
       name,
       automation,
       // A replay is recorded under the trigger entry of the run it replays.
-      trigger: triggerNamedOrFirst(automation, run.triggerName),
+      trigger,
       automationId,
       app,
       processEnv,

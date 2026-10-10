@@ -184,6 +184,22 @@ export default {
                 },
               },
             },
+            // "Sign in with Sovrium Cloud" — for an app hosted on Sovrium Cloud,
+            // whose owner signs in with their Cloud account. Platform-pruned from
+            // the preset when the `SOVRIUM_PLATFORM_SSO_*` environment is unset,
+            // like the recovery link below is without mail.
+            {
+              type: 'form',
+              props: { id: 'admin-cloud-sign-in', className: 'mt-4 flex flex-col' },
+              action: {
+                type: 'auth',
+                method: 'login',
+                strategy: 'oauth',
+                provider: 'sovrium-cloud',
+                submitLabel: '$t:admin.login.cloudSignIn',
+                onSuccess: { navigate: '/' },
+              },
+            },
             // Recovery entry point. A `link`
             // primitive, NOT a second auth form: the card stacks its children, so
             // this sits under the submit button. Platform-pruned from the rendered

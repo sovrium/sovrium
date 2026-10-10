@@ -171,11 +171,11 @@ export default {
 
   'admin.users.heading': 'Utilisateurs',
   'admin.users.blurb':
-    'Gère les comptes de ton app : cherche un utilisateur, ajuste son rôle, ou suspends son accès. La création de compte passe par l’API admin (voir Développeurs → API).',
+    'Gère les comptes de ton app : cherche un utilisateur, ajuste son rôle ou ses groupes, ou suspends son accès. La création de compte passe par l’API admin (voir Développeurs → API).',
   'admin.users.tabs.region': 'Sous-vues Utilisateurs',
   'admin.users.account.heading': 'Compte',
   'admin.users.account.blurb':
-    'Un compte\u00a0: son rôle et son statut, les écritures qu’une administratrice peut y faire, et ce que la console ne sait pas encore en montrer.',
+    'Un compte\u00a0: son rôle, ses groupes et son statut, les écritures qu’une administratrice peut y faire, et ce que la console ne sait pas encore en montrer.',
   'admin.users.account.region': 'Compte',
   'admin.users.account.back': 'Retour aux utilisateurs',
   'admin.users.account.roles.region': 'Rôles assignables',
@@ -187,12 +187,9 @@ export default {
   'admin.users.account.gaps.sessions.heading': 'Sessions ouvertes',
   'admin.users.account.gaps.sessions.body':
     'Fermer toutes les sessions se fait ci-dessus, dans les actions de la ligne. Les lister, non\u00a0: le point d’accès qui les renvoie répond à un POST, et une lecture de console est un GET.',
-  'admin.users.account.gaps.teams.heading': 'Équipes',
-  'admin.users.account.gaps.teams.body':
-    'Les équipes sont déclarées dans auth.groups[]. Aucune lecture admin ne publie l’appartenance d’un compte, donc elle ne peut être ni montrée ni changée ici.',
   'admin.users.account.gaps.activity.heading': 'Dernière activité',
   'admin.users.account.gaps.activity.body':
-    'L’annuaire renvoie id, e-mail, nom, rôle et statut. Un instant de dernière activité par compte demande une jointure sur la table des sessions, qu’aucune lecture ne fait.',
+    'L’annuaire renvoie id, e-mail, nom, rôle, statut et groupes. Un instant de dernière activité par compte demande une jointure sur la table des sessions, qu’aucune lecture ne fait.',
 
   'admin.invitations.heading': 'Invitations',
   'admin.invitations.blurb':

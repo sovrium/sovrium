@@ -2,7 +2,7 @@
 
 > What a Sovrium server writes to its logs, what it strips before a line leaves the process, what an operator must still treat as personal data, and how logs relate to retention and erasure.
 
-A running instance produces three streams of diagnostic output. Each is written by the engine, but every one of them is **stored by something you run**: a process manager, a log collector, an error-tracking service. Sovrium keeps no log file of its own and has no setting that deletes log lines. This article says what reaches each stream, so you can decide where to send it and how long to keep it.
+A running instance produces three streams of diagnostic output. Each is written by the engine, but every one of them is **stored by something you run**: a process manager, a log collector, an error-tracking service — any Sentry-compatible error backend and any OTLP/HTTP JSON log backend, a Sovrium app that receives telemetry included. Sovrium keeps no log file of its own and has no setting that deletes log lines. This article says what reaches each stream, so you can decide where to send it and how long to keep it.
 
 ## The three streams
 
@@ -40,6 +40,8 @@ Sovrium does not retain logs: a console line exists once it is written to stdout
 - the process manager or container runtime that captures stdout and stderr (journald, Docker's logging driver, your platform's log drain);
 - the collector and backend behind the OTLP endpoint;
 - the project settings of the error-tracking service behind `SENTRY_DSN`.
+
+When the receiver is itself a Sovrium app, a report is kept only if one of that app's automations stores it, and then as an ordinary record in one of its tables: it lasts as long as the retention option on that table allows — indefinitely when the table sets none — and is deleted the way any record of that app is.
 
 Pick a period that matches why you keep logs — diagnosing incidents rarely needs more than a few weeks — and write it into your record of processing.
 

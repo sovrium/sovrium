@@ -74,7 +74,9 @@ export interface AggregateRecordsAnswer {
  * still needs to know how many records it summed, and an empty request asks
  * for the count alone.
  */
-const withCount = (aggregate: AggregateConfig | undefined): AggregateConfig => ({
+const withCount = (
+  aggregate: Readonly<AggregateConfig> | undefined
+): Readonly<AggregateConfig> => ({
   ...aggregate,
   count: true,
 })

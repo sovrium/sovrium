@@ -7,9 +7,21 @@
 
 import { Schema } from 'effect'
 
-export const SparklineDateIntervalSchema = Schema.Literals(['day', 'week', 'month']).annotate({
+/**
+ * The width of one sparkline point. `minute` and `hour` bucket by UTC minute
+ * or hour; `days` still sets how far back the line reaches, so `hour` over
+ * `days: 1` is the last 24 hours.
+ */
+export const SparklineDateIntervalSchema = Schema.Literals([
+  'minute',
+  'hour',
+  'day',
+  'week',
+  'month',
+]).annotate({
   title: 'Sparkline Interval',
-  description: 'Date grouping interval for sparkline data points',
+  description:
+    'Date grouping interval for sparkline data points: minute or hour (in UTC), day, week or month',
 })
 
 export const KPISparklineSchema = Schema.Struct({

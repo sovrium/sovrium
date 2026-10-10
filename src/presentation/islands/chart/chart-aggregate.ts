@@ -20,7 +20,7 @@ import type { TableRecord } from '../runtime/types'
  * and the aggregated number becomes the Y-axis.
  */
 
-export type DateInterval = 'day' | 'week' | 'month' | 'quarter' | 'year'
+export type DateInterval = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
 
 /** How the categories are ordered along the axis, or around the pie. */
 export type CategoryOrder = 'option' | 'label' | 'value-asc' | 'value-desc'
@@ -72,6 +72,11 @@ function bucketDate(raw: unknown, interval: DateInterval): string {
   const day = date.getUTCDate()
   const pad = (n: number): string => String(n).padStart(2, '0')
 
+  // A UTC hour or minute is keyed by its first instant, as the aggregate read names it.
+  if (interval === 'hour' || interval === 'minute') {
+    const step = interval === 'hour' ? 3_600_000 : 60_000
+    return new Date(Math.floor(date.getTime() / step) * step).toISOString()
+  }
   if (interval === 'year') return String(year)
   if (interval === 'quarter') return `${String(year)}-Q${String(Math.ceil(month / 3))}`
   if (interval === 'month') return `${String(year)}-${pad(month)}`

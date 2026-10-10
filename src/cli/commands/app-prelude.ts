@@ -44,8 +44,15 @@ import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table
  */
 export const DEFAULT_CONFIG_FILE = './app.yaml'
 
+/** The message the last {@link refuse} printed — what `sovrium seed --report` records as `error`. */
+let lastRefusalMessage: string | undefined
+
+/** The message of the refusal this process is exiting on, if any. */
+export const lastRefusal = (): string | undefined => lastRefusalMessage
+
 /** Print to stderr and exit 1. There is no partial-success exit code. */
 export const refuse = (message: string): never => {
+  lastRefusalMessage = message
   printStderr(message)
   process.exit(1)
 }

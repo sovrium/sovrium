@@ -12,6 +12,7 @@ import {
   firstMatchingTrigger,
   type TriggerOfType,
 } from '@/domain/models/app/automations/trigger-entries-service'
+import { hydratedFieldIdOf } from './hydrated-field-reference'
 import { resolveTriggerInString } from './resolve-trigger-data'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
@@ -54,14 +55,18 @@ interface ConditionRows {
  * Resolve a condition's `field` against the record context. A template
  * variable (`{{record.X}}`) substitutes the record value; a literal name
  * is read as a column lookup — same semantic as the action-handler filter
- * in `record.ts`'s `extractIdFromFilter`.
+ * in `record.ts`'s `extractIdFromFilter`. A literal name of a hydrated user or
+ * relationship field compares the id it stores, as the field reads when
+ * rendered.
  */
 const resolveLhs = (field: string, rows: ConditionRows): unknown => {
   const { record, previousRecord, templates } = rows
   const data = previousRecord === undefined ? { record } : { record, previousRecord }
   const ctx = { ...data, trigger: { data } }
   const resolved = resolveTriggerInString(field, ctx, templates)
-  return resolved === field ? record[field] : resolved
+  if (resolved !== field) return resolved
+  const value = record[field]
+  return hydratedFieldIdOf(value) ?? value
 }
 
 const evaluateOne = (
@@ -144,27 +149,19 @@ export interface RecordEventMatchInput {
   readonly record: Record<string, unknown>
   readonly previousRecord: Record<string, unknown> | undefined
   readonly pausedNames: ReadonlySet<string>
-  readonly templates: TemplateRenderer
 }
 
 /**
- * The record-triggered automations the event starts, each with the record
- * entry it matched: the (tableName, event) tuple AND, for `update` events, the
- * `watchFields`/`condition` gates if configured. An automation starts once per
- * event, under the first of its record entries that matches. Automations that
- * are OFF — config-disabled OR operationally paused — are excluded, so an
- * operator can stop a misbehaving workflow without editing config.
+ * What a trigger's `condition` reads: the rows with their user and
+ * relationship fields expanded — the shape a step reads — taken BEFORE the
+ * admin-only fields are removed. A condition publishes nothing and is never
+ * stored, so it may name any field, as `watchFields` may.
  */
-export const findMatchingRecordAutomations = (
-  input: RecordEventMatchInput
-): readonly RecordMatch[] =>
-  (input.app.automations ?? []).flatMap((automation) => {
-    if (!isAutomationOperationallyEnabled(automation, input.pausedNames)) return []
-    const trigger = firstMatchingTrigger(automation, 'record', (entry) =>
-      recordEntryMatches(entry, input)
-    )
-    return trigger === undefined ? [] : [{ automation, trigger }]
-  })
+export interface RecordConditionRows {
+  readonly record: Readonly<Record<string, unknown>>
+  readonly previousRecord: Readonly<Record<string, unknown>> | undefined
+  readonly templates: TemplateRenderer
+}
 
 /** An automation the event starts, with the record entry that starts it. */
 export interface RecordMatch {
@@ -172,40 +169,74 @@ export interface RecordMatch {
   readonly trigger: TriggerOfType<'record'>
 }
 
-/** Whether one record entry matches the event, its gates included. */
-const recordEntryMatches = (
+/**
+ * Whether any enabled automation has a record entry the event can start, its
+ * `condition` aside: the (tableName, event) tuple and, for an update,
+ * `watchFields`. Answered on the event alone, so a table nothing watches costs
+ * no expansion of its rows.
+ */
+export const anyRecordEntryMayMatch = (input: RecordEventMatchInput): boolean =>
+  (input.app.automations ?? []).some(
+    (automation) =>
+      isAutomationOperationallyEnabled(automation, input.pausedNames) &&
+      firstMatchingTrigger(automation, 'record', (entry) => recordEntryGatesPass(entry, input)) !==
+        undefined
+  )
+
+/**
+ * The record-triggered automations the event starts, each with the record
+ * entry it matched: the (tableName, event) tuple AND, for `update` events, the
+ * `watchFields` gate, then the `condition` read on `conditionRows`. An
+ * automation starts once per event, under the first of its record entries that
+ * matches. Automations that are OFF — config-disabled OR operationally paused —
+ * are excluded, so an operator can stop a misbehaving workflow without editing
+ * config.
+ */
+export const findMatchingRecordAutomations = (
+  input: RecordEventMatchInput,
+  conditionRows: RecordConditionRows
+): readonly RecordMatch[] =>
+  (input.app.automations ?? []).flatMap((automation) => {
+    if (!isAutomationOperationallyEnabled(automation, input.pausedNames)) return []
+    const trigger = firstMatchingTrigger(
+      automation,
+      'record',
+      (entry) => recordEntryGatesPass(entry, input) && conditionPasses(entry, conditionRows)
+    )
+    return trigger === undefined ? [] : [{ automation, trigger }]
+  })
+
+/** Whether one record entry's table, event and `watchFields` gates pass. */
+const recordEntryGatesPass = (
   trigger: TriggerOfType<'record'>,
   input: RecordEventMatchInput
 ): boolean => {
-  const { app, tableName, event, record, previousRecord, templates } = input
+  const { app, tableName, event, record, previousRecord } = input
   if (trigger.table !== tableName) return false
   if (!trigger.events.includes(event)) return false
   // watchFields narrows update events to specific columns. Create/delete
   // ignore watchFields per the schema convention (the column "doesn't
-  // exist before/after" semantics are undefined).
-  if (
-    event === 'update' &&
-    trigger.watchFields !== undefined &&
-    !watchFieldsChanged({
-      app,
-      tableName,
-      watchFields: trigger.watchFields,
-      record,
-      previousRecord,
-    })
-  ) {
-    return false
-  }
-  // condition filters by record content. Evaluated against a context
-  // exposing the new record at both `record.X` and `trigger.data.record.X`
-  // so spec authors can pick the more readable variant — and, on an update,
-  // the row before it at `trigger.data.previousRecord.X`, so a condition can
-  // name a transition rather than a state.
-  if (
-    trigger.condition !== undefined &&
-    !evaluateRecordTriggerCondition(templates, trigger.condition, record, previousRecord)
-  ) {
-    return false
-  }
-  return true
+  // exist before/after" semantics are undefined). Read on the rows as written,
+  // before any expansion.
+  return (
+    event !== 'update' ||
+    trigger.watchFields === undefined ||
+    watchFieldsChanged({ app, tableName, watchFields: trigger.watchFields, record, previousRecord })
+  )
 }
+
+/**
+ * Whether one record entry's `condition` passes. Evaluated against a context
+ * exposing the expanded record at both `record.X` and `trigger.data.record.X`
+ * so spec authors can pick the more readable variant — and, on an update, the
+ * row before it at `trigger.data.previousRecord.X`, so a condition can name a
+ * transition rather than a state.
+ */
+const conditionPasses = (trigger: TriggerOfType<'record'>, rows: RecordConditionRows): boolean =>
+  trigger.condition === undefined ||
+  evaluateRecordTriggerCondition(
+    rows.templates,
+    trigger.condition,
+    rows.record,
+    rows.previousRecord
+  )

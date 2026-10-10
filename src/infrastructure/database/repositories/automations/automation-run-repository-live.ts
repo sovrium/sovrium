@@ -278,6 +278,12 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       return toRun(updated, defRows[0]?.name ?? '')
     }),
 
+  clearRunHistory: (runId) =>
+    wrap(async () => {
+      await db.delete(automationRunSteps).where(eq(automationRunSteps.runId, runId))
+      await db.update(automationRuns).set({ triggerData: null }).where(eq(automationRuns.id, runId))
+    }),
+
   hasWaitingDelayRuns: wrap(park.hasWaitingDelayRuns),
   listDueDelayedRuns: (input) => wrap(() => park.listDueDelayedRuns(input)),
   claimDelayedRun: (input) =>

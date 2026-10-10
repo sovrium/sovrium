@@ -33,15 +33,15 @@ export const aggregateRecordsQuerySchema = Schema.Struct({
     'Search term, matched as the list endpoint matches it: across the text fields the caller may read, combined with the filter. Blank means no search'
   ),
   aggregate: queryString(
-    'Aggregations to compute over every matching record, in the grammar the list endpoint takes (`amount:sum,amount:avg` or the JSON form). Omitted, the read answers the count alone'
+    'Aggregations to compute over every matching record, in the grammar the list endpoint takes (`amount:sum,amount:avg` or the JSON form). The functions are count, sum, avg, min, max and the percentiles p50, p75, p90, p95 and p99 (`duration_ms:p95`), each interpolated between the two nearest values. Omitted, the read answers the count alone'
   ),
   groupBy: queryString(
     'A field to group the matching records by. Permission-checked like the list endpoint: a field the caller may not read answers 404'
   ),
   interval: optionalField(
-    Schema.Literals(['day', 'week', 'month', 'quarter', 'year']).annotate({
+    Schema.Literals(['minute', 'hour', 'day', 'week', 'month', 'quarter', 'year']).annotate({
       description:
-        'With a date or datetime groupBy field, groups by calendar bucket instead of by exact value; each group is named by its first day as an ISO date',
+        'With a date or datetime groupBy field, groups by UTC bucket instead of by exact value. A calendar bucket (day to year) is named by its first day as an ISO date; minute and hour take a datetime field only, and name each group by its first instant as an ISO timestamp',
     })
   ),
   includeDeleted: queryString('Set to "true" to include soft-deleted records'),
@@ -93,7 +93,9 @@ const aggregateRatioSchema = Schema.Struct({
  * `aggregations` is always present — with no `aggregate` parameter it carries
  * `count` alone. `groups` is present exactly when `groupBy` was sent: one entry
  * per group, or per interval bucket when `interval` was sent (named by the
- * bucket's first day as an ISO date), at most {@link MAX_AGGREGATE_GROUPS}.
+ * bucket's first day as an ISO date, or by its first instant for `hour` and
+ * `minute`), at most {@link MAX_AGGREGATE_GROUPS}: a minute series is read
+ * over a bounded window, never cut short.
  * `ratio` is present exactly when `numerator` and `denominator` were sent.
  */
 export const aggregateRecordsResponseSchema = Schema.Struct({

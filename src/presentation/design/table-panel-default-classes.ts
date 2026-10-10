@@ -97,14 +97,30 @@ const TABLE_PANEL_CONTROL = [
   `border-[${v('sv-border-strong', T.borderStrong)}]`,
 ].join(' ')
 
+// The LIST-box variant of the panel control: a `<select multiple>` shows its
+// options as rows, so the single-line `h-8` would clip every row after the
+// first. The height is the rows' own (the element's `size` caps how many show)
+// and the floor width keeps a short list readable when the bar is narrow —
+// unfloored, a flex row on a phone squeezed it to the width of its border.
+// Same surface, border and radius as the single-line control.
+const TABLE_PANEL_LISTBOX = [
+  'h-auto min-w-40 border px-1 py-1 text-sm',
+  `rounded-[${v('radius-base', T.radiusBase)}]`,
+  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
+  `border-[${v('sv-border-strong', T.borderStrong)}]`,
+].join(' ')
+
 /**
- * Compute the default className for a `<select>` or `<input>` inside a panel.
+ * Compute the default className for a `<select>` or `<input>` inside a panel —
+ * or, with `multiple`, for a `<select multiple>` list box.
  *
  * `border-strong` at rest, like the add-row editor and for the same reason: the
  * control sits on a ruled surface, and drawn in the border tone it dissolves
  * into the rules around it.
  */
-export const computeTablePanelControlClasses = (): string => TABLE_PANEL_CONTROL
+export const computeTablePanelControlClasses = (options?: {
+  readonly multiple?: boolean
+}): string => (options?.multiple === true ? TABLE_PANEL_LISTBOX : TABLE_PANEL_CONTROL)
 
 /**
  * Compute the default className for a panel row's remove `×`.

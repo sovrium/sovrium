@@ -6,13 +6,14 @@ Users are provisioned and managed without ever touching the database. Each opera
 
 ## Where the first admin comes from
 
-It cannot be created by another admin, because there is none, and it must not come from self-registration, because a stranger would claim the seat. Three complementary paths provision that account.
+It cannot be created by another admin, because there is none, and it must not come from self-registration, because a stranger would claim the seat. Three complementary paths provision that account, and an app hosted on Sovrium Cloud has a fourth.
 
 | Path                  | For                                      | Mechanism                                                             |
 | --------------------- | ---------------------------------------- | --------------------------------------------------------------------- |
 | Environment variables | Automated deploys                        | An email and password applied on first boot                           |
 | One-time token        | Deploys that keep credentials out of env | A token printed once in the startup banner and claimed once over HTTP |
 | CLI                   | Interactive provisioning                 | `sovrium admin create <email>`, with no configuration file required   |
+| Sovrium Cloud         | Apps hosted on Sovrium Cloud             | The owner's Cloud account, bound by its id; no password at all        |
 
 ### The environment-variable path
 
@@ -26,7 +27,7 @@ On first boot against a fresh database the admin is provisioned with a verified 
 
 On later startups the path **no-ops**. It never creates a duplicate and never modifies an existing user, even where the address already maps to a different role — so leaving the variables set in a deployment is safe. Success is logged without the password.
 
-The path is gated on a configured auth block, and is a no-op once any user exists.
+The path is gated on a configured auth block, and is a no-op once any user exists. `AUTH_ADMIN_EMAIL` set with no password — and without the Sovrium Cloud variables below — provisions nothing, and the server says so in a startup warning.
 
 ### The one-time token
 
@@ -45,6 +46,25 @@ Three properties make the window safe to leave open:
 - Once any admin exists the route answers **404**, so even a leaked valid token cannot reopen the window.
 
 This is the path that makes "run the binary on a fresh server, open the URL, build the app live" possible.
+
+### Signing in with Sovrium Cloud
+
+An app deployed to Sovrium Cloud opens its console with the account that deployed it. The Cloud registers the app as a sign-in client of its own and sets these variables for it; a self-hosted app sets none of them, and its config never mentions the provider:
+
+| Variable                             | Value                                                                                       |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `SOVRIUM_PLATFORM_SSO_ISSUER`        | The Cloud's issuer, an absolute `https` URL                                                 |
+| `SOVRIUM_PLATFORM_SSO_CLIENT_ID`     | The app's client id at the Cloud                                                            |
+| `SOVRIUM_PLATFORM_SSO_CLIENT_SECRET` | The app's client secret                                                                     |
+| `SOVRIUM_PLATFORM_SSO_ADMIN_SUBJECT` | Optional: the Cloud user id of the app's owner, which seeds the first admin of an empty app |
+
+The first three go together: setting only some of them refuses to boot, naming the missing ones and never printing a value. With them set, the console sign-in page offers **Sign in with Sovrium Cloud**.
+
+**The first admin.** When `AUTH_ADMIN_EMAIL` is set without `AUTH_ADMIN_PASSWORD` and `SOVRIUM_PLATFORM_SSO_ADMIN_SUBJECT` names a Cloud user, an app with no user yet creates its admin with **no password**, bound to that Cloud user. No bootstrap token is printed. A password pair, when set, keeps priority.
+
+**Bound by id, never by email.** A Cloud user signs in only to the account bound to their Cloud user id. Signing in never creates an account, and an email the app already knows binds nothing, so the Cloud changing an address changes nothing here. The app checks the Cloud's ID token against the keys the Cloud publishes, asks for `openid email profile` only, uses PKCE, and keeps none of the Cloud's tokens once the sign-in is done. The Cloud's endpoints are derived from its issuer rather than discovered, so the app starts, and offers the button, while the Cloud is unreachable.
+
+**Connecting an existing account.** An admin who already has a password connects their Cloud account from their profile page in the console. The Cloud must report the email as verified; it may differ from the account's. A Cloud user already bound to another account cannot be connected, an account binds one Cloud user at most, and disconnecting is refused when the Cloud is the account's only way in.
 
 ## The admin API
 

@@ -54,6 +54,7 @@
  * middleware above it would silently report 0 queries for every request.
  */
 
+import { isIngestRequest } from '@/infrastructure/logging/ingest-request-scope'
 import { currentDbQueryCount } from '@/infrastructure/telemetry/db-query-counter'
 import { reportTransaction } from './error-reporter'
 import { withRequestTrace } from './request-trace-context'
@@ -136,7 +137,9 @@ export const createRequestTraceMiddleware = (
     const { trace } = await withRequestTrace({ sampled, emitTransaction }, async () => {
       await next()
     })
-    if (!emitTransaction) return
+    // A telemetry ingest request is never reported: an app that is its own
+    // receiver would otherwise ingest this transaction, emit another, and loop.
+    if (!emitTransaction || isIngestRequest(c.req.raw)) return
 
     // The TEMPLATED route, not `c.req.path`. Read here rather than before
     // `next()` precisely because `routePath` has by now advanced to the handler

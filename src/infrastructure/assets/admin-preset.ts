@@ -39,6 +39,10 @@
 
 import { Schema } from 'effect'
 import { AppSchema } from '@/domain/models/app'
+import {
+  PLATFORM_SSO_PROVIDER_ID,
+  parsePlatformSso,
+} from '@/domain/models/process-env/platform-sso'
 import { isEmailConfigured } from '@/infrastructure/process/env'
 import { EMBEDDED_ADMIN_PRESET } from './embedded-admin-preset.generated'
 import type { App } from '@/domain/models/app'
@@ -50,6 +54,7 @@ const PRESET_FORGOT_PASSWORD_PATH = '/forgot-password'
 interface PrunableNode {
   readonly type?: string
   readonly props?: Readonly<Record<string, unknown>>
+  readonly action?: Readonly<Record<string, unknown>>
   readonly children?: readonly unknown[]
 }
 
@@ -106,8 +111,72 @@ export const pruneRecoveryEntryPoints = (app: App): App => {
   return { ...app, pages } as App
 }
 
-/** Process-lifetime memo — the preset is version-locked to the binary. */
-let presetCache: App | undefined
+/** The profile row that connects and disconnects the reader's Sovrium Cloud account. */
+export const PLATFORM_SSO_PROFILE_ROW_TEST_ID = 'profile-cloud-account'
+
+/**
+ * An entry point of "Sign in with Sovrium Cloud": a control acting on the
+ * platform provider (the sign-in button, the connect and disconnect buttons),
+ * or the profile row that holds the last two.
+ */
+const isPlatformSsoEntryPoint = (value: unknown): boolean => {
+  const node = asNode(value)
+  return (
+    node?.action?.['provider'] === PLATFORM_SSO_PROVIDER_ID ||
+    node?.props?.['data-testid'] === PLATFORM_SSO_PROFILE_ROW_TEST_ID
+  )
+}
+
+/** Drop every node matching `drop` in a component subtree, at any depth. */
+const pruneMatching =
+  (drop: (value: unknown) => boolean) =>
+  (value: unknown): unknown => {
+    const node = asNode(value)
+    if (node === undefined || !Array.isArray(node.children)) return value
+    return {
+      ...node,
+      children: node.children.filter((child) => !drop(child)).map(pruneMatching(drop)),
+    }
+  }
+
+/** Whether the platform sign-in is configured; a malformed set is refused at boot, not here. */
+const isPlatformSsoConfigured = (): boolean => {
+  try {
+    return parsePlatformSso() !== undefined
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Remove the "Sign in with Sovrium Cloud" button and the profile's Cloud
+ * account row when the `SOVRIUM_PLATFORM_SSO_*` environment is unset — a
+ * self-hosted app, which has no such provider to sign in with. The same rule
+ * as {@link pruneRecoveryEntryPoints}, for the same reason: a control that can
+ * only fail is worse than none.
+ */
+export const prunePlatformSsoEntryPoints = (app: App): App => {
+  if (isPlatformSsoConfigured() || app.pages === undefined) return app
+  const prune = pruneMatching(isPlatformSsoEntryPoint)
+  const pages = app.pages.map((page) =>
+    page.components === undefined
+      ? page
+      : {
+          ...page,
+          components: page.components
+            .filter((component) => !isPlatformSsoEntryPoint(component))
+            .map(prune),
+        }
+  )
+  return { ...app, pages } as App
+}
+
+/**
+ * Process-lifetime memo — the preset is version-locked to the binary — keyed
+ * on the two environment facts the prunes read, which are fixed for a server
+ * process but not for a test worker that boots several in turn.
+ */
+const presetCache = new Map<string, App>()
 
 /**
  * The decoded admin console preset.
@@ -116,7 +185,9 @@ let presetCache: App | undefined
  *   `AppSchema` — a release defect, surfaced at boot rather than as a 404.
  */
 export const resolveAdminPresetApp = (): App => {
-  if (presetCache !== undefined) return presetCache
+  const key = `${String(isEmailConfigured())}:${String(isPlatformSsoConfigured())}`
+  const cached = presetCache.get(key)
+  if (cached !== undefined) return cached
   try {
     // `decodeSync`, not `decodeUnknownSync`: the generated preset is annotated
     // `: AppEncoded`, so the encoded shape is checked at COMPILE time and a
@@ -130,8 +201,10 @@ export const resolveAdminPresetApp = (): App => {
     // config: the console is Sovrium's own product UI, and a "Built with
     // Sovrium" badge on it would credit the operator's product to its vendor on
     // the one surface where the operator is unambiguously not the audience.
-    const app = pruneRecoveryEntryPoints({ ...decoded, badge: false } as App)
-    presetCache = app
+    const app = prunePlatformSsoEntryPoints(
+      pruneRecoveryEntryPoints({ ...decoded, badge: false } as App)
+    )
+    presetCache.set(key, app)
     return app
   } catch (error) {
     throw new Error(

@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every trigger an automation can start from (9) and every action a step can run (114), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
+Every trigger an automation can start from (9) and every action a step can run (122), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
 
 ## Contents
 
@@ -58,6 +58,11 @@ Read: `sovrium docs automation-actions`
 | `auth` | `assignRole` | Assign a role to an existing user |
 | `auth` | `banUser` | Ban a user account |
 | `auth` | `unbanUser` | Unban a previously banned user account |
+| `auth` | `addToGroup` | Add a user to a declared group; adding an existing member changes nothing |
+| `auth` | `removeFromGroup` | Remove a user from a declared group; removing a non-member changes nothing |
+| `auth` | `registerOAuthClient` | Register a consent-less, PKCE-only sign-in client for another app, returning its client id and secret |
+| `auth` | `rotateOAuthClientSecret` | Replace a sign-in client's secret; the old one stops working at once |
+| `auth` | `deleteOAuthClient` | Delete a sign-in client; sign-in through it and its tokens stop working |
 | `analytics` | `track` | Track custom events in the built-in analytics system |
 | `link` | `create` | Mint a tracked short link and return its address for a later step to use. Fails the step rather than shadowing a config-declared slug or overwriting one a live link already holds. |
 | `link` | `update` | Apply a sparse edit to an existing runtime link. Omitted props are left unchanged; the slug names the target and cannot be renamed. |
@@ -76,6 +81,8 @@ Read: `sovrium docs automation-actions`
 | `ai` | `transcribe` | Transcribe a stored audio recording into text with the speech-to-text endpoint the operator configures (STT_* environment variables) |
 | `ai` | `agent` | Delegate a task to an AI agent for autonomous multi-step execution |
 | `approval` | `request` | Pause execution and request human approval. Requires app.auth to be configured. |
+| `browser` | `run` | Drive a browser through fixed steps on a site with no API: sign in, fill a form, read the result. Needs the operator to enable a browser (`BROWSER_PROVIDER`). |
+| `browser` | `agent` | Let an AI agent drive a browser towards a goal on a site with no API, within listed hosts, typing secrets it never sees, its submissions held for approval. Needs the operator to enable a browser (`BROWSER_PROVIDER`) and an AI provider. |
 | `file` | `upload` | Upload a file to storage from binary data, URL, or previous step output |
 | `file` | `download` | Download a file from storage by key |
 | `file` | `delete` | Delete a file from storage by key |
@@ -135,10 +142,10 @@ Read: `sovrium docs automation-actions`
 | `flow` | `stop` | Immediately stop automation execution with optional status and output |
 | `sovrium` | `validateConfig` | Decode a candidate app config against AppSchema and expose { valid, errors } |
 | `sovrium` | `validateBundle` | Check a stored bundle archive — its manifest, every entry against its sha256, and the config it carries — and expose { valid, name, manifest, errors } |
-| `instance` | `status` | Read a supervised app's unit state, restart count, memory use and current revision |
+| `instance` | `status` | Read a supervised app's unit state, restart count, memory use, how its last run ended and current revision |
 | `instance` | `start` | Start a supervised app's socket, so the next request wakes the app |
 | `instance` | `stop` | Suspend a supervised app: stop its socket, its proxy and the app |
-| `instance` | `restart` | Restart a supervised app so it reads its current release and environment again |
+| `instance` | `restart` | Restart a supervised app so it reads its current release and environment again: its proxy and the app stop in one call, then the app starts |
 | `instance` | `apply` | Verify a signed bundle, write it as a new release of a supervised app, and restart the app |
 | `instance` | `rollback` | Point a supervised app back at its previous release and restart it |
 | `instance` | `remove` | Stop a supervised app for good, optionally deleting every release it has on this host |
@@ -146,4 +153,5 @@ Read: `sovrium docs automation-actions`
 | `instance` | `logs` | Read the last journal lines of a supervised app |
 | `instance` | `backup` | Back up a supervised app and store the archive in this app's storage |
 | `instance` | `restore` | Restore a supervised app from a backup archive in this app's storage |
+| `instance` | `seed` | Load a supervised app's seed data from the release it runs, as the app, and return the per-table report |
 | `ref` | — | Reference to a reusable action template defined in app.actions[], with optional variable overrides |

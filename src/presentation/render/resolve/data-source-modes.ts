@@ -46,6 +46,7 @@ import {
   narrowRecordToComponent,
   withManyToManyLinks,
 } from './form-bound-record'
+import { ftsFirstRows, ftsSearchProps } from './fts-search-binding'
 import { readRowsForCaller, type CallerRowsQuery } from './record-read-gate'
 import { substituteRecordInComponent } from './record-substitution'
 import { addressRowAttachments } from './row-attachment-addresses'
@@ -132,14 +133,13 @@ interface SingleModeOptions {
 /**
  * Resolve a `mode: single` binding for this visitor.
  *
- * The record reaches the page (its `$record.*` text, a form's values, the
- * island props), so it is read through the records gate
- * ({@link readBoundRecordForCaller}): among the rows the binding's `filter`
- * matches, the route parameter's row, or — with no `param` and no matching URL
- * segment (`/profile/edit`) — the first the visitor may read. A row outside the
- * filter, hidden by the row-level rule or in the trash answers as a missing
- * one — the page's 404, so ids cannot be probed — and a readable row arrives
- * less the columns she may not read (`denyWhenUnreadable` refuses the table first).
+ * The record reaches the page (its `$record.*` text, a form's values, the island props), so
+ * it is read through the records gate ({@link readBoundRecordForCaller}): among the rows the
+ * binding's `filter` matches, the route parameter's row, or — with no `param` and no matching
+ * URL segment (`/profile/edit`) — the first the visitor may read. A row outside the filter,
+ * hidden by the row-level rule or in the trash answers as a missing one — the page's 404, so
+ * ids cannot be probed — and a readable row arrives less the columns she may not read
+ * (`denyWhenUnreadable` refuses the table first).
  */
 async function resolveSingleMode(
   component: Component,
@@ -228,7 +228,7 @@ async function resolveListMode(
   const sign = ctx.db.signFileUrl
   const addressed = await addressRowAttachments({ component, rows, app: ctx.app, tableName, sign })
   const pageRows = addressed.rows.map((row) => pageRecordOf(row, tableName, ctx.db.recordText))
-  return expandDataSourceChildren(addressed.component, pageRows, paginationMeta)
+  return expandDataSourceChildren(addressed.component, pageRows, paginationMeta, { tableName })
 }
 
 function buildSearchProps(
@@ -252,6 +252,7 @@ function buildSearchProps(
     // THIS table's hidden fields — not only against names hidden on every table,
     // which a readable field of the same name on another table would mask.
     ...(typeof table === 'string' ? { _searchTable: table } : {}),
+    ...ftsSearchProps(component.dataSource),
     // `bindTo` defers the query to an external `search-input` component; the list
     // then renders results only (no own input box) to avoid duplicate inputs.
     ...(bindTo !== undefined ? { _searchBindTo: bindTo } : {}),
@@ -263,11 +264,10 @@ function buildSearchProps(
 }
 
 /**
- * Resolve a `mode: search` binding: every matching row goes into the island's
- * props, with the formatted text it prints. Serialised WHOLE, so the rows are
- * read through the records gate ({@link readRowsForCaller}): only the rows the
- * row-level rule shows this visitor, each less the columns she may not read.
- * Every row in the payload is in the HTML whatever the island draws.
+ * Resolve a `mode: search` binding: the matching rows — every one, or the first
+ * page on `searchEngine: 'fts'` — go into the island's props with the text they
+ * print, read through the records gate ({@link readRowsForCaller}): only the rows
+ * the row-level rule shows this visitor, each less the columns she may not read.
  */
 async function resolveSearchMode(
   component: Component,
@@ -280,7 +280,7 @@ async function resolveSearchMode(
     tableName,
     session: ctx.session,
     db: ctx.db,
-    query: bindingQuery(dataSource, ctx.requestedFields),
+    query: { ...bindingQuery(dataSource, ctx.requestedFields), ...ftsFirstRows(dataSource) },
   })
   const pageRows = rows.map((row) => pageRecordOf(row, tableName, ctx.db.recordText))
   return { ...component, props: buildSearchProps(component, pageRows) }

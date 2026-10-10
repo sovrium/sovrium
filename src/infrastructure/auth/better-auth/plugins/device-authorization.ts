@@ -13,6 +13,14 @@ import {
   deviceApiKeyRequestSchema,
   deviceApiKeyResponseSchema,
 } from '@/domain/models/api/auth/auth'
+import {
+  LOOPBACK_DEVICE_CODE_FIELDS,
+  assertReturnCode,
+  authorizeLoopbackRequest,
+  buildDecideEndpoint,
+  loopbackVerificationContext,
+  type LoopbackFields,
+} from './device-loopback'
 import type { Auth } from '@/domain/models/app/auth'
 import type { DeviceAuthorizationGrant } from 'better-auth/plugins'
 
@@ -38,15 +46,18 @@ const invalidGrant = (description: string): APIError =>
  * Sovrium route accepts. The grant refuses that endpoint for every code it
  * owns, BEFORE the polling clock is touched or the code consumed, so a refused
  * call leaves the code redeemable at `/device/api-key`.
+ *
+ * It also carries the loopback return (`device-loopback.ts`): the request
+ * fields it persists, and the context the claimant's lookup adds.
  */
 const SOVRIUM_CLI_GRANT = {
   requestSchemaFields: {},
-  deviceCodeSchemaFields: {},
-  authorizeRequest: () => undefined,
+  deviceCodeSchemaFields: LOOPBACK_DEVICE_CODE_FIELDS,
+  authorizeRequest: authorizeLoopbackRequest,
   assertSessionRedemption: () => {
     throw invalidGrant('This client redeems its code for an API key at /device/api-key')
   },
-  getVerificationContext: () => undefined,
+  getVerificationContext: loopbackVerificationContext,
 } satisfies DeviceAuthorizationGrant
 
 /** `Sovrium CLI <YYYY-MM-DD HH:MM>` (UTC): the device and the moment, under the 32-character cap. */
@@ -64,7 +75,8 @@ const encodeResponse = Schema.encodeSync(deviceApiKeyResponseSchema)
  * polling faster than the interval (`slow_down`), expiry, pending, denial and
  * the one-time atomic claim are all decided there, with the RFC 8628 error
  * codes the token endpoint answers. Only after the claim succeeds is the key
- * minted, so a code never yields two keys.
+ * minted, so a code never yields two keys. A request approved in one click
+ * redeems only with the return code its browser carried back.
  */
 const buildRedeemEndpoint = (mintKey: DeviceKeyMinter) =>
   createAuthEndpoint('/device/api-key', { method: 'POST' }, async (ctx) => {
@@ -72,11 +84,12 @@ const buildRedeemEndpoint = (mintKey: DeviceKeyMinter) =>
     if (Option.isNone(request)) {
       throw invalidGrant(`device_code and client_id '${SOVRIUM_CLI_CLIENT_ID}' are required`)
     }
-    const { user } = await redeemDeviceCode({
+    const { user } = await redeemDeviceCode<LoopbackFields, undefined, undefined>({
       ctx,
       deviceCode: request.value.device_code,
       authorizeRedemption: (record) => {
         if (record.clientId !== SOVRIUM_CLI_CLIENT_ID) throw invalidGrant('Client ID mismatch')
+        assertReturnCode(record, request.value.code)
         return {
           ownershipWhere: { field: 'clientId', value: SOVRIUM_CLI_CLIENT_ID },
           context: undefined,
@@ -122,6 +135,13 @@ export const buildDeviceAuthorizationPlugin = (
     grant: SOVRIUM_CLI_GRANT,
   })
   return [
-    { ...plugin, endpoints: { ...plugin.endpoints, deviceApiKey: buildRedeemEndpoint(mintKey) } },
+    {
+      ...plugin,
+      endpoints: {
+        ...plugin.endpoints,
+        deviceApiKey: buildRedeemEndpoint(mintKey),
+        deviceDecide: buildDecideEndpoint(),
+      },
+    },
   ]
 }

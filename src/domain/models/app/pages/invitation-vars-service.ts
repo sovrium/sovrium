@@ -15,6 +15,7 @@
  */
 
 import { escapeRegExp } from '@/domain/kernel/sanitize/escape-regexp'
+import { relativeOffset } from '@/domain/kernel/time/relative-offset'
 
 /** What the engine found for one invitation token. */
 export interface InvitationFacts {
@@ -55,10 +56,6 @@ export interface InvitationVarContext {
   readonly now: Readonly<Date>
 }
 
-const MINUTE_MS = 60_000
-const HOUR_MS = 60 * MINUTE_MS
-const DAY_MS = 24 * HOUR_MS
-
 /** `fn(lang)`, or `fn('en')` when `lang` is not a tag `Intl` accepts. */
 const inLanguage = <T>(lang: string, fn: (tag: string) => T): T => {
   try {
@@ -88,17 +85,9 @@ export const formatInvitationRelative = (
   now: Readonly<Date>,
   lang: string
 ): string => {
-  const diff = instant.getTime() - now.getTime()
-  const magnitude = Math.abs(diff)
-  const [unit, size] =
-    magnitude >= DAY_MS
-      ? (['day', DAY_MS] as const)
-      : magnitude >= HOUR_MS
-        ? (['hour', HOUR_MS] as const)
-        : (['minute', MINUTE_MS] as const)
-  const count = Math.sign(diff) * Math.floor(magnitude / size)
+  const { count, unit } = relativeOffset(instant.getTime() - now.getTime())
   return inLanguage(lang, (tag) =>
-    new Intl.RelativeTimeFormat(tag, { numeric: 'always' }).format(count === 0 ? 0 : count, unit)
+    new Intl.RelativeTimeFormat(tag, { numeric: 'always' }).format(count, unit)
   )
 }
 
@@ -163,7 +152,8 @@ export const substituteInvitationVars = (
 export interface InvitationCondition {
   readonly field: string
   readonly operator: string
-  readonly value: string
+  /** A boolean value never equals an invitation field, which is always text. */
+  readonly value: string | boolean
 }
 
 /**

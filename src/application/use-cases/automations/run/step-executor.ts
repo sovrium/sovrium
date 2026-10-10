@@ -18,7 +18,7 @@
  * `run-automation.ts` — that would form an import cycle.
  */
 
-import { Effect } from 'effect'
+import { Duration, Effect } from 'effect'
 import { actionKey, missingActionHandler, type ActionOutcome } from '../action-handlers'
 import { buildStepsResultView, resolveOwnProp } from '../action-handlers/run-context-resolution'
 import { authoredReferenceRoots, fillAuthoredReferences } from '../authored-references'
@@ -30,7 +30,8 @@ import {
 } from './action-invokers'
 import { referenceAuthoredProps } from './prop-substitution'
 import { createReadTracker, trackedInvoker, withRecordedReads } from './read-tracker'
-import { renderActionProps } from './render-action-props'
+import { keepHandlerFilledProps, renderActionProps } from './render-action-props'
+import { withStepMetadata } from './step-metadata'
 import { foldOutcome } from './step-outcome'
 import { dispatchWithRetry } from './step-retry'
 import {
@@ -79,12 +80,18 @@ const fillStepProps = (
   const props = rawAction['props'] ?? {}
   if (ctx.propsFinal === true)
     return { authored: props, resolvedProps: props as StepProps, final: true }
-  const authored = referenceAuthoredProps(props, ctx)
-  if (String(rawAction['type'] ?? '') === 'code') {
+  const { type, operator } = readActionIdentity(rawAction)
+  const authored = keepHandlerFilledProps(
+    referenceAuthoredProps(props, ctx),
+    props,
+    type,
+    operator ?? ''
+  )
+  if (type === 'code') {
     const filled = fillAuthoredReferences(props, { envLookup: ctx.envLookup })
     return { authored, resolvedProps: filled as StepProps, final: false }
   }
-  const stepsView = buildStepsResultView(acc.actions)
+  const stepsView = buildStepsResultView(withStepMetadata(acc.actions, acc.stepMetadata))
   const stepTemplateContext = {
     ...ctx.templateContext,
     ...stepsView,
@@ -92,7 +99,6 @@ const fillStepProps = (
     // The env values an authored `$env.X` inserts, read under `$env`.
     ...authoredReferenceRoots({ envLookup: ctx.envLookup }),
   }
-  const { type, operator } = readActionIdentity(rawAction)
   const rendered = renderActionProps({
     type,
     operator: operator ?? '',
@@ -124,6 +130,19 @@ const withExpandedTemplateVars = <C extends ActionRunContext>(
   const filled = resolveOwnProp(runContext, vars) as Readonly<Record<string, unknown>>
   return { ...runContext, templateVars: filled }
 }
+
+/**
+ * Dispatch one action with its retry policy, timed on the monotonic clock from
+ * dispatch to settle: every retry attempt and every wait between attempts is
+ * part of what the step cost the run (`steps.<name>.durationMs`).
+ */
+const timedDispatch = (input: Parameters<typeof dispatchWithRetry>[0]) =>
+  Effect.timed(dispatchWithRetry(input)).pipe(
+    Effect.map(([elapsed, outcome]) => ({
+      outcome,
+      durationMs: Math.round(Duration.toMillis(elapsed)),
+    }))
+  )
 
 /**
  * Execute one action: resolve `$env.VAR` references in its authored props
@@ -161,7 +180,8 @@ export const executeStep = (
     const { type, operator } = readActionIdentity(rawAction)
     const handler = ctx.handlers.get(actionKey(type, operator)) ?? missingActionHandler
     const builtContext = {
-      previousSteps: acc.actions,
+      // Every earlier step's output, with how long it took and how it ended beneath it.
+      previousSteps: withStepMetadata(acc.actions, acc.stepMetadata),
       triggerData: ctx.triggerData,
       rawAction,
       authoredProps: authored as Readonly<Record<string, unknown>>,
@@ -187,9 +207,9 @@ export const executeStep = (
     // fails before the action runs, so nothing is sent.
     if (refusal !== undefined) {
       const refused: ActionOutcome = { status: 'failure', error: refusal }
-      return foldOutcome({ acc, rawAction, resolvedProps, outcome: refused, ctx })
+      return foldOutcome({ acc, rawAction, resolvedProps, outcome: refused, ctx, durationMs: 0 })
     }
-    const outcome: ActionOutcome = yield* dispatchWithRetry({
+    const { outcome, durationMs } = yield* timedDispatch({
       handler,
       action: { ...rawAction, props: resolvedProps },
       app: ctx.app,
@@ -198,7 +218,7 @@ export const executeStep = (
       retry: resolveRetryForAction(rawAction, ctx.automationRetry),
     })
     const tracked = withRecordedReads(outcome, rawAction, tracker)
-    return foldOutcome({ acc, rawAction, resolvedProps, outcome: tracked, ctx })
+    return foldOutcome({ acc, rawAction, resolvedProps, outcome: tracked, ctx, durationMs })
   }).pipe(Effect.withSpan('automations.execute-step'))
 
 /**

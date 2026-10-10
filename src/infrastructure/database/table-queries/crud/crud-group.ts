@@ -24,9 +24,18 @@ import {
   type OrderByAppView,
   type OrderByPrimaryKey,
 } from '../query-helpers/order-by-helpers'
+import {
+  buildPercentileSelects,
+  parsePercentileResult,
+  rankForPercentiles,
+} from '../query-helpers/percentile-selects'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { typedExecute } from '../statement/typed-execute'
 import { validateColumnName } from '../statement/validation'
+import type {
+  PercentileFields,
+  PercentileFigures,
+} from '@/domain/models/app/tables/aggregate-percentile-service'
 import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/database'
 
 /**
@@ -38,8 +47,8 @@ import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/databas
  * rows read are bounded by the number of distinct values, not by the table.
  */
 
-/** A calendar bucket a date column can be grouped by. */
-export type GroupInterval = 'day' | 'week' | 'month' | 'quarter' | 'year'
+/** A UTC bucket a date (day and up) or datetime (any) column can be grouped by. */
+export type GroupInterval = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
 
 /** One grouping level: a column, optionally bucketed by calendar interval. */
 export interface GroupLevelSpec {
@@ -48,7 +57,7 @@ export interface GroupLevelSpec {
 }
 
 /** The aggregate spec a caller asks for, in the list endpoint's shape. */
-type AggregationSpec = {
+type AggregationSpec = PercentileFields & {
   readonly count?: boolean
   readonly sum?: readonly string[]
   readonly avg?: readonly string[]
@@ -62,7 +71,7 @@ export interface GroupedAggregationRow {
   readonly values: readonly unknown[]
   readonly count: number
   /** Figures of the group, parsed as the whole-list aggregation parses them. */
-  readonly aggregations: ReturnType<typeof parseAggregationResult>
+  readonly aggregations: ReturnType<typeof parseAggregationResult> & PercentileFigures
   /** Per averaged field, how many of the group's rows carried a value. */
   readonly valued: Readonly<Record<string, number>>
 }
@@ -101,18 +110,30 @@ const valuedAlias = (field: string): string => `__sovrium_valued_${field}`
 const INTERVALS: ReadonlySet<GroupInterval> = new Set(['day', 'week', 'month', 'quarter', 'year'])
 
 /**
- * PostgreSQL: the bucket's first day, as ISO date text. The unit is spliced as
- * a literal — it comes from the closed list above, checked here — because a
- * bound parameter leaves `date_trunc`'s overload to be guessed.
+ * PostgreSQL: the bucket's first day, as ISO date text — or, for an hour or a
+ * minute, its first UTC instant as an ISO timestamp. The unit is spliced as a
+ * literal — it comes from a closed list, checked here — because a bound
+ * parameter leaves `date_trunc`'s overload to be guessed.
  */
 const pgBucket = (column: Readonly<SQL>, interval: GroupInterval): Readonly<SQL> => {
+  if (interval === 'hour') {
+    return sql`to_char(date_trunc('hour', ${column} AT TIME ZONE 'UTC'), 'YYYY-MM-DD"T"HH24:00:00.000"Z"')`
+  }
+  if (interval === 'minute') {
+    return sql`to_char(date_trunc('minute', ${column} AT TIME ZONE 'UTC'), 'YYYY-MM-DD"T"HH24:MI:00.000"Z"')`
+  }
   const unit = INTERVALS.has(interval) ? interval : 'day'
   // sql-literal: keyword -- `unit` is checked against the closed INTERVALS list above
   return sql`to_char(date_trunc(${sql.raw(`'${unit}'`)}, ${column}), 'YYYY-MM-DD')`
 }
 
-/** SQLite: the bucket's first day, as ISO date text (a week starts on Monday, as on PostgreSQL). */
+/**
+ * SQLite: the bucket's first day, as ISO date text (a week starts on Monday, as
+ * on PostgreSQL) — or an hour's or a minute's first UTC instant, as stored.
+ */
 const sqliteBucket = (column: Readonly<SQL>, interval: GroupInterval): Readonly<SQL> => {
+  if (interval === 'hour') return sql`strftime('%Y-%m-%dT%H:00:00.000Z', ${column})`
+  if (interval === 'minute') return sql`strftime('%Y-%m-%dT%H:%M:00.000Z', ${column})`
   if (interval === 'day') return sql`date(${column})`
   if (interval === 'month') return sql`strftime('%Y-%m-01', ${column})`
   if (interval === 'year') return sql`strftime('%Y-01-01', ${column})`
@@ -152,14 +173,22 @@ const groupStatement = (
     ),
     sql`, `
   )
-  // sql-literal: identifier -- aggregate columns pass validateColumnName; aliases are constants
-  const figures = sql.raw(
+  const figures = sql.join(
     [
-      `COUNT(*) AS ${GROUP_COUNT}`,
-      ...buildAggregationSelects(config.aggregate),
-      ...valuedSelects(config.aggregate),
-    ].join(', ')
+      // sql-literal: identifier -- aggregate columns pass validateColumnName; aliases are constants
+      sql.raw(
+        [
+          `COUNT(*) AS ${GROUP_COUNT}`,
+          ...buildAggregationSelects(config.aggregate),
+          ...valuedSelects(config.aggregate),
+        ].join(', ')
+      ),
+      ...buildPercentileSelects(config.aggregate),
+    ],
+    sql`, `
   )
+  // SQLite ranks each percentile field within this depth's groups first.
+  const ranked = rankForPercentiles(source, config.aggregate, expressions)
   const orderBy =
     config.order.kind === 'first-seen'
       ? // sql-literal: identifier -- ROW_NUMBER is a module constant
@@ -169,7 +198,7 @@ const groupStatement = (
           ` ORDER BY ${expressions.map((_, index) => `"${groupAlias(index)}" ASC NULLS LAST`).join(', ')}`
         )
   const limit = config.maxGroups === undefined ? sql`` : sql` LIMIT ${config.maxGroups + 1}`
-  return sql`SELECT ${keys}, ${figures} FROM ${source} GROUP BY ${sql.join(expressions, sql`, `)}${orderBy}${limit}`
+  return sql`SELECT ${keys}, ${figures} FROM ${ranked} GROUP BY ${sql.join(expressions, sql`, `)}${orderBy}${limit}`
 }
 
 /** The filtered relation every depth groups — numbered in list order when groups keep first-seen order. */
@@ -195,7 +224,10 @@ const toGroupRow = (
 ): GroupedAggregationRow => ({
   values: Array.from({ length: depth }, (_, index) => row[groupAlias(index)]),
   count: Number(row[GROUP_COUNT]),
-  aggregations: parseAggregationResult(row, aggregate),
+  aggregations: {
+    ...parseAggregationResult(row, aggregate),
+    ...parsePercentileResult(row, aggregate),
+  },
   valued: Object.fromEntries(
     (aggregate.avg ?? []).map((field) => [field, Number(row[valuedAlias(field)])])
   ),

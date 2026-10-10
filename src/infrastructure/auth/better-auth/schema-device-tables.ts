@@ -16,6 +16,12 @@
 // code the person types, and — once that person claims it in the browser — their
 // user id. `user_id` cascades, so an erased account takes its codes with it (S5).
 // `polling_interval` is milliseconds (the plugin stores `ms('5s')`).
+//
+// The last four columns are the loopback return, all nullable: where the
+// browser goes back to (`redirect_uri`), the machine that asked
+// (`device_name`), when it asked (`requested_at`), and — once the claimant
+// approves in one click — the sha256 of the single-use code the browser
+// carries back (`return_code_hash`, never the code itself).
 
 import { index, integer, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { authSchema, users } from './schema-tables'
@@ -33,6 +39,10 @@ export const deviceCodes = authSchema.table(
     pollingInterval: integer('polling_interval'),
     clientId: text('client_id'),
     scope: text('scope'),
+    redirectUri: text('redirect_uri'),
+    deviceName: text('device_name'),
+    returnCodeHash: text('return_code_hash'),
+    requestedAt: timestamp('requested_at', { withTimezone: true }),
   },
   (table) => [
     uniqueIndex('deviceCode_deviceCode_uidx').on(table.deviceCode),

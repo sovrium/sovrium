@@ -5,14 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, eq, gte, sql } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   OrganizationTeamDatabaseError,
   OrganizationTeamRepository,
 } from '@/application/ports/repositories/auth/organization-team-repository'
 import { SOVRIUM_ORGANIZATION_ID } from '@/infrastructure/auth/better-auth/org-team-seeder'
-import { db } from '@/infrastructure/database'
+import { db, type DrizzleTransaction } from '@/infrastructure/database'
 import {
   authMembersTable,
   authTeamMembersTable,
@@ -22,6 +22,111 @@ import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 
 /** Wrap a DB promise, adapting failures to `OrganizationTeamDatabaseError`. */
 const wrap = makeDbWrap((cause) => new OrganizationTeamDatabaseError({ cause }))
+
+/**
+ * The `team_member.membership_key` Better Auth writes for a (team, user) pair:
+ * the unpadded base64url SHA-256 of `JSON.stringify([teamId, userId])`.
+ *
+ * Written identically here so a link this repository makes is the one the
+ * native `add-team-member` route finds when it looks the pair up by key — two
+ * spellings of the key would let the two doors create the same membership
+ * twice.
+ */
+const membershipKeyOf = async (teamId: string, userId: string): Promise<string> => {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(JSON.stringify([teamId, userId]))
+  )
+  return Buffer.from(digest).toString('base64url')
+}
+
+/** The link rows for one (team, user) pair, as a predicate. */
+const linkOf = (teamId: string, userId: string) => {
+  const teamMembers = authTeamMembersTable()
+  return and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId))
+}
+
+/** Thrown inside the membership transaction to roll it back on a full team. */
+class TeamAtCapacity {
+  constructor(readonly teamId: string) {}
+}
+
+/**
+ * Unlink one (team, user) pair on the transaction, the team's `member_count`
+ * moving with the row.
+ */
+const unlinkMember = async (
+  tx: DrizzleTransaction,
+  teamId: string,
+  userId: string
+): Promise<void> => {
+  const teamMembers = authTeamMembersTable()
+  const teams = authTeamsTable()
+  const removed = await tx
+    .delete(teamMembers)
+    .where(linkOf(teamId, userId))
+    .returning({ id: teamMembers.id })
+  if (removed.length === 0) return
+  await tx
+    .update(teams)
+    .set({ memberCount: sql`${teams.memberCount} - ${removed.length}` })
+    .where(and(eq(teams.id, teamId), gte(teams.memberCount, removed.length)))
+}
+
+/**
+ * Link one (team, user) pair on the transaction, as the native route links it:
+ * the same membership key, and `member_count` moving with the row.
+ *
+ * A capped team is checked under a lock on its row. The no-op UPDATE takes
+ * that lock on PostgreSQL (SQLite serialises whole transactions already), and
+ * the count is a NEW statement after it, so it sees every link a concurrent
+ * add committed before the lock was granted — the last seat cannot be taken
+ * twice.
+ */
+const linkMember = async (
+  tx: DrizzleTransaction,
+  entry: { readonly teamId: string; readonly maxMembers?: number | undefined },
+  userId: string
+): Promise<void> => {
+  const teamMembers = authTeamMembersTable()
+  const teams = authTeamsTable()
+  const { teamId, maxMembers } = entry
+  const existing = await tx
+    .select({ id: teamMembers.id })
+    .from(teamMembers)
+    .where(linkOf(teamId, userId))
+    .limit(1)
+  if (existing.length > 0) return
+  if (maxMembers !== undefined) {
+    await tx
+      .update(teams)
+      .set({ memberCount: sql`${teams.memberCount}` })
+      .where(eq(teams.id, teamId))
+    const rows = await tx
+      .select({ value: count() })
+      .from(teamMembers)
+      .where(eq(teamMembers.teamId, teamId))
+    if (Number(rows[0]?.value ?? 0) >= maxMembers) throw new TeamAtCapacity(teamId)
+  }
+  const inserted = await tx
+    .insert(teamMembers)
+    .values({
+      id: crypto.randomUUID(),
+      teamId,
+      userId,
+      membershipKey: await membershipKeyOf(teamId, userId),
+      createdAt: new Date(),
+    })
+    // The same pair linked by another door lands on the unique key: that link
+    // is the one that happened, and this one changed nothing.
+    .onConflictDoNothing()
+    .returning({ id: teamMembers.id })
+  if (inserted.length === 0) return
+  await tx
+    .update(teams)
+    .set({ memberCount: sql`${teams.memberCount} + 1` })
+    .where(eq(teams.id, teamId))
+}
 
 /**
  * Drizzle implementation of the organization / team read port.
@@ -116,5 +221,50 @@ export const OrganizationTeamRepositoryLive = Layer.succeed(OrganizationTeamRepo
         .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
         .limit(1)
       return rows.length > 0
+    }),
+
+  listTeams: wrap(() => {
+    const teams = authTeamsTable()
+    return db
+      .select({ id: teams.id, name: teams.name })
+      .from(teams)
+      .where(eq(teams.organizationId, SOVRIUM_ORGANIZATION_ID))
+  }),
+
+  listUserMemberships: (userId: string) =>
+    wrap(() => {
+      const teamMembers = authTeamMembersTable()
+      const teams = authTeamsTable()
+      return db
+        .select({ teamId: teamMembers.teamId, teamName: teams.name, userId: teamMembers.userId })
+        .from(teamMembers)
+        .innerJoin(teams, eq(teamMembers.teamId, teams.id))
+        .where(
+          and(eq(teamMembers.userId, userId), eq(teams.organizationId, SOVRIUM_ORGANIZATION_ID))
+        )
+    }),
+
+  applyMembershipChange: ({ userId, removeTeamIds, add }) =>
+    wrap(async () => {
+      try {
+        await db.transaction(async (tx) => {
+          await removeTeamIds.reduce<Promise<void>>(async (previous, teamId) => {
+            await previous
+            await unlinkMember(tx, teamId, userId)
+          }, Promise.resolve())
+          await add.reduce<Promise<void>>(async (previous, entry) => {
+            await previous
+            await linkMember(tx, entry, userId)
+          }, Promise.resolve())
+        })
+        return { _tag: 'Applied' } as const
+      } catch (error) {
+        // The full team rolled the whole change back; that is an answer, not
+        // a failure of the store.
+        if (error instanceof TeamAtCapacity) {
+          return { _tag: 'AtCapacity', teamId: error.teamId } as const
+        }
+        throw error
+      }
     }),
 })

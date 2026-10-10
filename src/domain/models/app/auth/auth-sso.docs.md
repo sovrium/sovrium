@@ -33,7 +33,7 @@ Every secret is written as an `$env.` reference. A literal `clientSecret` is ref
 
 <!-- sovrium:options SsoProviderSchema -->
 
-`id` appears in the callback URL you register at the provider, so pick it once and keep it:
+`id` appears in the callback URL you register at the provider, so pick it once and keep it. `sovrium-cloud` is taken: it is the provider an app hosted on Sovrium Cloud signs its admins in with (see **User Management**), and a config declaring it is refused.
 
 | Protocol | Register this URL at the provider                     |
 | -------- | ----------------------------------------------------- |

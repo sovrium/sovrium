@@ -32,11 +32,11 @@ import type { Component } from '@/domain/models/app/pages/components'
 /** What resolving a `$currentUser` reference needs about the request. */
 export interface CurrentUserFilterContext {
   /**
-   * The request's UTC calendar day, `YYYY-MM-DD` — what a relative date token
-   * (`$today`, `$today+14d`, `$startOfMonth`) in a filter value resolves
-   * against. Omitted: the tokens are left as written.
+   * The request's instant on a whole UTC minute — what a relative date token
+   * resolves against: `$now-1h` this instant, `$today`, `$today+14d` and
+   * `$startOfMonth` its UTC calendar day. Omitted: the tokens are left as written.
    */
-  readonly today?: string
+  readonly now?: string
   readonly session: SessionInfo | undefined
   readonly cookies: Readonly<Record<string, string>> | undefined
   readonly db: DataSourceDb
@@ -58,7 +58,7 @@ export async function resolveCurrentUserFilters(
   component: Component,
   ctx: CurrentUserFilterContext
 ): Promise<Component | typeof UNAUTHORIZED> {
-  const dated = withRelativeDates(component, ctx.today)
+  const dated = withRelativeDates(component, ctx.now)
   const filters = dated.dataSource?.filter
   if (!hasCurrentUserRef(filters)) return dated
 
@@ -81,15 +81,15 @@ export async function resolveCurrentUserFilters(
 
 /**
  * The component with every relative date token in its filter resolved to the
- * request's day — here, beside `$currentUser`, because both are
+ * request's day (a `$now` token to its instant) — here, beside `$currentUser`, because both are
  * facts about the REQUEST that must be concrete before an island serialises
  * the binding for the browser. Returned by reference when there is nothing to
  * resolve.
  */
-function withRelativeDates(component: Component, today: string | undefined): Component {
+function withRelativeDates(component: Component, now: string | undefined): Component {
   const filter = component.dataSource?.filter
-  if (today === undefined || filter === undefined) return component
-  const resolved = resolveRelativeDatesIn(filter, today)
+  if (now === undefined || filter === undefined) return component
+  const resolved = resolveRelativeDatesIn(filter, now.slice(0, 10), now)
   return resolved === filter
     ? component
     : { ...component, dataSource: { ...component.dataSource!, filter: resolved } }

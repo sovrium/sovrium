@@ -87,13 +87,15 @@ Beside `activities`, the list response carries `entries`: what your AI agents di
 
 Two neighbouring stores have deliberately different lifetimes:
 
-| Store                        | Lifetime                    | Why                                                                                                                                                                                  |
-| ---------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Activity log** (this page) | 1 year, swept daily         | An operational change feed. It carries record content, so it ages out.                                                                                                               |
-| **Canonical audit log**      | Retained — no expiry window | The compliance record of who did what, including the `account.deletion.purged` entry that proves an erasure happened. A control that must outlive a person cannot expire on a timer. |
-| **Soft-deleted source rows** | Kept until you remove them  | Recoverable tombstones. There is no platform timer that purges them; when they go is your decision.                                                                                  |
+| Store                        | Lifetime                    | Why                                                                                                                                                                                       |
+| ---------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Activity log** (this page) | 1 year, swept daily         | An operational change feed. It carries record content, so it ages out.                                                                                                                    |
+| **Canonical audit log**      | Retained — no expiry window | The compliance record of who did what, including the `account.deletion.purged` entry that proves an erasure happened. A control that must outlive a person cannot expire on a timer.      |
+| **Soft-deleted source rows** | Kept until you remove them  | Recoverable tombstones. No timer purges them unless the table declares a `retention` window (see Table Retention), which deletes them with the rest of its rows once they are old enough. |
 
-**There is no `ECO_RETENTION_PURGE_DAYS`.** Earlier documentation described soft-deleted rows ageing out on that horizon. The variable was removed because nothing ever read it — no purge job existed behind it — and a documented retention horizon that nothing enforces is worse than none. Soft-deleted rows are kept until you delete them.
+**There is no `ECO_RETENTION_PURGE_DAYS`.** Earlier documentation described soft-deleted rows ageing out on that horizon. The variable was removed because nothing ever read it — no purge job existed behind it — and a documented retention horizon that nothing enforces is worse than none. Soft-deleted rows are kept until you delete them, or until the `retention` window of their table removes them.
+
+A table declaring `activityLog: false` writes no activity entry for its records, so they appear neither here nor in a record's history.
 
 ## Compliance use
 

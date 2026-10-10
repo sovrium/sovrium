@@ -22,7 +22,8 @@ import { type ActionOutcome } from '../action-handlers'
 import { laterResponse } from '../action-handlers/response-precedence'
 import { parkedAt } from '../action-handlers/run-park'
 import { redactSecretsForApp } from '../redact-secrets'
-import { buildStep, redactString } from './step-record'
+import { withMetadataOf } from './step-metadata'
+import { buildStep, maskRunSecrets, redactString, withDuration } from './step-record'
 import { type RunAccumulator, type StepContext } from './types'
 
 /**
@@ -141,6 +142,26 @@ const resolveRunStatusAfterStep = (
   return acc.runStatus
 }
 
+/**
+ * The step record of a settled action, with how long it took when it was
+ * timed, and every secret an earlier step answered masked (`maskRunSecrets`).
+ */
+const recordOf = (input: {
+  readonly acc: RunAccumulator
+  readonly rawAction: Readonly<Record<string, unknown>>
+  readonly resolvedProps: Readonly<Record<string, unknown>>
+  readonly outcome: ActionOutcome
+  readonly ctx: StepContext
+  readonly durationMs?: number
+}) =>
+  withDuration(
+    maskRunSecrets(
+      buildStep(input.rawAction, input.resolvedProps, input.outcome, input.ctx),
+      input.acc
+    ),
+    input.durationMs
+  )
+
 /** The run's error after a step: the failure it propagated, or the error stop that ended it. */
 const resolveRunErrorAfterStep = (
   rawAction: Readonly<Record<string, unknown>>,
@@ -149,10 +170,10 @@ const resolveRunErrorAfterStep = (
   ctx: StepContext
 ): string | undefined => {
   if (outcome.stopError !== undefined) {
-    return redactString(outcome.stopError, ctx.app, ctx.processEnv)
+    return maskRunSecrets(redactString(outcome.stopError, ctx.app, ctx.processEnv), acc)
   }
   return shouldPropagateFailure(rawAction, outcome)
-    ? redactString(outcome.error ?? 'Action failed', ctx.app, ctx.processEnv)
+    ? maskRunSecrets(redactString(outcome.error ?? 'Action failed', ctx.app, ctx.processEnv), acc)
     : acc.runError
 }
 
@@ -167,9 +188,12 @@ const appendStepToAccumulator = (input: {
   readonly resolvedProps: Record<string, unknown>
   readonly outcome: ActionOutcome
   readonly ctx: StepContext
+  /** How long the step took, when its dispatcher timed it (`ExecutedStep.durationMs`). */
+  readonly durationMs?: number
 }): RunAccumulator => {
-  const { acc, rawAction, resolvedProps, outcome, ctx } = input
+  const { acc, rawAction, outcome, ctx } = input
   const stepName = String(rawAction['name'] ?? '')
+  const step = recordOf(input)
   const out =
     outcome.output !== undefined && stepName !== ''
       ? (outcome.output as Record<string, unknown>)
@@ -177,7 +201,8 @@ const appendStepToAccumulator = (input: {
   const ret = pickReturnData(outcome, acc)
   const { actions, lastOutput } = foldStepOutput(acc, stepName, out)
   return {
-    steps: [...acc.steps, buildStep(rawAction, resolvedProps, outcome, ctx)],
+    steps: [...acc.steps, step],
+    stepMetadata: withMetadataOf(acc.stepMetadata ?? {}, stepName, step),
     runStatus: resolveRunStatusAfterStep(rawAction, outcome, acc),
     runError: resolveRunErrorAfterStep(rawAction, outcome, acc, ctx),
     actions,
@@ -201,10 +226,12 @@ const suspendedOrCancelled = (input: {
   readonly resolvedProps: Readonly<Record<string, unknown>>
   readonly outcome: ActionOutcome
   readonly ctx: StepContext
+  /** How long the step took, when its dispatcher timed it (`ExecutedStep.durationMs`). */
+  readonly durationMs?: number
 }): RunAccumulator => {
-  const { acc, rawAction, resolvedProps, outcome, ctx } = input
+  const { acc, rawAction, outcome, ctx } = input
   const stepName = String(rawAction['name'] ?? '')
-  const steps = [...acc.steps, buildStep(rawAction, resolvedProps, outcome, ctx)]
+  const steps = [...acc.steps, recordOf(input)]
   if (outcome.park === undefined) {
     const runError = redactString(outcome.cancelRun ?? 'Run cancelled', ctx.app, ctx.processEnv)
     return { ...acc, steps, runStatus: 'cancelled', runError, halted: true }
@@ -243,8 +270,10 @@ export const foldOutcome = (input: {
   readonly resolvedProps: Readonly<Record<string, unknown>>
   readonly outcome: ActionOutcome
   readonly ctx: StepContext
+  /** How long the step took, when its dispatcher timed it (`ExecutedStep.durationMs`). */
+  readonly durationMs?: number
 }): RunAccumulator => {
-  const { rawAction, resolvedProps, outcome, ctx } = input
+  const { rawAction, resolvedProps, outcome } = input
   // What the actions inside a path or a loop produced is read by later steps
   // as `{{<step>.*}}`, like any step's output; it never joins `lastOutput`.
   const acc =
@@ -261,7 +290,7 @@ export const foldOutcome = (input: {
   if (outcome.status === 'filtered') {
     return {
       ...acc,
-      steps: [...acc.steps, buildStep(rawAction, resolvedProps, outcome, ctx)],
+      steps: [...acc.steps, recordOf(input)],
       runStatus: 'skipped',
       halted: true,
     }
@@ -286,7 +315,7 @@ export const foldOutcome = (input: {
     const { actions, lastOutput } = foldStepOutput(acc, stepName, out)
     return {
       ...acc,
-      steps: [...acc.steps, buildStep(rawAction, resolvedProps, outcome, ctx)],
+      steps: [...acc.steps, recordOf(input)],
       runStatus: 'waiting-approval',
       actions,
       lastOutput,
@@ -294,10 +323,8 @@ export const foldOutcome = (input: {
     }
   }
   return appendStepToAccumulator({
+    ...input,
     acc,
-    rawAction,
     resolvedProps: resolvedProps as Record<string, unknown>,
-    outcome,
-    ctx,
   })
 }

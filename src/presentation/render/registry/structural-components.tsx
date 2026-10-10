@@ -22,6 +22,10 @@ import {
   computeDividerLabelWrapperClasses,
   computeDividerRuleClasses,
 } from '../../design/layout-default-classes'
+import {
+  computeTimelineEventClasses,
+  computeTimelineRailMarkerClasses,
+} from '../../design/timeline-rail-default-classes'
 import * as Renderers from '../elements'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { DESIGN_SCOPE_ATTRIBUTE } from './design-components'
@@ -216,19 +220,11 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
     })
   },
 
-  // Timeline — structural-display container. Distinct from the
-  // data-bound `data-timeline` Gantt island. Renders a vertical event list
-  // with a left rail line; the rail is an absolute-positioned `<div>` so
-  // it sits behind the children rendered to the right of `pl-6`.
-  // TWO SHAPES, ONE TYPE. A `timeline` carrying a `dataSource` is the
-  // record-bound Gantt and mounts its island; one without renders its authored
-  // children as a rail with markers and mounts nothing. `data-timeline` was its
-  // own type until the merge, and the binding — not a mode flag — is what
-  // decides, so the two cannot disagree.
-  //
-  // Declaring both is REFUSED at decode rather than resolved here: the binding
-  // would win and the author's children would vanish with no visible symptom.
-  // See `component-xor-rules.ts`.
+  // Timeline. TWO SHAPES, ONE TYPE: with a `dataSource` it is the record-bound
+  // Gantt and mounts its island; without, it draws its authored children beside
+  // a rail, one marker per child, and mounts nothing. The binding — not a mode
+  // flag — decides, and declaring both is REFUSED at decode
+  // (`component-xor-rules.ts`): the author's children would vanish unseen.
   timeline: (context) => {
     if ((context.component as { dataSource?: unknown } | undefined)?.dataSource !== undefined) {
       return recordBoundTimelineComponent(context)
@@ -236,12 +232,9 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
     const { elementPropsWithSpacing, content, renderedChildren, interactions } = context
     const authorClassName = elementPropsWithSpacing['className'] as string | undefined
     const mergedClassName = mergePrestyle(computeTimelineContainerClasses(), authorClassName)
-    // `renderHTMLElement` renders `{content || children}`, so this Fragment
-    // becomes the sole entry of a one-element LIST and React requires a key on
-    // it. The `<>` shorthand cannot carry one, hence the explicit `Fragment`.
-    // Keeping the body as a single wrapped entry (rather than flattening it
-    // into the array) preserves `children.length`, which `renderHTMLElement`
-    // feeds to `buildAccessibilityRole` — flattening would change the role.
+    // One keyed `Fragment` (the `<>` shorthand takes no key) as the sole entry
+    // of `children`: flattening would change the `children.length` that
+    // `renderHTMLElement` feeds to `buildAccessibilityRole`, hence the role.
     const children = (
       <Fragment key="timeline-body">
         <div
@@ -249,7 +242,18 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
           className={computeTimelineRailClasses()}
         />
         {content}
-        {renderedChildren}
+        {renderedChildren.map((child, index) => (
+          <div
+            key={index}
+            className={computeTimelineEventClasses()}
+          >
+            <span
+              aria-hidden="true"
+              className={computeTimelineRailMarkerClasses()}
+            />
+            {child}
+          </div>
+        ))}
       </Fragment>
     )
     return Renderers.renderHTMLElement({

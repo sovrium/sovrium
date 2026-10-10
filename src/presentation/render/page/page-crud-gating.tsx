@@ -189,16 +189,22 @@ export function applyCrudCreatePermissions(
  * A form that declares its own `access` is an intake its author opened on
  * purpose — a public contact form writing to a table no visitor may write
  * through the records API — and that rule alone decides (the page's form
- * access gate applies it). A form that declares none adds a record to its
- * `submitTo.table` for whoever reads the page, so it is offered only to a
- * caller that table lets create — the same ladder, policy and group handling
- * as {@link isCrudCreateAllowed}, so the embed is offered exactly to whom the
- * records API would accept the row from. A form writing to no table is
- * always offered.
+ * access gate applies it).
+ *
+ * A form that declares none is public: `/forms/<name>` serves it to anyone and
+ * its submission endpoint writes with the form's authority. A signed-out
+ * visitor is therefore offered the embed as that page offers it, whatever the
+ * bound table's `create` grant says. A signed-in reader is offered it only
+ * when the bound table lets her create — the same ladder, policy and group
+ * handling as {@link isCrudCreateAllowed}. That narrowing is the embed's own:
+ * the submission endpoint does not judge a signed-in submitter's table grants,
+ * so it is a courtesy that keeps a form she may not use off her page, never
+ * the boundary that refuses her write. A form writing to no table is always
+ * offered.
  */
 function isFormRefOffered(formRef: string, app: App, session: SessionInfo | undefined): boolean {
   const form = app.forms?.find((candidate) => candidate.name === formRef)
-  if (form === undefined || form.access !== undefined) return true
+  if (form === undefined || form.access !== undefined || session === undefined) return true
   const { table } = form.submitTo
   return table === undefined || isCrudCreateAllowed(table, app.tables, session)
 }
@@ -223,9 +229,8 @@ function filterResponsiveChildren(
 
 /**
  * Remove, at any depth, every `formRef` embedding (a `form` or a `dialog`)
- * whose form this caller may not add a record through. Removed rather than
- * hidden: the embed would otherwise ship its fields, and a submit the records
- * API's grants refuse.
+ * whose form {@link isFormRefOffered} does not offer this caller. Removed
+ * rather than hidden: a hidden embed would still ship its fields in the markup.
  */
 export function withholdUnofferedFormRefs(
   components: Page['components'],

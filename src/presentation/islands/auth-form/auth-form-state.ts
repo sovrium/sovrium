@@ -33,6 +33,10 @@ export interface AuthFormStateInput {
   readonly errorToast?: ToastConfig
   /** The form declares `onSuccess.type: 'successPage'`. */
   readonly hasSuccessPage?: boolean
+  /** The two-step pending banner in the page language, where it differs from English. */
+  readonly pendingSignIn?: string
+  /** `login`: the page an account still owing its code is sent to. */
+  readonly twoFactorPath?: string
 }
 
 /**
@@ -93,6 +97,8 @@ export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult
       successToast,
       errorToast,
       hasSuccessPage,
+      pendingSignIn: input.pendingSignIn,
+      twoFactorPath: input.twoFactorPath,
       setState,
     })
   }

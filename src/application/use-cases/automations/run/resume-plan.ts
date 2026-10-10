@@ -154,3 +154,38 @@ export const planResume = (input: {
   }
   return { kind: 'resume', segment }
 }
+
+/**
+ * Plan the resume of a run paused INSIDE a `browser/run` step for a person's
+ * confirmation: the segment re-enters that step (at `stepIndex`) with its
+ * paused row's output, so the step takes its held browser back and clicks.
+ */
+export const planConfirmationResume = (input: {
+  readonly actions: readonly RawAction[]
+  readonly steps: readonly PersistedStep[]
+  readonly stepIndex: number
+  readonly resumedAt: string
+}): ResumePlan => {
+  const { actions, steps, stepIndex, resumedAt } = input
+  const action = actions[stepIndex]
+  const pausedIndex = steps.findLastIndex((row) => row.stepIndex === stepIndex)
+  const paused = steps[pausedIndex]
+  if (action === undefined || paused === undefined || paused.actionName !== action['name']) {
+    return {
+      kind: 'cancel',
+      error: 'The automation changed while the run waited for its confirmation.',
+    }
+  }
+  const { seed, priorTolerated } = beforeThePark(steps.slice(0, pausedIndex))
+  const frame = { step: paused.actionName, index: stepIndex }
+  const prior = { output: paused.output, nested: readStoredNested(paused.nested) }
+  const segment: ResumeSegmentPlan = {
+    actions: actions.slice(stepIndex),
+    base: stepIndex,
+    pausedRow: paused.stepIndex,
+    seedOutputs: seed,
+    container: { frame, inner: [], prior, resumedAt },
+    priorTolerated,
+  }
+  return { kind: 'resume', segment }
+}

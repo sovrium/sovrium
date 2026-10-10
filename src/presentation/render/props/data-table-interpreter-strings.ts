@@ -22,7 +22,8 @@ import type { Languages } from '@/domain/models/app/languages'
  *   inline editor's commit / dismiss pair (an `editSelect.saveLabel` still
  *   overrides the commit).
  * - `uiStrings` carries every other string the grid writes itself — toolbar,
- *   pager, search default, add-row, the rate-limited read notice — and only
+ *   pager, search default, add-row, the rate-limited read notice, the
+ *   selection bar's Confirm / Cancel (`confirmGate.*`) — and only
  *   where it differs from the English
  *   the island is written in, so it is absent on an English page and that
  *   page's markup is unchanged.
@@ -36,7 +37,7 @@ export function dataTableInterpreterStrings(
     saveLabel: resolveInterpreterString('datatable.save', currentLang, languages),
     cancelLabel: resolveInterpreterString('datatable.cancel', currentLang, languages),
     uiStrings: resolveInterpreterStringOverrides(
-      ['datatable.', 'rateLimit.'],
+      ['datatable.', 'rateLimit.', 'confirmGate.'],
       currentLang,
       languages
     ),

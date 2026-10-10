@@ -35,6 +35,19 @@ export type AuthFormAction = {
   readonly _passkeyAutofill?: boolean
   /** Stamped by the invitation pass: the query key the page reads its token from. */
   readonly _invitationParam?: string
+  /** `login`: the page an account still owing its two-step code is sent to. */
+  readonly onTwoFactor?: { readonly navigate?: string }
+  /**
+   * Stamped on a `verifyTwoFactor` form by the two-step pass
+   * (`two-factor-attempt-resolver.ts`): whether a sign-in waits for its code,
+   * the sign-in page, and where that sign-in was headed. Never authored.
+   */
+  readonly _twoFactor?: {
+    readonly expired: boolean
+    readonly focusCode?: boolean
+    readonly loginPage: string
+    readonly destination?: string
+  }
   /** Custom submit-button label (supports `$t:key`). Overrides the built-in. */
   readonly submitLabel?: string
   /** Custom in-flight (pending) submit-button label (supports `$t:key`). */
@@ -96,7 +109,8 @@ export function resolveOnSuccessRedirect(
   landingPath?: string
 ): string | undefined {
   if (action.onSuccess?.type === 'role-landing') return landingPath
-  return action.onSuccess?.navigate
+  // A code form naming no destination: where the waiting sign-in was headed.
+  return action.onSuccess?.navigate ?? action._twoFactor?.destination
 }
 
 /**

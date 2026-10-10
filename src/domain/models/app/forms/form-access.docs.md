@@ -54,6 +54,8 @@ A form rendered inside a page keeps its own gate, and the page inherits the stri
 
 The alternative — rendering the page with a hole where the form should be — would leak the form's existence through the shape of the page, which is exactly what the role gate exists to prevent.
 
+A form without `access` is offered the same way on both surfaces to a signed-out visitor: the page draws it as `/forms/{name}` does, whatever the bound table's `create` grant says, and her submission is stamped with `system`. A signed-in reader is offered the embedded form only when the bound table lets her create a record.
+
 ## Attribution follows the session
 
 When a session is present, the ledger records the submitter's user id and a bound table's created-by column is populated with the same id. A public submission leaves the ledger's user id empty and stamps the created-by column with `system`, the actor an automation-authored record carries, so access control is also what makes a submission attributable to a person.

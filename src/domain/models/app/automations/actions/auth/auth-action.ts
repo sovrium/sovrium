@@ -6,9 +6,14 @@
  */
 
 import { Schema } from 'effect'
+import { AuthAddToGroupActionSchema } from './add-to-group'
 import { AuthAssignRoleActionSchema } from './assign-role'
 import { AuthBanUserActionSchema } from './ban-user'
 import { AuthCreateUserActionSchema } from './create-user'
+import { AuthDeleteOAuthClientActionSchema } from './delete-oauth-client'
+import { AuthRegisterOAuthClientActionSchema } from './register-oauth-client'
+import { AuthRemoveFromGroupActionSchema } from './remove-from-group'
+import { AuthRotateOAuthClientSecretActionSchema } from './rotate-oauth-client-secret'
 import { AuthUnbanUserActionSchema } from './unban-user'
 
 /**
@@ -19,11 +24,17 @@ export const AuthActionSchema = Schema.Union([
   AuthAssignRoleActionSchema,
   AuthBanUserActionSchema,
   AuthUnbanUserActionSchema,
+  AuthAddToGroupActionSchema,
+  AuthRemoveFromGroupActionSchema,
+  AuthRegisterOAuthClientActionSchema,
+  AuthRotateOAuthClientSecretActionSchema,
+  AuthDeleteOAuthClientActionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'AuthAction',
     title: 'Auth Action',
-    description: 'Authentication operations (create user, assign role, ban/unban)',
+    description:
+      'Authentication operations (create user, assign role, ban/unban, add to or remove from a group, register, rotate or delete a sign-in client)',
   })
 )
 

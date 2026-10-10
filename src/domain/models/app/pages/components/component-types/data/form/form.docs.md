@@ -68,6 +68,8 @@ Pressing the form's submit saves what changed: an optional field left empty stay
 
 `formRef` draws a form you declared in `forms[]` inside a page, with its fields, layout, steps and submission behaviour. On its own page at `/forms/<name>` the form's title is that page's `<h1>` and takes the display size. Embedded, the title is a section of the host page: `props.headingLevel` (`h1`, `h2` or `h3`, default `h1`) sets the heading it renders as, so a page with its own hero heading keeps a single `<h1>`. An embedded title's size follows that heading level; the display size is only for the standalone form page.
 
+A signed-out visitor is offered an embedded form that declares no `access` as its own page offers it, whatever the bound table's `create` grant says. A signed-in reader is offered it only when the bound table lets her create a record. When the reader may read the bound table, the embed draws no field she may not read in it.
+
 ```yaml
 pages:
   - name: Pricing

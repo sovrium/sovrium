@@ -35,11 +35,11 @@
  * `filter: [{ field: 'category', value: '$record.name' }]`).
  */
 
-import { isEmptyCell } from '@/domain/kernel/matching/empty-value'
 import { withRecordText } from '@/domain/models/app/pages/substitute-record-vars'
 import { pageRecordOf } from '@/presentation/render/props/record-value-format'
 import { substituteRecordVars } from '@/presentation/render/resolve/data-source-contracts'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
+import { recordMatchesCollectionFilter } from '@/presentation/render/resolve/page-collection-filter'
 import {
   fetchCollectionAdjacency,
   substituteCollectionInMeta,
@@ -48,7 +48,6 @@ import {
 } from '@/presentation/render/resolve/page-collection-prevnext'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
-import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
 
 /**
@@ -77,73 +76,6 @@ export type PageCollectionResolution =
    * the same page — so the status never tells a reader the row exists.
    */
   | { readonly kind: 'permission-blocked' }
-
-/**
- * Numeric comparison helper — returns false unless both operands are numbers.
- * Centralised so the operator dispatch table stays under the cyclomatic-
- * complexity cap.
- */
-const numericCompare = (
-  cellValue: unknown,
-  expected: unknown,
-  predicate: (a: number, b: number) => boolean
-): boolean =>
-  typeof cellValue === 'number' && typeof expected === 'number'
-    ? predicate(cellValue, expected)
-    : false
-
-/**
- * Per-operator dispatch table for collection-page filter predicates.
- *
- * Supports the literal value branch of `FilterValueSchema`. Any
- * `$currentUser` reference is short-circuited at the call site (see
- * `recordMatchesFilter`) because collection filtering is meant for
- * static publish-state gates (eg. `status eq 'published'`), not
- * session-aware predicates.
- */
-const FILTER_OPERATORS: Readonly<
-  Record<DataFilter['operator'], (cellValue: unknown, expected: unknown) => boolean>
-> = {
-  eq: (cellValue, expected) => cellValue === expected,
-  neq: (cellValue, expected) => cellValue !== expected,
-  gt: (cellValue, expected) => numericCompare(cellValue, expected, (a, b) => a > b),
-  gte: (cellValue, expected) => numericCompare(cellValue, expected, (a, b) => a >= b),
-  lt: (cellValue, expected) => numericCompare(cellValue, expected, (a, b) => a < b),
-  lte: (cellValue, expected) => numericCompare(cellValue, expected, (a, b) => a <= b),
-  contains: (cellValue, expected) =>
-    typeof cellValue === 'string' && typeof expected === 'string'
-      ? cellValue.includes(expected)
-      : false,
-  in: (cellValue, expected) =>
-    Array.isArray(expected) ? (expected as readonly unknown[]).includes(cellValue) : false,
-  // Missing, null, `''`, `[]` and `{}` are empty — the one rule,
-  // judged on the raw row as the SQL filter judges it (SQLite JSON text too).
-  isEmpty: (cellValue) => isEmptyCell(cellValue),
-  isNotEmpty: (cellValue) => !isEmptyCell(cellValue),
-}
-
-/**
- * Compares a record's field value against a DataFilter predicate.
- */
-function recordMatchesFilter(record: Record<string, unknown>, filter: DataFilter): boolean {
-  const expected = filter.value
-  // `$currentUser` references resolve to objects, not literals; we
-  // intentionally short-circuit them as no-match for collection filters.
-  if (expected !== null && typeof expected === 'object' && !Array.isArray(expected)) {
-    return false
-  }
-  const op = FILTER_OPERATORS[filter.operator]
-  return op === undefined ? false : op(record[filter.field], expected)
-}
-
-/** Returns true when the record satisfies every filter predicate. */
-function recordMatchesAllFilters(
-  record: Record<string, unknown>,
-  filters: readonly DataFilter[] | undefined
-): boolean {
-  if (filters === undefined || filters.length === 0) return true
-  return filters.every((f) => recordMatchesFilter(record, f))
-}
 
 /**
  * Recursively substitutes `$record.<field>` tokens in any string value
@@ -410,11 +342,9 @@ function autoBindCommentInComponent(
  * editorial session.
  */
 /**
- * Resolve the collection record + run the pre-render gates (slug lookup,
- * collection.filter, row-level read predicate). Returns either an early
- * `PageCollectionResolution` outcome OR the matched record for the caller to
- * continue substitution. Extracted to keep `resolveCollectionPage` under the
- * complexity cap as the gate chain grew with [internal ref]'s row-level overlay.
+ * The collection record through the pre-render gates (slug lookup,
+ * collection.filter, row-level read predicate): an early outcome, or the
+ * matched record for the caller to substitute.
  */
 async function resolveCollectionRecord(
   collection: Readonly<NonNullable<Page['collection']>>,
@@ -441,7 +371,8 @@ async function resolveCollectionRecord(
   )
   if (record === undefined) return { kind: 'not-found' }
 
-  if (options?.bypassFilter !== true && !recordMatchesAllFilters(record, collection.filter)) {
+  const passes = recordMatchesCollectionFilter(record, collection, db.recordText)
+  if (options?.bypassFilter !== true && !passes) {
     return { kind: 'not-found' }
   }
 

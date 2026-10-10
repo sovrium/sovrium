@@ -39,6 +39,8 @@ The config is read and validated exactly as `sovrium validate` reads and validat
 
 The static files follow the same rules as `sovrium start`: `SOVRIUM_PUBLIC_DIR` points at another directory, and `SOVRIUM_PUBLIC_DIR=none` leaves them out.
 
+Unpacked, a bundle runs as it is: `sovrium start <root>/project/app.json` serves `<root>/public/` and `sovrium seed <root>/project/app.json` reads `<root>/seed/`, unless `SOVRIUM_PUBLIC_DIR` (or `none`) or `--dir` says otherwise. Sovrium recognises an unpacked bundle by its config sitting at `project/app.json` with `manifest.json` one level up.
+
 A `$ref` target outside the config's directory is refused, so a bundle never carries a file from beyond the project you meant to ship.
 
 ### The manifest

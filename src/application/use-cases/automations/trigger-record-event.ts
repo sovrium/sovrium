@@ -9,7 +9,11 @@ import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { TemplateEngine } from '@/application/ports/services/template-engine'
-import { serializeDriverRow } from '@/application/use-cases/tables/record-transformer'
+import { storedRowOf } from '@/application/use-cases/tables/record-stored-row'
+import {
+  serializeDriverRow,
+  transformRecord,
+} from '@/application/use-cases/tables/record-transformer'
 import {
   relationshipFieldNames,
   withStringRecordId,
@@ -20,7 +24,9 @@ import { buildSyntheticSession } from './build-guest-session'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { singleUserFieldNames, withHydratedId } from './hydrated-field-reference'
 import { loadPausedAutomationNames } from './paused-automation-names'
-import { findMatchingRecordAutomations } from './record-trigger-filters'
+import { withoutAdminOnlyTriggerFields } from './record-trigger-data-permissions'
+import { anyRecordEntryMayMatch, findMatchingRecordAutomations } from './record-trigger-filters'
+import { reverseCollectionFields, singleRelationshipFields } from './record-trigger-relations'
 import type { TriggerData, TriggerRequester } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
@@ -105,6 +111,17 @@ const firstReverseRowOrEmpty = (
 ): Readonly<Record<string, unknown>> => rows[0] ?? {}
 
 /**
+ * A row read from the database, as the records API reads it — and as the
+ * triggering row already is: a checkbox is `true`/`false` on both engines (not
+ * SQLite's `1`/`0`), a date is its day, an id and a relationship value strings.
+ */
+const asRecordsApiRow = (
+  app: App,
+  tableName: string,
+  row: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> => storedRowOf(transformRecord(row, { app, tableName }))
+
+/**
  * Generic single-field hydration core shared by the user and
  * relationship (GAP-J1) hydrators. Both: filter the table's declared fields,
  * resolve each declared field's value to a column map via a repository read,
@@ -165,107 +182,6 @@ const hydrateUserFields = (input: {
   })
 
 /**
- * Declarations of the single (`allowMultiple !== true`) many-to-one
- * `relationship`-typed fields on the named table, paired with their related
- * table name. GAP-J1 scopes hydration to single many-to-one relationships —
- * multi-relationship (`allowMultiple: true`) fields are left as the raw id
- * list (NOT full hydration), mirroring the [internal ref] single-user scoping.
- */
-const singleRelationshipFields = (
-  app: App,
-  tableName: string
-): readonly { readonly field: string; readonly relatedTable: string }[] => {
-  const table = app.tables?.find((t) => t.name === tableName)
-  if (!table) return []
-  return table.fields
-    .filter(
-      (
-        field
-      ): field is typeof field & {
-        readonly relatedTable: string
-        readonly relationType?: string
-        readonly allowMultiple?: boolean
-      } => {
-        if (field.type !== 'relationship') return false
-        const rel = field as {
-          readonly relatedTable?: unknown
-          readonly relationType?: string
-          readonly allowMultiple?: boolean
-        }
-        if (typeof rel.relatedTable !== 'string' || rel.relatedTable.length === 0) return false
-        // Scope to single many-to-one relationships. `relationType` defaults to
-        // 'many-to-one'; only that variant carries a single FK id worth
-        // hydrating into the related row. Multi-relationship fields
-        // (`allowMultiple: true`) are left as the raw id list.
-        if (rel.allowMultiple === true) return false
-        const relationType = rel.relationType ?? 'many-to-one'
-        return relationType === 'many-to-one'
-      }
-    )
-    .map((field) => ({
-      field: field.name,
-      relatedTable: (field as { readonly relatedTable: string }).relatedTable,
-    }))
-}
-
-/**
- * Declarations of the `one-to-many` reverse `relationship` fields on the named
- * table, each paired with the related (child) table name and the reverse FK
- * column on that child table. GAP-J2 surfaces these reciprocal collections onto
- * a GAP-J1-hydrated parent's column map.
- *
- * The reverse FK column is resolved with the same three-branch precedence the
- * lookup-view generator uses (`resolveForeignKeyColumn`): explicit `foreignKey`
- * → `reciprocalField` → the relationship field's own name. For the cloud config
- * (`apps.drains` with `reciprocalField: 'app'`) this yields the `app` column on
- * the `drains` child table.
- */
-const reverseCollectionFields = (
-  app: App,
-  tableName: string
-): readonly {
-  readonly field: string
-  readonly relatedTable: string
-  readonly reverseFk: string
-}[] => {
-  const table = app.tables?.find((t) => t.name === tableName)
-  if (!table) return []
-  return table.fields
-    .filter(
-      (
-        field
-      ): field is typeof field & {
-        readonly relatedTable: string
-        readonly relationType?: string
-        readonly foreignKey?: string
-        readonly reciprocalField?: string
-      } => {
-        if (field.type !== 'relationship') return false
-        const rel = field as {
-          readonly relatedTable?: unknown
-          readonly relationType?: string
-        }
-        if (typeof rel.relatedTable !== 'string' || rel.relatedTable.length === 0) return false
-        // Only the one-to-many reciprocal direction carries a reverse
-        // collection. many-to-one fields are the GAP-J1 forward direction.
-        return rel.relationType === 'one-to-many'
-      }
-    )
-    .map((field) => {
-      const rel = field as {
-        readonly name: string
-        readonly relatedTable: string
-        readonly foreignKey?: string
-        readonly reciprocalField?: string
-      }
-      // Resolve the reverse FK column on the child table, mirroring
-      // resolveForeignKeyColumn in lookup-view-generators.ts.
-      const reverseFk = rel.foreignKey ?? rel.reciprocalField ?? rel.name
-      return { field: rel.name, relatedTable: rel.relatedTable, reverseFk }
-    })
-}
-
-/**
  * GAP-J2: extend a GAP-J1-hydrated parent's column map with its REVERSE
  * one-to-many reciprocal collections. For each `one-to-many` `relationship`
  * field declared on the related (parent) table, fetch every child row whose
@@ -308,7 +224,9 @@ const hydrateReverseCollections = (input: {
           // `<collection>.<column>` resolves the configured sink in both the
           // Handlebars and legacy resolvers — and survives the JSON round-trip
           // into `trigger_data` that a retry/replay re-reads.
-          const collection = firstReverseRowOrEmpty(rowsResult.success)
+          const collection = firstReverseRowOrEmpty(
+            rowsResult.success.slice(0, 1).map((row) => asRecordsApiRow(app, childTable, row))
+          )
           return [field, collection] as const
         })
     )
@@ -362,7 +280,7 @@ const hydrateRelationshipFields = (input: {
           app,
           relatedTable,
           parentId: String(value),
-          columns: rowResult.success,
+          columns: { ...asRecordsApiRow(app, relatedTable, rowResult.success) },
         })
         return [field, withHydratedId(columns, String(value))] as const
       })
@@ -401,9 +319,10 @@ const hydratePreviousRecord = (input: {
   })
 
 /**
- * The trigger data every matching run receives: the row after the event and,
- * on an update, the row before it, both with their user and relationship
- * fields hydrated.
+ * The row after the event and, on an update, the row before it, both with
+ * their user and relationship fields hydrated — every field still in place.
+ * What the trigger `condition` reads; the runs receive it without the
+ * admin-only fields (`withoutAdminOnlyTriggerFields`).
  */
 const buildRecordTriggerData = (input: {
   readonly app: App
@@ -487,7 +406,8 @@ const readableRecords = (
 /**
  * Fire every record-triggered automation matching the event: the (table, event)
  * tuple, then `watchFields` on an update, then the optional `condition` group
- * against the post-mutation record (and the pre-mutation one on an update).
+ * against the expanded post-mutation record (and the pre-mutation one on an
+ * update). Each run receives those rows without their admin-only fields.
  * Errors are absorbed at the boundary: the record endpoint answers regardless of
  * the automation outcome, and the run row records the failure.
  */
@@ -507,18 +427,21 @@ export const triggerRecordEventAutomations = (
     // Entry point: one read of the operational pauses per record event.
     const pausedNames = yield* loadPausedAutomationNames
     const templates = yield* TemplateEngine
-    const matching = findMatchingRecordAutomations({
-      app,
-      tableName,
-      event,
-      record,
-      previousRecord,
-      pausedNames,
+    const matchInput = { app, tableName, event, record, previousRecord, pausedNames }
+    // Table, event and watchFields first: a table nothing watches costs no expansion.
+    if (!anyRecordEntryMayMatch(matchInput)) return
+
+    // The condition reads the expanded rows a step reads, before the
+    // admin-only fields are removed: it is never stored.
+    const hydrated = yield* buildRecordTriggerData({ ...input, record, previousRecord })
+    const matching = findMatchingRecordAutomations(matchInput, {
+      record: hydrated.record,
+      previousRecord: hydrated.previousRecord,
       templates,
     })
     if (matching.length === 0) return
 
-    const rows = yield* buildRecordTriggerData({ ...input, record, previousRecord })
+    const rows = withoutAdminOnlyTriggerFields(app, tableName, hydrated)
     const triggerData =
       input.requester === undefined ? rows : { ...rows, requester: input.requester }
 

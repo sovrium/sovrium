@@ -21,13 +21,15 @@ import {
   computeChartBodyClasses,
   computeChartShellClasses,
 } from '@/presentation/design/chart-default-classes'
-import { monthKeyLabeller } from './chart-format'
+import { monthKeyLabeller, timeKeyLabeller, type ChartAxisFormat } from './chart-format'
 import { PRIMARY_SERIES_PAINT } from './chart-series-shared'
 import type { CategoryDatum } from './chart-series-shared'
 import type { ReactElement } from 'react'
 
 interface LineChartProps {
   readonly data: readonly CategoryDatum[]
+  /** The declared `xAxis.format`: `date` labels instant keys by their time of day. */
+  readonly xFormat?: ChartAxisFormat | undefined
   /** Operator-set `<svg role="img">` name; falls back to the "Line chart" default. */
   readonly accessibleName?: string
 }
@@ -54,12 +56,16 @@ function LineAxes({
   points,
   innerWidth,
   innerHeight,
+  xFormat,
 }: {
   readonly points: readonly PlottedPoint[]
   readonly innerWidth: number
   readonly innerHeight: number
+  readonly xFormat: ChartAxisFormat | undefined
 }): ReactElement {
-  const monthLabel = monthKeyLabeller(points.map((p) => p.key))
+  const keys = points.map((p) => p.key)
+  const keyLabel =
+    (xFormat === 'date' ? timeKeyLabeller(keys) : undefined) ?? monthKeyLabeller(keys)
   return (
     <g>
       <line
@@ -85,7 +91,7 @@ function LineAxes({
           fill={CHART_TICK_FILL}
           textAnchor="middle"
         >
-          {monthLabel === undefined ? p.key : monthLabel(p.key)}
+          {keyLabel === undefined ? p.key : keyLabel(p.key)}
         </text>
       ))}
     </g>
@@ -117,7 +123,8 @@ function plotPoints(
   return data.map((d) => ({ key: d.key, x: xScale(d.key) ?? 0, y: yScale(d.value) }))
 }
 
-function LineChartSvg({ width, height, data, accessibleName }: LineChartSvgProps): ReactElement {
+function LineChartSvg(props: LineChartSvgProps): ReactElement {
+  const { width, height, data, xFormat, accessibleName } = props
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right)
   const innerHeight = Math.max(0, height - MARGIN.top - MARGIN.bottom)
   const points = plotPoints(data, innerWidth, innerHeight)
@@ -137,6 +144,7 @@ function LineChartSvg({ width, height, data, accessibleName }: LineChartSvgProps
           points={points}
           innerWidth={innerWidth}
           innerHeight={innerHeight}
+          xFormat={xFormat}
         />
         <LinePath<PlottedPoint>
           data={points}
@@ -169,7 +177,7 @@ function LineChartSvg({ width, height, data, accessibleName }: LineChartSvgProps
 const CHART_CANVAS_CLASSES = computeChartShellClasses()
 const CHART_CANVAS_BODY_CLASSES = computeChartBodyClasses()
 
-export function LineChartCanvas({ data, accessibleName }: LineChartProps): ReactElement {
+export function LineChartCanvas({ data, xFormat, accessibleName }: LineChartProps): ReactElement {
   return (
     <div className={CHART_CANVAS_CLASSES}>
       <div className={CHART_CANVAS_BODY_CLASSES}>
@@ -181,6 +189,7 @@ export function LineChartCanvas({ data, accessibleName }: LineChartProps): React
                 width={width}
                 height={height}
                 data={data}
+                xFormat={xFormat}
                 accessibleName={accessibleName}
               />
             )

@@ -9,6 +9,7 @@ import React, { useState } from 'react'
 import { withRecordText } from '@/domain/models/app/pages/substitute-record-vars'
 import { renderResultsBody, substituteRecordVars } from './search-list-renderers'
 import { useBoundQuery, useUnboundQuery } from './search-query-binding'
+import { useServerSearch, type ServerSearch } from './search-server-query'
 import type { ChildTemplate, ItemTemplate } from './search-list-renderers'
 
 interface SearchListIslandProps {
@@ -17,6 +18,8 @@ interface SearchListIslandProps {
   readonly searchFields: readonly string[]
   readonly debounceMs?: number
   readonly limit?: number
+  /** Set on `searchEngine: 'fts'`: each query is answered by the records endpoint. */
+  readonly server?: ServerSearch | null
   readonly childTemplate: ChildTemplate
   readonly itemTemplate?: ItemTemplate
   readonly emptyMessage?: string
@@ -127,6 +130,7 @@ export default function SearchListIsland({
   searchFields,
   debounceMs = 0,
   limit = 0,
+  server,
   childTemplate,
   itemTemplate,
   emptyMessage,
@@ -145,13 +149,11 @@ export default function SearchListIsland({
   // length-gated by that publisher's own declared controls.
   useBoundQuery(bindTo, setQuery)
 
-  const filteredRecords = filterRecords({
-    records,
-    query,
-    searchFields,
-    limit,
-    childTemplate,
-  })
+  // On `fts` the database already searched: its answer is shown as it came.
+  const answered = useServerSearch(server, query)
+  const filteredRecords =
+    answered ??
+    filterRecords({ records, query: server ? '' : query, searchFields, limit, childTemplate })
 
   const results = renderResultsBody({
     records: filteredRecords,

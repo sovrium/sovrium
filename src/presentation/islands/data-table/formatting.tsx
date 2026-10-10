@@ -20,12 +20,18 @@ import {
   DEFAULT_CANCEL_LABEL,
   buildActionCellRenderer,
 } from './action-cell-renderer'
+import { listEditedFields, renderListCell, renderPlainCell } from './cell-plain'
 import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
-import { ArrayChipsCell, type CellFieldOptions } from './cell-renderers'
-import { cellClassOf, columnPresentationMeta, drawsTextChip } from './column-presentation'
+import {
+  cellClassOf,
+  columnPresentationMeta,
+  drawsTextChip,
+  optionChipCellClassOf,
+} from './column-presentation'
 import { textCellContent } from './text-chip-cell'
 import { withValueLabelOptions } from './value-label-options'
 import type { ActionControlLabels } from './action-cell'
+import type { CellFieldOptions } from './cell-renderers'
 import type { FieldMeta, FieldMetaMap } from '../hooks/use-inline-editing'
 import type { DataTableCellContext, DataTableColumnDef } from './island/table-features'
 import type { TableRecord } from '../runtime/types'
@@ -188,7 +194,12 @@ export function buildButtonCellRenderer(
   )
 }
 
-function buildFieldCellRenderer(col: FieldColumn, locale: string, options: MapColumnsOptions) {
+function buildFieldCellRenderer(
+  col: FieldColumn,
+  locale: string,
+  options: MapColumnsOptions,
+  listFields: ReadonlySet<string>
+) {
   const { fieldMeta } = options
   // A button field is an action, not a readout: it short-circuits the whole
   // format / field-type / passthrough ladder below, which has no value to show.
@@ -205,7 +216,9 @@ function buildFieldCellRenderer(col: FieldColumn, locale: string, options: MapCo
   const fieldOptions = chipLabels || baseOptions
   const currencyOptions = resolveCurrencyOptions(meta)
 
-  if (!fieldTypeRenderer && !shapesItsValue(col, meta?.type)) return renderPlainCell
+  if (!fieldTypeRenderer && !shapesItsValue(col, meta?.type)) {
+    return listFields.has(col.field) ? renderListCell : renderPlainCell
+  }
 
   return ({ getValue, row }: DataTableCellContext) =>
     renderValueCell(
@@ -213,29 +226,6 @@ function buildFieldCellRenderer(col: FieldColumn, locale: string, options: MapCo
       { col, locale, fieldTypeRenderer, fieldOptions, currencyOptions, chipLabels: !!chipLabels },
       readDisplayLabel(row.original, col.field)
     )
-}
-
-/** An entry of a listed value that is an object, e.g. a system row's `{ type, name }`. */
-const isObjectEntry = (entry: unknown): entry is Readonly<Record<string, unknown>> =>
-  typeof entry === 'object' && entry !== null
-
-/** An object entry reads by its `label`, else its `name`; any other entry as itself. */
-const entryText = (entry: unknown): string => {
-  if (!isObjectEntry(entry)) return String(entry ?? '')
-  return String(entry['label'] ?? entry['name'] ?? '')
-}
-
-/**
- * A column with no type and no format of its own: the value as text, as TanStack
- * prints it — except a list holding objects, which would print `[object Object]`
- * and reads instead as one chip per entry.
- */
-const renderPlainCell = ({ getValue }: DataTableCellContext): React.ReactNode => {
-  const value = getValue()
-  if (Array.isArray(value) && value.some(isObjectEntry)) {
-    return <ArrayChipsCell value={value.map(entryText)} />
-  }
-  return value === undefined || value === null ? null : String(value)
 }
 
 /** The field type's own renderer, unless the column draws a text chip instead. */
@@ -292,10 +282,11 @@ function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?:
   // Path 2 — field-type-driven affordance. A resolved relationship label stands in
   // for the stored key HERE only: `valueLabels` and an explicit `format` were written
   // against the value the column stores, so substituting under them would break them.
+  // The field type's own chip takes the matching tone from its wrapper.
   if (fieldTypeRenderer)
     return wrapWithClass(
       fieldTypeRenderer({ value: displayLabel ?? value, fieldOptions }),
-      conditionalClass
+      optionChipCellClassOf(value, col)
     )
 
   // Path 3 — the text, or a chip when the column asks for one (`badgeForm`)
@@ -341,10 +332,11 @@ export function mapColumnsToColumnDefs(
   }
   // Filter out columns with visible: false
   const visibleColumns = columns.filter((col) => !('field' in col && col.visible === false))
+  const listFields = listEditedFields(columns)
 
   return visibleColumns.map((col, index) => {
     if ('field' in col) {
-      const cellRenderer = buildFieldCellRenderer(col, locale, options)
+      const cellRenderer = buildFieldCellRenderer(col, locale, options, listFields)
       return {
         accessorKey: col.field,
         // The column's own `label` override, then the bound field's declared

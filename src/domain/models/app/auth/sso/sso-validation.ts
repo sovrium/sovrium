@@ -14,6 +14,14 @@ import { ADMIN_TIER_ROLE_NAMES, BUILT_IN_ROLES } from '../roles'
  */
 export const ADMIN_PLANE_ROLE_NAMES: readonly string[] = ['admin', ...ADMIN_TIER_ROLE_NAMES]
 
+/**
+ * The provider id the platform sign-in ("Sign in with Sovrium Cloud") registers
+ * from the environment of an app the Cloud hosts. An `auth.sso` entry cannot
+ * take it: two providers would answer the same callback. Kept equal to
+ * `PLATFORM_SSO_PROVIDER_ID` of the environment model by its unit test.
+ */
+export const RESERVED_PLATFORM_SSO_PROVIDER_ID = 'sovrium-cloud'
+
 /** The built-in roles, plus the admin-tier names assignable at runtime. */
 const ASSIGNABLE_RESERVED_ROLES: readonly string[] = [...BUILT_IN_ROLES, ...ADMIN_TIER_ROLE_NAMES]
 
@@ -79,6 +87,13 @@ const validateUniqueProviderIds = (
   return duplicate === undefined ? undefined : `Duplicate SSO provider id '${duplicate}'`
 }
 
+const validateReservedProviderIds = (
+  providers: NonNullable<EnterpriseAuthForValidation['sso']>
+): string | undefined =>
+  providers.some((provider) => provider.id === RESERVED_PLATFORM_SSO_PROVIDER_ID)
+    ? `SSO provider id '${RESERVED_PLATFORM_SSO_PROVIDER_ID}' is reserved for Sign in with Sovrium Cloud; choose another id`
+    : undefined
+
 const validateUniqueDomains = (
   providers: NonNullable<EnterpriseAuthForValidation['sso']>
 ): string | undefined => {
@@ -135,7 +150,8 @@ const validateScimProviders = (config: EnterpriseAuthForValidation): string | un
 }
 
 /**
- * The cross-field rules of single sign-on and SCIM: provider ids are unique, a
+ * The cross-field rules of single sign-on and SCIM: provider ids are unique and
+ * never the platform's reserved `[internal ref]`, a
  * domain routes to one provider, role mappings name roles that exist and never
  * fall back to an admin role, and SCIM links only to declared providers.
  */
@@ -143,6 +159,7 @@ export const validateEnterpriseAuth = (config: EnterpriseAuthForValidation): str
   const providers = config.sso ?? []
   return (
     validateUniqueProviderIds(providers) ??
+    validateReservedProviderIds(providers) ??
     validateUniqueDomains(providers) ??
     validateRoleMappings(config, providers) ??
     validateScimProviders(config)

@@ -29,6 +29,7 @@
 import { sql } from 'drizzle-orm'
 import { checkAccountReferences } from '@/application/use-cases/seed/seed-checks'
 import { assignableRoleNames, isAssignableRole } from '@/domain/models/app/auth/roles'
+import { invitationLine } from '@/domain/models/seed/invitation-lines'
 import { db } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { authTableRef, authUserTableRef } from '@/infrastructure/database/sql/dialect-sql'
@@ -370,4 +371,4 @@ export const accountReportLines = (
 export const invitationReportLines = (
   invitations: readonly IssuedInvitation[]
 ): readonly string[] =>
-  invitations.map((invitation) => `invitation: ${invitation.email} → ${invitation.link}`)
+  invitations.map((invitation) => invitationLine(invitation.email, invitation.link))

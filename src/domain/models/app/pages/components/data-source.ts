@@ -277,15 +277,18 @@ export const PaginationSchema = Schema.Struct({
  * Search engine backend for data source queries.
  *
  * - `client`: JavaScript filtering in browser (default, small datasets)
- * - `fts`: PostgreSQL Full-Text Search (tsvector/tsquery, ranked results)
- * - `trigram`: PostgreSQL pg_trgm (fuzzy matching, typo-tolerance)
- * - `hybrid`: Combined FTS for relevance + trigram for fuzzy fallback
+ * - `fts`: the database answers each query, as the records endpoint's `?q=`
+ *   does — a ranked word search over the table's `fullTextSearch` long-text
+ *   fields (SQLite FTS5 / PostgreSQL tsvector), the substring search when the
+ *   table declares none
+ * - `trigram`: reserved (fuzzy matching, typo-tolerance)
+ * - `hybrid`: reserved (ranked words with a fuzzy fallback)
  */
 export const SearchEngineSchema = Schema.Literals(['client', 'fts', 'trigram', 'hybrid']).annotate({
   identifier: 'SearchEngine',
   title: 'Search Engine',
   description:
-    "Search backend. Only 'client' (browser JS over the fetched rows) is implemented and it is the default; 'fts', 'trigram' and 'hybrid' are reserved names that validate and behave exactly like 'client' until the server-side engines land.",
+    "Search backend. 'client' (the default) filters the fetched rows in the browser; 'fts' sends each query to the database, which searches the table's fullTextSearch fields by word from an index, ranked. 'trigram' and 'hybrid' are reserved names that validate and behave exactly like 'client'.",
 })
 
 /**
@@ -653,7 +656,7 @@ export const DataSourceSchema = Schema.Struct({
   searchEngine: Schema.optional(
     SearchEngineSchema.annotate({
       description:
-        "Search backend for this data source (default: 'client'). Only 'client' is dispatched today; the other three validate and search as 'client' does.",
+        "Search backend for this data source (default: 'client'). 'fts' ships only the first `limit` rows and answers each query from the database, over the fields the records endpoint's `q` searches — searchFields does not narrow it; 'trigram' and 'hybrid' search as 'client' does.",
     })
   ),
   /** Fields to search across (search mode only) */

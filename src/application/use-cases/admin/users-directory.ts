@@ -26,6 +26,7 @@
  */
 
 import { Effect } from 'effect'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import {
   UsersDirectoryRepository,
   type UsersDirectoryDatabaseError,
@@ -36,6 +37,7 @@ import {
   type AdminUsersDirectoryResponse,
 } from '@/domain/models/api/admin/users'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { logError } from '@/infrastructure/logging/logger'
 
 /**
  * The fallback role for an account whose `auth.user.role` column is NULL or
@@ -65,6 +67,9 @@ const projectRow = (
   name: typeof row.name === 'string' ? row.name : '',
   role: typeof row.role === 'string' && row.role.length > 0 ? row.role : DEFAULT_DIRECTORY_ROLE,
   banned: row.banned === true,
+  // `groups` is filled for the page alone, once it is cut (`withGroups`): one
+  // read for the rows the response carries rather than for every matching
+  // account.
 })
 
 /**
@@ -144,6 +149,37 @@ export const orderAndPage = (
 }
 
 /**
+ * Attach to each row the groups its account belongs to, by name and sorted, in
+ * ONE read for the whole page.
+ *
+ * A membership read that fails leaves `groups` ABSENT on every row rather than
+ * failing the directory: the accounts are still worth showing, and the read is
+ * logged. Absent, never an empty list — an empty list says "in no group", and
+ * the console's Groups editor would open preset to it, so one Save would clear
+ * memberships nobody could see. An app that declares no group answers empty
+ * lists, because there the empty list is the truth.
+ */
+const withGroups = (
+  rows: readonly DirectoryRow[]
+): Effect.Effect<readonly DirectoryRow[], never, AuthRepository> =>
+  Effect.gen(function* () {
+    const repo = yield* AuthRepository
+    const byUser = yield* repo.getUsersGroups(rows.map((row) => row.id)).pipe(
+      Effect.map((read): ReadonlyMap<string, readonly string[]> | undefined => read),
+      Effect.tapCause((cause) =>
+        Effect.sync(() => logError('[admin] users directory: group membership read failed', cause))
+      ),
+      // effect-swallow: logged above; the directory still lists its accounts with their groups unknown (the key absent) rather than failing whole on the membership column.
+      Effect.orElseSucceed(() => undefined)
+    )
+    if (byUser === undefined) return rows
+    return rows.map((row) => ({
+      ...row,
+      groups: [...(byUser.get(row.id) ?? [])].toSorted((a, b) => a.localeCompare(b)),
+    }))
+  })
+
+/**
  * Build the `{ users, total, appliedQuery }` directory body — one ordered page
  * of the matching `auth.user` accounts, projected to the secret-free rows the
  * directory table renders, response-schema-validated.
@@ -163,14 +199,18 @@ export const orderAndPage = (
  */
 export const BuildUsersDirectory = (
   input: UsersDirectoryInput = {}
-): Effect.Effect<UsersDirectoryOutcome, UsersDirectoryDatabaseError, UsersDirectoryRepository> =>
+): Effect.Effect<
+  UsersDirectoryOutcome,
+  UsersDirectoryDatabaseError,
+  UsersDirectoryRepository | AuthRepository
+> =>
   Effect.gen(function* () {
     const repo = yield* UsersDirectoryRepository
 
     const rows = yield* repo.listAllUsers(input.q !== undefined ? { q: input.q } : {})
     const matching = rows.map(projectRow)
     const body = {
-      users: [...orderAndPage(matching, input)],
+      users: [...(yield* withGroups(orderAndPage(matching, input)))],
       total: matching.length,
       // `null`, not `undefined`: the KEY's presence is the signal (see
       // `appliedQuerySchema`). An omitted key means "this endpoint does not

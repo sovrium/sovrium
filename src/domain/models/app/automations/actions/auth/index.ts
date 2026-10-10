@@ -7,7 +7,12 @@
 
 export * from './auth-action'
 
+export * from './add-to-group'
 export * from './assign-role'
 export * from './ban-user'
 export * from './create-user'
+export * from './delete-oauth-client'
+export * from './register-oauth-client'
+export * from './remove-from-group'
+export * from './rotate-oauth-client-secret'
 export * from './unban-user'

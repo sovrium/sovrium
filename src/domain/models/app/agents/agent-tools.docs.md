@@ -45,6 +45,7 @@ They follow the same `type.operator` vocabulary as the automation engine, so a r
 | Email    | `email.send`                                                                    |
 | Auth     | `auth.createUser`, `auth.assignRole`, `auth.banUser`, `auth.unbanUser`          |
 | File     | `file.upload`, `file.download`, `file.delete`, `file.list`, `file.getMetadata`  |
+| Browser  | `browser.use`                                                                   |
 
 ### Reading is two capabilities, not one
 
@@ -61,6 +62,21 @@ Both are gated by the same table read permission, so a role that cannot read a t
 **Auth actions** are the sharpest thing on the list. Creating a user, assigning a role or banning somebody means an agent can alter who has access to your app. Grant them only to an agent whose role is itself privileged enough to justify it, and put them behind approval.
 
 **Running code** executes in a sandbox, but it is still the broadest capability here — it is the action that turns "what the agent may do" from a list into a language.
+
+### Driving a browser
+
+`browser.use` lets an agent read the web from a chat: it is offered one tool, `browser_use`, taking a goal, a start address and optionally a stored session, and it gets back what a [browser agent](/en/docs/automation-browser-agent) found. It needs a second grant, `browser`, naming the hosts it may reach and the stored sessions it may start from; one without the other refuses the app when it starts.
+
+```yaml
+tools:
+  tables: [invoices]
+  actions: [record.list, browser.use]
+  browser:
+    allowedHosts: [portal.example.com]
+    sessions: [portal-reader]
+```
+
+It is narrower than the `browser/agent` action on purpose. It has no secrets: a page behind a sign-in is reached only through a stored session a `browser/run` keeps. It never sends data: nothing with a method other than `GET` or `HEAD` leaves its browser, whether a form posting data, a script's `fetch` or XHR POST, or a beacon, since a chat has no run to pause for approval. When one of the tool's own actions caused the send, the call ends with `submit_requires_approval`; when the page sent it by itself, it is refused and the call goes on. The site receives nothing either way. WebSockets are refused too, and on WebKit the tool does not run (`browser_backend_refused`). A start address outside `allowedHosts` (`host_not_allowed`) or a session outside `sessions` (`session_not_allowed`) is refused before any browser opens.
 
 ## Inside and outside
 

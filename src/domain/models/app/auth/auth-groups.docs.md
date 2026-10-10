@@ -33,7 +33,13 @@ The shared namespace is what makes a permission entry unambiguous: `marketing` i
 
 ## Membership is runtime, not configuration
 
-The schema declares which groups **exist**, not who belongs to them. Membership is assigned at runtime, by an admin or by an automation. Where `maxMembers` is set, an attempt to add somebody past the cap is refused.
+The schema declares which groups **exist**, not who belongs to them. Membership is assigned at runtime, in one of three ways:
+
+- **In the console**, an administrator opens an account in the Users directory and picks its groups with **Change groups**, beside Change role.
+- **From an automation**, the `auth` action's `addToGroup` and `removeFromGroup` operators add or remove one account, by the group's name — see [Auth Actions](/en/docs/automation-auth-actions). A `code` step calls the same two through `context.actions.auth`.
+- **Over the API**, `PUT /api/admin/users/:userId/groups` with `{ "groups": ["facilitation"] }` sets the account's membership to exactly the listed groups, and answers with the groups it `added` and `removed`. It is open to administrators only, by session or API key, and answers `404` to everyone else. A name the configuration does not declare refuses the whole request with `400`, and nothing changes. Because the list is the account's whole membership, a group the account belongs to that `auth.groups` does not declare is removed as well. `GET /api/admin/groups` lists the declared groups.
+
+Adding an account that is already a member, or removing one that is not, changes nothing and is not an error. Every change is recorded in the audit log as `user.groups.changed`, with the groups added and removed. Where `maxMembers` is set, an attempt to add somebody past the cap is refused.
 
 ## Group-based permissions
 

@@ -52,6 +52,40 @@ A `body` given as a string is sent as written. When the request is sent as JSON 
 
 A 2xx response succeeds the step; any other status fails it, with the status folded into a stable error category that a retry policy can match on. The status and body land on the step output either way, so a step that must tolerate a 404 can be marked `continueOnError` and branched on the response status.
 
+### When the request itself fails
+
+A failed request puts an `error` object on the step output, beside `response` when an answer arrived. `error.message` is the text the run history records, and `error.code` says what went wrong:
+
+| `error.code` | When                                                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `timeout`    | No complete answer within `timeout`                                                                                                                    |
+| `dns`        | The host name does not resolve                                                                                                                         |
+| `connection` | The host was found but the connection was refused, reset or closed before an answer                                                                    |
+| `tls`        | The `https` connection could not be secured: an untrusted, expired or mismatched certificate                                                           |
+| `http`       | An answer arrived with a status outside 2xx, which `response.status` holds                                                                             |
+| `blocked`    | Sovrium refused to send the request or follow a redirect: a private address, a scheme other than `http`/`https`, a malformed `url` or a sixth redirect |
+
+The step still fails: without `continueOnError` the run stops there, as it always has. With it, the next step reads the outcome, which is how an uptime check records a target that is down:
+
+```yaml
+- name: check
+  type: http
+  operator: get
+  continueOnError: true
+  props: { url: 'https://shop.example.com/health', timeout: 5000 }
+- name: recordCheck
+  type: record
+  operator: create
+  props:
+    table: checks
+    data:
+      latency_ms: '{{steps.check.durationMs}}'
+      http_status: '{{steps.check.response.status}}'
+      failure: '{{steps.check.error.code}}'
+```
+
+A step that fails before any request is made — no `url`, or a `connection` whose credentials cannot be found — carries `error.message` only. The `ai` actions report their failures with the same `code` and `message` keys.
+
 Response bodies are read up to 64 KiB, and the rest is never downloaded: past the cap the body is cut there and the output's `truncated` flag is set; the key is absent otherwise, so a step can tell a clipped payload from an endpoint that genuinely returned nothing. An answer that never ends therefore costs 64 KiB, not the run.
 
 ### Private addresses and redirects

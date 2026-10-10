@@ -3,6 +3,209 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.35.0",
+      "date": "2026-10-10",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.34.3...v0.35.0",
+      "sections": [
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "automations",
+              "text": "seed a supervised app from its release with instance/seed"
+            },
+            {
+              "scope": "cli",
+              "text": "seed an app hosted on a Sovrium Cloud, and seed it on deploy"
+            },
+            {
+              "scope": "cli",
+              "text": "name the console and its Sovrium Cloud sign-in after a deploy goes live"
+            },
+            {
+              "scope": "automations",
+              "text": "register, rotate and delete sign-in clients from an automation"
+            },
+            {
+              "scope": "auth",
+              "text": "seed a hosted app's first admin from its Sovrium Cloud owner"
+            },
+            {
+              "scope": "auth",
+              "text": "sign in to a hosted app's console with a Sovrium Cloud account"
+            },
+            {
+              "scope": "cli",
+              "text": "sign in with one click in the browser by default"
+            },
+            {
+              "scope": "auth",
+              "text": "return the device sign-in to a loopback listener in one click"
+            },
+            {
+              "scope": "cli",
+              "text": "deploy with no --app, create the app, and manage its variables with sovrium env"
+            },
+            {
+              "scope": "automations",
+              "text": "start an app's socket before restarting it on instance/apply"
+            },
+            {
+              "scope": "admin",
+              "text": "manage an account's groups from the operator console"
+            },
+            {
+              "scope": "automations",
+              "text": "add and remove group members from an auth action"
+            },
+            {
+              "scope": "auth",
+              "text": "send two-step accounts to their own code page after the password"
+            },
+            {
+              "scope": "cli",
+              "text": "show when the cloud retries a deployment during sovrium deploy"
+            },
+            {
+              "scope": "automations",
+              "text": "add self-healing locators to browser runs and an AI browser agent"
+            },
+            {
+              "scope": "auth",
+              "text": "replace recovery codes from a page, and gate a component on the reader's two-step state"
+            },
+            {
+              "scope": "pages",
+              "text": "draw percentile charts and KPIs and hour and minute buckets"
+            },
+            {
+              "scope": "tables",
+              "text": "accept $now instants in filter values"
+            },
+            {
+              "scope": "tables",
+              "text": "compute percentiles and hour and minute buckets in the aggregate read"
+            },
+            {
+              "scope": "pages",
+              "text": "a search list on searchEngine fts asks the database"
+            },
+            {
+              "scope": "tables",
+              "text": "search a long text field by word, from an index"
+            },
+            {
+              "scope": "automations",
+              "text": "let later steps read a step's duration, outcome and error"
+            },
+            {
+              "scope": "automations",
+              "text": "receive Sentry envelopes and OpenTelemetry logs on webhook triggers"
+            },
+            {
+              "scope": "automations",
+              "text": "run deterministic browser steps from automations"
+            },
+            {
+              "scope": "automations",
+              "text": "bound run history by age, and keep a busy trigger's runs light"
+            },
+            {
+              "scope": "tables",
+              "text": "delete rows past a table's retention window, and let a table stay out of the activity log"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "cli",
+              "text": "read --app=<slug> in sovrium deploy and sovrium env"
+            },
+            {
+              "scope": "automations",
+              "text": "restart supervised apps without being cancelled by their proxy, and report why a release did not start"
+            },
+            {
+              "scope": "automations",
+              "text": "never follow a link in the folders a supervised app's units share with the agent"
+            },
+            {
+              "scope": "cli",
+              "text": "open the sign-in page on Windows without a shell"
+            },
+            {
+              "scope": "auth",
+              "text": "name the authenticator entry after the app when no issuer is set"
+            },
+            {
+              "scope": "admin",
+              "text": "load the audit log on SQLite once an entry carries details"
+            },
+            {
+              "scope": "tables",
+              "text": "show every option of a multi-select row editor, keep focus, and print list cells as chips"
+            },
+            {
+              "scope": "cli",
+              "text": "serve an unpacked bundle's static files and seed data by default"
+            },
+            {
+              "scope": "tables",
+              "text": "read checkbox literals in a JSON records filter as booleans on both databases"
+            },
+            {
+              "scope": "tables",
+              "text": "compare checkbox literals as booleans in view, lookup, rollup and count filters on both databases"
+            },
+            {
+              "scope": "pages",
+              "text": "show a collection page whose filter compares a checkbox, on either database"
+            },
+            {
+              "scope": "pages",
+              "text": "compare checkbox literals as booleans in record visibility gates and filters on both databases"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a marker per child on a structural timeline"
+            },
+            {
+              "scope": "pages",
+              "text": "print a multi-select's labels in description-list entries and list rows"
+            },
+            {
+              "scope": "pages",
+              "text": "render a public form embedded with formRef for signed-out visitors"
+            },
+            {
+              "scope": "pages",
+              "text": "honour export off for selection export, name bulk confirm buttons, tone option chips, read json in row expand"
+            },
+            {
+              "scope": "automations",
+              "text": "store empty template values as NULL in typed columns and JSON text as structure"
+            },
+            {
+              "scope": "pages",
+              "text": "label sub-day chart buckets as times and format relative times, percentages and milliseconds"
+            },
+            {
+              "scope": "automations",
+              "text": "record triggers never carry fields a role cannot read, and read a related row's checkboxes as booleans"
+            },
+            {
+              "scope": "pages",
+              "text": "checkboxes keep their own size, and an auth form keeps its classes once its scripts run"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.34.3",
       "date": "2026-10-10",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.34.2...v0.34.3",

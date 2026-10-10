@@ -7,9 +7,16 @@
 
 import { dispatchAuthEvent, emailVerifiedHooks } from './auth-event-hooks'
 import { ensureMembership, ensureOrganization } from './org-team-seeder'
+import {
+  guardPlatformAccountCreate,
+  refusePlatformSignUp,
+  stripPlatformTokensOnUpdate,
+  type PlatformAccountHookCtx,
+} from './plugins/platform-sso-account-hooks'
 import * as ssoPlugin from './plugins/sso'
 import { buildSessionHooks } from './session-database-hooks'
 import type { createEmailHandlers } from './email-handlers'
+import type { AccountHookCtx } from './plugins/sso-account-hooks'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/domain/models/app/auth'
 import type { DomainContext } from '@/infrastructure/server/domain-runtime'
@@ -79,6 +86,24 @@ export type AppMetaForOrg = {
 }
 
 /**
+ * What an account write may carry: the app's own SSO providers' rules first,
+ * then the Sovrium Cloud binding rules (one Cloud user per account, no token).
+ */
+const buildAccountHooks = (authConfig: Auth | undefined) => {
+  const guardSso = ssoPlugin.guardSsoAccountLink(authConfig)
+  return {
+    create: {
+      before: async (
+        account: Readonly<Record<string, unknown>>,
+        ctx: (AccountHookCtx & PlatformAccountHookCtx) | null
+      ) =>
+        (await guardSso(account, ctx)) === false ? false : guardPlatformAccountCreate(account, ctx),
+    },
+    update: { before: stripPlatformTokensOnUpdate },
+  }
+}
+
+/**
  * Build the Better Auth `databaseHooks` block.
  *
  * Hooks installed when auth is configured:
@@ -111,12 +136,19 @@ export function buildDatabaseHooks(
   connections: readonly ConnectionForSeed[] | undefined,
   hookContext: AuthHookContext
 ) {
+  const refuseSsoSignUp = ssoPlugin.refuseClosedSsoSignUp(authConfig)
   return {
     session: buildSessionHooks(authConfig),
-    account: { create: { before: ssoPlugin.guardSsoAccountLink(authConfig) } },
+    account: buildAccountHooks(authConfig),
     user: {
       create: {
-        before: ssoPlugin.refuseClosedSsoSignUp(authConfig),
+        before: async (
+          user: Readonly<Record<string, unknown>>,
+          ctx: { readonly path?: string; readonly params?: unknown } | null
+        ) => {
+          await refusePlatformSignUp(ctx)
+          return refuseSsoSignUp(user, ctx)
+        },
         after: async (user: Readonly<{ id: string; email: string; name: string }>) => {
           await handlers.welcome({ email: user.email, name: user.name })
           // Auto-enroll the user into the single per-app organization so the

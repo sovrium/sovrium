@@ -10,6 +10,7 @@ import {
   resolveRelativeDatesIn,
   unknownRelativeDateTokens,
   utcCalendarDay,
+  utcMinuteInstant,
 } from '@/domain/models/app/pages/components/relative-date-filter'
 import {
   FILTER_OPERATOR_VOCABULARY,
@@ -162,8 +163,14 @@ function parseFilterInput(c: Context, app: App, tableName: string, param: string
   return {
     error: false,
     // `SOVRIUM_DEV_CLOCK` pins that day on a development server.
-    value: resolveRelativeDatesIn(parsedFilterResult.filter, utcCalendarDay(serverNow())),
+    value: resolveRelativeDatesIn(parsedFilterResult.filter, ...requestClock()),
   }
+}
+
+/** The request's UTC day and minute instant, read off ONE clock reading. */
+const requestClock = (): readonly [string, string] => {
+  const now = serverNow()
+  return [utcCalendarDay(now), utcMinuteInstant(now)]
 }
 
 /** Why a filter that is not an `and` list is refused, naming the shape `?filter` takes. */

@@ -1,3 +1,57 @@
+## [0.35.0](https://github.com/sovrium/sovrium/compare/v0.34.3...v0.35.0) (2026-10-10)
+
+### Features
+
+- **automations**: seed a supervised app from its release with instance/seed
+- **cli**: seed an app hosted on a Sovrium Cloud, and seed it on deploy
+- **cli**: name the console and its Sovrium Cloud sign-in after a deploy goes live
+- **automations**: register, rotate and delete sign-in clients from an automation
+- **auth**: seed a hosted app's first admin from its Sovrium Cloud owner
+- **auth**: sign in to a hosted app's console with a Sovrium Cloud account
+- **cli**: sign in with one click in the browser by default
+- **auth**: return the device sign-in to a loopback listener in one click
+- **cli**: deploy with no --app, create the app, and manage its variables with sovrium env
+- **automations**: start an app's socket before restarting it on instance/apply
+- **admin**: manage an account's groups from the operator console
+- **automations**: add and remove group members from an auth action
+- **auth**: send two-step accounts to their own code page after the password
+- **cli**: show when the cloud retries a deployment during sovrium deploy
+- **automations**: add self-healing locators to browser runs and an AI browser agent
+- **auth**: replace recovery codes from a page, and gate a component on the reader's two-step state
+- **pages**: draw percentile charts and KPIs and hour and minute buckets
+- **tables**: accept $now instants in filter values
+- **tables**: compute percentiles and hour and minute buckets in the aggregate read
+- **pages**: a search list on searchEngine fts asks the database
+- **tables**: search a long text field by word, from an index
+- **automations**: let later steps read a step's duration, outcome and error
+- **automations**: receive Sentry envelopes and OpenTelemetry logs on webhook triggers
+- **automations**: run deterministic browser steps from automations
+- **automations**: bound run history by age, and keep a busy trigger's runs light
+- **tables**: delete rows past a table's retention window, and let a table stay out of the activity log
+
+### Bug Fixes
+
+- **cli**: read --app=<slug> in sovrium deploy and sovrium env
+- **automations**: restart supervised apps without being cancelled by their proxy, and report why a release did not start
+- **automations**: never follow a link in the folders a supervised app's units share with the agent
+- **cli**: open the sign-in page on Windows without a shell
+- **auth**: name the authenticator entry after the app when no issuer is set
+- **admin**: load the audit log on SQLite once an entry carries details
+- **tables**: show every option of a multi-select row editor, keep focus, and print list cells as chips
+- **cli**: serve an unpacked bundle's static files and seed data by default
+- **tables**: read checkbox literals in a JSON records filter as booleans on both databases
+- **tables**: compare checkbox literals as booleans in view, lookup, rollup and count filters on both databases
+- **pages**: show a collection page whose filter compares a checkbox, on either database
+- **pages**: compare checkbox literals as booleans in record visibility gates and filters on both databases
+- **pages**: draw a marker per child on a structural timeline
+- **pages**: print a multi-select's labels in description-list entries and list rows
+- **pages**: render a public form embedded with formRef for signed-out visitors
+- **pages**: honour export off for selection export, name bulk confirm buttons, tone option chips, read json in row expand
+- **automations**: store empty template values as NULL in typed columns and JSON text as structure
+- **pages**: label sub-day chart buckets as times and format relative times, percentages and milliseconds
+- **automations**: record triggers never carry fields a role cannot read, and read a related row's checkboxes as booleans
+- **pages**: checkboxes keep their own size, and an auth form keeps its classes once its scripts run
+
 ## [0.34.3](https://github.com/sovrium/sovrium/compare/v0.34.2...v0.34.3) (2026-10-10)
 
 ### Bug Fixes

@@ -7,6 +7,11 @@
 
 import { type ReactElement } from 'react'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import {
+  authPendingLabel,
+  authSubmitLabel,
+  isAccountLinkMethod,
+} from '@/presentation/design/auth-form-types'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
@@ -19,7 +24,7 @@ import {
   type AuthFormAction,
   type AuthFormRenderContext,
 } from './auth-form-action'
-import { authSkeletonFormProps, buildAuthWrapperStyle } from './auth-form-renderer'
+import { authSkeletonFormProps, buildAuthWrapperStyle, localize } from './auth-form-renderer'
 import { renderOAuthForm } from './oauth-form-renderer'
 import type { ElementProps } from './html-element-renderer'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -159,6 +164,35 @@ function renderPasskeyForm(
 }
 
 /**
+ * `linkAccount` / `unlinkAccount`: connect or disconnect the reader's account
+ * of `provider`. The server cannot tell which of the pair applies without the
+ * reader's accounts, so it draws an empty, hidden form; the island reads them
+ * and draws the one control that applies.
+ */
+function renderAccountLinkForm(
+  props: ElementProps,
+  action: AuthFormAction,
+  context: AuthFormRenderContext
+): ReactElement {
+  const method = action.method ?? 'linkAccount'
+  const label = (text: string | undefined, fallback: string): string =>
+    text === undefined ? fallback : localize(text, context.lang, context.languages)
+  return islandHost(
+    props,
+    {
+      method,
+      provider: action.provider ?? '',
+      submitLabel: label(action.submitLabel, authSubmitLabel(method)),
+      pendingLabel: label(action.pendingLabel, authPendingLabel(method)),
+    },
+    <form
+      {...authSkeletonFormProps(props)}
+      hidden
+    />
+  )
+}
+
+/**
  * The single-control sign-in an auth action asks for — social (OAuth), SSO or
  * passkey — or `undefined` for any other action (the credential form takes it).
  */
@@ -168,6 +202,7 @@ export function renderStrategyAuthForm(
   context: AuthFormRenderContext & { readonly component?: Component }
 ): ReactElement | undefined {
   if (action?.type !== 'auth') return undefined
+  if (isAccountLinkMethod(action.method)) return renderAccountLinkForm(props, action, context)
   if (action.strategy === 'oauth') return renderOAuthForm(props, action, context)
   if (action.strategy === 'sso') return renderSsoForm(props, action, context)
   if (action.strategy === 'passkey' || action.method === 'registerPasskey') {

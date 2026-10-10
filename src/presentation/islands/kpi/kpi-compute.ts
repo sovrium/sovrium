@@ -73,7 +73,8 @@ export function aggregateKpi(records: readonly TableRecord[], config: KpiAggrega
  *   field's precision and any declared separator hold — `€667,000` for a
  *   whole-euro field, `667 000 €` on a French page. `options.currency` names
  *   the currency when declared (defaults to the field's, then USD).
- * - `percentage` suffixes a `%` and inserts grouping separators. An optional
+ * - `percentage` suffixes a `%` and inserts grouping separators, and applies
+ *   `minimumFractionDigits` / `maximumFractionDigits` as `number` does. An optional
  *   `options.scale` multiplier scales the raw value before formatting — pass
  *   `scale: '100'` to render a 0–1 fraction as a percent (e.g. `0.95` -> `95 %`).
  * - `compact` uses the page language's compact notation (`12K`, `1,2 M` in French).
@@ -97,7 +98,7 @@ export function formatKpiValue(
   const formatters: Readonly<Record<KpiFormatType, () => string>> = {
     number: () => new Intl.NumberFormat(tag, fractionDigits(options)).format(value),
     currency: () => formatKpiCurrency(value, options?.currency, tag, display),
-    percentage: () => formatPercentage(value, options?.scale),
+    percentage: () => formatPercentage(value, options),
     bytes: () => formatByteCount(value),
     compact: () => new Intl.NumberFormat(tag, { notation: 'compact' }).format(value),
   }
@@ -158,13 +159,20 @@ function fractionDigits(
  * An optional `scale` multiplier (a stringified number) scales the raw value
  * before formatting and rounds the result to a whole percent, so a 0–1 fraction
  * (e.g. an automation success rate) renders as a percent with `scale: '100'`
- * (`0.952` -> `95%`). Without a usable scale the value is formatted verbatim
- * (byte-identical to the original percentage format — no rounding).
+ * (`0.952` -> `95%`). Declared `minimumFractionDigits` / `maximumFractionDigits`
+ * round it as they round a `number` (`66.7%` at one digit) and take over from
+ * that whole-percent rounding. With neither, the value is formatted verbatim.
  */
-function formatPercentage(value: number, scaleOption: string | undefined): string {
-  const scale = Number(scaleOption)
-  const display = Number.isFinite(scale) && scale !== 0 ? Math.round(value * scale) : value
-  return `${new Intl.NumberFormat('en-US').format(display)}%`
+function formatPercentage(
+  value: number,
+  options: Readonly<Record<string, string>> | undefined
+): string {
+  const scale = Number(options?.scale)
+  const digits = fractionDigits(options)
+  const scaled = Number.isFinite(scale) && scale !== 0 ? value * scale : undefined
+  const declared = Object.keys(digits).length > 0
+  const display = scaled === undefined ? value : declared ? scaled : Math.round(scaled)
+  return `${new Intl.NumberFormat('en-US', digits).format(display)}%`
 }
 
 /**
@@ -210,23 +218,29 @@ export function resolveKpiThresholdColor(
 export interface KpiSparklineConfig {
   readonly field: string
   readonly groupBy: string
-  readonly interval: 'day' | 'week' | 'month'
+  readonly interval: 'minute' | 'hour' | 'day' | 'week' | 'month'
   readonly days: number
 }
 
-/** ISO date key (YYYY-MM-DD) for an arbitrary date value. */
-function dayKey(raw: unknown): string | undefined {
+/**
+ * The bucket key of a date value: its UTC minute or hour as an ISO instant,
+ * else its ISO day (YYYY-MM-DD). Keys of one interval sort in time.
+ */
+function bucketKey(raw: unknown, interval: KpiSparklineConfig['interval']): string | undefined {
   if (raw === undefined || raw === null) return undefined
-  const date = new Date(raw as string | number | Date)
-  if (Number.isNaN(date.getTime())) return undefined
-  return date.toISOString().slice(0, 10)
+  const time = new Date(raw as string | number | Date).getTime()
+  if (Number.isNaN(time)) return undefined
+  const step = interval === 'hour' ? 3_600_000 : interval === 'minute' ? 60_000 : 0
+  const iso = new Date(time - (step === 0 ? 0 : time % step)).toISOString()
+  return step === 0 ? iso.slice(0, 10) : iso
 }
 
 /**
  * Buckets records into a time series for the sparkline mini-chart.
  *
- * Each record's `groupBy` date is bucketed by ISO day; the `field` values are
- * summed per bucket. Buckets are returned ordered ascending by date.
+ * Each record's `groupBy` date is bucketed by UTC minute or hour when the
+ * interval asks for one, else by ISO day; the `field` values are summed per
+ * bucket. Buckets are returned ordered ascending by date.
  */
 export function computeSparklineSeries(
   records: readonly TableRecord[],
@@ -235,7 +249,7 @@ export function computeSparklineSeries(
   // Extract { day, value } pairs, dropping records with invalid dates/values.
   const points = records
     .map((record) => ({
-      day: dayKey(record[config.groupBy]),
+      day: bucketKey(record[config.groupBy], config.interval),
       value: Number(record[config.field]),
     }))
     .filter((p): p is { day: string; value: number } => Boolean(p.day) && Number.isFinite(p.value))

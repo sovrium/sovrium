@@ -33,6 +33,7 @@ export const entry = defineLibraryEntry({
     AUTH_GATE_NOTE,
     '"Forgot password?" is drawn only when one of your pages sends the reset link — the `auth-password-reset` block, or any form with `action: { type: auth, method: resetPassword }`. Install that page too, or the link stays off.',
     'A wrong email or password reads as one message that never says whether the account exists. While the form is sending, its fields are inert and the button says so.',
+    'An account with two-step on is sent to `twoStepPath` (`/two-step`) for its code once its password is right — install the `auth-two-factor` block on that page. An app without `auth.twoFactor` never sends anyone there.',
     THEME_NOTE,
   ],
   params: [
@@ -51,6 +52,11 @@ export const entry = defineLibraryEntry({
       '/magic-link'
     ),
     stringParam('provider', 'The social provider of the "Continue with" button.', 'google'),
+    stringParam(
+      'twoStepPath',
+      'The page an account with two-step on is sent to for its code: the `auth-two-factor` block.',
+      '/two-step'
+    ),
   ],
   env: [],
   requires: [],
@@ -70,6 +76,7 @@ export const entry = defineLibraryEntry({
             strategy: 'email',
             submitLabel: 'Sign in',
             onSuccess,
+            onTwoFactor: { navigate: p('twoStepPath') },
           },
         },
         // Drawn only when the app has a page that sends the reset link, so it

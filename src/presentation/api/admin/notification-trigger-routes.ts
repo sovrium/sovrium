@@ -21,6 +21,10 @@
  *     parked on a long wait whose time has come. Answers `{ resumed: [runIds] }`.
  *     Runs at every boot and every minute on its own
  *     (`register-delayed-run-resume.ts`); this runs it on demand.
+ *   - `POST /api/internal/automations/sweep-browser-artifacts` — delete the
+ *     browser screenshots older than `BROWSER_ARTIFACT_RETENTION_DAYS`. Answers
+ *     `{ deleted: [keys] }`. Runs at every boot and every day on its own
+ *     (`register-browser-artifact-sweep.ts`); this runs it on demand.
  *   - `POST /api/internal/notifications/automation-rollup` — send the hourly
  *     roll-up of the automation failures held back from immediate alerts.
  *   - `POST /api/internal/notifications/weekly-digest` — compute the weekly
@@ -45,8 +49,10 @@ import { expireAutomationApprovals } from '@/application/use-cases/automations/e
 import { reapInterruptedRuns } from '@/application/use-cases/automations/reap-interrupted-runs'
 import { resumeDelayedRuns } from '@/application/use-cases/automations/resume-delayed-runs'
 import { sendFailureRollup } from '@/application/use-cases/automations/send-failure-rollup'
+import { sweepBrowserArtifacts } from '@/application/use-cases/automations/sweep-browser-artifacts'
 import { sweepStuckRuns } from '@/application/use-cases/automations/sweep-stuck-runs'
 import { weeklyDigestTriggerResponseSchema } from '@/domain/models/api/admin/notifications/weekly-digest'
+import { browserArtifactRetentionDays } from '@/domain/models/process-env/browser'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
 import {
   internalSchedulerNotFound,
@@ -100,6 +106,19 @@ async function handleResumeDelayedRuns(c: Context, app: App): Promise<Response> 
   )
 }
 
+/** Delete the browser screenshots past their retention; answers `{ deleted: [keys] }`. */
+async function handleSweepBrowserArtifacts(c: Context): Promise<Response> {
+  if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
+  const days = browserArtifactRetentionDays(process.env)
+  return runEffect(
+    c,
+    provideDomain(
+      c,
+      Effect.map(sweepBrowserArtifacts(days), (deleted) => ({ deleted }))
+    )
+  )
+}
+
 /** Run the failure roll-up; answers `{ sent, automations }`. */
 async function handleAutomationRollup(c: Context, app: App): Promise<Response> {
   if (!isInternalSchedulerRequest(c)) return internalSchedulerNotFound(c)
@@ -129,6 +148,9 @@ export function chainNotificationTriggerRoutes<T extends Hono>(
     )
     .post('/api/internal/automations/resume-delayed-runs', (c) =>
       handleResumeDelayedRuns(c, resolveApp())
+    )
+    .post('/api/internal/automations/sweep-browser-artifacts', (c) =>
+      handleSweepBrowserArtifacts(c)
     )
     .post('/api/internal/notifications/automation-rollup', (c) =>
       handleAutomationRollup(c, resolveApp())

@@ -34,11 +34,14 @@ import { logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { registerAccountPurgeScheduler } from '@/infrastructure/scheduling/register-account-purge'
 import { registerActivityLogRetentionScheduler } from '@/infrastructure/scheduling/register-activity-log-retention'
 import { registerApprovalExpiryScheduler } from '@/infrastructure/scheduling/register-approval-expiry'
+import { registerAutomationRunRetentionScheduler } from '@/infrastructure/scheduling/register-automation-run-retention'
+import { registerBrowserArtifactSweepScheduler } from '@/infrastructure/scheduling/register-browser-artifact-sweep'
 import { registerCronAutomations } from '@/infrastructure/scheduling/register-cron-automations'
 import { registerDelayedRunResumeScheduler } from '@/infrastructure/scheduling/register-delayed-run-resume'
 import { registerFailureRollupScheduler } from '@/infrastructure/scheduling/register-failure-rollup'
 import { registerFormDraftExpiryScheduler } from '@/infrastructure/scheduling/register-form-draft-expiry'
 import { registerStuckRunSweepScheduler } from '@/infrastructure/scheduling/register-stuck-run-sweep'
+import { registerTableRetentionScheduler } from '@/infrastructure/scheduling/register-table-retention'
 import { registerWebhookOutboxScheduler } from '@/infrastructure/scheduling/register-webhook-outbox'
 import {
   registerWeeklyDigestScheduler,
@@ -275,17 +278,18 @@ export const createServer = (
     // register-agent-schedules.ts.
     //
     // All four arm jobs on the ONE `CronScheduler` the domain runtime carries.
-    // None may `Effect.provide(CronSchedulerLive)` for itself, because the
-    // scheduler is scoped: four provides would be four registries in four
-    // scopes, each closing (and interrupting its jobs) the instant its own
-    // registration returned. Providing the resolved domain context instead is
-    // one build, one registry, one scope — the server's.
+    // None may `Effect.provide(CronSchedulerLive)` for itself, because the scheduler is scoped:
+    // four provides would be four registries in four scopes, each closing (and interrupting its
+    // jobs) the instant its own registration returned. Providing the resolved domain context
+    // instead is one build, one registry, one scope — the server's.
     yield* Effect.provide(
       Effect.all([
         registerCronAutomations(config.app, process.env),
         registerAgentSchedules(config.app, fireAgentSchedule),
         registerAccountPurgeScheduler(config.app),
         registerActivityLogRetentionScheduler,
+        registerTableRetentionScheduler(config.app),
+        registerAutomationRunRetentionScheduler(process.env),
         registerFailureRollupScheduler(config.app),
         registerStuckRunSweepScheduler(config.app),
         registerWebhookOutboxScheduler(config.app),
@@ -297,6 +301,8 @@ export const createServer = (
         registerApprovalExpiryScheduler(config.app, process.env),
         // Runs parked on a long wait: at boot for those due, then every minute.
         registerDelayedRunResumeScheduler(config.app, process.env),
+        // Browser screenshots past BROWSER_ARTIFACT_RETENTION_DAYS: at boot, then daily.
+        registerBrowserArtifactSweepScheduler(config.app, process.env),
         // Saved form drafts past their resume link's life: at boot, then hourly.
         registerFormDraftExpiryScheduler(config.app),
         registerWeeklyDigestScheduler(config.app),

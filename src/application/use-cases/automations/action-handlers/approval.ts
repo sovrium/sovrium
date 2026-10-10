@@ -61,7 +61,7 @@ import type { ActionHandler, ActionOutcome } from './shared'
  * The `Effect.catchAll` keeps the Effect total, replacing the `.catch` that used
  * to sit on the raw Drizzle promise.
  */
-const insertApprovalRequest = (input: {
+export const insertApprovalRequest = (input: {
   readonly message: string
   readonly timeoutSeconds: number | undefined
   readonly expiresAt: Date | undefined
@@ -84,7 +84,8 @@ const insertApprovalRequest = (input: {
         })
       })
     ),
-    Effect.ignore
+    Effect.ignore,
+    Effect.withSpan('automations.insert-approval-request')
   )
 
 /**
@@ -112,7 +113,7 @@ const deriveTimeout = (
  * lookup pins no account, and those addresses then name nobody: the request
  * can still be resolved by the roles it names, or by an admin re-running it.
  */
-const pinRequestApprovers = (
+export const pinRequestApprovers = (
   raw: unknown
 ): Effect.Effect<'all-admins' | PinnedApprovers | undefined, never, AuthRepository> =>
   Effect.gen(function* () {
@@ -128,7 +129,7 @@ const pinRequestApprovers = (
       Effect.orElseSucceed(() => new Map<string, string>())
     )
     return pinApprovers(list, holders)
-  })
+  }).pipe(Effect.withSpan('automations.pin-request-approvers'))
 
 /**
  * `approval/request` — record a pending approval request and surface the

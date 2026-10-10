@@ -6,11 +6,13 @@
  */
 
 /**
- * The bounded journal read an unhealthy `instance/health` probe carries: which
- * window `journalctl` reads, and how much of what it printed is kept.
+ * The bounded journal read an unhealthy `instance/health` probe carries: the
+ * line summing up the unit, which run or window `journalctl` reads, and how
+ * much of what it printed is kept.
  *
- * Neither value is ever a caller's. The window is the release time `apply`
- * recorded in `status.json`, re-checked here, or a fixed relative fallback.
+ * Nothing here is ever a caller's. The run is the invocation id systemd
+ * reports, re-checked here; the window is the release time `status.json`
+ * records, re-checked here, or a fixed relative fallback.
  */
 
 import { Effect } from 'effect'
@@ -40,21 +42,90 @@ export const crashJournalSince = (appliedAt: string | undefined): string =>
     : CRASH_JOURNAL_FALLBACK_SINCE
 
 /**
- * `--since=` value from reading the release record: a `status.json` that cannot
- * be read or parsed is no reason to drop the journal of an app that is down —
- * it reads the fixed fallback window instead, and the failure is logged.
+ * The release time the crash journal anchors on: the last rollback's time when
+ * one is recorded, else the time the current revision was applied. A
+ * `status.json` that cannot be read or parsed is no reason to drop the journal
+ * of an app that is down — it is read as recording no time, and the failure is
+ * logged.
  */
-export const crashJournalWindow = <E, R>(
-  release: Effect.Effect<{ readonly appliedAt?: string } | undefined, E, R>
-): Effect.Effect<string, never, R> =>
+export const crashJournalReleaseTime = <E, R>(
+  release: Effect.Effect<
+    { readonly appliedAt?: string; readonly rolledBackAt?: string } | undefined,
+    E,
+    R
+  >
+): Effect.Effect<string | undefined, never, R> =>
   release.pipe(
     Effect.tapCause((cause) =>
       Effect.logWarning('instance: status.json unreadable, reading the fallback window', cause)
     ),
     // The journal is what explains a crash; a broken release record must not hide it.
     Effect.orElseSucceed(() => undefined),
-    Effect.map((recorded) => crashJournalSince(recorded?.appliedAt))
+    Effect.map((recorded) => recorded?.rolledBackAt ?? recorded?.appliedAt)
   )
+
+/** What `systemctl show --timestamp=unix` reports about the app's unit, for the crash journal. */
+export interface UnitRunFacts {
+  readonly active: string
+  readonly sub: string
+  readonly result?: string
+  readonly execMainStatus?: number
+  /** The unit's current run, only when it is 32 hex digits — the one shape that reaches argv. */
+  readonly invocationId?: string
+  /** When that run's main process started, in unix seconds. */
+  readonly startedAtSeconds?: number
+}
+
+/** The shape of a systemd invocation id: 128 bits as 32 lowercase hex digits. */
+export const INVOCATION_ID_SHAPE = /^[0-9a-f]{32}$/
+
+/** The line that opens the journal: what systemd reports about the unit. */
+export const unitSummaryLine = (unit: string, facts: UnitRunFacts): string =>
+  `${unit} is ${facts.active} (sub-state ${facts.sub}, result ${facts.result ?? 'unknown'}, main process exit status ${facts.execMainStatus === undefined ? 'unknown' : String(facts.execMainStatus)})`
+
+/** The line that stands for the journal when no process has started since the release. */
+export const nothingStartedLine = (unit: string, releaseTime: string): string =>
+  `no process of ${unit} has started since ${releaseTime}`
+
+/** Which journal an unhealthy probe reads. */
+export type CrashJournalRead =
+  /** The lines of the unit's current run, by its invocation id. */
+  | { readonly _tag: 'Invocation'; readonly invocationId: string }
+  /** No read: the current run started before the release, so every line predates it. */
+  | { readonly _tag: 'NothingSince'; readonly releaseTime: string }
+  /** The unit's lines since `since` — no run is named, or systemd could not be asked. */
+  | { readonly _tag: 'Window'; readonly since: string }
+
+/** The release time in whole unix seconds, when it is the recorded shape. */
+const releaseSeconds = (releaseTime: string | undefined): number | undefined =>
+  releaseTime !== undefined && APPLIED_AT_SHAPE.test(releaseTime)
+    ? Math.floor(Date.parse(releaseTime) / 1000)
+    : undefined
+
+/**
+ * Decide which journal to read. A run systemd names is read by its id, unless
+ * its process provably started before the release (both times known, compared
+ * in whole seconds — systemd prints the start in seconds); then nothing is
+ * read. With no run named — the unit has not started since the host booted, or
+ * `systemctl show` failed (`facts` undefined) — the unit is read by time.
+ */
+export const crashJournalRead = (
+  facts: UnitRunFacts | undefined,
+  releaseTime: string | undefined
+): CrashJournalRead => {
+  const invocationId = facts?.invocationId
+  if (invocationId === undefined || !INVOCATION_ID_SHAPE.test(invocationId)) {
+    return { _tag: 'Window', since: crashJournalSince(releaseTime) }
+  }
+  const release = releaseSeconds(releaseTime)
+  const started = facts?.startedAtSeconds
+  return releaseTime !== undefined &&
+    release !== undefined &&
+    started !== undefined &&
+    started < release
+    ? { _tag: 'NothingSince', releaseTime }
+    : { _tag: 'Invocation', invocationId }
+}
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()

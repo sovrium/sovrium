@@ -18,7 +18,7 @@ trigger:
 
 <!-- sovrium:options WebhookTriggerSchema -->
 
-`deduplicationWindow` is in seconds and defaults to 300. `rateLimit` accepts `window` as an alias for `windowSeconds`.
+`deduplicationWindow` is in seconds and defaults to 300. `rateLimit` accepts `window` as an alias for `windowSeconds`, and counts requests per client address unless `per: project` counts them per sender of a telemetry receiver. A trigger with a `protocol` receives errors, transactions or logs at that protocol's standard paths instead of the webhook URL; see Telemetry Ingest.
 
 ### The caller waits unless you say otherwise
 
@@ -73,7 +73,7 @@ The manual trigger (`POST /api/automations/{name}/trigger`) answers differently,
 
 ### Inbound authentication
 
-`auth.type` is one of `bearer`, `apiKey`, `hmac`, `basic` or `session`. The first four check a secret you share with one sender; `session` checks who is calling (below). The credential fields — `token`, `prefix`, `key`, `header`, `secret`, `algorithm`, `username`, `password` — are optional and, with one exception below, unconditioned by `type`; `algorithm` is a free string rather than a closed set.
+`auth.type` is one of `bearer`, `apiKey`, `hmac`, `basic`, `session` or `projectKey`. The first four check a secret you share with one sender; `session` checks who is calling (below); `projectKey` looks each sender's own key up in a table and exists only beside a telemetry `protocol` (see Telemetry Ingest). The credential fields — `token`, `prefix`, `key`, `header`, `secret`, `algorithm`, `username`, `password` — are optional and, with one exception below, unconditioned by `type`; `algorithm` is a free string rather than a closed set.
 
 Nothing validates that a `bearer` block actually carries a `token`, so an incomplete block passes `sovrium validate` and fails at request time instead. Check an inbound auth block by sending a request at it, not by validating the configuration. Every credential value supports `$env.VAR`.
 

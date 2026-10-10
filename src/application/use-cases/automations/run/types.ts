@@ -5,23 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/**
- * Shared types and small pure helpers for the automation run loop.
- *
- * One source of truth for the run-loop type contract, imported by the
- * orchestrator, step-executor, prop-substitution, run-status and run-persistence.
- */
+/** Shared types and small pure helpers for the automation run loop: its one type contract. */
 
 import { Duration, Effect, Schedule } from 'effect'
 import type { ActionHandler, ActionKey, AutomationContext } from '../action-handlers'
+import type { BrowserStepRequirements } from '../action-handlers/browser-run-scope'
 import type { ContainerResume } from '../action-handlers/run-park'
 import type { RecordEventChannel, StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
+import type { StepMetadataMap } from './step-metadata'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { OrganizationTeamRepository } from '@/application/ports/repositories/auth/organization-team-repository'
 import type { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import type { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
@@ -42,6 +40,7 @@ import type { DocumentRenderer } from '@/application/ports/services/document-ren
 import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
 import type { InstanceSupervisor } from '@/application/ports/services/instance-supervisor'
+import type { OAuthClientRegistrar } from '@/application/ports/services/oauth-client-registrar'
 import type { OAuthTokenClient } from '@/application/ports/services/oauth-token-client'
 import type { OfficeConverter } from '@/application/ports/services/office-converter'
 import type { PdfEditor } from '@/application/ports/services/pdf-editor'
@@ -82,6 +81,8 @@ export interface ExecutedStep {
    */
   readonly status: 'success' | 'failure' | 'filtered' | 'skipped' | 'waiting'
   readonly error?: string
+  /** Whole ms from dispatch to settle, retries included; unset for a step that was not timed. */
+  readonly durationMs?: number
   readonly props?: Record<string, unknown>
   readonly output?: Record<string, unknown>
   /** Redacted `context.log` entries of a code step, in call order. */
@@ -121,6 +122,8 @@ export interface RunAccumulator {
   readonly runError: string | undefined
   /** Per-action `output` collected from each step's `ActionOutcome`. */
   readonly actions: Readonly<Record<string, Record<string, unknown>>>
+  /** What later steps read beside each output, never recorded (`./step-metadata`). */
+  readonly stepMetadata?: StepMetadataMap
   /**
    * Shallow-merged outputs from every step that produced one (later steps
    * win on collisions). Surfaces as `output` in webhook/manual responses;
@@ -224,11 +227,7 @@ export interface StepContext {
   readonly resume?: { readonly base: number; readonly container?: ContainerResume }
 }
 
-/**
- * Normalised retry config the run loop acts on. `delayMs` is concrete (a per-action
- * `{ maxAttempts: 1 }` drops the automation-level one for a small default). `strategy`:
- * `'fixed'` (default) waits `delayMs` each retry, `'exponential'` `delayMs * 2^(N-1)` before N.
- */
+/** Normalised retry config: concrete `delayMs`; `strategy` `'fixed'` (default) or `'exponential'`. */
 export interface ResolvedRetryConfig {
   readonly maxAttempts: number
   readonly delayMs: number
@@ -240,12 +239,12 @@ export type StepRequirements =
   | TableRepository
   | RecordWebhookDispatcher
   | AutomationPauseRepository
-  // The caller gate a hand-started run's record actions run before writing.
-  | DataSourceRepository
+  | DataSourceRepository // the caller gate a hand-started run's record actions run before writing
   | AutomationStateRepository
   | AutomationDigestRepository
   | AutomationApprovalRepository
   | AuthRepository
+  | OrganizationTeamRepository // the `auth` group operators' membership store
   | ConnectionRepository
   | ConnectionTokenRepository
   | SentinelTokens
@@ -268,7 +267,9 @@ export type StepRequirements =
   | AiComputeStatusRepository
   | OAuthTokenClient
   | ConfigAccountProvisioner
+  | OAuthClientRegistrar
   | InstanceSupervisor
+  | BrowserStepRequirements
 
 /** Combined service requirement for the run-loop entry points. */
 export type RunRequirements =

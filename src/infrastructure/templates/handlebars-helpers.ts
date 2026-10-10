@@ -56,7 +56,7 @@ import {
   type ShiftUnit,
 } from './helper-dates'
 import * as documents from './helper-documents'
-import { safeHtmlHelper, urlPathHelper } from './helper-encoding'
+import * as encoding from './helper-encoding'
 import {
   firstEmail,
   firstNumber,
@@ -97,6 +97,7 @@ import {
   unescapeHtml,
   wordCount,
 } from './helper-text'
+import { totpHelper } from './helper-totp'
 import type Handlebars from 'handlebars'
 
 type Hbs = typeof Handlebars
@@ -397,12 +398,8 @@ const registerComparisonHelpers = (hbs: Hbs): void => {
 // ─── registration: encoding + coercion ───────────────────────────────────
 
 const registerEncodingHelpers = (hbs: Hbs): void => {
-  hbs.registerHelper('base64Encode', (v: unknown) =>
-    Buffer.from(toStr(v), 'utf8').toString('base64')
-  )
-  hbs.registerHelper('base64Decode', (v: unknown) =>
-    Buffer.from(toStr(v), 'base64').toString('utf8')
-  )
+  hbs.registerHelper('base64Encode', encoding.base64EncodeHelper)
+  hbs.registerHelper('base64Decode', encoding.base64DecodeHelper)
   // `encodeUri`/`urlEncode` have always been `encodeURIComponent` (the accurate name); kept as is.
   hbs.registerHelper('encodeUri', (v: unknown) => encodeURIComponent(toStr(v)))
   hbs.registerHelper('decodeUri', safeUriDecode)
@@ -412,8 +409,9 @@ const registerEncodingHelpers = (hbs: Hbs): void => {
   hbs.registerHelper('urlDecode', safeUriDecode)
   hbs.registerHelper('md5', (v: unknown) => hashOrEmpty('md5', v))
   hbs.registerHelper('sha256', (v: unknown) => hashOrEmpty('sha256', v))
-  hbs.registerHelper('urlPath', urlPathHelper)
-  hbs.registerHelper('safeHtml', safeHtmlHelper)
+  hbs.registerHelper('urlPath', encoding.urlPathHelper)
+  hbs.registerHelper('safeHtml', encoding.safeHtmlHelper)
+  hbs.registerHelper('totp', totpHelper) // a one-time code a browser step types (`helper-totp.ts`)
 }
 
 /** The helpers built for an action's own document template (`helper-documents.ts`). */

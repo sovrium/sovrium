@@ -7,6 +7,7 @@
 
 import { Data, Effect } from 'effect'
 import { evaluateGroup } from '@/domain/models/app/automations/condition-eval'
+import { withStepMetadata } from '../run/step-metadata'
 import {
   EMPTY_SEQUENCE,
   haltedOutcome,
@@ -174,7 +175,10 @@ const runSelectedBranches = (input: {
       const run = await runNestedSequence({
         actions: path.actions,
         runNested,
-        previousSteps: { ...runContext.previousSteps, ...acc.sequence.outputs },
+        previousSteps: {
+          ...runContext.previousSteps,
+          ...withStepMetadata(acc.sequence.outputs, acc.sequence.metadata),
+        },
         ...(runContext.loopScopes === undefined ? {} : { loopScopes: runContext.loopScopes }),
         fillProps,
         ...(resume === undefined ? {} : { resume }),
@@ -187,6 +191,7 @@ const runSelectedBranches = (input: {
           ...run,
           tolerated: acc.sequence.tolerated + run.tolerated,
           outputs: { ...acc.sequence.outputs, ...run.outputs },
+          metadata: { ...acc.sequence.metadata, ...run.metadata },
           responseOverride: laterResponse(acc.sequence.responseOverride, run.responseOverride),
         },
       }

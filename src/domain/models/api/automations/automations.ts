@@ -85,7 +85,10 @@ const stepResultBaseSchema = Schema.Struct({
   startedAt: Schema.NullOr(looseIsoDateTime({ description: 'Step start timestamp' })),
   completedAt: Schema.NullOr(looseIsoDateTime({ description: 'Step completion timestamp' })),
   durationMs: Schema.NullOr(
-    Schema.Int.annotate({ description: 'Step execution duration in milliseconds' })
+    Schema.Int.annotate({
+      description:
+        'How long the step took, in whole milliseconds, every retry attempt and the waits between them included. Null for a step inside a path or a loop, and for a step recorded before durations were measured',
+    })
   ),
   output: optionalField(describedUnknown('Step output data (null if failed or pending)')),
   error: Schema.NullOr(Schema.String.annotate({ description: 'Error message if step failed' })),
@@ -510,9 +513,14 @@ const deploySha256 = (description: string) =>
   Schema.String.annotate({ description }).check(Schema.isPattern(DEPLOY_SHA256_HEX))
 
 /**
- * Every state a deployment moves through, in order, plus `failed`.
+ * Every state a deployment moves through, in order, then the two it ends in
+ * besides `live`.
  * `waking-up` is the host starting the app's process after the switch: a cold
  * start takes a few seconds, and the CLI says so rather than looking stuck.
+ * `retrying` is the host trying the deployment again after an attempt failed;
+ * the attempt number and how the previous one ended ride beside the status.
+ * `replaced` is a deployment that went live and was since superseded by a
+ * newer one of the same app.
  *
  * @public
  */
@@ -521,17 +529,69 @@ export const deploymentStatusValues = [
   'validating',
   'applying',
   'waking-up',
+  'retrying',
   'live',
   'failed',
+  'replaced',
 ] as const
 
 export const deploymentStatusSchema = Schema.Literals(deploymentStatusValues).annotate({
   description:
-    "Where the deployment stands: 'queued' (recorded, not started), 'validating' (the host checks the archive and its config), 'applying' (the new revision is being switched in), 'waking-up' (the app is starting), 'live' (serving), or 'failed' (stopped; see report)",
+    "Where the deployment stands: 'queued' (recorded, not started), 'validating' (the host checks the archive and its config), 'applying' (the new revision is being switched in), 'waking-up' (the app is starting), 'retrying' (an attempt failed and the host is trying again), 'live' (serving), 'failed' (stopped; see report), or 'replaced' (it went live and a newer deployment of the app has since replaced it)",
 })
 
 /** @public */
 export type DeploymentStatus = Schema.Schema.Type<typeof deploymentStatusSchema>
+
+/**
+ * A status as a client reads it off the wire: one this engine knows, or one a
+ * newer cloud added since, kept as written. A client that meets an unknown
+ * status shows it as is rather than refusing the whole answer.
+ *
+ * @public
+ */
+export const reportedDeploymentStatusSchema = Schema.Union([
+  deploymentStatusSchema,
+  Schema.String.annotate({
+    description: 'A status added by a newer cloud than this engine; shown as written',
+  }).check(Schema.isMinLength(1)),
+]).annotate({
+  description:
+    'Where the deployment stands: one of the statuses this engine knows, or a newer one, shown as written',
+})
+
+/** @public */
+export type ReportedDeploymentStatus = Schema.Schema.Type<typeof reportedDeploymentStatusSchema>
+
+/**
+ * The attempt of a deployment the host tries again: its number, counted from
+ * 1 for the first try, absent on a host that does not retry.
+ */
+const deploymentAttemptSchema = Schema.Number.annotate({
+  description:
+    'Which attempt of the deployment this is, counted from 1 for the first; absent when the host has not retried it',
+}).check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))
+
+/**
+ * How the attempt before this one ended, when the host is trying again.
+ *
+ * @public
+ */
+export const previousDeploymentAttemptSchema = Schema.Struct({
+  status: reportedDeploymentStatusSchema,
+  error: optionalField(
+    Schema.NullOr(Schema.String).annotate({
+      description:
+        'Why the previous attempt ended, as the host reported it; null or absent when it gave no reason',
+    })
+  ),
+}).annotate({
+  description:
+    "How the previous attempt ended — its status (usually 'failed') and the host's reason — present only from the second attempt on",
+})
+
+/** @public */
+export type PreviousDeploymentAttempt = Schema.Schema.Type<typeof previousDeploymentAttemptSchema>
 
 /**
  * Body of the deploy webhook call, posted after the archive is stored.
@@ -580,7 +640,7 @@ export const deployResponseSchema = Schema.Struct({
     description:
       'Id of the deployment record; also its revision, and the id read back at GET /api/tables/deployments/records/:id',
   }).check(Schema.isMinLength(1)),
-  status: deploymentStatusSchema,
+  status: reportedDeploymentStatusSchema,
   url: Schema.String.annotate({
     description: 'Address the app is served at once the deployment is live',
   }),
@@ -588,6 +648,32 @@ export const deployResponseSchema = Schema.Struct({
     description:
       'true when the Idempotency-Key was already recorded and this is that earlier deployment; nothing new was recorded',
   }),
+  attempt: optionalField(deploymentAttemptSchema),
+  previousAttempt: optionalField(previousDeploymentAttemptSchema),
+  placement: optionalField(
+    Schema.Literals(['placed', 'waiting']).annotate({
+      description:
+        "'placed': the app is on a machine; 'waiting': it is on none yet and none can take it now — the deployment is kept and starts once one can. Absent from a cloud that does not report placement",
+    })
+  ),
+  hint: optionalField(
+    Schema.String.annotate({
+      description:
+        "A note from the cloud about when the deployment will start — for example that the app's machine has not reported for a while — shown as written",
+    })
+  ),
+  adminUrl: optionalField(
+    Schema.String.annotate({
+      description:
+        "Address of the app's operator console, printed after the app goes live. Absent from a cloud that does not report it",
+    })
+  ),
+  platformSso: optionalField(
+    Schema.Boolean.annotate({
+      description:
+        'true when the app signs its admins in with their Sovrium Cloud account, so the console line says to sign in with Sovrium Cloud',
+    })
+  ),
 })
 
 /** @public */
@@ -608,13 +694,38 @@ export const deployRefusalSchema = Schema.Struct({
 export type DeployRefusal = Schema.Schema.Type<typeof deployRefusalSchema>
 
 /**
+ * The deploy webhook's refusal of a bundle whose config requires environment
+ * variables the app does not have yet (422 `missing-env`): nothing is
+ * recorded. `names` lists the missing variables by name, sorted — the bundle carries
+ * the names its config requires (`requiredEnv`), never a value.
+ *
+ * @public
+ */
+export const deployMissingEnvRefusalSchema = Schema.Struct({
+  error: Schema.Literal('missing-env').annotate({
+    description: "'missing-env': the app lacks variables its config requires",
+  }),
+  message: Schema.String.annotate({ description: 'What is missing, for a person' }),
+  names: Schema.Array(Schema.String.annotate({ description: 'A missing variable name' }))
+    .annotate({ description: 'Every required variable the app does not have, by name' })
+    .check(Schema.isMinLength(1)),
+})
+
+/** @public */
+export type DeployMissingEnvRefusal = Schema.Schema.Type<typeof deployMissingEnvRefusalSchema>
+
+/**
  * The `fields` of a deployment record the CLI reads while it waits. Other
  * fields the host keeps (the object key, the hashes, who deployed) are ignored.
+ *
+ * A record's fields are its table's columns, which are spelled in lowercase
+ * with underscores: the previous attempt is `previous_attempt` here where the
+ * deploy answer, a JSON body, says `previousAttempt`.
  *
  * @public
  */
 export const deploymentRecordFieldsSchema = Schema.Struct({
-  status: deploymentStatusSchema,
+  status: reportedDeploymentStatusSchema,
   url: optionalField(
     Schema.NullOr(Schema.String).annotate({
       description: 'Address the app is served at once live; null or absent before the host sets it',
@@ -626,6 +737,8 @@ export const deploymentRecordFieldsSchema = Schema.Struct({
         "Why a 'failed' deployment stopped — for a config the host refused, the validation report, printed as is; null or absent otherwise",
     })
   ),
+  attempt: optionalField(Schema.NullOr(deploymentAttemptSchema)),
+  previous_attempt: optionalField(Schema.NullOr(previousDeploymentAttemptSchema)),
 })
 
 /** @public */

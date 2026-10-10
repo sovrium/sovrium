@@ -66,7 +66,7 @@ Whether the component is rendered at all. Every gate is evaluated server-side: a
 
 The `unless…` keys are the negations of their siblings — `unlessDeclares` renders only where the app does NOT declare the capability, `unlessRuntime` only where it cannot run here. They exist so that an alternating body can carry both halves in one page: the catalogue where automations are declared, the honest empty state where they are not. Naming the same capability in both halves is refused when the config is decoded, because the component could then render nowhere.
 
-`record` tests a field of the bound record with the shared condition operators, and accepts the presence flags `isEmpty: true` / `isNotEmpty: true` — a missing value, an empty text, an empty list and an empty object all count as empty, so `record: { field: phone, isNotEmpty: true }` renders only where a number exists. `query` accepts the same flags against a page query value.
+`record` tests a field of the bound record with the shared condition operators, and accepts the presence flags `isEmpty: true` / `isNotEmpty: true` — a missing value, an empty text, an empty list and an empty object all count as empty, so `record: { field: phone, isNotEmpty: true }` renders only where a number exists. A checkbox compares as yes or no on either database: `record: { field: done, eq: true }` renders on the ticked records and `eq: false` on the others. `query` accepts the same flags against a page query value.
 
 `declares` asks what the app being served declares; `runtime` asks whether that declaration can actually run on this deployment. On a host declaring an agent with no AI provider configured, `declares: agents` renders and `runtime: ai` does not.
 

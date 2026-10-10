@@ -198,6 +198,17 @@ const defaultOrderByClause = (primaryKey?: OrderByPrimaryKey): string => {
 }
 
 /**
+ * The columns that identify a row of a table, as {@link defaultOrderByClause}
+ * resolves them: the composite key when it replaces `id`, else `id`. Read by
+ * an ordering that needs a total tie-break of its own (the word search's
+ * relevance order breaks ties newest first).
+ */
+export const defaultOrderKeys = (primaryKey?: OrderByPrimaryKey): readonly string[] => {
+  const keyFields = compositeKeyFields(primaryKey)
+  return orderableCompositeKey(keyFields) ? keyFields : [INTRINSIC_ID_COLUMN]
+}
+
+/**
  * Build ORDER BY clause from sort parameter.
  *
  * Falls back to {@link defaultOrderByClause} both when no `sort` is given and

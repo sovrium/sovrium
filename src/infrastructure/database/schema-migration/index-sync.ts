@@ -6,7 +6,11 @@
  */
 
 import { Effect } from 'effect'
-import { generateIndexStatements, standardIndexName } from '../generators/index-generators'
+import {
+  generateIndexStatements,
+  generateWordSearchIndexDrops,
+  standardIndexName,
+} from '../generators/index-generators'
 import {
   executeSQLStatements,
   type TransactionLike,
@@ -114,6 +118,9 @@ export const syncIndexes = (
     // was first created with.
     const createStatements = generateIndexStatements({ ...table, name: physicalTableName })
 
+    // A long-text field no longer declared `fullTextSearch` loses its index.
+    const wordSearchDrops = generateWordSearchIndexDrops({ ...table, name: physicalTableName })
+
     // Execute drop statements first, then create statements
-    yield* executeSQLStatements(tx, [...dropStatements, ...createStatements])
+    yield* executeSQLStatements(tx, [...dropStatements, ...wordSearchDrops, ...createStatements])
   })

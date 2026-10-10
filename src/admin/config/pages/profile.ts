@@ -79,6 +79,7 @@ import {
   ROW_FORM,
   ROW_FORM_ONE,
   ROW_FORM_PAIR,
+  ROW,
   ROW_HINT,
   row,
   status,
@@ -609,6 +610,38 @@ export default withShell(
                   content: '$t:admin.profile.notifications.hint',
                 },
               ]),
+              // ── Sovrium Cloud ────────────────────────────────────────────
+              //
+              // On an app hosted on Sovrium Cloud: bind this account to the
+              // reader's Cloud account, so "Sign in with Sovrium Cloud" signs
+              // them in, or unbind it. The island draws whichever of the two
+              // applies. Platform-pruned, row and all, when the
+              // `SOVRIUM_PLATFORM_SSO_*` environment is unset.
+              {
+                ...row('$t:admin.profile.cloud.label', [
+                  {
+                    type: 'form',
+                    props: { id: 'profile-cloud-connect' },
+                    action: {
+                      type: 'auth',
+                      method: 'linkAccount',
+                      provider: 'sovrium-cloud',
+                      submitLabel: '$t:admin.profile.cloud.connect',
+                    },
+                  },
+                  {
+                    type: 'form',
+                    props: { id: 'profile-cloud-disconnect' },
+                    action: {
+                      type: 'auth',
+                      method: 'unlinkAccount',
+                      provider: 'sovrium-cloud',
+                      submitLabel: '$t:admin.profile.cloud.disconnect',
+                    },
+                  },
+                ]),
+                props: { className: ROW, 'data-testid': 'profile-cloud-account' },
+              },
               // ── Your data ────────────────────────────────────────────────
               //
               // The cross-link to the other half of the account. `href` belongs in

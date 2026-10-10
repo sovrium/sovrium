@@ -8,6 +8,7 @@
 import { RENDER_DOCUMENT_ORIGIN } from '@/application/ports/services/document-renderer'
 import { imageAreaRefusal, toPrintToPdfParams } from './renderer-page-setup'
 import { decideInterception, interceptionCommand } from './renderer-request-interception'
+import { closeViewOnce } from './webview-lifecycle'
 import type {
   ImageRenderOptions,
   PdfPageSetup,
@@ -199,26 +200,6 @@ export const runSandboxedRender = async <T>(input: SessionInput<T>): Promise<T> 
   } finally {
     clearTimeout(timer)
     closeOnce()
-  }
-}
-
-/**
- * Close `view` the first time this is called, and never again. A close that
- * throws is ignored on purpose: it runs after the render already succeeded or
- * failed, and letting it escape would replace that outcome with a teardown
- * error about a view nobody uses any more.
- */
-const closeViewOnce = (view: Bun.WebView): (() => void) => {
-  // Mutable on purpose: whether the one close already ran.
-  const state = { closed: false }
-  return () => {
-    if (state.closed) return
-    state.closed = true
-    try {
-      view.close()
-    } catch {
-      // Already closed by Chrome, or the process went away: nothing to release.
-    }
   }
 }
 

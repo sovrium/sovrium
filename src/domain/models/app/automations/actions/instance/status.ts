@@ -13,7 +13,8 @@ import { InstanceSlugSchema } from './instance-slug'
  * Instance status Action (type: instance, operator: status)
  *
  * Reads `systemctl show` for `sovrium-app@<slug>.service` (ActiveState, SubState,
- * MainPID, NRestarts, MemoryCurrent) and the revision `current` points at. Writes nothing.
+ * MainPID, NRestarts, MemoryCurrent, Result, ExecMainStatus, InvocationID) and the
+ * revision `current` points at. Writes nothing.
  */
 export const InstanceStatusActionSchema = Schema.Struct({
   ...ActionBaseFields,
@@ -38,7 +39,7 @@ export const InstanceStatusActionSchema = Schema.Struct({
     identifier: 'InstanceStatusAction',
     title: 'Instance Status Action',
     description:
-      "Read a supervised app's unit state, restart count, memory use and current revision",
+      "Read a supervised app's unit state, restart count, memory use, how its last run ended and current revision",
   })
 )
 

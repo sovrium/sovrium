@@ -36,6 +36,7 @@ import { chainAccountRoutes } from '@/presentation/api/auth/account-routes'
 import { chainAuthRoutes } from '@/presentation/api/auth/routes'
 import { chainScimRoutes } from '@/presentation/api/auth/scim-routes'
 import { chainAutomationRoutes } from '@/presentation/api/automations/routes'
+import { chainRunRetentionRoutes } from '@/presentation/api/automations/run-retention-routes'
 import { chainBucketRoutes } from '@/presentation/api/buckets/routes'
 import { chainConnectionRoutes } from '@/presentation/api/connections/routes'
 import { chainFormRoutes } from '@/presentation/api/forms/routes'
@@ -49,6 +50,7 @@ import { chainCommandSearchRoutes } from '@/presentation/api/search/routes'
 import { chainActivityRoutes } from '@/presentation/api/tables/activity-feed-routes'
 import { chainRealtimeRoutes } from '@/presentation/api/tables/realtime-routes'
 import { chainTableRoutes } from '@/presentation/api/tables/routes'
+import { chainTableRetentionRoutes } from '@/presentation/api/tables/table-retention-routes'
 import { chainWebhookOutboxRoutes } from '@/presentation/api/tables/webhook-outbox-routes'
 import { chainAdminApiRoutes } from './admin/routes'
 import { applyApiAuthGuards } from './middleware/api-auth-guards'
@@ -269,12 +271,18 @@ export const createApiRoutes = <T extends Hono>(
   // when no session is attached (the `/api/favorites` auth chain is installed
   // above when `app.auth` is configured).
   // Internal trigger routes of the operator-notification jobs (the
-  // interrupted-run sweep and the hourly failure roll-up). Always registered,
+  // interrupted-run sweep and the hourly failure roll-up), the webhook outbox
+  // and the table and run-history retention sweeps. Always registered,
   // and 404 without the internal scheduler token — the same gate as
   // `purge-due` above.
-  const honoWithNotificationTriggers = chainWebhookOutboxRoutes(
-    chainNotificationTriggerRoutes(honoWithAccount, resolveLiveApp),
-    resolveLiveApp
+  const honoWithNotificationTriggers = chainRunRetentionRoutes(
+    chainTableRetentionRoutes(
+      chainWebhookOutboxRoutes(
+        chainNotificationTriggerRoutes(honoWithAccount, resolveLiveApp),
+        resolveLiveApp
+      ),
+      resolveLiveApp
+    )
   )
 
   const honoWithFavorites = chainFavoriteRoutes(honoWithNotificationTriggers)

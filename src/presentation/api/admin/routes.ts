@@ -35,6 +35,7 @@ import { chainAdminLinksRoutes } from '@/presentation/api/admin/links-routes'
 import { chainAdminOrganisationRoutes } from '@/presentation/api/admin/organisation-routes'
 import { chainAdminRoutes } from '@/presentation/api/admin/overview-routes'
 import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
+import { chainAdminUserGroupsRoutes } from '@/presentation/api/admin/user-groups-routes'
 import { chainAdminUsersRoutes } from '@/presentation/api/admin/users-routes'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
@@ -139,7 +140,13 @@ export const chainAdminApiRoutes = <T extends Hono>(
   // via authMiddleware → requireAdminTier on /api/admin/users/overview.
   // The handler reads exclusively from auth.user + auth.session — no live-App
   // dependency, so the resolver thunk is not threaded through.
-  const honoWithAdminUsers = chainAdminUsersRoutes(honoWithAdminAutomations, resolveLiveApp)
+  // The account-groups write (`PUT /api/admin/users/:userId/groups`) rides the
+  // `/api/admin/*` tier guard and narrows it to admin-equivalent callers
+  // itself; the live App names the groups a request may set.
+  const honoWithAdminUsers = chainAdminUserGroupsRoutes(
+    chainAdminUsersRoutes(honoWithAdminAutomations, resolveLiveApp),
+    resolveLiveApp
+  )
 
   // Chain admin agent-conversation read endpoints:
   // GET /api/admin/agents and /api/admin/agents/:name/conversations[/:id]. Shares

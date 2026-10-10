@@ -18,18 +18,32 @@
  * `run-automation.ts` — that would form an import cycle.
  */
 
+import { gotoAddressVariables } from '@/domain/models/app/automations/actions/browser/browser-run-validation'
 import { type ActionOutcome } from '../action-handlers'
-import { redactSecretsForApp } from '../redact-secrets'
+import { redactSecretsForApp, redactSecretsInValue } from '../redact-secrets'
 import { readActionIdentity } from './action-identity'
 import { redactedReads } from './read-tracker'
-import { maskSecretProps } from './secret-props'
-import { truncateError, type ExecutedStep, type StepContext } from './types'
+import { maskSecretOutput, maskSecretProps, runSecretValues } from './secret-props'
+import { truncateError, type ExecutedStep, type RunAccumulator, type StepContext } from './types'
 import type { App } from '@/domain/models/app'
 
 /**
  * The step record a run keeps of one action: what it was given and what it
  * answered, with secret values redacted before anything is stored.
  */
+
+/**
+ * The variables whose values are scrubbed from a step record: every one the app
+ * declares, except those a browser `goto` address reads. Start-up lets an
+ * address read only a variable declared `secret: false`, and the run shows the
+ * address it opened as it is. A value another variable also holds is
+ * still scrubbed under that variable.
+ */
+const scrubbedEnvOf = (app: App): App['env'] => {
+  if (app.env?.some((variable) => variable.secret === false) !== true) return app.env
+  const shown = gotoAddressVariables(app)
+  return shown.size === 0 ? app.env : app.env.filter((variable) => !shown.has(variable.key))
+}
 
 /**
  * Redact env values AND literal connection secrets (clientSecret,
@@ -48,7 +62,7 @@ export const redactString = (
   app: App,
   env: Readonly<Record<string, string | undefined>>
 ): string => {
-  const redacted = redactSecretsForApp(input, app.env, env, app.connections)
+  const redacted = redactSecretsForApp(input, scrubbedEnvOf(app), env, app.connections)
   return truncateError(typeof redacted === 'string' ? redacted : input)
 }
 
@@ -66,7 +80,7 @@ const redactRecord = (
   value: Readonly<Record<string, unknown>>,
   ctx: StepContext
 ): Readonly<Record<string, unknown>> =>
-  redactSecretsForApp(value, ctx.app.env, ctx.processEnv, ctx.app.connections) as Record<
+  redactSecretsForApp(value, scrubbedEnvOf(ctx.app), ctx.processEnv, ctx.app.connections) as Record<
     string,
     unknown
   >
@@ -126,7 +140,9 @@ export const buildStep = (
       ? { error: redactString(outcome.error, ctx.app, ctx.processEnv) }
       : {}),
     props: redactedProps,
-    ...(outcome.output !== undefined ? { output: redactRecord(outcome.output, ctx) } : {}),
+    ...(outcome.output !== undefined
+      ? { output: redactRecord(maskSecretOutput(identity, outcome.output), ctx) }
+      : {}),
     ...(outcome.logs !== undefined && outcome.logs.length > 0
       ? {
           logs: outcome.logs.map((entry) => ({
@@ -139,4 +155,29 @@ export const buildStep = (
     // The steps a path or a loop ran: each one already built here, so masked.
     ...outcome.nestedSteps,
   }
+}
+
+/**
+ * A step record with how long the step took, as its dispatcher measured it —
+ * a number, so it needs no redaction. Unset, the record keeps no duration.
+ */
+export const withDuration = (step: ExecutedStep, durationMs: number | undefined): ExecutedStep =>
+  durationMs === undefined ? step : { ...step, durationMs }
+
+/**
+ * `value` with every secret an earlier step of the run answered (see
+ * {@link runSecretValues}) replaced by `***` — for the record of a step, or the
+ * run's error, written after it. {@link buildStep} masks the step's OWN
+ * secret output by its place; a value a step was handed by template from an
+ * earlier one matches no place, so it is found by value here. Runs on the
+ * persisted copy only: the live output the next step reads is untouched.
+ */
+export const maskRunSecrets = <T>(value: T, acc: Pick<RunAccumulator, 'steps' | 'actions'>): T => {
+  const secrets = runSecretValues(acc.steps, acc.actions)
+  return secrets.length === 0
+    ? value
+    : (redactSecretsInValue(
+        value,
+        Object.fromEntries(secrets.map((secret, index) => [String(index), secret]))
+      ) as T)
 }

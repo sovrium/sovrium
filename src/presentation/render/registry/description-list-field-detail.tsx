@@ -19,6 +19,9 @@
  * pass (`withDescriptionFieldValues`), the hand-off `record-field` already uses.
  */
 
+import { isEmptyCell } from '@/domain/kernel/matching/empty-value'
+import { checkboxLiteralOf } from '@/domain/models/app/tables/checkbox-literal-service'
+import { listValuesOf } from '@/domain/models/app/tables/record-text-service'
 import { optionColor, optionLabel, optionValue } from '@/domain/models/app/tables/select-option'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { resolveOptionChipPaint } from '@/presentation/design/option-chip-paint'
@@ -36,12 +39,6 @@ interface FieldMeta {
   readonly options?: readonly SelectOptionLike[]
   readonly max?: number
 }
-
-const isEmpty = (value: unknown): boolean =>
-  value === undefined ||
-  value === null ||
-  value === '' ||
-  (Array.isArray(value) && value.length === 0)
 
 function fieldMetaOf(
   tables: Tables | undefined,
@@ -93,7 +90,7 @@ const TEXT_BY_TYPE: Readonly<Record<string, (value: unknown, lang: string) => st
   datetime: (value, lang) => formatDate(value, lang, true),
   'created-at': (value, lang) => formatDate(value, lang, true),
   'updated-at': (value, lang) => formatDate(value, lang, true),
-  checkbox: (value) => (value === true || value === 'true' || value === 1 ? 'Yes' : 'No'),
+  checkbox: (value) => (checkboxLiteralOf(value) === true ? 'Yes' : 'No'),
 }
 
 /** A select or status as its chip, a multi-select as one chip per choice. */
@@ -103,9 +100,7 @@ function choiceChips(
   options: readonly SelectOptionLike[] | undefined
 ): ReactNode {
   if (type === 'single-select' || type === 'status') return optionChip(String(value), options)
-  if (type === 'multi-select' && Array.isArray(value)) {
-    return value.map((entry) => optionChip(String(entry), options))
-  }
+  if (type === 'multi-select') return listValuesOf(value).map((entry) => optionChip(entry, options))
   return undefined
 }
 
@@ -133,7 +128,8 @@ export function renderFieldDetail({
   readonly tables: Tables | undefined
   readonly lang: string
 }): ReactNode {
-  if (isEmpty(value)) return undefined
+  // An empty list is empty in either stored shape: `[]`, or its JSON text on SQLite.
+  if (isEmptyCell(value)) return undefined
   const meta = fieldMetaOf(tables, tableName, fieldName)
   const type = meta?.type ?? ''
   const chips = choiceChips(type, value, meta?.options)

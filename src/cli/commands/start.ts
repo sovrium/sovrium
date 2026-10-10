@@ -17,7 +17,7 @@ import {
   resolveListenUnix,
   resolveSovriumLogFormat,
 } from '@/domain/models/process-env/server-lifecycle'
-import { printStderr, renderStderr } from '@/infrastructure/logging/cli-output'
+import { formatLine, printStderr, renderStderr } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import { activateLogFormat } from '@/infrastructure/logging/log-format'
 import {
@@ -32,7 +32,12 @@ import {
   portInUseMessage,
   resolveHostAddresses,
 } from '@/infrastructure/server/port-availability'
-import { isPublicDirOptOut, readPublicDirEnv, resolveDefaultPublicDir } from './option-parsing'
+import {
+  isPublicDirOptOut,
+  missingNamedPublicDir,
+  readPublicDirEnv,
+  resolveDefaultPublicDir,
+} from './option-parsing'
 import { watchConfigGraph } from './start-watch'
 import { lazyImportIndex, lazyImportLogger, lazyImportCli, resolveConfigAnchor } from './utils'
 import { collectConfigAttribution } from './validate'
@@ -193,6 +198,15 @@ export const handleStartCommand = async (
   if (options.hostname) logDebug(`[CLI] Hostname: ${options.hostname}`)
   if (options.publicDir) logDebug(`[CLI] Public directory: ${options.publicDir}`)
   if (watchMode) logDebug(`[CLI] Watch mode: enabled`)
+  // A directory the operator NAMED and got wrong is warned about once; the
+  // server still starts. A missing default `./public` stays quiet.
+  const missingPublicDir = explicitOptOut
+    ? undefined
+    : missingNamedPublicDir((publicDir || undefined) ?? envValue)
+  if (missingPublicDir) {
+    const text = `Public directory not found: ${missingPublicDir} — no static files are served`
+    printStderr(formatLine({ glyph: 'warn', text }).join('\n'))
+  }
 
   // Start the server.
   //

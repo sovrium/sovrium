@@ -15,7 +15,7 @@
  * (one fetch, one of three outcomes).
  */
 
-import { utcCalendarDay } from '@/domain/models/app/pages/components/relative-date-filter'
+import { utcMinuteInstant } from '@/domain/models/app/pages/components/relative-date-filter'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { resolveCurrentUserFilters } from './current-user-filter-pass'
 import { scopeTablesOf } from './current-user-resolver'
@@ -82,7 +82,7 @@ async function concreteBindingOf(
   if (binding.filter === undefined || binding.filter.length === 0) return binding
   const host = bindRouteParams({ type: 'container', dataSource: binding } as Component, routeParams)
   const resolved = await resolveCurrentUserFilters(host, {
-    today: utcCalendarDay(serverNow()),
+    now: utcMinuteInstant(serverNow()),
     session: reader.session,
     cookies: reader.cookies,
     db: reader.db,

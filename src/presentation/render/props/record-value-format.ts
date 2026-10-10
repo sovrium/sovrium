@@ -11,6 +11,7 @@ import {
   formatCellValue,
   type CellFormatOptions,
 } from '@/domain/models/app/tables/cell-value-format'
+import { fieldLiteralOf } from '@/domain/models/app/tables/checkbox-literal-service'
 import {
   formatRecordText,
   type RecordTextField,
@@ -245,12 +246,12 @@ export const formatRecordValue = (
 }
 
 /**
- * A `Date` the database driver decoded, as the records API returns it: a `date`
- * field as its day (`YYYY-MM-DD`), anything else as its ISO 8601 instant. On
- * SQLite a value is already text and passes through.
+ * A value as the records API returns it: a `Date` the driver decoded as a `date`
+ * field's day (`YYYY-MM-DD`) or else its ISO 8601 instant (SQLite text passes
+ * through), and a checkbox as a boolean on both engines (SQLite stores `1`).
  */
 const storedValueOf = (value: unknown, fieldType: string | undefined): unknown => {
-  if (!(value instanceof Date)) return value
+  if (!(value instanceof Date)) return fieldLiteralOf(fieldType, value)
   if (Number.isNaN(value.getTime())) return undefined
   return fieldType === 'date' ? value.toISOString().slice(0, 10) : value.toISOString()
 }

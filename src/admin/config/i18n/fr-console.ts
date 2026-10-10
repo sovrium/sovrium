@@ -117,6 +117,9 @@ export default {
     'M’écrire chaque semaine ce qui a tourné, ce qui a échoué et comment les données ont évolué.',
   'admin.profile.notifications.weeklyDigest.formRegion': 'Changer ton résumé hebdomadaire',
 
+  'admin.profile.cloud.label': 'Sovrium Cloud',
+  'admin.profile.cloud.connect': 'Connecter le compte Sovrium Cloud',
+  'admin.profile.cloud.disconnect': 'Déconnecter le compte Sovrium Cloud',
   'admin.profile.data.label': 'Tes données',
   'admin.profile.data.hint':
     'Exporte tout ce que cette instance détient sur toi, ou efface ton compte.',
@@ -201,6 +204,7 @@ export default {
   'admin.login.blurb': 'La console d’exploitation de ',
   'admin.login.submit': 'Se connecter',
   'admin.login.pending': 'Connexion…',
+  'admin.login.cloudSignIn': 'Se connecter avec Sovrium Cloud',
   'admin.login.forgotLink': 'Mot de passe oublié ?',
 
   'admin.forgotPassword.heading': 'Mot de passe oublié',

@@ -128,10 +128,13 @@ export const quietLink = (label: string, href: string): BlockNode => ({
 /**
  * The page and the card: centred on the page ground at `sm` and up; on a phone
  * the card has no frame and the content starts at the top.
+ *
+ * A `section`, not a `main`: the page already wraps its components in the one
+ * `main` landmark, and a second would leave the page with two.
  */
 export const authPage = (children: readonly BlockNode[], wide = false): BlockNode => ({
   type: 'container',
-  element: 'main',
+  element: 'section',
   props: {
     className:
       'flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6',

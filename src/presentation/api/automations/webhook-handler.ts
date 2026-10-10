@@ -87,7 +87,9 @@ const findWebhookAutomation = (app: App, name: string, pausedNames: ReadonlySet<
   if (automation === undefined) return undefined
   if (!isAutomationOperationallyEnabled(automation, pausedNames)) return undefined
   // The webhook ENTRY, with its own auth; never another entry of the automation.
-  return triggerOfType(automation, 'webhook')
+  // A protocol entry answers only at its protocol's paths (telemetry-ingest-handler.ts).
+  const trigger = triggerOfType(automation, 'webhook')
+  return trigger?.protocol === undefined ? trigger : undefined
 }
 
 const queryToRecord = (c: Context): Readonly<Record<string, string>> => {

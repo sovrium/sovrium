@@ -8,6 +8,7 @@
 import { formatCompactCurrency } from '@/domain/kernel/format/compact-currency'
 import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { resolvePageLocale } from '../runtime/page-locale'
+import { resolvePageTimezone } from '../runtime/page-timezone'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 
 /**
@@ -53,6 +54,47 @@ export function monthKeyLabeller(keys: readonly string[]): ((key: string) => str
       ? key
       : format.format(new Date(Date.UTC(Number(month[1]), Number(month[2]) - 1, 1)))
   }
+}
+
+/** A sub-day bucket key, as an `hour` or `minute` interval groups a date: an ISO instant. */
+const INSTANT_KEY = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
+
+/**
+ * The labeller of a date axis whose every key is an instant (an `hour` or
+ * `minute` bucket): each key printed as its time of day on a 24-hour clock in
+ * the operator timezone (`15:00`), with its day and short month in the page
+ * language when the keys fall on more than one day there (`Oct 9, 22:00`).
+ * `undefined` when any key carries no time, so a day or month axis keeps its
+ * own label.
+ */
+export function timeKeyLabeller(keys: readonly string[]): ((key: string) => string) | undefined {
+  if (keys.length === 0 || keys.some((key) => !INSTANT_KEY.test(key))) return undefined
+  const timeZone = resolvePageTimezone()
+  const zone = timeZone === undefined ? {} : { timeZone }
+  const dayOf = new Intl.DateTimeFormat('en-CA', { dateStyle: 'short', ...zone })
+  const days = new Set(keys.map((key) => dayOf.format(new Date(key))))
+  const format = new Intl.DateTimeFormat(usableLocale(resolvePageLocale()), {
+    ...(days.size > 1 ? { day: 'numeric', month: 'short' } : {}),
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    ...zone,
+  })
+  return (key) => format.format(new Date(key))
+}
+
+/**
+ * The labeller of a category axis declared with `format`: a date axis of
+ * instants reads as times ({@link timeKeyLabeller}), any other date axis as
+ * `<Month> <Year>`; an undeclared axis of month buckets reads as months
+ * ({@link monthKeyLabeller}); anything else through {@link formatAxisLabel}.
+ */
+export function axisKeyLabeller(
+  keys: readonly string[],
+  format: ChartAxisFormat | undefined
+): (key: string) => string {
+  const labeller = format === 'date' ? timeKeyLabeller(keys) : monthKeyLabeller(keys)
+  return labeller ?? ((key) => formatAxisLabel(key, format))
 }
 
 const MONTH_NAMES = [

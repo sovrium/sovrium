@@ -31,6 +31,16 @@ import type { AnnouncedRowChange } from '@/domain/models/app/tables/realtime-ann
  * that can write a record can also announce it.
  */
 
+/**
+ * The tables whose record writes stay out of the activity log — those declaring
+ * `activityLog: false`. The announcing scope installs it from the app, the
+ * activity-log writer drops the entries of these tables before its INSERT.
+ * Outside any announcing scope it is empty: every write is recorded.
+ */
+export const UnauditedTables = Context.Reference<ReadonlySet<string>>('sovrium/UnauditedTables', {
+  defaultValue: () => new Set<string>(),
+})
+
 /** One row a repository write committed, as the database holds it. */
 export interface CommittedRowChange {
   readonly tableName: string

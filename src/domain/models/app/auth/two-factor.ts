@@ -33,7 +33,10 @@ export const TwoFactorConfigSchema = Schema.Union([
   Schema.Struct({
     issuer: Schema.optional(
       Schema.String.pipe(
-        Schema.annotate({ description: 'Issuer name shown in authenticator apps' })
+        Schema.annotate({
+          description: 'Issuer name shown in authenticator apps',
+          defaultNote: "the app's display name ($app.label)",
+        })
       )
     ),
     backupCodes: Schema.optional(

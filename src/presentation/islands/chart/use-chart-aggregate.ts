@@ -32,7 +32,7 @@ const aggregateParam = (config: ChartAggregateConfig): string | undefined =>
 
 /**
  * The chart's own aggregate, restated over one row per group: a sum, an
- * average, a minimum or a maximum of one value is that value, so the canvas
+ * average, a minimum, a maximum or a percentile of one value is that value, so the canvas
  * reduces the rows to the figures the database computed; a count becomes the
  * sum of each group's count.
  */
@@ -48,8 +48,10 @@ const groupRows = (
     // An empty value groups as `''`; a chart draws no category for a record without one.
     .filter((group) => group.name !== null && group.name !== '')
     .flatMap((group) => {
-      const value =
-        config.function === 'count' ? group.count : Number(group.aggregations?.[config.function])
+      const figure =
+        config.function === 'count' ? group.count : group.aggregations?.[config.function]
+      // A figure over no values (a percentile, an average) is `null`: nothing to draw, never a 0.
+      const value = figure === null ? Number.NaN : Number(figure)
       if (!Number.isFinite(value)) return []
       const field = config.function === 'count' ? COUNT_FIELD : (config.field ?? COUNT_FIELD)
       return [{ [config.groupBy]: group.name, [field]: value } as TableRecord]

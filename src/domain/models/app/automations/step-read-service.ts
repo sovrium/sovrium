@@ -136,6 +136,12 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'auth/banUser',
   'auth/createUser',
   'auth/unbanUser',
+  'auth/addToGroup',
+  'auth/removeFromGroup',
+  // A sign-in client the step wrote; its secret is recorded as `***`.
+  'auth/registerOAuthClient',
+  'auth/rotateOAuthClientSecret',
+  'auth/deleteOAuthClient',
   'automation/return',
   'connection/call',
   'crypto/hash',
@@ -195,6 +201,8 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'instance/health',
   'instance/backup',
   'instance/restore',
+  // Per-table counts of the supervised app's seed: what was written there, not read here.
+  'instance/seed',
   'link/create',
   'link/delete',
   'pdf/merge',
@@ -215,6 +223,8 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
 /** Actions whose output carries stored data no reach judges, with why. */
 const UNJUDGED_READS: ReadonlyMap<string, string> = new Map([
   ['ai/transcribe', 'reads a stored recording'],
+  ['browser/run', 'reads the stored files it uploads and returns what earlier runs stored'],
+  ['browser/agent', 'returns what a site showed it, signed in through a session other runs keep'],
   ['code/runTypescript', 'its script may call any action'],
   ['digest/release', 'returns what other runs collected'],
   ['file/download', 'reads a stored file'],

@@ -31,7 +31,7 @@ import {
   CHART_X_TICK_BASELINE_OFFSET,
   CHART_Y_TICK_GAP,
 } from '@/presentation/design/chart-default-classes'
-import { formatAxisValue } from './chart-format'
+import { formatAxisValue, timeKeyLabeller, type ChartAxisFormat } from './chart-format'
 import { CHART_MARGIN } from './chart-series-shared'
 import type { ChartAxisDisplay, ChartValueScale } from './chart-series-shared'
 import type { scaleBand, scalePoint } from '@visx/scale'
@@ -254,12 +254,16 @@ export function PointScaleAxes({
   innerHeight,
   valueScale,
   valueAxis,
+  format,
 }: ValueAxisProps & {
   readonly keys: readonly string[]
+  /** The declared `xAxis.format`: `date` labels instant keys by their time of day. */
+  readonly format?: ChartAxisFormat | undefined
   readonly xScale: ReturnType<typeof scalePoint<string>>
   readonly innerWidth: number
   readonly innerHeight: number
 }): ReactElement {
+  const keyLabel = format === 'date' ? timeKeyLabeller(keys) : undefined
   return (
     <g>
       <AxisBaselines
@@ -275,7 +279,7 @@ export function PointScaleAxes({
       {keys.map((k) => (
         <XTickLabel
           key={`x-label-${k}`}
-          label={k}
+          label={keyLabel?.(k) ?? k}
           x={xScale(k) ?? 0}
           y={innerHeight + CHART_X_TICK_BASELINE_OFFSET}
         />
@@ -295,12 +299,16 @@ export function BandScaleAxes({
   innerHeight,
   valueScale,
   valueAxis,
+  format,
 }: ValueAxisProps & {
   readonly keys: readonly string[]
+  /** The declared `xAxis.format`: `date` labels instant keys by their time of day. */
+  readonly format?: ChartAxisFormat | undefined
   readonly xScale: ReturnType<typeof scaleBand<string>>
   readonly innerWidth: number
   readonly innerHeight: number
 }): ReactElement {
+  const keyLabel = format === 'date' ? timeKeyLabeller(keys) : undefined
   const bandwidth = xScale.bandwidth()
   return (
     <g>
@@ -317,7 +325,7 @@ export function BandScaleAxes({
       {keys.map((k) => (
         <XTickLabel
           key={`x-label-${k}`}
-          label={k}
+          label={keyLabel?.(k) ?? k}
           x={(xScale(k) ?? 0) + bandwidth / 2}
           y={innerHeight + CHART_X_TICK_BASELINE_OFFSET}
         />

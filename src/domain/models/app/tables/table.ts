@@ -9,6 +9,7 @@ import { Schema, SchemaGetter } from 'effect'
 import { TableIdSchema } from '@/domain/kernel/identity/branded-ids'
 import { AiAccessSchema } from '@/domain/models/app/auth/ai-access'
 import { validateNoLookupCycle } from '@/domain/models/app/tables/lookup-cycle-validation'
+import { validateRetention } from '@/domain/models/app/tables/retention-validation'
 import { validateRowRuleChains } from '@/domain/models/app/tables/row-rule-chain-validation'
 import { validateRowRuleTypes } from '@/domain/models/app/tables/row-rule-types-validation'
 import { validateDistinctDerivedTableNames } from '@/domain/models/app/tables/table-derived-name-validation'
@@ -41,6 +42,7 @@ import { IndexesSchema } from './indexes'
 import { NameSchema } from './name'
 import { TablePermissionsSchema } from './permissions'
 import { PrimaryKeySchema } from './primary-key'
+import { TableRetentionSchema } from './retention'
 import { RowLevelPermissionsSchema } from './row-level-permissions'
 import { ViewSchema } from './views'
 import { WebhookSchema } from './webhooks'
@@ -145,7 +147,7 @@ const validateTableSchema = (table: TableShape): ValidationError | true => {
   const webhookError = validateWebhooks(table.webhooks, fieldNames)
   if (webhookError) return webhookError
 
-  return true
+  return validateRetention(table) ?? true
 }
 
 const TableStruct = Schema.Struct({
@@ -403,6 +405,25 @@ const TableStruct = Schema.Struct({
 
   /** How a CSV import into this table behaves — see {@link TableImportSchema}. */
   import: Schema.optional(TableImportSchema),
+
+  /** How long the rows of this table are kept — see {@link TableRetentionSchema}. */
+  retention: Schema.optional(TableRetentionSchema),
+
+  /**
+   * Whether writes to this table are recorded in the activity log.
+   *
+   * Every record create, update, delete and restore writes one activity-log
+   * row carrying the before-and-after values — often larger than the record
+   * itself. A table that receives thousands of machine-written rows a day can
+   * turn that off; the record-history API then has nothing to show for it.
+   */
+  activityLog: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        "Whether record writes to this table — create, update, delete, restore — are recorded in the activity log. `false` records none, so neither the activity log nor a record's history shows them; use it for a table of machine-written rows nobody audits one by one. Other tables, and the app's sign-in and administrative events, are recorded as usual.",
+      defaultNote: 'true',
+    })
+  ),
 
   /**
    * Comment system configuration for this table.

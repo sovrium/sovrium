@@ -43,6 +43,7 @@ import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { generateJunctionTableName } from '@/infrastructure/database/sql/sql-junction-tables'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
+import { dryRunLines } from './seed-report'
 import { emptyKeyIndex, idOfKey, resolveSeedFields, withKey } from './seed-resolve'
 import type { Resolved, SeedKeyIndex, SeedResolveContext } from './seed-resolve'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -346,23 +347,6 @@ const runReplaceDeletes = (input: ExecuteSeedPlanInput): Promise<void> =>
     })
 
 /**
- * The report a `--dry-run` prints instead of writing.
- *
- * Under `upsert` it says "would write", never "would create": whether each row
- * is created or updated depends on what the table holds when the run happens,
- * and a dry run that counted replayed rows as creations would misreport every
- * idempotent re-import.
- */
-export const dryRunLines = (plan: SeedPlan, mode: SeedMode): readonly string[] =>
-  plan.order.flatMap((name) => {
-    const table = plan.tables.find((candidate) => candidate.name === name)
-    if (table === undefined) return []
-    return mode === 'upsert'
-      ? [`[dry-run] ${name}: would write ${table.records.length} records (mode: upsert)`]
-      : [`[dry-run] ${name}: would create ${table.records.length} records`]
-  })
-
-/**
  * Run the plan and return the per-table report an operator reads in a journal.
  *
  * Throws {@link SeedWriteError} on any failure — there is no partial-success
@@ -370,7 +354,14 @@ export const dryRunLines = (plan: SeedPlan, mode: SeedMode): readonly string[] =
  * code is the only signal the nightly reset produces.
  */
 export const executeSeedPlan = async (input: ExecuteSeedPlanInput): Promise<readonly string[]> => {
-  if (input.dryRun) return [...dryRunLines(input.plan, input.mode), '[dry-run] no changes written']
+  if (input.dryRun) {
+    // `if-empty` skips a table that holds rows, so its plan says which ones would be skipped.
+    const counted = input.mode === 'if-empty' ? input.plan.order : []
+    const present = new Map(
+      await Promise.all(counted.map(async (n) => [n, await countRows(n)] as const))
+    )
+    return [...dryRunLines(input.plan, input.mode, present), '[dry-run] no changes written']
+  }
 
   const cleared = input.mode === 'replace' ? runReplaceDeletes(input) : Promise.resolve()
   const context: SeedResolveContext = {

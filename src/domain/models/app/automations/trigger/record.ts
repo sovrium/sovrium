@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { ConditionGroupSchema } from '../conditions'
+import { TriggerHistorySchema } from './trigger-history'
 import { TriggerNameSchema } from './trigger-name'
 
 /**
@@ -23,6 +24,9 @@ export const RecordTriggerSchema = Schema.Struct({
 
   /** Name of this trigger within its automation (defaults to its type) */
   name: Schema.optional(TriggerNameSchema),
+
+  /** How much of a run this trigger starts is kept once it ends (defaults to `full`) */
+  history: Schema.optional(TriggerHistorySchema),
   table: Schema.String.pipe(
     Schema.annotate({ description: 'Name of the table to watch for record events' }),
     Schema.check(Schema.isMinLength(1))

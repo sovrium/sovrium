@@ -348,6 +348,36 @@ export const aggregationsSchema = Schema.Struct({
         'Maximum aggregation(s): a number, or a date as its ISO string; null over no values',
     })
   ),
+  p50: optionalField(
+    aggregationValueSchema.annotate({
+      description:
+        '50th percentile (the median), interpolated between the two nearest values; null over no values',
+    })
+  ),
+  p75: optionalField(
+    aggregationValueSchema.annotate({
+      description:
+        '75th percentile, interpolated between the two nearest values; null over no values',
+    })
+  ),
+  p90: optionalField(
+    aggregationValueSchema.annotate({
+      description:
+        '90th percentile, interpolated between the two nearest values; null over no values',
+    })
+  ),
+  p95: optionalField(
+    aggregationValueSchema.annotate({
+      description:
+        '95th percentile, interpolated between the two nearest values; null over no values',
+    })
+  ),
+  p99: optionalField(
+    aggregationValueSchema.annotate({
+      description:
+        '99th percentile, interpolated between the two nearest values; null over no values',
+    })
+  ),
 }).annotate({ description: 'Aggregation results' })
 
 /**

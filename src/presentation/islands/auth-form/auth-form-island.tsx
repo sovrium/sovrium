@@ -10,6 +10,7 @@ import {
   authSubmitLabel,
   defaultAuthFields,
   isAccountFormMethod,
+  isAccountLinkMethod,
   type AuthFormField,
   type AuthMethod,
 } from '@/presentation/design/auth-form-types'
@@ -19,15 +20,16 @@ import {
 } from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { AccountMethodBoundary } from './account-method-boundary'
+import { AccountLinkBoundary, AccountMethodBoundary } from './account-method-boundary'
 import { AuthFormFeedback } from './auth-form-feedback'
 import { AuthErrorSummary, AuthFieldRow } from './auth-form-fields'
 import { OAuthSignInForm } from './auth-form-oauth'
 import { PasskeyForm } from './auth-form-passkey'
 import { SsoSignInForm, type SsoButtonProvider } from './auth-form-sso'
-import { useAuthFormState } from './auth-form-state'
+import { useAuthFormState, type AuthFormStateInput } from './auth-form-state'
 import { type ToastConfig } from './auth-form-submit'
 import { AuthSuccessPage, type AuthSuccessPageConfig } from './auth-form-success-page'
+import type { TwoFactorNotice } from './two-factor-notice'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -72,6 +74,10 @@ interface AuthFormIslandProps {
   /** `verifyTwoFactor`'s factor and its "Trust this device" offer (`account-method-form`). */
   readonly factor?: string
   readonly trustDevice?: boolean
+  /** `login`: the page an account still owing its code is sent to (`onTwoFactor.navigate`). */
+  readonly twoFactorPath?: string
+  /** `verifyTwoFactor`: what it says when no sign-in waits for its code. */
+  readonly twoFactorNotice?: TwoFactorNotice
   /** The query key an invitation answer reads its token from (`page.invitation.param`). */
   readonly tokenParam?: string
   /** The island's own words in the page language, where they differ from English. */
@@ -107,20 +113,30 @@ const credentialLabels = (props: AuthFormIslandProps) => ({
   pendingLabel: props.pendingLabel ?? authPendingLabel(props.method),
 })
 
+/** What a credential form's state drives its submit with. */
+const credentialStateInput = (
+  props: AuthFormIslandProps,
+  fields: readonly AuthFormField[]
+): AuthFormStateInput => ({
+  method: props.method,
+  strategy: props.strategy,
+  fields,
+  redirectUrl: props.redirectUrl,
+  successToast: props.successToast,
+  errorToast: props.errorToast,
+  hasSuccessPage: props.successPage !== undefined,
+  pendingSignIn: props.uiStrings?.['twoFactor.pendingSignIn'],
+  twoFactorPath: props.twoFactorPath,
+})
+
 function CredentialAuthForm(props: AuthFormIslandProps) {
-  const { method, redirectUrl, successToast, errorToast, className, initialValues } = props
+  const { method, className, initialValues } = props
   const fields = credentialFields(props)
   const { submitLabel, pendingLabel } = credentialLabels(props)
 
-  const { fieldErrors, summaryErrors, state, handleBlur, handleSubmit } = useAuthFormState({
-    method,
-    strategy: props.strategy,
-    fields,
-    redirectUrl,
-    successToast,
-    errorToast,
-    hasSuccessPage: props.successPage !== undefined,
-  })
+  const { fieldErrors, summaryErrors, state, handleBlur, handleSubmit } = useAuthFormState(
+    credentialStateInput(props, fields)
+  )
 
   if (props.successPage !== undefined && state.sentValues !== undefined)
     return (
@@ -187,6 +203,7 @@ function CredentialAuthForm(props: AuthFormIslandProps) {
  * not sit behind a conditional return.
  */
 export default function AuthFormIsland(props: AuthFormIslandProps) {
+  if (isAccountLinkMethod(props.method)) return <AccountLinkBoundary {...props} />
   if (isAccountFormMethod(props.method)) {
     return <AccountMethodBoundary {...props} />
   }
@@ -219,6 +236,7 @@ export default function AuthFormIsland(props: AuthFormIslandProps) {
     return (
       <OAuthSignInForm
         provider={props.provider ?? ''}
+        label={props.submitLabel}
         callbackUrl={props.redirectUrl}
         className={props.className}
         id={props.id}

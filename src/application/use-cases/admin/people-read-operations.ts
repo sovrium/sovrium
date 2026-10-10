@@ -35,6 +35,7 @@ import {
   type AdminReadOperation,
 } from '@/application/use-cases/admin/admin-read-operation'
 import { ListAuditEvents } from '@/application/use-cases/admin/audit-log/emit'
+import { GROUPS_READ_OPERATIONS } from '@/application/use-cases/admin/groups-read-operations'
 import { buildAdminOrganisationGraph } from '@/application/use-cases/admin/organisation-graph'
 import { ROLES_READ_OPERATIONS } from '@/application/use-cases/admin/roles-read-operations'
 import {
@@ -165,7 +166,7 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
   tool: {
     suffix: 'users_list',
     description:
-      'Search and page the account directory — id, email, name, role and whether banned — as GET /api/admin/users answers it in JSON (admin-only, read-only).',
+      'Search and page the account directory — id, email, name, role, whether banned and the groups each account belongs to — as GET /api/admin/users answers it in JSON (admin-only, read-only).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -352,12 +353,16 @@ const auditLogList = defineAdminRead<AuditListFilter>({
 
 // ─── Area ────────────────────────────────────────────────────────────────────
 
-/** The account reads (overview and directory), the invitations and the assignable roles. */
+/**
+ * The account reads (overview and directory), the invitations, the assignable
+ * roles and the declared groups.
+ */
 export const USERS_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
   usersOverview,
   usersDirectory,
   invitationsList,
   ...ROLES_READ_OPERATIONS,
+  ...GROUPS_READ_OPERATIONS,
 ]
 
 /** The organisation graph. */

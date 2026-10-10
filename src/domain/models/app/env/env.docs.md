@@ -66,3 +66,5 @@ A value resolved from `$env` is redacted from run logs, from the step outputs th
 ## This block is the app's, not the operator's
 
 `env` is what the configuration **declares it needs**. It is a different thing from the variables that govern the running instance's own footprint — the `ECO_*` family, the database URL, the storage provider — which are set by whoever operates the deployment and are not part of the app schema at all. An automation's AI actions honour the operator's routing precedence automatically; nothing in `env` overrides it.
+
+A key starting with `SOVRIUM_PLATFORM_SSO_` is refused: those variables carry the client secret of **Sign in with Sovrium Cloud**, which the Cloud sets for an app it hosts, and a declared key would make that secret readable as `$env` by every automation.

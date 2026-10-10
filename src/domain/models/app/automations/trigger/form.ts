@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { FormNameSchema } from '../../forms/name'
+import { TriggerHistorySchema } from './trigger-history'
 import { TriggerNameSchema } from './trigger-name'
 
 /**
@@ -32,6 +33,9 @@ export const FormTriggerSchema = Schema.Struct({
 
   /** Name of this trigger within its automation (defaults to its type) */
   name: Schema.optional(TriggerNameSchema),
+
+  /** How much of a run this trigger starts is kept once it ends (defaults to `full`) */
+  history: Schema.optional(TriggerHistorySchema),
   /** Top-level form name from app.forms[].name. Cross-validated. */
   form: FormNameSchema,
 }).pipe(

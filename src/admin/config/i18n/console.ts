@@ -244,6 +244,9 @@ export default {
     'Email me every week with what ran, what failed and how the data grew.',
   'admin.profile.notifications.weeklyDigest.formRegion': 'Change your weekly summary',
 
+  'admin.profile.cloud.label': 'Sovrium Cloud',
+  'admin.profile.cloud.connect': 'Connect Sovrium Cloud account',
+  'admin.profile.cloud.disconnect': 'Disconnect Sovrium Cloud account',
   'admin.profile.data.label': 'Your data',
   'admin.profile.data.hint':
     'Export everything this instance holds about you, or erase your account.',
@@ -348,6 +351,7 @@ export default {
   // label that falls back to a generic default says the button is busy but not
   // what it is busy doing.
   'admin.login.pending': 'Signing in…',
+  'admin.login.cloudSignIn': 'Sign in with Sovrium Cloud',
   'admin.login.forgotLink': 'Forgot your password?',
 
   // ── Forgot password (`/forgot-password`) ────────────────────────────────

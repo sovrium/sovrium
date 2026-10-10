@@ -60,6 +60,7 @@ import { handleChangelogCommand } from '@/cli/commands/changelog'
 import { handleDeployCommand } from '@/cli/commands/deploy'
 import { handleDesignSystemCommand } from '@/cli/commands/design-system'
 import { handleDocsCommand } from '@/cli/commands/docs'
+import { handleEnvCommand } from '@/cli/commands/env'
 import { handleInitCommand } from '@/cli/commands/init'
 import { handleLibraryCommand } from '@/cli/commands/library'
 import { handleLicensesCommand } from '@/cli/commands/licenses'
@@ -135,7 +136,8 @@ const HELP_TEXT = [
   '  sovrium restore <file>        Put a backup back (never over a running server)',
   '  sovrium update                Update to the latest version',
   '  sovrium login                 Sign the CLI in to a Sovrium cloud',
-  '  sovrium deploy --app <slug>   Ship the app to your Sovrium cloud, follow it until live',
+  '  sovrium deploy [config]       Ship the app to your Sovrium cloud, follow it until live',
+  '  sovrium env <verb>            Set, list or remove the variables of a hosted app',
   '',
   'Options:',
   '  --help, -h                    Show this help message',
@@ -172,13 +174,14 @@ const HELP_TEXT = [
   '  --no-wire                     Write the fragment, print the wiring line (library add)',
   '  --tag <group>                 Install one operation group of a provider (library add)',
   '  --all                         Install every operation of a provider (library add)',
-  '  --yes                         Confirm --all above 50 operations (library add)',
+  '  --yes                         Confirm without a question (library add --all, deploy, env, seed)',
   '  --limit <n>                   The most results to print (library search)',
-  '  --host <url>                  The Sovrium cloud (login, deploy)',
+  '  --host <url>                  The Sovrium cloud (login, deploy, seed)',
   '  --api-key <key>               Sign in with a key you already have (login)',
   '  --open                        Open the approval page in your browser (login)',
   '  --status | --logout           Print or end the stored sign-in (login)',
-  '  --app <slug>                  The hosted app to deploy to (deploy)',
+  '  --app <slug>                  The hosted app (deploy, env, seed)',
+  '  --remote                      Seed the app this project is linked to (seed)',
   '  --no-wait                     Return once the deployment is recorded (deploy)',
   '',
   'Environment variables (all optional — Sovrium runs zero-config):',
@@ -253,6 +256,7 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
     handleBundleCommand({ configFile: parsed.configFile, outputPath: parsed.outputPath }),
   login: async () => handleLoginCommand(rawArgs),
   deploy: async () => handleDeployCommand({ configFile: parsed.configFile, argv: rawArgs }),
+  env: async () => handleEnvCommand({ args: parsed.positionalArgs ?? [], argv: rawArgs }),
   restore: async () =>
     handleRestoreCommand({
       archivePath: parsed.configFile,
@@ -363,6 +367,7 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
       dryRun: parsed.dryRun ?? false,
       as: parsed.seedAs,
       today: parsed.seedToday,
+      argv: rawArgs,
     }),
 }
 

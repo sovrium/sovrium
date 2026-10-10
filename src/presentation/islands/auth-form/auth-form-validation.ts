@@ -64,3 +64,13 @@ export function withFieldError(
   const entries = Object.entries(errors).filter(([key]) => key !== name)
   return Object.fromEntries(error ? [...entries, [name, error]] : entries)
 }
+
+/**
+ * Whether `field` is the code a waiting sign-in asks for on a page of its own —
+ * the one field that takes focus as the page opens. Never on the page holding
+ * the password form too, where focus stays where the reader is typing.
+ */
+export const takesCodeFocus = (
+  field: AuthFormField,
+  notice: { readonly focusCode?: boolean } | undefined
+): boolean => notice?.focusCode === true && field.autoComplete === 'one-time-code'

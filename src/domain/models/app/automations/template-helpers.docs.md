@@ -174,6 +174,7 @@ A condition holds unless it is `false`, `0`, an empty text, or missing.
 | `base64Encode v` / `base64Decode v` | Base64 of the UTF-8 text, and back                                                         | `Basic {{base64Encode credentials}}`  |
 | `md5 v` / `sha256 v`                | The hexadecimal digest (nothing when the value is missing, never the digest of "")         | `{{sha256 payload}}`                  |
 | `safeHtml v`                        | Sanitised rich text kept as markup in an HTML output (see Escaping)                        | `{{{safeHtml record.note}}}`          |
+| `totp v`                            | The current six-digit one-time code (RFC 6238) for the base32 secret it is given           | `{{totp $env.PORTAL_TOTP_SECRET}}`    |
 
 ## Types
 

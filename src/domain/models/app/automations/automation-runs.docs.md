@@ -107,6 +107,26 @@ A replay runs only the steps a failure left `skipped`. A run a filter stopped, a
 
 A replay body may carry `triggerData` to replay with a different payload, and only an admin may send one — anyone else who may replay the run gets `403` and replays it with its own payload by sending no body.
 
+## How long runs are kept
+
+Runs are kept until something removes them. Two settings bound them, one for the operator and one for the author.
+
+**`SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS`** sets, in whole days from 1 to 36500, how long a run is kept once it has ended. Once a day, at 03:45 in the operator timezone, every run that ended and was created before the start of the day that many days ago is deleted with its steps; with `30`, a sweep on 1 October deletes the ended runs created before 1 September. A run still queued, running, waiting for an approval or waiting on a delay is never deleted, however old. Unset, which is the default, keeps every run. A value that is not a whole number in that range refuses to start the server, naming the variable and the value.
+
+```bash
+SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS=30
+```
+
+**`history` on a trigger** sets how much of each run it starts is kept. `full`, the default, keeps everything this page describes. `minimal` keeps the run itself — its status, the trigger that started it, who started it, its timings and its error — and neither its trigger data nor its steps. Use it on a trigger that fires often, a busy webhook or a frequent schedule, whose runs nobody reads one by one. A `minimal` run that waits on an approval or a long delay keeps what it needs to resume until it ends. It cannot be replayed with its own data, since none was kept: a replay without `triggerData` is refused with `409`, and an admin may still replay it with new `triggerData`.
+
+```yaml
+triggers:
+  - { type: webhook, method: POST, history: minimal }
+  - { type: manual }
+```
+
+The setting is per trigger, so in this automation the webhook's runs are light while a run started by hand keeps every step.
+
 ## Pausing an automation
 
 An operator can pause an automation from the console's automations page and resume it the same way. A paused automation starts no new run from any trigger until it is resumed; runs already in progress finish. The pause is operational state, not configuration: it survives a restart, and the config file is never edited. An automation disabled in the config itself cannot be paused or resumed.

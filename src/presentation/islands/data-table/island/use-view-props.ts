@@ -101,7 +101,7 @@ function buildDisplayProps(props: DataTableViewProps, derived: ViewDerived): Dis
   return {
     table: props.table,
     tableName: props.tableName,
-    canExportSelection: props.selectionConfig?.mode === 'multiple',
+    canExportSelection: props.selectionConfig?.mode === 'multiple' && derived.flags.exportSelection,
     selectedCount: props.selectedCount,
     exportEnabled: derived.flags.export,
     systemExportEndpoint: props.systemExportEndpoint,

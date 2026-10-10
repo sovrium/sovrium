@@ -47,8 +47,12 @@ const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
     ? (value as Readonly<Record<string, unknown>>)
     : {}
 
-/** Whether a stored `results[]` entry is a failed item's `{ error }`. */
-const isFailedResult = (entry: unknown): boolean => 'error' in asRecord(entry)
+/**
+ * Whether a stored `results[]` entry is a failed item's `{ error }` — its text.
+ * An item whose last output carries an `error` OBJECT (a tolerated `http/*`
+ * failure's `{ code, message }`) completed, and is not one.
+ */
+const isFailedResult = (entry: unknown): boolean => typeof asRecord(entry)['error'] === 'string'
 
 /**
  * Where a resumed loop stands: the tally of the items it finished before the

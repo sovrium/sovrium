@@ -13,7 +13,16 @@ import {
 import { AccountProvisioner } from '@/application/ports/services/account-provisioner'
 import { isValidEmail } from '@/domain/kernel/sanitize/email-validation'
 import { getStrategy } from '@/domain/models/app/auth'
+import { PLATFORM_SSO_PROVIDER_ID } from '@/domain/models/process-env/platform-sso'
 import { Logger } from '@/infrastructure/logging/logger'
+import {
+  ADMIN_EMAIL_WITHOUT_WAY_IN_WARNING,
+  adminEmailWithoutWayIn,
+  parseAdminBootstrapConfig,
+  type AdminBootstrap,
+  type AdminBootstrapConfig,
+  type PlatformAdminSeed,
+} from './admin-bootstrap-config'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
 
@@ -40,46 +49,7 @@ export class BootstrapDatabaseError extends Data.TaggedError('BootstrapDatabaseE
 export const describeBootstrapDatabaseError = (error: Readonly<BootstrapDatabaseError>): string =>
   error.cause instanceof Error ? error.cause.message : String(error.cause)
 
-/**
- * Admin bootstrap configuration from environment variables
- */
-export interface AdminBootstrapConfig {
-  readonly email: string
-  readonly password: string
-  readonly name: string
-  /**
-   * Role assigned to the seeded admin. Read from the optional `AUTH_ADMIN_ROLE`
-   * env var, falling back to `'admin'`. Custom-role apps (e.g. cloud
-   * `operator`, partner `engineer`) set it to their highest-level role so the
-   * seeded admin can reach every access-gated page.
-   *
-   * Optional on the type until `parseAdminBootstrapConfig` populates it
-   * (Phase P, Gap 2 — implemented downstream); kept optional so the additive
-   * type change stays backward-compatible and typecheck-green.
-   */
-  readonly role?: string
-}
-
-/**
- * Parse admin bootstrap configuration from environment variables
- * Returns undefined if any required environment variable is missing (email or password)
- * Uses "Administrator" as default name if not provided
- */
-export const parseAdminBootstrapConfig = (): AdminBootstrapConfig | undefined => {
-  const email = process.env.AUTH_ADMIN_EMAIL
-  const password = process.env.AUTH_ADMIN_PASSWORD
-  const name = process.env.AUTH_ADMIN_NAME
-  const role = process.env.AUTH_ADMIN_ROLE
-
-  // Email and password are required
-  if (!email || !password) {
-    return undefined
-  }
-
-  // Use default name if not provided, and default role to 'admin' so the
-  // additive AUTH_ADMIN_ROLE override stays backward-compatible.
-  return { email, password, name: name || 'Administrator', role: role || 'admin' }
-}
+export { parseAdminBootstrapConfig, type AdminBootstrapConfig } from './admin-bootstrap-config'
 
 /**
  * Validate password strength (minimum 8 characters)
@@ -193,8 +163,8 @@ const validateBootstrapConfig = (
  */
 const checkBootstrapPreconditions = (
   app: App,
-  config: AdminBootstrapConfig | undefined
-): Effect.Effect<AdminBootstrapConfig | undefined, never, Logger> =>
+  config: AdminBootstrap | undefined
+): Effect.Effect<AdminBootstrap | undefined, never, Logger> =>
   Effect.gen(function* () {
     const logger = yield* Logger
     if (!config) {
@@ -255,27 +225,76 @@ export const createAdminAccount = (
   }).pipe(Effect.withSpan('auth.create-admin-account'))
 
 /**
+ * Seed the first admin of an app hosted on Sovrium Cloud: a user with no
+ * password, bound to the owner's Cloud user id, who signs in with Sovrium
+ * Cloud. Mints no bootstrap token (the caller's `AUTH_ADMIN_EMAIL` closes that
+ * window).
+ */
+const seedPlatformAdmin = (
+  seed: PlatformAdminSeed
+): Effect.Effect<void, InvalidEmailError | BootstrapDatabaseError, AccountProvisioner | Logger> =>
+  Effect.gen(function* () {
+    const logger = yield* Logger
+    if (!isValidEmail(seed.email)) return yield* new InvalidEmailError({ email: seed.email })
+    const accounts = yield* AccountProvisioner
+    yield* accounts
+      .createBoundUser({
+        email: seed.email,
+        name: seed.name,
+        role: seed.role,
+        providerId: PLATFORM_SSO_PROVIDER_ID,
+        accountId: seed.subject,
+      })
+      .pipe(Effect.mapError((error) => new BootstrapDatabaseError({ cause: error.cause })))
+    yield* logger.debug('[bootstrap-admin] admin bound to its Sovrium Cloud user', {
+      email: seed.email,
+    })
+  })
+
+/** The password path: today's `AUTH_ADMIN_EMAIL` + `AUTH_ADMIN_PASSWORD` seed. */
+const seedPasswordAdmin = (
+  app: App,
+  config: AdminBootstrapConfig
+): Effect.Effect<
+  void,
+  InvalidEmailError | WeakPasswordError | BootstrapDatabaseError | AuthDatabaseError,
+  AccountProvisioner | AuthRepository | Logger
+> =>
+  Effect.gen(function* () {
+    const logger = yield* Logger
+    yield* validateBootstrapConfig(config)
+    const accounts = yield* AccountProvisioner
+    const emailAndPasswordStrategy = getStrategy(app.auth, 'emailAndPassword')
+    const requireEmailVerification = emailAndPasswordStrategy?.requireEmailVerification ?? false
+    const { alreadyExists, userId } = yield* createAdminUser(
+      accounts,
+      config,
+      requireEmailVerification
+    )
+    if (alreadyExists) {
+      yield* logger.debug('[bootstrap-admin] skipped — admin user already exists', {
+        email: config.email,
+      })
+      return
+    }
+    yield* logger.debug('[bootstrap-admin] admin account created', { email: config.email })
+    yield* handlePostCreation(requireEmailVerification, userId)
+  })
+
+/**
  * Bootstrap admin account at application startup
  *
- * This use case creates an admin account if:
- * 1. Admin bootstrap environment variables are set
- * 2. Admin plugin is enabled in auth configuration
- * 3. No user exists with the provided email
- * 4. Email and password meet validation requirements
+ * This use case seeds the first admin when:
+ * 1. Admin bootstrap environment variables are set — a password, or the
+ *    platform sign-in naming the owner's Cloud user (see {@link AdminBootstrap})
+ * 2. Auth is configured
+ * 3. The app holds no human user yet
+ * 4. The email (and the password, on that path) meet validation requirements
  *
- * The account is created with:
- * - Verified email (emailVerified: true) - set by admin plugin hook
- * - Admin role - set by admin plugin hook
- * - Provided name and credentials
+ * `AUTH_ADMIN_EMAIL` set with neither a password nor the platform sign-in seeds
+ * nobody; on an empty app that leaves no way in, so it is said at startup.
  *
- * This is idempotent - if the account already exists, Better Auth handles it gracefully.
- *
- * Uses Better Auth's signUpEmail API which doesn't require authentication.
- * The admin plugin's user.created hook should set role='admin' and emailVerified=true
- * for bootstrap users (identified by email pattern or special marker).
- *
- * @param app - Application configuration
- * @returns Effect that succeeds with void or fails with error
+ * Idempotent: an app that already has a human user is left alone.
  */
 export const bootstrapAdmin = (
   app: App
@@ -286,14 +305,13 @@ export const bootstrapAdmin = (
 > =>
   Effect.gen(function* () {
     const parsedConfig = parseAdminBootstrapConfig()
+    const unreachable = app.auth !== undefined && adminEmailWithoutWayIn()
     const config = yield* checkBootstrapPreconditions(app, parsedConfig)
+    if (!config && !unreachable) return
 
-    if (!config) return
-
-    // When AUTH_ADMIN_EMAIL is set but a HUMAN user
-    // already exists, the env-var path no-ops entirely — no recreate, no
-    // env-admin user, and (because this skip happens BEFORE token-generation
-    // also short-circuits on human-user-count > 0 inside
+    // When a HUMAN user already exists, the env-var path no-ops entirely — no
+    // recreate, no env-admin user, and (because this skip happens BEFORE
+    // token-generation also short-circuits on human-user-count > 0 inside
     // generateBootstrapTokenIfNeeded) no token either.
     //
     // We count only sign-in-capable users (`countHumanUsers`), NOT every row in
@@ -308,33 +326,12 @@ export const bootstrapAdmin = (
     if (existingUserCount > 0) {
       yield* logger.debug(
         '[bootstrap-admin] skipped — human user(s) already exist (env-var bootstrap no-op)',
-        {
-          humanUsers: String(existingUserCount),
-        }
+        { humanUsers: String(existingUserCount) }
       )
       return
     }
-
-    yield* validateBootstrapConfig(config)
-
-    const accounts = yield* AccountProvisioner
-
-    const emailAndPasswordStrategy = getStrategy(app.auth, 'emailAndPassword')
-    const requireEmailVerification = emailAndPasswordStrategy?.requireEmailVerification ?? false
-
-    const { alreadyExists, userId } = yield* createAdminUser(
-      accounts,
-      config,
-      requireEmailVerification
-    )
-
-    if (alreadyExists) {
-      yield* logger.debug('[bootstrap-admin] skipped — admin user already exists', {
-        email: config.email,
-      })
-      return
-    }
-
-    yield* logger.debug('[bootstrap-admin] admin account created', { email: config.email })
-    yield* handlePostCreation(requireEmailVerification, userId)
+    if (!config) return yield* logger.warn(ADMIN_EMAIL_WITHOUT_WAY_IN_WARNING)
+    return config.kind === 'platform-sso'
+      ? yield* seedPlatformAdmin(config)
+      : yield* seedPasswordAdmin(app, config)
   }).pipe(Effect.withSpan('auth.bootstrap-admin'))

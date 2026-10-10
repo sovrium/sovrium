@@ -112,6 +112,7 @@ function buildGetSession(
         language?: string | null
         notifyAutomationAlerts?: boolean
         notifyWeeklyDigest?: boolean
+        twoFactorEnabled?: boolean | null
       }
       // An absent, empty or undeclared stored role grants nothing — never the
       // `member` default (the records API judges it the same way).
@@ -151,6 +152,10 @@ function buildGetSession(
         ...(typeof user.notifyWeeklyDigest === 'boolean'
           ? { notifyWeeklyDigest: user.notifyWeeklyDigest }
           : {}),
+        // The two-step switch, on an app that configures it: a column never
+        // written (NULL) reads `false`, so a condition compared with `false`
+        // admits a reader who never enrolled.
+        ...(app.auth?.twoFactor ? { twoFactorEnabled: user.twoFactorEnabled === true } : {}),
         isUnrestricted,
         groups,
         effectiveRoles,

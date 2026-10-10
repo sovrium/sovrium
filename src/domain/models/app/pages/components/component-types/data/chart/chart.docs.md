@@ -34,7 +34,7 @@ pages:
 
 ## `chartAggregate`
 
-`groupBy` is **required** — it names the field the records are grouped by, which is the chart's categories. `function` is `count`, `sum`, `avg`, `min` or `max`, and `field` is what the function operates on; omit it for `count`. `interval` buckets a date grouping into `day`, `week`, `month`, `quarter` or `year`.
+`groupBy` is **required** — it names the field the records are grouped by, which is the chart's categories. `function` is `count`, `sum`, `avg`, `min` or `max`, or a percentile — `p50` (the median), `p75`, `p90`, `p95` or `p99` — and `field` is what the function operates on; omit it for `count`. A percentile takes a number field and is interpolated between the two values around its rank, so 11 durations from 10 to 110 ms have a `p95` of 105 ms, the same on SQLite and PostgreSQL: a `p95` per route charts the slow tail an average hides. `interval` buckets a date grouping into `day`, `week`, `month`, `quarter` or `year`, and a `datetime` grouping also into `hour` or `minute`. Buckets are UTC; an hour or a minute is keyed by its first instant (`2026-10-09T14:00:00.000Z`), and a bucket holding no record is not drawn. With `xAxis.format: date`, an hour or minute bucket reads as its time of day in the operator timezone, and as day, month and time when the chart spans several days. A chart reads at most 500 buckets, so a minute chart is filtered to a window — `$now-1h` keeps the last 60 minutes.
 
 A `month` grouping labels its axis with the short month in the page language (`Jul`, `juil.`), adding the year when the axis spans more than one year (`Dec 2025`, `Jan 2026`).
 

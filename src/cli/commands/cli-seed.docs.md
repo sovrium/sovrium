@@ -154,12 +154,15 @@ The token is never read from a file, so a seed folder published with a template 
 ## Options
 
 - **`[config]`** — the config file. Auto-discovered when omitted: `app.yaml`, then `app.yml`, then `app.ts`, inside the project directory.
-- **`--dir <path>`** — the seed directory. Defaults to a `seed` folder beside the **config file** rather than beside your shell, so the same command behaves identically from the project root or from a service unit with a different working directory. An explicit path is resolved against the working directory.
+- **`--dir <path>`** — the seed directory. Defaults to a `seed` folder beside the **config file** rather than beside your shell, so the same command behaves identically from the project root or from a service unit with a different working directory. For the `project/app.json` of an unpacked bundle (with `manifest.json` one level up), the default is the bundle's own `seed/` beside `project/`. An explicit path is resolved against the working directory.
 - **`--mode <mode>`** — `if-empty`, `upsert` or `replace`. Defaults to `if-empty`.
 - **`--table <name>`** — seed only this table. Repeat for several.
-- **`--dry-run`** — report what would be written and write nothing. Under `upsert` it reports `would write N records (mode: upsert)`, because whether each row is created or updated is only known when it runs.
+- **`--dry-run`** — report what would be written and write nothing. Under `upsert` it reports `would write N records (mode: upsert)`, because whether each row is created or updated is only known when it runs. Under `if-empty` it counts the rows of each table, and a table that holds some reads `would skip (N rows already present)`, the skip the real run would make.
 - **`--as <email>`** — write every row as this account instead of the system.
 - **`--today <date>`** — the day `{{today…}}` resolves against, as `YYYY-MM-DD`. Overrides `SOVRIUM_SEED_TODAY`.
+- **`--report <file>`** — also write the result as JSON: the mode, whether it was a dry run, one entry per table (`seeded` with the rows `created` and `updated`, or `skipped` with the rows `present`) and the lines printed. A refused run writes `{ "error": "…" }` instead, with the message it printed. Because that output is kept, a run with `--report` prints each invitation with its email but not its link — on screen and in the file; send those invitations with **Resend** in the console.
+- **`--request <file>`** — read the mode, the tables, the day and the dry run from a JSON file — `{ "mode": "if-empty", "tables": ["contacts"], "today": "2026-10-12", "dryRun": true }` — instead of the flags. It is how a hosting machine runs the command for an app it hosts.
+- **`--app <slug>`** or **`--remote`** (the app the project is linked to), with **`--yes`**, **`--confirm <slug>`**, **`--host <url>`** — seed an app hosted on a Sovrium Cloud instead of this machine. Without either, the command always seeds this machine: see [Seeding a hosted app](/en/docs/deploy#seeding-a-hosted-app).
 
 ## Attachments
 

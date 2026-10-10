@@ -139,6 +139,12 @@ const getAuthRateLimitConfigs = (): Readonly<Record<string, EndpointRateLimitCon
     // restored here for the same reason as the mail rows. A user code is
     // short; this cap is what keeps it from being guessed.
     '/api/auth/device': { windowMs: 30 * 60 * 1000, maxRequests: 5 },
+    // The one-click decision on a loopback request. It needs the claimant's
+    // session and decides each request once (a compare-and-set on `pending`),
+    // so it cannot mint return codes; the budget bounds a signed-in caller
+    // walking user codes through it. It answers an unknown code and someone
+    // else's alike, so the walk learns nothing either way.
+    '/api/auth/device/decide': { windowMs, maxRequests: 30 },
   }
 }
 

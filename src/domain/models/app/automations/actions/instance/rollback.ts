@@ -13,7 +13,8 @@ import { InstanceSlugSchema } from './instance-slug'
  * Instance Rollback Action (type: instance, operator: rollback)
  *
  * Points `current` back at the release `status.json` records as the previous
- * one, records the swap, and restarts `sovrium-app@<slug>.service`. Fails,
+ * one, records the swap — each release keeps its own `appliedAt`, the swap is
+ * dated `rolledBackAt` — and restarts the app as `restart` does. Fails,
  * changing nothing, when no previous release is recorded or its directory is
  * gone. Rolling back twice returns to where it started.
  */

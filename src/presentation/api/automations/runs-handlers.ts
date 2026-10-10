@@ -164,6 +164,9 @@ const replayErrorResponse = (c: Context, error: ReplayAutomationRunError) => {
   ) {
     return notFound(c, 'Run not found')
   }
+  if (error._tag === 'AutomationRunHistoryNotKept') {
+    return c.json({ success: false, message: 'This run kept no trigger data to replay' }, 409)
+  }
   if (error._tag === 'AutomationRegistrySeedError') {
     return c.json({ success: false, message: 'Failed to register automation in the database' }, 500)
   }

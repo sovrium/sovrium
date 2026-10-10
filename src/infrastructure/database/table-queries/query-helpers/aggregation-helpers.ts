@@ -13,6 +13,7 @@ import { cachedColumnExists } from '@/infrastructure/database/sql/catalog-reques
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import { generateSqlConditionFragment } from '../filter-operators'
 import { validateColumnName, databaseTableName } from '../statement/validation'
+import { isWordSearchLeaf, wordSearchCondition } from './word-search-fragments'
 
 /**
  * `COUNT(*)` cast to a text type for the active dialect — Postgres uses the
@@ -271,16 +272,15 @@ const isOrGroup = (node: FilterNode): node is { readonly or: readonly FilterNode
   'or' in node && Array.isArray((node as { readonly or?: unknown }).or)
 
 /**
- * Render a single filter node to a parameterized Drizzle SQL fragment.
- *
- * Leaves go through `generateSqlConditionFragment` (bound parameters); `and`
- * / `or` groups recurse and wrap their children in `( … AND … )` /
- * `( … OR … )`. An empty group renders as a no-op clause so it neither
- * widens nor narrows the surrounding condition.
+ * Render a single filter node to a parameterized Drizzle SQL fragment. Leaves go
+ * through `generateSqlConditionFragment` (bound parameters), a `?q=` word search
+ * through `wordSearchCondition`; `and` / `or` groups recurse into `( … AND … )` /
+ * `( … OR … )` — an empty `or` matches nothing, an empty `and` everything.
  */
 function renderFilterNode(node: FilterNode): Readonly<SQL> {
   if (isLeaf(node)) {
     validateColumnName(node.field)
+    if (isWordSearchLeaf(node)) return wordSearchCondition(node)
     return generateSqlConditionFragment(node.field, node.operator, node.value)
   }
   if (isOrGroup(node)) {

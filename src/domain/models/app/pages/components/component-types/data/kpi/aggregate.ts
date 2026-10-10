@@ -7,7 +7,7 @@
 
 import { Schema } from 'effect'
 import { DataFilterSchema } from '../../../data-source'
-import { AggregateFunctionSchema } from '../../../shared-schemas'
+import { AggregateFunctionSchema, AggregatePercentileFunctionSchema } from '../../../shared-schemas'
 
 /**
  * Aggregate function for KPI metric computation.
@@ -20,11 +20,12 @@ import { AggregateFunctionSchema } from '../../../shared-schemas'
  */
 export const KPIAggregateFunctionSchema = Schema.Union([
   AggregateFunctionSchema,
+  AggregatePercentileFunctionSchema,
   Schema.Literal('ratio'),
 ]).annotate({
   title: 'KPI Aggregate Function',
   description:
-    'Aggregate function applied to compute the KPI metric value: count, sum, avg, min, max, or ratio (the share of the records matching numerator.filter among those matching denominator.filter, as a percentage)',
+    'Aggregate function applied to compute the KPI metric value: count, sum, avg, min, max, a percentile (p50, p75, p90, p95, p99, interpolated between the two nearest values), or ratio (the share of the records matching numerator.filter among those matching denominator.filter, as a percentage)',
 })
 
 /**

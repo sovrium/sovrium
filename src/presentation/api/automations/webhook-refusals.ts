@@ -143,3 +143,36 @@ export const webhookRegistrySeedFailure = (c: Context): Response =>
     }),
     500
   )
+
+/** A telemetry protocol body that is not an envelope or an OTLP logs request. */
+export const ingestMalformed = (c: Context): Response =>
+  c.json(
+    errorBody({
+      error: 'invalid_request',
+      message: 'The body is not a payload of this protocol',
+      code: ApiErrorCode.BAD_REQUEST,
+    }),
+    400
+  )
+
+/** A telemetry protocol body larger than the API body limit, compressed or decoded. */
+export const ingestTooLarge = (c: Context): Response =>
+  c.json(
+    errorBody({
+      error: 'payload_too_large',
+      message: 'The body is larger than this server accepts',
+      code: ApiErrorCode.PAYLOAD_TOO_LARGE,
+    }),
+    413
+  )
+
+/** A telemetry protocol body in a content encoding other than gzip, deflate or identity. */
+export const ingestUnsupportedEncoding = (c: Context): Response =>
+  c.json(
+    errorBody({
+      error: 'unsupported_encoding',
+      message: 'The content encoding is not gzip, deflate or identity',
+      code: ApiErrorCode.UNSUPPORTED_MEDIA_TYPE,
+    }),
+    415
+  )

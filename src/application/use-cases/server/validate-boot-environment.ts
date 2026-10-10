@@ -10,9 +10,14 @@ import { InvalidEnvVarError } from '@/application/errors/invalid-env-var-error'
 import { InvalidOperatorTimezoneError } from '@/application/errors/invalid-operator-timezone-error'
 import { validateRequiredEnvVars } from '@/application/use-cases/env/validate-required-env-vars'
 import { countDatabaseListeners } from '@/domain/models/app/app-database-listeners-service'
+import { browserHoldRefusals } from '@/domain/models/app/automations/actions/browser/browser-run-validation'
 import { hostActionsBootRefusal } from '@/domain/models/app/automations/actions/instance/host-actions-gate-validation'
 import { parseApiIpRateLimit } from '@/domain/models/process-env/api-ip-rate-limit'
-import { parseSovriumAutomationDefaultTimeoutMs } from '@/domain/models/process-env/automations'
+import {
+  parseSovriumAutomationDefaultTimeoutMs,
+  parseSovriumAutomationRunRetentionDays,
+} from '@/domain/models/process-env/automations'
+import { browserBootRefusal, parseBrowserEnv } from '@/domain/models/process-env/browser'
 import {
   describeDatabaseConnectionRefusal,
   planDatabaseConnections,
@@ -35,6 +40,7 @@ import {
   parseSovriumNotifyTo,
 } from '@/domain/models/process-env/notifications'
 import { parseRateLimitWindowSeconds } from '@/domain/models/process-env/rate-limit-window'
+import { parseRendererEnv } from '@/domain/models/process-env/renderer'
 import {
   parseSovriumBindHost,
   parseSovriumIdleExitSeconds,
@@ -71,6 +77,40 @@ export const refuseUndersizedDatabaseBudget = (
     },
     catch: (error) => new InvalidEnvVarError(error),
   }).pipe(Effect.withSpan('server.refuse-undersized-database-budget'))
+
+/**
+ * Why the `BROWSER_*` configuration refuses the boot ([internal ref] D1, D2), or
+ * `undefined`: an invalid value, a conflict with the document renderer's one
+ * Chrome, WebKit outside the desktop app, or a `confirm` that would hold the
+ * browser longer than `BROWSER_HOLD_MAX_MS`.
+ */
+const browserRefusal = (
+  validatedApp: App,
+  env: Readonly<Record<string, string | undefined>>
+): string | undefined => {
+  const parsed = parseBrowserEnv(env)
+  if (!parsed.ok) return parsed.error
+  const renderer = parseRendererEnv(env)
+  const conflict = browserBootRefusal({
+    config: parsed.config,
+    renderer: renderer.ok ? renderer.config : undefined,
+    platform: process.platform,
+  })
+  return conflict ?? browserHoldRefusals(validatedApp, parsed.config.holdMaxMs)[0]
+}
+
+/** {@link browserRefusal} as the boot refusal. */
+const refuseBrowserMisconfiguration = (
+  validatedApp: App
+): Effect.Effect<void, InvalidEnvVarError> =>
+  Effect.try({
+    try: () => {
+      const refusal = browserRefusal(validatedApp, process.env)
+      // eslint-disable-next-line functional/no-throw-statements -- turned into the boot refusal by the catch below.
+      if (refusal !== undefined) throw new Error(refusal)
+    },
+    catch: (error) => new InvalidEnvVarError(error),
+  })
 
 /** What {@link validateBootEnvironment} refuses a boot with. */
 export type BootEnvironmentError =
@@ -113,6 +153,7 @@ export const validateBootEnvironment = (
           parseSovriumNotifyDigest(process.env),
           parseSovriumNotifyDigestCron(process.env),
           parseSovriumAutomationDefaultTimeoutMs(process.env),
+          parseSovriumAutomationRunRetentionDays(process.env),
           parseApiIpRateLimit(process.env),
           parseRateLimitWindowSeconds(process.env),
           parseSovriumDevClock(process.env),
@@ -139,6 +180,8 @@ export const validateBootEnvironment = (
         catch: (error) => new InvalidEnvVarError(error),
       })
     ),
+    // The browser automation switch: its conflicts with the renderer, and holds past its limit.
+    Effect.andThen(refuseBrowserMisconfiguration(validatedApp)),
     Effect.andThen(refuseUndersizedDatabaseBudget(validatedApp)),
     Effect.asVoid,
     Effect.withSpan('server.validate-boot-environment')

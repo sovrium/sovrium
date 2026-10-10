@@ -41,6 +41,7 @@ const ADMIN_LISTS: ReadonlySet<string> = new Set(['members', 'invitations'])
 const SIGNED_IN_METHODS: ReadonlySet<string> = new Set([
   'enableTwoFactor',
   'disableTwoFactor',
+  'regenerateBackupCodes',
   'createApiKey',
   'revokeApiKey',
   'renamePasskey',

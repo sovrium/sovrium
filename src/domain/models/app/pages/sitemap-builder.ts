@@ -21,6 +21,7 @@
 import { type PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
 import { readOpensToEveryone } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
+import { filterWithFieldLiterals } from '@/domain/models/app/tables/checkbox-literal-service'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
@@ -161,7 +162,11 @@ export function resolveSitemapCollectionSource(
     table: collection.table,
     slugField: collection.slugField,
     updatedAtField: updatedAt?.name,
-    filter: collection.filter,
+    // A literal compared with a checkbox binds a boolean, as on the page itself.
+    filter:
+      collection.filter === undefined
+        ? undefined
+        : filterWithFieldLiterals(collection.filter, table.fields),
   }
 }
 

@@ -194,6 +194,12 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   'user.banned': 'user',
   'user.unbanned': 'user',
   'user.password.set': 'user',
+  // - `user.groups.changed` — the groups an account belongs to changed, by the
+  //   console's `PUT /api/admin/users/:userId/groups` or by an `auth/addToGroup`
+  //   / `auth/removeFromGroup` action. `metadata: { added, removed }`, each a
+  //   sorted list of group NAMES (never team ids), plus `automation` when an
+  //   automation made it. A write that changes nothing records nothing.
+  'user.groups.changed': 'user',
   // SCIM provisioning writes, made by the identity provider (actor
   // `{ id: null, type: 'system', role: 'system' }`, `metadata.source: 'scim'`).
   // A read records nothing.
@@ -346,6 +352,7 @@ export const AUDIT_ACTIONS = {
   SCIM_USER_REACTIVATED: 'scim.user.reactivated',
   SCIM_GROUP_MEMBERS_UPDATED: 'scim.group.members.updated',
   USER_UNBANNED: 'user.unbanned',
+  USER_GROUPS_CHANGED: 'user.groups.changed',
   USER_PASSWORD_SET: 'user.password.set',
   AUTOMATION_OVERVIEW_QUERIED: 'automation.overview.queried',
   AUTOMATION_RUNS_LIST_QUERIED: 'automation.runs.list.queried',

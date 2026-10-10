@@ -5,6 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  AGGREGATE_PERCENTILES,
+  percentileFieldsOf,
+  type AggregatePercentile,
+  type PercentileFields,
+  type PercentileFigures,
+} from '@/domain/models/app/tables/aggregate-percentile-service'
+
 /**
  * Aggregation helpers for the records list API.
  *
@@ -14,7 +22,7 @@
  * `record-groups.ts`).
  */
 
-export interface AggregateConfig {
+export interface AggregateConfig extends PercentileFields {
   readonly count?: boolean
   readonly sum?: readonly string[]
   readonly avg?: readonly string[]
@@ -33,6 +41,8 @@ type Numeric = number | null
 type OrderedOrNull = Ordered | null
 
 export type AggregationOutput = {
+  readonly [P in AggregatePercentile]?: Numeric | Record<string, Numeric>
+} & {
   readonly count?: string | number
   readonly sum?: Numeric | Record<string, Numeric>
   readonly avg?: Numeric | Record<string, Numeric>
@@ -40,7 +50,7 @@ export type AggregationOutput = {
   readonly max?: OrderedOrNull | Record<string, OrderedOrNull>
 }
 
-export type RawAggregations = {
+export type RawAggregations = PercentileFigures & {
   readonly count?: string
   readonly sum?: Record<string, Numeric>
   readonly avg?: Record<string, Numeric>
@@ -57,16 +67,17 @@ export type OrderedAnswer = (field: string, value: Ordered) => Ordered
 /** An aggregate over no values: `null` on the wire, where `undefined` would drop the key. */
 const NO_VALUES = null
 
-function collectAggregatedFields(aggregate: AggregateConfig): readonly string[] {
+function collectAggregatedFields(aggregate: Readonly<AggregateConfig>): readonly string[] {
   return [
     ...(aggregate.sum ?? []),
     ...(aggregate.avg ?? []),
     ...(aggregate.min ?? []),
     ...(aggregate.max ?? []),
+    ...percentileFieldsOf(aggregate),
   ]
 }
 
-function singleAggregatedField(aggregate: AggregateConfig): string | undefined {
+function singleAggregatedField(aggregate: Readonly<AggregateConfig>): string | undefined {
   const distinct = [...new Set(collectAggregatedFields(aggregate))]
   return distinct.length === 1 ? distinct[0] : undefined
 }
@@ -99,11 +110,11 @@ export function answerOrderedAggregations(
 
 /**
  * Reshape aggregation output for the shortcut form with a single aggregated
- * field: flatten `sum: { amount: 600 }` to `sum: 600`.
+ * field: flatten `sum: { amount: 600 }` to `sum: 600` (and `p95: { ms: 105 }` to `p95: 105`).
  */
 export function reshapeShortcutAggregations(
   raw: RawAggregations,
-  aggregate: AggregateConfig
+  aggregate: Readonly<AggregateConfig>
 ): AggregationOutput {
   const field = singleAggregatedField(aggregate)
   if (!field) return raw
@@ -113,6 +124,12 @@ export function reshapeShortcutAggregations(
   const minVal = pickFlatValue(raw.min, field)
   const maxVal = pickFlatValue(raw.max, field)
   const countVal = raw.count !== undefined ? Number(raw.count) : undefined
+  const percentiles = Object.fromEntries(
+    AGGREGATE_PERCENTILES.flatMap((p) => {
+      const value = pickFlatValue(raw[p], field)
+      return value === undefined ? [] : [[p, value] as const]
+    })
+  )
 
   return {
     ...(countVal !== undefined ? { count: countVal } : {}),
@@ -120,6 +137,7 @@ export function reshapeShortcutAggregations(
     ...(avgVal !== undefined ? { avg: avgVal } : {}),
     ...(minVal !== undefined ? { min: minVal } : {}),
     ...(maxVal !== undefined ? { max: maxVal } : {}),
+    ...percentiles,
   }
 }
 

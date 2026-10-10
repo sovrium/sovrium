@@ -21,6 +21,7 @@ import triggerAuthFormBody from '@/domain/models/app/automations/trigger/auth-fo
 import triggerManualChainedBody from '@/domain/models/app/automations/trigger/manual-chained-triggers.docs.md' with { type: 'file' }
 import triggerRecordCommentBody from '@/domain/models/app/automations/trigger/record-comment-triggers.docs.md' with { type: 'file' }
 import triggerWebhookCronBody from '@/domain/models/app/automations/trigger/webhook-cron-triggers.docs.md' with { type: 'file' }
+import triggerWebhookTelemetryBody from '@/domain/models/app/automations/trigger/webhook-telemetry-triggers.docs.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
 
 export const automationTriggers = defineSection({
@@ -56,6 +57,7 @@ export const automationTriggers = defineSection({
         'US-AUTOMATIONS-TRIGGERS-COMMENT-EVENT-TOP-ROLE-READ-GATE',
         'US-AUTOMATIONS-TRIGGERS-COMMENT-POSTED',
         'US-AUTOMATIONS-TRIGGERS-RECORD',
+        'US-AUTOMATIONS-TRIGGERS-RECORD-DATA-PERMISSIONS',
         'US-AUTOMATIONS-TRIGGERS-RECORD-CONDITION-FIELDS',
       ],
     }),
@@ -88,6 +90,30 @@ export const automationTriggers = defineSection({
         'US-AUTOMATIONS-TRIGGERS-WEBHOOK-VERIFICATION',
         'US-AUTOMATIONS-TRIGGERS-WEBHOOK-SESSION',
       ],
+    }),
+    defineArticle({
+      slug: 'trigger-webhook-telemetry',
+      title: 'Telemetry Ingest',
+      description:
+        'Receive errors, transactions and logs from any Sentry-compatible client or OpenTelemetry exporter on a webhook trigger, keyed per sender, with a per-project budget.',
+      keywords: [
+        'sovrium',
+        'telemetry ingest',
+        'protocol',
+        'sentry envelope',
+        'SENTRY_DSN',
+        'OTLP logs',
+        'OpenTelemetry',
+        'projectKey',
+        'error tracking',
+        'performance monitoring',
+        'rateLimit per project',
+      ],
+      order: 5115,
+      sidebarLabel: 'Telemetry Ingest',
+      body: triggerWebhookTelemetryBody,
+      documents: [],
+      stories: ['US-AUTOMATIONS-TRIGGERS-WEBHOOK-TELEMETRY'],
     }),
     defineArticle({
       slug: 'trigger-auth-form',

@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { TemplateStringSchema } from '../template'
+import { TriggerHistorySchema } from './trigger-history'
 import { TriggerNameSchema } from './trigger-name'
 
 /**
@@ -18,7 +19,8 @@ import { TriggerNameSchema } from './trigger-name'
 /**
  * Webhook authentication configuration.
  *
- * Supports bearer tokens, API keys, and HMAC signature verification.
+ * Supports bearer tokens, API keys, HMAC signature verification, a signed-in
+ * caller (`session`) and a per-sender key looked up in a table (`projectKey`).
  */
 /**
  * The header layouts `scheme: hmac-timestamp` reads. Each names where the
@@ -63,10 +65,10 @@ const WebhookAuthSchema = Schema.Struct({
    * through `auth.apiKeys`, and the run knows who called (`trigger.user`).
    * A caller without one is answered 404, as if the webhook did not exist.
    */
-  type: Schema.Literals(['bearer', 'apiKey', 'hmac', 'basic', 'session']).pipe(
+  type: Schema.Literals(['bearer', 'apiKey', 'hmac', 'basic', 'session', 'projectKey']).pipe(
     Schema.annotate({
       description:
-        "Authentication mechanism for incoming webhooks. 'bearer', 'apiKey', 'hmac' and 'basic' check a shared secret. 'session': the caller must present a Sovrium session cookie or a user's API key in the x-api-key header (auth.apiKeys); the run sees the caller as trigger.user, and an anonymous caller is answered 404 with no run.",
+        "Authentication mechanism for incoming webhooks. 'bearer', 'apiKey', 'hmac' and 'basic' check a shared secret. 'session': the caller must present a Sovrium session cookie or a user's API key in the x-api-key header (auth.apiKeys); the run sees the caller as trigger.user, and an anonymous caller is answered 404 with no run. 'projectKey': only with a `protocol`; each sender presents its own key, looked up in `keyField` of `table`, and the run sees the matching row as trigger.project. A missing or unknown key is answered 401 with no run.",
     })
   ),
 
@@ -81,6 +83,49 @@ const WebhookAuthSchema = Schema.Struct({
         description:
           "With type 'session': the role the caller must hold, judged as for a manual trigger's requiredRole (an admin satisfies any role). A caller without it is answered 404 with no run. Omitted, any signed-in user may call. Only for the session type.",
         examples: ['admin', 'member'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
+
+  /**
+   * `projectKey`: the table holding one row per sender (an app, a project, a
+   * customer). The presented key is looked up in its `keyField`.
+   */
+  table: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          "With type 'projectKey': the table holding one row per sender. Must be a table of the app. Only for the projectKey type.",
+        examples: ['apps'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
+
+  /** `projectKey`: the field of `table` holding each sender's key. */
+  keyField: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          "With type 'projectKey': the field of `table` holding each sender's key. The key the client presents (the public key of a Sentry DSN, or the bearer token of an OTLP exporter) is looked up in it by equality. Must be a field of that table. Only for the projectKey type.",
+        examples: ['ingest_key'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
+
+  /**
+   * `projectKey` with `protocol: sentry`: the field the `<project>` segment of
+   * `/api/<project>/envelope/` must match. Omitted, it must match the row id.
+   */
+  projectField: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        defaultNote: 'id',
+        description:
+          "With type 'projectKey' and protocol 'sentry': the field of `table` the project segment of the envelope path must equal. Omitted, the segment must equal the row id. A key whose row does not match the path is answered 401. Must be a field of that table.",
+        examples: ['slug'],
       }),
       Schema.check(Schema.isMinLength(1))
     )
@@ -295,6 +340,22 @@ const WebhookRateLimitSchema = Schema.Struct({
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
+
+  /**
+   * What the budget is counted per. `ip`: per client address, the behaviour
+   * every webhook has always had. `project`: per sender row matched by a
+   * `projectKey`, so senders sharing one outbound address (every app on a
+   * shared host) never spend each other's budget.
+   */
+  per: Schema.optional(
+    Schema.Literals(['ip', 'project']).pipe(
+      Schema.annotate({
+        defaultNote: "'project' on a trigger with a protocol, 'ip' otherwise",
+        description:
+          "What the budget is counted per. 'ip': per client address. 'project': per sender matched by a projectKey auth, so senders sharing one outbound address never spend each other's budget; needs auth type 'projectKey'.",
+      })
+    )
+  ),
 }).pipe(
   Schema.annotate({
     identifier: 'WebhookRateLimit',
@@ -344,6 +405,46 @@ export const WebhookTriggerSchema = Schema.Struct({
 
   /** Name of this trigger within its automation (defaults to its type) */
   name: Schema.optional(TriggerNameSchema),
+
+  /** How much of a run this trigger starts is kept once it ends (defaults to `full`) */
+  history: Schema.optional(TriggerHistorySchema),
+  /**
+   * The telemetry protocol this webhook receives. Declaring one mounts the
+   * protocol's standard paths instead of `/api/automations/{name}/webhook`:
+   * `sentry` serves `POST /api/<project>/envelope/` (with and without the
+   * trailing slash), `otlp-logs` serves `POST /v1/logs`. Every automation
+   * declaring the same protocol runs for what arrives there.
+   */
+  protocol: Schema.optional(
+    Schema.Literals(['sentry', 'otlp-logs']).pipe(
+      Schema.annotate({
+        description:
+          "Receive a telemetry protocol at its standard paths instead of /api/automations/{name}/webhook. 'sentry': envelopes from any Sentry-compatible client at POST /api/<project>/envelope/ (with or without the trailing slash), plain, gzip or deflate; each event or transaction item starts a run with the decoded item as trigger.data. 'otlp-logs': OTLP/HTTP JSON logs at POST /v1/logs; each request starts one run with trigger.data.records. Requires auth type 'projectKey' and method POST. Every automation declaring the same protocol runs; requests served here are never reported to the app's own error tracking.",
+        examples: ['sentry'],
+      })
+    )
+  ),
+
+  /**
+   * With `protocol: sentry`, which envelope items start a run for this
+   * automation. Omitted, both kinds do.
+   */
+  items: Schema.optional(
+    Schema.Array(
+      Schema.Literals(['event', 'transaction']).pipe(
+        Schema.annotate({ description: 'A Sentry envelope item kind' })
+      )
+    ).pipe(
+      Schema.annotate({
+        defaultNote: '[event, transaction]',
+        description:
+          "With protocol 'sentry': which envelope items start a run for this automation. 'event': errors and messages. 'transaction': performance transactions. Other item types (attachments, sessions, client reports) never start a run.",
+        examples: [['event']],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
+
   method: Schema.Union([
     Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
     Schema.Array(Schema.Literals(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])).pipe(

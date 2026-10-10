@@ -23,10 +23,17 @@ import {
 import { maskedRelation, type LookupReadMaskSpec } from '../query-helpers/lookup-read-mask'
 import {
   buildOrderByClause,
+  defaultOrderKeys,
   type OrderByAppView,
   type OrderByPrimaryKey,
 } from '../query-helpers/order-by-helpers'
+import {
+  buildPercentileSelects,
+  parsePercentileResult,
+  rankForPercentiles,
+} from '../query-helpers/percentile-selects'
 import { buildTrashFilters, addTrashSorting } from '../query-helpers/trash-helpers'
+import { wordSearchRelevance } from '../query-helpers/word-search-fragments'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { typedExecute } from '../statement/typed-execute'
 import { tableIdentifier } from '../statement/validation'
@@ -35,6 +42,10 @@ import {
   buildAuthorshipSelectFields,
   transformRowWithAuthorship,
 } from './crud-authorship'
+import type {
+  PercentileFields,
+  PercentileFigures,
+} from '@/domain/models/app/tables/aggregate-percentile-service'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/database'
 
@@ -90,7 +101,14 @@ export function listRecords(config: {
 
           // Build query clauses
           const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
-          const orderByClause = buildOrderByClause(sort, app, tableName, primaryKey)
+          // An unsorted word search (`?q=` on a `fullTextSearch` field) comes
+          // back most relevant first; an explicit sort replaces relevance.
+          const relevance =
+            sort === undefined
+              ? wordSearchRelevance(filter, defaultOrderKeys(primaryKey))
+              : undefined
+          const orderByClause =
+            relevance?.orderBy ?? buildOrderByClause(sort, app, tableName, primaryKey)
           // Empty when the caller passes neither `limit` nor `offset`, which is
           // every pre-pagination call site — the statement below is unchanged
           // for them, down to the byte.
@@ -106,7 +124,7 @@ export function listRecords(config: {
             try: () =>
               typedExecute(
                 tx,
-                sql`SELECT ${selectList} FROM ${relation}${whereClause}${orderByClause}${pageClause}`
+                sql`${relevance?.prefix ?? sql``}SELECT ${selectList} FROM ${relation}${whereClause}${orderByClause}${pageClause}`
               ),
             catch: onFailure,
           })
@@ -117,7 +135,7 @@ export function listRecords(config: {
 }
 
 /** The aggregate spec a caller asks for, named once so the query below can be extracted. */
-type AggregationSpec = {
+type AggregationSpec = PercentileFields & {
   readonly count?: boolean
   readonly sum?: readonly string[]
   readonly avg?: readonly string[]
@@ -126,7 +144,7 @@ type AggregationSpec = {
 }
 
 /** What {@link computeAggregations} resolves to; `null` is an aggregate over no values. */
-type AggregationResult = {
+type AggregationResult = PercentileFigures & {
   readonly count?: string
   readonly sum?: Record<string, number | null>
   readonly avg?: Record<string, number | null>
@@ -158,18 +176,30 @@ const runAggregationsInTx = (
     const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
     const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
     const aggregationSelects = buildAggregationSelects(aggregate)
-    if (aggregationSelects.length === 0) return {}
+    const percentileSelects = buildPercentileSelects(aggregate)
+    if (aggregationSelects.length + percentileSelects.length === 0) return {}
 
-    // sql-literal: identifier -- aggregate columns pass validateColumnName
-    const selectClause = sql.raw(aggregationSelects.join(', '))
+    const selectClause = sql.join(
+      [
+        // sql-literal: identifier -- aggregate columns pass validateColumnName
+        ...(aggregationSelects.length > 0 ? [sql.raw(aggregationSelects.join(', '))] : []),
+        ...percentileSelects,
+      ],
+      sql`, `
+    )
     const relation = yield* maskedRelation(tx, tableName, lookupMasks)
+    // SQLite ranks each percentile field first; the source is unchanged otherwise.
+    const source = rankForPercentiles(sql`${relation}${whereClause}`, aggregate)
     const rows = yield* Effect.tryPromise({
-      try: () => typedExecute(tx, sql`SELECT ${selectClause} FROM ${relation}${whereClause}`),
+      try: () => typedExecute(tx, sql`SELECT ${selectClause} FROM ${source}`),
       catch: onFailure,
     })
     if (rows.length === 0) return {}
 
-    return parseAggregationResult(rows[0]!, aggregate)
+    return {
+      ...parseAggregationResult(rows[0]!, aggregate),
+      ...parsePercentileResult(rows[0]!, aggregate),
+    }
   })
 
 /**
