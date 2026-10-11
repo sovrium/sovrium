@@ -20,6 +20,7 @@ import { fillPdfForm, formFieldsOf } from './pdf-editor-forms'
 import { EditRefusal, pdfLib, reasonOf } from './pdf-editor-library'
 import { drawPdfMark } from './pdf-editor-marks'
 import { buildPdfFromPictures, PictureRefusal } from './pdf-editor-pictures'
+import type { PdfLib } from './pdf-editor-library'
 import type { PdfInspectResult } from '@/domain/models/app/automations/actions/pdf/inspect'
 import type { PDFDocument, PDFPage } from '@cantoo/pdf-lib'
 
@@ -95,10 +96,7 @@ const metadataOf = (document: PDFDocument): PdfInspectResult['metadata'] => {
 }
 
 /** Inspect: an encrypted file is reported with its pages, its strings and form left unread. */
-const inspectDocument = (
-  lib: Awaited<ReturnType<typeof pdfLib>>,
-  document: PDFDocument
-): PdfInspectResult => {
+const inspectDocument = (lib: PdfLib, document: PDFDocument): PdfInspectResult => {
   const encrypted = document.isEncrypted
   return {
     pages: document.getPageCount(),

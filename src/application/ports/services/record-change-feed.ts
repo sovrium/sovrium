@@ -41,6 +41,17 @@ export const UnauditedTables = Context.Reference<ReadonlySet<string>>('sovrium/U
   defaultValue: () => new Set<string>(),
 })
 
+/**
+ * The write-only columns of the app's tables (`writeOnly: true`), by table
+ * name. The announcing scope installs it from the app; the activity-log writer
+ * records a change to such a column by name, never its value. Outside any
+ * announcing scope it is empty.
+ */
+export const WriteOnlyColumns = Context.Reference<ReadonlyMap<string, ReadonlySet<string>>>(
+  'sovrium/WriteOnlyColumns',
+  { defaultValue: () => new Map<string, ReadonlySet<string>>() }
+)
+
 /** One row a repository write committed, as the database holds it. */
 export interface CommittedRowChange {
   readonly tableName: string

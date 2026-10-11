@@ -52,10 +52,10 @@ import * as OtlpLogger from 'effect/observability/OtlpLogger'
 import * as OtlpMetrics from 'effect/observability/OtlpMetrics'
 import * as OtlpSerialization from 'effect/observability/OtlpSerialization'
 import * as OtlpTracer from 'effect/observability/OtlpTracer'
-import { formatClock } from '@/infrastructure/logging/cli-output'
-import { formatJsonLogRecord, isJsonLogFormat } from '@/infrastructure/logging/log-format'
-import { isDebugEnabled, isProduction } from '@/infrastructure/process/env'
+import { redactBoundQueryValues } from '@/domain/kernel/sanitize/bound-value-redaction'
+import { isDebugEnabled } from '@/infrastructure/process/env'
 import { collectingTracer } from './span-collector'
+import { stdoutLogger } from './stdout-log-sink'
 import { getTelemetryConfig } from './telemetry-config'
 import type { LogAttributes, TelemetryLogLevel } from './telemetry-sink'
 import type {
@@ -107,55 +107,6 @@ const toLogLevel = (level: TelemetryLogLevel): LogLevel.Severity => {
   }
 }
 
-/**
- * Render one structured log line for the terminal — the pure half of
- * {@link stdoutLogger}, extracted so both shapes are testable without capturing
- * a process stream.
- *
- * PRODUCTION keeps `[ISO] [LEVEL] msg`, byte for byte (T43): journald, Scalingo
- * and the OTLP tee already parse it. The `.toUpperCase()` below is
- * load-bearing for exactly that reason — v3 read `logLevel.label`, which was
- * already UPPERCASE (`'WARN'`), while v4's `logLevel` IS the string and it is
- * title-case (`'Warn'`).
- *
- * OUTSIDE PRODUCTION the line joins the journal (T39): `HH:MM:SS <message>`,
- * where the message already opens with its own `[area]` tag by the convention
- * in `logging/logger.ts`. Severity is the WORD, after the clock (T41) — never a
- * `[LEVEL]` bracket, which T34 exists to refuse, and never a glyph (T11).
- *
- * `SOVRIUM_LOG_FORMAT=json` replaces both with one JSON object (`log-format.ts`),
- * the record's annotations as top-level keys. The `date` is the one
- * `Logger.make` hands the callback: the instant of the record, not of formatting.
- */
-export const formatStdoutLogLine = (
-  label: string,
-  message: string,
-  date: Readonly<Date>,
-  annotations: Readonly<Record<string, unknown>> = {}
-): string => {
-  if (isJsonLogFormat()) return formatJsonLogRecord(label, message, date, annotations)
-  if (isProduction()) return `[${date.toISOString()}] [${label}] ${message}`
-  const severity = label === 'ERROR' ? 'Error: ' : label === 'WARN' ? 'Warning: ' : ''
-  return `${formatClock(date)} ${severity}${message}`
-}
-
-/**
- * The stdout sink. debug/info → stdout, warn/error → stderr (matching
- * `Console.debug/log` vs `Console.warn/error`). The error `cause` stack is
- * written by the `logError` helper, not here.
- *
- * The routing is deliberately shape-independent: the stream carries severity in
- * BOTH shapes (T31), so a development journal and a production log agree about
- * where a warning goes even though they disagree about how it reads.
- */
-const stdoutLogger = Logger.make(({ logLevel, message, date, fiber }) => {
-  const label = logLevel.toUpperCase()
-  const annotations = fiber.getRef(References.CurrentLogAnnotations)
-  const line = `${formatStdoutLogLine(label, String(message), date, annotations)}\n`
-  const toStderr = label === 'ERROR' || label === 'WARN'
-  ;(toStderr ? process.stderr : process.stdout).write(line)
-})
-
 /** The shared OTLP resource identity (service name/version + deployment env). */
 const otlpResource = (): {
   readonly serviceName: string
@@ -187,7 +138,7 @@ const otlpResource = (): {
  *
  * Two reasons this maps back rather than accepting v4's casing:
  *   1. v3 parity — this migration intends no user-facing behaviour change.
- *   2. INTERNAL CONSISTENCY — `stdoutLogger` above already calls `.toUpperCase()`
+ *   2. INTERNAL CONSISTENCY — `stdoutLogger` (`stdout-log-sink.ts`) calls `.toUpperCase()`
  *      for exactly this reason. Leaving OTLP title-case would make our own two
  *      log sinks disagree about the level of the same event.
  *
@@ -209,10 +160,43 @@ export const uppercaseSeverityText = (data: OtlpLogger.LogsData): OtlpLogger.Log
   })),
 })
 
+/** An object literal (or a null-prototype one): the only object shape the walk rebuilds. */
+const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> => {
+  if (value === null || typeof value !== 'object') return false
+  const proto: unknown = Object.getPrototypeOf(value)
+  return proto === Object.prototype || proto === null
+}
+
+/**
+ * Every string leaf of an export payload with query bound-value dumps redacted
+ * (`redactBoundQueryValues`). Applied to logs AND traces: a log record's body is
+ * the line itself, and a failed span records its error as an `exception` event
+ * whose `exception.message` / `exception.stacktrace` are the error's own text —
+ * so a failed write would otherwise export the row it tried to store. Metrics
+ * carry only names and numbers.
+ *
+ * Walked generically rather than by field because the payload shapes are
+ * upstream's: a field-by-field map would silently stop covering whatever a
+ * later Effect release adds. Only arrays and PLAIN objects are rebuilt; any
+ * other object (a typed array, a class instance) passes through untouched, so
+ * the walk can never change how the payload serialises.
+ */
+export const redactExportPayload = <A>(value: A): A => {
+  if (typeof value === 'string') return redactBoundQueryValues(value) as A
+  if (Array.isArray(value)) return value.map(redactExportPayload) as A
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, redactExportPayload(entry)])
+    ) as A
+  }
+  return value
+}
+
 /**
  * Drop-in replacement for `OtlpSerialization.layerJson` that applies
- * {@link uppercaseSeverityText} to logs. `traces` and `metrics` mirror upstream
- * verbatim and are untouched — they carry no severity field.
+ * {@link uppercaseSeverityText} to logs, and {@link redactExportPayload} to logs
+ * and traces. `metrics` mirrors upstream verbatim — it carries neither a
+ * severity field nor free text.
  *
  * This mirrors a 3-line upstream layer rather than wrapping it, because
  * `layerJson` is a `Layer.succeed` with no service to delegate to. If upstream
@@ -220,9 +204,9 @@ export const uppercaseSeverityText = (data: OtlpLogger.LogsData): OtlpLogger.Log
  * price of the mapping, and it is confined to this one constant.
  */
 const otlpSerializationJson = Layer.succeed(OtlpSerialization.OtlpSerialization, {
-  traces: (spans) => HttpBody.jsonUnsafe(spans),
+  traces: (spans) => HttpBody.jsonUnsafe(redactExportPayload(spans)),
   metrics: (metrics) => HttpBody.jsonUnsafe(metrics),
-  logs: (logs) => HttpBody.jsonUnsafe(uppercaseSeverityText(logs)),
+  logs: (logs) => HttpBody.jsonUnsafe(redactExportPayload(uppercaseSeverityText(logs))),
 })
 
 /**

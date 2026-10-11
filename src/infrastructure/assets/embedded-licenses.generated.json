@@ -20,7 +20,7 @@
     },
     {
       "name": "bun",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "license": "MIT",
       "source": "the Bun runtime the binary is compiled with — https://github.com/oven-sh/bun",
       "file": "licenses/MIT-bun-runtime.txt",

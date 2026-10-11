@@ -33,10 +33,10 @@ import {
   callerRecordGateOf,
   readRowsForCaller,
   type CallerRowsQuery,
-  type RowLevelReadCheck,
 } from '@/presentation/render/resolve/record-read-gate'
 import { resolveRouteBoundTables } from '@/presentation/render/resolve/route-bound-table-resolver'
 import { resolvePageRouteParams } from '@/presentation/render/resolve/route-param-props-resolver'
+import { type RowLevelReadCheck } from '@/presentation/render/resolve/row-rule-read-check'
 import { resolveTabsLazyPanels } from '@/presentation/render/resolve/tabs-lazy-resolver'
 import { resolvePageTwoFactorAttempt } from '@/presentation/render/resolve/two-factor-attempt-resolver'
 import { resolvePageWindowProps } from '@/presentation/render/resolve/window-props-resolver'

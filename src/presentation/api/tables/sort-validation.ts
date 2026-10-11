@@ -7,6 +7,7 @@
 
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
+import { isWriteOnlyField } from '@/domain/models/app/tables/write-only-field-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -53,6 +54,12 @@ export function canUserReadField(
   // Unknown field: rejected for every role, the admin included. Deliberate — it
   // keeps `?sort=<garbage>` from reaching SQL generation.
   if (!field) {
+    return false
+  }
+
+  // A write-only field is sorted on by no one, the admin included: an order
+  // discloses its values row by row.
+  if (isWriteOnlyField(app, tableName, fieldName)) {
     return false
   }
 

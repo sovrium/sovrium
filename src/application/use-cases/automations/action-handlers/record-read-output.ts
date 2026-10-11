@@ -190,6 +190,11 @@ export const buildReadOutput = (
       userRole: reader.role,
       userGroups: reader.groups ?? [],
       origin: attachmentOrigin(process.env),
+      // A run nobody started reads write-only values: the one reader they are for.
+      // Named positively, so an access kind added later reads nothing by default.
+      // A run called from a chain a person started reads as the system, yet not these.
+      readsWriteOnly:
+        context.access.kind === 'system' && context.automation.writeOnly?.blind !== true,
     }
     // One read per relation for the whole set, never one per row.
     const shaped = yield* Effect.result(shapeRecordsForReader(config, rows))

@@ -22,12 +22,17 @@ import {
   callerReaderFromSession,
   tableReadPrincipal,
 } from '@/domain/models/app/tables/caller-record-gate-service'
-import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
+import {
+  isFieldReadableByCaller,
+  isFieldReadableUnderFieldRules,
+} from '@/domain/models/app/tables/field-read-filter-service'
 import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
 import {
   CANONICAL_READ_POLICY,
   buildReadAccessPlan,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
+import { WRITE_ONLY_PRESENCE_LABELS } from './write-only-presence-labels'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -35,10 +40,15 @@ import type { Component } from '@/domain/models/app/pages/components'
 /** The render-time-only key the page pass stamps a drawer's field access under. */
 export const DRAWER_FIELD_ACCESS_KEY = '_drawerFieldAccess'
 
-/** The fields of a drawer's table its reader may not read, and those they may not write. */
+/**
+ * The fields of a drawer's table its reader may not read, those they may not
+ * write, and the write-only fields whose presence — set or not set — they are
+ * shown in place of the value.
+ */
 export interface DrawerFieldAccess {
   readonly unreadable: readonly string[]
   readonly unwritable: readonly string[]
+  readonly writeOnly?: readonly string[]
 }
 
 /** The caller the read rights are decided for: the session's, or an anonymous one with no role. */
@@ -117,7 +127,11 @@ const fieldAccessFor = (
           { role: session.role, groups: session.groups ?? [] },
           Object.fromEntries(names.map((name) => [name, true]))
         )
-  return unreadable.length === 0 && unwritable.length === 0 ? undefined : { unreadable, unwritable }
+  const writeOnly = writeOnlyFieldNames(app, tableName).filter((name) =>
+    isFieldReadableUnderFieldRules(app, tableName, caller, name)
+  )
+  if (unreadable.length === 0 && unwritable.length === 0) return undefined
+  return { unreadable, unwritable, ...(writeOnly.length === 0 ? {} : { writeOnly }) }
 }
 
 /** The table a drawer is bound to, when it is bound to one. */
@@ -167,16 +181,17 @@ export const readDrawerFieldAccess = (
 ): DrawerFieldAccess | undefined => {
   const stamped = rawProps?.[DRAWER_FIELD_ACCESS_KEY]
   if (typeof stamped !== 'object' || stamped === null) return undefined
-  const { unreadable, unwritable } = stamped as Partial<DrawerFieldAccess>
-  return Array.isArray(unreadable) && Array.isArray(unwritable)
-    ? { unreadable, unwritable }
-    : undefined
+  const { unreadable, unwritable, writeOnly } = stamped as Partial<DrawerFieldAccess>
+  if (!Array.isArray(unreadable) || !Array.isArray(unwritable)) return undefined
+  return { unreadable, unwritable, ...(Array.isArray(writeOnly) ? { writeOnly } : {}) }
 }
 
 /**
  * The drawer's entries as its reader may see them: a field they may not read
  * is left out — no label, no value — and one they may not write is marked
  * `readOnly`, drawn as its value without an editable control and never sent.
+ * A write-only field they could otherwise read stays, read-only, drawn as
+ * whether a value is set ({@link WRITE_ONLY_PRESENCE_LABELS}), never sent.
  */
 export function applyDrawerFieldAccess(
   entries: unknown,
@@ -187,11 +202,20 @@ export function applyDrawerFieldAccess(
     typeof entry === 'object' && entry !== null
       ? (entry as Readonly<Record<string, unknown>>)['name']
       : undefined
+  const writeOnly = new Set(access.writeOnly ?? [])
   return entries
-    .filter((entry) => !access.unreadable.includes(String(nameOf(entry))))
-    .map((entry) =>
-      access.unwritable.includes(String(nameOf(entry)))
+    .filter(
+      (entry) =>
+        writeOnly.has(String(nameOf(entry))) || !access.unreadable.includes(String(nameOf(entry)))
+    )
+    .map((entry) => {
+      const name = String(nameOf(entry))
+      if (writeOnly.has(name)) {
+        const presence = WRITE_ONLY_PRESENCE_LABELS
+        return { ...(entry as Readonly<Record<string, unknown>>), readOnly: true, presence }
+      }
+      return access.unwritable.includes(name)
         ? { ...(entry as Readonly<Record<string, unknown>>), readOnly: true }
         : entry
-    )
+    })
 }

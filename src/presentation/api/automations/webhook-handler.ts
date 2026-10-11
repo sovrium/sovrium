@@ -361,6 +361,8 @@ const dispatchSync = async (
     body: respBody,
     headers,
   } = buildSyncResponse({
+    app: input.app,
+    automationName: input.name,
     trigger: input.trigger,
     result: result.success,
     triggerData: input.triggerData,

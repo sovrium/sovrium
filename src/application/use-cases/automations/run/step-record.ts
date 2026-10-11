@@ -18,14 +18,20 @@
  * `run-automation.ts` — that would form an import cycle.
  */
 
+import { redactBoundQueryValues } from '@/domain/kernel/sanitize/bound-value-redaction'
 import { gotoAddressVariables } from '@/domain/models/app/automations/actions/browser/browser-run-validation'
 import { type ActionOutcome } from '../action-handlers'
-import { redactSecretsForApp, redactSecretsInValue } from '../redact-secrets'
+import { redactSecretsForApp } from '../redact-secrets'
 import { readActionIdentity } from './action-identity'
 import { redactedReads } from './read-tracker'
 import { maskSecretOutput, maskSecretProps, runSecretValues } from './secret-props'
 import { truncateError, type ExecutedStep, type RunAccumulator, type StepContext } from './types'
+import { maskValues, writeOnlyValuesIn, writeOnlyValuesOfStep } from './write-only-values'
 import type { App } from '@/domain/models/app'
+
+/** The write-only values the runs this run's chain called have read so far. */
+const calledWriteOnlyValues = (ctx: Partial<Pick<StepContext, 'automation'>>): readonly string[] =>
+  ctx.automation?.writeOnly?.called.values() ?? []
 
 /**
  * The step record a run keeps of one action: what it was given and what it
@@ -56,14 +62,19 @@ const scrubbedEnvOf = (app: App): App['env'] => {
  * [internal ref]: connection literals are now scrubbed alongside env values,
  * so a `clientSecret: 'sk-test-key-abc'` (literal, not `$env.X`) cannot
  * leak into an error message even if no env var declares the same value.
+ *
+ * A failed query's bound values go too (`redactBoundQueryValues`): a record
+ * action whose write the database refused carries the row it tried to write in
+ * the driver's text, and run history is read back by every operator.
  */
 export const redactString = (
   input: string,
   app: App,
   env: Readonly<Record<string, string | undefined>>
 ): string => {
-  const redacted = redactSecretsForApp(input, scrubbedEnvOf(app), env, app.connections)
-  return truncateError(typeof redacted === 'string' ? redacted : input)
+  const scrubbed = redactBoundQueryValues(input)
+  const redacted = redactSecretsForApp(scrubbed, scrubbedEnvOf(app), env, app.connections)
+  return truncateError(typeof redacted === 'string' ? redacted : scrubbed)
 }
 
 /**
@@ -132,29 +143,42 @@ export const buildStep = (
 ): ExecutedStep => {
   const identity = readActionIdentity(rawAction)
   const redactedProps = redactRecord(maskSecretProps(identity, resolvedProps), ctx)
+  // A write-only value the step wrote or read is masked in its record, by value.
+  // So is one a run it called read, which it may hand back under any name.
+  const writeOnly = [
+    ...writeOnlyValuesOfStep(
+      ctx.app,
+      { type: identity.type, props: resolvedProps },
+      outcome.output
+    ),
+    ...calledWriteOnlyValues(ctx),
+  ]
 
-  return {
-    ...identity,
-    status: stepStatusOf(outcome),
-    ...(outcome.error !== undefined
-      ? { error: redactString(outcome.error, ctx.app, ctx.processEnv) }
-      : {}),
-    props: redactedProps,
-    ...(outcome.output !== undefined
-      ? { output: redactRecord(maskSecretOutput(identity, outcome.output), ctx) }
-      : {}),
-    ...(outcome.logs !== undefined && outcome.logs.length > 0
-      ? {
-          logs: outcome.logs.map((entry) => ({
-            level: entry.level,
-            message: redactString(entry.message, ctx.app, ctx.processEnv),
-          })),
-        }
-      : {}),
-    ...redactedReads(outcome.reads, ctx),
-    // The steps a path or a loop ran: each one already built here, so masked.
-    ...outcome.nestedSteps,
-  }
+  return maskValues<ExecutedStep>(
+    {
+      ...identity,
+      status: stepStatusOf(outcome),
+      ...(outcome.error !== undefined
+        ? { error: redactString(outcome.error, ctx.app, ctx.processEnv) }
+        : {}),
+      props: redactedProps,
+      ...(outcome.output !== undefined
+        ? { output: redactRecord(maskSecretOutput(identity, outcome.output), ctx) }
+        : {}),
+      ...(outcome.logs !== undefined && outcome.logs.length > 0
+        ? {
+            logs: outcome.logs.map((entry) => ({
+              level: entry.level,
+              message: redactString(entry.message, ctx.app, ctx.processEnv),
+            })),
+          }
+        : {}),
+      ...redactedReads(outcome.reads, ctx),
+      // The steps a path or a loop ran: each one already built here, so masked.
+      ...outcome.nestedSteps,
+    },
+    writeOnly
+  )
 }
 
 /**
@@ -172,12 +196,23 @@ export const withDuration = (step: ExecutedStep, durationMs: number | undefined)
  * earlier one matches no place, so it is found by value here. Runs on the
  * persisted copy only: the live output the next step reads is untouched.
  */
-export const maskRunSecrets = <T>(value: T, acc: Pick<RunAccumulator, 'steps' | 'actions'>): T => {
-  const secrets = runSecretValues(acc.steps, acc.actions)
-  return secrets.length === 0
-    ? value
-    : (redactSecretsInValue(
-        value,
-        Object.fromEntries(secrets.map((secret, index) => [String(index), secret]))
-      ) as T)
-}
+export const maskRunSecrets = <T>(
+  value: T,
+  acc: Pick<RunAccumulator, 'steps' | 'actions'>,
+  ctx: Pick<StepContext, 'app' | 'triggerData'> & Partial<Pick<StepContext, 'automation'>>,
+  /** Write-only values the step being recorded carries, not yet in `acc`. */
+  current: readonly string[] = []
+): T =>
+  maskValues(value, [
+    ...runSecretValues(acc.steps, acc.actions),
+    // Every write-only value an earlier record step read or wrote...
+    ...acc.steps.flatMap((step) => writeOnlyValuesOfStep(ctx.app, step, acc.actions[step.name])),
+    // ...every one held under a write-only name in what the steps answered (a
+    // loop's items, a path's branch, a called automation's return) or in what
+    // the run was handed (a form's answers, a webhook's body)...
+    ...writeOnlyValuesIn(ctx.app, [acc.actions, ctx.triggerData]),
+    // ...every one a run it called read, whatever name it came back under...
+    ...calledWriteOnlyValues(ctx),
+    // ...and the step's own.
+    ...current,
+  ])

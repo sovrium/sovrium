@@ -8,6 +8,8 @@
 import { Data, Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
 import { storesSubmission } from '@/domain/models/app/forms/submission-ledger-service'
+import { withoutWriteOnlyValues } from '@/domain/models/app/tables/write-only-field-service'
+import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { SubmissionSurface } from '@/domain/models/app/forms/submission-ledger-service'
 
@@ -25,6 +27,8 @@ import type { SubmissionSurface } from '@/domain/models/app/forms/submission-led
  */
 export const writeLedgerRow = (input: {
   readonly form: Readonly<Form>
+  /** The app's tables: the answers bound for a write-only column are not kept. */
+  readonly tables: App['tables']
   readonly surface: SubmissionSurface
   readonly mapped: Readonly<Record<string, unknown>>
   readonly linkedRecordId: string | undefined
@@ -40,7 +44,7 @@ export const writeLedgerRow = (input: {
       formName: form.name,
       formId: form.id,
       status: 'received',
-      data: mapped,
+      data: { ...withoutWriteOnlyValues({ tables: input.tables }, form.submitTo.table, mapped) },
       ...(form.submitTo.table !== undefined ? { linkedRecordTable: form.submitTo.table } : {}),
       ...(linkedRecordId !== undefined ? { linkedRecordId } : {}),
       ...(submitterIpHash !== undefined ? { submitterIpHash } : {}),
@@ -79,6 +83,8 @@ export class FormSubmissionLimitError extends Data.TaggedError('FormSubmissionLi
  */
 export const reserveLedgerSlot = (input: {
   readonly form: Readonly<Form>
+  /** The app's tables: the answers bound for a write-only column are not kept. */
+  readonly tables: App['tables']
   readonly mapped: Readonly<Record<string, unknown>>
   readonly maxSubmissions: number
   readonly submitterIpHash: string | undefined
@@ -92,7 +98,7 @@ export const reserveLedgerSlot = (input: {
       formName: form.name,
       formId: form.id,
       status: 'received',
-      data: mapped,
+      data: { ...withoutWriteOnlyValues({ tables: input.tables }, form.submitTo.table, mapped) },
       maxSubmissions,
       countStatuses: CAP_COUNTED_STATUSES,
       ...(form.submitTo.table !== undefined ? { linkedRecordTable: form.submitTo.table } : {}),

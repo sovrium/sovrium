@@ -36,6 +36,7 @@ import { classifyPermissionRung, toPermissionValue } from '../auth/permission-ev
 import {
   DEFAULT_RULE_ROLES,
   MAX_REACH_DEPTH,
+  reachesWriteOnly,
   resolveChoiceColumnSources,
   roleHiddenByDefaultReadRules,
   type DefaultRuleRole,
@@ -146,16 +147,25 @@ const defaultRuleRolesFor = (form: Readonly<FormShape>): ReadonlyArray<DefaultRu
   return DEFAULT_RULE_ROLES.filter((role) => entries.includes(role))
 }
 
+/** Why a reached column may never be a choice, whoever reads it: what it IS. */
+const ownColumnError = (reached: Readonly<ReachedColumn>): string | undefined => {
+  if (reachesWriteOnly(reached)) {
+    return `write-only on table '${reached.table}' (writeOnly: true) — a value no one may read is never a choice`
+  }
+  const type = reached.column?.type
+  return type !== undefined && SENSITIVE_COLUMN_TYPES.has(type)
+    ? `a sensitive column of type '${type}' — a contact detail, document, person or audit stamp is never a choice`
+    : undefined
+}
+
 /** Why ONE reached column may not be published, or `undefined` when it may. */
 const reachedColumnError = (
   reached: Readonly<ReachedColumn>,
   tables: ReadonlyArray<TableShape>,
   roles: ReadonlyArray<DefaultRuleRole>
 ): string | undefined => {
-  const type = reached.column?.type
-  if (type !== undefined && SENSITIVE_COLUMN_TYPES.has(type)) {
-    return `a sensitive column of type '${type}' — a contact detail, document, person or audit stamp is never a choice`
-  }
+  const own = ownColumnError(reached)
+  if (own !== undefined) return own
   const table = tables.find((candidate) => candidate.name === reached.table)
   const rule = table?.permissions?.fields?.find((entry) => entry.field === reached.field)
   if (rule !== undefined && isRestrictedRead(rule.read)) {

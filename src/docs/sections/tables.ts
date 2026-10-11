@@ -214,6 +214,7 @@ export const tables = defineSection({
         'US-TABLES-PERMISSIONS-ROW-LEVEL-TOP-ROLE-BYPASS',
         'US-TABLES-PERMISSIONS-USER-ACCESS-JUNCTION',
         'US-TABLES-PERMISSIONS-VIEWER-ROLE-READ-STRIP',
+        'US-TABLES-PERMISSIONS-WRITE-ONLY-FIELDS',
       ],
     }),
     defineArticle({

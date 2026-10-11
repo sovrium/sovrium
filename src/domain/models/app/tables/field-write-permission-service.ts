@@ -30,7 +30,7 @@
 
 import { hasPermission } from '@/domain/models/app/auth/permissions'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import { isFieldReadableByCaller } from './field-read-filter-service'
+import { isFieldReadableUnderFieldRules } from './field-read-filter-service'
 import type { App } from '@/domain/models/app'
 
 /** Who is writing: the global role, and the groups the read half matches. */
@@ -51,6 +51,6 @@ export const forbiddenWriteFields = (
   return Object.keys(fields).filter((fieldName) => {
     const audience = table.permissions?.fields?.find((fp) => fp.field === fieldName)?.write
     if (audience !== undefined) return !hasPermission(audience, writer.role)
-    return !isFieldReadableByCaller(app, tableName, writer, fieldName)
+    return !isFieldReadableUnderFieldRules(app, tableName, writer, fieldName)
   })
 }

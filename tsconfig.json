@@ -30,9 +30,10 @@
     "verbatimModuleSyntax": true,
     "noEmit": true,
 
-    // Incremental type checking — persist the dependency graph to a fixed,
-    // gitignored cache so warm `typecheck`/`quality` runs only re-check changed
-    // files. node_modules is already gitignored, so the cache survives cleans.
+    // Incremental type checking for a DIRECT TypeScript 6 run
+    // (`./node_modules/typescript/bin/tsc --noEmit`). The gate is `bun check`
+    // since ADR-044 and keeps no cache; the emit configs that extend this one
+    // set their own `tsBuildInfoFile`.
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/.cache/tsc/tsconfig.tsbuildinfo",
 
@@ -51,12 +52,13 @@
     "noUnusedParameters": false, // Disabled to allow incomplete test stubs in specs/
     "noPropertyAccessFromIndexSignature": false,
 
-    // Path aliases (baseUrl deprecated in TS 7, silence for now)
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
+    // Path aliases. No `baseUrl`: TypeScript 7 removed it (TS5102) and refuses
+    // non-relative `paths` targets without it (TS5090), so every target is
+    // `./`-relative to this file. That form is valid on TypeScript 6 as well, and
+    // nothing in the tree relies on `baseUrl` for bare (non-aliased) imports.
     "paths": {
-      "@/*": ["src/*"],
-      "@/specs/*": ["specs/*"],
+      "@/*": ["./src/*"],
+      "@/specs/*": ["./specs/*"],
       // Resolve the `sovrium` config-types specifier to its source. Outside this
       // repo that specifier is satisfied by the `sovrium.d.ts` that `sovrium types`
       // generates; in-repo there is no generated declaration to pick up, so the
@@ -78,7 +80,7 @@
       //
       // Without this alias a clean checkout fails typecheck with TS2307 the moment
       // anything in the program imports it. Matches the @/* pattern above.
-      "sovrium": ["src/index.ts"]
+      "sovrium": ["./src/index.ts"]
     }
   },
   // Bound the typecheck program to the three source roots only (the fourth,

@@ -17,6 +17,7 @@ import { buildEnvLookup } from '../resolve-env-vars'
 import { buildAutomationContext, type TriggerData } from '../resolve-trigger-data'
 import { buildRecordEventChannel } from './record-event-channel'
 import { toResolvedRetry, type StepContext } from './types'
+import { createCalledWriteOnlyValues, type WriteOnlyInheritance } from './write-only-values'
 import type { ActionHandler, ActionKey } from '../action-handlers'
 import type { AutomationContext } from '../action-handlers/shared'
 import type { App } from '@/domain/models/app'
@@ -33,6 +34,7 @@ const toAutomationContext = (input: {
   readonly userId: string | undefined
   readonly runId?: string
   readonly startedByHand?: boolean
+  readonly writeOnly?: WriteOnlyInheritance
 }): AutomationContext => ({
   name: input.name,
   id: input.automationId,
@@ -42,6 +44,9 @@ const toAutomationContext = (input: {
   // account erased while the run waited on an approval) must write nothing,
   // never fall back to writing as the system.
   ...(input.startedByHand === true ? { startedByHand: true as const } : {}),
+  // A run its trigger started reads write-only values (as the system, unless a
+  // person started it); a called run inherits its caller's standing and ledger.
+  writeOnly: input.writeOnly ?? { blind: false, called: createCalledWriteOnlyValues() },
   // One ledger per run: a step writing as nobody attaches only what this run stored.
   writtenFiles: createRunWrittenFiles(),
 })
@@ -67,6 +72,7 @@ export const buildStepContext = (input: {
   readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
   readonly userId: string | undefined
   readonly startedByHand?: boolean
+  readonly writeOnly?: WriteOnlyInheritance
   readonly propsFinal?: boolean
   readonly callDepth?: number
   readonly recordEventDepth?: number

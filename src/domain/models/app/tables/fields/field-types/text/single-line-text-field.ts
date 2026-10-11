@@ -9,6 +9,31 @@ import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
 
 /**
+ * `writeOnly` — a value people and automations can WRITE, that only the
+ * server reads back.
+ *
+ * Shared by `single-line-text` and `long-text`, the two text types a secret is
+ * stored in (a client secret, an API token, a private key). Any other field
+ * type refuses the key: a write-only date, choice or number has no use, and a
+ * write-only computed field would be a value nobody can ever see.
+ *
+ * The flag is stronger than a field read rule on purpose: the admin role
+ * bypasses every `permissions.fields[].read` rule, and this one it does not.
+ * The OpenAPI keyword of the same name means the same thing — present in a
+ * request, absent from every response.
+ */
+export const WriteOnlyOptionSchema = Schema.optional(
+  Schema.Boolean.pipe(
+    Schema.annotate({
+      title: 'Write-only',
+      description:
+        'Keep the value out of every answer. A write-only field can be set and replaced by anyone allowed to write it, but no role reads it back, the admin included: the records API, its exports, realtime events, the MCP tools, the operator console and the record history omit it, and filtering, sorting, grouping or searching on it answers as if the field did not exist. A record shows only whether a value is stored, in its `_writeOnly` block. Automations and seed files still read and write it, so a secret reaches the system that needs it without passing through a person. It cannot be combined with `unique` or `fullTextSearch`, and a formula or lookup cannot read it.',
+      defaultNote: 'false — the value is read under the usual field rules',
+    })
+  )
+)
+
+/**
  * Single Line Text Field
  *
  * Short text input limited to a single line. Ideal for names, titles, labels,
@@ -49,6 +74,7 @@ export const SingleLineTextFieldSchema = BaseFieldSchema.pipe(
         })
       )
     ),
+    writeOnly: WriteOnlyOptionSchema,
   }),
   Schema.annotate({
     title: 'Single Line Text Field',

@@ -334,7 +334,7 @@ export const buildNestedStepInvoker = (
       // Recorded, and masked, exactly as a top-level step is — timed from
       // dispatch to settle, which the steps after it in its path or item read.
       const durationMs = Math.round(Duration.toMillis(elapsed))
-      const step = maskRunSecrets(buildStep(rawAction, props, outcome, ctx), acc)
+      const step = maskRunSecrets(buildStep(rawAction, props, outcome, ctx), acc, ctx)
       return { outcome, step: withDuration(step, durationMs) }
     })
   }

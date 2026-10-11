@@ -6,6 +6,7 @@
  */
 
 import { assertDrawable, EditRefusal, pdfLib } from './pdf-editor-library'
+import type { PdfLib } from './pdf-editor-library'
 import type { BuiltPdf, PdfFormValue } from '@/application/ports/services/pdf-editor'
 import type { PdfInspectResult } from '@/domain/models/app/automations/actions/pdf/inspect'
 import type { PDFDocument, PDFField, PDFFont, PDFForm } from '@cantoo/pdf-lib'
@@ -17,11 +18,10 @@ import type { PDFDocument, PDFField, PDFFont, PDFForm } from '@cantoo/pdf-lib'
  * fails with nothing changed — a renamed field never fails silently.
  */
 
-type Lib = Awaited<ReturnType<typeof pdfLib>>
 type FieldReport = PdfInspectResult['formFields'][number]
 
 /** A field's kind, its value and its choices, by the class pdf-lib reads it as. */
-const reportOf = (lib: Lib, field: PDFField): Omit<FieldReport, 'name'> => {
+const reportOf = (lib: PdfLib, field: PDFField): Omit<FieldReport, 'name'> => {
   if (field instanceof lib.PDFTextField) {
     const text = field.getText()
     return text === undefined ? { type: 'text' } : { type: 'text', value: text }
@@ -45,7 +45,7 @@ const reportOf = (lib: Lib, field: PDFField): Omit<FieldReport, 'name'> => {
 }
 
 /** Every form field of a PDF, empty when it has no form. */
-export const formFieldsOf = (lib: Lib, document: PDFDocument): PdfInspectResult['formFields'] =>
+export const formFieldsOf = (lib: PdfLib, document: PDFDocument): PdfInspectResult['formFields'] =>
   document
     .getForm()
     .getFields()
@@ -80,7 +80,12 @@ const checkboxValue = (name: string, value: PdfFormValue): boolean => {
 }
 
 /** Check one value against its field, and return how to write it. */
-const setterFor = (lib: Lib, field: PDFField, value: PdfFormValue, font: PDFFont): (() => void) => {
+const setterFor = (
+  lib: PdfLib,
+  field: PDFField,
+  value: PdfFormValue,
+  font: PDFFont
+): (() => void) => {
   const name = field.getName()
   if (field instanceof lib.PDFTextField) {
     const text = Array.isArray(value) ? value.join(', ') : String(value)

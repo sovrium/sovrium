@@ -3,6 +3,47 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.37.0",
+      "date": "2026-10-11",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.36.0...v0.37.0",
+      "sections": [
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "tables",
+              "text": "keep a write-only text field out of every read"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "server",
+              "text": "keep bound query values out of logged database errors"
+            },
+            {
+              "scope": "cli",
+              "text": "keep waiting when the cloud rate-limits a deploy's status reads"
+            }
+          ]
+        },
+        {
+          "kind": "performance",
+          "heading": "Performance Improvements",
+          "entries": [
+            {
+              "scope": "build",
+              "text": "start the compiled binary from precompiled bytecode"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.36.0",
       "date": "2026-10-10",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.35.0...v0.36.0",

@@ -20,10 +20,12 @@
  *    the transfer stalls;
  * 4. post the small deploy request to `POST /api/automations/deploy/webhook`
  *    with an `Idempotency-Key`, so unchanged content deployed twice to the
- *    same app is answered with the first deployment;
+ *    same app is answered with the first deployment — and so it is sent again,
+ *    for up to 2 minutes, while the cloud answers 429 or 503;
  * 5. remember the app in the project's link file once the request is accepted;
  * 6. unless `--no-wait`, read the deployment record every 2 seconds for up to
- *    10 minutes, printing each state and each new attempt the cloud makes,
+ *    10 minutes — waiting longer while the cloud answers 429 or 503 — printing
+ *    each state and each new attempt the cloud makes,
  *    until it is `live`, `failed` or `replaced` — and on `live`, wait for the
  *    app's address to answer before saying so;
  * 7. under `--seed`, once it is live, seed it `if-empty` from the bundle's
@@ -57,6 +59,7 @@ import {
   CliRefusal,
   assertNetworkAllowed,
   callCloud,
+  callCloudThroughBusy,
   describeUnreachable,
   runCliProgram,
   say,
@@ -71,6 +74,9 @@ import type { BundleManifest } from '@/application/use-cases/server/bundle-manif
 
 /** How long the command waits for `live`, `failed` or `replaced`. */
 const WAIT_LIMIT_MS = 10 * 60 * 1000
+
+/** How long the deploy request is sent again while the cloud answers 429 or 503. */
+const INTAKE_BUSY_LIMIT_MS = 2 * 60 * 1000
 
 /** The upload is abandoned after this long without a byte moving. */
 const UPLOAD_STALL_MS = 60_000
@@ -175,7 +181,18 @@ const upload = (origin: URL, apiKey: string, app: string, bytes: Uint8Array<Arra
     })
   })
 
-/** Step 2: the deploy request, answered with the deployment (new, or replayed). */
+/** The headers of the deploy request: JSON, the key, and its `Idempotency-Key`. */
+const intakeHeaders = (apiKey: string, idempotencyKey: string) => ({
+  'Content-Type': 'application/json',
+  'x-api-key': apiKey,
+  'Idempotency-Key': idempotencyKey,
+})
+
+/**
+ * Step 2: the deploy request, answered with the deployment (new, or replayed).
+ * Sent again while the cloud is busy: the `Idempotency-Key` makes a second send
+ * the same request, answered with the deployment the first one recorded.
+ */
 const requestDeployment = (
   { origin, apiKey }: SignedInCloud,
   request: Schema.Schema.Type<typeof deployRequestSchema>,
@@ -191,15 +208,15 @@ const requestDeployment = (
           })
       )
     )
-    const answer = yield* callCloud(new URL('/api/automations/deploy/webhook', origin), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'Idempotency-Key': idempotencyKey,
+    const answer = yield* callCloudThroughBusy(
+      new URL('/api/automations/deploy/webhook', origin),
+      {
+        method: 'POST',
+        headers: intakeHeaders(apiKey, idempotencyKey),
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    }).pipe(Effect.mapError(describeUnreachable('the archive is uploaded, nothing was deployed')))
+      { deadline: Date.now() + INTAKE_BUSY_LIMIT_MS, onBusy: () => Effect.void }
+    ).pipe(Effect.mapError(describeUnreachable('the archive is uploaded, nothing was deployed')))
     const deployment = Schema.decodeUnknownOption(deployResponseSchema)(answer.body)
     if ((answer.status === 200 || answer.status === 201) && Option.isSome(deployment)) {
       return deployment.value

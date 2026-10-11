@@ -14,6 +14,12 @@ import {
   type PermissionCaller,
 } from '@/domain/models/app/auth/permission-evaluation'
 import { assignableRoleNames, isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import {
+  isStoredValue,
+  isWriteOnlyField,
+  WRITE_ONLY_MASK,
+  writeOnlyFieldNames,
+} from './write-only-field-service'
 import type { App } from '@/domain/models/app'
 import type { TablePermission } from '@/domain/models/app/tables/permissions'
 
@@ -132,6 +138,7 @@ function isFieldExcludedByDefaultRules(
  * a caller with no groups is `{ role, groups: [] }`, written out at the site.
  *
  * Precedence (mirrors {@link filterReadableFields}, which is built on it):
+ * 0. A `writeOnly` field is readable by no caller, admin-equivalent included.
  * 1. Admin-equivalent roles (the app's resolved top role + built-in `admin`)
  *    bypass every field-level read restriction.
  * 2. System fields (id, timestamps, authorship metadata) are always readable.
@@ -143,6 +150,25 @@ function isFieldExcludedByDefaultRules(
  *    concern, validated by the callers that need a 400.
  */
 export function isFieldReadableByCaller(
+  app: App,
+  tableName: string,
+  caller: PermissionCaller,
+  fieldName: string
+): boolean {
+  // 0. A write-only field is read by no caller, the admin included: the one
+  // rule the admin bypass below does not cross.
+  if (isWriteOnlyField(app, tableName, fieldName)) return false
+  return isFieldReadableUnderFieldRules(app, tableName, caller, fieldName)
+}
+
+/**
+ * The ordinary field rules, without the write-only refusal: steps 1–5 of
+ * {@link isFieldReadableByCaller}. Asked where the question is "could this
+ * caller read the field were it not write-only" — who is told whether a
+ * write-only value is set (`_writeOnly`), and who may write a field that has
+ * no `write` audience of its own.
+ */
+export function isFieldReadableUnderFieldRules(
   app: App,
   tableName: string,
   caller: PermissionCaller,
@@ -188,6 +214,9 @@ export function isFieldReadableByCaller(
  * @param params.tableName - Name of the table
  * @param params.caller - The caller: role and group memberships
  * @param params.record - Record object to filter
+ * @param params.includeWriteOnly - Keep write-only values the caller could
+ *   otherwise read: set ONLY for an automation run nobody started, the one
+ *   reader a write-only value is meant for
  * @returns Record with only readable fields
  */
 export function filterReadableFields<T extends Record<string, unknown>>(
@@ -196,19 +225,45 @@ export function filterReadableFields<T extends Record<string, unknown>>(
     tableName: string
     caller: PermissionCaller
     record: T
+    includeWriteOnly?: boolean | undefined
   }>
 ): Readonly<Record<string, unknown>> {
   const { app, tableName, caller, record } = params
+  const readable =
+    params.includeWriteOnly === true ? isFieldReadableUnderFieldRules : isFieldReadableByCaller
 
   // One predicate, applied per field. Keeping this in step with the query-side
   // validators is the point: a field the response strips must not remain
   // queryable, and a field the response returns must remain queryable.
   return Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
-    if (!isFieldReadableByCaller(app, tableName, caller, fieldName)) {
+    if (!readable(app, tableName, caller, fieldName)) {
       return acc // Omit the field from the response
     }
     return { ...acc, [fieldName]: record[fieldName] }
   }, {})
+}
+
+/**
+ * The `_writeOnly` presence block for one stored row: each write-only field
+ * of `tableName` the caller could read under the ordinary field rules, mapped
+ * to whether a value is stored (`null`, `undefined` and `''` are "not set").
+ * `undefined` when there is no such field, so a reply never carries an empty
+ * block. It answers set or not set, never the value.
+ */
+export function writeOnlyPresence(
+  params: Readonly<{
+    app: App
+    tableName: string
+    caller: PermissionCaller
+    record: Readonly<Record<string, unknown>>
+  }>
+): Readonly<Record<string, boolean>> | undefined {
+  const { app, tableName, caller, record } = params
+  const names = writeOnlyFieldNames(app, tableName).filter((name) =>
+    isFieldReadableUnderFieldRules(app, tableName, caller, name)
+  )
+  if (names.length === 0) return undefined
+  return Object.fromEntries(names.map((name) => [name, isStoredValue(record[name])]))
 }
 
 const isValueMap = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -224,6 +279,10 @@ const isValueMap = (value: unknown): value is Readonly<Record<string, unknown>> 
  * value map left keeps only readable fields. Keys that name no field pass, as
  * {@link isFieldReadableByCaller} lets an unknown name through. Anything that
  * is not a value map (`null` for a delete) is returned as it came.
+ *
+ * A write-only field is stored in the history as {@link WRITE_ONLY_MASK} (or
+ * `''` when unset), never as its value, so it stays named for a caller who
+ * could read it under the ordinary field rules — and only in that masked form.
  */
 export function filterReadableChanges(
   params: Readonly<{
@@ -235,8 +294,16 @@ export function filterReadableChanges(
 ): unknown {
   const { app, tableName, caller, changes } = params
   if (!isValueMap(changes)) return changes
-  const readable = (record: Readonly<Record<string, unknown>>) =>
-    filterReadableFields({ app, tableName, caller, record })
+  const keepsMasked = (name: string, value: unknown): boolean =>
+    (value === WRITE_ONLY_MASK || value === '') &&
+    isWriteOnlyField(app, tableName, name) &&
+    isFieldReadableUnderFieldRules(app, tableName, caller, name)
+  const readable = (record: Readonly<Record<string, unknown>>) => ({
+    ...filterReadableFields({ app, tableName, caller, record }),
+    ...Object.fromEntries(
+      Object.entries(record).filter(([name, value]) => keepsMasked(name, value))
+    ),
+  })
   return Object.fromEntries(
     Object.entries(readable(changes)).map(([key, value]) => [
       key,
@@ -260,14 +327,26 @@ function hasFieldReadPermission(permission: TablePermission, caller: PermissionC
   )
 }
 
+/** The role list a field's `permissions.fields` entry declares as its `read`, if it is one. */
+const declaredReadList = (
+  app: App,
+  tableName: string,
+  fieldName: string
+): readonly string[] | undefined => {
+  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  const read = table?.permissions?.fields?.find((entry) => entry.field === fieldName)?.read
+  return Array.isArray(read) ? (read as readonly string[]) : undefined
+}
+
 /**
  * Whether NO role and no group of the app may read `fieldName` on `tableName`
  * — a judgement on the declaration alone, with no caller.
  *
- * A field qualifies when its `permissions.fields` entry has a `read` that is a
- * role list naming no role the app defines (a built-in role, an engine role or
- * one of `auth.roles`) and no declared group. `'all'`, `'authenticated'`, a
- * missing entry and any list naming a defined role or group keep the field —
+ * A `writeOnly` field always qualifies. Otherwise a field qualifies when its
+ * `permissions.fields` entry has a `read` that is a role list naming no role
+ * the app defines (a built-in role, an engine role or one of `auth.roles`) and
+ * no declared group. `'all'`, `'authenticated'`, a missing entry and any list
+ * naming a defined role or group keep the field —
  * an admin-only field included. The records API's admin bypass is deliberately
  * not counted: counted, no field would ever qualify.
  *
@@ -276,9 +355,9 @@ function hasFieldReadPermission(permission: TablePermission, caller: PermissionC
  * changed fields, and a test send's sample.
  */
 export const isFieldReadByNoOne = (app: App, tableName: string, fieldName: string): boolean => {
-  const table = app.tables?.find((candidate) => candidate.name === tableName)
-  const read = table?.permissions?.fields?.find((entry) => entry.field === fieldName)?.read
-  if (read === undefined || !Array.isArray(read)) return false
+  if (isWriteOnlyField(app, tableName, fieldName)) return true
+  const read = declaredReadList(app, tableName, fieldName)
+  if (read === undefined) return false
   const roles = assignableRoleNames(app)
   const groups = new Set((app.auth?.groups ?? []).map((group) => group.name))
   return !read.some((entry: string) =>
@@ -313,9 +392,11 @@ export const withoutFieldsReadByNoOne = (
  */
 export const isFieldAdminOnly = (app: App, tableName: string, fieldName: string): boolean => {
   if (isSystemField(fieldName)) return false
-  const table = app.tables?.find((candidate) => candidate.name === tableName)
-  const read = table?.permissions?.fields?.find((entry) => entry.field === fieldName)?.read
-  if (read === undefined || !Array.isArray(read)) return false
+  // A write-only field is narrower still: kept from the admin too, so never
+  // carried where admin-only fields are not.
+  if (isWriteOnlyField(app, tableName, fieldName)) return true
+  const read = declaredReadList(app, tableName, fieldName)
+  if (read === undefined) return false
   return read.every((entry: string) => !isGroupReference(entry) && isAdminEquivalent(entry, app))
 }
 

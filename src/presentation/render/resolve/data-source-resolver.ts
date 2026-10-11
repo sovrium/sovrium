@@ -43,12 +43,12 @@ import {
   holdsInheritedRecord,
   resolveByMode,
   resolveRenderPlan,
-  withWritePermissionGates,
 } from './data-source-modes'
 import { resolveIslandShortCircuit, stampNestedIslands } from './data-source-rows'
 import { bindRouteParams } from './route-param-binding'
 import { withSsoProviders } from './sso-provider-stamp'
 import { isDroppedWithheld, isWithheldOverUnreadableTable } from './withheld-component'
+import { withWritePermissionGates } from './write-permission-gates'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type {

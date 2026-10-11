@@ -40,6 +40,7 @@ import {
 } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { adminNestedSteps } from '@/application/use-cases/automations/run/nested-step-record'
+import { withWriteOnlyValuesMasked } from '@/application/use-cases/automations/run/write-only-values'
 import {
   bucketRowsByTimestamp,
   buildDenseBucketGrid,
@@ -117,7 +118,7 @@ function buildAdminRunItem(app: App, row: AdminAutomationRunRow): AutomationRunA
     automationName: row.automationName,
     status: coerceStatus(row.status),
     ...runTriggerOf(def, row.triggerName),
-    triggerData: redactRunTriggerData(row.triggerData ?? null, def),
+    triggerData: withWriteOnlyValuesMasked(app, redactRunTriggerData(row.triggerData ?? null, def)),
     startedAt: startedAtIso,
     completedAt: toIso(row.completedAt),
     durationMs: row.durationMs,

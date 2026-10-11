@@ -134,6 +134,7 @@ export const persistSubmission = (input: {
       form.availability?.maxSubmissions !== undefined
         ? yield* reserveLedgerSlot({
             form,
+            tables: app.tables,
             mapped,
             maxSubmissions: form.availability.maxSubmissions,
             submitterIpHash,
@@ -154,6 +155,7 @@ export const persistSubmission = (input: {
       cappedSubmissionId ??
       (yield* writeLedgerRow({
         form,
+        tables: app.tables,
         surface: input.surface,
         mapped,
         linkedRecordId,

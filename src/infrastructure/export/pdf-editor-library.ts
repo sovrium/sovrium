@@ -5,11 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import type * as PdfLibModule from '@cantoo/pdf-lib'
 import type { PDFFont } from '@cantoo/pdf-lib'
 
 /** What every part of `PdfEditorLive` shares: the library, loaded on first use, and its refusals. */
 
-export const pdfLib = () => import('@cantoo/pdf-lib')
+/**
+ * The library's module namespace, named so a signature that carries it stays
+ * describable in a declaration file: left inferred, TypeScript 7 spells it
+ * through the package's internal `cjs/` paths and refuses the emit (TS2883).
+ */
+export type PdfLib = typeof PdfLibModule
+
+export const pdfLib = (): Promise<PdfLib> => import('@cantoo/pdf-lib')
 
 export const reasonOf = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause)

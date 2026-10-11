@@ -105,7 +105,7 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
     // filtering (the `_hp` trap field is never declared on the form). A
     // tripped honeypot records a `spam` ledger row and rejects with 400 so
     // spam never reaches the bound-table write or the cap counter.
-    yield* checkHoneypot({ form, body, submitterIpHash, userAgent })
+    yield* checkHoneypot({ form, tables: app.tables, body, submitterIpHash, userAgent })
 
     // Rate-limit gate — runs
     // AFTER the honeypot so a tripped honeypot doesn't also consume a
@@ -118,6 +118,7 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
     // all "anonymous" traffic shares one bucket — see submit-form-rate-limit.
     yield* checkRateLimit({
       form,
+      tables: app.tables,
       body,
       submitterIpHash: submitterIpHash ?? '',
       rateLimitKeyHash: config.rateLimitKeyHash,

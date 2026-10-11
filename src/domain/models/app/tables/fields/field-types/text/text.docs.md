@@ -33,6 +33,30 @@ Multi-line plain text. Line breaks are preserved; there is no rich formatting.
 - { id: 2, name: description, type: long-text, default: 'Enter description here...' }
 ```
 
+## Write-only text
+
+`writeOnly: true` on a `single-line-text` or `long-text` field keeps a secret — a client secret, an API token, a private key — out of every read, for every role, the admin included. Anyone allowed to write the field can set and replace it, but no answer ever carries it back: not the records API (list, read, or the answer to a create or an update), not an export, a realtime event, an MCP tool, the operator console, the record history or a table webhook. A record shows only whether a value is stored, in its `_writeOnly` block:
+
+```json
+{
+  "id": "1",
+  "fields": { "sso_client_id": "client-7f3a" },
+  "_writeOnly": { "sso_client_secret": true }
+}
+```
+
+Filtering, sorting, grouping, aggregating or searching on the field answers `404`, as for a field that does not exist. The operator console shows **Set** or **Not set**, and the record history names a change to the field without keeping either value.
+
+Automations read it unchanged — a record step nobody started hands it to the next step, which can send it where it is needed — and the run history stores `***` in its place. The value leaves the server only on a request the automation makes: an answer to whoever started the run — a `webhook/response`, a manual run's output — carries `***` instead. A run a person started by hand reads as that person, so the value is absent from its steps — and from those of any automation it calls. What a called automation returns is masked in the caller's run history and answers too, like a value the caller read itself. Seed files write it, and the seed command never prints it.
+
+The guarantee covers every way to read the app, not its storage: the value is stored as written, so a `sovrium backup` archive and direct access to the database carry it. Keep both as you keep the secret itself.
+
+Because each would answer a question about the hidden value, a write-only field cannot be `unique` or `fullTextSearch`, no formula, lookup, rollup or relationship label may read it, no view may group or sort on it, and no form may offer it as a choice. Pages follow the same rule, in an app with no `auth` block too.
+
+```yaml
+- { id: 7, name: sso_client_secret, type: single-line-text, writeOnly: true }
+```
+
 ## `rich-text`
 
 Formatted text with bold, italic, links, lists and headings, edited in a WYSIWYG editor and stored as HTML.

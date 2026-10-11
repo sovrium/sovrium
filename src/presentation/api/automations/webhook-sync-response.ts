@@ -6,11 +6,16 @@
  */
 
 import { resolveTriggerInValue } from '@/application/use-cases/automations/resolve-trigger-data'
+import {
+  maskValues,
+  writeOnlyValuesOfRun,
+} from '@/application/use-cases/automations/run/write-only-values'
 import type { Trigger } from './webhook-methods'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { TriggerData } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { RunAutomationResult } from '@/application/use-cases/automations/run-automation'
 import type { PublicRunStatus, WebhookDefaultResponse } from '@/domain/models/api/automations'
+import type { App } from '@/domain/models/app'
 
 /**
  * The synchronous webhook answer: a `webhook/response` action's override, the
@@ -20,6 +25,8 @@ import type { PublicRunStatus, WebhookDefaultResponse } from '@/domain/models/ap
 type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
 
 interface BuildResponseInput {
+  readonly app: App
+  readonly automationName: string
   readonly trigger: WebhookTrigger
   readonly result: RunAutomationResult
   readonly triggerData: TriggerData
@@ -78,13 +85,25 @@ const responseFromAction = (actionResponse: Readonly<Record<string, unknown>>) =
   return { status, body, headers }
 }
 
+/** The write-only values the run's answer must not carry: its own reads and its callees'. */
+const answerSecrets = (input: BuildResponseInput): readonly string[] => [
+  ...writeOnlyValuesOfRun(input.app, input.automationName, input.result.actions),
+  ...(input.result.calledWriteOnly ?? []),
+]
+
 export const buildSyncResponse = (input: BuildResponseInput) => {
   const { trigger, result, triggerData, templates } = input
   // A `webhook/response` action — when present — takes precedence over both
   // the trigger-level `response` config and the default sync body. The
   // handler has already substituted templates in its props (the run loop
   // does that before dispatch), so we just unwrap the override here.
-  if (result.responseOverride !== undefined) return responseFromAction(result.responseOverride)
+  //
+  // Whoever holds the webhook's URL reads that answer, so a write-only value a
+  // step of the run read is masked in it, as in every other answer of a run:
+  // the value leaves the server only on a request the automation itself makes.
+  if (result.responseOverride !== undefined) {
+    return responseFromAction(maskValues(result.responseOverride, answerSecrets(input)))
+  }
   const cfg = trigger.response
   const status = cfg?.status ?? cfg?.statusCode ?? 200
   const context = { run: { id: result.runId }, trigger: { data: triggerData } }

@@ -12,6 +12,8 @@ import {
   type RateLimitReason,
 } from '@/application/ports/services/submission-rate-limiter'
 import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
+import { withoutWriteOnlyValues } from '@/domain/models/app/tables/write-only-field-service'
+import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
 /**
@@ -49,6 +51,8 @@ export class FormRateLimitedError extends Data.TaggedError('FormRateLimitedError
  */
 export const checkRateLimit = (input: {
   readonly form: Readonly<Form>
+  /** The app's tables: the answers bound for a write-only column are not kept. */
+  readonly tables: App['tables']
   readonly body: Readonly<Record<string, unknown>>
   readonly submitterIpHash: string
   /**
@@ -81,7 +85,7 @@ export const checkRateLimit = (input: {
         formId: form.id,
         status: 'spam',
         statusReason: result.reason,
-        data: { ...body },
+        data: { ...withoutWriteOnlyValues({ tables: input.tables }, form.submitTo.table, body) },
         submitterIpHash,
         ...(userAgent !== undefined ? { userAgent } : {}),
       })

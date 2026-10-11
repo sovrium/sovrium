@@ -28,6 +28,11 @@ import {
 import { logError } from '@/infrastructure/logging/logger'
 import { toApiStatus } from './run-status'
 import { cryptoRandomId, isTerminalFailureStatus } from './types'
+import {
+  createCalledWriteOnlyValues,
+  writeOnlyValuesOfRun,
+  type WriteOnlyInheritance,
+} from './write-only-values'
 import type { AutomationInvoker, RunAutomationResult, RunRequirements, StepContext } from './types'
 import type { App } from '@/domain/models/app'
 import type { Trigger } from '@/domain/models/app/automations/trigger'
@@ -63,8 +68,21 @@ export interface AutomationCallRunners {
     readonly visitedAutomations: ReadonlySet<string>
     readonly relay?: RunRelay
     readonly onPersisted?: (runId: string) => void
+    readonly writeOnly?: WriteOnlyInheritance
   }) => Effect.Effect<RunAutomationResult, never, RunRequirements>
 }
+
+/**
+ * What a called run inherits about write-only values: blind to them when the
+ * chain began with a person's gesture — a hand-started run reads as that
+ * person, and so does every run it calls, however deep — and the chain's one
+ * ledger of the values its called runs read. Only this: a called run still
+ * writes, and reads rows, as the system.
+ */
+const inheritedWriteOnly = (ctx: StepContext): WriteOnlyInheritance => ({
+  blind: ctx.automation.startedByHand === true || ctx.automation.writeOnly?.blind === true,
+  called: ctx.automation.writeOnly?.called ?? createCalledWriteOnlyValues(),
+})
 
 /**
  * Minimal `inputSchema` gate for the `automation-call` trigger: rejects
@@ -173,6 +191,7 @@ const buildSubAutomationRun = (
       // what it was handed is judged by what the caller had read by then.
       ...(callerRunId === undefined ? {} : { relay: relayFrom(callerRunId, input.stepIndex) }),
       ...(input.onRun === undefined ? {} : { onPersisted: input.onRun }),
+      writeOnly: inheritedWriteOnly(ctx),
     })
   })
 
@@ -217,6 +236,10 @@ export const buildAutomationInvoker =
         return Promise.resolve({ result: {} })
       }
       return ctx.runProgram(subRun).then((result) => {
+        // What the callee read travels back in whatever it returns, under any
+        // name: the caller's history masks it like a value it read itself.
+        // eslint-disable-next-line functional/no-expression-statements -- the chain's ledger (`write-only-values.ts`)
+        ctx.automation.writeOnly?.called.record(writeOnlyValuesOfRun(ctx.app, name, result.actions))
         // A callee that failed, used up its retries, timed out or was cancelled
         // did not do its work: the call fails, and with it the caller unless
         // the call step is marked `continueOnError`.

@@ -278,21 +278,30 @@ const parsedJson = (value: unknown): unknown => {
   return Option.getOrElse(Option.liftThrowable(() => JSON.parse(value) as unknown)(), () => value)
 }
 
-/** One read of the seed run record. */
-const readSeedRun = (cloud: SignedInCloud, id: string) =>
+const stillSeeding = (id: string, status: string): CliRefusal =>
+  new CliRefusal({
+    headline: `Seed run ${id} is still ${status} after 10 minutes; the command stopped waiting.`,
+    guidance: 'The seed may still finish; check the app in the cloud.',
+  })
+
+const decodeSeedRun = Schema.decodeUnknownOption(seedRunRecordFieldsSchema)
+
+/** One read of the seed run, waited through while the cloud is busy; `status` is the last read. */
+const readSeedRun = (
+  cloud: SignedInCloud,
+  wait: { readonly id: string; readonly deadline: number; readonly status: string }
+) =>
   readCloudRecord({
     origin: cloud.origin,
     apiKey: cloud.apiKey,
     table: 'seed_runs',
-    id,
-    label: `seed run ${id}`,
-    decode: (fields) =>
-      Schema.decodeUnknownOption(seedRunRecordFieldsSchema)({
-        ...fields,
-        report: parsedJson(fields['report']),
-      }),
-    stillRunning: `seed run ${id} may still be in progress there`,
+    id: wait.id,
+    label: `seed run ${wait.id}`,
+    decode: (fields) => decodeSeedRun({ ...fields, report: parsedJson(fields['report']) }),
+    stillRunning: `seed run ${wait.id} may still be in progress there`,
     guidance: 'The seed may still run; check the app in the cloud.',
+    deadline: wait.deadline,
+    expired: () => stillSeeding(wait.id, wait.status),
   })
 
 /** What the command has printed so far: the last state, and whether the backup line went out. */
@@ -324,7 +333,7 @@ const followSeedRun = (
   printed: Printed
 ): Effect.Effect<void, CliRefusal> =>
   Effect.gen(function* () {
-    const fields = yield* readSeedRun(cloud, run.id)
+    const fields = yield* readSeedRun(cloud, { ...run, status: printed.status })
     const lines = progressOf(run.id, printed, fields)
     yield* Effect.forEach(lines, say, { discard: true })
     const now: Printed = {
@@ -341,12 +350,7 @@ const followSeedRun = (
         guidance: "Fix what it names, then run 'sovrium seed' again.",
       })
     }
-    if (Date.now() > run.deadline) {
-      return yield* new CliRefusal({
-        headline: `Seed run ${run.id} is still ${fields.status} after 10 minutes; the command stopped waiting.`,
-        guidance: 'The seed may still finish; check the app in the cloud.',
-      })
-    }
+    if (Date.now() > run.deadline) return yield* stillSeeding(run.id, fields.status)
     yield* Effect.sleep(POLL_INTERVAL_MS)
     return yield* followSeedRun(cloud, run, now)
   })

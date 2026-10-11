@@ -10,6 +10,7 @@
  * reach judgement reads it (`run-step-output-reach.ts`).
  */
 
+import { withWriteOnlyValuesMasked } from '@/application/use-cases/automations/run/write-only-values'
 import { redactRunTriggerData } from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
 import {
   runTriggerOf,
@@ -36,11 +37,18 @@ export const runTriggerFields = (app: App, run: PersistedRun): RunTrigger =>
     run.triggerName
   )
 
-/** A run's `triggerData` as a read returns it: credential headers hidden (`redactRunTriggerData`). */
+/**
+ * A run's `triggerData` as a read returns it: credential headers hidden
+ * (`redactRunTriggerData`), and every write-only value it carries masked — a
+ * form's answer or a webhook's body bound for a write-only field.
+ */
 export const runTriggerDataOf = (app: App, run: PersistedRun): unknown =>
-  redactRunTriggerData(
-    run.triggerData,
-    app.automations?.find((a) => a.name === run.automationName)
+  withWriteOnlyValuesMasked(
+    app,
+    redactRunTriggerData(
+      run.triggerData,
+      app.automations?.find((a) => a.name === run.automationName)
+    )
   )
 
 /** The `?triggerName=` filter of the public history (see the domain's `triggerNameFilterOf`). */

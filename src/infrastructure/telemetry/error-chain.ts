@@ -24,7 +24,14 @@
  * Everything here is PURE (no I/O, no module state) and TOTAL (never throws) —
  * telemetry must never affect the request it observes, and a reporter that threw
  * while serializing would not merely degrade a report, it would drop it.
+ *
+ * It is also the one place every sink reads a link's text, which makes it the
+ * place that text is made safe to emit: a failed query's bound values are
+ * redacted here (see {@link redactLink}), so neither stderr nor the error store
+ * can carry the row a failed write was trying to store.
  */
+
+import { redactBoundQueryValues } from '@/domain/kernel/sanitize/bound-value-redaction'
 
 /**
  * Number of links RENDERED for a chain. Matches the default of upstream
@@ -87,6 +94,26 @@ const walk = (
   return [err, ...walk(toError(cause), new Set([...seen, cause]), remaining - 1)]
 }
 
+/**
+ * One link with every query bound-value dump redacted from its `message` and
+ * `stack` — the only two fields any sink reads.
+ *
+ * A COPY, never a mutation: the original error is still travelling (the reporter
+ * dedups on its identity, the HTTP boundary classifies it), and rewriting a live
+ * error's text from inside a log call would be a side effect nobody asked for.
+ * A link holding no dump is returned as-is, so the common case allocates
+ * nothing.
+ */
+const redactLink = (err: Readonly<Error>): Readonly<Error> => {
+  const message = redactBoundQueryValues(err.message)
+  const stack = err.stack === undefined ? undefined : redactBoundQueryValues(err.stack)
+  if (message === err.message && stack === err.stack) return err
+  const copy = new Error(message)
+  copy.name = err.name
+  copy.stack = stack
+  return copy
+}
+
 /** A chain resolved for output: the links to render plus how many were dropped. */
 export interface CauseChain {
   /** NEWEST-first — the thrown error at index 0, the ROOT CAUSE last. */
@@ -114,7 +141,7 @@ export interface CauseChain {
  */
 export const resolveCauseChain = (error: unknown): CauseChain => {
   const err = toError(error)
-  const walked = walk(err, new Set([err]), HARD_WALK_CAP)
+  const walked = walk(err, new Set([err]), HARD_WALK_CAP).map(redactLink)
   const root = walked.at(-1)
   if (walked.length <= MAX_CHAIN_LENGTH || root === undefined) {
     return { links: walked, elided: 0 }

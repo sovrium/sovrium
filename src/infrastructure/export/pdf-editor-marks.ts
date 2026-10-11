@@ -12,6 +12,7 @@ import {
   type MarkGeometry,
 } from '@/domain/models/app/automations/actions/pdf/mark-placement-service'
 import { assertDrawable, EditRefusal, pdfLib } from './pdf-editor-library'
+import type { PdfLib } from './pdf-editor-library'
 import type { BuiltPdf, PdfMarkRequest } from '@/application/ports/services/pdf-editor'
 import type { PDFDocument, PDFImage, PDFPage } from '@cantoo/pdf-lib'
 
@@ -21,7 +22,6 @@ import type { PDFDocument, PDFImage, PDFPage } from '@cantoo/pdf-lib'
  * fill opacity of an ExtGState (`/ca`), which pdf-lib writes for `opacity`.
  */
 
-type Lib = Awaited<ReturnType<typeof pdfLib>>
 type Draw = (page: PDFPage, text: string) => void
 
 /** The geometry of a mark of `box` on `page`, with the request's angle and placement. */
@@ -52,7 +52,7 @@ const drawAt = (
 }
 
 const textDrawer = async (
-  lib: Lib,
+  lib: PdfLib,
   document: PDFDocument,
   request: PdfMarkRequest
 ): Promise<Draw> => {

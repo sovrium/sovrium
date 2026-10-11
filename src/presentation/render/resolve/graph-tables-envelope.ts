@@ -41,6 +41,7 @@ import {
 import { callerReaderFromSession } from '@/domain/models/app/tables/caller-record-gate-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { findViewByKey } from '@/domain/models/app/tables/views/view-read-service'
+import { isWriteOnlyField } from '@/domain/models/app/tables/write-only-field-service'
 import { readRowsForCaller } from './record-read-gate'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
@@ -109,7 +110,8 @@ const entryFilters = (
 
 /** Whether the visitor may read `field` of `tableName`. */
 const mayReadField = (ctx: ReadContext, tableName: string, field: string): boolean => {
-  if (!ctx.app.auth) return true
+  // No `auth`: every field is readable but a write-only one, which no one reads.
+  if (!ctx.app.auth) return !isWriteOnlyField(ctx.app, tableName, field)
   const reader = callerReaderFromSession(ctx.session, ctx.app)
   const caller = { role: reader?.role ?? 'guest', groups: reader?.groups ?? [] }
   const kept = filterReadableFields({

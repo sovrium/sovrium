@@ -19,6 +19,8 @@
  * it is never asked. Two copies of this set drift silently and fail closed.
  */
 
+import { declaresWriteOnly } from './write-only-field-service'
+
 /** Field types whose physical columns are searchable as text. */
 export const TEXT_FIELD_TYPES: ReadonlySet<string> = new Set([
   'single-line-text',
@@ -85,4 +87,7 @@ export const tableHasIdColumn = (table: {
 export const searchableTextColumns = (
   fields: readonly NamedTypedField[] | undefined
 ): readonly string[] =>
-  (fields ?? []).filter((field) => TEXT_FIELD_TYPES.has(field.type)).map((field) => field.name)
+  (fields ?? [])
+    // A write-only value is searched by no one: a match would answer a guess.
+    .filter((field) => TEXT_FIELD_TYPES.has(field.type) && !declaresWriteOnly(field))
+    .map((field) => field.name)

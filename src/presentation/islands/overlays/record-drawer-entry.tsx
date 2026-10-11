@@ -221,6 +221,36 @@ export function FieldButton({
   ) as ReactElement
 }
 
+/**
+ * A write-only entry: its heading and whether a value is set, read from the
+ * loaded record's `_writeOnly` block — nothing until the record has arrived.
+ */
+export function PresenceEntry({
+  field,
+  presence,
+  record,
+}: {
+  readonly field: RecordDrawerField
+  readonly presence: NonNullable<RecordDrawerField['presence']>
+  readonly record: RawRecord
+}): ReactElement {
+  const stored = (record['_writeOnly'] as Readonly<Record<string, unknown>> | undefined)?.[
+    field.name
+  ]
+  const text = stored === undefined ? '' : stored === true ? presence.set : presence.unset
+  return (
+    <div className="text-md flex flex-col gap-1">
+      <span className="text-foreground-muted">{entryLabel(field)}</span>
+      <span
+        data-field={field.name}
+        className="text-foreground"
+      >
+        {text}
+      </span>
+    </div>
+  )
+}
+
 /** What a read-only entry's detail holds: an action, a structured block or the value. */
 export function ReadOnlyDetail({
   field,

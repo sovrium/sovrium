@@ -15,6 +15,8 @@ import {
   CANONICAL_READ_POLICY,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
+import { WRITE_ONLY_PRESENCE_LABELS } from '@/presentation/render/props/write-only-presence-labels'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
@@ -181,23 +183,44 @@ function resolveGridBindings(
 function deriveColumns(
   tableName: string,
   ctx: ResolutionContext
-): readonly { readonly field: string }[] | undefined {
+): readonly Readonly<Record<string, unknown>>[] | undefined {
   const table = (ctx.app.tables ?? []).find((declared) => declared.name === tableName)
   if (!table) return undefined
 
-  const readable = readableFieldNames(table, ctx)
-  if (readable === undefined || readable.length === 0) return undefined
-  return readable.map((field) => ({ field }))
+  const fields = columnFields(table, ctx)
+  if (fields === undefined || fields.names.length === 0) return undefined
+  return fields.names.map((field) =>
+    fields.presence.has(field) ? presenceColumn(field) : { field }
+  )
 }
 
-/** The field names this caller may read, or `undefined` when the table is closed to them. */
-function readableFieldNames(
+/**
+ * A write-only field's column: it shows whether a value is set — the cell the
+ * grid fills from the record's `_writeOnly` block — and offers no edit, sort
+ * or filter, since the value is no one's to read.
+ */
+const presenceColumn = (field: string): Readonly<Record<string, unknown>> => ({
+  field,
+  editable: false,
+  sortable: false,
+  filterable: false,
+  valueLabels: { true: WRITE_ONLY_PRESENCE_LABELS.set, false: WRITE_ONLY_PRESENCE_LABELS.unset },
+})
+
+/**
+ * The fields this caller gets a column for, in declaration order — those she
+ * may read, and the write-only ones she is told the presence of (`presence`) —
+ * or `undefined` when the table is closed to her.
+ */
+function columnFields(
   table: NonNullable<App['tables']>[number],
   ctx: ResolutionContext
-): readonly string[] | undefined {
+): { readonly names: readonly string[]; readonly presence: ReadonlySet<string> } | undefined {
   const names = table.fields.map((field) => field.name)
   // No auth configured → the full-access model, matching every other read gate.
-  if (!ctx.app.auth) return names
+  if (!ctx.app.auth) {
+    return { names, presence: new Set(writeOnlyFieldNames(ctx.app, table.name)) }
+  }
 
   const plan = buildReadAccessPlan({
     app: ctx.app,
@@ -206,5 +229,7 @@ function readableFieldNames(
     policy: CANONICAL_READ_POLICY,
   })
   if (!plan.allowed) return undefined
-  return names.filter((name) => !plan.restrictedColumns.has(name))
+  const shown = (name: string) =>
+    !plan.restrictedColumns.has(name) || plan.presenceColumns.has(name)
+  return { names: names.filter(shown), presence: plan.presenceColumns }
 }

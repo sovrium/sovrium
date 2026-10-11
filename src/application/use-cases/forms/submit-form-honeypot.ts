@@ -8,6 +8,8 @@
 import { Data, Effect } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
 import { effectiveAntiSpam } from '@/domain/models/app/forms/anti-spam-defaults'
+import { withoutWriteOnlyValues } from '@/domain/models/app/tables/write-only-field-service'
+import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 
 /**
@@ -45,6 +47,8 @@ const HONEYPOT_FIELD = '_hp'
  */
 export const checkHoneypot = (input: {
   readonly form: Readonly<Form>
+  /** The app's tables: the answers bound for a write-only column are not kept. */
+  readonly tables: App['tables']
   readonly body: Readonly<Record<string, unknown>>
   readonly submitterIpHash: string | undefined
   readonly userAgent: string | undefined
@@ -68,7 +72,9 @@ export const checkHoneypot = (input: {
         formId: form.id,
         status: 'spam',
         statusReason: 'honeypot',
-        data: spamData,
+        data: {
+          ...withoutWriteOnlyValues({ tables: input.tables }, form.submitTo.table, spamData),
+        },
         ...(submitterIpHash !== undefined ? { submitterIpHash } : {}),
         ...(userAgent !== undefined ? { userAgent } : {}),
       })

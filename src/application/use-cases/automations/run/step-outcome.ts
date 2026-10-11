@@ -25,6 +25,7 @@ import { redactSecretsForApp } from '../redact-secrets'
 import { withMetadataOf } from './step-metadata'
 import { buildStep, maskRunSecrets, redactString, withDuration } from './step-record'
 import { type RunAccumulator, type StepContext } from './types'
+import { writeOnlyValuesOfStep } from './write-only-values'
 
 /**
  * How one settled step folds into the run: its output, whether its failure
@@ -157,23 +158,36 @@ const recordOf = (input: {
   withDuration(
     maskRunSecrets(
       buildStep(input.rawAction, input.resolvedProps, input.outcome, input.ctx),
-      input.acc
+      input.acc,
+      input.ctx
     ),
     input.durationMs
   )
 
-/** The run's error after a step: the failure it propagated, or the error stop that ended it. */
+/**
+ * The run's error after a step: the failure it propagated, or the error stop
+ * that ended it — masked against the step's own write-only values too, which
+ * the accumulator does not hold yet: an error may echo the value it wrote.
+ */
 const resolveRunErrorAfterStep = (
-  rawAction: Readonly<Record<string, unknown>>,
+  step: {
+    readonly rawAction: Readonly<Record<string, unknown>>
+    readonly resolvedProps: Readonly<Record<string, unknown>>
+  },
   outcome: ActionOutcome,
   acc: RunAccumulator,
   ctx: StepContext
 ): string | undefined => {
-  if (outcome.stopError !== undefined) {
-    return maskRunSecrets(redactString(outcome.stopError, ctx.app, ctx.processEnv), acc)
-  }
-  return shouldPropagateFailure(rawAction, outcome)
-    ? maskRunSecrets(redactString(outcome.error ?? 'Action failed', ctx.app, ctx.processEnv), acc)
+  const own = writeOnlyValuesOfStep(
+    ctx.app,
+    { type: String(step.rawAction['type'] ?? ''), props: step.resolvedProps },
+    outcome.output
+  )
+  const mask = (error: string) =>
+    maskRunSecrets(redactString(error, ctx.app, ctx.processEnv), acc, ctx, own)
+  if (outcome.stopError !== undefined) return mask(outcome.stopError)
+  return shouldPropagateFailure(step.rawAction, outcome)
+    ? mask(outcome.error ?? 'Action failed')
     : acc.runError
 }
 
@@ -204,7 +218,7 @@ const appendStepToAccumulator = (input: {
     steps: [...acc.steps, step],
     stepMetadata: withMetadataOf(acc.stepMetadata ?? {}, stepName, step),
     runStatus: resolveRunStatusAfterStep(rawAction, outcome, acc),
-    runError: resolveRunErrorAfterStep(rawAction, outcome, acc, ctx),
+    runError: resolveRunErrorAfterStep(input, outcome, acc, ctx),
     actions,
     lastOutput,
     halted: acc.halted || ret.halt,

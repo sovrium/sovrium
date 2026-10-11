@@ -13,6 +13,7 @@ import type { LoopScope } from './loop-scope'
 import type { ContainerResume, RunPark } from './run-park'
 import type { RunWrittenFiles } from './run-written-files'
 import type { ExecutedStep, NestedStepRuns, StepRequirements } from '../run/types'
+import type { WriteOnlyInheritance } from '../run/write-only-values'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
 import type { StepRead } from '@/domain/models/app/automations/step-read-service'
@@ -106,11 +107,12 @@ export interface AutomationContext {
   readonly userId?: string
   readonly runId?: string
   /**
-   * Set when a person started the run by hand and `userId` names them: record
-   * actions then write as that person, under the table's rules. See
-   * `ExecuteAutomationRunInput.startedByHand`.
+   * Set when a person started the run by hand and `userId` names them: record actions
+   * then write as that person, under the table's rules (`ExecuteAutomationRunInput`).
    */
   readonly startedByHand?: true
+  /** What it inherits about write-only values down `automation/call` (`run/write-only-values`). */
+  readonly writeOnly?: WriteOnlyInheritance
   /** The files this run stored in a bucket (`run-written-files.ts`). */
   readonly writtenFiles?: RunWrittenFiles
 }

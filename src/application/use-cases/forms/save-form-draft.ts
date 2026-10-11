@@ -16,6 +16,7 @@ import {
   draftableAnswers,
   formLinkExpiry,
 } from '@/domain/models/app/forms/form-access-link-service'
+import { withoutWriteOnlyValues } from '@/domain/models/app/tables/write-only-field-service'
 import { FormFieldFormatError, FormNotFoundError, findFormByName } from './submit-form'
 import { checkRateLimit } from './submit-form-rate-limit'
 import type { App } from '@/domain/models/app'
@@ -63,6 +64,17 @@ const mailResumeLink = Effect.fn('forms.mail-resume-link')(function* (input: {
 })
 
 /**
+ * The answers a draft keeps (`draftableAnswers`), less any bound for a
+ * write-only column: the ledger is read by people, and keeps no copy of one.
+ */
+const keptDraftAnswers = (
+  app: App,
+  form: Form,
+  answers: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> =>
+  withoutWriteOnlyValues(app, form.submitTo.table, draftableAnswers(form, app.tables, answers))
+
+/**
  * Keep a half-filled answer to a form that declares `saveAndResume`, and mail
  * the link that reopens it.
  *
@@ -95,6 +107,7 @@ export const saveFormDraftProgram = (config: {
     // endpoint must not become a way to send mail to any address at will.
     yield* checkRateLimit({
       form,
+      tables: app.tables,
       body: config.answers,
       submitterIpHash: config.submitterIpHash,
       rateLimitKeyHash: config.rateLimitKeyHash,
@@ -112,7 +125,7 @@ export const saveFormDraftProgram = (config: {
       formName: form.name,
       formId: form.id,
       status: 'draft',
-      data: { ...draftableAnswers(form, app.tables, config.answers) },
+      data: { ...keptDraftAnswers(app, form, config.answers) },
       guestEmail: address,
       accessTokenHash: tokenHash,
     })

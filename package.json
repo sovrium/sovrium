@@ -1,8 +1,8 @@
 {
   "name": "sovrium",
-  "version": "0.36.0",
+  "version": "0.37.0",
   "private": true,
-  "packageManager": "bun@1.4.2",
+  "packageManager": "bun@1.4.3",
   "description": "Configuration-driven web application platform — distributed as standalone binary",
   "author": {
     "name": "Thomas Jeanneau",
@@ -38,7 +38,7 @@
     "build:types": "bun run scripts/build/build-types.ts",
     "desktop:check": "bun install --cwd desktop && bun run --cwd desktop check && bun run --cwd desktop build && bun run scripts/build/stage-desktop-sidecar.ts --placeholder && cargo check --manifest-path desktop/src-tauri/Cargo.toml --locked",
     "start": "bun run src/cli/index.ts --watch",
-    "typecheck": "NODE_OPTIONS=--max-old-space-size=12288 ./node_modules/typescript/bin/tsc --noEmit"
+    "typecheck": "bun check --no-pretty"
   },
   "overrides": {
     "ws": "^8.20.1",

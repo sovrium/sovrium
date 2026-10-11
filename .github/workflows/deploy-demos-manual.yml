@@ -28,7 +28,8 @@ name: Deploy demo fleet
 #      — a `dry_run` stops here and prints the plan; nothing below runs —
 #   5. the linux-x64 archive of that version is downloaded from this
 #      repository's GitHub release and checked twice — sha256 AND the detached
-#      Ed25519 `.sig` against the keys the engine embeds (update-signing-keys.ts);
+#      Ed25519 `.sig` against the keys the engine embeds
+#      (src/domain/models/process-env/release-download.ts);
 #   6. the CLI signs in with SOVRIUM_CLOUD_API_KEY (`sovrium login --api-key`);
 #   7. every demo is bundled with `sovrium bundle` first, so an invalid config
 #      stops the job before anything is deployed;
@@ -332,7 +333,7 @@ jobs:
           ( cd "${DIR}" && sha256sum -c "sovrium-${VERSION}-linux-x64.sha256" )
           # The signature proves WHO built it. Judged against the keys this tag's
           # engine embeds and has started trusting; any one of them is enough.
-          KEYS=$(bun -e "import { resolveReleaseSigningKeys } from '@/cli/commands/update-signing-keys'; for (const k of resolveReleaseSigningKeys({ loopbackDownload: false, now: Date.now(), env: {} })) console.log(k.publicKey)")
+          KEYS=$(bun -e "import { resolveReleaseSigningKeys } from '@/domain/models/process-env/release-download'; for (const k of resolveReleaseSigningKeys({ loopbackDownload: false, now: Date.now(), env: {} })) console.log(k.publicKey)")
           if [ -z "${KEYS}" ]; then
             echo "::error::no release signing key is in force for ${VERSION} — refusing an unauthenticated binary"
             exit 1

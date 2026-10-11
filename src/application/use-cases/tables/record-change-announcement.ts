@@ -10,10 +10,12 @@ import {
   CommittedRowChanges,
   RecordChangeFeed,
   UnauditedTables,
+  WriteOnlyColumns,
   type CommittedRowChange,
   type RowChangeCollector,
 } from '@/application/ports/services/record-change-feed'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { writeOnlyColumnsOf } from '@/domain/models/app/tables/write-only-field-service'
 import { transformRecord } from './record-transformer'
 import type { App } from '@/domain/models/app'
 import type { AnnouncedRowChange } from '@/domain/models/app/tables/realtime-announcement-service'
@@ -97,7 +99,8 @@ const unauditedTablesOf = (app: App | undefined): ReadonlySet<string> =>
  * `app` may be absent only where no change stream exists to announce to (a
  * write run with no app in hand); the rows are then collected and dropped.
  * The scope also tells the activity-log writer which of the app's tables
- * declare `activityLog: false` ({@link UnauditedTables}).
+ * declare `activityLog: false` ({@link UnauditedTables}), and which columns
+ * are write-only ({@link WriteOnlyColumns}).
  */
 export const announceRecordWrites =
   (app: App | undefined) =>
@@ -117,6 +120,7 @@ export const announceRecordWrites =
       return yield* write.pipe(
         Effect.provideService(CommittedRowChanges, collector),
         Effect.provideService(UnauditedTables, unauditedTablesOf(app)),
+        Effect.provideService(WriteOnlyColumns, writeOnlyColumnsOf(app ?? {})),
         Effect.onExit(() => announceReported(app, reported))
       )
     }).pipe(Effect.withSpan('tables.announce-record-writes'))

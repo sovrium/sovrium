@@ -255,12 +255,22 @@ export const ExportAccount = (
     ])
 
     const recordTables = yield* repo.tablesWithCreatedBy(tables)
+    // A write-only value is read back by no one, its author included.
+    const writeOnly = new Map(tables.map((t) => [t.tableName, new Set(t.writeOnly ?? [])]))
+    const readable = (tableName: string, row: Readonly<Record<string, unknown>>) =>
+      Object.fromEntries(
+        Object.entries(row).filter(([key]) => writeOnly.get(tableName)?.has(key) !== true)
+      )
     const perTable = yield* Effect.forEach(
       recordTables,
       ({ tableName, column }) =>
         repo
           .readAuthoredRecords(tableName, column, userId)
-          .pipe(Effect.map((rows) => rows.map((row) => shapeAuthoredRecord(tableName, row)))),
+          .pipe(
+            Effect.map((rows) =>
+              rows.map((row) => shapeAuthoredRecord(tableName, readable(tableName, row)))
+            )
+          ),
       { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
     const authoredRecords = perTable.flat()

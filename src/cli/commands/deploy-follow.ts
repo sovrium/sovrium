@@ -7,8 +7,8 @@
 
 /**
  * `sovrium deploy` waiting for its deployment: the record read every two
- * seconds, each state and attempt printed once, and — on `live` — the app's
- * address checked before the command says so.
+ * seconds (longer while the cloud is busy), each state and attempt printed
+ * once, and — on `live` — the app's address checked before the command says so.
  */
 
 import { Effect, Schema } from 'effect'
@@ -40,17 +40,32 @@ export const adminLineOf = (answer: {
 /** How often the deployment is read while the command waits. */
 const POLL_INTERVAL_MS = 2000
 
-/** One read of the deployment record. */
-const readDeployment = (origin: URL, apiKey: string, id: string) =>
+/** The refusal once the 10 minutes run out with the deployment not yet at an end. */
+const stillWaiting = (id: string, status: string): CliRefusal =>
+  new CliRefusal({
+    headline: `Deployment ${id} is still ${describeDeploymentStatus(status)} after 10 minutes; the command stopped waiting.`,
+    guidance: 'The deployment may still go live; check it in the cloud.',
+  })
+
+/**
+ * One read of the deployment record, waited through while the cloud is busy —
+ * `status` is the last one read, for the refusal once the deadline passes.
+ */
+const readDeployment = (
+  { origin, apiKey }: SignedInCloud,
+  wait: { readonly id: string; readonly deadline: number; readonly status: string }
+) =>
   readCloudRecord({
     origin,
     apiKey,
     table: 'deployments',
-    id,
-    label: `deployment ${id}`,
+    id: wait.id,
+    label: `deployment ${wait.id}`,
     decode: Schema.decodeUnknownOption(deploymentRecordFieldsSchema),
-    stillRunning: `deployment ${id} is still in progress there`,
+    stillRunning: `deployment ${wait.id} is still in progress there`,
     guidance: 'The deployment may still go live; check it in the cloud.',
+    deadline: wait.deadline,
+    expired: () => stillWaiting(wait.id, wait.status),
   })
 
 /**
@@ -72,7 +87,7 @@ export const follow = (
   printed: PrintedProgress
 ): Effect.Effect<'live' | 'replaced', CliRefusal> =>
   Effect.gen(function* () {
-    const fields = yield* readDeployment(cloud.origin, cloud.apiKey, deployment.id)
+    const fields = yield* readDeployment(cloud, { ...deployment, status: printed.status })
     const read: ReadProgress = {
       status: fields.status,
       attempt: fields.attempt,
@@ -99,12 +114,7 @@ export const follow = (
         guidance: "Fix what the report names, then run 'sovrium deploy' again.",
       })
     }
-    if (Date.now() > deployment.deadline) {
-      return yield* new CliRefusal({
-        headline: `Deployment ${deployment.id} is still ${describeDeploymentStatus(fields.status)} after 10 minutes; the command stopped waiting.`,
-        guidance: 'The deployment may still go live; check it in the cloud.',
-      })
-    }
+    if (Date.now() > deployment.deadline) return yield* stillWaiting(deployment.id, fields.status)
     yield* Effect.sleep(POLL_INTERVAL_MS)
     return yield* follow(cloud, deployment, {
       status: fields.status,

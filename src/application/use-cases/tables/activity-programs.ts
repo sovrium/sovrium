@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { ActivityRepository } from '@/application/ports/repositories/analytics/activity-repository'
 import { NotFoundError } from '@/domain/errors'
-import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import { filterReadableChanges } from '@/domain/models/app/tables/field-read-filter-service'
 import type { UserMetadataWithImage } from '@/application/ports/contracts/user-metadata'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/analytics/activity-repository'
@@ -63,34 +63,17 @@ function toHistoryActor(user: UserMetadataWithImage | undefined): HistoryActor |
   return user ? { id: user.id, name: user.name, image: user.image } : undefined
 }
 
-type FieldReader = (values: Readonly<Record<string, unknown>>) => Readonly<Record<string, unknown>>
-
-const isValueMap = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-/**
- * Project a logged change set down to the fields the caller may read: every
- * value map it carries (`before`, `after`) keeps only readable fields. Any
- * other shape passes through, since it names no field.
- */
-function projectChanges(changes: unknown, readable: FieldReader): unknown {
-  if (!isValueMap(changes)) return changes
-  return Object.fromEntries(
-    Object.entries(changes).map(([side, values]) => [
-      side,
-      isValueMap(values) ? readable(values) : values,
-    ])
-  )
-}
+/** A logged change set as the caller may read it (`filterReadableChanges`). */
+type ChangesReader = (changes: unknown) => unknown
 
 /**
  * Format activity history entry for API response
  */
-function formatActivityEntry(entry: ActivityHistoryEntry, readable: FieldReader) {
+function formatActivityEntry(entry: ActivityHistoryEntry, readable: ChangesReader) {
   return {
     action: entry.action,
     createdAt: entry.createdAt.toISOString(),
-    changes: projectChanges(entry.changes, readable),
+    changes: readable(entry.changes),
     user: toHistoryActor(entry.user),
     // Flat, so a page's row template can print it; null when no person made it
     userName: entry.user?.name ?? null,
@@ -123,8 +106,10 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
     const activityRepo = yield* ActivityRepository
     const { session, tableName, recordId, limit, offset, app, userRole } = config
     const caller = { role: userRole, groups: config.userGroups ?? [] }
-    const readable: FieldReader = (record) =>
-      filterReadableFields({ app, tableName, caller, record })
+    // Every side of a change keeps only what the caller may read; a write-only
+    // field stays named, masked, as the history recorded it.
+    const readable: ChangesReader = (changes) =>
+      filterReadableChanges({ app, tableName, caller, changes })
 
     // Check if record exists in the table (handles live records)
     const recordExists = yield* activityRepo.checkRecordExists({ session, tableName, recordId })

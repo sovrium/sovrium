@@ -36,7 +36,7 @@ import * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schedule from 'effect/Schedule'
-import { TSC_BIN, tscChildEnv } from '../typescript-check-outcome'
+import { BUN_CHECK_COMMAND } from '../typescript-check-outcome'
 import { timeoutAwakeOrElse } from './awake-deadline'
 import type { Subprocess } from 'bun'
 import type * as Scope from 'effect/Scope'
@@ -622,13 +622,10 @@ export const eslint = (files: readonly string[], options?: CommandOptions) =>
  * @public
  */
 export const typecheck = (options?: CommandOptions) =>
-  // Addressed by path, not as `tsc`: node_modules/.bin/tsc is TypeScript 7
-  // (tsgo's compiler, installed under the `@typescript/native` alias). See
-  // `TSC_BIN` in [internal ref].
-  spawn([TSC_BIN, '--noEmit', '--incremental'], {
+  // `bun check`, the TypeScript gate since [internal ref] — the same argv as
+  // `bun run typecheck` and the quality step. Not a Node process, so no heap flag.
+  spawn(BUN_CHECK_COMMAND, {
     timeout: 60_000,
-    // A bare tsc OOMs at Node's default heap on this type graph.
-    env: tscChildEnv(),
     ...options,
   })
 

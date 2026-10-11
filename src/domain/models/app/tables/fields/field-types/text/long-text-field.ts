@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
+import { WriteOnlyOptionSchema } from './single-line-text-field'
 
 /**
  * Long Text Field
@@ -61,6 +62,7 @@ export const LongTextFieldSchema = BaseFieldSchema.pipe(
         })
       )
     ),
+    writeOnly: WriteOnlyOptionSchema,
   }),
   Schema.annotate({
     title: 'Long Text Field',

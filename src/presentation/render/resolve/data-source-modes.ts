@@ -7,18 +7,13 @@
 
 /**
  * The four `dataSource.mode` resolvers — single, list, search, and the island
- * short-circuit's props — plus the write-permission gates stamped onto whatever
- * they produce.
+ * short-circuit's props — plus the read gates stamped onto whatever they
+ * produce; the write half is `write-permission-gates.ts`.
  *
  * One module because the modes share a composition: the same access plan, field
  * filter and `withWritePermissionGates` stamp; `resolveByMode` is the dispatch.
  */
 
-import { toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
-import {
-  hasCreatePermissionForRoles,
-  hasInlineEditDefaultForRoles,
-} from '@/domain/models/app/auth/permission-evaluator-service'
 import {
   callerReaderFromSession,
   tableReadPrincipal,
@@ -26,6 +21,7 @@ import {
 import {
   buildReadAccessPlan,
   CANONICAL_READ_POLICY,
+  fullAccessReadPlan,
   stripRestrictedColumns,
   type ReadAccessPlan,
   type TableLike,
@@ -56,6 +52,7 @@ import {
   isWithheldOverUnreadableTable,
   withheldComponent,
 } from './withheld-component'
+import { withWritePermissionGates } from './write-permission-gates'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -289,8 +286,9 @@ async function resolveSearchMode(
 /**
  * The composed read plan for an SSR data-bound component.
  *
- * `undefined` means "auth is not configured" — the full-access model, under
- * which every table is readable and no column is restricted.
+ * With no `auth` configured it is the full-access model — every table readable,
+ * no column restricted but the write-only ones ({@link fullAccessReadPlan}) —
+ * and `undefined` only for a table the app does not declare.
  *
  * ROW-LEVEL SCOPING IS NOT PART OF THIS PLAN: `rowContext` is omitted, the
  * plan reports `'unresolved'`, and no caller reads that field. The row-level
@@ -305,7 +303,12 @@ export function resolveRenderPlan(ctx: {
   readonly app: App
   readonly session: SessionInfo | undefined
 }): ReadAccessPlan | undefined {
-  if (!ctx.app.auth) return undefined
+  // No `auth`: the full-access model, less the write-only columns no one reads.
+  if (!ctx.app.auth) {
+    return ctx.matchedTable === undefined
+      ? undefined
+      : fullAccessReadPlan(ctx.app, ctx.matchedTable)
+  }
   return buildReadAccessPlan({
     app: ctx.app,
     table: ctx.matchedTable,
@@ -345,7 +348,7 @@ function emptyDataBoundComponent(component: Component): Component {
 /**
  * The read-plan gate every data-bound component answers, wherever it sits:
  * the denied shape when the composed plan refuses the caller, `undefined`
- * otherwise. `plan === undefined` is the auth-not-configured full-access model.
+ * otherwise. `plan === undefined` is an undeclared table under no `auth`.
  */
 export function denyWhenUnreadable(
   component: Component,
@@ -376,8 +379,8 @@ export function holdsInheritedRecord(component: Component): boolean {
  * the records API withholds from the same caller. A caller the plan refuses
  * gets the form with no record at all; any other gets the record less the
  * plan's restricted columns, through the records API's own projection
- * ({@link stripRestrictedColumns}). `plan === undefined` is the
- * auth-not-configured full-access model and changes nothing.
+ * ({@link stripRestrictedColumns}). `plan === undefined` is an undeclared
+ * table under no `auth` and changes nothing.
  */
 export function gateInheritedRecord(
   component: Component,
@@ -416,118 +419,6 @@ export function gateNestedInheritedRecord(
     session: ctx.session,
   })
   return gateInheritedRecord(component, plan)
-}
-
-/**
- * Stamp the render-time write-permission gates into a table component's
- * props, where the session role is known and the island's is not.
- *
- * `_canCreate` (a pages datatable spec) offers the toolbar "Nouvel
- * enregistrement" affordance only when the current role may create — absent,
- * not disabled, otherwise: anti-enumeration.
- *
- * `_canUpdate` is the permission-derived default
- * behind a column's `editable`, the one its schema annotation has always
- * promised ("default: from table permissions") and never delivered. It is
- * computed from {@link hasInlineEditDefault} rather than re-derived in the
- * browser for two reasons: the island never receives the session role, so it
- * could not answer `update: ['engineer']` at all; and a second permission
- * model in the client bundle is exactly what the `Permission Evaluator Drift`
- * gate exists to prevent.
- *
- * Both are a no-op for non-data-tables and when auth is not configured. The two
- * absent-value defaults differ, deliberately: create is OFFERED when unknown
- * (full-access model), edit is WITHHELD when unknown (fail-closed, and the
- * behaviour every grid has today).
- *
- * Both carry the caller's GROUPS as well as their role. A grant naming a group
- * (`create: ['group:ops']`) is matched against memberships and never against
- * the role string, so passing the role alone left every group-granted member
- * silently un-offered a button they were entitled to press — while the CRUD
- * form gate in this same layer (`render-page.tsx` → `gateCaller`) already
- * forwarded them. One page, two treatments.
- */
-/**
- * The per-field answer to "may this caller create in the table this
- * `relationship` column points at?", keyed by field name.
- *
- * the relationship-field `allowCreate`/`maxLinked` design's picker may create a missing related record inline. Whether the
- * affordance is DRAWN follows the same anti-enumeration rule the toolbar's own
- * create button already follows: absent, never disabled — a disabled control
- * still tells the caller the related table exists and what it would accept.
- *
- * It is the SAME `hasCreatePermission` the bound table is gated by, called a
- * second time against `relatedTable`. A second permission model in the client
- * bundle is exactly what the `Permission Evaluator Drift` gate exists to
- * prevent, and the island never receives the session role, so it could not
- * answer `create: ['admin']` at all.
- */
-function relatedCreateGates(ctx: {
-  readonly app: App
-  readonly table: NonNullable<ReturnType<NonNullable<App['tables']>['find']>>
-  readonly session: SessionInfo | undefined
-}): Record<string, boolean> {
-  const roles = writeGateRoles(ctx.session)
-  return Object.fromEntries(
-    ctx.table.fields.flatMap((field) => {
-      if (field.type !== 'relationship') return []
-      const { relatedTable } = field as { readonly relatedTable?: string }
-      if (relatedTable === undefined) return []
-      const related = ctx.app.tables?.find((t) => t.name === relatedTable)
-      return [[field.name, hasCreatePermissionForRoles(related, roles, ctx.app)] as const]
-    })
-  )
-}
-
-/**
- * The caller's account role first, then a `group:<name>` entry per membership —
- * the shape the records API's `*ForRoles` write evaluators read, so an
- * affordance follows their rules exactly: a viewer is offered no write a group
- * grant would give her, because the API refuses it.
- */
-function writeGateRoles(session: SessionInfo | undefined): readonly string[] {
-  return [session?.role ?? '', ...(session?.groups ?? []).map(toGroupReference)]
-}
-
-type WriteGateContext = {
-  readonly component: Component
-  readonly app: App
-  readonly table: NonNullable<ReturnType<NonNullable<App['tables']>['find']>>
-  readonly session: SessionInfo | undefined
-}
-
-/**
- * The three gates for a caller WITH a session. A visitor without one gets none
- * of them: the records API answers an anonymous create or update with 401
- * whatever the grant says, and the gates mirror what the API accepts from THIS
- * caller.
- */
-function signedInWriteGates(ctx: WriteGateContext, session: SessionInfo) {
-  const roles = writeGateRoles(session)
-  return {
-    _canCreate: hasCreatePermissionForRoles(ctx.table, roles, ctx.app),
-    _canUpdate: hasInlineEditDefaultForRoles(ctx.table, roles, ctx.app),
-    // Per-relationship-field create gates. Stamped alongside the two
-    // table-level gates because this is the one layer holding BOTH the session
-    // and `app.tables` — the picker's create affordance needs the second
-    // table's permissions, which no other seam can see.
-    _canCreateRelated: relatedCreateGates(ctx),
-  }
-}
-
-export function withWritePermissionGates(ctx: WriteGateContext): Component {
-  if (ctx.component.type !== 'table' || !ctx.app.auth) return ctx.component
-  const gates =
-    ctx.session !== undefined
-      ? signedInWriteGates(ctx, ctx.session)
-      : {
-          _canCreate: false,
-          _canUpdate: false,
-          _canCreateRelated: Object.fromEntries(
-            Object.keys(relatedCreateGates(ctx)).map((name) => [name, false])
-          ),
-        }
-  return { ...ctx.component, props: { ...(ctx.component.props ?? {}), ...gates } }
 }
 
 /**

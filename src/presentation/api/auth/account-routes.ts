@@ -18,6 +18,7 @@ import { accountRemovalRefusal } from '@/application/use-cases/auth/last-admin-r
 import { accountDeleteRequestSchema } from '@/domain/models/api/account/account'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
 import { resolvePurgeTableAuthorship } from '@/infrastructure/database/account-purge-authorship'
 import { purgeDueAccounts } from '@/infrastructure/database/account-purge-sweep'
 import { purgeExpiredActivityLogs } from '@/infrastructure/database/activity-log-retention'
@@ -112,7 +113,11 @@ async function handleExport(c: Context, app: App): Promise<Response> {
         // the export blind to a config that names the field anything else.
         (app.tables ?? []).map((t) => {
           const resolved = resolvePurgeTableAuthorship(app.tables, t.name)
-          return { tableName: resolved.name, columns: resolved.createdByColumns }
+          return {
+            tableName: resolved.name,
+            columns: resolved.createdByColumns,
+            writeOnly: writeOnlyFieldNames(app, t.name),
+          }
         })
       )
     )

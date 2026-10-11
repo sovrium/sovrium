@@ -6,6 +6,7 @@
  */
 
 import { Cause, Schema } from 'effect'
+import { redactBoundQueryValues } from '@/domain/kernel/sanitize/bound-value-redaction'
 
 /**
  * Extract a meaningful diagnostic string from any error thrown during
@@ -19,10 +20,17 @@ import { Cause, Schema } from 'effect'
  * top-level Effect entry points alongside this helper if they need the
  * same diagnostic surfacing.
  *
+ * The result goes to stderr, journald and a few operator-facing reports, so a
+ * failed query's bound values are redacted from it (`redactBoundQueryValues`)
+ * whichever strategy rendered it — the statement stays, the row does not.
+ *
  * @param error Anything caught from `Effect.runPromise` / `decodeUnknownSync`
  * @returns A human-readable diagnostic string (never throws)
  */
-export const formatRuntimeError = (error: unknown): string => {
+export const formatRuntimeError = (error: unknown): string =>
+  redactBoundQueryValues(renderRuntimeError(error))
+
+const renderRuntimeError = (error: unknown): string => {
   const fromFiber = formatFromFiberFailure(error)
   if (fromFiber !== undefined) return fromFiber
 

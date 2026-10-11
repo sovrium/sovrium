@@ -7,6 +7,7 @@
 
 import { assignableRoleNames } from '@/domain/models/app/auth/roles/role'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
+import { isWriteOnlyField } from '@/domain/models/app/tables/write-only-field-service'
 import type { App } from '@/domain/models/app'
 import type { PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
 
@@ -34,7 +35,7 @@ const readabilityProbes = (app: App): ReadonlyArray<PermissionCaller> => [
  * reader of both — a loss of recall, never a disclosure.
  *
  * Groups keep the declared field order and appear in the order of their first
- * field.
+ * field. A write-only field is in no group: its value is chunked for no one.
  */
 export const partitionFieldsByReaders = (
   app: App,
@@ -42,15 +43,18 @@ export const partitionFieldsByReaders = (
   fields: ReadonlyArray<string>
 ): ReadonlyArray<ReadonlyArray<string>> => {
   const probes = readabilityProbes(app)
-  const keyed = fields.map(
-    (field) =>
-      [
-        field,
-        probes
-          .map((caller) => (isFieldReadableByCaller(app, tableName, caller, field) ? '1' : '0'))
-          .join(''),
-      ] as const
-  )
+  // A write-only field is indexed for no one: its text would be served back.
+  const keyed = fields
+    .filter((field) => !isWriteOnlyField(app, tableName, field))
+    .map(
+      (field) =>
+        [
+          field,
+          probes
+            .map((caller) => (isFieldReadableByCaller(app, tableName, caller, field) ? '1' : '0'))
+            .join(''),
+        ] as const
+    )
   const keys = [...new Set(keyed.map(([, key]) => key))]
   return keys.map((key) => keyed.filter(([, fieldKey]) => fieldKey === key).map(([field]) => field))
 }

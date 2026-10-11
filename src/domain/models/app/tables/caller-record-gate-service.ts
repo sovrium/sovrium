@@ -33,6 +33,7 @@ import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   buildReadAccessPlan,
   CANONICAL_READ_POLICY,
+  fullAccessReadPlan,
   type ReadAccessPlan,
   type ReadPrincipal,
   type TableLike,
@@ -121,8 +122,9 @@ export const tableReadPrincipal = (
  *    not signed in;
  *  - `open` — `rule` says whether a row is hers (`all` admits every row; a
  *    `check` is asked with her assignments), and `plan` names the columns she
- *    may not read. An app with no `auth` block is the full-access model:
- *    `plan` is absent and every row is admitted.
+ *    may not read. An app with no `auth` block is the full-access model: every
+ *    row is admitted, and `plan` withholds only the write-only columns
+ *    ({@link fullAccessReadPlan}) — absent for a table it does not declare.
  */
 export type CallerTableGate =
   | { readonly kind: 'refused' }
@@ -132,15 +134,16 @@ export type CallerTableGate =
       readonly rule: Exclude<VisitorRowRule, { readonly kind: 'none' }>
     }
 
-const OPEN_TO_ALL: CallerTableGate = { kind: 'open', plan: undefined, rule: { kind: 'all' } }
-
 export const callerTableGate = (
   app: App,
   tableName: string,
   reader: CallerReader | undefined
 ): CallerTableGate => {
-  if (!app.auth) return OPEN_TO_ALL
   const table = (app.tables ?? []).find((t) => t.name === tableName) as TableLike | undefined
+  if (!app.auth) {
+    const plan = table === undefined ? undefined : fullAccessReadPlan(app, table)
+    return { kind: 'open', plan, rule: { kind: 'all' } }
+  }
   if (table === undefined) return { kind: 'refused' }
   const plan = buildReadAccessPlan({
     app,

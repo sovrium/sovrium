@@ -51,12 +51,15 @@
  * explicit and unrepresentable-as-a-mistake.
  */
 
-import { lstatSync, type Stats } from 'node:fs'
-import { join } from 'node:path'
-import { printJournal } from '@/infrastructure/logging/cli-output'
-
 /**
  * The TypeScript 6 compiler, addressed by path instead of by name.
+ *
+ * Since [internal ref] the TypeScript gate is `bun check` ({@link BUN_CHECK_COMMAND}),
+ * not this binary. TypeScript 6 stays for what a type-check-only tool cannot
+ * do: the Declaration Emit gate (`typecheck:declarations`) and the release
+ * declaration emit in `scripts/build/build.ts`. Those two are the only call
+ * sites; a third is a sign something is reaching for TypeScript 6 that should
+ * not.
  *
  * ## `tsc` on PATH is NOT TypeScript 6 in this repo
  *
@@ -75,16 +78,13 @@ import { printJournal } from '@/infrastructure/logging/cli-output'
  * node_modules/.bin/tsc -> ../@typescript/native/bin/tsc   # TypeScript 7.0.2
  * ```
  *
- * So `bunx tsc`, `bun tsc` and a bare `tsc` all run **TypeScript 7**, which
- * rejects this repo's tsconfig outright (`TS5102: Option 'baseUrl' has been
- * removed`). Every deliberate TypeScript-6 invocation must therefore address
- * the binary by path. The shebang is `#!/usr/bin/env node`, so a spawned child
- * still honours `NODE_OPTIONS=--max-old-space-size`.
- *
- * The failure mode is loud rather than silent — TS 7 errors immediately on the
- * config instead of quietly type-checking differently — but it is confusing
- * enough that the next `tsc` call site should use this constant rather than
- * rediscovering why the obvious spelling breaks.
+ * So `bunx tsc`, `bun tsc` and a bare `tsc` all run **TypeScript 7**. Since the
+ * root tsconfig dropped `baseUrl` that no longer fails loudly on TS5102: it
+ * type-checks with TypeScript 7 semantics, which is what `bun check` does too,
+ * and so is not a wrong answer for `--noEmit` — but it IS the wrong compiler for
+ * a declaration emit. Address TypeScript 6 by this path. The shebang is
+ * `#!/usr/bin/env node`, so a spawned child honours
+ * `NODE_OPTIONS=--max-old-space-size`.
  *
  * @public
  */
@@ -96,9 +96,9 @@ export const TSC_BIN = './node_modules/typescript/bin/tsc'
  * `tsc` is a Node CLI, and at Node's default old-space limit (~4 GB) a whole-repo
  * check OOMs on a developer machine — a bare `./node_modules/typescript/bin/tsc`
  * dies with `JavaScript heap out of memory` before printing a diagnostic. Every
- * call site therefore spawns it with this flag: `bun run typecheck`,
- * `typecheck:declarations`, the quality gate's two tsc steps, the release
- * declaration emit in `scripts/build/build.ts`, and `CommandService.typecheck`.
+ * call site therefore spawns it with this flag: `typecheck:declarations`, the
+ * quality gate's Declaration Emit step and the release declaration emit in
+ * `scripts/build/build.ts`. `bun check` is not a Node process and takes none.
  * 12 GB rather than the 8 GB that was measured to be enough, to match the ESLint
  * child and leave headroom as the graph grows.
  *
@@ -144,15 +144,21 @@ export const tscChildEnv = (
 export const DECLARATION_CHECK_PROJECT = 'tsconfig.declaration-check.json'
 
 /**
- * `tsc` argv for the TypeScript gate — a whole-repo `--noEmit` check.
+ * argv for the TypeScript gate: `bun check`, Bun's port of the TypeScript 7
+ * checker. Type-check only — it emits nothing, keeps no incremental
+ * cache, and reads the root `tsconfig.json` like `tsc --noEmit` does.
  *
- * Incremental caching is configured in `tsconfig.json` (shared with
- * `bun run typecheck`), so `--no-cache` has to force it off explicitly.
+ * `--no-pretty` gives tsc's one-line `file(line,col): error TS####: …` shape on
+ * stdout and puts the summary (`checked N files`) on stderr, which is what
+ * {@link bunCheckRun} reads. There is no `--incremental` to switch off, so
+ * `--no-cache` changes nothing here: every run is a whole-program check.
+ *
+ * Same spelling in `package.json`'s `typecheck` and in CI, so the three can be
+ * compared by eye.
  *
  * @public
  */
-export const typecheckCommand = (noCache: boolean): readonly string[] =>
-  noCache ? [TSC_BIN, '--noEmit', '--incremental', 'false'] : [TSC_BIN, '--noEmit']
+export const BUN_CHECK_COMMAND: readonly string[] = ['bun', 'check', '--no-pretty']
 
 /**
  * `tsc` argv for the Declaration Emit gate.
@@ -229,6 +235,55 @@ export const completedRun = (r: {
   readonly stdout: string
   readonly stderr: string
 }): TscRunResult => ({ ...r, ranToCompletion: true })
+
+/**
+ * Read how many files a `bun check` run checked, from its summary line:
+ * `✓ No type errors in 8,196 files [1.7s]` on a clean run,
+ * `Found 3 errors in 2 files, checked 8,196 files [1.8s]` on a dirty one.
+ * Thousands separators are accepted. `undefined` when no summary is present.
+ *
+ * @public
+ */
+export const parseBunCheckFileCount = (output: string): number | undefined => {
+  const match = /(?:No type errors in|checked)\s+([\d,]+)\s+files?\b/.exec(output)
+  if (match?.[1] === undefined) return undefined
+  return Number.parseInt(match[1].replaceAll(',', ''), 10)
+}
+
+/**
+ * {@link completedRun} for `bun check`, with a checked-file floor.
+ *
+ * Measured on Bun 1.4.3, `bun check` already exits 1 whenever it checked zero
+ * files — a config error (`TS5102`, `TS18003` no inputs, `TS18002` empty
+ * `files`) prints `checked 0 files` and fails. This floor does not replace that;
+ * it pins it, so a future release that exits 0 on an empty program, or a
+ * summary this gate no longer recognises, is a RED run rather than a confident
+ * green over nothing — the same rule the Effect Diagnostics gate applies to
+ * tsgo's `Checked 0 files out of N`.
+ *
+ * Pure.
+ *
+ * @public
+ */
+export const bunCheckRun = (r: {
+  readonly exitCode: number
+  readonly stdout: string
+  readonly stderr: string
+}): TscRunResult => {
+  const checked = parseBunCheckFileCount(`${r.stdout}\n${r.stderr}`)
+  if (r.exitCode !== 0 || (checked !== undefined && checked > 0)) return completedRun(r)
+  return completedRun({
+    ...r,
+    exitCode: 1,
+    stderr: [
+      checked === undefined
+        ? 'bun check exited 0 without a `checked N files` summary this gate recognises.'
+        : 'bun check exited 0 having checked 0 files.',
+      'A run that cannot show it checked something is not a clean bill of health.',
+      r.stderr,
+    ].join('\n'),
+  })
+}
 
 /**
  * Decide whether the TypeScript gate passed.
@@ -444,119 +499,4 @@ export const formatDiagnosticReport = (stdout: string, reason: string | undefine
   ]
     .filter((s): s is string => s !== undefined && s.length > 0)
     .join('\n')
-}
-
-/**
- * Where `tsconfig.json` keeps the incremental cache the TypeScript gate reads.
- * Must match its `tsBuildInfoFile`; the test pins the two together.
- *
- * @public
- */
-export const TYPECHECK_BUILD_INFO = 'node_modules/.cache/tsc/tsconfig.tsbuildinfo'
-
-/** The facts that decide whether the incremental cache may be trusted. */
-export interface TypecheckCacheFacts {
-  /** `--no-cache` was passed. */
-  readonly noCache: boolean
-  /** mtime of {@link TYPECHECK_BUILD_INFO}, or `undefined` when it does not exist. */
-  readonly buildInfoMtimeMs: number | undefined
-  /** When THIS quality run started. */
-  readonly runStartedMs: number
-  /** `node_modules` is a symlink — the cache is shared with another checkout. */
-  readonly nodeModulesShared: boolean
-}
-
-export interface TypecheckCacheVerdict {
-  readonly incremental: boolean
-  /** Why the cache was bypassed, for the journal; `undefined` when it was used. */
-  readonly reason: string | undefined
-}
-
-/**
- * May the TypeScript gate trust its incremental cache on this run?
- *
- * Measured on 2026-10-05 under five concurrent lanes: the gate PASSED on a
- * stale `.tsbuildinfo` and then FAILED on the same files once the run had
- * queued behind the machine-wide lock. `tsc --incremental` is correct when it
- * is the only writer of its build-info file; it is not when something else
- * rewrites that file mid-run — a `bun run typecheck` in the same worktree while
- * this run waited for the lock, or a peer checkout sharing a symlinked
- * `node_modules`. The cache then describes a program this run never built, and
- * a cache that answers for another tree is a false green.
- *
- * So the cache is bypassed (`--incremental false`, which neither reads nor
- * writes it, so the bypass cannot poison it for the next run either) when:
- *
- *   - `--no-cache` was asked for;
- *   - the build-info file was written AFTER this run started — someone else's
- *     `tsc` touched it while this run waited or ran its earlier steps (this
- *     run's own TypeScript step is the first writer of that file in a run);
- *   - `node_modules` is a symlink, so the cache is shared by construction.
- *
- * Otherwise the cache is used. The cost of a bypass is a cold check (~157 s
- * against ~16 s warm), paid only on the runs where the warm answer could lie.
- *
- * @public
- */
-export const typecheckCacheVerdict = (facts: TypecheckCacheFacts): TypecheckCacheVerdict => {
-  if (facts.noCache) return { incremental: false, reason: undefined }
-  if (facts.nodeModulesShared) {
-    return {
-      incremental: false,
-      reason: 'node_modules is a symlink, so the incremental cache is shared with another checkout',
-    }
-  }
-  if (facts.buildInfoMtimeMs !== undefined && facts.buildInfoMtimeMs > facts.runStartedMs) {
-    return {
-      incremental: false,
-      reason: 'the incremental cache was rewritten by another tsc after this run started',
-    }
-  }
-  return { incremental: true, reason: undefined }
-}
-
-/**
- * Read {@link TypecheckCacheFacts} off the filesystem, at the moment the step
- * runs — never when the step list is built, which happens before the run has
- * waited for the lock.
- *
- * `runStartedMs` is the process's own start (`performance.timeOrigin`), so a
- * write during the lock wait counts as "after this run started".
- *
- * @public
- */
-export const readTypecheckCacheFacts = (
-  noCache: boolean,
-  cwd: string = process.cwd()
-): TypecheckCacheFacts => {
-  const stat = (path: string): Stats | undefined => {
-    try {
-      return lstatSync(join(cwd, path))
-    } catch {
-      return undefined
-    }
-  }
-  return {
-    noCache,
-    buildInfoMtimeMs: stat(TYPECHECK_BUILD_INFO)?.mtimeMs,
-    runStartedMs: Math.floor(performance.timeOrigin),
-    nodeModulesShared: stat('node_modules')?.isSymbolicLink() ?? false,
-  }
-}
-
-/**
- * The TypeScript gate's argv, decided NOW: {@link typecheckCommand} with the
- * incremental cache bypassed whenever {@link typecheckCacheVerdict} says the
- * cache cannot be trusted, and a journal line saying why when it is bypassed
- * for a reason other than `--no-cache`.
- *
- * Call it when the step RUNS (`Effect.suspend`), never when the step list is
- * built — the list is built before the run has waited for the lock.
- *
- * @public
- */
-export const typecheckRunCommand = (noCache: boolean): readonly string[] => {
-  const verdict = typecheckCacheVerdict(readTypecheckCacheFacts(noCache))
-  if (verdict.reason !== undefined) printJournal('typescript', `Running cold: ${verdict.reason}.`)
-  return typecheckCommand(!verdict.incremental)
 }

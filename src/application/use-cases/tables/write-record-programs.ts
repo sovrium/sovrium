@@ -47,6 +47,7 @@ import {
 import { transformRecord } from './record-transformer'
 import { refuseSelfLinkCycle } from './self-link-cycle-check'
 import { refuseSignatureOverwrite } from './signature-write-once-check'
+import { writeOnlyBlock } from './write-only-presence'
 import type { LinkReader } from './linked-row-visibility'
 import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -219,6 +220,7 @@ export function createRecordProgram(config: CreateRecordConfig) {
       ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
       ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
       ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
+      ...writeOnlyBlock({ ...config, record }),
     }
   }).pipe(announceRecordWrites(app), Effect.withSpan('tables.create-record-program'))
 }
@@ -368,6 +370,7 @@ export function updateRecordProgram(
       ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
       ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
       ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
+      ...writeOnlyBlock({ ...params, tableName, record }),
     }
   }).pipe(
     announceRecordWrites(params.app),

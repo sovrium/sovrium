@@ -73,6 +73,11 @@ export interface RecordDrawerField {
    * editable control, and never sent by Save.
    */
   readonly readOnly?: boolean
+  /**
+   * A write-only field: drawn as whether a value is set — the record's
+   * `_writeOnly` block, in these words — never as a value, and never sent.
+   */
+  readonly presence?: { readonly set: string; readonly unset: string }
   /** An optional link's Clear control, caption and accessible name, in the page language. */
   readonly clearLabel?: string
   readonly clearName?: string

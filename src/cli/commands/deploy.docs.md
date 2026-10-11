@@ -63,7 +63,7 @@ The bundle lists the **names** of the variables your config requires — every `
 1. **The archive.** The CLI builds the app exactly as [`sovrium bundle`](/en/docs/bundle) does — an invalid config prints the `validate` report and stops — and uploads the archive to the cloud's `deployments` bucket, signed with your API key. If the archive is larger than the cloud accepts, the command prints the cloud's limit and stops; nothing is deployed.
 2. **The request.** The CLI then sends a small request naming the app, the uploaded file, the archive's sha256, the config's hash, the engine version, and the exact text of the archive's `manifest.json` — the bytes the cloud signs for the machine that runs your app, which checks that signature before it switches the release in. The archive itself never travels in it.
 
-Neither request is retried on its own. If the network drops, run the command again: the next point makes that safe.
+Neither request is retried when the network fails, and the archive is never sent twice. A request the cloud answers `429` or `503` — busy, not refusing — is sent again, as the same request, for up to two minutes, with the wait described under [Waiting for it](#waiting-for-it). If the network drops, run the command again: the next point makes that safe.
 
 ### Running it twice deploys once
 
@@ -93,6 +93,8 @@ The command reads the deployment every two seconds, for up to ten minutes, and p
 | `live`       | Switched in; the command now checks that the address answers         |
 | `failed`     | Stopped; the cloud's report is printed and the command exits `1`     |
 | `replaced`   | It went live and a newer deployment has since replaced it; exits `0` |
+
+**A busy cloud is waited through.** A cloud that answers `429` or `503` is busy, not refusing: the command waits as long as its `Retry-After` asks, or 2, 4, 8… up to 30 seconds, each wait with up to a quarter more at random so deploys running at once spread out. It prints `Deployment <id>: <host> is busy (HTTP 429); still waiting.` once per busy spell, and keeps waiting inside the same ten minutes; with `--seed`, the seed is waited for the same way.
 
 An app the cloud has not put on a machine yet is said to be **waiting for a machine**: the deployment is kept and starts once one takes it. A note the cloud adds — that the app's machine has not reported for a while, for example — is printed as it wrote it.
 
@@ -166,6 +168,7 @@ In a project that `sovrium deploy` linked to an app (`.sovrium/cloud.json`), `so
 - **`replace`** deletes the app's rows, so the host takes a backup first and the command prints where it is — `Backup taken: …` — before the result; that backup restores like any other. A terminal asks you to type the app's address; a script passes `--yes --confirm atelier-crm`, and a confirmation naming another address is refused.
 - **`upsert`** follows the same rules as on your machine: a table with no merge key is refused on the host with the message `sovrium seed` prints locally, and nothing is written.
 - **Only the deployed seed files count.** Nothing of this machine's `seed/` folder is read, so `--dir`, `--as`, `--request` and `--report` are refused with `--app` or `--remote`.
+- **A busy cloud is waited through** as a deployment is: a `429` or `503` while the seed run is read prints `Seed run <id>: <host> is busy (HTTP 429); still waiting.` once, and the command keeps waiting inside its ten minutes.
 - **Invitation links stay on the host.** An account the seed files invite is reported with its email, but its link is withheld: the run is kept in the cloud's history, and the link would let anyone holding it accept the invitation. Send those invitations with **Resend** in the app's console.
 
 The cloud refuses an app that is not on your account (`No app <slug> on your account at <cloud>.`), an app with no live deployment (deploy it first), and a deployment whose bundle has no `seed/` folder (add one beside your config, then deploy). A cloud that does not offer seeding yet says so, and nothing is seeded anywhere.

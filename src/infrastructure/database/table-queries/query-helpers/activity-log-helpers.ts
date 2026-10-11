@@ -8,9 +8,14 @@
 import { Cause, Effect } from 'effect'
 import {
   UnauditedTables,
+  WriteOnlyColumns,
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
 import { resolveActorUserId } from '@/domain/models/app/auth/guest-session'
+import {
+  maskWriteOnlyChanges,
+  writeOnlyColumnsOf,
+} from '@/domain/models/app/tables/write-only-field-service'
 import { db, DatabaseError } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
@@ -107,11 +112,28 @@ const insertAuditedEntries = (
 }
 
 /**
+ * An entry whose write-only values are named, never kept: the scope's
+ * {@link WriteOnlyColumns}, or the entry's own app when it carries one.
+ */
+const withoutWriteOnlyValues = (
+  entry: ActivityEntry,
+  scoped: ReadonlyMap<string, ReadonlySet<string>>
+): ActivityEntry => {
+  const columns =
+    scoped.get(entry.tableName) ??
+    (entry.app === undefined ? undefined : writeOnlyColumnsOf(entry.app).get(entry.tableName))
+  return columns === undefined
+    ? entry
+    : { ...entry, changes: maskWriteOnlyChanges(entry.changes, columns) }
+}
+
+/**
  * Write audit entries in as few statements as the parameter limit allows: one
  * multi-row INSERT for any batch the records API accepts. Non-fatal and
  * logged, as {@link logActivity} documents. The entries of a table declaring
  * `activityLog: false` are dropped first: the announcing scope every write runs
- * in names those tables ({@link UnauditedTables}).
+ * in names those tables ({@link UnauditedTables}). A write-only column is
+ * recorded by name, its values masked ({@link withoutWriteOnlyValues}).
  */
 const insertActivityEntries = (
   actor: Readonly<Session>,
@@ -119,9 +141,12 @@ const insertActivityEntries = (
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     const unaudited = yield* UnauditedTables
+    const writeOnly = yield* WriteOnlyColumns
+    const audited =
+      unaudited.size === 0 ? entries : entries.filter((entry) => !unaudited.has(entry.tableName))
     yield* insertAuditedEntries(
       actor,
-      unaudited.size === 0 ? entries : entries.filter((entry) => !unaudited.has(entry.tableName))
+      audited.map((entry) => withoutWriteOnlyValues(entry, writeOnly))
     )
   })
 

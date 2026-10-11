@@ -11,7 +11,7 @@
 
     // MUST differ from the inherited `tsconfig.json` path. Without this
     // override both configs write the SAME `.tsbuildinfo`, and the two runs
-    // have incompatible jobs: `bun run typecheck` is `--noEmit`, this one emits
+    // have incompatible jobs: the root one was `--noEmit` (`bun check` since ADR-044), this one emits
     // declarations. Sharing one cache made each invalidate the other's work, so
     // every `bun run build` cold-busted the `quality` typecheck cache and vice
     // versa. Separate files keep both caches warm independently.

@@ -1,3 +1,18 @@
+## [0.37.0](https://github.com/sovrium/sovrium/compare/v0.36.0...v0.37.0) (2026-10-11)
+
+### Features
+
+- **tables**: keep a write-only text field out of every read
+
+### Bug Fixes
+
+- **server**: keep bound query values out of logged database errors
+- **cli**: keep waiting when the cloud rate-limits a deploy's status reads
+
+### Performance Improvements
+
+- **build**: start the compiled binary from precompiled bytecode
+
 ## [0.36.0](https://github.com/sovrium/sovrium/compare/v0.35.0...v0.36.0) (2026-10-10)
 
 ### Features

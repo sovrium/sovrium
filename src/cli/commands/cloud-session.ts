@@ -32,6 +32,7 @@ import { chmod, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { Console, Data, Effect, Option, Schema } from 'effect'
+import { busyRetryDelayMs, isBusyStatus } from '@/domain/kernel/time/busy-retry-delay'
 import {
   isPrivateOutboundHost,
   validateOutboundUrl,
@@ -252,6 +253,8 @@ export const resolveCloudOrigin = (raw: string): Effect.Effect<URL, CliRefusal> 
 export interface CloudAnswer {
   readonly status: number
   readonly body: unknown
+  /** The `Retry-After` header, as sent, when the cloud sent one. */
+  readonly retryAfter?: string | undefined
 }
 
 const parseJson = (text: string): unknown => {
@@ -277,8 +280,45 @@ export const callCloud = (
       withFetchStallTimeout(url, { ...init, redirect: 'manual' }, stallMs, async (response) => ({
         status: response.status,
         body: parseJson(await response.text()),
+        retryAfter: response.headers.get('retry-after') ?? undefined,
       })),
     catch: (cause) => new CloudUnreachable({ host: url.host, cause }),
+  })
+
+/** How long a request is sent again while the cloud is busy, and what it says on the first refusal. */
+export interface BusyWait {
+  /** The instant the command stops waiting; the last busy answer is then returned. */
+  readonly deadline: number
+  /** Said once, on the first 429 or 503 of the streak. */
+  readonly onBusy: (status: number) => Effect.Effect<void>
+}
+
+/**
+ * {@link callCloud}, sent again while the cloud answers 429 or 503 — after the
+ * wait `busyRetryDelayMs` gives — until it answers otherwise or `wait.deadline`
+ * passes. Only for a request that is safe to send twice: a read, or a request
+ * carrying an `Idempotency-Key`. Each send keeps its own stall deadline.
+ */
+export const callCloudThroughBusy = (
+  url: URL,
+  init: Readonly<Omit<RequestInit, 'signal' | 'redirect'>>,
+  wait: BusyWait,
+  streak: number = 0
+): Effect.Effect<CloudAnswer, CloudUnreachable> =>
+  Effect.gen(function* () {
+    const answer = yield* callCloud(url, init)
+    const now = Date.now()
+    if (!isBusyStatus(answer.status) || now >= wait.deadline) return answer
+    if (streak === 0) yield* wait.onBusy(answer.status)
+    const delay = busyRetryDelayMs({
+      retryAfter: answer.retryAfter,
+      streak: streak + 1,
+      now,
+      deadline: wait.deadline,
+      random: Math.random,
+    })
+    yield* Effect.sleep(delay)
+    return yield* callCloudThroughBusy(url, init, wait, streak + 1)
   })
 
 /** ONE line naming the host the command could not reach, and what did not happen. */
@@ -290,13 +330,20 @@ export const describeUnreachable =
       guidance: 'Check the address and your connection, then run the command again.',
     })
 
+/** The line said once a read is answered 429 or 503: `Deployment 44: <host> is busy (HTTP 429); …`. */
+const busyLine = (label: string, origin: URL, status: number): string =>
+  `${label.charAt(0).toUpperCase()}${label.slice(1)}: ${origin.host} is busy (HTTP ${status}); still waiting.`
+
 /** A record read from the cloud's records API: its `fields`, whatever their shape. */
 const cloudRecordSchema = Schema.Struct({ fields: Schema.Record(Schema.String, Schema.Unknown) })
 
 /**
  * One read of a record the cloud keeps for a command — a deployment, a seed
  * run — at `GET /api/tables/<table>/records/<id>`, its fields decoded by
- * `decode`. Anything but a `200` that decodes is the refusal naming the record.
+ * `decode`. A busy cloud (429, 503) is read again — saying so once, as
+ * `<Label>: <host> is busy (HTTP <status>); still waiting.` — until it answers
+ * or `deadline` passes, when `expired` is the refusal.
+ * Any other answer but a `200` that decodes is the refusal naming the record.
  */
 export const readCloudRecord = <A>(options: {
   readonly origin: URL
@@ -309,14 +356,23 @@ export const readCloudRecord = <A>(options: {
   /** What the record's owner may still be doing, said when the cloud is unreachable. */
   readonly stillRunning: string
   readonly guidance: string
+  /** When the command stops waiting through a busy cloud. */
+  readonly deadline: number
+  /** The refusal once the deadline passes with the cloud still busy. */
+  readonly expired: () => CliRefusal
 }): Effect.Effect<A, CliRefusal> =>
   Effect.gen(function* () {
     const { origin, id } = options
     const path = `/api/tables/${options.table}/records/${encodeURIComponent(id)}`
-    const answer = yield* callCloud(new URL(path, origin), {
-      method: 'GET',
-      headers: { 'x-api-key': options.apiKey },
-    }).pipe(Effect.mapError(describeUnreachable(options.stillRunning)))
+    const answer = yield* callCloudThroughBusy(
+      new URL(path, origin),
+      { method: 'GET', headers: { 'x-api-key': options.apiKey } },
+      {
+        deadline: options.deadline,
+        onBusy: (status) => say(busyLine(options.label, origin, status)),
+      }
+    ).pipe(Effect.mapError(describeUnreachable(options.stillRunning)))
+    if (isBusyStatus(answer.status)) return yield* options.expired()
     const fields = Option.flatMap(
       Schema.decodeUnknownOption(cloudRecordSchema)(answer.body),
       (record) => options.decode(record.fields)

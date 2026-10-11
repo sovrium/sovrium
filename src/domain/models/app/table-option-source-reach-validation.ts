@@ -23,6 +23,7 @@
  */
 
 import { isFieldReadableByCaller } from './tables/field-read-filter-service'
+import { declaresWriteOnly } from './tables/write-only-field-service'
 import type { App } from './app'
 
 /** Minimal column shape the walk reads. */
@@ -49,6 +50,13 @@ export interface ReachedColumn {
   /** The column as declared, or `undefined` for an implicit one (`id`, a system column). */
   readonly column: ReachColumnShape | undefined
 }
+
+/**
+ * Whether a reached column is write-only: read by no one, so never a choice —
+ * whoever the form admits, and whatever authority it reads with.
+ */
+export const reachesWriteOnly = (reached: Readonly<ReachedColumn>): boolean =>
+  reached.column !== undefined && declaresWriteOnly(reached.column)
 
 /**
  * How deep a chain of computed columns is followed. A lookup of a formula over

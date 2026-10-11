@@ -42,7 +42,6 @@ import { NotFoundError, ValidationError } from '@/domain/errors'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { singleRecordAddressRefusal } from '@/domain/models/app/tables/single-record-address'
 import { enrichRecordWithAttachmentUrls } from './attachment-url-enricher'
-import { formatFieldForDisplay } from './display-formatter'
 import {
   omitHiddenColumnLookups,
   omitHiddenLookups,
@@ -52,12 +51,14 @@ import { relatedReaderOf } from './linked-row-visibility'
 import { processRecords, applyPagination } from './list-helpers'
 import { lookupReadMasks } from './lookup-read-masks'
 import { preserveIdType } from './preserve-id-type'
+import { toDisplayFields } from './record-display-fields'
 import {
   enrichRecordsWithRelatedLabels,
   mergeManyToManyFields,
   readManyToManyLinks,
 } from './record-link-enrichment'
 import { transformRecord } from './record-transformer'
+import { writeOnlyBlock } from './write-only-presence'
 import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
@@ -171,44 +172,10 @@ interface GetRecordConfig {
 }
 
 /** What shaping a stored row needs to know about its reader — no address of its own. */
-type RecordReaderConfig = Omit<GetRecordConfig, 'recordId' | 'includeDeleted' | 'admits'>
-
-/**
- * Collapse the single-record read's fields to FLAT display strings.
- *
- * The list route keeps the `{ value, displayValue, timezone }` object; this
- * route deliberately does not, and nine sibling `format=display` specs read
- * `fields.X` as a string. Changing that here would silently re-spec a contract
- * they pin, so the collapse stays.
- *
- * Two paths reach a display string, and BOTH need the caller's zone.
- * `transformRecord` has already formatted every field it recognised, leaving an
- * object to unwrap; anything it passed through unformatted is formatted here
- * instead. Passing the override to only one of them made the rendered clock
- * depend on which branch a field happened to take.
- */
-const toDisplayFields = (
-  fields: Readonly<TransformedRecord['fields']>,
-  config: RecordReaderConfig
-): Readonly<TransformedRecord['fields']> =>
-  Object.fromEntries(
-    Object.entries(fields).map(
-      ([key, value]): readonly [string, TransformedRecord['fields'][string]] => {
-        const isObj = typeof value === 'object' && value !== null && !Array.isArray(value)
-        if (isObj && 'displayValue' in (value as object)) {
-          return [key, (value as { displayValue: string }).displayValue]
-        }
-        const formatted = formatFieldForDisplay({
-          fieldName: key,
-          value,
-          app: config.app,
-          tableName: config.tableName,
-          timezoneOverride: config.timezone,
-        })
-        return [key, formatted ? formatted.displayValue : value]
-      }
-    )
-  )
+type RecordReaderConfig = Omit<GetRecordConfig, 'recordId' | 'includeDeleted' | 'admits'> & {
+  /** Keep write-only values: an automation run nobody started, and no other reader. */
+  readonly readsWriteOnly?: boolean
+}
 
 /**
  * Refuse a single-record verb whose table has no single-value record address.
@@ -267,7 +234,8 @@ const transformForReader = (
 ) => {
   const { tableName, app, userRole } = config
   const caller = { role: userRole, groups: config.userGroups ?? [] }
-  const filteredRecord = filterReadableFields({ app, tableName, caller, record })
+  const includeWriteOnly = config.readsWriteOnly
+  const filteredRecord = filterReadableFields({ app, tableName, caller, record, includeWriteOnly })
   const transformedRaw = transformRecord(filteredRecord, {
     app,
     tableName,
@@ -285,7 +253,8 @@ const transformForReader = (
   // Preserve TEXT primary keys (e.g. scope tables in `auth.scopeTables`) as
   // strings; only coerce when the value *looks* numeric. Avoids NaN for opaque
   // string ids.
-  return { transformed, fields, id: preserveIdType(record['id'] as string | number) }
+  const id = preserveIdType(record['id'] as string | number)
+  return { transformed, fields, id, writeOnly: writeOnlyBlock({ ...config, record }) }
 }
 
 /** Assemble one records-API single-record answer from its already-read parts. */
@@ -295,6 +264,7 @@ const toGetRecordResponse = (parts: {
   readonly fields: Readonly<TransformedRecord['fields']>
   readonly aiCompute: unknown
   readonly display: unknown
+  readonly writeOnly: ReturnType<typeof writeOnlyBlock>
 }): GetRecordResponse => {
   const { id, transformed, fields, aiCompute, display } = parts
   // Fields at the root as flat aliases too (the same pattern as
@@ -311,6 +281,7 @@ const toGetRecordResponse = (parts: {
     ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
     ...(aiCompute ? { _aiCompute: aiCompute } : {}),
     ...(display === undefined ? {} : { _display: display }),
+    ...parts.writeOnly,
   }
 }
 
@@ -374,10 +345,11 @@ export const shapeRecordsForReader = (
       { reader: relatedReaderOf(reader), linkReader: reader }
     )
 
-    return shaped.map(({ transformed, id }, index) =>
+    return shaped.map(({ transformed, id, writeOnly }, index) =>
       toGetRecordResponse({
         id,
         transformed,
+        writeOnly,
         fields: enriched[index] ?? {},
         aiCompute: aiCompute.get(String(id)),
         display: (labelled[index] as { readonly _display?: unknown } | undefined)?._display,

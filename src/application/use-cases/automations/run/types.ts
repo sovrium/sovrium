@@ -14,6 +14,7 @@ import type { ContainerResume } from '../action-handlers/run-park'
 import type { RecordEventChannel, StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { StepMetadataMap } from './step-metadata'
+import type { WriteOnlyInheritance } from './write-only-values'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
@@ -347,6 +348,8 @@ export interface RunAutomationResult {
   readonly returnData?: Readonly<Record<string, unknown>>
   /** True when an error `flow/stop` ended the run: its answer stands, never escalated to 500. */
   readonly stopped?: boolean
+  /** The write-only values the runs it called read: masked in its answer like its own. */
+  readonly calledWriteOnly?: readonly string[]
 }
 
 /** Inputs for `executeAutomationRun`, shared by every entry point (webhook, manual, record-event…). */
@@ -410,18 +413,14 @@ export interface ExecuteAutomationRunInput {
    */
   readonly checkStarterStanding?: boolean
   /**
-   * Optional callback invoked synchronously by the scheduler the moment
-   * the `'queued'` run row lands in `system.automation_runs`. Threaded
-   * through so the async webhook dispatcher (`respondImmediately: true`)
-   * can surface the persisted runId in its 202 response BEFORE the loop
-   * has finished — an API automation runs spec depends on this so the cancel
-   * endpoint can locate the in-flight run by id.
-   *
-   * When omitted (the synchronous webhook path, manual-trigger, replay,
-   * cron, record-event), the runId surfaces only via the
-   * {@link RunAutomationResult} returned at completion time.
+   * Invoked by the scheduler the moment the `'queued'` run row lands, so the
+   * async webhook dispatcher (`respondImmediately: true`) can answer 202 with
+   * the run id before the loop has finished (the cancel endpoint finds it by
+   * id). Omitted: the id surfaces only in the {@link RunAutomationResult}.
    */
   readonly onPersisted?: (runId: string) => void
+  /** A called run's inheritance about write-only values (`automation-call-invoker.ts`). */
+  readonly writeOnly?: WriteOnlyInheritance
   /**
    * The run that handed this one its trigger data — a call's caller, a failure
    * handler's failed run — or `outside` for a replay an admin supplied new

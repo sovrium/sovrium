@@ -19,6 +19,7 @@ import {
   CANONICAL_READ_POLICY,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { isWriteOnlyField } from '@/domain/models/app/tables/write-only-field-service'
 import { resolveSystemOptions } from '@/presentation/render/resolve/system-option-source-resolver'
 import { resolveFilters, scopeTablesOf } from './current-user-resolver'
 import { readRowsForCaller } from './record-read-gate'
@@ -138,8 +139,10 @@ function canResolve(
   valueField: string,
   ctx: SelectOptionSourceContext
 ): boolean {
-  // No auth configured → the full-access model; every table is readable.
-  if (!ctx.app.auth) return true
+  // No auth configured → the full-access model; every table is readable, and
+  // every column but a write-only one, which no one reads.
+  const fields = [binding.displayField, valueField]
+  if (!ctx.app.auth) return fields.every((f) => !isWriteOnlyField(ctx.app, binding.table, f))
 
   const table = (ctx.app.tables ?? []).find((t) => t.name === binding.table)
   if (!table) return false
@@ -157,9 +160,7 @@ function canResolve(
   })
   if (!plan.allowed) return false
 
-  return (
-    !plan.restrictedColumns.has(binding.displayField) && !plan.restrictedColumns.has(valueField)
-  )
+  return fields.every((field) => !plan.restrictedColumns.has(field))
 }
 
 /**

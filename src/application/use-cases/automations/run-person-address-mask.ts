@@ -28,6 +28,7 @@
 import { redactEmail } from '@/domain/kernel/sanitize/email-redaction'
 import { hasTriggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { singleUserFieldNames } from './hydrated-field-reference'
+import { maskValues, writeOnlyValuesOfRun } from './run/write-only-values'
 import { lastOutputWithoutAdminOnlyLines } from './run-admin-only-output'
 import type { App } from '@/domain/models/app'
 
@@ -210,7 +211,8 @@ export const lastOutputWithMaskedAddresses = (
 }
 
 /**
- * A run's last output as a reader may see it: whole when she reads every run
+ * A run's last output as a reader may see it: never a write-only value a
+ * record step read; whole otherwise when she reads every run
  * (an admin-equivalent); otherwise each expanded person's address masked, and
  * without the journal lines a health or a logs step keeps for an admin
  * (`run-admin-only-output.ts`).
@@ -223,16 +225,23 @@ export const lastOutputAsSeenBy = (
     readonly result: {
       readonly actions: Readonly<Record<string, unknown>>
       readonly lastOutput?: unknown
+      readonly calledWriteOnly?: readonly string[]
     }
   }
 ): unknown => {
   const { automationName, readsWhole, result } = input
-  if (readsWhole || result.lastOutput === undefined) return result.lastOutput
+  // A write-only value a record step read — or a run it called — is masked for
+  // every reader, the admin included.
+  const lastOutput = maskValues(result.lastOutput, [
+    ...writeOnlyValuesOfRun(app, automationName, result.actions),
+    ...(result.calledWriteOnly ?? []),
+  ])
+  if (readsWhole || lastOutput === undefined) return lastOutput
   return lastOutputWithMaskedAddresses(app, automationName, {
     stepNames: Object.keys(result.actions),
     output: lastOutputWithoutAdminOnlyLines(app, automationName, {
       actions: result.actions,
-      output: result.lastOutput,
+      output: lastOutput,
     }),
   })
 }

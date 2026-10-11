@@ -57,6 +57,7 @@ import {
   type RunAccumulator,
   type RunAutomationResult,
   type RunRequirements,
+  type StepContext,
 } from './run/types'
 import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
@@ -215,13 +216,13 @@ export const resolveAutomationId = (
   }).pipe(Effect.withSpan('automations.resolve-automation-id'))
 
 /** Project a {@link RunAccumulator} into the public {@link RunAutomationResult}. */
-const buildRunResult = (runId: string, finalState: RunAccumulator): RunAutomationResult => ({
+const buildRunResult = (
+  runId: string,
+  finalState: RunAccumulator,
+  ctx: StepContext
+): RunAutomationResult => ({
   runId,
-  // The reduce loop never leaves the accumulator in a `'queued'`/`'running'`
-  // state (those are scheduler-managed and only ever appear on persisted
-  // rows that are still in-flight). After `runActionsWithTimeout` resolves,
-  // the status is necessarily a terminal one — narrow here to match
-  // `RunAutomationResult.status` (which excludes the transient labels).
+  // The loop never leaves a scheduler-managed `'queued'`/`'running'` state: narrow it.
   status: finalState.runStatus as Exclude<RunAccumulator['runStatus'], 'queued' | 'running'>,
   actions: finalState.actions,
   ...(finalState.lastOutput !== undefined ? { lastOutput: finalState.lastOutput } : {}),
@@ -231,6 +232,7 @@ const buildRunResult = (runId: string, finalState: RunAccumulator): RunAutomatio
     : {}),
   ...(finalState.returnData !== undefined ? { returnData: finalState.returnData } : {}),
   ...(finalState.stopped === true ? { stopped: true } : {}),
+  calledWriteOnly: ctx.automation.writeOnly?.called.values() ?? [],
 })
 
 /**
@@ -406,14 +408,13 @@ const runAdmitted = (
       startedAtDate: admittedAt,
       finishedAtDate,
     })
-    return buildRunResult(observedRunId, effectiveState)
+    return buildRunResult(observedRunId, effectiveState, ctx)
   })
 
 /**
- * The `automation:call` invoker, bound with this module's `executeAutomationRun`
- * + `resolveAutomationId`. Threaded into every step's run context by
- * {@link runActionsWithTimeout}. Defined after `executeAutomationRun` so the
- * binding does not hit a temporal-dead-zone reference at module evaluation.
+ * The `automation:call` invoker, bound with this module's `executeAutomationRun` and
+ * `resolveAutomationId`, threaded into every step's run context. Defined after
+ * `executeAutomationRun` so the binding hits no temporal-dead-zone reference.
  */
 const boundAutomationInvoker = buildAutomationInvoker({
   resolveAutomationId,

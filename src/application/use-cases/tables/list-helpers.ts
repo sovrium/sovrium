@@ -7,6 +7,7 @@
 
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { transformRecords } from './record-transformer'
+import { writeOnlyBlock } from './write-only-presence'
 import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from './record-transformer'
 import type { App } from '@/domain/models/app'
 
@@ -172,12 +173,16 @@ export function processRecords(config: {
     filterReadableFields({ app, tableName, caller, record })
   )
 
+  // Each record says which of its write-only fields hold a value, judged on the stored row.
   const transformedRecords = transformRecords(filteredRecords, {
     format,
     app,
     tableName,
     timezone,
-  }) as TransformedRecord[]
+  }).map((record, index) => ({
+    ...record,
+    ...writeOnlyBlock({ app, tableName, userRole, userGroups, record: records[index] ?? {} }),
+  })) as TransformedRecord[]
 
   // Apply field selection if specified
   return fields ? applyFieldSelection(transformedRecords, fields) : transformedRecords

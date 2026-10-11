@@ -474,14 +474,14 @@ const readableTableProjection = (
     table: table as TableLike,
     principal: tableReadPrincipal(table, callerReaderFromSession(session, operatorApp)),
     policy: CANONICAL_READ_POLICY,
-    // No `rowContext`: `restrictedColumns` is computed from FIELD permissions
-    // alone and never consults it — only `rowPredicate` does, and this
-    // projection does not read that. Supplying one would imply a row decision
-    // is being made here, which it is not.
+    // No `rowContext`: `restrictedColumns` reads FIELD permissions alone; only
+    // `rowPredicate` would consult it, and no row decision is made here.
   })
   if (!plan.allowed) return undefined
-
-  const fields = table.fields.filter((field) => !plan.restrictedColumns.has(field.name))
+  // A write-only field this caller is told the presence of stays, to be named.
+  const hidden = (name: string) =>
+    plan.restrictedColumns.has(name) && !plan.presenceColumns.has(name)
+  const fields = table.fields.filter((field) => !hidden(field.name))
   if (fields.length === 0) return undefined
   if (fields.length === table.fields.length) return table
 
@@ -491,7 +491,7 @@ const readableTableProjection = (
       ? permissions
       : {
           ...permissions,
-          fields: permissions.fields.filter((entry) => !plan.restrictedColumns.has(entry.field)),
+          fields: permissions.fields.filter((entry) => !hidden(entry.field)),
         }
 
   return {

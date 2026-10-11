@@ -54,6 +54,7 @@ import {
   CATALOG_COMPONENT_CATEGORIES,
   catalogedTypesOf,
 } from '@/domain/models/app/pages/components/component-types/catalog'
+import { declaresWriteOnly } from '@/domain/models/app/tables/write-only-field-service'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -211,7 +212,8 @@ const tableDescriptors = (
   (app.tables ?? []).map((table) => ({
     displayName: table.name,
     textColumns: (table.fields ?? [])
-      .filter((field) => TEXT_FIELD_TYPES.has(field.type))
+      // A write-only value is indexed for no one: it would title a result.
+      .filter((field) => TEXT_FIELD_TYPES.has(field.type) && !declaresWriteOnly(field))
       .map((field) => field.name),
   }))
 

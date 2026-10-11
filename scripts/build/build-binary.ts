@@ -274,6 +274,12 @@ const compileBinary = (
       `--outfile=${outPath}`,
       '--minify',
       '--sourcemap',
+      // Ship JavaScriptCore bytecode beside the source so the binary skips
+      // parsing at every start: `--version` 375 -> 49 ms and a server boot
+      // 1086 -> 624 ms on darwin-arm64, for ~51% more bytes on disk.
+      // `--bytecode` needs `--format=esm` because the CLI uses top-level await.
+      '--bytecode',
+      '--format=esm',
       `--define=__SOVRIUM_VERSION__=${JSON.stringify(version)}`,
       ...windowsResourceFlags(target, version),
     ]

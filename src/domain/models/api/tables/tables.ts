@@ -243,6 +243,22 @@ export const displayLabelsSchema = Schema.Record(
 ).annotate({ description: 'Resolved relationship labels, keyed by field name' })
 
 /**
+ * The `_writeOnly` block: for every write-only field on the record, whether a
+ * value is stored.
+ *
+ * A write-only field's value never leaves the server through a read, for any
+ * role, so `fields` never carries it. This block is the one thing a reader
+ * learns about it — set or not set — so an operator can tell a configured
+ * secret from a missing one without seeing it. It names only the write-only
+ * fields the caller could read under the ordinary field rules, and it is
+ * omitted when there are none, never sent as an empty object.
+ */
+const writeOnlyPresenceSchema = Schema.Record(Schema.String, Schema.Boolean).annotate({
+  description:
+    'Whether each write-only field holds a value (true) or not (false), keyed by field name. The value itself is never returned.',
+})
+
+/**
  * Record schema (Airtable-style)
  *
  * Represents a record in a table.
@@ -275,6 +291,7 @@ export const recordSchema = Schema.Struct({
     ),
     _aiCompute: optionalField(aiComputeProjectionSchema),
     _display: optionalField(displayLabelsSchema),
+    _writeOnly: optionalField(writeOnlyPresenceSchema),
   }).fields,
   ...timestampSchema.fields,
 }).annotate({ identifier: 'Record' })

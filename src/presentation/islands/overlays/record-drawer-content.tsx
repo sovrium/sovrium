@@ -38,6 +38,7 @@ import {
   ReadOnlyEntry,
   RefinementStatus,
   FieldButton,
+  PresenceEntry,
   ReadOnlyDetail,
 } from './record-drawer-entry'
 import { isStructured } from './record-drawer-field'
@@ -175,6 +176,15 @@ function DrawerField({
   readonly onChange: (name: string, value: string) => void
   readonly table?: string
 }): ReactElement {
+  if (field.presence !== undefined) {
+    return (
+      <PresenceEntry
+        field={field}
+        presence={field.presence}
+        record={record}
+      />
+    )
+  }
   if (!canEdit) {
     return (
       <ReadOnlyEntry field={field}>

@@ -33,6 +33,10 @@ import {
   validateViews,
 } from '@/domain/models/app/tables/table-views-validation'
 import { validateWebhooks } from '@/domain/models/app/tables/table-webhooks-validation'
+import {
+  validateWriteOnlyFields,
+  validateWriteOnlyReads,
+} from '@/domain/models/app/tables/write-only-validation'
 import { CommentsConfigSchema } from './comments'
 import { CheckConstraintsSchema } from './constraints'
 import { FieldsSchema } from './fields'
@@ -131,8 +135,8 @@ const validateTableSchema = (table: TableShape): ValidationError | true => {
   const { fields } = table
   const fieldNames = new Set(fields.map((field) => field.name))
 
-  // Validate formula fields (always required)
-  const formulaError = validateFormulaFields(fields)
+  // Validate formula fields (always required), then what a write-only field refuses
+  const formulaError = validateFormulaFields(fields) ?? validateWriteOnlyFields(table)
   if (formulaError) return formulaError
 
   // Validate structural constraints (primaryKey, indexes)
@@ -627,6 +631,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     })
   ),
   Schema.check(Schema.makeFilter((tables) => validateDistinctDerivedTableNames(tables) ?? true)),
+  Schema.check(Schema.makeFilter((tables) => validateWriteOnlyReads(tables) ?? true)),
   Schema.check(
     Schema.makeFilter((tables) => {
       const circularTables = detectCircularRelationships(tables)

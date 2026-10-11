@@ -71,7 +71,10 @@ import {
   readOpensToEveryone,
   readRequiresSession,
 } from '../auth/permission-evaluator-service'
-import { isFieldReadableByCaller } from './field-read-filter-service'
+import {
+  isFieldReadableByCaller,
+  isFieldReadableUnderFieldRules,
+} from './field-read-filter-service'
 import {
   isPredicateGroup,
   projectPredicateToFilter,
@@ -79,6 +82,7 @@ import {
   type CurrentUserContext,
   type RowLevelFilterNode,
 } from './row-level-evaluator-service'
+import { isWriteOnlyField, writeOnlyFieldNames } from './write-only-field-service'
 import type { App } from '@/domain/models/app'
 import type { RowLevelPermissions } from '@/domain/models/app/tables/permissions'
 import type { Table } from '@/domain/models/app/tables/table'
@@ -310,6 +314,13 @@ export interface ReadAccessPlan {
    * whitelist therefore strips its `id`; filtering it by this set does not.
    */
   readonly restrictedColumns: ReadonlySet<string>
+  /**
+   * The write-only columns (`writeOnly: true`) the caller could read under the
+   * ordinary field rules. They are restricted all the same — no caller reads a
+   * write-only value — but this caller is told whether one is set, so a surface
+   * may NAME them (a column saying "Set", a `_writeOnly` block).
+   */
+  readonly presenceColumns: ReadonlySet<string>
   /** The projected row-level read predicate. See {@link RowPredicate}. */
   readonly rowPredicate: RowPredicate
   /**
@@ -430,11 +441,38 @@ const isFieldReadableForPolicy = (input: {
   readonly policy: ReadAccessPolicy
 }): boolean => {
   const { app, table, caller, fieldName, policy } = input
+  // A write-only field is read by no one, whatever the policy.
+  if (isWriteOnlyField(app, table.name, fieldName)) return false
   // `skip`: consult the DECLARED grants only. When the table declares none,
   // every field is readable — the defaults are precisely what would have
   // restricted it.
   if (policy.fieldDefaultRules === 'skip' && !table.permissions?.fields) return true
   return isFieldReadableByCaller(app, table.name, caller, fieldName)
+}
+
+/**
+ * The write-only columns of `table` a principal could read under the ordinary
+ * field rules — see {@link ReadAccessPlan.presenceColumns}.
+ */
+const resolvePresenceColumns = (
+  app: App,
+  table: TableLike,
+  principal: ReadPrincipal,
+  policy: ReadAccessPolicy
+): ReadonlySet<string> => {
+  const groups = groupsOf(principal)
+  const roles =
+    policy.fieldRoleMatch === 'any-effective-role' ? plainRolesOf(principal) : [principal.role]
+  const skips = policy.fieldDefaultRules === 'skip' && !table.permissions?.fields
+  return new Set(
+    writeOnlyFieldNames(app, table.name).filter(
+      (name) =>
+        skips ||
+        roles.some((role) =>
+          isFieldReadableUnderFieldRules(app, table.name, { role, groups }, name)
+        )
+    )
+  )
 }
 
 /**
@@ -484,6 +522,7 @@ export const buildReadAccessPlan = (input: ReadAccessPlanInput): ReadAccessPlan 
       allowed: false,
       columnWhitelist: [],
       restrictedColumns: new Set(),
+      presenceColumns: new Set(),
       rowPredicate: 'empty',
       includeDeleted: false,
     }
@@ -502,6 +541,7 @@ export const buildReadAccessPlan = (input: ReadAccessPlanInput): ReadAccessPlan 
       allowed: false,
       columnWhitelist: [],
       restrictedColumns: new Set(table.fields.map((field) => field.name)),
+      presenceColumns: new Set(),
       rowPredicate: 'empty',
       includeDeleted: false,
     }
@@ -516,8 +556,33 @@ export const buildReadAccessPlan = (input: ReadAccessPlanInput): ReadAccessPlan 
     restrictedColumns: new Set(
       table.fields.map((field) => field.name).filter((name) => !readable.has(name))
     ),
+    presenceColumns: resolvePresenceColumns(app, table, principal, policy),
     rowPredicate: projectRowReadPredicate(table.rowLevelPermissions, rowContext),
     includeDeleted: policy.deletionScope === 'deleted-only',
+  }
+}
+
+/**
+ * The plan of an app with no `auth` block: the full-access model — every row,
+ * every column — less the one rule it does not cross. A write-only column is
+ * read by no one, so it is restricted here too, and every visitor is told
+ * whether it holds a value, as any caller the ordinary rules admit is.
+ *
+ * Without it a page of an app with no `auth` read its rows unprojected and
+ * printed a write-only value the records API of the same app withholds.
+ */
+export const fullAccessReadPlan = (app: App, table: TableLike): ReadAccessPlan => {
+  const writeOnly = new Set(writeOnlyFieldNames(app, table.name))
+  return {
+    allowed: true,
+    columnWhitelist:
+      writeOnly.size === 0
+        ? undefined
+        : table.fields.map((field) => field.name).filter((name) => !writeOnly.has(name)),
+    restrictedColumns: writeOnly,
+    presenceColumns: writeOnly,
+    rowPredicate: 'none',
+    includeDeleted: false,
   }
 }
 

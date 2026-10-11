@@ -16,6 +16,7 @@ import {
   answersFromLedgerData,
   keptFileAnswers,
 } from '@/domain/models/app/forms/form-access-link-service'
+import { withoutWriteOnlyValues } from '@/domain/models/app/tables/write-only-field-service'
 import { coerceScalarsForArrayColumns } from './coerce-array-columns'
 import { coerceEmptySelectToNull } from './coerce-empty-select'
 import { openEditableSubmissionProgram } from './open-form-access-link'
@@ -117,6 +118,9 @@ export const editFormSubmissionProgram = (config: {
       yield* updateBoundRow({ ...config, form, row, tableName, mapped })
     }
     const repo = yield* FormSubmissionRepository
-    yield* repo.updateData({ id: row.id, data: mapped })
+    yield* repo.updateData({
+      id: row.id,
+      data: { ...withoutWriteOnlyValues({ tables: app.tables }, form.submitTo.table, mapped) },
+    })
     return { submissionId: row.id }
   }).pipe(Effect.withSpan('forms.edit-form-submission', { attributes: { form: config.formName } }))

@@ -217,11 +217,12 @@ async function fetchTableRecords(fetchQuery: FetchQuery): Promise<DataTableFetch
     groups?: readonly GroupCount[]
     appliedQuery?: string | null
   }
-  // Flatten: merge record.fields into top-level for TanStack Table accessorKey resolution
+  // Flatten: merge record.fields into top-level for TanStack Table accessorKey resolution.
+  // A write-only field has no value to show; its cell reads whether one is set.
   const rawRecords = json.records ?? []
   const flatRecords: readonly TableRecord[] = rawRecords.map((r) => {
     const { fields, ...rest } = r
-    return { ...rest, ...(fields ?? {}) }
+    return { ...rest, ...(fields ?? {}), ...((rest['_writeOnly'] as TableRecord) ?? {}) }
   })
   const total = json.total ?? json.pagination?.total ?? rawRecords.length
   const nextCursor = nextPageCursor(fetchQuery, rawRecords.length, total)
