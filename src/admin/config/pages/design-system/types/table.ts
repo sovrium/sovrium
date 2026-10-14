@@ -32,6 +32,7 @@
 // cannot hold, a row that will not commit because a required field is empty.
 
 import { SPECIMEN_ROWS_ENDPOINT } from '../../../system-sources'
+import { ratingGlyphs } from './rating-glyphs'
 import type { PageComponent, TypePageBody } from './body-shape'
 
 const BOUND = {
@@ -92,9 +93,8 @@ const txt = (content: string, className = 'text-foreground text-sm'): PageCompon
  * A label INSIDE a control, which declares no colour of its own.
  *
  * `txt` paints `text-foreground` — the page's ink, correct on the page's
- * ground. Inside a filled button the ground is the primary fill, and the
- * button's own recipe already sets the ink to match it
- * (`text-[var(--sv-primary-fg)]`). A child span re-declaring `text-foreground`
+ * ground. Inside a filled button the ground is the primary fill, and the button's
+ * recipe sets the ink to match (`text-primary-foreground`); a span re-declaring `text-foreground`
  * overrides that and paints near-black on near-black: measured 2026-09-16 at
  * **1.11:1** on the six filled buttons of this page. So a label in a control
  * says only how big it is, and inherits what colour the control is wearing —
@@ -121,8 +121,7 @@ const panel = (children: readonly unknown[]): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className:
-        'border-border bg-background-raised flex flex-col gap-2 rounded-md border p-3 shadow-md',
+      className: 'border-border bg-card flex flex-col gap-2 rounded-md border p-3 shadow-md',
     },
     children,
   }) as PageComponent
@@ -691,7 +690,7 @@ const table: TypePageBody = {
           ],
         },
         {
-          label: 'onRowClick: openDrawer',
+          label: 'onRowClick: openSheet',
           children: [cell([txt('Ada Lovelace'), muted('opens the drawer')])],
         },
       ],
@@ -798,7 +797,7 @@ const table: TypePageBody = {
           'A one-line preview, truncated. The drawer shows the pretty block.'
         ),
         renderer('code', mono('record.amount > 1000')),
-        renderer('rating', txt('★★★☆☆')),
+        renderer('rating', ratingGlyphs()),
         renderer('progress', { type: 'progress', progressValue: 62 } as PageComponent),
         renderer('color', {
           type: 'swatch',
@@ -931,7 +930,7 @@ const table: TypePageBody = {
           label: 'in-place checkbox',
           children: [cell([{ type: 'checkbox', checked: true } as PageComponent])],
         },
-        { label: 'in-place rating', children: [cell([txt('★★★☆☆')])] },
+        { label: 'in-place rating', children: [cell([ratingGlyphs()])] },
       ],
     },
     {

@@ -18,7 +18,7 @@ children:
             props:
               className: text-xl font-semibold text-foreground text-lg
             content: '[This week]'
-      - type: calendar
+      - type: event-calendar
         dataSource:
           table: bookings
         dateField: starts_at

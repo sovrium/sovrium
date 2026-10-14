@@ -18,8 +18,11 @@
  *
  * - the first code form stays (it draws the notice and its link); every other
  *   code form goes, so two forms (the code, a recovery code) make one notice;
- * - a container left empty by that goes, and with it any control pointing at it
- *   (`aria-controls`, or an interaction naming `#its-id`) — the recovery toggle;
+ * - the container directly holding a removed form goes with it, whatever else it
+ *   holds (one level only, never a landmark, never what holds the first form),
+ *   and so does a container left empty; with them goes any control pointing at
+ *   one of them or at the form (`aria-controls`, or an interaction naming
+ *   `#its-id`) — the recovery toggle;
  * - a link to the sign-in page AFTER the first code form goes — the notice
  *   already carries that link;
  * - a paragraph in the sibling right BEFORE the first code form goes — the
@@ -100,6 +103,26 @@ const prune = (children: readonly unknown[], drop: (node: Tree) => boolean): rea
     return child['children'].length > 0 && kept.length === 0 ? [] : [{ ...child, children: kept }]
   })
 
+/**
+ * `children` without the code forms `removed` names, nor the container directly
+ * holding one — unless that container is a landmark or also holds `kept`, the
+ * first code form. A container emptied by that goes too.
+ */
+const pruneForms = (
+  children: readonly unknown[],
+  removed: (node: Tree) => boolean,
+  kept: Tree | undefined
+): readonly unknown[] =>
+  children.flatMap((child) => {
+    if (!isNode(child)) return [child]
+    if (removed(child)) return []
+    if (isCodeForm(child) || !Array.isArray(child['children'])) return [child]
+    const holdsRemoved = child['children'].some((grand) => isNode(grand) && removed(grand))
+    if (holdsRemoved && !isLandmark(child) && firstCodeForm(child) !== kept) return []
+    const rest = pruneForms(child['children'], removed, kept)
+    return child['children'].length > 0 && rest.length === 0 ? [] : [{ ...child, children: rest }]
+  })
+
 /** The first code form of `tree` in document order. */
 const firstCodeForm = (tree: unknown): Tree | undefined => {
   if (Array.isArray(tree)) {
@@ -160,7 +183,11 @@ const withoutBackLinks = (children: readonly unknown[], loginPage: string): read
 const collapseRegion = (children: readonly unknown[], loginPage: string): readonly unknown[] => {
   const firstForm = firstCodeForm(children)
   const introduced = withoutIntro(children)
-  const withoutForms = prune(introduced, (node) => isCodeForm(node) && node !== firstForm)
+  const withoutForms = pruneForms(
+    introduced,
+    (node) => isCodeForm(node) && node !== firstForm,
+    firstForm
+  )
   const kept = new Set(idsIn(withoutForms))
   const gone = new Set(idsIn(introduced).filter((id) => !kept.has(id)))
   return withoutBackLinks(

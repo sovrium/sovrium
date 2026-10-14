@@ -16,7 +16,7 @@ const TONE_TEXT: Readonly<Record<Tone, string>> = {
   success: 'text-success',
   warning: 'text-warning',
   error: 'text-error',
-  muted: 'text-foreground-muted',
+  muted: 'text-muted-foreground',
 }
 
 /**

@@ -18,7 +18,6 @@ import { PageHead } from '@/presentation/render/page/page-head'
 // Island-runtime detection lives in page-island-detection.ts (extracted on main);
 // this file keeps only interactive-runtime detection, which shares the same
 // reference-aware walker so a template-hosted action button also ships client.js.
-import type { Components } from '@/domain/models/app/components'
 import type { Design } from '@/domain/models/app/design'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
@@ -27,9 +26,6 @@ import type { groupScriptsByPosition } from '@/presentation/render/page/page-scr
 
 export type DynamicPageHeadProps = {
   readonly mergedPage: Page
-  /** `app.components` templates — needed so the no-FOUC color-scheme
-   * detection can see a `theme-toggle` hosted inside a referenced template. */
-  readonly components?: Components
   readonly design?: Design
   readonly directionStyles: string
   /** Content-versioned stylesheet URL — see `PageHeadProps.cssHref`. */
@@ -56,7 +52,6 @@ export type DynamicPageHeadProps = {
  */
 export function DynamicPageHead({
   mergedPage,
-  components,
   design,
   directionStyles,
   cssHref,
@@ -97,7 +92,6 @@ export function DynamicPageHead({
       )}
       <PageHead
         page={mergedPage}
-        components={components}
         design={design}
         directionStyles={directionStyles}
         cssHref={cssHref}

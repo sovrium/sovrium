@@ -7,6 +7,8 @@
 
 import { useState } from 'react'
 import {
+  TABLE_TOOLBAR_BUTTON_PART,
+  TABLE_TOOLBAR_PRIMARY_BUTTON_PART,
   computeTableBulkBarClasses,
   computeTableBulkBarCountClasses,
   computeTablePanelCaptionClasses,
@@ -95,13 +97,17 @@ export function BulkActionBar({ bulkActions, selectedCount, onExecute }: BulkAct
   }
 
   return (
-    <div className={computeTableBulkBarClasses()}>
+    <div
+      data-slot="data-table-bulk-actions"
+      className={computeTableBulkBarClasses()}
+    >
       <span className={computeTableBulkBarCountClasses()}>{selectedCount} selected</span>
       {!confirmAction &&
         bulkActions.map((action, i) => (
           <button
             key={i}
             type="button"
+            {...TABLE_TOOLBAR_BUTTON_PART}
             className={computeTableToolbarButtonClasses()}
             onClick={() => {
               if (action.confirm) {
@@ -141,6 +147,7 @@ function ConfirmPrompt(props: {
       {props.words.message.replace('{count}', String(props.selectedCount))}
       <button
         type="button"
+        {...TABLE_TOOLBAR_PRIMARY_BUTTON_PART}
         className={computeTableToolbarPrimaryButtonClasses()}
         onClick={props.onConfirm}
       >
@@ -148,6 +155,7 @@ function ConfirmPrompt(props: {
       </button>
       <button
         type="button"
+        {...TABLE_TOOLBAR_BUTTON_PART}
         className={computeTableToolbarButtonClasses()}
         onClick={props.onCancel}
       >

@@ -71,6 +71,7 @@ export function ChildBadge({ badge }: { readonly badge: LeafBadge | undefined })
   return (
     <span
       aria-hidden="true"
+      data-slot="sidebar-menu-badge"
       data-component-type="badge"
       className={computeSidebarEntryBadgeClasses()}
     >
@@ -117,6 +118,8 @@ export function ToggleRow({
       aria-controls={listId}
       aria-expanded={expanded}
       className={computeSidebarToggleRowClasses()}
+      data-slot="sidebar-menu-button"
+      data-size="default"
       onClick={onToggle}
       type="button"
       {...(rail !== true || entryProps?.['title'] !== undefined ? {} : { title: label })}

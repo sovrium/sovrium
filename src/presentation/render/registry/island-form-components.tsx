@@ -26,7 +26,7 @@ import {
   stripAddressedPanelContent,
 } from './island-tabs-ssr'
 import { recordPickerComponent } from './record-picker-component'
-import { selectComponent } from './select-component'
+import { selectComponents } from './select-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 import type { ElemProps, RawProps } from './island-form-props'
 import type { SsrNavItem } from './island-nav-ssr'
@@ -46,7 +46,7 @@ function buildCheckboxProps(rawProps: RawProps, elementProps: ElemProps, compone
 /** Form, navigation, and interactive island components */
 export const islandFormComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   'record-picker': recordPickerComponent,
-  select: selectComponent,
+  ...selectComponents,
   accordion: ({ component, elementProps, currentLang, languages }) => {
     // `accordionType`, `defaultOpen`, and `children` are top-level schema
     // properties (siblings of `props`), not inside `props`, so read from
@@ -67,10 +67,10 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       >
         <div className="divide-border border-border divide-y rounded-lg border">
           <div className="px-4 py-3">
-            <div className="bg-background-subtle h-5 w-48 animate-pulse rounded" />
+            <div className="bg-muted h-5 w-48 animate-pulse rounded" />
           </div>
           <div className="px-4 py-3">
-            <div className="bg-background-subtle h-5 w-40 animate-pulse rounded" />
+            <div className="bg-muted h-5 w-40 animate-pulse rounded" />
           </div>
         </div>
       </div>
@@ -93,11 +93,10 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     const addressed = resolveAddressedPanel(items, defaultTab)
     const tabsOrientation =
       (c['tabsOrientation'] as 'horizontal' | 'vertical' | undefined) ?? 'horizontal'
-    // `layout` sits at the top level beside `tabsOrientation` and `defaultTab`,
-    // so it is read off `component` for the same reason they are — and it has to
-    // reach `islandProps` EXPLICITLY, because these props are assembled key by
-    // key: a key that merely decodes never crosses to the hydrated half, and the
-    // tab set reverts to a flowing one the moment the chunk lands.
+    // `layout` (and `tabsVariant`) sit at the top level beside `tabsOrientation`,
+    // so they are read off `component`, and reach `islandProps` EXPLICITLY: these
+    // props are assembled key by key, so a key that merely decodes never crosses
+    // to the hydrated half.
     const layout = c['layout'] as TabsLayout | undefined
     // The DECLARED `page.query` property this tab set's `defaultTab` binds to,
     // attached by `resolveTabsLazyPanels` before that binding was substituted
@@ -123,6 +122,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       defaultTab,
       lazyParam,
       tabsOrientation,
+      tabsVariant: c['tabsVariant'] === 'line' ? 'line' : 'default',
       layout,
       // Thread the author's `props['aria-label']` onto the `<Tabs.List>` so the
       // rendered `role="tablist"` carries an accessible name (e.g. the admin
@@ -216,7 +216,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
                 dangerouslySetInnerHTML={{ __html: addressed.html }}
               />
             ) : (
-              <div className="bg-background-subtle h-24 animate-pulse rounded" />
+              <div className="bg-muted h-24 animate-pulse rounded" />
             )}
           </div>
         </div>
@@ -233,13 +233,13 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         data-island-props={JSON.stringify(checkboxProps)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
-        <label className="inline-flex items-center gap-2">
+        <label className="inline-flex items-center gap-2 text-sm leading-none font-medium select-none">
           <input
             type="checkbox"
             defaultChecked={checkboxProps.checked as boolean | undefined}
             disabled
           />
-          <span className="text-md">{controlLabel(rawProps) ?? ''}</span>
+          <span>{controlLabel(rawProps) ?? ''}</span>
         </label>
       </div>
     )
@@ -267,22 +267,22 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         data-testid={elementProps['data-testid'] as string | undefined}
       >
         <fieldset className="flex flex-col gap-2">
-          <div className="bg-background-subtle h-5 w-32 animate-pulse rounded" />
-          <div className="bg-background-subtle h-5 w-28 animate-pulse rounded" />
+          <div className="bg-muted h-5 w-32 animate-pulse rounded" />
+          <div className="bg-muted h-5 w-28 animate-pulse rounded" />
         </fieldset>
       </div>
     )
   },
 
   switch: ({ rawProps, elementProps, component }) => {
-    // `checked` and `size` are top-level schema fields per switch.ts.
-    const c = asRecord(component)
+    const c = asRecord(component) // `checked` and `size` are top-level fields (switch.ts)
     const props = {
       checked: pickFromComponent(c, rawProps, 'checked'),
       disabled: rawProps?.disabled,
       size: pickFromComponent(c, rawProps, 'size'),
       label: controlLabel(rawProps),
       name: rawProps?.name,
+      ariaLabelledBy: rawProps?.['aria-labelledby'],
       ...baseProps(elementProps),
     }
     return (
@@ -292,9 +292,9 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
-        <label className="inline-flex items-center gap-2">
-          <div className="bg-background-subtle h-5 w-9 animate-pulse rounded-full" />
-          <span className="text-md">{controlLabel(rawProps) ?? ''}</span>
+        <label className="inline-flex items-center gap-2 text-sm leading-none font-medium select-none">
+          <div className="bg-input h-[18.4px] w-[32px] animate-pulse rounded-full" />
+          <span>{controlLabel(rawProps) ?? ''}</span>
         </label>
       </div>
     )
@@ -321,23 +321,24 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
-        <div className="bg-background-subtle h-1.5 w-full rounded-full">
-          <div className="bg-primary h-full w-1/2 rounded-full" />
+        <div className="bg-muted h-1 w-full overflow-hidden rounded-full">
+          <div className="bg-primary h-full w-1/2" />
         </div>
       </div>
     )
   },
 
   toggle: ({ rawProps, elementProps, component }) => {
-    // `pressed`, `toggleType`, `size`, `variant` are top-level schema fields
-    // per toggle.ts.
+    // `pressed`, `toggleType`, `size` and `toggleVariant` are top-level fields (toggle.ts).
     const c = asRecord(component)
     const props = {
       pressed: pickFromComponent(c, rawProps, 'pressed'),
       disabled: rawProps?.disabled,
-      variant: pickFromComponent(c, rawProps, 'variant'),
+      variant:
+        pickFromComponent(c, rawProps, 'toggleVariant') ??
+        pickFromComponent(c, rawProps, 'variant'),
       size: pickFromComponent(c, rawProps, 'size'),
-      label: controlLabel(rawProps),
+      label: controlLabel(rawProps) ?? rawProps?.['aria-label'],
       ...baseProps(elementProps),
     }
     return (
@@ -350,7 +351,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         <button
           type="button"
           disabled
-          className="bg-background-subtle text-foreground text-md rounded-md px-3 py-2"
+          className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2.5 text-sm font-medium whitespace-nowrap"
         >
           {controlLabel(rawProps) ?? 'Toggle'}
         </button>
@@ -359,12 +360,8 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
   },
 
   'toggle-group': ({ rawProps, elementProps, component }) => {
-    // `options`, `toggleType`, `orientation`, `size`, `defaultValue` are
-    // top-level schema fields per toggle-group.ts. The island consumes
-    // `{ id, label }` items so we normalize the platform `OptionsSchema`
-    // (`{ label, value }`) into the island shape here; raw `items` is
-    // accepted for back-compat when a caller flattens its own item array
-    // directly into rawProps.
+    // Top-level fields per toggle-group.ts; `OptionsSchema` `{ label, value }` becomes
+    // the island's `{ id, label }` items (a raw `items` array is accepted too).
     const c = asRecord(component)
     const rawOptions = pickFromComponent(c, rawProps, 'options') ?? rawProps?.items
     const items = Array.isArray(rawOptions)
@@ -382,6 +379,9 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       toggleType: pickFromComponent(c, rawProps, 'toggleType'),
       orientation: pickFromComponent(c, rawProps, 'orientation'),
       size: pickFromComponent(c, rawProps, 'size'),
+      variant: pickFromComponent(c, rawProps, 'toggleVariant'),
+      spacing: pickFromComponent(c, rawProps, 'spacing'),
+      label: rawProps?.['aria-label'],
       defaultValue: pickFromComponent(c, rawProps, 'defaultValue'),
       ...baseProps(elementProps),
     }
@@ -392,9 +392,9 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
-        <div className="border-border inline-flex rounded-md border">
-          <div className="bg-background-subtle h-9 w-16 animate-pulse" />
-          <div className="bg-background-subtle h-9 w-16 animate-pulse" />
+        <div className="inline-flex gap-2">
+          <div className="bg-muted h-8 w-16 animate-pulse rounded-lg" />
+          <div className="bg-muted h-8 w-16 animate-pulse rounded-lg" />
         </div>
       </div>
     )
@@ -418,8 +418,8 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
           role="menubar"
           className="border-border flex rounded-md border"
         >
-          <div className="bg-background-subtle h-8 w-16 animate-pulse rounded" />
-          <div className="bg-background-subtle h-8 w-16 animate-pulse rounded" />
+          <div className="bg-muted h-8 w-16 animate-pulse rounded" />
+          <div className="bg-muted h-8 w-16 animate-pulse rounded" />
         </div>
       </div>
     )
@@ -445,10 +445,9 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     // applied to the SSR placeholder trigger below so the two class lists match.
     const openOnHover = navMenuComp?.openOnHover
     const triggerClassName = navMenuComp?.triggerClassName
-    // Schema-level navItems can carry `$t:` tokens in label/description/href
-    // Resolve them against the active language BEFORE
-    // serialization so both the SSR fallback and the hydrated island show the
-    // translated strings.
+    // Schema-level navItems can carry `$t:` tokens in label/description/href:
+    // resolve them BEFORE serialization so both the SSR fallback and the
+    // hydrated island show the translated strings.
     const navItems = resolveTranslationTokensDeep(rawNavItems, currentLang, languages) as
       readonly SsrNavItem[] | undefined
     const props = { navItems, openOnHover, triggerClassName, ...baseProps(elementProps) }
@@ -472,6 +471,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <Wrapper
         data-island={isIsland ? 'navigation-menu' : undefined}
+        data-slot="navigation-menu"
         data-component-type={hostComponentType(elementProps)}
         data-island-props={isIsland ? JSON.stringify(props) : undefined}
         data-testid={elementProps['data-testid'] as string | undefined}
@@ -483,7 +483,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         ) : navItems && navItems.length > 0 ? (
           navItems.map((item, index) => renderSsrNavItem(item, index, triggerClassName))
         ) : (
-          <div className="bg-background-subtle h-8 w-60 animate-pulse rounded" />
+          <div className="bg-muted h-8 w-60 animate-pulse rounded" />
         )}
       </Wrapper>
     )

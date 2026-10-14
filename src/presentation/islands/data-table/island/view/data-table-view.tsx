@@ -6,7 +6,7 @@
  */
 
 import { computeTableFillShellClasses } from '@/presentation/design/table-default-classes'
-import { ArmedConfirmProvider } from '../../armed-confirm-provider'
+import { ArmedConfirmProvider } from '../../row-actions/armed-confirm-provider'
 import { DataTableToolbarBar } from '../toolbar/toolbar-bar'
 import { useViewProps } from '../use-view-props'
 import { StatusBanners } from './status-banners'
@@ -35,7 +35,7 @@ export function DataTableView(props: DataTableViewProps) {
     <ArmedConfirmProvider>
       <div
         ref={props.containerRef}
-        // Chrome-less: the surface tokens (`bg-background-raised`, `border-border`,
+        // Chrome-less: the surface tokens (`bg-card`, `border-border`,
         // rounding, border) live on the `[data-component="data-table"]` island
         // host (see island-data-components.tsx), which this view is rendered
         // INTO via `createRoot`. Repeating the chrome here would double the

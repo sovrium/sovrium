@@ -27,10 +27,51 @@ export class AiMemoryDatabaseError extends Data.TaggedError('AiMemoryDatabaseErr
  * declared here so the application layer never imports from infrastructure.
  */
 export interface AiMemoryMessage {
+  readonly id: string
+  /** The message this one follows in its branch; `null` for a first message. */
+  readonly parentId: string | null
   readonly role: string
   readonly content: string
   readonly status: string
   readonly createdAt: Date
+  /** On an assistant message: the question the agent asked there, and how it ended. */
+  readonly elicitation?: AiMessageElicitation | undefined
+  /** On a user message sent as parts: the parts, in the order sent, as references. */
+  readonly parts?: ReadonlyArray<AiMessagePart> | undefined
+}
+
+/**
+ * One part of a stored user message: its text, or a REFERENCE to an upload by
+ * id. Never the bytes, the extracted text, a bucket or a storage key. The
+ * upload's name is kept so a turn that replays the file after the upload is
+ * erased can still say which file it was.
+ */
+export type AiMessagePart =
+  | { readonly type: 'text'; readonly text: string }
+  | {
+      readonly type: 'image' | 'file'
+      readonly attachmentId: string
+      readonly name: string
+    }
+
+/**
+ * A question an agent asked the person (`ask_user`), kept with the assistant
+ * message of the turn it paused: its words and how it ended (`cancelled`, the
+ * one state a paused turn is saved in — an answered question resumes the turn,
+ * whose answer is saved instead).
+ */
+export interface AiMessageElicitation {
+  readonly message: string
+  readonly state: 'cancelled'
+  /** The declared name of the external MCP server that asked; absent for the agent's own question. */
+  readonly server?: string | undefined
+}
+
+/** One conversation thread and all its messages, every branch. */
+export interface AiMemoryThread {
+  /** The declared agent the thread was held with; `null` for the generic chat. */
+  readonly agentName: string | null
+  readonly messages: ReadonlyArray<AiMemoryMessage>
 }
 
 /**
@@ -67,7 +108,9 @@ export class AiMemoryRepository extends Context.Service<
      * Persist a completed user/assistant exchange. Upserts the conversation
      * row for `(userId, sessionId)` — creating it (and auto-deriving a title
      * from the first user message) on the first turn, bumping `updatedAt`
-     * afterwards — then appends the user message and the assistant reply.
+     * afterwards — then appends the user message and the assistant reply below
+     * `parentId` when it is a message of the thread, else at the end of the
+     * thread's current branch.
      */
     readonly recordTurn: (input: {
       readonly userId: string
@@ -76,22 +119,66 @@ export class AiMemoryRepository extends Context.Service<
       readonly assistantReply: string
       readonly agentName?: string
       readonly model?: string
+      /** The question the assistant message asked, for a turn saved while paused on it. */
+      readonly assistantElicitation?: AiMessageElicitation
+      /**
+       * The message the turn follows — the end of the branch it was asked on.
+       * Absent, or not a message of this conversation: the current branch.
+       */
+      readonly parentId?: string | undefined
+      /** The ids to write the question and its answer under, minted by the caller. */
+      readonly ids?: { readonly question: string; readonly answer: string } | undefined
+      /** The user message's parts, for a message sent as parts. */
+      readonly userParts?: ReadonlyArray<AiMessagePart>
     }) => Effect.Effect<void, AiMemoryDatabaseError>
     /**
-     * Return the recorded message history for a `(userId, sessionId)` thread
-     * in chronological order. Empty when the session has no prior turns.
+     * Return a `(userId, sessionId)` thread with EVERY message — every branch —
+     * in chronological order, or `undefined` when the caller owns no thread by
+     * that id. A thread is a tree (`parentId`); which branch is read is the
+     * caller's decision (`conversation-branch-service.ts`).
      */
-    readonly getHistory: (input: {
+    readonly getThread: (input: {
       readonly userId: string
       readonly sessionId: string
-    }) => Effect.Effect<ReadonlyArray<AiMemoryMessage>, AiMemoryDatabaseError>
+    }) => Effect.Effect<AiMemoryThread | undefined, AiMemoryDatabaseError>
+    /**
+     * Append a chain of messages below `parentId` (`null`: a new first
+     * message) in the caller's thread, each following the one before it, and
+     * bump the thread's `updatedAt`. Every message is stamped after every
+     * message already in the thread, so the chain is the newest branch.
+     * Answers the ids written, in order — none when the caller owns no thread
+     * by that id.
+     */
+    readonly appendBranch: (input: {
+      readonly userId: string
+      readonly sessionId: string
+      readonly parentId: string | null
+      readonly messages: ReadonlyArray<{
+        readonly role: 'user' | 'assistant'
+        readonly content: string
+        readonly model?: string
+        /** A question's parts, for one sent (or edited) as parts: references only. */
+        readonly parts?: ReadonlyArray<AiMessagePart> | undefined
+      }>
+    }) => Effect.Effect<ReadonlyArray<string>, AiMemoryDatabaseError>
     /**
      * List the conversation threads owned by `userId`, most-recently-updated
-     * first. Scoped per-user so a caller never sees another user's threads.
+     * first, narrowed to one agent's threads when `agentName` is given, one
+     * page at a time (`limit`, `offset`). `total` counts every matching thread.
+     * Scoped per-user so a caller never sees another user's threads.
      */
     readonly listConversations: (input: {
       readonly userId: string
-    }) => Effect.Effect<ReadonlyArray<AiMemoryConversationSummary>, AiMemoryDatabaseError>
+      readonly agentName?: string
+      readonly limit: number
+      readonly offset: number
+    }) => Effect.Effect<
+      {
+        readonly conversations: ReadonlyArray<AiMemoryConversationSummary>
+        readonly total: number
+      },
+      AiMemoryDatabaseError
+    >
     /**
      * Delete a conversation (and, by ON DELETE CASCADE, all its messages) for
      * a `(userId, sessionId)` pair. Answers whether a thread was removed:
@@ -101,6 +188,14 @@ export class AiMemoryRepository extends Context.Service<
       readonly userId: string
       readonly sessionId: string
     }) => Effect.Effect<boolean, AiMemoryDatabaseError>
+    /**
+     * The session ids of the conversations {@link purgeExpired} would remove:
+     * what the retention policy deletes the files of first.
+     */
+    readonly listExpired: (input: {
+      readonly userId: string
+      readonly maxAgeDays: number
+    }) => Effect.Effect<ReadonlyArray<string>, AiMemoryDatabaseError>
     /**
      * Delete every conversation owned by `userId` whose `updatedAt` is older
      * than `maxAgeDays` days. Returns the number of threads removed. Drives

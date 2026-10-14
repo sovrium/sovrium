@@ -23,14 +23,14 @@ import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
 import { visibilityFields } from '../modules/visibility'
 
-export const SplitPaneTypeLiteral = Schema.Literal('split-pane')
+export const SplitPaneTypeLiteral = Schema.Literal('resizable')
 
 /**
  * Split direction. `horizontal` = side-by-side (the Config default);
  * `vertical` = stacked. Defaults to `horizontal`.
  */
 export const SplitPaneOrientationSchema = Schema.Literals(['horizontal', 'vertical']).annotate({
-  title: 'Split-pane Orientation',
+  title: 'Resizable Orientation',
   description:
     'Split direction: horizontal (side-by-side) or vertical (stacked). Default: horizontal.',
 })

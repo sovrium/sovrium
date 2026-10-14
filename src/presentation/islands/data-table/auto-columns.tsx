@@ -8,7 +8,9 @@
 import { resolveDisplayLabel } from '@/presentation/design/field-display'
 import { readDisplayLabel } from '../runtime/record-display-label'
 import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
-import { buildCellFieldOptions, buildButtonCellRenderer } from './formatting'
+import { buildButtonCellRenderer } from './cells/button-cell'
+import { buildCellFieldOptions } from './cells/cell-field-options'
+import { typePlacementOf } from './cells/type-placement'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { DataTableCellContext, DataTableColumnDef } from './island/table-features'
 import type { TableRecord } from '../runtime/types'
@@ -70,6 +72,19 @@ export interface AutoColumnOptions {
 }
 
 /** The column def shared by both auto-generation paths. */
+/** A generated column's meta: its field, its type's placement, and whether it edits inline. */
+function autoColumnMeta(
+  field: string,
+  meta: FieldMetaMap[string] | undefined,
+  editable: boolean
+): DataTableColumnDef['meta'] {
+  return {
+    field,
+    ...typePlacementOf(undefined, meta?.type),
+    ...(editable && meta?.readOnly !== true && { editable: true }),
+  }
+}
+
 function buildAutoColumn(field: string, options: AutoColumnOptions): DataTableColumnDef {
   const cellRenderer = buildAutoCellRenderer(field, options)
   // A button column's header is the button's own label — `ship_button` is a
@@ -82,10 +97,7 @@ function buildAutoColumn(field: string, options: AutoColumnOptions): DataTableCo
     accessorKey: field,
     header,
     enableSorting: true,
-    meta: {
-      field,
-      ...(options.editable === true && meta?.readOnly !== true && { editable: true }),
-    },
+    meta: autoColumnMeta(field, meta, options.editable === true),
     ...(cellRenderer && { cell: cellRenderer }),
   } satisfies DataTableColumnDef
 }

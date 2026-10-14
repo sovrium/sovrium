@@ -33,9 +33,10 @@ import type { SQLExecutionError, TransactionLike } from '../sql/sql-execution'
  * trigger on the table is dropped (each installer runs again under the new
  * name, as it would after a rebuild). On PostgreSQL the constraints and indexes
  * named after the old table take the new name — which is what the unique and
- * index sync look for, so they are kept rather than duplicated; SQLite cannot
- * rename an index, so its old-named indexes are dropped and the index sync
- * builds them under the new name.
+ * index sync look for, so they are kept rather than duplicated — the live-rows
+ * unique indexes (`<old>_<field>_key`) among them; SQLite cannot rename an
+ * index, so its old-named indexes are dropped and the index sync builds them
+ * under the new name.
  *
  * @param prefixes - old → new name pairs a companion's name may start with: the
  *   physical relation and, for a view-backed table, the derived table name its
@@ -89,7 +90,7 @@ const sqliteCompanionStatements = (
     return [
       ...triggers.map((name) => `DROP TRIGGER IF EXISTS ${quoteSqlIdentifier(name)}`),
       ...indexes
-        .filter((name) => renamed(name, 'idx_') !== undefined)
+        .filter((name) => (renamed(name, 'idx_') ?? renamed(name)) !== undefined)
         .map((name) => `DROP INDEX IF EXISTS ${quoteSqlIdentifier(name)}`),
     ]
   })
@@ -134,7 +135,7 @@ const postgresCompanionStatements = (
             ]
       }),
       ...indexes.flatMap((name) => {
-        const next = renamed(name, 'idx_')
+        const next = renamed(name, 'idx_') ?? renamed(name)
         return next === undefined
           ? []
           : [`ALTER INDEX ${quoteSqlIdentifier(name)} RENAME TO ${quoteSqlIdentifier(next)}`]

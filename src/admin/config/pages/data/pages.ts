@@ -48,6 +48,7 @@
 // are reproduced verbatim from the retired builder for that reason.
 
 import { pageHeading, tabQuery, tabbedBody, tabPanel } from '../../components/data-page'
+import { dataTable } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
 import {
   ANALYTICS_CAMPAIGNS_ENDPOINT,
@@ -115,7 +116,7 @@ const disabledRegion = (): PageComponent =>
     props: {
       'aria-label': '$t:admin.pages.disabled.region',
       className:
-        'border-border bg-background-raised mt-2 flex flex-col items-center gap-2 rounded-lg border p-10 text-center',
+        'border-border bg-card mt-2 flex flex-col items-center gap-2 rounded-lg border p-10 text-center',
     },
     children: [
       {
@@ -127,7 +128,7 @@ const disabledRegion = (): PageComponent =>
       {
         type: 'text',
         element: 'p',
-        props: { className: 'text-foreground-muted max-w-md text-md leading-relaxed' },
+        props: { className: 'text-muted-foreground max-w-md text-md leading-relaxed' },
         content: '$t:admin.pages.disabled.body',
       },
       {
@@ -235,8 +236,7 @@ const breakdown = (config: {
   readonly columns: readonly Record<string, unknown>[]
   readonly emptyMessage: string
 }): PageComponent =>
-  ({
-    type: 'table',
+  dataTable({
     props: { 'aria-label': config.label },
     dataSource: {
       system: {

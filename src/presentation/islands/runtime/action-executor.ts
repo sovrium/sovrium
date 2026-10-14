@@ -61,6 +61,7 @@
  * slot here that READS a response rather than writing to a request.
  */
 
+import { runSuccessOutcome } from './action-outcome'
 import { performNavigate, performDownload } from './fetch-action-dispatch-modes'
 import {
   evaluateFetchEnvelope,
@@ -68,6 +69,7 @@ import {
   applyFetchSuccessEffects,
   buildRequestInit,
   emptyBody,
+  fetchSuccessNavigate,
 } from './fetch-action-effects'
 import { substituteRecord } from './fetch-action-substitution'
 import type { FetchActionResult, ExecuteFetchActionOptions } from './fetch-action-effects'
@@ -119,15 +121,37 @@ async function performFetchAction(
     const res = await fetch(url, buildRequestInit(action, options.record))
     const body = await res.json().catch(emptyBody)
     const ok = evaluateFetchEnvelope(envelope, res.status, body)
-    renderActionToast(ok ? action.onSuccess : action.onError, options)
-    // The parsed body travels the one hop into the success effects so a
-    // `status.message` can quote a `$response.<field>` of what came back.
-    if (ok) applyFetchSuccessEffects(action.onSuccess, body)
+    if (ok) runFetchSuccess(action, body, options)
+    else renderActionToast(action.onError, options)
     return { ok, status: res.status, body }
   } catch {
     renderActionToast(action.onError, options)
     return { ok: false, status: 0, body: undefined }
   }
+}
+
+/**
+ * A success, in the one order every page action follows (`action-outcome.ts`):
+ * the toast, then `status`/`refetch` (and `reload`, which decode keeps apart
+ * from the rest), then the caller's own effect, then `close`, then `navigate`.
+ * The parsed body travels into the effects so a `status.message` or a
+ * `navigate` can quote a `$response.<field>` of what came back.
+ */
+function runFetchSuccess(
+  action: FetchAction,
+  body: unknown,
+  options: ExecuteFetchActionOptions
+): void {
+  const { onSuccess } = action
+  runSuccessOutcome(options.origin, {
+    toast: options.successToast ?? (() => renderActionToast(onSuccess, options)),
+    effects: () => {
+      applyFetchSuccessEffects(onSuccess, body)
+      options.successEffects?.()
+    },
+    close: onSuccess?.close,
+    navigate: fetchSuccessNavigate(onSuccess, body, options.record),
+  })
 }
 
 /** Default `redirectKey` — the authorize body field the consent URL is read from. */

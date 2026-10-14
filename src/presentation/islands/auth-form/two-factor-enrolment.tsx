@@ -21,6 +21,8 @@ import { useMemo, useState, type FormEvent, type ReactElement } from 'react'
 import { encodeQrMatrix } from '@/domain/models/app/links/qr-code-service'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
+import { pendingControlProps } from '@/presentation/design/pending-state'
+import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
 import { postAccount } from './account-method-requests'
 import { AuthFieldRow } from './auth-form-fields'
 
@@ -125,6 +127,7 @@ export function ScanStep({
   const [pending, setPending] = useState(false)
   const field = useMemo(() => codeField(strings), [strings])
   const submit = (event: FormEvent<HTMLFormElement>): void => {
+    if (pressWhilePending(event)) return
     event.preventDefault()
     const code = String(new FormData(event.currentTarget).get('code') ?? '').trim()
     setPending(true)
@@ -158,7 +161,7 @@ export function ScanStep({
       <button
         type="submit"
         data-component-type="button"
-        disabled={pending}
+        {...pendingControlProps(pending)}
         className={BUTTON_CLASSES}
       >
         {say(strings, 'twoFactor.verify')}

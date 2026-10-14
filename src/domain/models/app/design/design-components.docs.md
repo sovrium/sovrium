@@ -31,7 +31,7 @@ The keys are **engine** component types — the ones Sovrium itself draws: `butt
 
 **The key set is closed.** A typo — `buton:` where you meant `button:` — is refused at boot, naming the key. An open map would accept it, tell you the config is valid, and serve an app that ignored every class you wrote under it, with nothing anywhere saying so.
 
-Two types are excluded, each for the same underlying reason — there is no Sovrium-owned element to attach a class to. `customHTML` renders markup you supply, and `command-palette` emits no visible markup on the server: a config block and its runtime, with the overlay built in the browser on the first invocation.
+Two types are excluded, each for the same underlying reason — there is no Sovrium-owned element to attach a class to. `customHTML` renders markup you supply, and `command` emits no visible markup on the server: a config block and its runtime, with the overlay built in the browser on the first invocation.
 
 ## What a type entry holds
 
@@ -59,7 +59,7 @@ Which parts a type has is Sovrium's to define — a part is an element the rende
 
 ### `variants`
 
-The variant vocabulary is per type: a `button` has seven, a `divider` has none.
+The variant vocabulary is per type: a `button` has seven, a `separator` has none.
 
 ```yaml
 design:

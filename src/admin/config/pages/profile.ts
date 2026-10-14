@@ -204,7 +204,7 @@ export default withShell(
                         element: 'span',
                         props: {
                           className:
-                            'border-border bg-background-subtle text-foreground-subtle inline-flex w-fit rounded-full border px-2 py-0.5 text-xs font-medium capitalize',
+                            'border-border bg-muted text-foreground-subtle inline-flex w-fit rounded-full border px-2 py-0.5 text-xs font-medium capitalize',
                           'data-testid': 'profile-identity-role',
                         },
                         session: 'role',
@@ -673,7 +673,7 @@ export default withShell(
                       props: {
                         href: '/gdpr',
                         className:
-                          'border-border-strong bg-background-raised text-foreground hover:bg-background-subtle inline-flex h-8 w-fit items-center rounded-[var(--radius-base,4px)] border px-3 text-base font-medium',
+                          'border-border-strong bg-card text-foreground hover:bg-muted inline-flex h-8 w-fit items-center rounded-[var(--radius-base,4px)] border px-3 text-base font-medium',
                         'data-testid': 'profile-gdpr-link',
                       },
                     },

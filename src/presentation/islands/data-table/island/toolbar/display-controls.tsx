@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeTableToolbarButtonClasses } from '@/presentation/design/table-default-classes'
+import {
+  TABLE_TOOLBAR_BUTTON_PART,
+  computeTableToolbarButtonClasses,
+} from '@/presentation/design/table-default-classes'
 import { useGridString } from '../grid-strings'
 import { ExportControl, ExportSelectedButton } from './export-controls'
 import type { DataTableInstance } from '../table-features'
@@ -32,17 +35,23 @@ export interface DisplayControlsProps {
   readonly systemExportEndpoint?: string
   readonly readOnly: boolean
   readonly activeFilter: ActiveFilter | undefined
-  readonly exportMenuOpen: boolean
-  readonly onToggleExportMenu: () => void
-  readonly onCloseExportMenu: () => void
   readonly refreshEnabled: boolean
   readonly onRefresh: () => void
 }
 
+/**
+ * shadcn's `DataTableViewOptions` slot. Its column toggle is not offered (a
+ * lasting field selection is one of the table's `views`), so the slot holds the
+ * controls that act on the rows as shown: export and refresh. `contents` keeps
+ * them in the toolbar's own wrapping row.
+ */
 export function DisplayControls(props: DisplayControlsProps) {
   const refreshLabel = useGridString('datatable.refresh', 'Refresh')
   return (
-    <>
+    <div
+      data-slot="data-table-view-options"
+      className="contents"
+    >
       {props.canExportSelection && (
         <ExportSelectedButton
           table={props.table}
@@ -58,14 +67,12 @@ export function DisplayControls(props: DisplayControlsProps) {
           tableName={props.tableName}
           table={props.table}
           activeFilter={props.activeFilter}
-          exportMenuOpen={props.exportMenuOpen}
-          onToggleExportMenu={props.onToggleExportMenu}
-          onCloseExportMenu={props.onCloseExportMenu}
         />
       )}
       {props.refreshEnabled && (
         <button
           type="button"
+          {...TABLE_TOOLBAR_BUTTON_PART}
           className={computeTableToolbarButtonClasses()}
           aria-label={refreshLabel}
           onClick={props.onRefresh}
@@ -73,6 +80,6 @@ export function DisplayControls(props: DisplayControlsProps) {
           {refreshLabel}
         </button>
       )}
-    </>
+    </div>
   )
 }

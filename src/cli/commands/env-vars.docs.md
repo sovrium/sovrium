@@ -15,7 +15,7 @@ SOVRIUM_ENCRYPTION_KEY=<64 hex characters>
 
 That is a complete deployed configuration — one secret, not two.
 
-The variables here are the app's own settings: the server it binds, the database it opens, and the two secrets that protect it. The _paths_ — the project directory a supervisor hands over, and the data directory the engine writes into — are in **Env Vars: Directories**. Storage, AI, email and observability are in **Env Vars: Services**, and running under a supervisor in **Env Vars: Hosting**.
+The variables here are the app's own settings: the server it binds, the database it opens, and the two secrets that protect it. The _paths_ — the project directory a supervisor hands over, and the data directory the engine writes into — are in **Env Vars: Directories**. Storage, email and observability are in **Env Vars: Services**, the AI provider and its limits in **Env Vars: AI**, and running under a supervisor in **Env Vars: Hosting**.
 
 ## Application and server
 

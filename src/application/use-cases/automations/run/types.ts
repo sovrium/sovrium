@@ -9,12 +9,12 @@
 
 import { Duration, Effect, Schedule } from 'effect'
 import type { ActionHandler, ActionKey, AutomationContext } from '../action-handlers'
-import type { BrowserStepRequirements } from '../action-handlers/browser-run-scope'
 import type { ContainerResume } from '../action-handlers/run-park'
 import type { RecordEventChannel, StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { StepMetadataMap } from './step-metadata'
 import type { WriteOnlyInheritance } from './write-only-values'
+import type { BrowserStepRequirements } from '../action-handlers/browser-run-scope'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
@@ -53,6 +53,7 @@ import type { SpeechService } from '@/application/ports/services/speech-service'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { SvgRasterizer } from '@/application/ports/services/svg-rasterizer'
 import type { TemplateEngine, TemplateRenderer } from '@/application/ports/services/template-engine'
+import type { AgentToolRequirements } from '@/application/use-cases/agents/agent-tool-call'
 import type { App } from '@/domain/models/app'
 import type { RunRelay } from '@/domain/models/app/automations/run-relay-service'
 import type { ResumeFrame } from '@/domain/models/app/automations/run-resume-cursor-service'
@@ -133,18 +134,14 @@ export interface RunAccumulator {
    */
   readonly lastOutput: Record<string, unknown> | undefined
   /**
-   * Set true when a filter action returns `status: 'filtered'`. Causes
-   * the run loop to short-circuit subsequent steps without recording
-   * them — matches an automation action filter continue spec's
-   * "premiumStep === undefined" branch.
+   * Set true when a filter action returns `status: 'filtered'`: the run loop
+   * then skips the later steps without recording them.
    */
   readonly halted: boolean
   /**
-   * Last `responseOverride` surfaced by an action handler in this run.
-   * Last-write-wins lets a multi-action automation layer overrides
-   * (rare — typically there is at most one `webhook/response` per
-   * automation). Not persisted; consumed only by the synchronous
-   * webhook dispatcher.
+   * Last `responseOverride` surfaced by an action handler in this run
+   * (last write wins; usually one `webhook/response` per automation). Not
+   * persisted; consumed only by the synchronous webhook dispatcher.
    */
   readonly responseOverride: Readonly<Record<string, unknown>> | undefined
   /**
@@ -271,6 +268,7 @@ export type StepRequirements =
   | OAuthClientRegistrar
   | InstanceSupervisor
   | BrowserStepRequirements
+  | AgentToolRequirements // an `ai:agent` step's tool calls go through the agent's gates
 
 /** Combined service requirement for the run-loop entry points. */
 export type RunRequirements =

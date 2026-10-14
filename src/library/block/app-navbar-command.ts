@@ -9,13 +9,13 @@ import { span } from '@/library/manifest/app-block-kit'
 import {
   asComponent,
   flex,
-  linkButton,
   param,
   PLACE_NOTE,
   stringParam,
   THEME_NOTE,
 } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
+import { buttonLink } from '@/library/manifest/navigation-block-kit'
 
 /** A slim top bar: where you are, the search shortcut, and one action. */
 export const entry = defineLibraryEntry({
@@ -56,12 +56,12 @@ export const entry = defineLibraryEntry({
               [
                 flex(
                   [
-                    span('Search', 'text-sm text-foreground-subtle'),
+                    span('Search', 'text-sm text-muted-foreground'),
                     { type: 'kbd', keys: ['⌘', 'K'] },
                   ],
                   'hidden items-center gap-2 md:flex'
                 ),
-                linkButton(p('ctaLabel'), p('ctaHref')),
+                buttonLink(p('ctaLabel'), p('ctaHref')),
               ],
               'items-center gap-4'
             ),

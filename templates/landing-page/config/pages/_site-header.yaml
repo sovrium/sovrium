@@ -34,17 +34,17 @@ children:
       - type: link
         props:
           href: '#features'
-          className: text-[14px] text-foreground-muted no-underline hover:text-foreground
+          className: text-[14px] text-muted-foreground no-underline hover:text-foreground
         content: $t:nav.features
       - type: link
         props:
           href: '#how-it-works'
-          className: text-[14px] text-foreground-muted no-underline hover:text-foreground
+          className: text-[14px] text-muted-foreground no-underline hover:text-foreground
         content: $t:nav.how
       - type: link
         props:
           href: '#demo'
-          className: text-[14px] text-foreground-muted no-underline hover:text-foreground
+          className: text-[14px] text-muted-foreground no-underline hover:text-foreground
         content: $t:nav.demo
   - component: language-switcher
   - type: link

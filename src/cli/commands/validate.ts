@@ -290,9 +290,12 @@ export const validateParsedConfig = async (
     await import('@/infrastructure/assets/private-assets')
   const projectDir = assetProjectDir(configFile)
   const assets = await loadPrivateAssets(decoded.app.assets, projectDir, join(projectDir, 'public'))
+  // The agent skills likewise: the boot's own check, anchored on the config file.
+  const { agentSkillIssues } = await import('@/infrastructure/server/agent-skills-check')
   const postDecodeErrors = [
     ...(await runPostDecodeChecks(decoded, refSources)),
     ...(assets.ok ? assetTemplateIssues(decoded.app, assets.store) : assets.issues),
+    ...(await agentSkillIssues(decoded.app.agents, configFile)),
   ]
   return {
     valid: postDecodeErrors.length === 0,

@@ -28,6 +28,7 @@ import {
   requireAuth,
   requireAuthOrGuestComment,
 } from '@/presentation/api/middleware/auth'
+import { chainMcpClientRouteGuards } from '@/presentation/api/middleware/mcp-client-guards'
 import {
   applyActivityRateLimitMiddleware,
   applyRequestGuards,
@@ -160,9 +161,14 @@ export const applyApiAuthGuards = (
   // Applied at exactly this point in the chain, between the activity guards and
   // the analytics guards, so the registration order of every guard is unchanged
   // from when these two blocks were inlined here.
-  const honoWithAdminGuards = auth
-    ? chainAdminRouteGuards(honoWithPreAdminGuards, auth, resolveAppForTier)
-    : chainAdminRouteGuardsWithoutAuth(honoWithPreAdminGuards, resolveAppForTier)
+  // The MCP client status and tool catalogue are admin reads too (both mirrors).
+  const honoWithAdminGuards = chainMcpClientRouteGuards(
+    auth
+      ? chainAdminRouteGuards(honoWithPreAdminGuards, auth, resolveAppForTier)
+      : chainAdminRouteGuardsWithoutAuth(honoWithPreAdminGuards, resolveAppForTier),
+    auth,
+    resolveAppForTier
+  )
 
   // The analytics report gates exist only where the reports do. With no live
   // `analytics` block no `/api/analytics/*` route is registered, and a gate
@@ -231,10 +237,23 @@ export const applyApiAuthGuards = (
         // An AI chat stream spec must accept JSON body + return 200 + SSE.
         .use('/api/ai/chat/stream', authMiddleware(auth))
         .use('/api/ai/chat/stream', requireAuth())
+        // Stopping a streamed turn (POST /api/ai/chat/stop) — the caller's own.
+        .use('/api/ai/chat/stop', authMiddleware(auth))
+        .use('/api/ai/chat/stop', requireAuth())
+        // Deciding a held call from the chat window: authMiddleware only, so
+        // anyone but the person the turn answered gets the handler's 404 (S1).
+        .use('/api/ai/chat/approvals/*', authMiddleware(auth))
+        // Answering a question the agent asked in the chat window: the same
+        // contract, anyone but the person the turn answered gets 404 (S1).
+        .use('/api/ai/chat/elicitations/*', authMiddleware(auth))
         // Chat dictation (`POST /api/ai/transcriptions`). authMiddleware only:
         // an anonymous caller gets 404 from the handler, not the 401 above,
         // so the endpoint does not reveal that it exists (S1).
         .use('/api/ai/transcriptions', authMiddleware(auth))
+        // Chat attachments: authMiddleware only, for the same reason — an
+        // anonymous upload or read answers 404 from the handler (S1).
+        .use('/api/ai/chat/attachments', authMiddleware(auth))
+        .use('/api/ai/chat/attachments/*', authMiddleware(auth))
         // Conversation-history routes (durable AI chat memory,
         // The AI memory conversation history requirement) — list/get/delete a user's
         // conversation threads. Per-user scoping needs

@@ -7,7 +7,7 @@
 
 /*
  * The five Action variants the browser resolves on its own — `filter`,
- * `navigate`, `toast`, `openDrawer` and `fill`. None of them invokes an engine
+ * `navigate`, `toast`, `openSheet` and `fill`. None of them invokes an engine
  * operation, which is what separates them from the variants in
  * `action-operations.ts` and from the arbitrary HTTP call in `action-fetch.ts`.
  */
@@ -157,9 +157,9 @@ export const ToastActionSchema = Schema.Struct({
  * quick-edit pattern, PG-04).
  *
  * Unlike sibling action variants which use `type` as the discriminator, this
- * schema is discriminated by the literal `action: 'openDrawer'` key — the
+ * schema is discriminated by the literal `action: 'openSheet'` key — the
  * user-story doc and PG-04 specs define the wire shape as
- * `{ action: 'openDrawer', component: '<drawer-id>', props?: {...} }`,
+ * `{ action: 'openSheet', component: '<drawer-id>', props?: {...} }`,
  * declared this way so the data-table `onRowClick` reads as a verb-phrase
  * ("open Drawer named record-detail") rather than yet another typed
  * action variant. The companion `drawer` page component (referenced by
@@ -173,43 +173,43 @@ export const ToastActionSchema = Schema.Struct({
  * ```yaml
  * # On a data-table row click, open the `record-detail` drawer
  * onRowClick:
- *   action: openDrawer
+ *   action: openSheet
  *   component: record-detail
  *   props:
  *     width: 600
  * ```
  */
 export const OpenDrawerActionSchema = Schema.Struct({
-  /** Discriminator literal — matches `action: openDrawer` in YAML/JSON */
-  action: Schema.Literal('openDrawer').annotate({
+  /** Discriminator literal — matches `action: openSheet` in YAML/JSON */
+  action: Schema.Literal('openSheet').annotate({
     description:
-      'Set to `openDrawer` to open a sibling drawer instead of running one of the `type` actions.',
+      'Set to `openSheet` to open a sibling sheet instead of running one of the `type` actions.',
   }),
   /**
    * ID of the drawer component to open. Must match a sibling
-   * `{ type: 'drawer', id: '<this-value>' }` component on the same page.
+   * `{ type: 'sheet', id: '<this-value>' }` component on the same page.
    */
   component: Schema.String.annotate({
     description:
-      "ID of the drawer page-component to open (matches a sibling `{ type: 'drawer', id }`)",
+      "ID of the sheet page-component to open (matches a sibling `{ type: 'sheet', id }`)",
   }),
   /** Per-trigger overrides applied to the drawer (currently `width`). */
   props: Schema.optional(
     Schema.Struct({
       width: Schema.optional(
         Schema.Finite.pipe(
-          Schema.annotate({ description: 'Drawer width in pixels for this trigger instance' }),
+          Schema.annotate({ description: 'Sheet width in pixels for this trigger instance' }),
           Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
         )
       ),
     }).annotate({
-      description: 'Per-trigger overrides applied to the referenced drawer component',
+      description: 'Per-trigger overrides applied to the referenced sheet component',
     })
   ),
 }).annotate({
-  title: 'Open Drawer Action',
+  title: 'Open Sheet Action',
   description:
-    'Opens a referenced drawer component (record-detail quick-edit pattern). Discriminated by the `action: openDrawer` literal (not `type`).',
+    'Opens a referenced sheet component (record-detail quick-edit pattern). Discriminated by the `action: openSheet` literal (not `type`).',
 })
 
 /**

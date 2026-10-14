@@ -175,6 +175,14 @@ const CONTENT_SPECIMENS: readonly CatalogSpecimen[] = [
     }),
   },
   {
+    type: 'attachment',
+    component: component({
+      type: 'attachment',
+      name: 'signed-contract.pdf',
+      description: 'PDF, 2.4 MB',
+    }),
+  },
+  {
     // A two-key chord with no `separator`, which is the resting form: the caps
     // sit adjacent under the chord's own gap, as they do on the keyboard being
     // described. A `+` here would document the separator rather than the keycap.
@@ -237,6 +245,31 @@ const DISPLAY_SPECIMENS: readonly CatalogSpecimen[] = [
     }),
   },
   {
+    type: 'message',
+    component: component({
+      type: 'message',
+      author: 'Léa Moreau',
+      avatar: { initials: 'LM' },
+      children: [{ type: 'bubble', content: 'The invoice for September is attached.' }],
+    }),
+  },
+  {
+    type: 'marker',
+    component: component({ type: 'marker', content: 'Yesterday', variant: 'separator' }),
+  },
+  {
+    type: 'collapsible',
+    component: component({
+      type: 'collapsible',
+      triggerLabel: 'Show advanced settings',
+      children: [{ type: 'text', element: 'p', content: 'Retries, timeout and signing secret.' }],
+    }),
+  },
+  {
+    type: 'bubble',
+    component: component({ type: 'bubble', content: 'The invoice is on its way.' }),
+  },
+  {
     // Three facts, one of them EMPTY, and one carrying an action. The empty row
     // is the half of this type a reader cannot see any other way: a declared and
     // empty detail keeps its row rather than collapsing, so a summary panel over
@@ -271,22 +304,22 @@ const DISPLAY_SPECIMENS: readonly CatalogSpecimen[] = [
     }),
   },
   {
-    type: 'empty-state',
+    type: 'empty',
     component: component({
-      type: 'empty-state',
+      type: 'empty',
       emptyTitle: 'No records yet.',
       emptyDescription: 'Create the first one to see it here.',
     }),
   },
   {
-    type: 'list-item',
+    type: 'item',
     component: component({
       type: 'container',
       element: 'div',
       props: { className: 'flex flex-col gap-1' },
       children: [
-        { type: 'list-item', content: 'Invoice inv_0292 — Atelier Verne' },
-        { type: 'list-item', content: 'Invoice inv_0291 — Maison Delcourt' },
+        { type: 'item', content: 'Invoice inv_0292 — Atelier Verne' },
+        { type: 'item', content: 'Invoice inv_0291 — Maison Delcourt' },
       ],
     }),
   },
@@ -311,12 +344,10 @@ const DISPLAY_SPECIMENS: readonly CatalogSpecimen[] = [
     type: 'swatch',
     component: component({
       type: 'swatch',
-      // `--sv-primary`, not `--sv-color-primary`. The latter is the schema's own
-      // EXAMPLE string and resolves to nothing: `DEFAULT_SV_LIGHT_VALUES` is
-      // keyed on the role name (`primary`), so a swatch naming it printed a
-      // transparent chip and no hex at all — the notation flags going inert on
-      // the one card that documents them.
-      token: '--sv-primary',
+      // shadcn's own name for the role, the one every stylesheet in the app
+      // reads: it resolves to the operator's `design.colors.primary` when one
+      // is declared, and to shadcn's default otherwise.
+      token: '--primary',
       label: 'Primary',
       showHex: true,
     }),

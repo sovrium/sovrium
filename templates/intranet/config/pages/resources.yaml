@@ -21,18 +21,18 @@ components:
           className: text-[15px] font-semibold text-foreground
         content: Resources
   - type: container
-    element: main
+    element: div
     props:
       className: flex max-w-[860px] flex-col gap-3 px-5 pt-4 pb-8 md:ml-[57px] lg:ml-[232px]
     children:
       - type: text
         element: p
         props:
-          className: text-sm text-foreground-muted
+          className: text-sm text-muted-foreground
         content: Guides first, then the policies, then the tools you open every day.
       - type: list
         props:
-          className: rounded-lg border border-border bg-background-raised
+          className: rounded-lg border border-border bg-card
         dataSource:
           table: resources
           sort:

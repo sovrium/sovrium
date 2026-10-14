@@ -20,7 +20,7 @@ export const entry = defineLibraryEntry({
     'A strip across the top of the site: one line on what changed, a link to read more, and a button to dismiss it.',
   notes: [
     PLACE_NOTE,
-    'The strip is painted with `--color-primary` and `--color-primary-fg`, so it follows your `theme`.',
+    'The strip is painted with `--color-primary` and `--color-primary-foreground`, so it follows your `design`.',
     'Dismissing hides the strip on the current page only; it shows again on the next page load. Remove the block when the message expires.',
   ],
   params: [
@@ -41,7 +41,7 @@ export const entry = defineLibraryEntry({
         className: 'w-full justify-center text-md',
         style: {
           backgroundColor: 'var(--color-primary)',
-          color: 'var(--color-primary-fg)',
+          color: 'var(--color-primary-foreground)',
           borderColor: 'var(--color-primary)',
           borderRadius: '0',
           borderWidth: '0',

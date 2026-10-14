@@ -50,7 +50,7 @@ components:
               - { value: Engineering, label: Engineering }
       - type: list
         props:
-          className: rounded-lg border border-border bg-background-raised
+          className: rounded-lg border border-border bg-card
         dataSource:
           table: posts
           bindTo: news-filter

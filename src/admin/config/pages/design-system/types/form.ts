@@ -81,7 +81,7 @@ const muted = (content: string): PageComponent =>
     type: 'text',
     element: 'p',
     content,
-    props: { className: 'text-foreground-subtle text-[11px]' },
+    props: { className: 'text-muted-foreground text-xs' },
   }) as PageComponent
 
 const box = (children: readonly unknown[], className = 'flex w-80 max-w-full flex-col gap-3') =>

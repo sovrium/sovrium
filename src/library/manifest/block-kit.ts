@@ -12,8 +12,8 @@
  * WHY A KIT: seventy blocks written by hand would drift from each other in
  * spacing and type within a week. Each helper returns a plain component node
  * built only from existing component types and theme-token utilities
- * (`text-foreground`, `bg-background-raised`, `border-border`, `bg-primary` …),
- * so a block follows whatever `theme` the operator declares and the fragment
+ * (`text-foreground`, `bg-card`, `border-border`, `bg-primary` …),
+ * so a block follows whatever `design` the operator declares and the fragment
  * it writes is the exact config an operator would type by hand. Nothing here
  * runs at install time beyond building that data.
  *
@@ -84,7 +84,7 @@ export const card = (children: readonly BlockNode[], className = 'p-6'): BlockNo
   children,
 })
 
-export const divider = (): BlockNode => ({ type: 'divider' })
+export const divider = (): BlockNode => ({ type: 'separator' })
 
 // ─── Type ──────────────────────────────────────────────────────────────────
 
@@ -118,20 +118,20 @@ export const h4 = (content: string, extra = ''): BlockNode =>
 
 /** The sentence under a headline. */
 export const lead = (content: string, extra = ''): BlockNode =>
-  text('p', content, `text-lg text-pretty text-foreground-muted sm:text-xl ${extra}`.trim())
+  text('p', content, `text-lg text-pretty text-muted-foreground sm:text-xl ${extra}`.trim())
 
 export const body = (content: string, extra = ''): BlockNode =>
-  text('p', content, `text-md leading-relaxed text-pretty text-foreground-muted ${extra}`.trim())
+  text('p', content, `text-md leading-relaxed text-pretty text-muted-foreground ${extra}`.trim())
 
 export const small = (content: string, extra = ''): BlockNode =>
-  text('p', content, `text-sm text-foreground-subtle ${extra}`.trim())
+  text('p', content, `text-sm text-muted-foreground ${extra}`.trim())
 
 /** A short monospace label above a headline, marked with the app's primary colour. */
 export const eyebrow = (content: string): BlockNode =>
   flex(
     [
       { type: 'container', props: { className: 'size-1.5 rounded-sm bg-primary' } },
-      text('span', content, 'font-mono text-sm text-foreground-subtle'),
+      text('span', content, 'font-mono text-sm text-muted-foreground'),
     ],
     'items-center gap-2'
   )
@@ -139,13 +139,13 @@ export const eyebrow = (content: string): BlockNode =>
 // ─── Actions ───────────────────────────────────────────────────────────────
 
 const BUTTON_BASE =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline'
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline'
 
 const BUTTON_TONE = {
-  primary: 'border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg',
-  secondary:
-    'border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground',
-  ghost: 'border-transparent text-foreground hover:bg-background-subtle hover:text-foreground',
+  primary:
+    'border-primary bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground',
+  secondary: 'border-border-strong bg-card text-foreground hover:bg-muted hover:text-foreground',
+  ghost: 'border-transparent text-foreground hover:bg-muted hover:text-foreground',
 } as const
 
 /** `sm` is the application button's height, for a link beside the app's own buttons and menus. */
@@ -186,7 +186,7 @@ export const arrowLink = (label: string, href: string): BlockNode => ({
 /** A plain navigation link. */
 export const navLink = (label: string, href: string): BlockNode => ({
   type: 'link',
-  props: { href, className: 'text-md text-foreground-muted hover:text-foreground' },
+  props: { href, className: 'text-md text-muted-foreground hover:text-foreground' },
   content: label,
 })
 
@@ -232,7 +232,7 @@ export const media = ({ src, alt, ratio, label, className = '' }: MediaOptions):
           role: 'img',
           'aria-label': alt,
         },
-        children: [text('span', label, 'font-mono text-sm text-foreground-subtle')],
+        children: [text('span', label, 'font-mono text-sm text-muted-foreground')],
       }
 
 export const icon = (name: string, className = 'text-foreground', size = 22): BlockNode => ({
@@ -245,7 +245,7 @@ export const iconTile = (name: string): BlockNode => ({
   type: 'container',
   props: {
     className:
-      'flex size-10 flex-none items-center justify-center rounded-md border border-border bg-background-raised text-foreground',
+      'flex size-10 flex-none items-center justify-center rounded-md border border-border bg-card text-foreground',
   },
   children: [icon(name, '', 20)],
 })
@@ -308,7 +308,7 @@ export const checkList = (items: readonly string[]): BlockNode =>
           {
             type: 'text',
             element: 'span',
-            props: { className: 'text-md text-foreground-muted' },
+            props: { className: 'text-md text-muted-foreground' },
             content: item,
           },
         ],
@@ -329,7 +329,7 @@ export const featureItem = (iconName: string, title: string, description: string
 export const person = (
   name: string,
   role: string,
-  size: 'md' | 'lg' = 'md',
+  size: 'default' | 'lg' = 'default',
   initials = 'AB'
 ): BlockNode =>
   flex(
@@ -346,7 +346,7 @@ export const person = (
           {
             type: 'text',
             element: 'span',
-            props: { className: 'text-sm text-foreground-subtle' },
+            props: { className: 'text-sm text-muted-foreground' },
             content: role,
           },
         ],
@@ -376,7 +376,7 @@ export const panelHead = (title: string, description = ''): BlockNode =>
       ...when(description, {
         type: 'text',
         element: 'p',
-        props: { className: 'text-md text-foreground-muted' },
+        props: { className: 'text-md text-muted-foreground' },
         content: description,
       }),
     ],

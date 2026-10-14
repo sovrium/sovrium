@@ -42,6 +42,7 @@
 import { FormFieldElement, type PrefillValue, type ResolvedFormField } from './form-field-elements'
 import { attachSectionsToNextField, type FieldWithSections } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
+import { IdempotencyKeyInput } from './form-idempotency-key'
 
 interface OneQuestionBodyProps {
   readonly title: string
@@ -53,6 +54,8 @@ interface OneQuestionBodyProps {
   readonly lockPrefill: boolean
   /** P8: heading tag for the form title. Defaults to `'h1'`. */
   readonly titleAs?: 'h1' | 'h2' | 'h3'
+  /** Drawn inside a host page: the form's script mints its idempotency key. */
+  readonly embedded?: boolean
 }
 
 function FormQuestionWrapper({
@@ -168,18 +171,21 @@ function OneQuestionForm({
   hiddenFields,
   prefillMap,
   lockPrefill,
+  embedded,
 }: {
   readonly formAttributes: Readonly<Record<string, string>>
   readonly transformedVisible: ReadonlyArray<FieldWithSections>
   readonly hiddenFields: ReadonlyArray<ResolvedFormField>
   readonly prefillMap: Readonly<Record<string, PrefillValue>>
   readonly lockPrefill: boolean
+  readonly embedded: boolean | undefined
 }) {
   return (
     <form
       {...formAttributes}
       data-layout="one-question"
     >
+      <IdempotencyKeyInput embedded={embedded} />
       {transformedVisible.map(({ field, sections }, index) => (
         <FormQuestionWrapper
           key={field.name}
@@ -216,6 +222,7 @@ export function FormBodyOneQuestion({
   prefillMap,
   lockPrefill,
   titleAs = 'h1',
+  embedded,
 }: OneQuestionBodyProps) {
   const TitleTag = titleAs
   // Filter out hidden fields from the question count — they render
@@ -241,6 +248,7 @@ export function FormBodyOneQuestion({
         hiddenFields={hiddenFields}
         prefillMap={prefillMap}
         lockPrefill={lockPrefill}
+        embedded={embedded}
       />
       <button
         type="button"

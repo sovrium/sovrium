@@ -35,6 +35,7 @@
 // `/forms/contact` instead. Both serve the same form; only the address is less
 // pretty.
 
+import { sectionCard } from '../../components/dashboard-blocks'
 import {
   fillHost,
   pageHeading,
@@ -43,6 +44,7 @@ import {
   tabPanel,
   toolbarRow,
 } from '../../components/data-page'
+import { dataTable, recordSheet, STATUS_BADGE } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
 import { FORMS_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
@@ -59,9 +61,6 @@ const BREADCRUMB = { forms: '$t:admin.crumb.forms' } as const
 /** Outline toolbar-button chrome, shared by the export button and the form link. */
 const TOOLBAR_BTN =
   'border-border text-foreground-subtle hover:text-foreground inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-md'
-
-/** Neutral status pill, one per lifecycle status. */
-const STATUS_PILL = 'bg-background-subtle text-foreground-subtle rounded-full px-2 py-0.5 text-sm'
 
 /**
  * Submission lifecycle status → display label.
@@ -111,8 +110,7 @@ const FORM_ANALYTICS_ENDPOINT = '/api/admin/forms/$param.form/analytics'
  * the block never controlled that — so the cap is STATED beneath the grid.
  */
 const submissionsGrid = (): PageComponent =>
-  ({
-    type: 'table',
+  dataTable({
     props: { 'aria-label': '$t:admin.forms.submissions.region' },
     dataSource: { system: { endpoint: SUBMISSIONS_ENDPOINT, rowsKey: 'items', idKey: 'id' } },
     columns: [
@@ -122,7 +120,7 @@ const submissionsGrid = (): PageComponent =>
         valueLabels: STATUS_LABELS,
         cellStyle: Object.keys(STATUS_LABELS).map((value) => ({
           when: { eq: value },
-          className: STATUS_PILL,
+          className: value === 'failed' ? STATUS_BADGE.destructive : STATUS_BADGE.neutral,
         })),
       },
       { field: 'submittedAt', label: 'Received', format: 'datetime' },
@@ -160,7 +158,7 @@ const submissionsGrid = (): PageComponent =>
     selection: { mode: 'multiple' },
     emptyMessage: 'No submissions yet',
     noMatchMessage: 'No submission matches “{query}”',
-    onRowClick: { action: 'openDrawer', component: DETAIL_DRAWER_ID },
+    onRowClick: { action: 'openSheet', component: DETAIL_DRAWER_ID },
   }) as PageComponent
 
 /**
@@ -175,8 +173,7 @@ const submissionsGrid = (): PageComponent =>
  * a route segment, substituted server-side. Neither sees the other.
  */
 const detailDrawer = (): PageComponent =>
-  ({
-    type: 'drawer',
+  recordSheet({
     id: DETAIL_DRAWER_ID,
     dataSource: { system: { endpoint: `${SUBMISSIONS_ENDPOINT}/:id` } },
     canEdit: false,
@@ -227,12 +224,7 @@ const toolbar = (): PageComponent =>
  * for the four it does not, and why they are words rather than tiles.
  */
 const submissionsKpi = (): PageComponent =>
-  ({
-    type: 'kpi',
-    label: 'Submissions',
-    dataSource: { system: { endpoint: FORM_ANALYTICS_ENDPOINT, valuePath: 'totalCount' } },
-    kpiFormat: { type: 'number' },
-  }) as PageComponent
+  sectionCard({ label: 'Submissions', endpoint: FORM_ANALYTICS_ENDPOINT, valuePath: 'totalCount' })
 
 /**
  * The read-window statement, directly beneath the grid.
@@ -259,7 +251,7 @@ const noFormsState = (): PageComponent =>
     props: {
       'aria-label': '$t:admin.forms.empty.heading',
       className:
-        'border-border bg-background-raised flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center',
+        'border-border bg-card flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center',
     },
     children: [
       {
@@ -271,7 +263,7 @@ const noFormsState = (): PageComponent =>
       {
         type: 'text',
         element: 'p',
-        props: { className: 'text-foreground-muted max-w-md text-md leading-relaxed' },
+        props: { className: 'text-muted-foreground max-w-md text-md leading-relaxed' },
         content: '$t:admin.forms.empty.body',
       },
       {
@@ -358,7 +350,7 @@ const gapCard = (heading: string, why: string): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className: 'border-border bg-background-raised flex flex-col gap-1 rounded-lg border p-4',
+      className: 'border-border bg-card flex flex-col gap-1 rounded-lg border p-4',
     },
     children: [
       {
@@ -370,7 +362,7 @@ const gapCard = (heading: string, why: string): PageComponent =>
       {
         type: 'text',
         element: 'span',
-        props: { className: 'text-foreground-muted text-md' },
+        props: { className: 'text-muted-foreground text-md' },
         content: '$t:admin.forms.metric.unmeasured',
       },
       {
@@ -394,14 +386,12 @@ const gapCard = (heading: string, why: string): PageComponent =>
  * as `1%` rather than `100%`, silently, on a perfect score.
  */
 const completionKpi = (): PageComponent =>
-  ({
-    type: 'kpi',
+  sectionCard({
     label: 'Completion rate',
-    dataSource: {
-      system: { endpoint: FORM_ANALYTICS_ENDPOINT, valuePath: 'completionRate' },
-    },
+    endpoint: FORM_ANALYTICS_ENDPOINT,
+    valuePath: 'completionRate',
     kpiFormat: { type: 'percentage', options: { scale: '100' } },
-  }) as PageComponent
+  })
 
 /**
  * Submissions over the window, one point per day.

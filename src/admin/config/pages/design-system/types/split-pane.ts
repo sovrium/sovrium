@@ -49,7 +49,7 @@ const splitPane: TypePageBody = {
       label: 'horizontal',
       children: [
         {
-          type: 'split-pane',
+          type: 'resizable',
           orientation: 'horizontal',
           defaultRatio: 0.33,
           minSize: 200,
@@ -68,7 +68,7 @@ const splitPane: TypePageBody = {
       label: 'vertical',
       children: [
         {
-          type: 'split-pane',
+          type: 'resizable',
           orientation: 'vertical',
           defaultRatio: 0.5,
           props: { className: 'h-56 w-full gap-3' },

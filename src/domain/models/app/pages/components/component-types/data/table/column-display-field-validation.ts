@@ -11,18 +11,18 @@ import { collectDataTableComponents } from './table-components-service'
  * The field shapes this rule reads off `app.tables[]` — raw config, so every
  * member is still a promise rather than a fact.
  */
-interface RawField {
+export interface RawField {
   readonly name?: unknown
   readonly type?: unknown
   readonly relatedTable?: unknown
 }
 
-type FieldsByTable = ReadonlyMap<string, readonly RawField[]>
+export type FieldsByTable = ReadonlyMap<string, readonly RawField[]>
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-function collectTableFields(config: unknown): FieldsByTable {
+export function collectTableFields(config: unknown): FieldsByTable {
   const tables = isRecord(config) ? config['tables'] : undefined
   if (!Array.isArray(tables)) return new Map()
   return new Map(

@@ -32,9 +32,12 @@ export const ChartTypeSchema = Schema.Literals([
   'area',
   'donut',
   'scatter',
+  'radar',
+  'radial',
 ]).annotate({
   title: 'Chart Type',
-  description: 'Visualization type for the chart component',
+  description:
+    "Visualization type for the chart component. 'radar' draws one spoke per category and joins the values into one shape; 'radial' draws one arc per category around a common centre.",
 })
 
 /** @public */

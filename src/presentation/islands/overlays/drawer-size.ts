@@ -6,18 +6,10 @@
  */
 
 /**
- * A drawer's side and size: the classes each side and size paint, and the
- * inline width or height a custom size needs.
+ * A sheet's size (`drawerSize`): the width or height class each size paints
+ * on its side's axis, and the inline width or height a custom size needs. The
+ * side itself is drawn by the content's `data-side` (`sheet-default-classes.ts`).
  */
-
-export const SIDE_CLASSES = {
-  left: 'inset-y-0 left-0 data-[starting-style]:-translate-x-full data-[ending-style]:-translate-x-full',
-  right:
-    'inset-y-0 right-0 data-[starting-style]:translate-x-full data-[ending-style]:translate-x-full',
-  top: 'inset-x-0 top-0 data-[starting-style]:-translate-y-full data-[ending-style]:-translate-y-full',
-  bottom:
-    'inset-x-0 bottom-0 data-[starting-style]:translate-y-full data-[ending-style]:translate-y-full',
-} as const
 
 /**
  * Standard Tailwind size classes for each drawer size. `lg` augments the class

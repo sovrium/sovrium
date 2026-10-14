@@ -12,30 +12,44 @@
 // already has one. Two landmarks with the same name is a real defect for anyone
 // cycling them, so the refusal protects the PAGE rather than the component.
 //
-// Each drawing is therefore a composition, and each is a trail of links with a
-// different separator — which is the one key this type takes.
+// Each drawing is therefore a composition on shadcn's anatomy, every part
+// tagged with its `data-slot` as the live component tags it: the trail in the
+// muted ink, a link lifting to the foreground on hover, the current page in the
+// foreground and not a link. The separator is the one key this type takes, and
+// it stays a string — `/` unless the config names another.
 
 import type { PageComponent, TypePageBody } from './body-shape'
 
 const crumb = (label: string, last = false): PageComponent =>
-  last
-    ? ({
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground text-sm font-medium' },
-        content: label,
-      } as PageComponent)
-    : ({
-        type: 'link',
-        props: { href: '/design-system', className: 'text-foreground-subtle text-sm' },
-        content: label,
-      } as PageComponent)
+  ({
+    type: 'container',
+    element: 'div',
+    props: { className: 'inline-flex items-center gap-1.5', 'data-slot': 'breadcrumb-item' },
+    children: [
+      last
+        ? {
+            type: 'text',
+            element: 'span',
+            props: { className: 'text-foreground font-normal', 'data-slot': 'breadcrumb-page' },
+            content: label,
+          }
+        : {
+            type: 'link',
+            props: {
+              href: '/design-system',
+              className: 'hover:text-foreground transition-colors',
+              'data-slot': 'breadcrumb-link',
+            },
+            content: label,
+          },
+    ],
+  }) as PageComponent
 
 const sep = (glyph: string): PageComponent =>
   ({
     type: 'text',
     element: 'span',
-    props: { className: 'text-foreground-subtle text-sm' },
+    props: { 'aria-hidden': 'true', 'data-slot': 'breadcrumb-separator' },
     content: glyph,
   }) as PageComponent
 
@@ -43,14 +57,18 @@ const trail = (children: readonly PageComponent[]): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    props: { className: 'flex flex-wrap items-center gap-2' },
+    props: {
+      className:
+        'text-muted-foreground flex flex-wrap items-center gap-1.5 text-sm break-words sm:gap-2.5',
+      'data-slot': 'breadcrumb-list',
+    },
     children: [...children],
   }) as PageComponent
 
 const breadcrumb: TypePageBody = {
   drawings: [
     {
-      label: 'slashes',
+      label: 'default',
       children: [
         trail([
           crumb('Sovrium'),
@@ -73,7 +91,12 @@ const breadcrumb: TypePageBody = {
         trail([
           {
             type: 'link',
-            props: { href: '/', className: 'text-foreground-subtle inline-flex items-center' },
+            props: {
+              href: '/',
+              'aria-label': 'Home',
+              className: 'hover:text-foreground inline-flex items-center transition-colors',
+              'data-slot': 'breadcrumb-link',
+            },
             children: [{ type: 'icon', props: { name: 'house', size: 14 } }],
           } as PageComponent,
           sep('/'),

@@ -21,7 +21,7 @@ components:
           className: text-[15px] font-semibold text-foreground
         content: People
   - type: container
-    element: main
+    element: div
     props:
       className: flex flex-col gap-3 px-5 pt-4 pb-8 md:ml-[57px] lg:ml-[232px]
     children:

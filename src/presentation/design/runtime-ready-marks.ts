@@ -20,6 +20,8 @@ export const REORDERABLE_READY_MARK = 'data-reorderable-ready'
 export const COMMENTS_FORM_READY_MARK = 'data-comments-form-ready'
 export const TOC_SPY_READY_MARK = 'data-toc-spy-ready'
 export const COPY_READY_MARK = 'data-copy-ready'
+export const PLACED_TOAST_READY_MARK = 'data-placed-toast-ready'
+export const SIDEBAR_SHELL_READY_MARK = 'data-sidebar-shell-ready'
 
 export const RUNTIME_READY_MARKS: readonly string[] = [
   FORM_RUNTIME_MARK,
@@ -28,4 +30,6 @@ export const RUNTIME_READY_MARKS: readonly string[] = [
   COMMENTS_FORM_READY_MARK,
   TOC_SPY_READY_MARK,
   COPY_READY_MARK,
+  PLACED_TOAST_READY_MARK,
+  SIDEBAR_SHELL_READY_MARK,
 ]

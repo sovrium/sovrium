@@ -109,7 +109,7 @@ export function buildLinkClasses(): readonly string[] {
  * @returns Array of CSS class names for focus-visible rings
  */
 export function buildFocusVisibleClasses(): readonly string[] {
-  return ['ring-2', 'ring-focus-ring', 'ring-offset-2', 'ring-offset-background', 'outline-none']
+  return ['ring-2', 'ring-ring', 'ring-offset-2', 'ring-offset-background', 'outline-none']
 }
 
 /**
@@ -226,6 +226,10 @@ const DEFAULT_BORDER_COLOR_RULE = `*,
  * Applies design colors and fonts to base HTML elements if design defines those tokens
  * The first rule is {@link DEFAULT_BORDER_COLOR_RULE}.
  *
+ * A pending control is `aria-disabled` and `aria-busy`, never natively
+ * disabled (it keeps the focus): it never shows the pointer, and while it is
+ * busy the cursor says it is working.
+ *
  * @param design - Optional design configuration
  * @returns CSS @layer base rule as string
  *
@@ -284,10 +288,11 @@ export function generateBaseLayer(design?: Design): string {
         @apply ${focusVisibleClasses.join(' ')};
       }
 
-      button:not(:disabled),
+      button:not(:disabled):not([aria-disabled="true"]),
       [role="button"]:not([aria-disabled="true"]),
       a[href] {
         cursor: pointer;
       }
+      [aria-busy="true"] { cursor: progress; }
     }`
 }

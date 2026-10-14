@@ -5,11 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { NavChevronDown, NavItemBadge } from '@/presentation/design/nav-menu-parts'
-import {
-  computeNavMenuTriggerClasses,
-  type BadgeVariant,
-} from '@/presentation/design/navbar-default-classes'
+import { NavItemBadge } from '@/presentation/design/nav-item-badge'
+import { NavChevronDown } from '@/presentation/design/nav-menu-parts'
+import { computeNavMenuTriggerClasses } from '@/presentation/design/navigation-menu-default-classes'
+import type { BadgeVariant } from '@/presentation/design/badge-default-classes'
 import type { ReactElement } from 'react'
 
 /** Nav item badge shape (mirrors `NavItemSchema.badge`). */
@@ -58,6 +57,7 @@ export function renderSsrNavItem(
       // does not pretend to be operable (a disabled button is also skipped by
       // Tab, so focus never lands on a control the swap is about to replace).
       disabled
+      data-slot="navigation-menu-trigger"
       className={computeNavMenuTriggerClasses(triggerClassName)}
     >
       {item.label}
@@ -70,6 +70,7 @@ export function renderSsrNavItem(
       href={item.href}
       target={item.target}
       rel={item.rel}
+      data-slot="navigation-menu-link"
       className={computeNavMenuTriggerClasses(triggerClassName)}
     >
       {item.label}

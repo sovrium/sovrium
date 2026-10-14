@@ -147,6 +147,14 @@ export const tabsFields = {
   ...visibilityFields,
   ...i18nFields,
   tabsOrientation: Schema.optional(TabsOrientationSchema),
+  tabsVariant: Schema.optional(
+    Schema.Literals(['default', 'line']).annotate({
+      title: 'Tabs Variant',
+      defaultNote: 'default',
+      description:
+        "The tab list's style, named on it: 'default' or 'line' (the triggers underlined, on no ground). shadcn/ui's TabsList variant.",
+    })
+  ),
   /**
    * Whether the tab set fills its bounded parent and passes that bound through
    * to the active panel.

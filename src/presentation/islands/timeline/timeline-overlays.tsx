@@ -16,11 +16,12 @@
  * the view would mix two coordinate systems in one file.
  */
 
+import { computeBadgeClasses } from '@/presentation/design/badge-default-classes'
 import {
-  computeTimelineDependencyClasses,
-  computeTimelineTodayClasses,
-  computeTimelineTodayTagClasses,
-} from '@/presentation/design/timeline-default-classes'
+  TIMELINE_DEPENDENCY_CLASSES,
+  TIMELINE_TODAY_BADGE_PLACEMENT,
+  TIMELINE_TODAY_CLASSES,
+} from '@/presentation/design/timeline-anatomy-classes'
 import {
   isWithinBounds,
   toPercent,
@@ -29,12 +30,11 @@ import {
 } from './timeline-compute'
 import type { ReactElement } from 'react'
 
-const TODAY_CLASSES = computeTimelineTodayClasses()
-const TODAY_TAG_CLASSES = computeTimelineTodayTagClasses()
-const DEPENDENCY_CLASSES = computeTimelineDependencyClasses()
+/** The "Today" tag is shadcn's default Badge, placed in the axis row on the rule. */
+const TODAY_BADGE_CLASSES = `${computeBadgeClasses({ variant: 'default' })} ${TIMELINE_TODAY_BADGE_PLACEMENT}`
 
 /**
- * The dashed rule at the current date, plus the tag naming it.
+ * The primary rule at the current date, plus the badge naming it.
  *
  * Returns `undefined` — drawing NOTHING — when today falls outside the plotted
  * window. That is the half of `showToday` an author cannot see in the config: a
@@ -59,12 +59,19 @@ export function TimelineTodayMarker({
 
   return (
     <div
+      data-slot="timeline-today"
       data-timeline-today="true"
-      className={TODAY_CLASSES}
+      className={TIMELINE_TODAY_CLASSES}
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- the marker's axis position is genuinely dynamic; React Compiler not yet enabled in Bun
       style={{ left: `${String(left)}%` }}
     >
-      <span className={TODAY_TAG_CLASSES}>Today</span>
+      <span
+        data-slot="badge"
+        data-variant="default"
+        className={TODAY_BADGE_CLASSES}
+      >
+        Today
+      </span>
     </div>
   )
 }
@@ -94,7 +101,7 @@ export function TimelineDependencyLinks({
         <div
           key={`dependency-${link.fromId}-${link.toId}`}
           data-timeline-dependency={`${link.fromId}:${link.toId}`}
-          className={DEPENDENCY_CLASSES}
+          className={TIMELINE_DEPENDENCY_CLASSES}
           // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- the connector's span is a per-link time-axis position; React Compiler not yet enabled in Bun
           style={{ left: `${String(link.left)}%`, width: `${String(link.width)}%` }}
           aria-hidden="true"

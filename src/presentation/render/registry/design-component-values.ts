@@ -17,7 +17,11 @@
  */
 
 import { measureContrast } from '@/domain/kernel/color/color-contrast'
-import { DEFAULT_SV_LIGHT_VALUES } from '@/domain/models/app/design/default-design.generated'
+import {
+  DEFAULT_SHADCN_LIGHT_VALUES,
+  DEFAULT_SV_LIGHT_VALUES,
+  DESIGN_COLOR_VARS,
+} from '@/domain/models/app/design/default-design.generated'
 import { RAMP_STEPS } from '@/domain/models/app/design/ramps'
 import type { Design } from '@/domain/models/app/design'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -38,18 +42,60 @@ const COLOUR_LITERAL = /^(#|rgba?\(|hsla?\(|oklch\(|oklab\()/i
  */
 const MAX_RAMP_HOPS = 4
 
-/** One `--sv-*` token's default light value, or `undefined`. */
-const platformToken = (name: string): string | undefined =>
+/** A custom-property name: `--primary`, `--muted-foreground`, `--chart-1`. */
+const CUSTOM_PROPERTY = /^--([a-z][a-z0-9]*(?:-[a-z0-9]+)*)$/
+
+/** The variable a `--<name>` reference names, without its dashes, or `undefined`. */
+const variableName = (name: string): string | undefined => CUSTOM_PROPERTY.exec(name)?.[1]
+
+/**
+ * One Sovrium extension token's default light value (`--sv-primary-hover`,
+ * `--sv-border-strong`, …), or `undefined`. The retired `--sv-*` second
+ * spellings of shadcn's roles never reach here: a page naming one is refused at
+ * startup (`retired-token-name-validation.ts`).
+ */
+const svToken = (name: string): string | undefined =>
   DEFAULT_SV_LIGHT_VALUES[name.replace(/^--sv-/, '').replace(/^sv-/, '')]
+
+/**
+ * The platform's own default for a variable the operator left alone: shadcn's
+ * light value for `--<shadcn>`, then the extension-token table.
+ */
+const platformToken = (name: string): string | undefined => {
+  const variable = variableName(name)
+  const shadcn = variable === undefined ? undefined : DEFAULT_SHADCN_LIGHT_VALUES[variable]
+  return shadcn ?? svToken(name)
+}
+
+/**
+ * The value the operator gave the shadcn variable a `--<name>` reference names.
+ *
+ * `design.colors` is keyed by author names, and several of them repaint one
+ * variable (`muted` and `background-subtle` both paint `--muted`). The key
+ * spelled like the variable wins; otherwise the first author key that maps to
+ * it, in declaration order — the order the stylesheet emits them in.
+ */
+const operatorVariable = (design: Design | undefined, name: string): string | undefined => {
+  const variable = variableName(name)
+  const colors = design?.colors as Readonly<Record<string, unknown>> | undefined
+  if (variable === undefined || colors === undefined) return undefined
+  const key =
+    typeof colors[variable] === 'string'
+      ? variable
+      : Object.keys(colors).find((author) => DESIGN_COLOR_VARS[author] === variable)
+  const value = key === undefined ? undefined : colors[key]
+  return typeof value === 'string' ? value : undefined
+}
 
 /**
  * The colour a token names, as the app currently paints it.
  *
  * Resolution order is the cascade's: what the operator declared in a ramp,
- * then what they declared in `theme.colors`, then the platform's own `--sv-*`
- * default. A literal is returned as itself, because a contrast badge accepts
- * one by contract — a brand page comparing an incoming colour against the page
- * ground has no token for it yet.
+ * then what they declared in `design.colors` (by author key, or through the
+ * shadcn variable a `--<name>` reference names), then the platform's own
+ * default — shadcn's light value. A literal is returned as itself, because a
+ * contrast badge accepts one by contract — a brand page comparing an incoming
+ * colour against the page ground has no token for it yet.
  *
  * `undefined` for anything unresolvable, and the caller prints nothing rather
  * than a colour it half-understood: a swatch showing the wrong green is worse
@@ -68,7 +114,7 @@ const rampStep = (design: Design | undefined, name: string): string | undefined 
   return typeof value === 'string' ? value : undefined
 }
 
-/** The value `theme.colors` gives a name, when the app declares one. */
+/** The value `design.colors` gives a name, when the app declares one. */
 const themeColor = (design: Design | undefined, name: string): string | undefined => {
   const value = design?.colors?.[name]
   return typeof value === 'string' ? value : undefined
@@ -92,7 +138,8 @@ const followToken = (
   if (COLOUR_LITERAL.test(name)) return name
 
   const next = [...seen, name]
-  const referenced = rampStep(design, name) ?? themeColor(design, name)
+  const referenced =
+    rampStep(design, name) ?? themeColor(design, name) ?? operatorVariable(design, name)
   return referenced === undefined
     ? platformToken(name)
     : followToken(design, referenced, hops + 1, next)

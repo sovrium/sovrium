@@ -58,7 +58,7 @@ interface FoundNativeSelect {
 }
 
 const isNativeSelectNode = (record: Readonly<Record<string, unknown>>): boolean =>
-  record['type'] === 'select' && record['native'] === true
+  record['type'] === 'native-select' || (record['type'] === 'select' && record['native'] === true)
 
 /** The authored `props.id` of a component node, when it declares one. */
 const authoredId = (record: Readonly<Record<string, unknown>>): string | undefined => {

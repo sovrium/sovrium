@@ -8,6 +8,7 @@
 import { useDndContext, useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import {
+  KANBAN_COLUMN_BODY_CLASSES,
   computeKanbanColumnClasses,
   computeKanbanEmptyColumnClasses,
   computeKanbanPlaceholderClasses,
@@ -60,7 +61,12 @@ function CellBody({
     return isOver ? (
       <DropPlaceholder />
     ) : (
-      <div className={computeKanbanEmptyColumnClasses()}>{emptyMessage ?? 'No records'}</div>
+      <div
+        data-slot="kanban-column-empty"
+        className={computeKanbanEmptyColumnClasses()}
+      >
+        {emptyMessage ?? 'No records'}
+      </div>
     )
   }
   return (
@@ -154,6 +160,7 @@ export function KanbanCell({
   return (
     <div
       ref={setNodeRef}
+      data-slot="kanban-column"
       data-column={column.value}
       // `w-72 shrink-0` stays here rather than in the recipe: width is a
       // placement concern owned by whatever composes the board, and the SSR
@@ -173,7 +180,7 @@ export function KanbanCell({
         >
           <div
             id={bodyId}
-            className="flex min-h-[2.5rem] flex-col gap-1.5"
+            className={KANBAN_COLUMN_BODY_CLASSES}
           >
             <CellBody
               column={column}

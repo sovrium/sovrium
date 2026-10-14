@@ -19,8 +19,7 @@ import { validateAllAiAccessRules } from './auth/ai-access-validation'
 import { validateAllGroupActionReferences } from './auth/groups/group-action-validation'
 import { validateAllRoleReferences, validateTableRoleReferences } from './auth/role-validation'
 import { type Action, AutomationsSchema } from './automations'
-import { validateSessionWebhookAuth } from './automations/trigger/webhook-session-validation'
-import { validateTelemetryProjectReferences } from './automations/trigger/webhook-telemetry-validation'
+import { validateWebhookTriggersAgainstApp } from './automations/trigger/webhook-app-validation'
 import { entriesOfType, hasTriggerOfType } from './automations/trigger-entries-service'
 import { BadgeSchema } from './badge'
 import { BucketsSchema } from './buckets'
@@ -44,9 +43,9 @@ import { validateAllQrCodePayloads } from './links/qr-code-validation'
 import { LlmsSchema } from './llms'
 import { NameSchema } from './name'
 import { PagesSchema } from './pages'
+import { validateAllComboboxChips } from './pages/combobox-chips-validation'
 import { validateAllPageAccessGroups } from './pages/page-access-validation'
 import { validateAllSelectEmptyOptions } from './pages/select-empty-option-validation'
-import { validateAllMultipleSearchableSelects } from './pages/select-multiple-searchable-validation'
 import { validateAllNativeSelects } from './pages/select-native-validation'
 import { validateAllSelectOptionSources } from './pages/select-option-source-validation'
 import { validateAllSystemSourceReferences } from './pages/system-source-validation'
@@ -237,7 +236,7 @@ const validateSelectDeclarations = (
   app: Parameters<typeof validateAllSelectOptionSources>[0] &
     Parameters<typeof validateAllNativeSelects>[0] &
     Parameters<typeof validateAllSelectEmptyOptions>[0] &
-    Parameters<typeof validateAllMultipleSearchableSelects>[0]
+    Parameters<typeof validateAllComboboxChips>[0]
 ): true | string => {
   const optionSourceError = validateAllSelectOptionSources(app)
   if (optionSourceError !== true) return optionSourceError
@@ -245,7 +244,7 @@ const validateSelectDeclarations = (
   if (nativeError !== true) return nativeError
   const emptyOptionError = validateAllSelectEmptyOptions(app)
   if (emptyOptionError !== true) return emptyOptionError
-  return validateAllMultipleSearchableSelects(app)
+  return validateAllComboboxChips(app)
 }
 
 /**
@@ -673,8 +672,7 @@ export const AppSchema = Schema.Struct({
       if (hasAuthAction && !app.auth) {
         return 'Auth actions require auth configuration to be enabled'
       }
-      const sessionVerdict = validateSessionWebhookAuth(app)
-      return sessionVerdict === true ? validateTelemetryProjectReferences(app) : sessionVerdict
+      return validateWebhookTriggersAgainstApp(app)
     })
   ),
   // Automation cross-validation: analytics actions require analytics config

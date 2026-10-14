@@ -11,10 +11,16 @@ import {
   computeSidebarGroupClasses,
   computeSidebarGroupLabelClasses,
   computeSidebarGroupListClasses,
+  computeSidebarLandmarkClasses,
+  computeSidebarMenuItemClasses,
   computeSidebarNavClasses,
   computeSidebarRailNavClasses,
   type SidebarRailBreakpoint,
 } from '@/presentation/design/sidebar-default-classes'
+import {
+  computeSidebarGroupActionClasses,
+  computeSidebarMenuActionClasses,
+} from '@/presentation/design/sidebar-shell-classes'
 import { resolveChildTranslation } from '../i18n/translation-handler'
 import {
   disclosureListId,
@@ -24,7 +30,28 @@ import {
   renderEntry,
   type SidebarI18n,
 } from './sidebar-entry'
+import { renderSidebarAction } from './sidebar-shell-parts'
 import type { SidebarGroup } from '@/domain/models/app/pages/components/component-types/layout/sidebar'
+import type { SidebarAction } from '@/domain/models/app/pages/components/component-types/layout/sidebar-shell'
+
+/** A group's or an entry's action, its label in the sidebar's language; nothing when none is declared. */
+const sidebarActionOf = (
+  action: SidebarAction | undefined,
+  slot: 'sidebar-group-action' | 'sidebar-menu-action',
+  i18n: SidebarI18n
+): ReactElement | undefined =>
+  action === undefined
+    ? undefined
+    : renderSidebarAction(
+        {
+          ...action,
+          label: resolveChildTranslation(action.label, i18n.currentLang, i18n.languages),
+        },
+        slot,
+        slot === 'sidebar-group-action'
+          ? computeSidebarGroupActionClasses()
+          : computeSidebarMenuActionClasses()
+      )
 
 /**
  * A contiguous run of groups sharing ONE navigation landmark.
@@ -84,23 +111,42 @@ function renderGroupBody(group: SidebarGroup, ctx: RunContext): ReactElement {
     <>
       {label !== undefined &&
         (Heading === undefined ? (
-          <p className={labelClasses}>{label}</p>
+          <p
+            data-slot="sidebar-group-label"
+            className={labelClasses}
+          >
+            {label}
+          </p>
         ) : (
-          <Heading className={labelClasses}>{label}</Heading>
+          <Heading
+            data-slot="sidebar-group-label"
+            className={labelClasses}
+          >
+            {label}
+          </Heading>
         ))}
+      {sidebarActionOf(group.action, 'sidebar-group-action', i18n)}
       {group.items !== undefined && group.items.length > 0 && (
-        <ul className={computeSidebarGroupListClasses()}>
+        <ul
+          data-slot="sidebar-menu"
+          className={computeSidebarGroupListClasses()}
+        >
           {group.items.map((item, index) => (
             // A toggle entry has no href, so the key falls back to the label for
             // the same reason `disclosureListId` does — the index alone already
             // makes it unique, and `undefined-0` names nothing.
-            <li key={`${item.href ?? item.label}-${index}`}>
+            <li
+              key={`${item.href ?? item.label}-${index}`}
+              data-slot="sidebar-menu-item"
+              className={computeSidebarMenuItemClasses()}
+            >
               {isExpandable(item)
                 ? renderDisclosureEntry(item, i18n, disclosureListId(item, index), {
                     trackNavigation,
                     ...(rail === undefined ? {} : { rail }),
                   })
                 : renderEntry(item, i18n, false, rail)}
+              {sidebarActionOf(item.menuAction, 'sidebar-menu-action', i18n)}
             </li>
           ))}
         </ul>
@@ -172,6 +218,7 @@ export function renderSidebarGroups(
         rail === undefined ? undefined : computeSidebarRailNavClasses(rail, drawer),
         i18n.parts?.['nav']
       )}
+      data-slot="sidebar-content"
       data-sidebar-root=""
       data-component-type={componentType}
     >
@@ -212,7 +259,13 @@ function renderLandmarkRun(run: LandmarkRun, index: number, ctx: RunContext): Re
     return (
       <Fragment key={`unlabelled-${index}`}>
         {run.groups.map((group, groupIndex) => (
-          <Fragment key={`unlabelled-${index}-${groupIndex}`}>{renderBody(group, ctx)}</Fragment>
+          <div
+            key={`unlabelled-${index}-${groupIndex}`}
+            className={computeSidebarGroupClasses()}
+            data-slot="sidebar-group"
+          >
+            {renderBody(group, ctx)}
+          </div>
         ))}
       </Fragment>
     )
@@ -247,9 +300,9 @@ function renderNamedRun(run: LandmarkRun, index: number, ctx: RunContext): React
     <nav
       key={`${runName || 'group'}-${index}`}
       aria-label={name}
-      className={ownLandmark ? computeSidebarGroupClasses() : computeSidebarNavClasses()}
+      className={ownLandmark ? computeSidebarGroupClasses() : computeSidebarLandmarkClasses()}
       {...(ownLandmark
-        ? { 'data-sidebar-group': run.groups[0]?.label }
+        ? { 'data-slot': 'sidebar-group', 'data-sidebar-group': run.groups[0]?.label }
         : { 'data-sidebar-landmark': run.landmark })}
     >
       {run.groups.map((group, groupIndex) =>
@@ -259,6 +312,7 @@ function renderNamedRun(run: LandmarkRun, index: number, ctx: RunContext): React
           <div
             key={`${group.label}-${groupIndex}`}
             className={computeSidebarGroupClasses()}
+            data-slot="sidebar-group"
             data-sidebar-group={group.label}
           >
             {renderBody(group, ctx)}

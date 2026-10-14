@@ -88,13 +88,6 @@ export const LICENSE_SUPPLEMENTS: readonly LicenseSupplement[] = [
   },
   {
     ecosystem: 'npm',
-    packages: ['mitt'],
-    files: ['developit-mitt.txt'],
-    source:
-      'https://github.com/developit/mitt (repository license file; the published package ships none)',
-  },
-  {
-    ecosystem: 'npm',
     packages: ['@better-auth/utils'],
     files: ['better-auth-utils.txt'],
     source:
@@ -228,6 +221,27 @@ export const LICENSE_SUPPLEMENTS: readonly LicenseSupplement[] = [
     files: ['fb55-boolbase.txt'],
     source:
       'https://github.com/fb55/boolbase (repository license file, ISC; the published 1.0.0 package ships none)',
+  },
+  {
+    ecosystem: 'npm',
+    packages: ['react-remove-scroll-bar'],
+    files: ['thekashey-react-remove-scroll-bar.txt'],
+    source:
+      'https://github.com/theKashey/react-remove-scroll-bar (repository license file, fetched 2026-10-12; the published package ships none). Reached through cmdk -> @radix-ui/react-dialog -> react-remove-scroll',
+  },
+  {
+    ecosystem: 'npm',
+    packages: ['victory-vendor'],
+    files: ['formidablelabs-victory.txt', 'victory-vendor-d3.txt'],
+    source:
+      "MIT AND ISC: the MIT half is https://github.com/FormidableLabs/victory (repository LICENSE.txt, fetched 2026-10-12; the published package ships none at its root); the ISC half is the vendored d3 modules' own LICENSE files, copied from the 37.3.6 tarball's lib-vendor/. Reached through recharts",
+  },
+  {
+    ecosystem: 'npm',
+    packages: ['embla-carousel', 'embla-carousel-react', 'embla-carousel-reactive-utils'],
+    files: ['davidjerleke-embla-carousel.txt'],
+    source:
+      'https://github.com/davidjerleke/embla-carousel (repository license file, fetched 2026-10-12; the published packages ship none)',
   },
   {
     ecosystem: 'cargo',

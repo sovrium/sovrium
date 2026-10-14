@@ -1,0 +1,124 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import {
+  asComponent,
+  DATA_NOTE,
+  panel,
+  param,
+  PLACE_NOTE,
+  stringParam,
+  THEME_NOTE,
+} from '@/library/manifest/block-kit'
+import { defineLibraryEntry } from '@/library/manifest/define'
+
+/** shadcn's Sheet holding a form: a button slides it in from the right, its form adds a record. */
+export const entry = defineLibraryEntry({
+  kind: 'block',
+  slug: 'sheet-form',
+  shadcnBlock: null,
+  title: 'Sheet with a form',
+  category: 'console',
+  tags: ['sheet', 'slide-over', 'panel', 'form', 'create'],
+  description:
+    'A button that slides a sheet in from the right, headed by its title and description, with a form that creates a record in one of your tables.',
+  notes: [
+    'No shadcn counterpart: shadcn/ui ships Sheet as a component, not a block. This block is its demo on the `sheet` keys: `title` and `description` head the panel, and the close button sits in its corner.',
+    PLACE_NOTE,
+    DATA_NOTE,
+    "The form is installed into `forms:` under the block's name and placed in the panel with `formRef`, so it adds the record through that form. Its submissions do not reach the Submissions inbox; set `submitTo.storeSubmission: true` on it to keep them there.",
+    'The panel is named after the installed block, so two copies on one page open their own panels. Escape or the close control dismisses it.',
+    "The panel's title and description head it, so the form's own title is kept for screen readers only.",
+    THEME_NOTE,
+  ],
+  params: [
+    stringParam('buttonLabel', 'The text of the button that opens the panel.', '[New reminder]'),
+    stringParam('title', 'The panel title.', '[New reminder]'),
+    stringParam(
+      'description',
+      'One sentence under the panel title.',
+      'Sent to the client when an invoice is this many days late.'
+    ),
+    stringParam(
+      'formTitle',
+      'The form title, read by screen readers; the panel title is the one shown.',
+      '[Reminder details]'
+    ),
+    stringParam('submitLabel', 'The text of the button that saves the record.', 'Create reminder'),
+    stringParam('table', 'The table the form creates a record in.', 'reminders'),
+    stringParam('nameField', 'A text field.', 'name'),
+    stringParam('daysField', 'A whole-number field.', 'days_late'),
+    stringParam('messageField', 'A long text field.', 'message'),
+    stringParam(
+      'successMessage',
+      'What the form says once the record is saved.',
+      'Reminder created.'
+    ),
+  ],
+  tables: [
+    {
+      param: 'table',
+      fields: [
+        { name: 'name', param: 'nameField', type: 'single-line-text' },
+        { name: 'days_late', param: 'daysField', type: 'integer' },
+        { name: 'message', param: 'messageField', type: 'long-text' },
+      ],
+    },
+  ],
+  env: [],
+  requires: [],
+  forms: ({ name, params }) => {
+    const p = param(params)
+    return [
+      {
+        name,
+        title: p('formTitle'),
+        display: { submitLabel: p('submitLabel') },
+        submitTo: { table: p('table') },
+        fields: [
+          { kind: 'table-field', column: p('nameField'), label: '[Name]' },
+          { kind: 'table-field', column: p('daysField'), label: '[Days after the due date]' },
+          { kind: 'table-field', column: p('messageField'), label: '[Message]' },
+        ],
+        onSuccess: { type: 'toast', message: p('successMessage'), variant: 'success' },
+      },
+    ]
+  },
+  build: ({ name, params }) => {
+    const p = param(params)
+    const drawerId = `${name}-drawer`
+    return asComponent(
+      name,
+      panel([
+        {
+          type: 'button',
+          props: {
+            id: `${name}-open`,
+            label: p('buttonLabel'),
+            interactions: { click: { modal: drawerId } },
+          },
+        },
+        {
+          type: 'sheet',
+          props: { id: drawerId },
+          title: p('title'),
+          description: p('description'),
+          drawerSide: 'right',
+          drawerSize: 'md',
+          children: [
+            {
+              // A column, so the form stretches to the panel's width.
+              type: 'container',
+              props: { className: 'flex flex-col' },
+              children: [{ type: 'form', formRef: name, classes: { parts: { title: 'sr-only' } } }],
+            },
+          ],
+        },
+      ])
+    )
+  },
+})

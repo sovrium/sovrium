@@ -18,7 +18,7 @@
 
 import type { PageComponent, TypePageBody } from './body-shape'
 
-const BLOCK = 'bg-background-subtle border-border rounded border px-3 py-2 text-[11px]'
+const BLOCK = 'bg-muted border-border rounded border px-3 py-2 text-[11px]'
 
 const gapMeasure = (label: string): PageComponent =>
   ({

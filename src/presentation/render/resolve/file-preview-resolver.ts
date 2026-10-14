@@ -21,6 +21,7 @@
  */
 
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
+import { keyFromUrl } from './row-attachment-addresses'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
@@ -65,8 +66,9 @@ function attachmentOf(value: unknown): StoredAttachment | undefined {
   const raw = typeof value === 'string' ? parseStoredString(value) : value
   if (typeof raw !== 'object' || raw === null) return undefined
   const record = raw as Record<string, unknown>
-  const key = firstString(record['key'])
-  if (key === undefined) return undefined
+  // A file a hosted form stored carries no key, only the url it was filed under.
+  const key = firstString(record['key']) ?? keyFromUrl(record['url'])
+  if (key === undefined || key === '') return undefined
   const type = firstString(record['type'], record['mimeType'])
   return {
     key,

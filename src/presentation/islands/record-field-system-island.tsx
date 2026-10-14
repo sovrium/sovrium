@@ -61,7 +61,7 @@ export default function RecordFieldSystemIsland({
       <span
         role="status"
         aria-label="Loading field..."
-        className="bg-background-subtle inline-block h-4 w-16 animate-pulse rounded"
+        className="bg-muted inline-block h-4 w-16 animate-pulse rounded"
       />
     )
   }
@@ -77,12 +77,13 @@ export default function RecordFieldSystemIsland({
   }
 
   const value = field !== undefined && data ? data[field] : undefined
-  if (format) {
-    return (
-      <span>
-        {formatCellValue(value, format, resolvePageLocale(), { timeZone: resolvePageTimezone() })}
-      </span>
-    )
-  }
-  return <span>{value === undefined || value === null ? '' : String(value)}</span>
+  const text = format
+    ? formatCellValue(value, format, resolvePageLocale(), { timeZone: resolvePageTimezone() })
+    : value === undefined || value === null
+      ? ''
+      : String(value)
+  // An empty value reads as a muted em dash, never as nothing at all: the host's
+  // recipe mutes its own ink while it holds this mark.
+  if (text === '') return <span data-slot="record-field-empty">—</span>
+  return <span>{text}</span>
 }

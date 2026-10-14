@@ -20,9 +20,38 @@ A button that runs an `action`, an `interactions` behaviour, or both.
 
 <!-- sovrium:options type:button -->
 
-`variant` is declared beside `action`, not inside `props`: `default` is the primary fill and what you get by declaring nothing, and the rest are `destructive`, `outline`, `secondary`, `ghost`, `link` and `fab`. `label` is the text; `content` is the alternative when the button holds a child, such as an `icon`. `loading` — beside `type`, like `variant` and `label` — shows a spinner inside the button; `props.disabled` disables it, and that one really does live in the bag.
+`variant` is declared beside `action`, not inside `props`: `default` is the primary fill and what you get by declaring nothing, and the rest are `destructive`, `outline`, `secondary`, `ghost`, `link` and `fab`. `size` takes shadcn/ui's scale: `xs`, `sm`, `default` (what you get by declaring nothing) and `lg` for a labelled button, and `icon-xs`, `icon-sm`, `icon` and `icon-lg` for a square button that draws its `icon` alone. `icon` names a Lucide icon drawn before the label; at an icon size the `label` is no longer printed but becomes the button's accessible name, so an icon size without an `icon` or without a `label` is refused when the configuration is read. `label` is the text; `content` is the alternative when the button holds a child, such as an `icon`. `loading` — beside `type`, like `variant` and `label` — shows a spinner inside the button; `props.disabled` disables it, and that one really does live in the bag.
 
 `confirm` puts a prompt between the click and the action. It is an object rather than a boolean so that the prompt can say what is about to happen — see the confirmation options in the table above.
+
+Once its action succeeds, a button can close the dialog, drawer or popover it sits in (`onSuccess.close`) and take the reader elsewhere (`onSuccess.navigate`, filled from the button's record, and for a `fetch` action from the body the request returned). A button has no form, so its `onSuccess.type` can only be `navigate`, and its `onError` only a `toast`; anything else is refused when the configuration is read.
+
+### Once the action has answered
+
+On success, an action's effects run in one order: the toast, then `status` and `refetch`, then a reset, then `close`, then leaving the page — `navigate`, a redirect or `reload`. A failure runs none of them: the control comes back as it was, the field errors are drawn, the focus returns to the control, and the `onError` toast follows. Nothing closes and nothing navigates. A fetch toast with a `loadingMessage` shows one `loading` toast while the request is in flight, and that same toast then turns into the `onSuccess` or the `onError` message: one toast, never two.
+
+`close: true` closes the overlay the control sits in — a dialog, an alert dialog, a sheet, a record-detail sheet or a popover. A table row action and a menu item close the overlay that holds their table or their menu: a "Send reminder" row action in a table shown in a dialog closes that dialog once its start is accepted. A menu's own popup closes as soon as an item is chosen, with or without the key; `close` is what closes the drawer or dialog around the menu. When two are nested, only the innermost closes: a popover inside a dialog closes, the dialog stays. A control that sits in no overlay has nothing to close, and the key does nothing there. Whichever confirm gates a row action — a one-line prompt or a dialog with its own title and buttons — `close` reaches the overlay around its table. Left unset, each control keeps its habit: a `crud` form in a dialog, or in a drawer a row click opened for quick editing, closes it after its write, whether the save goes by a plain page post or through the page's script; a button, a row action and a menu item close nothing. `close: false` keeps the overlay open even after a write — the quick editor saved several times in a row.
+
+`navigate` takes the reader to another address once the action has succeeded. On an `automation`, success is the accepted start, or with `await: true` the end of the run, so an awaited button moves on only once the run is over; `$record.<field>` is filled from the record the control has — the page's record, or the row a row action sits in; a menu item has none, so its address is written out. A relative address — `preview`, `?saved=1`, `#comments` — is resolved against the page the control is on, on an edit form as on a button. On a `fetch` action, and on a `file-upload`, `navigate` may also read the body the request returned through `$response.<field>`, so a "Create the invoice" button can open the invoice it just created:
+
+```yaml
+- type: button
+  content: Create the invoice
+  action:
+    type: fetch
+    method: POST
+    url: /api/invoices
+    onSuccess:
+      type: toast
+      message: Invoice created
+      navigate: /invoices/$response.id
+```
+
+A success that both shows a toast and moves to another page of this site carries the toast with the reader: the page they land on shows it once as it loads, in the same notice region and under the same rules as any toast, and a reload does not show it again. A carried toast older than a minute is dropped. Before it leaves, the page waits half a second, long enough for a write the next page reads to land, with the control kept busy. A move that stays on the page (`#comments`) shows the toast in place.
+
+Some pairings are refused when the configuration is read, each with a message naming both keys: on a `fetch` action, `navigate` beside `reload`, `status` or `refetch`, and `close` beside `reload` — each writes into, re-reads or leaves the same page — and `navigate` in any `mode` but `fetch`; on any action, `close: true` beside a success page, which would be closed before anyone read it.
+
+What a control cannot do is refused rather than ignored. A button, a table row action or a menu item has no form, so its `onSuccess.type` can only be `navigate`, and the keys that describe a form — `preserveFields`, `title`, `message`, `actions`, `showSummary`, `redirect` — are refused there. `onError` takes only `toast`, wherever the action sits. `type: role-landing` belongs to an `auth` sign-in. An `onSuccess.navigate` naming another site (`https://…`) is refused on every control — a button, a row action, a menu item, an endpoint form, a file upload and a form alike — because an answered action moves the reader within the app; a link sends them elsewhere. Each refusal names the place and says what to write instead.
 
 ## `link`
 
@@ -54,19 +83,28 @@ The two keys are useless apart and are refused apart at startup, as is a compari
 
 ## `alert`
 
-An inline callout.
+An inline callout the reader must see before going on. Reference: shadcn/ui Alert.
 
 <!-- sovrium:options type:alert -->
 
-`content` is the message. `alertVariant` — declared beside `type`, not inside `props` — picks `default`, `info`, `warning`, `success` or `destructive`, each with its own icon and tone triple; the danger tone is spelled `destructive`, as it is on a `button`, and there is no `error`. A bare top-level `variant` is still honoured as the old spelling of the same key. `props.dismissible` adds a close button.
+`content` is the message, drawn under an optional `title` in bold; without `content`, the alert's children are the message. A leading icon sits beside both. `alertVariant` — declared beside `type`, not inside `props` — picks `default`, `info`, `warning`, `success` or `destructive`. `default` and `destructive` are shadcn/ui's two alerts: the card surface, in its own ink or in the destructive one. `info`, `success` and `warning` are Sovrium's additions: the same card surface as `default`, told apart by their icon — an `i`, a check, a triangle. The danger tone is spelled `destructive`, as it is on a `button`, and there is no `error`. A bare top-level `variant`, or `props.variant`, is still honoured as an older spelling of the same key. `props.dismissible` adds a close button in the top-right corner.
+
+```yaml
+- type: alert
+  alertVariant: warning
+  title: Your trial ends in 3 days
+  content: Add a payment method to keep your projects.
+```
 
 ## `badge`
 
-A short status word pinned to a thing, never a sentence.
+A short status word pinned to a thing, never a sentence. Reference: shadcn/ui Badge.
 
 <!-- sovrium:options type:badge -->
 
 `variant` and `badgeVariant` are two different axes, and both are spelled out because they do different jobs: `variant` changes **what the badge draws**, `badgeVariant` changes **how it is painted**. A key belonging to one mode is inert under the other rather than refused.
+
+`badgeVariant` takes shadcn/ui's six tones: `default`, `secondary`, `destructive`, `outline`, `ghost` (no fill until it is hovered) and `link` (the text of a link). `href` makes the badge a link — meant for `link`, though any tone navigates — so "3 unpaid" can take the reader to the invoices it counts. The same tones apply to a navigation item's badge.
 
 ### `variant: status`
 
@@ -85,8 +123,8 @@ The ratio between two colours, and the verdict on it. Give it the two colours as
 components:
   - type: badge
     variant: contrast
-    foreground: '--sv-color-foreground'
-    background: '--sv-color-background'
+    foreground: '--foreground'
+    background: '--background'
     threshold: AAA
 ```
 
@@ -98,7 +136,7 @@ A failing pair **says so** rather than rendering nothing, because a badge that o
 
 A row of related buttons, joined so they read as one control. Combine it with a `dropdown-menu` for a split button.
 
-`button-group` declares no options of its own: the grouped `button` components go in `children`, and `props` carries the HTML attributes.
+The grouped components go in `children`, in the order they are drawn: buttons, a `text` read-out such as "Page 4 of 9", a vertical `separator`, or a nested `button-group`. `orientation: vertical` stacks them in one joined column, such as a zoom control; `horizontal`, the default, joins them in a row. `props.label` names the group, and `props` carries the HTML attributes.
 
 ## `theme-toggle`
 

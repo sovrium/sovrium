@@ -42,12 +42,12 @@ export const periodSelector = (): BlockNode => ({
     props: {
       href: `?period=${id}`,
       className:
-        'rounded px-2.5 py-1 text-sm font-medium text-foreground-muted hover:text-foreground',
+        'rounded px-2.5 py-1 text-sm font-medium text-muted-foreground hover:text-foreground',
     },
     activeWhen: { value: '$window.id', equals: id },
     activeProps: {
       'aria-current': 'page',
-      className: 'rounded bg-background-raised px-2.5 py-1 text-sm font-medium text-foreground',
+      className: 'rounded bg-card px-2.5 py-1 text-sm font-medium text-foreground',
     },
   })),
 })
@@ -83,7 +83,7 @@ export const dashboardHeading = (
         {
           type: 'text',
           element: 'p',
-          props: { className: 'text-md text-foreground-muted' },
+          props: { className: 'text-md text-muted-foreground' },
           content: sentence,
         },
       ],
@@ -102,7 +102,7 @@ export const dashboardPanel = (
   element: 'section',
   props: {
     className:
-      `flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5 ${extra}`.trim(),
+      `flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:p-5 ${extra}`.trim(),
   },
   children: [
     {

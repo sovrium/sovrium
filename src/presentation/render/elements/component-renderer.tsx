@@ -40,6 +40,7 @@ import {
 import { resolveComponent } from '../registry/component-resolution'
 import { dispatchComponentType } from '../registry/component-type-dispatcher'
 import { buildInteractionProps } from '../styling/interaction-props-builder'
+import { childrenToRender } from './slot-children'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Buckets } from '@/domain/models/app/buckets'
@@ -176,38 +177,6 @@ function applyVariableSubstitution(
         ? (substituteVariableValues(component.content, pageVars) as string)
         : component.content,
   }
-}
-
-/**
- * What this component's children are, for the ONE type whose child is not in
- * `children`.
- *
- * A `specimen` draws the component held in its `component` field, and that
- * field has to reach the SAME pipeline a child does — variable substitution,
- * the `design.components` cascade, the recipe, the floor — or the drawn thing
- * would be a different element from the one the rest of the app renders, and
- * the provenance badges beside it would describe something that is not on
- * screen. Routing it through `children` is how it gets all of that for free.
- *
- * It is a substitution and not an append: `specimen` declares no `children` of
- * its own (the union injects `children` into containers only), so there is
- * nothing here to displace.
- *
- * `preview` is the SECOND such type and reaches the same line deliberately. It
- * draws the catalogue's own specimen for a type with one option applied, and the
- * whole claim of the data-first Configuration section design is that the drawing goes through the path a `specimen`
- * takes — so a type that draws in the kit draws here, and one that refuses
- * refuses here with the same sentence. A parallel route would be a second
- * pipeline the two could drift apart in.
- */
-function childrenToRender(
-  type: ComponentType,
-  component: Component,
-  mergedChildren: ReadonlyArray<Component | string> | undefined
-): ReadonlyArray<Component | string> | undefined {
-  if (type !== 'specimen' && type !== 'preview') return mergedChildren
-  const drawn = (component as { component?: Component }).component
-  return drawn === undefined ? mergedChildren : [drawn]
 }
 
 /**

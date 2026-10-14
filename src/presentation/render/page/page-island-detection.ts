@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isMenuBreadcrumb } from '@/presentation/render/registry/breadcrumb-menu-mode'
 import { pageFoldsDocsNav } from '@/presentation/render/registry/docs-nav-drawer-mode'
 import {
   ISLAND_COMPONENT_TYPES,
@@ -71,12 +72,13 @@ function hasDataIslandProp(item: Component): boolean {
  *  - P2 a sidebar with a FETCHED group → `sidebar-groups`;
  *  - W a `command-palette` in SEARCH mode → `command-palette`.
  */
-function bindsToIsland(item: Component): boolean {
+export function bindsToIsland(item: Component): boolean {
   return (
     isListIslandMode(item) ||
     isRecordFieldSystemMode(item) ||
     isSourcedSidebar(item) ||
-    isSearchPalette(item)
+    isSearchPalette(item) ||
+    isMenuBreadcrumb(item)
   )
 }
 

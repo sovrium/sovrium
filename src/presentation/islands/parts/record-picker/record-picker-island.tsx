@@ -65,7 +65,7 @@ function LinkedRow({
   const { linked } = picker
   if (linked.length === 0) {
     return placeholder === undefined ? undefined : (
-      <span className="text-foreground-muted text-sm">{placeholder}</span>
+      <span className="text-muted-foreground text-sm">{placeholder}</span>
     )
   }
   return (

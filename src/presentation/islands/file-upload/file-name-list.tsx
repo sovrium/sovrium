@@ -6,9 +6,10 @@
  */
 
 import {
+  computeFileUploadFileContentClasses,
+  computeFileUploadFileMarkClasses,
   computeFileUploadFileNameClasses,
   computeFileUploadFileRowClasses,
-  computeFileUploadFileMarkClasses,
   computeFileUploadListClasses,
 } from '@/presentation/design/file-upload-default-classes'
 import { FileGlyph } from '@/presentation/design/form-glyphs'
@@ -19,30 +20,44 @@ interface FileNameListProps {
 }
 
 /**
- * The picked-file list under the control.
+ * The picked files under the control: an item group, each file an outlined
+ * small item whose media is the file glyph and whose title is its name.
  *
- * Wave R-E gives each file its own bordered row (`spec-form.mjs:30`) instead
- * of the bare `<ul>` of unstyled text this shipped as. The change is not
- * decorative: three picked files as three lines of 12px body text read as a
- * paragraph of help copy, so nothing signalled that each one is a discrete
- * thing that was attached — the affordance a user needs before they can trust
- * that the right files went up.
- *
- * The row draws a mark and a monospace name. A size and a remove control are
- * in the recipe (`computeFileUploadFileSize/RemoveClasses`) but not drawn
- * here, because the island's state carries only names; wiring removal is
- * behaviour and belongs to its own spec rather than to a paint wave.
+ * A size and a remove control are not drawn: the island's state carries only
+ * names, and wiring removal is behaviour that belongs to its own spec.
  */
 export function FileNameList({ fileNames }: FileNameListProps): ReactElement {
   return (
-    <ul className={computeFileUploadListClasses()}>
+    <ul
+      data-slot="item-group"
+      className={computeFileUploadListClasses()}
+    >
       {fileNames.map((name) => (
         <li
           key={name}
+          data-slot="item"
+          data-variant="outline"
+          data-size="sm"
           className={computeFileUploadFileRowClasses()}
         >
-          <FileGlyph className={computeFileUploadFileMarkClasses()} />
-          <span className={computeFileUploadFileNameClasses()}>{name}</span>
+          <div
+            data-slot="item-media"
+            data-variant="icon"
+            className={computeFileUploadFileMarkClasses()}
+          >
+            <FileGlyph />
+          </div>
+          <div
+            data-slot="item-content"
+            className={computeFileUploadFileContentClasses()}
+          >
+            <div
+              data-slot="item-title"
+              className={computeFileUploadFileNameClasses()}
+            >
+              {name}
+            </div>
+          </div>
         </li>
       ))}
     </ul>

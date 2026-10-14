@@ -17,16 +17,6 @@ import { SkeletonRows } from './skeleton-rows'
 import type { TableBodyRowsProps } from './body-rows-props'
 import type { ReactElement } from 'react'
 
-// Re-export the table header (now in body-header.tsx) so the existing
-// `import { TableHeader } from '../body'` path in table-content.tsx stays stable.
-export { TableHeader } from './body-header'
-
-// Re-export the row-level public types (now in data-row.tsx, alongside the
-// single row renderer that owns them) so the existing
-// `import type { DataTableRowClickAction, InlineAutoSave } from '../body'`
-// path in table-content.tsx stays stable.
-export type { CellCommit, DataTableRowClickAction, InlineAutoSave } from './data-row'
-
 /**
  * Renders the table body: loading skeletons, data rows, or empty state.
  *
@@ -40,6 +30,7 @@ export function TableBodyRows({
   rows,
   allColumns,
   isLoading,
+  loadingMore,
   cellClass,
   borderClass,
   striped,
@@ -105,9 +96,13 @@ export function TableBodyRows({
     if (query.trim().length > 0 && noMatchMessage !== undefined) {
       const resolved = noMatchMessage.replace(/\{query\}/g, query)
       return (
-        <tbody className={computeTableBodyClasses()}>
-          <tr>
+        <tbody
+          data-slot="table-body"
+          className={computeTableBodyClasses()}
+        >
+          <tr data-slot="table-row">
             <td
+              data-slot="table-cell"
               colSpan={allColumns.length}
               className={computeTableEmptyStateClasses()}
             >
@@ -126,9 +121,13 @@ export function TableBodyRows({
     // The trailing add-row exists on an EMPTY table too: it is how the first
     // record gets in without opening a dialog.
     return (
-      <tbody className={computeTableBodyClasses()}>
-        <tr>
+      <tbody
+        data-slot="table-body"
+        className={computeTableBodyClasses()}
+      >
+        <tr data-slot="table-row">
           <td
+            data-slot="table-cell"
             colSpan={allColumns.length}
             className={computeTableEmptyStateClasses()}
           >
@@ -207,7 +206,11 @@ export function TableBodyRows({
   // Keying by the record makes React MOVE the node, so the cursor stays
   // on the record the reader was working on.
   return (
-    <tbody className={computeTableBodyClasses()}>
+    <tbody
+      data-slot="table-body"
+      className={computeTableBodyClasses()}
+      {...(loadingMore === true && { 'aria-busy': true })}
+    >
       {rows.map((row, rowIndex) => (
         <DataRow
           key={rowIdOf(row)}
@@ -220,12 +223,3 @@ export function TableBodyRows({
     </tbody>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Summary footer
-// ---------------------------------------------------------------------------
-
-// Re-export the summary footer (now in body-summary.tsx) so the existing
-// `import { TableSummaryFooter } from '../body'` path in table-content.tsx
-// stays stable.
-export { TableSummaryFooter } from './body-summary'

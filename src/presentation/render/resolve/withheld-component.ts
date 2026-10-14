@@ -29,11 +29,12 @@ export const READ_WITHHELD_MARKER = '_readWithheld'
 /** The record components whose island would carry the table's shape. */
 const WITHHELD_TYPES: ReadonlySet<string> = new Set([
   'kanban',
-  'calendar',
+  'event-calendar',
   'gallery',
+  'carousel',
   'chart',
   'timeline',
-  'drawer',
+  'sheet',
   'kpi',
 ])
 

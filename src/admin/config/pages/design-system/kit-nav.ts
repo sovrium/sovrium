@@ -94,15 +94,15 @@ export interface DocsNavGroup {
  * The entry recipe's geometry and tone, in the semantic spelling.
  *
  * The shipped recipe writes these as arbitrary-variable classes
- * (`text-[var(--sv-fg,…)]`) that a config file cannot reproduce; the semantic
+ * (`text-[var(--foreground,…)]`) that a config file cannot reproduce; the semantic
  * utilities resolve to the same tokens through the compiled theme, which is the
  * spelling every other page in this console already uses.
  */
 export const NAV_ROW_CLASS =
-  'flex items-center gap-2 rounded-md px-2 py-1.5 text-md transition-colors text-foreground hover:bg-background-subtle'
+  'flex items-center gap-2 rounded-md px-2 py-1.5 text-md transition-colors text-foreground hover:bg-muted'
 
 /** The same row, marked as the page being read. */
-export const NAV_ROW_CURRENT_CLASS = `${NAV_ROW_CLASS} bg-background-subtle font-medium`
+export const NAV_ROW_CURRENT_CLASS = `${NAV_ROW_CLASS} bg-muted font-medium`
 
 /**
  * The column's own root entry, linking back to the index it sits beside.
@@ -115,12 +115,16 @@ export const docsNavOverviewRow = (input: {
   readonly label: string
   readonly href: string
   readonly current: boolean
+  /** Hide the row below `lg`, where the column has folded into a drawer. */
+  readonly desktopOnly?: boolean
 }): PageComponent =>
   ({
     type: 'link',
     props: {
       href: input.href,
-      className: input.current ? NAV_ROW_CURRENT_CLASS : NAV_ROW_CLASS,
+      className: `${input.current ? NAV_ROW_CURRENT_CLASS : NAV_ROW_CLASS}${
+        input.desktopOnly === true ? ' max-lg:hidden' : ''
+      }`,
       'data-testid': `design-system-nav-column-${input.label.toLowerCase()}`,
       ...(input.current ? { 'aria-current': 'page' } : {}),
     },
@@ -172,13 +176,45 @@ export const docsNavColumn = (input: {
   }[]
   readonly groups: readonly DocsNavGroup[]
   readonly mode?: 'open' | 'collapsed'
+  /**
+   * The accessible name of the phone menu button. Supplied, the column's
+   * `sidebar` folds into a drawer below `lg` — the width at which the shell
+   * stops drawing the column — so a reader on a phone or a tablet keeps the
+   * categories behind one button instead of losing them. The shell must be told
+   * too (`navColumnDrawer`), or the frame hides the button with the column.
+   *
+   * The overview rows stay desktop-only: they sit outside the `sidebar`, and on
+   * a phone the breadcrumb's own `UI kit` crumb is the way back to the index.
+   */
+  readonly drawerLabel?: string
+  /**
+   * The phone button's horizontal gutter, so its icon lines up with the page's
+   * first heading: the index's heading sits on the body's own gutter, a type
+   * page's one padded box further in.
+   */
+  readonly drawerGutter?: 'max-lg:px-2' | 'max-lg:px-8'
 }): readonly PageComponent[] => [
-  ...input.overview.map((row) => docsNavOverviewRow(row)),
+  ...input.overview.map((row) =>
+    docsNavOverviewRow({ ...row, desktopOnly: input.drawerLabel !== undefined })
+  ),
   ...(input.mode === 'collapsed'
     ? [
         {
           type: 'sidebar',
-          props: { className: 'flex flex-col gap-4' },
+          // Below `lg` the sidebar is only its menu button, standing at the
+          // top of the content: no sidebar ground behind it, and the gutter
+          // that lines it up with the heading under it. No `gap-4` with a
+          // drawer: its zero-height island host and `noscript` are flex items
+          // too, and the gap around them pushed the one group 16 px down.
+          props: {
+            className:
+              input.drawerLabel === undefined
+                ? 'flex flex-col gap-4'
+                : `flex flex-col max-lg:bg-transparent max-lg:pt-4 ${input.drawerGutter ?? 'max-lg:px-2'}`,
+          },
+          ...(input.drawerLabel === undefined
+            ? {}
+            : { drawer: { below: 'lg' as const, label: input.drawerLabel } }),
           groups: [
             {
               label: 'Categories',
@@ -273,6 +309,8 @@ export const kitNavColumn = (input: { readonly onIndex: boolean }): readonly Pag
     ariaLabel: 'UI kit',
     overview: [{ label: 'Overview', href: '/design-system/ui-kit', current: input.onIndex }],
     groups: kitNavGroups(),
+    drawerLabel: 'Browse categories',
+    drawerGutter: input.onIndex ? 'max-lg:px-2' : 'max-lg:px-8',
     // ─── ONE RENDERING, INDEX INCLUDED ──────────────────────────────────
     //
     // The index used to take open mode and its 88 children collapsed, which

@@ -34,4 +34,4 @@ export const HEADING_DY = HEADER_HEIGHT - 12
 /** The connector: a short rule, then a chevron landing on the next box's edge. */
 export const CONNECTOR_LENGTH = 24
 
-export const HEADING_CLASS = 'text-foreground-subtle text-[10px] font-medium tracking-wide'
+export const HEADING_CLASS = 'fill-muted-foreground text-xs font-medium'

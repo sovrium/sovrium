@@ -31,7 +31,7 @@ const TONE_CELL: Readonly<Record<Tone, string>> = {
     'text-warning [&_[data-component-type=badge]]:text-warning! [&_[data-cell-ink]]:text-warning',
   error: 'text-error [&_[data-component-type=badge]]:text-error! [&_[data-cell-ink]]:text-error',
   muted:
-    'text-foreground-muted [&_[data-component-type=badge]]:text-foreground-muted! [&_[data-cell-ink]]:text-foreground-muted',
+    'text-muted-foreground [&_[data-component-type=badge]]:text-muted-foreground! [&_[data-cell-ink]]:text-muted-foreground',
 }
 
 /**

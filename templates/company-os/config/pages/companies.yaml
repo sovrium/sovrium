@@ -16,7 +16,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -54,12 +54,12 @@ components:
                 pagination:
                   pageSize: 25
                 onRowClick:
-                  action: openDrawer
+                  action: openSheet
                   component: client-detail
                 emptyMessage: Your clients appear here. Add the first one, then a deal for it.
               # One client from every module. `/companies?record=<id>` opens it
               # directly, so a client can be linked to from anywhere.
-              - type: drawer
+              - type: sheet
                 id: client-detail
                 drawerSide: right
                 drawerSize: md

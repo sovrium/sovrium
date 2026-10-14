@@ -6,7 +6,11 @@
  */
 
 import { useEffect, useState } from 'react'
-import { computeSidebarEntryClasses } from '@/presentation/design/sidebar-default-classes'
+import {
+  computeSidebarEntryClasses,
+  computeSidebarGroupListClasses,
+  computeSidebarMenuItemClasses,
+} from '@/presentation/design/sidebar-default-classes'
 import { buildSystemQueryUrl } from '../runtime/system-query-url'
 import { toProjectedEntry, type ProjectedEntry } from './sidebar-entry-projection'
 
@@ -127,12 +131,21 @@ export default function SidebarGroupsIsland({
   if (entries.length === 0) return undefined
 
   return (
-    <ul className="flex flex-col gap-0.5">
+    <ul
+      data-slot="sidebar-menu"
+      className={computeSidebarGroupListClasses()}
+    >
       {entries.map((entry) => (
-        <li key={entry.href}>
+        <li
+          key={entry.href}
+          data-slot="sidebar-menu-item"
+          className={computeSidebarMenuItemClasses()}
+        >
           <a
             {...(entry.props ?? {})}
             href={entry.href}
+            data-slot="sidebar-menu-button"
+            data-size="default"
             className={computeSidebarEntryClasses(false)}
             {...(rail !== true || entry.props?.['title'] !== undefined
               ? {}

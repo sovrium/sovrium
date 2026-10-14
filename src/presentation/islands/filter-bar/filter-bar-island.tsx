@@ -5,14 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
-import { buildFilterExpression } from '@/presentation/design/filter-expression'
-import { useSharedFilterPublisher } from '../hooks/use-shared-filter-publisher'
+import {
+  FILTER_BAR_ADD_CLASSES,
+  FILTER_BAR_ANCHOR_CLASSES,
+  FILTER_BAR_POPOVER_PLACEMENT_CLASSES,
+  FILTER_BAR_ROW_CLASSES,
+} from '@/presentation/design/filter-bar-default-classes'
+import { computePopoverContentClasses } from '../overlays/popover-default-classes'
 import { ConditionBuilder } from './condition-builder'
 import { FilterChip } from './filter-chip'
+import { useFilterBarState } from './use-filter-bar-state'
 import type { FilterBarCondition, FilterBarField } from '@/presentation/design/filter-expression'
-import type { ReactElement } from 'react'
+import type { ReactElement, RefObject } from 'react'
 
 /**
  * `filter-bar` — one filter, many views.
@@ -56,81 +60,110 @@ interface FilterBarIslandProps {
   readonly allowAdd?: boolean
 }
 
+/** lucide's `circle-plus`, the add control's glyph. */
+const ADD_GLYPH = (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <circle
+      cx="12"
+      cy="12"
+      r="10"
+    />
+    <path d="M8 12h8" />
+    <path d="M12 8v8" />
+  </svg>
+)
+
+const POPOVER_CLASSES = `${computePopoverContentClasses()} ${FILTER_BAR_POPOVER_PLACEMENT_CLASSES}`
+
 /**
- * The condition set the bar is holding, the expression it publishes, and the
- * two edits a reader can make to it.
- *
- * The publish runs as an EFFECT on the expression rather than inside each edit
- * handler, so the opening conditions are published on mount by the same path
- * that publishes an edit — one channel with one code path, instead of a mount
- * case that can drift from the edit case.
+ * The add control and the condition builder it opens, on the popover surface
+ * under it. The popover is drawn in the bar rather than portalled, so the
+ * builder stays inside the bar's own markup.
  */
-function useFilterBarState({
-  bindTo,
+function AddFilter({
   fields,
-  combinator,
-  initialConditions,
+  open,
+  addRef,
+  onToggle,
+  onApply,
 }: {
-  readonly bindTo: string
   readonly fields: readonly FilterBarField[]
-  readonly combinator: 'and' | 'or'
-  readonly initialConditions: readonly FilterBarCondition[] | undefined
-}) {
-  const [conditions, setConditions] = useState<readonly FilterBarCondition[]>(
-    initialConditions ?? []
+  readonly open: boolean
+  readonly addRef: RefObject<HTMLButtonElement | null>
+  readonly onToggle: () => void
+  readonly onApply: (condition: FilterBarCondition) => void
+}): ReactElement {
+  return (
+    <span className={FILTER_BAR_ANCHOR_CLASSES}>
+      <button
+        ref={addRef}
+        type="button"
+        onClick={onToggle}
+        aria-haspopup="dialog"
+        aria-expanded={open ? 'true' : 'false'}
+        data-slot="button"
+        data-variant="outline"
+        data-size="sm"
+        data-icon="inline-start"
+        className={FILTER_BAR_ADD_CLASSES}
+      >
+        {ADD_GLYPH}
+        Add filter
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-label="Add filter"
+          data-slot="popover-content"
+          data-open=""
+          className={POPOVER_CLASSES}
+        >
+          <ConditionBuilder
+            fields={fields}
+            onApply={onApply}
+          />
+        </div>
+      )}
+    </span>
   )
-  const [open, setOpen] = useState(false)
-
-  const expression = useMemo(
-    () => buildFilterExpression(conditions, fields, combinator),
-    [conditions, fields, combinator]
-  )
-
-  // A fresh object literal per render is deliberate and free: the hook memoizes
-  // on `bindTo` / `param` (both primitives), not on the object's identity.
-  const publish = useSharedFilterPublisher({ bindTo, param: 'filter' })
-  useEffect(() => {
-    publish(expression)
-  }, [publish, expression])
-
-  const removeAt = useCallback((index: number) => {
-    setConditions((previous) => previous.filter((_condition, at) => at !== index))
-  }, [])
-
-  const addCondition = useCallback((condition: FilterBarCondition) => {
-    setConditions((previous) => [...previous, condition])
-    setOpen(false)
-  }, [])
-
-  const toggleOpen = useCallback(() => setOpen((previous) => !previous), [])
-
-  return { conditions, open, expression, removeAt, addCondition, toggleOpen }
 }
 
 /**
- * The applied conditions, and the handle that opens the add-condition menu.
+ * The applied conditions, then the add control.
  *
- * The chips wrap rather than scroll: a filter a reader cannot see is one they
- * cannot lift, and a horizontal scroller hides exactly the oldest condition —
- * the one most likely to have been forgotten.
+ * The conditions wrap rather than scroll: a filter a reader cannot see is one
+ * they cannot lift, and a horizontal scroller hides exactly the oldest
+ * condition — the one most likely to have been forgotten.
  */
 function ChipRow({
   conditions,
   fields,
   allowAdd,
   open,
+  addRef,
   onRemove,
   onToggle,
+  onApply,
 }: {
   readonly conditions: readonly FilterBarCondition[]
   readonly fields: readonly FilterBarField[]
   readonly allowAdd: boolean
   readonly open: boolean
+  readonly addRef: RefObject<HTMLButtonElement | null>
   readonly onRemove: (index: number) => void
   readonly onToggle: () => void
+  readonly onApply: (condition: FilterBarCondition) => void
 }): ReactElement {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className={FILTER_BAR_ROW_CLASSES}>
       {conditions.map((condition, index) => (
         <FilterChip
           key={`${condition.field}-${condition.operator}-${condition.value}-${index}`}
@@ -141,17 +174,13 @@ function ChipRow({
         />
       ))}
       {allowAdd && (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open ? 'true' : 'false'}
-          // GHOST, not a dashed outline. A dashed border is the vocabulary of a
-          // drop target or an empty slot; this is a control that opens a menu,
-          // and the design draws that as the quietest real button it has.
-          className={computeButtonDefaultClasses({ variant: 'ghost', size: 'sm' })}
-        >
-          Add filter
-        </button>
+        <AddFilter
+          fields={fields}
+          open={open}
+          addRef={addRef}
+          onToggle={onToggle}
+          onApply={onApply}
+        />
       )}
     </div>
   )
@@ -168,23 +197,20 @@ export default function FilterBarIsland({
   const state = useFilterBarState({ bindTo, fields, combinator, initialConditions })
 
   return (
-    <div className={className}>
+    <div
+      className={className}
+      onKeyDown={state.closeOnEscape}
+    >
       <ChipRow
         conditions={state.conditions}
         fields={fields}
         allowAdd={allowAdd}
         open={state.open}
+        addRef={state.addRef}
         onRemove={state.removeAt}
         onToggle={state.toggleOpen}
+        onApply={state.addCondition}
       />
-      {state.open && (
-        <div className="mt-2">
-          <ConditionBuilder
-            fields={fields}
-            onApply={state.addCondition}
-          />
-        </div>
-      )}
       <input
         type="hidden"
         readOnly

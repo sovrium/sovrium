@@ -54,11 +54,11 @@ import { ComponentPropsSchema } from '../../props'
  *   content: 7 days
  *   props:
  *     href: '?period=7d'
- *     className: 'text-foreground-muted rounded px-2.5 py-1 text-xs'
+ *     className: 'text-muted-foreground rounded px-2.5 py-1 text-xs'
  *   activeWhen: { value: '$window.id', equals: '7d' }
  *   activeProps:
  *     aria-current: page
- *     className: 'bg-background-raised text-foreground rounded px-2.5 py-1 text-xs font-medium'
+ *     className: 'bg-card text-foreground rounded px-2.5 py-1 text-xs font-medium'
  * ```
  */
 export const ActiveWhenSchema = Schema.Struct({

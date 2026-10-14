@@ -51,25 +51,31 @@
 
 import { type ReactElement } from 'react'
 import { autofillHintOverlay } from '@/domain/models/app/forms/form-autofill-hint-service'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import {
   computeSubmitButtonClasses,
   type ButtonVariant,
 } from '@/presentation/design/button-default-classes'
 import { fieldDescriptionId } from '@/presentation/design/field-display'
 import { computeFormHelpTextClasses } from '@/presentation/design/form-layout-classes'
+import {
+  computeInputDefaultClasses,
+  computeTextareaDefaultClasses,
+} from '@/presentation/design/input-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeFormClasses,
-  computeFormControlClasses,
   computeFormFieldClasses,
   computeFormFieldLabelClasses,
   computeFormSwitchClasses,
   computeFormSwitchFieldClasses,
 } from '../../../design/forms-default-classes'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
+import { PENDING_LABEL_ATTR } from '../button-pending-label'
 import { formPartOf, type FormPart } from './endpoint-form-parts'
 import { formRuleProps, hasRules, ruleProps } from './endpoint-form-rules'
 import type { ElementProps } from '../html-element-renderer'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { FormFieldConfig } from '@/domain/models/app/pages/components/component-types/data/form'
 import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
@@ -100,8 +106,12 @@ interface SerializedEndpointConfig {
   readonly onError?: unknown
 }
 
-/** The shared input/select/textarea surface, from the form-layout contract. */
-const CONTROL_CLASS = computeFormControlClasses()
+/**
+ * shadcn/ui's `Input` for an input or a native select and its `Textarea` for a
+ * textarea — the recipes the table-bound form draws, so both forms are one size.
+ */
+const CONTROL_CLASS = computeInputDefaultClasses()
+const TEXTAREA_CLASS = computeTextareaDefaultClasses()
 
 /** A `select` option as read off an endpoint-bound field (`{ value, label? }`). */
 type EndpointFieldOption = { readonly value: string; readonly label?: string }
@@ -245,7 +255,7 @@ function renderEndpointSwitchField(field: FormFieldConfig): ReactElement {
 /** Render the inner control element for one endpoint field, keyed off its `control`. */
 function renderEndpointControl(field: FormFieldConfig, part: FormPart): ReactElement {
   const name = field.field
-  const controlClass = part('input', CONTROL_CLASS)
+  const controlClass = part('input', field.control === 'textarea' ? TEXTAREA_CLASS : CONTROL_CLASS)
   const { autocomplete } = autofillHintOverlay(field.control ?? 'text', field.autocomplete)
   const prefill = {
     ...describedByProps(field),
@@ -337,11 +347,15 @@ function buildEndpointConfig(endpoint: EndpointConfig): SerializedEndpointConfig
  * runtime enables every marked submit, including one a later client render
  * inserts. `method="post"` is the second lock: no submit path, however it is
  * reached, writes a value into an address.
+ *
+ * The default submit word (`form.submit`) and the in-flight word the runtime
+ * reads (`form.sending`) are resolved here in the page language.
  */
 export function renderEndpointForm(
   props: ElementProps,
   component: Component | undefined,
-  designStyles?: ComponentDesignResolution
+  designStyles?: ComponentDesignResolution,
+  page: { readonly lang?: string; readonly languages?: Languages } = {}
 ): ReactElement | undefined {
   const componentRecord = (component ?? {}) as Record<string, unknown>
   const endpoint = componentRecord['endpoint'] as EndpointConfig | undefined
@@ -371,9 +385,12 @@ export function renderEndpointForm(
         type="submit"
         disabled
         data-awaits-script=""
+        {...{
+          [PENDING_LABEL_ATTR]: resolveInterpreterString('form.sending', page.lang, page.languages),
+        }}
         className={part('submit', computeSubmitButtonClasses(endpoint.submitVariant))}
       >
-        {endpoint.submitLabel ?? 'Envoyer'}
+        {endpoint.submitLabel ?? resolveInterpreterString('form.submit', page.lang, page.languages)}
       </button>
     </form>
   )

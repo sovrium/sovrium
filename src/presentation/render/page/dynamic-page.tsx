@@ -11,11 +11,9 @@ import { resolveDensityStep } from '@/domain/models/app/design/density-service'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { ClientRuntimeScript } from '@/presentation/render/page/client-script-paths'
 import { DemoNotice } from '@/presentation/render/page/demo-notice'
+import { IslandEntryScript } from '@/presentation/render/page/island-entry-script'
 import { PageBodyScripts } from '@/presentation/render/page/page-body-scripts'
-import {
-  hasClientSideNavigation,
-  hasIslandComponents,
-} from '@/presentation/render/page/page-island-detection'
+import { hasClientSideNavigation } from '@/presentation/render/page/page-island-detection'
 import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolver'
 import { PageMain } from '@/presentation/render/page/page-main'
 import { extractPageMetadata } from '@/presentation/render/page/page-metadata'
@@ -407,12 +405,11 @@ function DynamicPageBody({
         frontmatter={markdownPayload?.frontmatter}
       />
       {hasInteractiveFeatures(page, components) && <ClientRuntimeScript />}
-      {hasIslandComponents(page, components) && islandEntryFile && (
-        <script
-          src={`/assets/islands/${islandEntryFile}`}
-          type="module"
-        />
-      )}
+      <IslandEntryScript
+        page={page}
+        components={components}
+        islandEntryFile={islandEntryFile}
+      />
     </body>
   )
 }
@@ -475,7 +472,6 @@ export function DynamicPage({
     >
       <DynamicPageHead
         mergedPage={pageWithMeta}
-        components={components}
         design={design}
         directionStyles={langConfig.directionStyles}
         cssHref={cssHref}

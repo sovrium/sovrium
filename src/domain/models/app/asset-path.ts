@@ -8,9 +8,10 @@
 import { Schema } from 'effect'
 
 // The path of a private asset. It lives at the app root, like `css-length.ts`,
-// because two feature models name it: `assets` declares the files, and the
-// automation actions read them through `{ asset: <path> }` — and the domain
-// forbids one feature importing another.
+// because several feature models name it: `assets` declares the files, the
+// automation actions read them through `{ asset: <path> }`, and an agent's
+// `skills` spells its skill directories the same way — and the domain forbids
+// one feature importing another.
 
 /**
  * Whether a path stays inside the project directory BY ITS SPELLING.
@@ -20,7 +21,7 @@ import { Schema } from 'effect'
  * seen from the spelling; that check runs against the filesystem when the app
  * starts and when `validate` reads the config.
  */
-const isContainedPath = (path: string): boolean =>
+export const isContainedPath = (path: string): boolean =>
   path.length > 0 &&
   !path.startsWith('/') &&
   !path.startsWith('~') &&

@@ -119,7 +119,7 @@ export function GraphIslandHost({
                 {SKELETON_NODES.map((cls, row) => (
                   <div
                     key={`graph-skeleton-${String(index)}-${String(row)}`}
-                    className={`bg-background-subtle animate-pulse rounded ${cls}`}
+                    className={`bg-muted animate-pulse rounded ${cls}`}
                   />
                 ))}
               </div>

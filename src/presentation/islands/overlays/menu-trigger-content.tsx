@@ -15,8 +15,11 @@
  * caller.
  */
 
+import { Menu } from '@base-ui/react/menu'
 import { MENU_TRIGGER_CONTENT_CLASSES, NavChevronDown } from '@/presentation/design/nav-menu-parts'
-import type { ReactNode } from 'react'
+import { computeMenuTriggerClasses } from '@/presentation/design/navigation-default-classes'
+import type { MenuIslandProps } from './menu-island-props'
+import type { ReactElement, ReactNode } from 'react'
 
 /**
  * The trigger button content: composed node, raw HTML, or plain label.
@@ -76,5 +79,49 @@ export function TriggerContent({
       <span data-session-template={triggerLabelTemplate}>{triggerLabel ?? 'Menu'}</span>
       {triggerLabel !== undefined && <NavChevronDown />}
     </>
+  )
+}
+
+/** The trigger button, named `<kind>-trigger`, drawing the label, icon or composed content. */
+export function MenuTriggerButton(
+  props: Pick<
+    MenuIslandProps,
+    | 'triggerLabel'
+    | 'triggerLabelTemplate'
+    | 'triggerHtml'
+    | 'triggerChildrenHtml'
+    | 'triggerContent'
+    | 'triggerClassName'
+    | 'triggerAriaLabel'
+    | 'className'
+    | 'id'
+    | 'data-testid'
+    | 'menuKind'
+  > & { readonly hoverEnabled: boolean }
+): ReactElement {
+  return (
+    <Menu.Trigger
+      data-slot={`${props.menuKind ?? 'dropdown-menu'}-trigger`}
+      className={computeMenuTriggerClasses({
+        triggerLabel: props.triggerLabel,
+        triggerContent: props.triggerContent,
+        triggerHtml: props.triggerHtml,
+        triggerChildrenHtml: props.triggerChildrenHtml,
+        authored: props.triggerClassName ?? props.className,
+      })}
+      aria-label={props.triggerAriaLabel}
+      id={props.id}
+      data-testid={props['data-testid']}
+      openOnHover={props.hoverEnabled}
+      closeDelay={props.hoverEnabled ? 150 : undefined}
+    >
+      <TriggerContent
+        triggerContent={props.triggerContent}
+        triggerHtml={props.triggerHtml}
+        triggerChildrenHtml={props.triggerChildrenHtml}
+        triggerLabel={props.triggerLabel}
+        triggerLabelTemplate={props.triggerLabelTemplate}
+      />
+    </Menu.Trigger>
   )
 }

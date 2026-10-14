@@ -80,5 +80,5 @@ export function isRecordFieldSystemMode(component: Component): boolean {
  * fetches the detail endpoint on row-click.
  */
 export function isRecordDrawerSystemMode(component: Component): boolean {
-  return component.type === 'drawer' && hasOwnSystemDetailSource(component)
+  return component.type === 'sheet' && hasOwnSystemDetailSource(component)
 }

@@ -22,7 +22,7 @@ import classicThemeCss from '@fullcalendar/react/themes/classic/theme.css' with 
  * `infrastructure/css/theme/calendar-styles.ts` then follows it in source order
  * and is written at a higher specificity besides, so it wins either way. The
  * classic theme's palette file is deliberately NOT loaded: its `--fc-classic-*`
- * variables are bound to the `--sv-*` design tokens by that same stylesheet, so
+ * variables are bound to the theme's roles by that same stylesheet, so
  * a calendar never paints FullCalendar's factory colours.
  *
  * Idempotent across islands: two calendars on one page share one element.

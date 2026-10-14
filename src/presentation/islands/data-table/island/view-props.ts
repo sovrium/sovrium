@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import type { FieldLabels } from './panel-field-labels'
 import type { TableContentProps } from './table-content'
 import type { DataTableColumnDef, DataTableInstance } from './table-features'
 import type { DataTableToolbarBarProps } from './toolbar/toolbar-bar'
@@ -13,7 +14,7 @@ import type { useDataTableUiState } from './use-ui-state'
 import type { EditingCell, FieldMetaMap, SaveStatus } from '../../hooks/use-inline-editing'
 import type { DetectedConflict } from '../../hooks/use-realtime-reconciliation'
 import type { RealtimeConnectionState } from '../../hooks/use-realtime-subscription'
-import type { CellCommit, DataTableRowClickAction, InlineAutoSave } from '../body'
+import type { CellCommit, DataTableRowClickAction, InlineAutoSave } from '../data-row-types'
 import type { SummaryAggregations } from '../summary-aggregate'
 import type {
   DataTableBulkAction,
@@ -238,6 +239,8 @@ export interface ViewDialogsProps {
 /** The runtime filter-builder and multi-sort panels. */
 export interface GridPanelsProps {
   readonly tableFields: readonly string[]
+  /** Each field as its column header names it (`panel-field-labels.ts`). */
+  readonly fieldLabels: FieldLabels
   readonly fieldMeta?: FieldMetaMap
   readonly ui: ReturnType<typeof useDataTableUiState>
 }

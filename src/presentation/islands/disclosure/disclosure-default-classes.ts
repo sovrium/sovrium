@@ -22,23 +22,20 @@
  * (`transition-colors duration-200`, `data-[open]:rotate-180`), and data-
  * state selectors (`data-[active]`, `data-[open]`, `data-[disabled]`) stay
  * as raw Tailwind utilities — they encode behavior, not color — while every
- * color / border / radius / shadow class goes through {@link withVarFallback}
- * so `app.design.*` overrides still win at the CSS cascade layer
- * (`var(--sv-X)` resolves the override first, falling back to the inline
- * OKLCH literal).
+ * colour is a shadcn role utility (`text-foreground`, `bg-muted`,
+ * `border-border`, `text-primary`) and the radius goes through
+ * {@link withVarFallback}, so `app.design.*` overrides still win at the CSS
+ * cascade layer.
  *
- * ONE DELIBERATE EXCEPTION to that rule: the classes behind a BRACKETED
- * variant (`data-[active]:…`) use the canonical role utilities
- * (`text-primary`, `border-primary`, `bg-background-subtle`) rather than a
- * `var(--sv-…)` arbitrary value. The safelist generator that keeps
- * template-built arbitrary classes in the compiled stylesheet
+ * The role utilities matter most behind a BRACKETED variant
+ * (`data-[active]:…`): the safelist generator that keeps template-built
+ * arbitrary classes in the compiled stylesheet
  * (`src/infrastructure/css/arbitrary-var-safelist.ts`) matches only a plain
- * variant chain (`hover:`, `focus-visible:`) — a bracketed variant does not
- * parse, so `data-[active]:text-[var(--sv-primary,…)]` would be silently
- * dropped and would paint nothing while looking correct in source. The role
- * utilities are literal class names, so Tailwind scans them directly, and
- * they still follow an author `theme.colors.primary` override through
- * `--color-primary`.
+ * variant chain (`hover:`, `focus-visible:`), so a bracketed arbitrary-value
+ * class would be silently dropped and paint nothing while looking correct in
+ * source. The role utilities are literal class names, so Tailwind scans them
+ * directly, and they still follow an author `theme.colors.primary` override
+ * through `--color-primary`.
  *
  * Subparts covered (matches the existing DOM layering across the two
  * disclosure islands: `tabs-island.tsx`, `accordion-island.tsx`):
@@ -72,7 +69,7 @@
  * side via the island registry — the `presentation-component →
  * presentation-island` layer boundary disallows island imports from
  * `ui/sections/`. Mirrors the location chosen for `select-default-classes.ts`,
- * `toggle-default-classes.ts`, `numeric-default-classes.ts`,
+ * `toggle-default-classes.ts`,
  * `date-default-classes.ts`, and `overlay-default-classes.ts`.
  */
 
@@ -97,12 +94,12 @@ export const DISABLED_INLINE = 'data-[disabled]:cursor-not-allowed data-[disable
 const ACCORDION_ROOT_LAYOUT = 'border'
 
 const ACCORDION_ROOT_SURFACE = [
-  `border-[${v('sv-border', T.border)}]`,
+  'border-border',
   // `divide-y` adds a 1px horizontal line BETWEEN sibling items via the
   // border-color of subsequent elements; we tint that color so the
   // dividers match the outer border.
   'divide-y',
-  `divide-[${v('sv-border', T.border)}]`,
+  'divide-border',
 ].join(' ')
 
 /**
@@ -127,11 +124,11 @@ const ACCORDION_TRIGGER_LAYOUT =
   'group flex w-full items-center justify-between px-4 py-3 text-left text-base font-medium transition-colors'
 
 const ACCORDION_TRIGGER_SURFACE = [
-  `text-[${v('sv-fg', T.fg)}]`,
-  `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
+  'text-foreground',
+  'hover:bg-muted',
   // Open trigger keeps its bg-subtle so the active section reads as
   // distinct from collapsed siblings even when the cursor moves away.
-  `data-[open]:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
+  'data-[open]:bg-muted',
 ].join(' ')
 
 /**
@@ -156,14 +153,14 @@ export const computeAccordionTriggerClasses = ({
 const ACCORDION_ICON_LAYOUT =
   'shrink-0 transition-transform duration-200 group-data-[panel-open]:rotate-180'
 
-const ACCORDION_ICON_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
+const ACCORDION_ICON_SURFACE = 'text-muted-foreground'
 
 /**
  * Compute the default className for the chevron `<svg>` inside an
  * accordion trigger. The chevron rotates 180deg when its section opens, read
  * off the enclosing `group` trigger's `data-panel-open`; Tailwind handles the
  * animation with `transition-transform duration-200`. Muted foreground tone
- * (`sv-fg-muted`) so the icon reads as an affordance hint rather than as a
+ * (`muted-foreground`) so the icon reads as an affordance hint rather than as a
  * focal element competing with the header text.
  *
  * The variant has to reach through the trigger because Base UI gives the
@@ -183,7 +180,7 @@ export const computeAccordionIconClasses = (): string =>
 
 const ACCORDION_PANEL_LAYOUT = 'overflow-hidden px-4 pb-3 text-md'
 
-const ACCORDION_PANEL_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
+const ACCORDION_PANEL_SURFACE = 'text-muted-foreground'
 
 /**
  * Compute the default className for the `<Accordion.Panel>` content region

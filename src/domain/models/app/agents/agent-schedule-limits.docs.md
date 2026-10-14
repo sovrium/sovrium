@@ -27,19 +27,19 @@ Schedules are armed once the server is accepting requests and torn down on shutd
 
 A cron run happens **inside** the server, on the timer you wrote, rather than arriving as a request from outside. That placement decides which gates apply.
 
-| Gate                   | On a cron run                                                                  |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| The trigger grant      | **Not applied** — a timer is not an external caller                            |
-| `enabled: false`       | **Skipped** — a disabled agent is never armed                                  |
-| No provider configured | **Skipped** — a run that reached no provider is not work the app has done      |
-| `maxConcurrentTasks`   | **Skipped** when no slot is free, which stops a fast cron piling up runs       |
-| `maxActionsPerMinute`  | **Not applied** — the cron expression _is_ the rate                            |
-| `maxTokensPerDay`      | **Charged** — the run's tokens count against the daily budget                  |
-| Approval               | **Applied** — `mode: all` queues at three in the morning rather than executing |
+| Gate                   | On a cron run                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| The trigger grant      | **Not applied** — a timer is not an external caller                             |
+| `enabled: false`       | **Skipped** — a disabled agent is never armed                                   |
+| No provider configured | **Skipped** — a run that reached no provider is not work the app has done       |
+| `maxConcurrentTasks`   | **Skipped** when no slot is free, which stops a fast cron piling up runs        |
+| `maxActionsPerMinute`  | **Applied per action** — each action the run takes counts, the run does not     |
+| `maxTokensPerDay`      | **Charged** — the run's tokens count against the daily budget                   |
+| Approval               | **Applied per action** — a covered action waits for a person and pauses the run |
 
 ### Triggering the task by hand
 
-`POST /api/agents/{name}/schedule/trigger` runs the same task prompt on demand. That one **is** an external caller and passes every gate the execute endpoint passes: the trigger grant, where a refusal answers `404`; `503` where the deployment has no provider; `202` with a queued status when a rate or concurrency cap is exhausted; and `429` with a retry header when the action rate limit trips. Its tokens are charged like any other run's.
+`POST /api/agents/{name}/schedule/trigger` runs the same task prompt on demand. That one **is** an external caller and passes every gate the execute endpoint passes: the trigger grant, where a refusal answers `404`; `503` where the deployment has no provider; `202` with a queued status when a rate or concurrency cap is exhausted; and `429` with a retry header when the action rate limit trips. Its tokens are charged like any other run's. The rate limit and `maxActionsPerMinute` count each action the run takes, as it takes it; a run that takes no action counts once.
 
 ## Limits
 

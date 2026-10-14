@@ -9,12 +9,15 @@ import { Combobox } from '@base-ui/react/combobox'
 import { useMemo, type KeyboardEventHandler, type ReactElement } from 'react'
 import { cn } from '@/presentation/design/class-merge'
 import {
+  computeComboboxAddonClasses,
   computeComboboxInputClasses,
   computeComboboxInputGroupClasses,
+  computeComboboxTriggerClasses,
   computeSelectIconClasses,
   computeSelectLabelClasses,
 } from '../../design/select-default-classes'
 import { useSharedFilterPublisher } from '../hooks/use-shared-filter-publisher'
+import { ComboboxChipsField } from './combobox-chips'
 import { ChevronDown } from './select-icons'
 import { ComboboxPopupContent } from './select-option-renderers'
 import { useComboboxCustomValue } from './use-combobox-custom-value'
@@ -36,42 +39,83 @@ function ComboboxInputGroup({
   onInputKeyDown,
 }: ComboboxInputGroupProps): ReactElement {
   return (
-    <Combobox.InputGroup className={computeComboboxInputGroupClasses()}>
+    <Combobox.InputGroup
+      className={computeComboboxInputGroupClasses()}
+      data-slot="input-group"
+      role="group"
+    >
       <Combobox.Input
         placeholder={inputPlaceholder}
         aria-label={label}
         data-allow-custom-value={allowCustomValue ? 'true' : undefined}
         onKeyDown={onInputKeyDown}
         className={computeComboboxInputClasses()}
+        data-slot="input-group-control"
       />
-      <Combobox.Trigger
-        aria-label={triggerLabel}
-        className={computeSelectIconClasses()}
+      <div
+        className={computeComboboxAddonClasses()}
+        data-slot="input-group-addon"
+        data-align="inline-end"
       >
-        <ChevronDown />
-      </Combobox.Trigger>
+        <Combobox.Trigger
+          aria-label={triggerLabel}
+          className={computeComboboxTriggerClasses()}
+          data-slot="combobox-trigger"
+        >
+          <ChevronDown className={computeSelectIconClasses()} />
+        </Combobox.Trigger>
+      </div>
     </Combobox.InputGroup>
   )
 }
 
+/** The visible caption: shadcn/ui's `Label`, as Base UI's `Combobox.Label`. */
+function ComboboxCaption({ label }: { readonly label: string }): ReactElement {
+  return (
+    <Combobox.Label
+      className={computeSelectLabelClasses()}
+      data-slot="label"
+    >
+      {label}
+    </Combobox.Label>
+  )
+}
+
 /**
- * Searchable select rendered with Base UI Combobox primitives.
- *
- * Combobox is "a filterable Select" — pressing the trigger opens the popup,
- * and typing in the input filters the list automatically.
- *
- * A11y note: the input carries the field's `aria-label` so the combobox
- * announces as the named field, and the trigger gets a distinct
- * `Open <label>` label so screen readers can describe both controls
- * unambiguously. When `label` is missing we fall back to the generic
- * `'Open options'` so the trigger is never unlabelled.
- *
- * Identity props (`id`, `data-testid`) are intentionally NOT applied to this
- * inner wrapper. The SSR island marker rendered by `island-form-components.tsx`
- * already carries them on the outer `<div data-island="select">`, which
- * survives hydration as the React mount root. Re-emitting them here would
- * produce duplicate DOM attributes and break Playwright strict-mode locators.
+ * `allowCustomValue: true` lets the user type a value not in the option list.
+ * Base UI's Combobox has no dedicated prop, so it is wired through a controlled
+ * `inputValue` plus an Enter handler that locks the typed string. A typed value
+ * completes ONE choice, so a combobox holding a set does not take it.
  */
+function useCustomValueWiring(enabled: boolean) {
+  const { inputValue, onInputKeyDown, onInputValueChange } = useComboboxCustomValue(enabled)
+  const controlledOnInputValueChange = useMemo(
+    () => (enabled ? onInputValueChange : undefined),
+    [enabled, onInputValueChange]
+  )
+  return {
+    enabled,
+    onInputKeyDown,
+    inputValue: enabled ? inputValue : undefined,
+    onInputValueChange: controlledOnInputValueChange,
+  }
+}
+
+/** The field the reader types into: removable chips for a set, else the input group. */
+function ComboboxField({
+  chips,
+  ...group
+}: ComboboxInputGroupProps & { readonly chips: boolean }): ReactElement {
+  if (chips)
+    return (
+      <ComboboxChipsField
+        label={group.label}
+        placeholder={group.inputPlaceholder}
+      />
+    )
+  return <ComboboxInputGroup {...group} />
+}
+
 export function SearchableSelect({
   options,
   placeholder,
@@ -82,6 +126,9 @@ export function SearchableSelect({
   label,
   className,
   publishes,
+  multiple,
+  chips,
+  name,
 }: SelectIslandProps): ReactElement {
   // Same publisher wiring as `PlainSelect`: a searchable filter is an ordinary
   // authoring choice, and leaving `publishes` inert on this half would be a
@@ -94,37 +141,28 @@ export function SearchableSelect({
   // `searchPlaceholder` (schema-author intent for the search-input affordance)
   // overrides the generic `placeholder` and the fallback "Select..." prompt.
   const inputPlaceholder = searchPlaceholder ?? placeholder ?? 'Select...'
-  const customValueEnabled = allowCustomValue === true
-  const { inputValue, onInputKeyDown, onInputValueChange } =
-    useComboboxCustomValue(customValueEnabled)
-  // `allowCustomValue: true` lets the user type a value not in the
-  // option list. Base UI's Combobox doesn't have a dedicated prop, so
-  // we wire it via controlled `inputValue` plus an Enter handler that
-  // locks the typed string (preserving the display value after the
-  // combobox's own selection-clear logic).
-  const controlledInputValue = customValueEnabled ? inputValue : undefined
-  const controlledOnInputValueChange = useMemo(
-    () => (customValueEnabled ? onInputValueChange : undefined),
-    [customValueEnabled, onInputValueChange]
-  )
+  const custom = useCustomValueWiring(allowCustomValue === true && multiple !== true)
 
   return (
     <div className={cn(className)}>
       <Combobox.Root
         items={items}
-        defaultValue={defaultItem}
+        multiple={multiple}
+        name={name}
+        defaultValue={multiple === true ? undefined : defaultItem}
         disabled={disabled}
         onValueChange={publish}
-        inputValue={controlledInputValue}
-        onInputValueChange={controlledOnInputValueChange}
+        inputValue={custom.inputValue}
+        onInputValueChange={custom.onInputValueChange}
       >
-        {label && <Combobox.Label className={computeSelectLabelClasses()}>{label}</Combobox.Label>}
-        <ComboboxInputGroup
+        {label && <ComboboxCaption label={label} />}
+        <ComboboxField
+          chips={chips === true && multiple === true}
           inputPlaceholder={inputPlaceholder}
           label={label}
           triggerLabel={triggerLabel}
-          allowCustomValue={customValueEnabled}
-          onInputKeyDown={onInputKeyDown}
+          allowCustomValue={custom.enabled}
+          onInputKeyDown={custom.onInputKeyDown}
         />
         <ComboboxPopupContent />
       </Combobox.Root>

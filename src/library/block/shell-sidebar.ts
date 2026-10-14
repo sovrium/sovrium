@@ -5,14 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent, flex, THEME_NOTE } from '@/library/manifest/block-kit'
+import { asComponent, flex } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 const SIDEBAR: Readonly<Record<string, unknown>> = {
   type: 'sidebar',
   rail: { below: 'md' },
   props: {
-    className: 'flex-none border-r border-border bg-background-subtle py-4 md:w-60 md:px-2',
+    className: 'flex-none border-r border-sidebar-border md:w-64',
   },
   groups: [
     {
@@ -66,7 +66,7 @@ export const entry = defineLibraryEntry({
     "An application frame: a sidebar with grouped, iconed entries and a count, beside a main region that holds each page's own components.",
   notes: [
     "Place it on every page of the app with `- component: shell-sidebar` and give it the page's components as `children:` — they fill the main region, where the template writes `children: $children`.",
-    THEME_NOTE,
+    'Colours come from the `sidebar` roles of your `design` (`sidebar`, `sidebar-accent`, `sidebar-border`), so the frame follows it without edits.',
     'The sidebar entries mark themselves current from the request path, so the same shell can sit on every page of the app. Edit `groups` in the installed fragment to list your own pages.',
     'Below the medium breakpoint the sidebar shrinks to an icon rail (`rail: { below: md }`).',
     "The page's components are read in the page's scope: a page bound to a record shows that record inside the shell.",
@@ -82,8 +82,8 @@ export const entry = defineLibraryEntry({
           SIDEBAR,
           {
             type: 'container',
-            element: 'main',
-            props: { className: 'min-w-0 flex-1 px-4 py-6 sm:px-10 sm:py-8' },
+            element: 'div',
+            props: { className: 'flex min-w-0 flex-1 flex-col gap-4 bg-background p-4 sm:p-6' },
             children: '$children',
           },
         ],

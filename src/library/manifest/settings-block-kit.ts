@@ -42,7 +42,7 @@ export const settingsTitle = (title: string, sentence: string): BlockNode => ({
     {
       type: 'text',
       element: 'p',
-      props: { className: 'text-md text-foreground-muted' },
+      props: { className: 'text-md text-muted-foreground' },
       content: sentence,
     },
   ],
@@ -76,7 +76,7 @@ export const settingsGroup = (
             {
               type: 'text',
               element: 'p',
-              props: { className: 'text-md text-foreground-muted' },
+              props: { className: 'text-md text-muted-foreground' },
               content: help,
             },
           ],
@@ -87,7 +87,7 @@ export const settingsGroup = (
     {
       type: 'container',
       props: {
-        className: `flex flex-col divide-y rounded-lg border bg-background-raised ${
+        className: `flex flex-col divide-y rounded-lg border bg-card ${
           options.danger === true
             ? 'divide-error-border border-error-border'
             : 'divide-border border-border'
@@ -125,7 +125,7 @@ export const settingsRow = (
               {
                 type: 'text',
                 element: 'p',
-                props: { className: 'text-sm text-foreground-muted' },
+                props: { className: 'text-sm text-muted-foreground' },
                 content: help,
               },
             ]),

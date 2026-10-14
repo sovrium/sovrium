@@ -27,10 +27,10 @@ function ListStateCard({
   return (
     <section
       aria-label={label}
-      className="border-border bg-background-raised flex flex-col items-center gap-1.5 rounded-md border border-dashed p-6 text-center"
+      className="border-border bg-card flex flex-col items-center gap-1.5 rounded-md border border-dashed p-6 text-center"
     >
       <p className="text-foreground text-md font-medium">{title}</p>
-      <p className="text-foreground-muted text-sm leading-relaxed">{body}</p>
+      <p className="text-muted-foreground text-sm leading-relaxed">{body}</p>
       {children}
     </section>
   )
@@ -47,7 +47,7 @@ export function ListLoading(): ReactElement {
       {[0, 1, 2, 3].map((row) => (
         <div
           key={row}
-          className="border-border bg-background-subtle h-14 animate-pulse rounded-md border"
+          className="border-border bg-muted h-14 animate-pulse rounded-md border"
         />
       ))}
     </div>
@@ -65,7 +65,7 @@ export function ListErrorState({ onRetry }: { readonly onRetry: () => void }): R
       <button
         type="button"
         onClick={onRetry}
-        className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-sm font-medium"
+        className="text-muted-foreground hover:text-muted-foreground/80 mt-1 text-sm font-medium"
       >
         Retry
       </button>
@@ -112,7 +112,7 @@ export function ListNoMatchState({
       <button
         type="button"
         onClick={onResetSearch}
-        className="text-foreground-muted hover:text-foreground-muted/80 mt-1 text-sm font-medium"
+        className="text-muted-foreground hover:text-muted-foreground/80 mt-1 text-sm font-medium"
       >
         Reset
       </button>

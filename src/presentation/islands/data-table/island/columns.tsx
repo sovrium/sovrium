@@ -5,17 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  computeTableCheckboxControlClasses,
-  computeTableRowNumberClasses,
-} from '@/presentation/design/table-default-classes'
+import { computeTableRowNumberClasses } from '@/presentation/design/table-default-classes'
 import { resolvePageLocale } from '../../runtime/page-locale'
 import { autoGenerateColumns, autoGenerateColumnsFromFields } from '../auto-columns'
 import { stopClickPropagation } from '../cell-click'
-import { mapColumnsToColumnDefs, type RowActionHandler } from '../formatting'
+import { mapColumnsToColumnDefs } from '../formatting'
+import { GridCheckbox } from '../selection/grid-checkbox'
 import type { DataTableColumnDef } from './table-features'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { TableRecord } from '../../runtime/types'
+import type { RowActionHandler, RowActionsDisplay } from '../row-actions/row-action-types'
 import type {
   DataTableColumn,
   DataTableSelection,
@@ -27,18 +26,18 @@ function buildSelectionColumn(mode?: string): DataTableColumnDef {
     header:
       mode === 'multiple'
         ? ({ table: t }) => (
-            <input
-              type="checkbox"
+            <GridCheckbox
+              interactive
               checked={t.getIsAllRowsSelected()}
+              indeterminate={t.getIsSomeRowsSelected()}
               onChange={t.getToggleAllRowsSelectedHandler()}
               aria-label="Select all rows"
-              className={computeTableCheckboxControlClasses({ interactive: true })}
             />
           )
         : '',
     cell: ({ row }) => (
-      <input
-        type="checkbox"
+      <GridCheckbox
+        interactive
         checked={row.getIsSelected()}
         disabled={!row.getCanSelect()}
         onChange={row.getToggleSelectedHandler()}
@@ -50,11 +49,11 @@ function buildSelectionColumn(mode?: string): DataTableColumnDef {
         // gesture on it.
         onClick={stopClickPropagation}
         aria-label={`Select row ${row.index + 1}`}
-        className={computeTableCheckboxControlClasses({ interactive: true })}
       />
     ),
     enableSorting: false,
     enableColumnFilter: false,
+    meta: { selection: true },
   }
 }
 
@@ -129,6 +128,8 @@ export interface BuildColumnsOptions {
    */
   readonly saveLabel?: string
   readonly cancelLabel?: string
+  /** How the action column draws its actions (`rowActions.display`). */
+  readonly rowActionsDisplay?: RowActionsDisplay
 }
 
 export function buildColumns(options: BuildColumnsOptions): DataTableColumnDef[] {
@@ -173,6 +174,9 @@ export function buildColumns(options: BuildColumnsOptions): DataTableColumnDef[]
             onButtonInvoked,
             ...(saveLabel === undefined ? {} : { saveLabel }),
             ...(cancelLabel === undefined ? {} : { cancelLabel }),
+            ...(options.rowActionsDisplay === undefined
+              ? {}
+              : { rowActionsDisplay: options.rowActionsDisplay }),
           }),
         ]
       : tableFields && tableFields.length > 0

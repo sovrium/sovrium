@@ -65,7 +65,9 @@
 // Accounts are OBSERVED and administered here; creating one goes through the
 // admin API (Developers → API), which is why there is no create form.
 
+import { sectionCard } from '../../components/dashboard-blocks'
 import { pageHeading, tabQuery, tabbedBody, tabPanel, toolbarRow } from '../../components/data-page'
+import { dataTable, STATUS_BADGE } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
 import { USERS_ENDPOINT, USERS_OVERVIEW_ENDPOINT } from '../../system-sources'
 import { accountPage } from './users-account'
@@ -114,11 +116,11 @@ const USERS_COLUMNS = [
     cellStyle: [
       {
         when: { eq: false },
-        className: 'bg-success-bg text-success-fg rounded-full px-2 py-0.5 text-sm',
+        className: STATUS_BADGE.positive,
       },
       {
         when: { eq: true },
-        className: 'bg-error-bg text-error-fg rounded-full px-2 py-0.5 text-sm',
+        className: STATUS_BADGE.destructive,
       },
     ],
   },
@@ -224,16 +226,11 @@ const inviteAffordance = (): PageComponent =>
 
 /**
  * One account figure, read as a pre-computed scalar from the users-overview
- * envelope. A failed read degrades to the neutral em-dash placeholder rather
+ * envelope, in one of dashboard-01's section cards. A failed read degrades to the neutral em-dash placeholder rather
  * than to a zero, which would be a wrong answer rather than an absent one.
  */
 const overviewKpi = (label: string, valuePath: string): PageComponent =>
-  ({
-    type: 'kpi',
-    label,
-    dataSource: { system: { endpoint: USERS_OVERVIEW_ENDPOINT, valuePath } },
-    kpiFormat: { type: 'number' },
-  }) as PageComponent
+  sectionCard({ label, endpoint: USERS_OVERVIEW_ENDPOINT, valuePath })
 
 /**
  * The KPI strip: a named region over the three account figures.
@@ -274,8 +271,7 @@ const kpiStrip = (): PageComponent =>
  * endpoint's `?format=csv`.
  */
 const usersGrid = (): PageComponent =>
-  ({
-    type: 'table',
+  dataTable({
     props: { id: USERS_GRID_ID, 'aria-label': '$t:admin.users.region' },
     dataSource: {
       system: { endpoint: USERS_ENDPOINT, rowsKey: 'users', idKey: 'id', totalKey: 'total' },
@@ -362,8 +358,7 @@ const inviteSection = (): PageComponent =>
  * construction — the same reason its response carries no cursor.
  */
 const invitationsGrid = (): PageComponent =>
-  ({
-    type: 'table',
+  dataTable({
     props: { id: INVITATIONS_GRID_ID, 'aria-label': '$t:admin.invitations.pending.region' },
     dataSource: {
       system: { endpoint: '/api/admin/invitations', rowsKey: 'items', idKey: 'id' },
@@ -377,11 +372,11 @@ const invitationsGrid = (): PageComponent =>
         cellStyle: [
           {
             when: { eq: 'pending' },
-            className: 'bg-success-bg text-success-fg rounded-full px-2 py-0.5 text-sm',
+            className: STATUS_BADGE.positive,
           },
           {
             when: { eq: 'expired' },
-            className: 'bg-error-bg text-error-fg rounded-full px-2 py-0.5 text-sm',
+            className: STATUS_BADGE.destructive,
           },
         ],
       },

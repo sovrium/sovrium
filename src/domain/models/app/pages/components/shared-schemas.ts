@@ -50,9 +50,10 @@ export const optBool = (description: string) =>
 /**
  * Standard size options for UI components
  */
-export const ComponentSizeSchema = Schema.Literals(['sm', 'md', 'lg']).annotate({
+export const ComponentSizeSchema = Schema.Literals(['sm', 'default', 'lg']).annotate({
   title: 'Component Size',
-  description: 'Standard size variant for UI components',
+  description:
+    "Standard size variant for UI components: `sm`, `default` or `lg` (shadcn/ui's size scale).",
 })
 
 // ---------------------------------------------------------------------------
@@ -94,6 +95,14 @@ export const OptionItemSchema = Schema.Struct({
   icon: Schema.optional(
     Schema.String.annotate({
       description: 'Lucide icon name to display next to the option label',
+    })
+  ),
+  /** The group the option is listed under, on a select */
+  group: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "On a select, the label of the group the option is listed under: consecutive options with one group form that group, in the order written. shadcn/ui's SelectGroup and SelectLabel. Inert on a radio group and a toggle group.",
+      examples: ['Domestic', 'International'],
     })
   ),
 }).annotate({
@@ -212,6 +221,18 @@ export const MenuItemSchema = Schema.Struct({
         'Render this item as a toggle whose switch sits at the right of its row, starting in the named state. The state is an INITIAL condition held in the reader\u2019s browser, not a binding. Inert on a `separator` row.',
     })
   ),
+  radioGroup: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "Makes the row a radio item of the named group: consecutive rows sharing the name are one group, the one whose `toggle` is `checked` starts checked, and choosing another moves the check. shadcn/ui's DropdownMenuRadioGroup.",
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  heading: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        "Draws the row's `label` as a group heading: not a menu item, passed over by the keyboard. shadcn/ui's DropdownMenuLabel.",
+    })
+  ),
   /** Sub-menu items (nested menus) */
   children: Schema.optional(
     Schema.Array(Schema.Record(Schema.String, Schema.Unknown)).pipe(
@@ -238,9 +259,13 @@ export const BadgeVariantSchema = Schema.Literals([
   'secondary',
   'destructive',
   'outline',
+  'ghost',
+  'link',
 ]).annotate({
   title: 'Badge Variant',
-  description: 'Visual style variant for badge components',
+  defaultNote: 'default',
+  description:
+    "The badge's tone, shadcn/ui's Badge variants: 'default', 'secondary', 'destructive', 'outline', 'ghost' (no fill until hovered) or 'link' (text styled as a link; give the badge an `href`).",
 })
 
 // ---------------------------------------------------------------------------

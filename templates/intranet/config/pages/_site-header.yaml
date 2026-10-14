@@ -34,10 +34,10 @@ children:
           - type: link
             props:
               href: mailto:it@halden.example
-              className: text-foreground-muted hover:text-foreground max-md:hidden
+              className: text-muted-foreground hover:text-foreground max-md:hidden
             content: Contact IT
           - type: link
             props:
               href: /sign-in
-              className: inline-flex h-8 items-center rounded-md border border-border bg-background-raised px-3.5 font-medium whitespace-nowrap text-foreground hover:bg-background-subtle max-md:h-auto max-md:border-0 max-md:bg-transparent max-md:px-0
+              className: inline-flex h-8 items-center rounded-md border border-border bg-card px-3.5 font-medium whitespace-nowrap text-foreground hover:bg-muted max-md:h-auto max-md:border-0 max-md:bg-transparent max-md:px-0
             content: Sign in

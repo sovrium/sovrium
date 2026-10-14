@@ -8,6 +8,10 @@ Fires when records change in a watched table — `create`, `update`, `delete`, a
 
 A `restore` is not a `create`: an automation that greets new records does not run again for one that already existed. On a `restore` the row is at `{{trigger.data.record.*}}` as restored, and `watchFields` does not apply.
 
+A write does not wait for the record automations it starts. The records API, a form, a form's edit link, the MCP tools and the AI chat answer as soon as the row is written, and the runs go on in the background, one after another in the order they matched. A run may not be listed yet when the write answers: a client that needs its outcome reads the run history. A stopping server finishes the runs still going within its grace period, or records them as stopped.
+
+Runs started by different writes can overlap, two writes on the same record included, up to each automation's `concurrency.limit` (five at a time by default). Each run reads the record as its own write left it, at `{{trigger.data.record.*}}`, not as it is now. To run an automation one run at a time, set its `concurrency.limit` to `1`.
+
 ```yaml
 trigger:
   type: record

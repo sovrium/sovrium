@@ -31,13 +31,13 @@ const fact = (label: string, value: string): Node => ({
     {
       type: 'text',
       element: 'span',
-      props: { className: 'text-md text-foreground-muted' },
+      props: { className: 'text-sm text-muted-foreground' },
       content: label,
     },
     {
       type: 'text',
       element: 'span',
-      props: { className: 'text-md text-foreground' },
+      props: { className: 'text-sm text-foreground' },
       content: value,
     },
   ],
@@ -102,7 +102,14 @@ export const entry = defineLibraryEntry({
   params: [
     stringParam('iconName', 'The icon drawn as the app mark.', 'box'),
     stringParam('successPath', 'Where a new member lands.', '/'),
-    stringParam('signInPath', 'The sign-in page.', '/sign-in'),
+    {
+      ...stringParam(
+        'signInPath',
+        'The sign-in page. Defaults to the app’s `auth.loginPage` when it sets one.',
+        '/sign-in'
+      ),
+      defaultFromConfig: 'auth.loginPage',
+    },
   ],
   env: [],
   requires: [],

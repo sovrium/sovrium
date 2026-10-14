@@ -60,6 +60,8 @@ A grid of glyphs is not readable by itself, so a matrix always renders an **acce
 
 A matrix is drawn on the server. The grid and its twin are in the first response — no hydration, nothing added to the browser bundle, and readable with scripting off. A page can carry one without paying for a chart library.
 
+The grid takes the parts of shadcn/ui's Table — a header strip, rows, heads and cells — with a band's name drawn as a muted caption row and an empty intersection as a muted em dash, so an absent pair reads as absent rather than as a gap. Reference: shadcn/ui Table.
+
 ```yaml
 pages:
   - name: Access

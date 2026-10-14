@@ -63,6 +63,9 @@ export function CodeCopyButton({
   return (
     <button
       type="button"
+      data-slot="button"
+      data-variant="ghost"
+      data-size="icon-xs"
       aria-label={copyLabel}
       title={copyLabel}
       data-copy-code="true"

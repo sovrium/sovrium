@@ -25,11 +25,14 @@ import { chainActiveScopeRoutes } from '@/presentation/api/admin/active-scope-ro
 import { chainNotificationTriggerRoutes } from '@/presentation/api/admin/notification-trigger-routes'
 import { chainUserDirectoryRoutes } from '@/presentation/api/admin/user-directory-routes'
 import { chainAgentApprovalRoutes } from '@/presentation/api/agents/approval-routes'
+import { chainAiChatElicitationRoutes } from '@/presentation/api/agents/chat-elicitation-routes'
+import { chainAiChatRoutes } from '@/presentation/api/agents/chat-routes'
+import { chainAiConversationBranchRoutes } from '@/presentation/api/agents/conversation-branch-routes'
+import { chainAiFactsRoutes } from '@/presentation/api/agents/facts-memory-routes'
+import { chainAiMcpStatusRoutes } from '@/presentation/api/agents/mcp-status-routes'
+import { chainRagRoutes } from '@/presentation/api/agents/rag-routes'
 import { chainAgentScheduleRoutes } from '@/presentation/api/agents/schedule-routes'
-import { chainAiChatRoutes } from '@/presentation/api/ai/chat-routes'
-import { chainAiFactsRoutes } from '@/presentation/api/ai/facts-memory-routes'
-import { chainAiMcpStatusRoutes } from '@/presentation/api/ai/mcp-status-routes'
-import { chainRagRoutes } from '@/presentation/api/ai/rag-routes'
+import { chainAiChatAttachmentRoutes } from '@/presentation/api/ai/attachment-routes'
 import { chainAiTranscriptionRoutes } from '@/presentation/api/ai/transcription-routes'
 import { chainAnalyticsRoutes } from '@/presentation/api/analytics/routes'
 import { chainAccountRoutes } from '@/presentation/api/auth/account-routes'
@@ -194,7 +197,21 @@ export const createApiRoutes = <T extends Hono>(
   // is applied above via `authMiddleware + requireAuth` on `/api/ai/chat`.
   // Chat dictation (POST /api/ai/transcriptions) rides beside it: same
   // surface, same rate-limit settings, and its own 404-for-anonymous gate.
-  const honoWithAiChat = chainAiTranscriptionRoutes(chainAiChatRoutes(honoWithAdminLinks, app), app)
+  // Chat attachments (POST/GET /api/ai/chat/attachments) ride beside them, with
+  // the same 404-for-anonymous gate.
+  // Answering a question an agent asked (POST /api/ai/chat/elicitations/:id)
+  // rides beside them, with the same 404-for-anyone-else gate. Editing a
+  // question and regenerating an answer ride beside the conversation reads,
+  // behind the same `/api/ai/conversations/*` auth chain.
+  const honoWithAiChat = chainAiConversationBranchRoutes(
+    chainAiChatElicitationRoutes(
+      chainAiChatAttachmentRoutes(
+        chainAiTranscriptionRoutes(chainAiChatRoutes(honoWithAdminLinks, app), app),
+        app
+      )
+    ),
+    app
+  )
 
   // Chain AI MCP cross-cutting status routes (X-1). Always registered: when
   // MCP_SERVER_ENABLED / MCP_ENABLED / MCP_CLIENT_SERVERS env vars are unset

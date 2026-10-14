@@ -20,7 +20,7 @@
  * page whose schema declares `components: []`).
  */
 export const SYNTHESIZED_COMPONENT_TYPES: ReadonlySet<string> = new Set([
-  'command-palette',
+  'command',
   'favorites-button',
 ])
 

@@ -117,6 +117,10 @@ const RENAMED_ON_DESIGN: ReadonlyMap<string, string> = new Map([
   ],
 ])
 
+/** `design.zones[].accentBudget` held a lock that no longer exists; nothing replaces it. */
+const ACCENT_BUDGET_REMOVED =
+  '`accentBudget` has been removed from `design.zones[]`: a zone is now `pattern`, `zone` and `voice`. Delete the key; no replacement is needed.'
+
 /**
  * The migration message for a removed key at a given config path, or
  * `undefined` when this module has nothing to say about it.
@@ -133,6 +137,7 @@ export const migrationHintForRemovedKey = (path: string, key: string): string | 
     if (key === 'scales') return SCALES_REMOVED
     return RENAMED_ON_DESIGN.get(key)
   }
+  if (key === 'accentBudget' && /^design\.zones\[\d+\]$/.test(path)) return ACCENT_BUDGET_REMOVED
   if (path === 'design.typeScale' && TYPE_SCALE_RUNGS.has(key)) {
     return `\`design.typeScale.${key}\` is now \`design.typeScale.steps.${key}\`. Every rung lives under \`steps\`; \`families\` names the faces.`
   }

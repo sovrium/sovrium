@@ -5,19 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Layer, Stream } from 'effect'
+import { Effect, Layer, Option, Stream } from 'effect'
+import { LanguageModel } from 'effect/ai'
 import {
   AiService,
-  AiProviderError,
   AiConfigError,
-  AiTimeoutError,
   type ChatInput,
-  type ChatReply,
-  type ChatChunk,
-  type ChatToolCall,
-  type AiError,
   type EmbedInput,
 } from '@/application/ports/services/ai-service'
+import { StorageService } from '@/application/ports/services/storage-service'
 import {
   resolveAiEcoRouting,
   resolveOllamaBaseUrl,
@@ -26,59 +22,46 @@ import {
   resolveBaseUrl,
   type SupportedAiProvider,
 } from '@/domain/models/process-env/ai/ai-providers'
-import { egressRetrySchedule, isRetryableHttpStatus } from '@/infrastructure/egress/egress-retry'
-import { withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import { boundedHttpClientLayer } from '@/infrastructure/egress/bounded-http-client'
 import { traceAiRequest } from '@/infrastructure/telemetry/ai-request-trace'
+import {
+  prepareAttachments,
+  resolveAttachmentTextLimits,
+  type ReadReferencedFile,
+} from './attachment-parts'
 import {
   DEFAULT_CLOUD_EMBEDDING_MODEL,
   DEFAULT_OLLAMA_EMBEDDING_MODEL,
   embedOllama,
   embedOpenAi,
 } from './embed'
-import { ollamaChat, ollamaChatStream } from './ollama-chat'
+import {
+  languageModelChat,
+  languageModelChatStream,
+  type ProviderCall,
+} from './language-model-chat'
+import { makeOllamaLanguageModel, OllamaCallConfig } from './ollama-language-model'
 import { getCachedOllamaReachable } from './ollama-reachability'
+import { openAiCompatCall, openAiCompatLanguageModelLayer } from './openai-compat-model'
 import { parseAiEnvConfig } from './parse-ai-env-config'
-import { parseSseChunks } from './sse-stream-parser'
 
 /**
  * AI Service Live adapter.
  *
- * Mirrors `StorageServiceLive` in shape:
- * - Reads env config once at layer construction
- * - Returns a no-op stub when the provider is unset (matches Storage's
- *   no-storage fallback per `project_storage_provider_contract`)
- * - When configured, calls an OpenAI-compatible `/chat/completions`
- *   endpoint at `${AI_BASE_URL}/chat/completions`. The mock test server
- * and the existing
- *   `AiComputeListener` already speak this shape.
+ * Reads env config, routes each call to a provider (`ECO_AI_PROVIDER_PRECEDENCE`,
+ * local-first by default), and speaks to it through an `effect/ai`
+ * `LanguageModel`:
  *
- * Error mapping:
- * - Non-2xx HTTP responses become `AiProviderError(statusCode, message)`
- *   so the route layer can return a sensible HTTP status. Mapping
- *   provider 5xx → HTTP 502 is the route's responsibility, not the
- *   adapter's.
- * - Missing-config calls become `AiConfigError` (used by the no-op stub
- *   and by post-construction guards).
+ * - a cloud provider through `@effect/ai-openai-compat` at
+ *   `${AI_BASE_URL}/chat/completions` — the mock test server
+ * speaks the same shape;
+ * - Ollama through a Sovrium-written `LanguageModel` on its native `/api/chat`.
+ *
+ * Both run over the bounded `HttpClient` (`egress/bounded-http-client.ts`).
+ * When no provider is configured the adapter is a stub whose calls fail with
+ * `AiConfigError`, which routes map onto 503 — the Storage service's
+ * no-storage fallback contract.
  */
-
-interface RawToolCall {
-  readonly id?: string
-  readonly function?: { readonly name?: string; readonly arguments?: string }
-}
-
-interface ChatCompletionPayload {
-  readonly choices?: ReadonlyArray<{
-    readonly message?: {
-      readonly content?: string | null
-      /**
-       * Absent, empty, or `null`: Mistral sends `"tool_calls": null` on every
-       * plain reply, where OpenAI omits the key — all three mean "no tool call".
-       */
-      readonly tool_calls?: ReadonlyArray<RawToolCall> | null
-    }
-  }>
-  readonly model?: string
-}
 
 const notConfiguredError = (): AiConfigError =>
   new AiConfigError({
@@ -89,13 +72,6 @@ const notConfiguredError = (): AiConfigError =>
 const missingCredentialsError = (): AiConfigError =>
   new AiConfigError({
     message: 'AI_BASE_URL and AI_API_KEY must both be set to call the AI provider.',
-  })
-
-const streamFailedError = (cause: unknown): AiError =>
-  new AiProviderError({
-    statusCode: 502,
-    message: `AI provider stream failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-    cause,
   })
 
 /**
@@ -112,351 +88,19 @@ const DEFAULT_TEMPERATURE = 0.7
  */
 const DEFAULT_MAX_TOKENS = 4096
 
-interface AiDefaults {
-  /** Resolved from `AI_TEMPERATURE` (undefined when unset). */
-  readonly temperature: number | undefined
-  /** Resolved from `AI_MAX_TOKENS` (undefined when unset). */
-  readonly maxTokens: number | undefined
-}
-
-/**
- * Resolved provider connection — bundled so the call helpers stay within the
- * 4-parameter limit (`max-params`) while still carrying base URL, credentials,
- * default model, and the common-parameter defaults.
- */
-interface ProviderConn {
-  readonly baseUrl: string
-  readonly apiKey: string
-  readonly defaultModel: string
-  readonly defaults: AiDefaults
-}
-
-/**
- * Serialize the port's {@link ChatMessage} list onto the OpenAI-compatible
- * wire shape. Camel-cased tool fields (`toolCallId`, `toolCalls`) are
- * translated to the wire's snake_case (`tool_call_id`, `tool_calls`), and the
- * assistant `tool_calls[]` are re-encoded with a JSON-string `arguments`
- * field so a real provider can correlate a follow-up tool result.
- */
-const serializeMessages = (
-  messages: ChatInput['messages']
-): ReadonlyArray<Record<string, unknown>> =>
-  messages.map((message) => ({
-    role: message.role,
-    content: message.content,
-    ...(message.toolCallId !== undefined && { tool_call_id: message.toolCallId }),
-    ...(message.toolCalls !== undefined && {
-      tool_calls: message.toolCalls.map((call) => ({
-        id: call.id,
-        type: 'function',
-        function: { name: call.name, arguments: JSON.stringify(call.arguments) },
-      })),
-    }),
-  }))
-
-/**
- * Build the OpenAI-compatible request body, layering the common AI
- * parameters: per-request input wins, then the `AI_*` env defaults, then a
- * hard-coded fallback. Both `temperature` and `max_tokens` are always
- * present on the request so behaviour is uniform across providers.
- */
-export const buildRequestBody = (
-  model: string,
-  defaults: AiDefaults,
-  input: ChatInput,
-  extra: Readonly<Record<string, unknown>> = {}
-): Record<string, unknown> => {
-  const temperature = input.temperature ?? defaults.temperature ?? DEFAULT_TEMPERATURE
-  const maxTokens = input.maxTokens ?? defaults.maxTokens ?? DEFAULT_MAX_TOKENS
-  return {
-    model,
-    messages: serializeMessages(input.messages),
-    temperature,
-    max_tokens: maxTokens,
-    ...(input.responseFormat ? { response_format: input.responseFormat } : {}),
-    ...(input.tools !== undefined && input.tools.length > 0 ? { tools: input.tools } : {}),
-    ...extra,
-  }
-}
-
-/**
- * Extract the OpenAI-compatible `tool_calls[]` from a chat-completion message
- * into the port's {@link ChatToolCall} shape. The wire format carries each
- * call's `arguments` as a JSON string; a malformed string degrades to an
- * empty object rather than failing the whole turn. A `null` list (Mistral's
- * shape for a plain reply) is read exactly like an absent one.
- */
-export const extractToolCalls = (
-  raw: ReadonlyArray<RawToolCall> | null | undefined
-): ReadonlyArray<ChatToolCall> | undefined => {
-  if (raw === undefined || raw === null || raw.length === 0) return undefined
-  return raw.map((call, index) => {
-    const argsString = call.function?.arguments ?? '{}'
-    const parsed = ((): Record<string, unknown> => {
-      try {
-        const value = JSON.parse(argsString) as unknown
-        return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {}
-      } catch {
-        return {}
-      }
-    })()
-    return {
-      id: call.id ?? `call_${String(index)}`,
-      name: call.function?.name ?? '',
-      arguments: parsed,
+/** The scope a call's settings ride in to the native Ollama model. */
+const ollamaCall =
+  (defaultTemperature: number | undefined) =>
+  (input: ChatInput, model: string): ProviderCall => {
+    const settings = {
+      model,
+      temperature: input.temperature ?? defaultTemperature ?? DEFAULT_TEMPERATURE,
     }
-  })
-}
-
-/**
- * True when a thrown `fetch`/body-read rejection is an abort caused by the
- * `AbortSignal.timeout` deadline. `AbortSignal.timeout` rejects with a
- * `DOMException` whose `name` is `'TimeoutError'` (or `'AbortError'`).
- *
- * NOTE: a 1ms-class deadline frequently lets the HTTP *headers* arrive — so
- * `fetch` itself resolves — but tears down the *body* stream mid-read. That
- * surfaces as a `SyntaxError` ("Unexpected end of JSON input") from
- * `response.json()`, NOT a `TimeoutError`. The caller therefore also consults
- * `signal.aborted` to classify a body-read failure as a timeout.
- */
-const isAbortTimeout = (cause: unknown): boolean =>
-  cause instanceof Error && (cause.name === 'TimeoutError' || cause.name === 'AbortError')
-
-/**
- * Deadline applied to a chat completion when the caller supplies no
- * `timeoutMs` of its own (standing rule E6).
- *
- * Before this existed, an absent `timeoutMs` meant no deadline at all — a
- * provider that accepted the connection and stopped talking held the fiber,
- * its pooled connection and, on a streaming route, a socket `server.stop()`
- * could not then drain. Two minutes is set against the worst realistic case
- * (a large model producing a long answer, which a non-streaming provider
- * buffers until done) rather than the typical one, so the default never
- * truncates a call that would otherwise have succeeded.
- */
-const DEFAULT_CHAT_REQUEST_TIMEOUT_MS = 120_000
-
-/**
- * Time-to-first-byte deadline for a STREAMING chat completion.
- *
- * A stream must not carry a whole-request deadline — that would cut a long
- * answer off mid-generation. `withFetchTimeout` is exactly the right shape
- * here: it aborts while the request is in flight and clears its timer the
- * moment the response headers arrive, so the body stream then runs unbounded.
- * What it bounds is the failure that actually happens — a provider that
- * accepts the connection and never begins the SSE stream.
- */
-const STREAM_HEADERS_TIMEOUT_MS = 60_000
-
-/**
- * A timeout error keyed to the deadline that actually applied — the caller's
- * `timeoutMs` when it supplied one, otherwise
- * {@link DEFAULT_CHAT_REQUEST_TIMEOUT_MS}. It can no longer be `0`: a timeout
- * only fires when a deadline exists, and now one always does.
- */
-const timeoutError = (timeoutMs: number | undefined): AiTimeoutError =>
-  new AiTimeoutError({
-    message: 'AI provider request timed out before a response was received.',
-    timeoutMs: timeoutMs ?? DEFAULT_CHAT_REQUEST_TIMEOUT_MS,
-  })
-
-/**
- * Read and validate a successful chat-completion HTTP response into a
- * {@link ChatReply}.
- *
- * A deadline that fired after the headers arrived tears down the body stream —
- * `response.json()` then throws a `SyntaxError`. When `signal.aborted` is set
- * such a body-read failure is reclassified as an {@link AiTimeoutError};
- * otherwise it is a genuine malformed-JSON `AiProviderError` (502-class).
- */
-const parseChatResponse = async (
-  response: Response,
-  model: string,
-  input: ChatInput,
-  signal: AbortSignal | undefined
-): Promise<ChatReply> => {
-  const payload = await response.json().catch((bodyErr: unknown) => {
-    if (signal?.aborted === true) throw timeoutError(input.timeoutMs)
-    throw new AiProviderError({
-      statusCode: 502,
-      message: `AI provider returned a malformed JSON response: ${
-        bodyErr instanceof Error ? bodyErr.message : String(bodyErr)
-      }`,
-    })
-  })
-  const message = (payload as ChatCompletionPayload).choices?.[0]?.message
-  const content = message?.content
-  const toolCalls = extractToolCalls(message?.tool_calls)
-  // A `tool_calls` response carries `content: null` — that is valid, not a
-  // malformed reply. Only a response with neither textual content NOR tool
-  // calls is rejected as malformed.
-  if (typeof content !== 'string' && toolCalls === undefined) {
-    throw new AiProviderError({
-      statusCode: 502,
-      message: 'AI provider returned a malformed chat-completion response',
-    })
+    return {
+      effect: (self) => Effect.provideService(self, OllamaCallConfig, settings),
+      stream: (self) => Stream.provideService(self, OllamaCallConfig, settings),
+    }
   }
-  return {
-    content: typeof content === 'string' ? content : '',
-    model: (payload as ChatCompletionPayload).model ?? model,
-    ...(toolCalls !== undefined && { toolCalls }),
-  } satisfies ChatReply
-}
-
-/**
- * Retry a non-streaming chat completion on a transient provider failure.
- *
- * Safe in the strict sense: nothing has been emitted to the caller, and a
- * completion creates no server-side record the provider could double-apply —
- * a retry is a fresh generation, not a duplicate side effect. A STREAMING call
- * gets no retry at all: once the first chunk is out the caller has already
- * seen a partial answer, and re-running would splice two generations together.
- *
- * Deliberately skipped when the caller supplied its own `timeoutMs`. That
- * deadline is a promise about total latency (an AI chat error spec turns it
- * into a 504), and silently spending three of them would break it.
- */
-const retryTransientChat = (
-  effect: Effect.Effect<ChatReply, AiError>,
-  input: ChatInput
-): Effect.Effect<ChatReply, AiError> =>
-  input.timeoutMs !== undefined
-    ? effect
-    : Effect.retry(effect, {
-        schedule: egressRetrySchedule(),
-        while: (error: AiError) =>
-          error._tag === 'AiProviderError' && isRetryableHttpStatus(error.statusCode),
-      })
-
-const callChatCompletions = (
-  conn: ProviderConn,
-  input: ChatInput
-): Effect.Effect<ChatReply, AiError> =>
-  retryTransientChat(
-    Effect.tryPromise({
-      try: async () => {
-        const model = input.model ?? conn.defaultModel
-        // Per-call deadline: the request is aborted
-        // deterministically at the deadline — far more reliable than racing an
-        // Effect timer against the round-trip, which bounds the response but not
-        // the socket. The caller's `timeoutMs` wins; an absent one now falls back
-        // to DEFAULT_CHAT_REQUEST_TIMEOUT_MS instead of leaving the request
-        // unbounded (standing rule E6). Kept in a local so the body parser can
-        // consult `.aborted` to distinguish a deadline-induced body-read failure
-        // from a genuine malformed response.
-        const signal = AbortSignal.timeout(input.timeoutMs ?? DEFAULT_CHAT_REQUEST_TIMEOUT_MS)
-        const response = await fetch(`${conn.baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${conn.apiKey}`,
-          },
-          // Schema would be ceremonial here: the request body is the
-          // OpenAI-compatible wire format (an opaque `Record<string, unknown>`
-          // assembled by `buildRequestBody`). The HTTP layer needs a JSON
-          // string, not a decoded domain value.
-          body: JSON.stringify(buildRequestBody(model, conn.defaults, input)),
-          signal,
-        })
-
-        if (!response.ok) {
-          // Read the body as text best-effort so the error message carries the
-          // provider's own diagnostic — invaluable when debugging E2E specs.
-          const body = await response.text().catch(() => '')
-          throw new AiProviderError({
-            statusCode: response.status,
-            message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
-          })
-        }
-
-        return await parseChatResponse(response, model, input, signal)
-      },
-      catch: (cause: unknown): AiError => {
-        if (
-          cause instanceof AiProviderError ||
-          cause instanceof AiConfigError ||
-          cause instanceof AiTimeoutError
-        ) {
-          return cause
-        }
-        if (isAbortTimeout(cause)) {
-          return timeoutError(input.timeoutMs)
-        }
-        return new AiProviderError({
-          statusCode: 502,
-          message: `AI provider request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-          cause,
-        })
-      },
-    }),
-    input
-  )
-
-const sendStreamingRequest = async (
-  conn: ProviderConn,
-  model: string,
-  input: ChatInput
-): Promise<Response> =>
-  withFetchTimeout(
-    `${conn.baseUrl}/chat/completions`,
-    {
-      method: 'POST',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${conn.apiKey}` },
-      body: JSON.stringify(buildRequestBody(model, conn.defaults, input, { stream: true })),
-    },
-    STREAM_HEADERS_TIMEOUT_MS
-  )
-
-const responseToStream = async (
-  response: Response,
-  model: string
-): Promise<Stream.Stream<ChatChunk, AiError>> => {
-  if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    throw new AiProviderError({
-      statusCode: response.status,
-      message: `AI provider returned HTTP ${String(response.status)}: ${body.slice(0, 200)}`,
-    })
-  }
-  if (response.body === null) {
-    throw new AiProviderError({
-      statusCode: 502,
-      message: 'AI provider returned a streaming response with no body',
-    })
-  }
-  return Stream.fromAsyncIterable(parseSseChunks(response.body, model), streamFailedError)
-}
-
-const mapStreamRequestError = (cause: unknown): AiError => {
-  if (cause instanceof AiProviderError || cause instanceof AiConfigError) {
-    return cause
-  }
-  return new AiProviderError({
-    statusCode: 502,
-    message: `AI provider stream request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
-    cause,
-  })
-}
-
-const openChatStream = (
-  conn: ProviderConn,
-  input: ChatInput
-): Stream.Stream<ChatChunk, AiError> => {
-  // Issue the streaming request lazily inside an Effect so its failure is
-  // surfaced on the Stream's error channel — Stream.unwrap then turns the
-  // returned-stream-or-error Effect into a Stream of the inner type.
-  const open: Effect.Effect<Stream.Stream<ChatChunk, AiError>, AiError> = Effect.tryPromise({
-    try: async () => {
-      const model = input.model ?? conn.defaultModel
-      const response = await sendStreamingRequest(conn, model, input)
-      return await responseToStream(response, model)
-    },
-    catch: mapStreamRequestError,
-  })
-
-  return Stream.unwrap(open)
-}
 
 const notConfiguredStub = (): ReturnType<typeof AiService.of> =>
   // No-op stub: every chat()/chatStream() fails with a clear "not configured"
@@ -472,8 +116,7 @@ const notConfiguredStub = (): ReturnType<typeof AiService.of> =>
 
 /**
  * Live adapter routed to the local Ollama provider (per
- * `ECO_AI_PROVIDER_PRECEDENCE`). Uses Ollama's native `/api/chat` endpoint
- * rather than the OpenAI-compatible shape the cloud providers use. The
+ * `ECO_AI_PROVIDER_PRECEDENCE`), on its native `/api/chat` ([internal ref] D4). The
  * configured `AI_API_KEY` (if any) is forwarded as a bearer token — Ollama
  * ignores it, but the E2E mock server uses it for per-test isolation.
  */
@@ -481,20 +124,37 @@ const makeOllamaAdapter = (
   ollamaBaseUrl: string,
   config: ReturnType<typeof parseAiEnvConfig>
 ): ReturnType<typeof AiService.of> => {
-  const conn = {
-    baseUrl: ollamaBaseUrl,
-    defaultModel: config.model ?? 'llama3.1',
-    apiKey: config.apiKey,
-    temperature: config.temperature,
-  }
+  const defaultModel = config.model ?? 'llama3.1'
+  const modelLayer = Layer.effect(
+    LanguageModel.LanguageModel,
+    makeOllamaLanguageModel({
+      baseUrl: ollamaBaseUrl,
+      apiKey: config.apiKey,
+      defaultModel,
+      defaultTemperature: config.temperature ?? DEFAULT_TEMPERATURE,
+    })
+  ).pipe(Layer.provide(boundedHttpClientLayer()))
+  const scopeCall = ollamaCall(config.temperature)
   const embeddingModel = process.env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_OLLAMA_EMBEDDING_MODEL
   return AiService.of({
     // Instrument the shared chat seam: `ai.request` child span + duration/count
     // metrics, labeled by the resolved provider (`ollama`), the request's model,
     // and the operation (`chat`) — never prompt text / user ids.
-    chat: (input: ChatInput) =>
-      traceAiRequest('ollama', input.model ?? conn.defaultModel, 'chat', ollamaChat(conn, input)),
-    chatStream: (input: ChatInput) => ollamaChatStream(conn, input),
+    chat: (input: ChatInput) => {
+      const model = input.model ?? defaultModel
+      return traceAiRequest(
+        'ollama',
+        model,
+        'chat',
+        languageModelChat(input, model, scopeCall(input, model)).pipe(Effect.provide(modelLayer))
+      )
+    },
+    chatStream: (input: ChatInput) => {
+      const model = input.model ?? defaultModel
+      return languageModelChatStream(input, model, scopeCall(input, model)).pipe(
+        Stream.provide(modelLayer)
+      )
+    },
     embed: (input: EmbedInput) =>
       embedOllama({ baseUrl: ollamaBaseUrl, apiKey: config.apiKey, model: embeddingModel }, input),
     embeddingModel: () => embeddingModel,
@@ -517,25 +177,40 @@ const makeCloudAdapter = (
   // calls reach cannot diverge (Mistral's public API is its default).
   const baseUrl = resolveBaseUrl(provider, process.env)
   const defaultModel = config.model ?? 'mock-model'
-  const defaults: AiDefaults = { temperature: config.temperature, maxTokens: config.maxTokens }
+  const scopeCall = openAiCompatCall({
+    temperature: config.temperature ?? DEFAULT_TEMPERATURE,
+    maxTokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
+  })
+  const modelLayer =
+    baseUrl === undefined || apiKey === undefined
+      ? undefined
+      : openAiCompatLanguageModelLayer({ baseUrl, apiKey, defaultModel })
   const embeddingModel = process.env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_CLOUD_EMBEDDING_MODEL
   return AiService.of({
     // Instrument the shared chat seam: `ai.request` child span + duration/count
     // metrics, labeled by the resolved cloud provider, the request's model, and
     // the operation (`chat`) — never prompt text / user ids / keys.
-    chat: (input: ChatInput) =>
-      traceAiRequest(
+    chat: (input: ChatInput) => {
+      const model = input.model ?? defaultModel
+      return traceAiRequest(
         provider,
-        input.model ?? defaultModel,
+        model,
         'chat',
-        baseUrl === undefined || apiKey === undefined
+        modelLayer === undefined
           ? Effect.fail(missingCredentialsError())
-          : callChatCompletions({ baseUrl, apiKey, defaultModel, defaults }, input)
-      ),
-    chatStream: (input: ChatInput) =>
-      baseUrl === undefined || apiKey === undefined
+          : languageModelChat(input, model, scopeCall(input, model)).pipe(
+              Effect.provide(modelLayer)
+            )
+      )
+    },
+    chatStream: (input: ChatInput) => {
+      const model = input.model ?? defaultModel
+      return modelLayer === undefined
         ? Stream.fail(missingCredentialsError())
-        : openChatStream({ baseUrl, apiKey, defaultModel, defaults }, input),
+        : languageModelChatStream(input, model, scopeCall(input, model)).pipe(
+            Stream.provide(modelLayer)
+          )
+    },
     embed: (input: EmbedInput) =>
       baseUrl === undefined
         ? Effect.fail(missingCredentialsError())
@@ -587,21 +262,41 @@ const adapterFor = (
  */
 export const AiServiceLive = Layer.effect(
   AiService,
-  Effect.sync(() => {
+  Effect.gen(function* () {
     const config = parseAiEnvConfig()
     const ollamaBaseUrl = resolveOllamaBaseUrl(process.env)
+    // The bucket reader a turn's file references resolve through, when the
+    // layer that built this one provided storage (`app-layer.ts`); without it a
+    // turn carrying a file fails closed (`attachment-parts.ts`).
+    const read: Option.Option<ReadReferencedFile> = Option.map(
+      yield* Effect.serviceOption(StorageService),
+      (storage) => (ref) => storage.download(ref.key, ref.bucket)
+    )
 
     /**
-     * The routed adapter, resolved on demand. Re-derived per call rather than
-     * cached here: the memo behind the probe is already the cache, and going
-     * through it is what lets routing catch up with an operator who starts or
-     * stops Ollama without restarting the server.
+     * The routed adapter and the routing that chose it, resolved on demand.
+     * Re-derived per call rather than cached here: the memo behind the probe
+     * is already the cache, and going through it is what lets routing catch up
+     * with an operator who starts or stops Ollama without restarting the
+     * server — and what judges a turn's files against THIS turn's routing.
      */
     // effect-promise: total -- `getCachedOllamaReachable` resolves `false` on every failure mode (DNS, refused, non-2xx, timeout) and never rejects.
-    const routedAdapter: Effect.Effect<AiAdapter> = Effect.map(
+    const routed = Effect.map(
       Effect.promise(() => getCachedOllamaReachable(ollamaBaseUrl)),
-      (reachable) => adapterFor(config, ollamaBaseUrl, resolveAiEcoRouting(process.env, reachable))
+      (reachable) => {
+        const routing = resolveAiEcoRouting(process.env, reachable)
+        return { routing, adapter: adapterFor(config, ollamaBaseUrl, routing) }
+      }
     )
+
+    /** The turn's input with its files resolved, for the adapter routing chose. */
+    const prepared = (input: ChatInput) =>
+      Effect.flatMap(routed, ({ routing, adapter }) =>
+        Effect.map(
+          prepareAttachments(input, routing, read, resolveAttachmentTextLimits(process.env)),
+          (ready) => ({ adapter, ready })
+        )
+      )
 
     /**
      * The adapter as CONFIGURATION alone describes it — routing resolved as if
@@ -624,11 +319,13 @@ export const AiServiceLive = Layer.effect(
     )
 
     return AiService.of({
-      chat: (input: ChatInput) => Effect.flatMap(routedAdapter, (adapter) => adapter.chat(input)),
+      chat: (input: ChatInput) =>
+        Effect.flatMap(prepared(input), ({ adapter, ready }) => adapter.chat(ready)),
       chatStream: (input: ChatInput) =>
-        Stream.unwrap(Effect.map(routedAdapter, (adapter) => adapter.chatStream(input))),
-      embed: (input: EmbedInput) =>
-        Effect.flatMap(routedAdapter, (adapter) => adapter.embed(input)),
+        Stream.unwrap(
+          Effect.map(prepared(input), ({ adapter, ready }) => adapter.chatStream(ready))
+        ),
+      embed: (input: EmbedInput) => Effect.flatMap(routed, ({ adapter }) => adapter.embed(input)),
       embeddingModel: () => configuredAdapter.embeddingModel(),
       isConfigured: () => configuredAdapter.isConfigured(),
     })

@@ -23,6 +23,7 @@
 
 import {
   isCanonicalStorageKey,
+  isChatAttachmentKey,
   STORAGE_KEY_MAX_BYTES,
   STORAGE_KEY_SEGMENT_MAX_BYTES,
   STORAGE_KEY_UUID_PREFIX_LENGTH,
@@ -112,7 +113,7 @@ const checkUploadFilename = (name: string): UploadRejection | undefined => {
  * would rewrite into a different key — an empty or `.` segment, a trailing `/` —
  * because the owner of a key is looked up by its literal text.
  */
-export const checkUploadPath = (path: string): UploadRejection | undefined => {
+const checkPathSpelling = (path: string): UploadRejection | undefined => {
   if (path.length === 0 || path.startsWith('/')) {
     return { reason: 'invalid-path', message: 'Invalid path: must be a non-empty relative path' }
   }
@@ -148,6 +149,17 @@ export const checkUploadPath = (path: string): UploadRejection | undefined => {
   }
   return undefined
 }
+
+/**
+ * Reject an explicit upload `path` — the storage key a file is stored at,
+ * verbatim — whose spelling a provider would rewrite (see the check above), or
+ * which falls under the chat attachment prefix: those keys are written by the
+ * chat's own route alone, so no bucket upload may create or replace one.
+ */
+export const checkUploadPath = (path: string): UploadRejection | undefined =>
+  isChatAttachmentKey(path)
+    ? { reason: 'invalid-path', message: 'Invalid path: this prefix is reserved' }
+    : checkPathSpelling(path)
 
 /** Whether the bucket's `allowedMimeTypes` admits this type. An absent list admits all. */
 export const isMimeTypeAllowed = (bucket: Readonly<Bucket>, mimeType: string): boolean => {

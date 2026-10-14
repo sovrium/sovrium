@@ -5,19 +5,26 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useId, useState, type ReactElement } from 'react'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { useId, useState, type ReactElement, type ReactNode } from 'react'
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
 import {
-  computeCommentComposerFieldClasses,
+  computeCommentComposerTextareaClasses,
   computeCommentFormClasses,
 } from '@/presentation/design/comments-default-classes'
 import { computeFormFieldErrorClasses } from '@/presentation/design/form-layout-classes'
+import {
+  computeInputGroupBlockAddonClasses,
+  computeInputGroupFrameClasses,
+} from '@/presentation/design/input-group-block-classes'
+import { pendingControlProps } from '@/presentation/design/pending-state'
+import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
 import { CommentMentionListbox } from './comment-mention-listbox'
 import { useCommentString } from './comment-strings'
 import { mentionOptionId, useMentionComposer, type MentionComposer } from './use-mention-composer'
 
-const SUBMIT_BUTTON = computeButtonDefaultClasses({ variant: 'default', size: 'sm' })
-const CANCEL_BUTTON = computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })
+const SUBMIT_BUTTON = computePartButtonClasses({ variant: 'default', size: 'sm' })
+const CANCEL_BUTTON = computePartButtonClasses({ variant: 'secondary', size: 'sm' })
+const COMPOSER_ADDON = computeInputGroupBlockAddonClasses({ align: 'block-end' })
 
 /**
  * Authenticated comment form.
@@ -65,10 +72,11 @@ function CommentFormActions({
   readonly onCancel?: () => void
 }): ReactElement {
   return (
-    <div className="flex gap-2">
+    <>
       <button
         type="submit"
-        disabled={isSubmitting}
+        data-slot="button"
+        {...pendingControlProps(isSubmitting)}
         className={SUBMIT_BUTTON}
       >
         {isSubmitting ? submittingLabel : submitLabel}
@@ -76,18 +84,21 @@ function CommentFormActions({
       {isReply && onCancel && (
         <button
           type="button"
+          data-slot="button"
           onClick={onCancel}
           className={CANCEL_BUTTON}
         >
           Cancel
         </button>
       )}
-    </div>
+    </>
   )
 }
 
 /**
- * A comment textarea that can mention people, with its picker under it.
+ * A comment textarea that can mention people, framed as an `input-group` whose
+ * `block-end` addon holds the buttons passed as children, with the picker
+ * under the group.
  *
  * The textarea stays a TEXTBOX — the writer is writing prose, and the picker is
  * an aid to it — and points at the picker with `aria-controls` and at the
@@ -97,32 +108,49 @@ export function MentionTextarea({
   composer,
   label,
   placeholder,
+  children,
 }: {
   readonly composer: MentionComposer
   readonly label: string
   readonly placeholder?: string
+  readonly children: ReactNode
 }): ReactElement {
   const listboxId = useId()
   const showsOption = composer.open && composer.candidates.length > 0
   return (
     <>
-      <textarea
-        ref={composer.textareaRef}
-        name="content"
-        aria-label={label}
-        aria-autocomplete="list"
-        {...(composer.open && { 'aria-controls': listboxId })}
-        {...(showsOption && {
-          'aria-activedescendant': mentionOptionId(listboxId, composer.activeIndex),
-        })}
-        placeholder={placeholder}
-        value={composer.value}
-        onChange={composer.onChange}
-        onSelect={composer.onSelect}
-        onKeyDown={composer.onKeyDown}
-        maxLength={10_000}
-        className={computeCommentComposerFieldClasses()}
-      />
+      <div
+        role="group"
+        data-slot="input-group"
+        className={computeInputGroupFrameClasses()}
+      >
+        <textarea
+          ref={composer.textareaRef}
+          name="content"
+          aria-label={label}
+          aria-autocomplete="list"
+          {...(composer.open && { 'aria-controls': listboxId })}
+          {...(showsOption && {
+            'aria-activedescendant': mentionOptionId(listboxId, composer.activeIndex),
+          })}
+          placeholder={placeholder}
+          value={composer.value}
+          onChange={composer.onChange}
+          onSelect={composer.onSelect}
+          onKeyDown={composer.onKeyDown}
+          maxLength={10_000}
+          data-slot="input-group-control"
+          className={computeCommentComposerTextareaClasses()}
+        />
+        <div
+          role="group"
+          data-slot="input-group-addon"
+          data-align="block-end"
+          className={COMPOSER_ADDON}
+        >
+          {children}
+        </div>
+      </div>
       {composer.open && (
         <CommentMentionListbox
           composer={composer}
@@ -174,6 +202,7 @@ export function CommentThreadForm({
   const labels = useComposerLabels(isReply)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    if (pressWhilePending(event)) return
     event.preventDefault()
     if (composer.value.trim().length === 0) {
       setErrorMessage(labels.empty)
@@ -195,7 +224,15 @@ export function CommentThreadForm({
         composer={composer}
         label={labels.textarea}
         placeholder={placeholder}
-      />
+      >
+        <CommentFormActions
+          isReply={isReply}
+          isSubmitting={isSubmitting}
+          submitLabel={labels.submit}
+          submittingLabel={labels.submitting}
+          onCancel={onCancel}
+        />
+      </MentionTextarea>
       {errorMessage && (
         <p
           role="alert"
@@ -204,13 +241,6 @@ export function CommentThreadForm({
           {errorMessage}
         </p>
       )}
-      <CommentFormActions
-        isReply={isReply}
-        isSubmitting={isSubmitting}
-        submitLabel={labels.submit}
-        submittingLabel={labels.submitting}
-        onCancel={onCancel}
-      />
     </form>
   )
 }

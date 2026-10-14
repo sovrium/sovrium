@@ -6,7 +6,11 @@
  */
 
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { applyResponsiveOverrides, buildResponsiveClasses } from './responsive-resolver'
+import {
+  applyResponsiveOverrides,
+  buildResponsiveClasses,
+  buildResponsiveColumnClasses,
+} from './responsive-resolver'
 import type { Responsive, VariantOverrides } from '@/domain/models/app/pages/components/responsive'
 import type { Breakpoint } from '@/presentation/render/props/use-breakpoint'
 
@@ -175,19 +179,22 @@ export function mergeResponsiveProps(
     responsive && !hasContentOverrides(responsive) && !hasChildrenOverrides(responsive)
 
   const visibilityClasses = shouldBuildVisibility ? buildVisibilityClasses(responsive) : undefined
+  const floorClasses =
+    [visibilityClasses, buildResponsiveColumnClasses(responsive)].filter(Boolean).join(' ') ||
+    undefined
 
-  const mergedPropsWithVisibility = visibilityClasses
+  const mergedPropsWithVisibility = floorClasses
     ? {
         ...mergedProps,
-        // The visibility classes are a FLOOR — they are what implements the
-        // author's own `responsive` config, so an author `className` must not
-        // be able to drop them. Same precedence as the client-side twin in
-        // `component-renderer.tsx`.
+        // The visibility and per-breakpoint column classes are a FLOOR — they
+        // implement the author's own `responsive` config, so an author
+        // `className` must not be able to drop them. Same precedence as the
+        // client-side twin in `component-renderer.tsx`.
         className: resolveClasses(
           '',
           undefined,
           mergedProps?.className as string | undefined,
-          visibilityClasses
+          floorClasses
         ),
       }
     : mergedProps

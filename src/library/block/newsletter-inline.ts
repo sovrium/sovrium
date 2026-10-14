@@ -74,7 +74,7 @@ export const entry = defineLibraryEntry({
           card(
             [
               stack(
-                [h3(p('headline')), para(p('subheadline'), 'text-md text-foreground-muted')],
+                [h3(p('headline')), para(p('subheadline'), 'text-md text-muted-foreground')],
                 'max-w-md gap-2'
               ),
               stack(

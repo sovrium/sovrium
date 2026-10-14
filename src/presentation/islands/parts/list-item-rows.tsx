@@ -21,12 +21,14 @@ import {
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
 import { isColumnFormat } from '@/domain/models/app/tables/column-format-validation'
 import {
+  LIST_ACTIONS_CLASSES,
+  LIST_EMPTY_PART_CLASSES,
   LIST_TEXT_COLUMN_CLASSES,
   computeListBadgeClasses,
-  computeListDividerClasses,
   computeListEmptyClasses,
   computeListItemClasses,
   computeListMetaClasses,
+  computeListSeparatorClasses,
   computeListSubtitleClasses,
   computeListThumbClasses,
   computeListTitleClasses,
@@ -90,14 +92,11 @@ export interface ItemTemplate {
 
 // Item-template rendering (declarative title/subtitle/image/badge/metadata)
 //
-// Every class below comes from `list-default-classes.ts`. Before wave R-D this
-// renderer emitted NO classes at all, so a data-bound list painted as the
-// browser's default bulleted list — indented behind a disc, on no surface.
-//
-// The `data-list-*` attributes are the selector contract the specs assert on
-// (`[data-list-item]`, `[data-list-title]`, `[data-list-subtitle]`,
-// `[data-list-badge]`, `[data-list-meta=<field>]`) and are untouched: each one
-// still sits on the same element, in the same order.
+// Each row is shadcn/ui's `Item` (`data-slot` on every part), its classes from
+// `list-default-classes.ts`. The `data-list-*` attributes are the selector
+// contract the specs assert on (`[data-list-item]`, `[data-list-title]`,
+// `[data-list-subtitle]`, `[data-list-badge]`, `[data-list-meta=<field>]`)
+// and stay on the same parts.
 
 /**
  * The trailing metadata group.
@@ -192,6 +191,8 @@ function renderItemBadge(
   const paint = field === undefined ? undefined : inputs?.badgePaints?.[String(record[field])]
   return (
     <span
+      data-slot="badge"
+      data-variant="secondary"
       data-list-badge="true"
       data-component-type="badge"
       className={computeListBadgeClasses()}
@@ -216,7 +217,7 @@ function renderItemBadge(
  */
 const rowClassesOf = (inputs: ListRowInputs | undefined): ListRowClasses =>
   inputs?.rowClasses ?? {
-    item: `${computeListItemClasses()} ${computeListDividerClasses()}`,
+    item: computeListItemClasses(),
     textColumn: LIST_TEXT_COLUMN_CLASSES,
     title: computeListTitleClasses(),
     subtitle: computeListSubtitleClasses(),
@@ -232,10 +233,62 @@ const sessionMarker = (
     ? { 'data-session-current': String(record['current']) }
     : {}
 
+/** The row's actions — its badge and its metadata — or nothing when it has neither. */
+function renderItemActions(badge: React.ReactNode, meta: React.ReactNode): React.ReactNode {
+  if (badge === undefined && meta === undefined) return undefined
+  return (
+    <div
+      data-slot="item-actions"
+      className={LIST_ACTIONS_CLASSES}
+    >
+      {badge}
+      {meta}
+    </div>
+  )
+}
+
+/** The row's content: the title over the description, when either exists. */
+function renderItemContent(
+  title: string | undefined,
+  subtitle: string | undefined,
+  classes: ListRowClasses
+): React.ReactNode {
+  if (title === undefined && subtitle === undefined) return undefined
+  return (
+    <div
+      data-slot="item-content"
+      className={classes.textColumn}
+    >
+      {title ? (
+        <div
+          data-slot="item-title"
+          data-list-title="true"
+          className={classes.title}
+        >
+          {title}
+        </div>
+      ) : undefined}
+      {subtitle ? (
+        <p
+          data-slot="item-description"
+          data-list-subtitle="true"
+          className={classes.subtitle}
+        >
+          {subtitle}
+        </p>
+      ) : undefined}
+    </div>
+  )
+}
+
+/**
+ * One row: shadcn/ui's `Item`, with its media, content and actions, and the
+ * item separator at its foot unless it is the last row (`separated`).
+ */
 export function renderItemTemplate(
   template: ItemTemplate,
   record: Record<string, unknown>,
-  key: string,
+  { key, separated = false }: { readonly key: string; readonly separated?: boolean },
   inputs: ListRowInputs | undefined
 ): React.ReactNode {
   const { labelled, title, image, subtitle, badge } = resolveItemSlots(template, record)
@@ -243,46 +296,60 @@ export function renderItemTemplate(
   return (
     <li
       key={key}
+      data-slot="item"
+      data-size="sm"
       data-list-item="true"
       tabIndex={inputs?.onItemEvent === undefined ? undefined : 0}
       className={classes.item}
       {...sessionMarker(record, inputs)}
     >
       {image ? (
-        <img
-          src={image}
-          alt={title ?? ''}
+        <div
+          data-slot="item-media"
+          data-variant="image"
           className={computeListThumbClasses()}
-        />
-      ) : undefined}
-      {/* The one element R-D adds to this template: title and subtitle are
-          siblings of the row's own row-direction flex, so without a column
-          wrapper they lay out side by side instead of stacking. Rendered only
-          when at least one of them exists, so a badge-only row is not pushed
-          right by an empty `flex-1` box. */}
-      {title !== undefined || subtitle !== undefined ? (
-        <div className={classes.textColumn}>
-          {title ? (
-            <span
-              data-list-title="true"
-              className={classes.title}
-            >
-              {title}
-            </span>
-          ) : undefined}
-          {subtitle ? (
-            <span
-              data-list-subtitle="true"
-              className={classes.subtitle}
-            >
-              {subtitle}
-            </span>
-          ) : undefined}
+        >
+          <img
+            src={image}
+            alt={title ?? ''}
+          />
         </div>
       ) : undefined}
-      {badge ? renderItemBadge(badge, record, inputs) : undefined}
-      {renderItemMetadata(template.metadata, labelled, inputs, { key, className: classes.meta })}
+      {renderItemContent(title, subtitle, classes)}
+      {renderItemActions(
+        badge ? renderItemBadge(badge, record, inputs) : undefined,
+        renderItemMetadata(template.metadata, labelled, inputs, { key, className: classes.meta })
+      )}
+      {separated ? (
+        <div
+          data-slot="item-separator"
+          className={computeListSeparatorClasses()}
+        />
+      ) : undefined}
     </li>
+  )
+}
+
+/** The empty message as shadcn/ui's `Empty`, its title the message. */
+function renderEmptyMessage(Tag: 'div' | 'li', message: string): React.ReactElement {
+  return (
+    <Tag
+      data-slot="empty"
+      data-list-empty="true"
+      className={computeListEmptyClasses()}
+    >
+      <div
+        data-slot="empty-header"
+        className={LIST_EMPTY_PART_CLASSES.header}
+      >
+        <div
+          data-slot="empty-title"
+          className={LIST_EMPTY_PART_CLASSES.title}
+        >
+          {message}
+        </div>
+      </div>
+    </Tag>
   )
 }
 
@@ -291,22 +358,6 @@ export function renderEmptyList(emptyMessage: string, ariaLabel?: string): React
   // A named list stays a list when it is empty: the reader is told the list
   // is there, and holds only the message.
   if (ariaLabel !== undefined)
-    return (
-      <ul aria-label={ariaLabel}>
-        <li
-          data-list-empty="true"
-          className={computeListEmptyClasses()}
-        >
-          {emptyMessage}
-        </li>
-      </ul>
-    )
-  return (
-    <p
-      data-list-empty="true"
-      className={computeListEmptyClasses()}
-    >
-      {emptyMessage}
-    </p>
-  )
+    return <ul aria-label={ariaLabel}>{renderEmptyMessage('li', emptyMessage)}</ul>
+  return renderEmptyMessage('div', emptyMessage)
 }

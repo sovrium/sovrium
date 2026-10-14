@@ -22,7 +22,7 @@ The three steps are the shipped values, so copying the ladder alone changes noth
 
 <!-- sovrium:options DensityStepSchema -->
 
-Each one emits a custom property the recipes read: `--sv-density-row-y`, `-control-h`, `-button-h`, `-gap` and `-text`.
+Each one emits a custom property the recipes read: `--sv-density-row-y`, `-control-h`, `-button-h`, `-gap` and `-text`. These are Sovrium's extensions of shadcn/ui's variable set, which names no density of its own; the colours stay on shadcn's names (`--background`, `--primary`, `--border`, …).
 
 `controlH` and `buttonH` were one number until they were two, and the reason is worth a sentence. A field and a small button both sit on a line, but they are asked for different things: a field is a place to type, and wants room for a cursor, a descender and a comfortable target; a small button is a label with a box drawn round it, and wants to disappear into a toolbar. Under a single key you could not give the field room without inflating every button beside it. The shipped ladder puts them 8px apart at every step — fields 36 / 40 / 44, buttons 28 / 32 / 36 — and `roomy`'s field lands exactly on the 44px enhanced target.
 
@@ -67,8 +67,8 @@ Three of the five properties are read by shipped recipes, so declaring a ladder 
 ```yaml
 design:
   zones:
-    - { pattern: '/app/*', zone: product, accentBudget: product }
-    - { pattern: 'everything else', zone: marketing, accentBudget: public }
+    - { pattern: '/app/*', zone: product }
+    - { pattern: 'everything else', zone: marketing }
   density:
     steps:
       compact: { rowY: 5px, controlH: 36px, buttonH: 28px, gap: 7px, text: 11px }

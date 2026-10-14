@@ -5,12 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { desc, eq, sql } from 'drizzle-orm'
+import { asc, desc, eq, sql } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   AccountDatabaseError,
   AccountRepository,
   type AccountAuditEntryRow,
+  type AccountChatAttachmentRow,
   type AccountFormSubmissionRow,
   type AccountLinkedRow,
   type AccountSessionRow,
@@ -20,11 +21,15 @@ import {
 } from '@/application/ports/repositories/auth/account-repository'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { db } from '@/infrastructure/database'
+import { readAiFootprint } from '@/infrastructure/database/account-export-ai-reads'
 import {
   authTableRef,
   formSubmissionsTable,
+  resolveDialectSchema,
 } from '@/infrastructure/database/drizzle/dialect-schema'
+import { aiChatAttachments as chatAttachmentsPg } from '@/infrastructure/database/drizzle/schema/ai'
 import { auditLog } from '@/infrastructure/database/drizzle/schema/audit-log'
+import { aiChatAttachments as chatAttachmentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import {
   executeRaw,
@@ -217,6 +222,23 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
         )) as readonly AccountFormSubmissionRow[]
     }),
 
+  loadChatAttachments: (userId) =>
+    wrap(async () => {
+      const uploads = resolveDialectSchema(chatAttachmentsPg, chatAttachmentsSqlite)
+      return (await db
+        .select({
+          id: uploads.id,
+          name: uploads.name,
+          size: uploads.size,
+          mimeType: uploads.mimeType,
+          sessionId: uploads.sessionId,
+          uploadedAt: uploads.createdAt,
+        })
+        .from(uploads)
+        .where(eq(uploads.userId, userId))
+        .orderBy(asc(uploads.createdAt), asc(uploads.id))) as readonly AccountChatAttachmentRow[]
+    }),
+
   loadAuditTrail: (userId) =>
     wrap(
       async () =>
@@ -232,6 +254,8 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
           .where(eq(auditLog.actorId, userId))
           .orderBy(desc(auditLog.createdAt), desc(auditLog.id))) as readonly AccountAuditEntryRow[]
     ),
+
+  loadAiFootprint: (userId, email) => wrap(() => readAiFootprint(userId, email)),
 
   loadScheduledErasure: (userId) =>
     wrap(async () => {

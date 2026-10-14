@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeRichTextLoadingClasses } from '@/presentation/design/editor-loading-classes'
 import { computeFormFieldLabelClasses } from '@/presentation/design/form-layout-classes'
-import { computeRichTextFrameClasses } from '@/presentation/design/rich-text-editor-default-classes'
 import { useDeferredComponent } from '../deferred-component'
 import type { RichTextEditorFieldProps } from '../rich-text-editor-field/props'
 import type { ReactElement } from 'react'
@@ -62,7 +62,7 @@ function RichTextLoading({
       <div
         role="status"
         aria-busy="true"
-        className={`${computeRichTextFrameClasses()} text-foreground-disabled min-h-14 px-3 py-2.5`}
+        className={computeRichTextLoadingClasses()}
       >
         {placeholder ?? ''}
       </div>

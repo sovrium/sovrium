@@ -19,6 +19,7 @@ import {
 import { resolveSignBucket } from '@/application/use-cases/buckets/signed-url-minting'
 import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
 import { inferMimeFromKey, isInlineSafeImageKey } from '@/domain/kernel/identity/mime-types'
+import { isChatAttachmentKey } from '@/domain/kernel/identity/storage-key'
 import { buildContentDisposition } from '@/domain/kernel/url/content-disposition'
 import { verifySignedUrl } from '@/domain/models/app/buckets/signed-url-service'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
@@ -51,8 +52,12 @@ export function downloadFromStorage(c: Context, path: string, bucket: BucketBind
   return Effect.runPromise(provideDomain(c, program).pipe(Effect.result))
 }
 
-/** Check whether a stored object exists by attempting a download. */
+/**
+ * Check whether a stored object exists by attempting a download. A chat
+ * attachment answers as absent: no bucket route signs or serves one.
+ */
 export async function fileExists(c: Context, path: string, bucket: string): Promise<boolean> {
+  if (isChatAttachmentKey(path)) return false
   const result = await downloadFromStorage(c, path, bucket)
   return result._tag === 'Success'
 }
@@ -88,6 +93,8 @@ async function streamSignedDownload(
   path: string,
   bucket: BucketBinding
 ): Promise<Response> {
+  // A chat attachment is served by the chat's own route only, as if absent here.
+  if (isChatAttachmentKey(path)) return notFound(c, 'File not found')
   const result = await downloadFromStorage(c, path, bucket)
   if (result._tag === 'Failure') {
     const { cause } = result.failure as { readonly cause?: unknown }

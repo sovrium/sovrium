@@ -6,7 +6,12 @@
  */
 
 import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import {
+  buildInvitationDefaultEmail,
+  buildMagicLinkDefaultEmail,
+} from '../../email/auth-link-emails'
 import { sendEmail } from '../../email/email-service'
+import { recipientEmailWords, type EmailWords } from '../../email/email-words'
 import {
   accountDeletionEmail,
   passwordResetEmail,
@@ -15,6 +20,7 @@ import {
 } from '../../email/templates'
 import { logError } from '../../logging'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
+import type { Languages } from '@/domain/models/app/languages'
 
 /**
  * The transport every handler hands its message to. Defaults to the
@@ -22,6 +28,11 @@ import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
  * observe the message a handler builds without sending it.
  */
 export type SendAuthEmail = typeof sendEmail
+
+/** The words an email to a reader is written in, from the language the account stored. */
+type WordsFor = (stored?: string | null) => EmailWords
+
+const ENGLISH: WordsFor = () => recipientEmailWords(undefined)
 
 /** Every value a custom template can name. */
 type SubstitutionContext = Readonly<{
@@ -92,8 +103,12 @@ type EmailHandlerConfig = Readonly<{
   emailType: string
   /** Function to build the action URL from base URL and token */
   buildUrl: (url: string, token: string) => string
-  /** Function to generate the default template when no custom template is provided */
-  getDefaultTemplate: (params: Readonly<{ userName?: string; actionUrl: string }>) => Readonly<{
+  /** The words a reader's stored language picks; English when absent */
+  wordsFor?: WordsFor
+  /** The default template, in the reader's words, when no custom template is provided */
+  getDefaultTemplate: (
+    params: Readonly<{ userName?: string; actionUrl: string; words: EmailWords }>
+  ) => Readonly<{
     subject: string
     html: string
     text: string
@@ -115,12 +130,13 @@ const createEmailHandler = (
   appName?: string,
   send: SendAuthEmail = sendEmail
 ) => {
+  const wordsFor = config.wordsFor ?? ENGLISH
   return async ({
     user,
     url,
     token,
   }: Readonly<{
-    user: Readonly<{ email: string; name?: string }>
+    user: Readonly<{ email: string; name?: string; language?: string | null }>
     url: string
     token: string
   }>) => {
@@ -144,6 +160,7 @@ const createEmailHandler = (
         const defaultTemplate = config.getDefaultTemplate({
           userName: user.name,
           actionUrl,
+          words: wordsFor(user.language),
         })
 
         await send({
@@ -165,16 +182,18 @@ const createEmailHandler = (
  * Create password reset email handler with optional custom templates
  */
 const createPasswordResetEmailHandler = (
-  customTemplate?: AuthEmailTemplate,
-  appName?: string,
-  send: SendAuthEmail = sendEmail
+  customTemplate: AuthEmailTemplate | undefined,
+  appName: string | undefined,
+  send: SendAuthEmail,
+  wordsFor: WordsFor
 ) =>
   createEmailHandler(
     {
       emailType: 'password reset',
+      wordsFor,
       buildUrl: (url, token) => `${url}?token=${token}`,
-      getDefaultTemplate: ({ userName, actionUrl }) =>
-        passwordResetEmail({ appName, userName, resetUrl: actionUrl, expiresIn: '1 hour' }),
+      getDefaultTemplate: ({ userName, actionUrl, words }) =>
+        passwordResetEmail({ appName, userName, resetUrl: actionUrl, expiresIn: '1 hour', words }),
     },
     customTemplate,
     appName,
@@ -185,17 +204,25 @@ const createPasswordResetEmailHandler = (
  * Create email verification handler with optional custom templates
  */
 const createVerificationEmailHandler = (
-  customTemplate?: AuthEmailTemplate,
-  appName?: string,
-  send: SendAuthEmail = sendEmail
+  customTemplate: AuthEmailTemplate | undefined,
+  appName: string | undefined,
+  send: SendAuthEmail,
+  wordsFor: WordsFor
 ) =>
   createEmailHandler(
     {
       emailType: 'verification',
+      wordsFor,
       // Better Auth sometimes includes token in URL already
       buildUrl: (url, token) => (url.includes('token=') ? url : `${url}?token=${token}`),
-      getDefaultTemplate: ({ userName, actionUrl }) =>
-        emailVerificationEmail({ appName, userName, verifyUrl: actionUrl, expiresIn: '24 hours' }),
+      getDefaultTemplate: ({ userName, actionUrl, words }) =>
+        emailVerificationEmail({
+          appName,
+          userName,
+          verifyUrl: actionUrl,
+          expiresIn: '24 hours',
+          words,
+        }),
     },
     customTemplate,
     appName,
@@ -203,40 +230,21 @@ const createVerificationEmailHandler = (
   )
 
 /**
- * The default magic-link email. The user's name and the link are escaped in
- * the HTML part and left raw in the text part.
- */
-export const buildMagicLinkDefaultEmail = ({
-  userName,
-  actionUrl,
-  appName,
-}: Readonly<{ userName?: string; actionUrl: string; appName?: string }>): Readonly<{
-  subject: string
-  html: string
-  text: string
-}> => {
-  const brand = resolveBrand(appName)
-  return {
-    subject: `Sign in to ${brand}`,
-    html: `<p>Hi ${escapeHtml(userName ?? 'there')},</p><p>Click here to sign in to ${escapeHtml(brand)}: <a href="${escapeHtml(actionUrl)}">Sign In</a></p><p>This link will expire in 10 minutes.</p>`,
-    text: `Hi ${userName ?? 'there'},\n\nClick here to sign in to ${brand}: ${actionUrl}\n\nThis link will expire in 10 minutes.`,
-  }
-}
-
-/**
  * Create magic link email handler with optional custom templates
  */
 const createMagicLinkEmailHandler = (
-  customTemplate?: AuthEmailTemplate,
-  appName?: string,
-  send: SendAuthEmail = sendEmail
+  customTemplate: AuthEmailTemplate | undefined,
+  appName: string | undefined,
+  send: SendAuthEmail,
+  wordsFor: WordsFor
 ) =>
   createEmailHandler(
     {
       emailType: 'magic link',
+      wordsFor,
       buildUrl: (url, token) => `${url}?token=${token}`,
-      getDefaultTemplate: ({ userName, actionUrl }) =>
-        buildMagicLinkDefaultEmail({ userName, actionUrl, appName }),
+      getDefaultTemplate: ({ userName, actionUrl, words }) =>
+        buildMagicLinkDefaultEmail({ userName, actionUrl, appName, words }),
     },
     customTemplate,
     appName,
@@ -408,28 +416,6 @@ const createAccountDeletionHandler = (
 }
 
 /**
- * The default invitation email. The invitee's and the inviter's names and the
- * link are escaped in the HTML part and left raw in the text part.
- */
-export const buildInvitationDefaultEmail = ({
-  name,
-  url,
-  inviterName,
-  appName,
-}: Readonly<{ name: string; url: string; inviterName: string; appName?: string }>): Readonly<{
-  subject: string
-  html: string
-  text: string
-}> => {
-  const brand = resolveBrand(appName)
-  return {
-    subject: `You are invited to join ${brand}`,
-    html: `<p>Hi ${escapeHtml(name)},</p><p>${escapeHtml(inviterName)} invited you to join ${escapeHtml(brand)}. Click <a href="${escapeHtml(url)}">here</a> to set your password and accept the invitation.</p><p>This link is single-use.</p>`,
-    text: `Hi ${name},\n\n${inviterName} invited you to join ${brand}. Click the link below to set your password and accept the invitation:\n\n${url}\n\nThis link is single-use.`,
-  }
-}
-
-/**
  * Create admin invitation email handler with optional custom template.
  *
  * Unlike the URL-based handlers above, the invitation handler is invoked
@@ -447,9 +433,10 @@ export const buildInvitationDefaultEmail = ({
  * link manually if SMTP is misconfigured).
  */
 const createInvitationEmailHandler = (
-  customTemplate?: AuthEmailTemplate,
-  appName?: string,
-  send: SendAuthEmail = sendEmail
+  customTemplate: AuthEmailTemplate | undefined,
+  appName: string | undefined,
+  send: SendAuthEmail,
+  wordsFor: WordsFor
 ) => {
   return async ({
     email,
@@ -482,7 +469,8 @@ const createInvitationEmailHandler = (
       await send({
         to: email,
         fromName: appName,
-        ...buildInvitationDefaultEmail({ name, url, inviterName, appName }),
+        // An invitee has no stored language yet: the app's default decides.
+        ...buildInvitationDefaultEmail({ name, url, inviterName, appName, words: wordsFor() }),
       })
     } catch (error) {
       logError(`[EMAIL] Failed to send invitation email to ${email}`, error)
@@ -496,14 +484,22 @@ const createInvitationEmailHandler = (
 export const createEmailHandlers = (
   authConfig?: Auth,
   appName?: string,
-  send: SendAuthEmail = sendEmail
+  send: SendAuthEmail = sendEmail,
+  languages?: Languages
 ) => {
   const templates: NonNullable<Auth['emailTemplates']> = authConfig?.emailTemplates ?? {}
+  // The reset, verification, magic-link and invitation defaults speak the reader's language.
+  const wordsFor: WordsFor = (stored) => recipientEmailWords(languages, stored)
 
   return {
-    passwordReset: createPasswordResetEmailHandler(templates.resetPassword, appName, send),
-    verification: createVerificationEmailHandler(templates.verification, appName, send),
-    magicLink: createMagicLinkEmailHandler(templates.magicLink, appName, send),
+    passwordReset: createPasswordResetEmailHandler(
+      templates.resetPassword,
+      appName,
+      send,
+      wordsFor
+    ),
+    verification: createVerificationEmailHandler(templates.verification, appName, send, wordsFor),
+    magicLink: createMagicLinkEmailHandler(templates.magicLink, appName, send, wordsFor),
     welcome: createWelcomeEmailHandler(templates.welcome, appName, send),
     emailOtp: createEmailOtpHandler(templates.emailOtp, appName, send),
     twoFactorBackupCodes: createTwoFactorBackupCodesHandler(
@@ -512,6 +508,6 @@ export const createEmailHandlers = (
       send
     ),
     accountDeletion: createAccountDeletionHandler(templates.accountDeletion, appName, send),
-    invitation: createInvitationEmailHandler(templates.invitation, appName, send),
+    invitation: createInvitationEmailHandler(templates.invitation, appName, send, wordsFor),
   }
 }

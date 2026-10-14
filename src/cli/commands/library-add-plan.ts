@@ -38,20 +38,25 @@
  */
 
 import { createHash } from 'node:crypto'
-import { realpath } from 'node:fs/promises'
-import { basename, dirname, join, resolve } from 'node:path'
-import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
-import { isPathWithin } from '@/domain/models/process-env/desktop'
-import { printStderr } from '@/infrastructure/logging/cli-output'
+import { basename, dirname, join } from 'node:path'
+import { refuse } from './app-prelude'
+import { definedNames } from './library-add-config'
 import { planBlockForms } from './library-add-forms'
 import { planOperationFragment } from './library-add-operations'
-import { resolveParams } from './library-add-params'
+import { defaultParams, requirementParams, resolveParams } from './library-add-params'
+import {
+  asOf,
+  editedMessage,
+  placementOf,
+  reinstallOf,
+  renderFragment,
+  updateSets,
+} from './library-add-reinstall'
 import { missingTablesMessage } from './library-add-tables'
-import { bindingName, provenanceHeader, renderTsFragment, renderYamlFragment } from './library-wire'
-import { loadConfigGraph } from './mcp-config-graph'
-import { lazyImportSchema } from './utils'
-import { validateParsedConfig } from './validate'
+import { bindingName } from './library-wire'
+import type { RootFormat } from './library-add-config'
 import type { OperationsRequest, PlannedOperations } from './library-add-operations'
+import type { Replaced } from './library-add-reinstall'
 import type { ConnectionOperation } from '@/domain/models/app/connections/operations'
 import type {
   LibraryCatalogueApi,
@@ -70,6 +75,8 @@ export interface LibraryAddRequest {
   readonly dryRun: boolean
   readonly noWire: boolean
   readonly version: string
+  /** `--update`: replace the installed fragment with what this version writes, edited or not. */
+  readonly update?: boolean
   /**
    * API operations to declare on the connection being installed — set only by
    * `library add <provider>/<operation>`, `--tag` and `--all`, where `entry`
@@ -77,8 +84,6 @@ export interface LibraryAddRequest {
    */
   readonly operations?: OperationsRequest
 }
-
-export type RootFormat = 'yaml' | 'json' | 'typescript'
 
 /** One file `add` would write, and where it is wired. */
 export interface PlannedInstall {
@@ -101,12 +106,12 @@ export interface PlannedInstall {
    * fragment: the write is skipped if the file changed on disk in between.
    */
   readonly expectedDigest?: string
-}
-
-/** What the config says, judged. */
-interface JudgedConfig {
-  readonly parsed: unknown
-  readonly errors: readonly string[]
+  /** A rewrite with new parameters: each change, `successPath /sign-in → /`. */
+  readonly updated?: readonly string[]
+  /** A fragment `--update` replaces, and what it carried. */
+  readonly replaced?: Replaced
+  /** A requirement's parameters and where each came from, for the line announcing it. */
+  readonly paramsNote?: string
 }
 
 const ITEM_NOUN: Readonly<Record<LibraryTargetKey, string>> = {
@@ -117,12 +122,6 @@ const ITEM_NOUN: Readonly<Record<LibraryTargetKey, string>> = {
 }
 
 const KEBAB = /^[a-z][a-z0-9-]*$/
-
-/** Stop with a refusal on stderr and exit 1. */
-export const refuse = (message: string): never => {
-  printStderr(message)
-  process.exit(1)
-}
 
 export const out = (lines: readonly string[]): void => {
   process.stdout.write(`${lines.join('\n')}\n`)
@@ -135,80 +134,7 @@ export const readIfExists = async (path: string): Promise<string | undefined> =>
   (await Bun.file(path).exists()) ? Bun.file(path).text() : undefined
 
 // =============================================================================
-// 2. The config
-// =============================================================================
-
-/** `--into`, contained in the working directory — symlinks included. */
-const resolveInto = async (cwd: string, into: string): Promise<string> => {
-  const outside = (): never =>
-    refuse(
-      `Error: --into "${into}" resolves outside the working directory.\n\n` +
-        `  library add only writes inside ${cwd}. Run it from the project directory instead.`
-    )
-  const candidate = resolve(cwd, into)
-  if (!isPathWithin(cwd, candidate)) return outside()
-  if (!(await Bun.file(candidate).exists())) return refuse(`Error: No config file at "${into}".`)
-  return isPathWithin(await realpath(cwd), await realpath(candidate)) ? candidate : outside()
-}
-
-export const findConfig = async (cwd: string, into: string | undefined): Promise<string> => {
-  if (into !== undefined) return resolveInto(cwd, into)
-  const { discoverDefaultConfigFile } = await lazyImportSchema()
-  const discovered = await discoverDefaultConfigFile(cwd)
-  return discovered === undefined
-    ? refuse(
-        `Error: No app config found in ${cwd}.\n\n` +
-          '  library add installs into an app config (app.yaml, app.yml or app.ts).\n' +
-          '  Create one with `sovrium init`, or name one with --into <config>.'
-      )
-    : resolve(cwd, discovered)
-}
-
-export const rootFormatOf = (configPath: string): RootFormat => {
-  const format = detectFormat(configPath)
-  return format === 'unsupported'
-    ? refuse('Error: Unsupported config format. Supported: .yaml, .yml, .json, .ts.')
-    : format
-}
-
-/** Load the graph (optionally with stand-in bytes) and decode it, never throwing. */
-export const judgeConfig = async (
-  configPath: string,
-  overlay?: ReadonlyMap<string, string>
-): Promise<JudgedConfig> => {
-  try {
-    const graph = await loadConfigGraph(
-      configPath,
-      overlay === undefined ? undefined : (path) => overlay.get(path)
-    )
-    const outcome = await validateParsedConfig(graph.parsed, graph.refSources)
-    return { parsed: graph.parsed, errors: outcome.errors }
-  } catch (error) {
-    return {
-      parsed: undefined,
-      errors: [`Failed to parse file: ${error instanceof Error ? error.message : String(error)}`],
-    }
-  }
-}
-
-export const indented = (errors: readonly string[]): string =>
-  errors.map((e) => `  ${e}`).join('\n')
-
-/** The names the config already gives the items under `key`. */
-const definedNames = (parsed: unknown, key: LibraryTargetKey): ReadonlySet<string> => {
-  const items = (parsed as Readonly<Record<string, unknown>> | undefined)?.[key]
-  return new Set(
-    Array.isArray(items)
-      ? items.flatMap((item: unknown) => {
-          const name = (item as { readonly name?: unknown } | null)?.name
-          return typeof name === 'string' ? [name] : []
-        })
-      : []
-  )
-}
-
-// =============================================================================
-// 3. The files it would write
+// 3. The files it would write (2, the config, is judged in `library-add-config.ts`)
 // =============================================================================
 
 export interface InstallContext {
@@ -239,17 +165,21 @@ const buildContent = (
   context: InstallContext,
   entry: LibraryEntry,
   { name, params }: InstallTarget,
-  operations: readonly ConnectionOperation[] = []
+  {
+    operations = [],
+    recordParams = true,
+  }: { readonly operations?: readonly ConnectionOperation[]; readonly recordParams?: boolean } = {}
 ): string => {
-  const header = provenanceHeader(
-    context.request.catalogue.libraryEntryId(entry),
-    context.request.version
-  )
   const built = entry.build({ name, params }) as Readonly<Record<string, unknown>>
-  const fragment: unknown = operations.length === 0 ? built : { ...built, operations }
-  return context.format === 'typescript'
-    ? renderTsFragment(header, bindingName(name), fragment)
-    : renderYamlFragment(header, fragment)
+  return renderFragment({
+    format: context.format,
+    id: context.request.catalogue.libraryEntryId(entry),
+    version: context.request.version,
+    params,
+    recordParams,
+    binding: bindingName(name),
+    value: operations.length === 0 ? built : { ...built, operations },
+  })
 }
 
 /** The name and parameters one install is built with. */
@@ -257,6 +187,7 @@ interface InstallTarget {
   readonly name: string
   readonly params: Readonly<Record<string, LibraryParamValue | undefined>>
   readonly requiredBy?: string
+  readonly paramsNote?: string
 }
 
 /** Where one install lands. */
@@ -287,7 +218,7 @@ const planOperationInstall = (
             takenBy: `${basename(context.configPath)} already defines a connection named "${target.name}" outside the library`,
           }
         : {}),
-      render: (declared) => buildContent(context, entry, target, declared),
+      render: (declared) => buildContent(context, entry, target, { operations: declared }),
     }),
   }
 }
@@ -296,7 +227,43 @@ const planOperationInstall = (
 const declaresOperationsOn = (context: InstallContext, entry: LibraryEntry): boolean =>
   context.request.operations !== undefined && entry === context.request.entry
 
-/** Plan one install, refusing an edited fragment and a name collision. */
+/** The fragment `target` writes, and what writing it over `onDisk` would do. */
+const reinstallFor = (
+  context: InstallContext,
+  entry: LibraryEntry,
+  target: InstallTarget,
+  onDisk: string | undefined
+) => {
+  const content = buildContent(context, entry, target)
+  const verdict = reinstallOf({
+    entry,
+    onDisk,
+    content,
+    params: target.params,
+    defaults: defaultParams(entry, context.parsed),
+    render: (params, recordParams) =>
+      buildContent(context, entry, { ...target, params }, { recordParams }),
+  })
+  return { content, verdict }
+}
+
+/** Where `entry` installed as `name` lands — `library/<kind>/<name>.<ext>` — and what is there. */
+const fragmentAt = async (context: InstallContext, entry: LibraryEntry, name: string) => {
+  const relativePath = `library/${entry.kind}/${name}.${context.format === 'typescript' ? 'ts' : 'yaml'}`
+  const absolutePath = join(dirname(context.configPath), relativePath)
+  return { relativePath, absolutePath, onDisk: await readIfExists(absolutePath) }
+}
+
+/**
+ * The running version when `--update` replaces this install's fragment: the
+ * requested entry's own, never a requirement's.
+ */
+const replaceWithFor = (context: InstallContext, target: InstallTarget): string | undefined =>
+  context.request.update === true && target.requiredBy === undefined
+    ? context.request.version
+    : undefined
+
+/** Plan one install, refusing an edited fragment unless `--update`, and a name collision. */
 const planOne = async (
   context: InstallContext,
   entry: LibraryEntry,
@@ -305,10 +272,8 @@ const planOne = async (
   const { catalogue } = context.request
   const id = catalogue.libraryEntryId(entry)
   const key = catalogue.LIBRARY_TARGET_KEY[entry.kind]
-  const extension = context.format === 'typescript' ? 'ts' : 'yaml'
-  const relativePath = `library/${entry.kind}/${target.name}.${extension}`
-  const absolutePath = join(dirname(context.configPath), relativePath)
-  const onDisk = await readIfExists(absolutePath)
+  const { relativePath, absolutePath, onDisk } = await fragmentAt(context, entry, target.name)
+  const replaceWith = replaceWithFor(context, target)
   if (declaresOperationsOn(context, entry))
     return planOperationInstall(
       context,
@@ -316,14 +281,9 @@ const planOne = async (
       { id, entry, name: target.name, key, relativePath, absolutePath },
       onDisk
     )
-  const content = buildContent(context, entry, target)
-
-  if (onDisk !== undefined && onDisk !== content)
-    return refuse(
-      `Error: ${relativePath} already exists and differs from what ${id} would write.\n\n` +
-        '  It was edited after it was installed, and library add never overwrites an edit.\n' +
-        '  Keep it, or move it aside and run the command again.'
-    )
+  const { content, verdict } = reinstallFor(context, entry, target, onDisk)
+  if (verdict.kind === 'edited' && replaceWith === undefined)
+    return refuse(editedMessage(relativePath, id, verdict.against, asOf(entry, target.name)))
   const taken = onDisk === undefined && definedNames(context.parsed, key).has(target.name)
   if (taken && target.requiredBy !== undefined) return undefined // already present: satisfied
   if (taken)
@@ -340,8 +300,9 @@ const planOne = async (
     relativePath,
     absolutePath,
     content,
-    present: onDisk !== undefined,
+    ...placementOf(verdict, onDisk, content, replaceWith),
     ...(target.requiredBy === undefined ? {} : { requiredBy: target.requiredBy }),
+    ...(target.paramsNote === undefined ? {} : { paramsNote: target.paramsNote }),
   }
 }
 
@@ -354,6 +315,7 @@ const planForms = async (
   const planned = await planBlockForms({
     catalogue: context.request.catalogue,
     version: context.request.version,
+    ...(context.request.update === true ? { update: true } : {}),
     format: context.format,
     configPath: context.configPath,
     takenNames: definedNames(context.parsed, 'forms'),
@@ -367,7 +329,21 @@ const planForms = async (
 export const planInstalls = async (context: InstallContext): Promise<readonly PlannedInstall[]> => {
   const { request } = context
   const primaryId = request.catalogue.libraryEntryId(request.entry)
-  const params = resolveParams(primaryId, request.entry, request.sets, context.parsed)
+  const name = request.as ?? request.entry.slug
+  if (!KEBAB.test(name))
+    return refuse(
+      `Error: --as "${name}" is not a kebab-case name (lowercase letters, digits, "-").`
+    )
+  // `--update` keeps the parameters the fragment records, each `--set` overriding its own.
+  const sets =
+    request.update === true
+      ? updateSets(
+          request.entry,
+          (await fragmentAt(context, request.entry, name)).onDisk,
+          request.sets
+        )
+      : request.sets
+  const params = resolveParams(primaryId, request.entry, sets, context.parsed)
   const tablesProblem = missingTablesMessage({
     parsed: context.parsed,
     configPath: context.configPath,
@@ -375,28 +351,26 @@ export const planInstalls = async (context: InstallContext): Promise<readonly Pl
     expected: request.catalogue.expectedTables(request.entry, params),
   })
   if (tablesProblem !== undefined) return refuse(tablesProblem)
-  const name = request.as ?? request.entry.slug
-  if (!KEBAB.test(name))
-    return refuse(
-      `Error: --as "${name}" is not a kebab-case name (lowercase letters, digits, "-").`
-    )
 
   const requirements = requirementsOf(context, request.entry, new Set([primaryId]))
   const primary = { name, params }
   // A block's forms are planned before it, so the primary install stays last.
   const planned = await Promise.all([
-    ...requirements.map(async (required) =>
-      planOne(context, required, {
-        name: required.slug,
-        params: resolveParams(
-          request.catalogue.libraryEntryId(required),
-          required,
-          [],
-          context.parsed
-        ),
-        requiredBy: primaryId,
+    ...requirements.map(async (required) => {
+      const resolved = requirementParams({
+        requiredId: request.catalogue.libraryEntryId(required),
+        required,
+        requested: request.entry,
+        sets: request.sets,
+        parsed: context.parsed,
       })
-    ),
+      return planOne(context, required, {
+        name: required.slug,
+        params: resolved.values,
+        requiredBy: primaryId,
+        ...(resolved.note === '' ? {} : { paramsNote: resolved.note }),
+      })
+    }),
     planForms(context, request.entry, primary),
     planOne(context, request.entry, primary),
   ])

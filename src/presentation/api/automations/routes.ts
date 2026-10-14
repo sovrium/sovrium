@@ -17,7 +17,6 @@ import {
   type ReplayAutomationRunError,
 } from '@/application/use-cases/automations/replay-automation-run'
 import { type RunAutomationError } from '@/application/use-cases/automations/run-automation'
-import { runPagePressedAutomation } from '@/application/use-cases/automations/run-page-pressed-automation'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { runDetailSchema } from '@/domain/models/api/automations/automations'
 import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
@@ -30,10 +29,12 @@ import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timez
 import { requireSession, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { isAutomationStoreFailure } from '@/presentation/api/runtime/automation-error-responses'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { answerOnce } from '@/presentation/api/runtime/idempotency'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import { handleListApprovals } from './approvals-handlers'
 import { automationsListedTo } from './automation-listing-reach'
 import { admitPageAction, type PageSessionResolver } from './page-action-gate'
+import { startPagePress } from './page-press'
 import {
   listedRuns,
   readListRunsQuery,
@@ -425,30 +426,12 @@ async function handleFormAction(c: Context, app: App, getSession?: PageSessionRe
   }
   const admitted = await admitPageAction(c, app, name, getSession)
   if (admitted === undefined) return notFound(c, 'Automation not found')
-
-  const body = (await c.req.json().catch(() => ({}))) as { inputData?: Record<string, unknown> }
-  const inputData = body.inputData ?? {}
-  // Expose the page-form payload at BOTH `trigger.data.body.X` (the form/webhook
-  // shape) AND `trigger.input.X` (the manual-trigger input shape). A page button
-  // that fires a `trigger: manual` automation carries the manual trigger's
-  // declared `inputSchema` values, so actions that read `{{trigger.input.X}}`
-  // (the manual-trigger convention) resolve identically to a direct manual call.
-  const triggerData = { body: inputData, input: inputData }
-  // A paused or switched-off automation is refused like an unknown name; a
-  // signed-in presser (the session the gate judged) is recorded as the starter.
-  const program = runPagePressedAutomation({
-    ...admitted,
-    app,
-    processEnv: process.env,
-    triggerData,
-  })
-  const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
-  if (result._tag === 'Failure') return notFound(c, 'Automation not found')
-  if (result.success === undefined) {
-    return c.json({ success: false, message: 'Automation dispatch failed' }, 500)
-  }
-  const started = { automationName: name, result: result.success }
-  return c.json(await triggerResponseAsSeenByCaller(c, app, started), 200)
+  // A duplicate under its idempotency key is answered before anything starts.
+  const sent = ((await c.req.json().catch(() => undefined)) ?? {}) as Record<string, unknown>
+  const scope = { kind: 'automations', name, userId: admitted.userId } as const
+  return answerOnce(c, { scope, body: sent }, (body) =>
+    startPagePress(c, app, { name, admitted, body })
+  )
 }
 
 /**

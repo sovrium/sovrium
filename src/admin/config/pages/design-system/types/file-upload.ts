@@ -35,7 +35,7 @@ const fileRow = (name: string, size: string): PageComponent =>
       {
         type: 'text',
         element: 'span',
-        props: { className: 'text-foreground-subtle text-[11px]' },
+        props: { className: 'text-muted-foreground text-xs' },
         content: size,
       },
     ],
@@ -188,7 +188,7 @@ const fileUpload: TypePageBody = {
                 {
                   type: 'text',
                   element: 'p',
-                  props: { className: 'text-error-fg text-[11px]' },
+                  props: { className: 'text-destructive text-xs' },
                   content: 'Too large — the limit is 10 MB and this file is 24 MB.',
                 },
               ],

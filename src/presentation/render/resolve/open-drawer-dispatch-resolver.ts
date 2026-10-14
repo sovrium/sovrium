@@ -9,7 +9,7 @@
  * Open-Drawer Dispatch Resolver (PG-04)
  *
  * Walks a page's component tree once and identifies any drawer whose `id` is
- * referenced by a sibling component's `onRowClick.action === 'openDrawer'`
+ * referenced by a sibling component's `onRowClick.action === 'openSheet'`
  * (the "quick-edit drawer" pattern), or a board's `card.onClick` or a
  * gallery's `galleryCard.onClick` of that shape, or a board's drop hook
  * (`drag.onDrop[].action`). Each referenced drawer is
@@ -19,7 +19,7 @@
  * only in response to the dispatched `sovrium:open-drawer` CustomEvent fired
  * when a row (or a board or gallery card) is clicked.
  *
- * Drawers that are NOT referenced by an `openDrawer` action keep the legacy
+ * Drawers that are NOT referenced by an `openSheet` action keep the legacy
  * default-open contract — the pre-hydration `data-click-modal` click handler
  * still relies on it.
  *
@@ -31,14 +31,14 @@
 import type { Component } from '@/domain/models/app/pages/components'
 
 interface OpenDrawerOnRowClick {
-  readonly action: 'openDrawer'
+  readonly action: 'openSheet'
   readonly component: string
 }
 
 function isOpenDrawerAction(value: unknown): value is OpenDrawerOnRowClick {
   if (typeof value !== 'object' || value === null) return false
   const record = value as Record<string, unknown>
-  return record['action'] === 'openDrawer' && typeof record['component'] === 'string'
+  return record['action'] === 'openSheet' && typeof record['component'] === 'string'
 }
 
 /**
@@ -51,7 +51,7 @@ function collectRelatedRowTargets(component: Component | string): readonly strin
   if (typeof component === 'string') return []
   const { type, related, children } = component as Record<string, unknown>
   const own =
-    type === 'drawer' && Array.isArray(related)
+    type === 'sheet' && Array.isArray(related)
       ? related.flatMap((entry: unknown) => {
           const onRowClick = (entry as Record<string, unknown> | null)?.['onRowClick']
           return isOpenDrawerAction(onRowClick) ? [onRowClick.component] : []
@@ -66,7 +66,7 @@ function collectRelatedRowTargets(component: Component | string): readonly strin
 
 /**
  * The drawer a board's or a gallery's cards open, when `card.onClick` (or
- * `galleryCard.onClick`) is an `openDrawer` — the same verb a grid row click
+ * `galleryCard.onClick`) is an `openSheet` — the same verb a grid row click
  * takes, so its drawer starts closed the same way.
  */
 function cardClickTarget(card: unknown): readonly string[] {
@@ -75,7 +75,7 @@ function cardClickTarget(card: unknown): readonly string[] {
 }
 
 /**
- * The drawers a board's drop hooks open (`drag.onDrop[].action: openDrawer`):
+ * The drawers a board's drop hooks open (`drag.onDrop[].action: openSheet`):
  * opened on the moved card once its move is saved, so they start closed like
  * the drawer a card click opens.
  */
@@ -88,7 +88,7 @@ function dropHookTargets(drag: unknown): readonly string[] {
   })
 }
 
-/** Recursively collect every drawer-id referenced by `onRowClick: { action: 'openDrawer', component }` (or a board's `card.onClick`, a gallery's `galleryCard.onClick`) in the subtree rooted at `component`. */
+/** Recursively collect every drawer-id referenced by `onRowClick: { action: 'openSheet', component }` (or a board's `card.onClick`, a gallery's `galleryCard.onClick`) in the subtree rooted at `component`. */
 function collectIdsFromComponent(component: Component | string): readonly string[] {
   if (typeof component === 'string') return []
   const { onRowClick, onSelect, onPinClick, card, galleryCard, drag, children } =
@@ -107,16 +107,16 @@ function collectIdsFromComponent(component: Component | string): readonly string
   return [...selfId, ...childIds]
 }
 
-/** Collect every drawer-id referenced by an `onRowClick: { action: 'openDrawer', component }` somewhere in the tree. */
+/** Collect every drawer-id referenced by an `onRowClick: { action: 'openSheet', component }` somewhere in the tree. */
 function collectDispatchedDrawerIds(components: readonly Component[]): ReadonlySet<string> {
   return new Set(components.flatMap(collectIdsFromComponent))
 }
 
 /** The two kinds of dispatch a drawer can be the target of. */
 interface DispatchTargets {
-  /** Ids a grid's `onRowClick: openDrawer` names. */
+  /** Ids a grid's `onRowClick: openSheet` names. */
   readonly grid: ReadonlySet<string>
-  /** Ids a drawer's `related[].onRowClick: openDrawer` names. */
+  /** Ids a drawer's `related[].onRowClick: openSheet` names. */
   readonly relatedRow: ReadonlySet<string>
 }
 
@@ -129,7 +129,7 @@ interface DispatchTargets {
  */
 function tagDrawerIfDispatched(component: Component, targets: DispatchTargets): Component {
   const { type, id, props } = component as Record<string, unknown>
-  if (type !== 'drawer' || typeof id !== 'string') return component
+  if (type !== 'sheet' || typeof id !== 'string') return component
   const fromGrid = targets.grid.has(id)
   const fromRelatedRow = targets.relatedRow.has(id)
   if (!fromGrid && !fromRelatedRow) return component

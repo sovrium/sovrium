@@ -70,6 +70,7 @@ import { filterChildrenForRecord } from '@/presentation/render/resolve/record-vi
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
+import type { AddressBoundRecord } from '@/presentation/render/resolve/row-attachment-addresses'
 
 /** The loose shape of a page-level dataSource after the CAP-2 union widening. */
 interface PageLevelDataSource {
@@ -212,6 +213,8 @@ export interface SystemRecordReaders {
   readonly translate?: RunStatusTranslator | undefined
   /** The page's language and tables, for the `{ table }` arm's text sites. */
   readonly recordText?: RecordTextContext | undefined
+  /** Makes the `{ table }` arm's attachment tokens addresses, as a list row's are. */
+  readonly addressRecord?: AddressBoundRecord | undefined
 }
 
 /** The page as bound, or the page's own 404. */
@@ -312,8 +315,13 @@ export async function applyPageLevelRecordBinding(
     return bindSystemRecord(page, ds.system, routeParams, readers)
   }
   if (ds?.mode === 'single' && hostRecord !== undefined) {
-    const record = pageRecordOf(withApiTimestamps(hostRecord), ds.table, readers.recordText)
-    const components = substitutePageComponents(page.components, record, ds.table)
+    const stored = withApiTimestamps(hostRecord)
+    const bound = (await readers.addressRecord?.(page.components, stored, ds.table ?? '')) ?? {
+      tree: page.components,
+      record: stored,
+    }
+    const record = pageRecordOf(bound.record, ds.table, readers.recordText)
+    const components = substitutePageComponents(bound.tree, record, ds.table)
     return { kind: 'page', page: { ...page, components: bindComments(components, record, ds) } }
   }
   return { kind: 'page', page }

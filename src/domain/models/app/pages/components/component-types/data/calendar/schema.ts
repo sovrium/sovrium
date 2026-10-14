@@ -22,8 +22,8 @@ import { ActionSchema } from '../../../action'
  */
 export const CalendarViewSchema = Schema.Literals(['month', 'week', 'day']).annotate({
   identifier: 'CalendarView',
-  title: 'Calendar View',
-  description: 'Calendar display mode: month grid, week view, or day view',
+  title: 'Event Calendar View',
+  description: 'Event calendar display mode: month grid, week view, or day view',
 })
 
 // ---------------------------------------------------------------------------
@@ -50,7 +50,7 @@ export const CalendarEventConfigSchema = Schema.Struct({
   onEventClick: Schema.optional(ActionSchema),
 }).annotate({
   identifier: 'CalendarEventConfig',
-  title: 'Calendar Event Config',
+  title: 'Event Calendar Event Config',
   description: 'Configuration for how events are displayed and interacted with on the calendar',
 })
 
@@ -96,7 +96,7 @@ export const CalendarInteractionSchema = Schema.Struct({
   ),
 }).annotate({
   identifier: 'CalendarInteraction',
-  title: 'Calendar Interaction',
+  title: 'Event Calendar Interaction',
   description: 'Configuration for calendar user interactions (date clicks, drag, time slots)',
 })
 

@@ -5,20 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  computeDateCaptionClasses,
-  computeDateNavButtonClasses,
-  computeDatePopupClasses,
-} from './date-default-classes'
-import { MONTH_NAMES, type DateRange } from './date-format-helpers'
-import { DateGrid } from './date-grid'
-import type { ReactElement } from 'react'
+import { useCallback, useMemo, type ReactElement } from 'react'
+import { Calendar } from '../parts/day-picker'
+import { computeDatePopupClasses } from './date-default-classes'
+import { calendarBounds, type DateRange } from './date-format-helpers'
 
 interface DatePickerPopupProps {
   readonly label: string | undefined
   readonly viewMonth: Date
-  readonly onPrevMonth: () => void
-  readonly onNextMonth: () => void
+  readonly onMonthChange: (month: Date) => void
   readonly minDateObj: Date | undefined
   readonly maxDateObj: Date | undefined
   readonly datePickerMode: 'single' | 'range'
@@ -44,8 +39,8 @@ interface DatePickerPopupProps {
 }
 
 /**
- * Calendar popup `<div role="dialog">` containing the month-nav buttons
- * + the `<DateGrid>` mount.
+ * Calendar popup `<div role="dialog">` around the shared {@link Calendar}: its
+ * month navigation, caption and day grid are react-day-picker's.
  *
  * With {@link DatePickerPopupProps.depicted} set it is the same panel without
  * the dialog role and without the floating position — see that prop.
@@ -53,8 +48,7 @@ interface DatePickerPopupProps {
 export function DatePickerPopup({
   label,
   viewMonth,
-  onPrevMonth,
-  onNextMonth,
+  onMonthChange,
   minDateObj,
   maxDateObj,
   datePickerMode,
@@ -63,43 +57,45 @@ export function DatePickerPopup({
   onDayClick,
   depicted = false,
 }: DatePickerPopupProps): ReactElement {
+  const bounds = useMemo(() => calendarBounds(minDateObj, maxDateObj), [minDateObj, maxDateObj])
+  // react-day-picker hands over the day it would select; the island's own
+  // state machine decides what that day does, so the range rules stay in one
+  // place whichever grid draws the days.
+  const handleSelect = useCallback(
+    (_selection: unknown, day: Date) => onDayClick(day),
+    [onDayClick]
+  )
+  const selectedRange = useMemo(
+    () => (rangeValue?.from ? { from: rangeValue.from, to: rangeValue.to } : undefined),
+    [rangeValue]
+  )
   return (
     <div
       role={depicted ? undefined : 'dialog'}
       aria-label={depicted ? undefined : (label ?? 'Choose date')}
       data-specimen-open={depicted ? 'true' : undefined}
+      data-slot="popover-content"
       className={computeDatePopupClasses({ depicted })}
     >
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <button
-          type="button"
-          aria-label="previous month"
-          onClick={onPrevMonth}
-          className={computeDateNavButtonClasses({ direction: 'previous' })}
-        >
-          ‹
-        </button>
-        <span className={computeDateCaptionClasses()}>
-          {MONTH_NAMES[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-        </span>
-        <button
-          type="button"
-          aria-label="next month"
-          onClick={onNextMonth}
-          className={computeDateNavButtonClasses({ direction: 'next' })}
-        >
-          ›
-        </button>
-      </div>
-      <DateGrid
-        viewMonth={viewMonth}
-        minDateObj={minDateObj}
-        maxDateObj={maxDateObj}
-        datePickerMode={datePickerMode}
-        singleValue={singleValue}
-        rangeValue={rangeValue}
-        onDayClick={onDayClick}
-      />
+      {datePickerMode === 'range' ? (
+        <Calendar
+          mode="range"
+          month={viewMonth}
+          onMonthChange={onMonthChange}
+          disabled={bounds}
+          selected={selectedRange}
+          onSelect={handleSelect}
+        />
+      ) : (
+        <Calendar
+          mode="single"
+          month={viewMonth}
+          onMonthChange={onMonthChange}
+          disabled={bounds}
+          selected={singleValue}
+          onSelect={handleSelect}
+        />
+      )}
     </div>
   )
 }

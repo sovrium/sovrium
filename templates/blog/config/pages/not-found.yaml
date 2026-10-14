@@ -29,7 +29,7 @@ components:
       - type: text
         element: p
         props:
-          className: text-[17px] text-foreground-muted
+          className: text-[17px] text-muted-foreground
         content: It may have been unpublished, or the link lost a letter. The published essays are one click away.
       - type: container
         props:
@@ -43,6 +43,6 @@ components:
           - type: link
             props:
               href: /feed.xml
-              className: inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background-raised px-3 text-[14px] font-medium text-foreground no-underline hover:bg-background-subtle
+              className: inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-[14px] font-medium text-foreground no-underline hover:bg-muted
             content: Follow the RSS feed
   - $ref: ./_site-footer.yaml

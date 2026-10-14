@@ -6,8 +6,9 @@
  */
 
 import { Schema } from 'effect'
+import { ButtonSizeSchema } from '../../button-variant'
 import { ConfirmGateSchema } from '../../confirm-gate'
-import { ButtonVariantSchema, ComponentSizeSchema } from '../../shared-schemas'
+import { ButtonVariantSchema } from '../../shared-schemas'
 import { actionFields } from '../modules/action'
 import { contentFields } from '../modules/content'
 import { coreFields } from '../modules/core'
@@ -27,7 +28,19 @@ export const buttonFields = {
   ...actionFields,
   ...i18nFields,
   variant: Schema.optional(ButtonVariantSchema),
-  size: Schema.optional(ComponentSizeSchema),
+  size: Schema.optional(ButtonSizeSchema),
+  /**
+   * A Lucide icon drawn before the label — or alone, on an icon size, where the
+   * `label` becomes the button's accessible name instead of its visible text.
+   */
+  icon: Schema.optional(
+    Schema.String.annotate({
+      title: 'Icon',
+      description:
+        'A Lucide icon name drawn before the label. On an icon size (`icon`, `icon-xs`, `icon-sm`, `icon-lg`) it is drawn alone and `label` names the button.',
+      examples: ['printer', 'plus'],
+    })
+  ),
   loading: Schema.optional(
     Schema.Boolean.annotate({ description: 'Show a loading spinner inside the button' })
   ),

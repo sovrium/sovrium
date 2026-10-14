@@ -47,7 +47,9 @@ import {
   computeMenuItemToggleTrackClasses,
   computeMenuPopupClasses,
   computeMenuSeparatorClasses,
+  computeMenuShortcutClasses,
 } from './menu-default-classes'
+import { useMenuKind } from './menu-slot-context'
 import type { MenuItem, MenuSurface } from './menu-item-types'
 import type { ReactElement } from 'react'
 
@@ -59,6 +61,7 @@ import type { ReactElement } from 'react'
  * or a name lucide does not know), so the icon needs no conditional here.
  */
 export function MenuItemBody({ item }: { readonly item: MenuItem }): ReactElement {
+  const kind = useMenuKind()
   return (
     <>
       <LucideGlyph
@@ -66,12 +69,17 @@ export function MenuItemBody({ item }: { readonly item: MenuItem }): ReactElemen
         name={item.icon}
         size={16}
         aria-hidden="true"
-        className="mr-2 shrink-0"
+        className="shrink-0"
         data-testid={`menu-item-icon-${item.icon ?? ''}`}
       />
       <span className="flex-1">{item.label}</span>
       {item.shortcut && (
-        <span className="text-foreground-subtle ml-4 text-sm">{item.shortcut}</span>
+        <span
+          data-slot={`${kind}-shortcut`}
+          className={computeMenuShortcutClasses()}
+        >
+          {item.shortcut}
+        </span>
       )}
     </>
   )
@@ -145,6 +153,8 @@ function DrawnMenuItem({
   return (
     <div
       role={toggled ? 'menuitemcheckbox' : 'menuitem'}
+      data-slot={toggled ? 'dropdown-menu-checkbox-item' : 'dropdown-menu-item'}
+      data-variant={item.variant ?? 'default'}
       aria-checked={toggled ? (item.toggle === 'checked' ? 'true' : 'false') : undefined}
       aria-disabled={item.disabled === true ? 'true' : undefined}
       className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
@@ -192,6 +202,7 @@ export function MenuPopupBody({
     <div
       role="menu"
       data-specimen-open="true"
+      data-slot="dropdown-menu-content"
       className={computeMenuPopupClasses({ variant: surface })}
     >
       {menuItems.map((item, index) =>
@@ -199,6 +210,7 @@ export function MenuPopupBody({
           <div
             key={`sep-${String(index)}`}
             role="separator"
+            data-slot="dropdown-menu-separator"
             className={computeMenuSeparatorClasses()}
           />
         ) : (

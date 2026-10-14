@@ -24,7 +24,7 @@ function createVersionBadge(version: string): Component {
         props: {
           'data-testid': 'app-version-badge',
           className:
-            'inline-flex items-center rounded-full border px-2.5 py-0.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-fg hover:bg-primary/80',
+            'inline-flex items-center rounded-full border px-2.5 py-0.5 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-foreground hover:bg-primary/80',
         },
         content: version,
       },
@@ -54,7 +54,7 @@ function createHomePageContent(app: App): ReadonlyArray<Component | string> {
             element: 'p',
             props: {
               'data-testid': 'app-description',
-              className: 'text-2xl text-foreground-muted text-center',
+              className: 'text-2xl text-muted-foreground text-center',
             },
             content: app.description,
           },
@@ -154,7 +154,7 @@ function createErrorSection(
               type: 'text',
               element: 'p',
               props: {
-                className: 'mb-8 text-2xl text-foreground-muted',
+                className: 'mb-8 text-2xl text-muted-foreground',
               },
               content: message,
             },

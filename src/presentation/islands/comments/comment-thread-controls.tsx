@@ -10,7 +10,7 @@
  * file to respect the per-island `max-lines: 250` cap.
  */
 
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
 import { computeCommentSortSelectClasses } from '@/presentation/design/comments-default-classes'
 import { useCommentString } from './comment-strings'
 import type { ReactElement } from 'react'
@@ -20,8 +20,8 @@ import type { ReactElement } from 'react'
  * pager — the current page is the one thing in the row that announces itself,
  * so it alone takes the primary fill.
  */
-const PAGER_BUTTON = computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })
-const CURRENT_PAGE_BUTTON = computeButtonDefaultClasses({ variant: 'default', size: 'sm' })
+const PAGER_BUTTON = computePartButtonClasses({ variant: 'secondary', size: 'sm' })
+const CURRENT_PAGE_BUTTON = computePartButtonClasses({ variant: 'default', size: 'sm' })
 
 export function SortDropdown({
   sort,
@@ -71,6 +71,7 @@ export function NumberedPagination({
     <nav className="flex items-center gap-1">
       <button
         type="button"
+        data-slot="button"
         onClick={() => onSelect(Math.max(0, offset - limit))}
         disabled={currentPage === 1}
         className={PAGER_BUTTON}
@@ -81,6 +82,7 @@ export function NumberedPagination({
         <button
           key={page}
           type="button"
+          data-slot="button"
           onClick={() => onSelect((page - 1) * limit)}
           className={page === currentPage ? CURRENT_PAGE_BUTTON : PAGER_BUTTON}
         >
@@ -89,6 +91,7 @@ export function NumberedPagination({
       ))}
       <button
         type="button"
+        data-slot="button"
         onClick={() => onSelect(Math.min((pageCount - 1) * limit, offset + limit))}
         disabled={currentPage === pageCount}
         className={PAGER_BUTTON}

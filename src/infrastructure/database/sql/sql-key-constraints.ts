@@ -58,20 +58,81 @@ const referencedRelation = (
 }
 
 /**
- * Generate UNIQUE constraints for fields with unique property
- * Uses PostgreSQL default naming convention: {table}_{column}_key
+ * The predicate every live-rows unique index carries: a record in the trash
+ * holds no value anyone else is refused. `deleted_at` is the column every soft
+ * delete writes (and every table has), whatever else the table declares.
+ */
+export const LIVE_ROWS_PREDICATE = 'deleted_at IS NULL'
+
+/**
+ * Whether `fieldName` is, alone, the table's primary key. Such a field is unique
+ * over every row by its key, trashed or not, so a `unique` flag on it keeps the
+ * table-level constraint rather than the live-rows index.
+ */
+const isSinglePrimaryKeyField = (table: Table, fieldName: string): boolean => {
+  const key = table.primaryKey
+  if (key === undefined) return false
+  if (key.field !== undefined) return key.field === fieldName
+  return key.fields?.length === 1 && key.fields[0] === fieldName
+}
+
+/**
+ * The key under which `applySchemaDefaults` lists, on a table, the unique columns
+ * that a `foreignKeys` entry of some table references on their own. A symbol, so
+ * it never reaches a serialised config, a checksum or the stored schema.
+ */
+export const REFERENCED_KEY_COLUMNS: unique symbol = Symbol('sovrium.referencedKeyColumns')
+
+/** A table as `applySchemaDefaults` hands it to the generators. */
+export type TableWithReferencedKeys = Table & {
+  readonly [REFERENCED_KEY_COLUMNS]?: readonly string[]
+}
+
+/**
+ * Whether `fieldName` is referenced, alone, by a `foreignKeys` entry. Both
+ * engines accept a reference only to a key unique over EVERY row — a primary
+ * key, a `UNIQUE` constraint or a unique index without a `WHERE` — so such a
+ * field keeps its table-level constraint, trashed records included.
+ */
+const isReferencedKeyField = (table: Table, fieldName: string): boolean =>
+  ((table as TableWithReferencedKeys)[REFERENCED_KEY_COLUMNS] ?? []).includes(fieldName)
+
+/**
+ * Whether a field's uniqueness is held by a live-rows unique index — the
+ * `unique` fields of {@link isBtreeUniqueField} but two, which keep their
+ * table-level constraint because they must be unique over every row: the
+ * table's single-field primary key, and a field a `foreignKeys` entry
+ * references on its own.
+ */
+export const isLiveUniqueField =
+  (table: Table) =>
+  (field: Fields[number]): boolean =>
+    isBtreeUniqueField(field) &&
+    !isSinglePrimaryKeyField(table, field.name) &&
+    !isReferencedKeyField(table, field.name)
+
+/**
+ * The name of the live-rows unique index of `fieldName` on the relation
+ * `relationName`: `<table>_<field>_key`, the name the table-level constraint
+ * carried before, so the catalog and the plan lines stay recognisable.
+ */
+export const liveUniqueIndexName = (relationName: string, fieldName: string): string =>
+  `${tableConstraintPrefix(relationName)}_${fieldName}_key`
+
+/**
+ * Generate the table-level UNIQUE constraints of a table: only the single-field
+ * primary key, or a field a `foreignKeys` entry references, also declared unique
+ * keeps one (PostgreSQL naming, `{table}_{column}_key`). Every other `unique` field is held by a live-rows
+ * unique index (`generateIndexStatements`), which ignores records in the trash.
  *
  * Geolocation fields are excluded — see {@link isBtreeUniqueField}.
  */
-export const generateUniqueConstraints = (
-  tableName: string,
-  fields: readonly Fields[number][]
-): readonly string[] =>
-  fields
-    .filter(isBtreeUniqueField)
+export const generateUniqueConstraints = (table: Table): readonly string[] =>
+  table.fields
+    .filter((field) => isBtreeUniqueField(field) && !isLiveUniqueField(table)(field))
     .map(
       (field) =>
-        `CONSTRAINT ${tableConstraintPrefix(tableName)}_${field.name}_key UNIQUE (${quoteSqlIdentifier(field.name)})`
+        `CONSTRAINT ${tableConstraintPrefix(table.name)}_${field.name}_key UNIQUE (${quoteSqlIdentifier(field.name)})`
     )
 
 /**

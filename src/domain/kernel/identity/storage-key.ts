@@ -168,3 +168,18 @@ export const isSecondStorageKeySpelling = (
 ): boolean =>
   stored !== candidate &&
   storageKeyCollisionForm(stored, comparison) === storageKeyCollisionForm(candidate, comparison)
+
+/**
+ * The prefix of every chat attachment's storage key. Such an object is the
+ * uploader's alone and is served only by the chat's own route
+ * (`GET /api/ai/chat/attachments/:id`), never by a bucket route.
+ */
+export const CHAT_ATTACHMENT_KEY_PREFIX = 'ai-chat/'
+
+/**
+ * Whether `key` names a chat attachment, in any spelling a storage host could
+ * resolve to one — letter case and Unicode composition folded — so a bucket
+ * route cannot be pointed at one under a second spelling.
+ */
+export const isChatAttachmentKey = (key: string): boolean =>
+  storageKeyCollisionForm(key, { caseInsensitive: true }).startsWith(CHAT_ATTACHMENT_KEY_PREFIX)

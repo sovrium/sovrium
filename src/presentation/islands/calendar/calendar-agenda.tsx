@@ -86,7 +86,7 @@ export function CalendarAgenda({
           key={day}
           className="flex flex-col gap-1"
         >
-          <p className="text-foreground-muted text-sm">
+          <p className="text-muted-foreground text-sm">
             {formatCalendarDate(day, locale, 'short') ?? day}
           </p>
           <ul className="flex flex-col gap-1">

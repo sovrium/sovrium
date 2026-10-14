@@ -256,30 +256,59 @@ function formatKb(...strings: readonly string[]): string {
 }
 
 /**
- * Runtime-composed recipe classes (`bg-[${v('sv-X', T.Y)}]` in the
- * `*-default-classes.ts` recipes) are invisible to the oxide source scan — it
- * sees the `${…}` template placeholder, not the resolved literal — so overlay
- * surfaces (menu/select/dialog popups) would ship with no background/border/
- * shadow/ring in the binary (transparent panel + browser-default focus halo).
- * Fold the resolved safelist into the frozen candidate set. Guard loudly so
- * this class can never silently drop out of the binary again.
+ * Runtime-composed recipe classes (`rounded-[${v('radius-md', T.radiusMd)}]`,
+ * `bg-[${v('sv-X', T.Y)}]` in the `*-default-classes.ts` recipes) are invisible
+ * to the oxide source scan — it sees the `${…}` template placeholder, not the
+ * resolved literal — so those classes would ship with no CSS in the binary.
+ * Fold the resolved safelist into the frozen candidate set, and guard loudly on
+ * two independent proofs so neither half can silently drop out again:
+ *
+ * - SAFELIST_SENTINEL: the shared `RADIUS_MD` read, which every recipe tree
+ *   keeps (radius has no plain-utility replacement). Its presence proves the
+ *   safelist walk still reached the recipes. Deliberately NOT an `--sv-*`
+ * alias token: those are being
+ *   retired, and a sentinel naming one would fail the build on success.
+ * - POPUP_SURFACE_CANDIDATE: the shadcn `bg-popover` utility the shared
+ *   `POPUP_SURFACE` recipe (menu/select/dialog popups) now reads. It is a plain
+ *   literal, so the ordinary scan must harvest it; without it every overlay
+ *   would render transparent in the binary.
  */
 const arbitraryVarSafelist = generateArbitraryVarSafelist()
 if (arbitraryVarSafelist.length === 0) {
   throw new Error(
-    'generateArbitraryVarSafelist() returned empty — the recipe scan broke; the binary CSS would drop every popup surface.'
+    'generateArbitraryVarSafelist() returned empty — the recipe scan broke; the binary CSS would drop every runtime-composed recipe class.'
   )
 }
-const POPUP_SURFACE_SENTINEL = 'bg-[var(--sv-bg-overlay,'
-if (!arbitraryVarSafelist.some((cls) => cls.startsWith(POPUP_SURFACE_SENTINEL))) {
+const SAFELIST_SENTINEL = 'rounded-[var(--radius-md,'
+if (!arbitraryVarSafelist.some((cls) => cls.startsWith(SAFELIST_SENTINEL))) {
   throw new Error(
-    `Arbitrary-var safelist is missing the popup surface class (${POPUP_SURFACE_SENTINEL}…) — overlays would render transparent in the binary.`
+    `Arbitrary-var safelist is missing the shared radius class (${SAFELIST_SENTINEL}…) — the recipe scan no longer reaches the *-default-classes.ts recipes.`
   )
 }
 
 const candidates = [...new Set([...scanCandidates(), ...arbitraryVarSafelist])].toSorted()
+const POPUP_SURFACE_CANDIDATE = 'bg-popover'
+if (!candidates.includes(POPUP_SURFACE_CANDIDATE)) {
+  throw new Error(
+    `Candidate scan is missing the popup surface class (${POPUP_SURFACE_CANDIDATE}) — overlays would render transparent in the binary.`
+  )
+}
 const tailwindIndexCss = readStylesheet('tailwindcss/index.css')
 const twAnimateCss = readStylesheet('tw-animate-css/dist/tw-animate.css')
+// shadcn's `@import "shadcn/tailwind.css"`: its custom variants,
+// accordion keyframes and scroll-fade/shimmer utilities. Read from the installed
+// package, like the two above, and held byte-equal to the pinned registry
+// snapshot: the binary must embed exactly the stylesheet the snapshot's sha256
+// names, so a `shadcn` bump without a re-pull fails here instead of shipping.
+const shadcnTailwindCss = readStylesheet('shadcn/dist/tailwind.css')
+const SHADCN_SNAPSHOT_CSS = 'scripts/baselines/shadcn-registry/tailwind.css'
+if (shadcnTailwindCss !== readFileSync(join(PROJECT_ROOT, SHADCN_SNAPSHOT_CSS), 'utf-8')) {
+  throw new Error(
+    `node_modules/shadcn/dist/tailwind.css differs from ${SHADCN_SNAPSHOT_CSS}. ` +
+      'The installed shadcn and the registry snapshot disagree: run `bun install`, or re-pull ' +
+      'the snapshot (`bun run pull:shadcn-registry`) in the commit that bumps shadcn.'
+  )
+}
 
 const outPath = join(PROJECT_ROOT, 'src/infrastructure/css/generated-css-assets.ts')
 
@@ -310,11 +339,14 @@ export const TAILWIND_INDEX_CSS: string = ${JSON.stringify(tailwindIndexCss)}
 
 /** Upstream \`@import 'tw-animate-css'\` stylesheet (tw-animate-css/dist/tw-animate.css). */
 export const TW_ANIMATE_CSS: string = ${JSON.stringify(twAnimateCss)}
+
+/** Upstream \`@import 'shadcn/tailwind.css'\` stylesheet (shadcn/dist/tailwind.css, the registry snapshot's pin). */
+export const SHADCN_TAILWIND_CSS: string = ${JSON.stringify(shadcnTailwindCss)}
 `
 
 writeFileSync(outPath, fileContent)
 
 console.log(
   `generated-css-assets.ts — ${candidates.length} candidates, ` +
-    `${formatKb(tailwindIndexCss, twAnimateCss)} embedded stylesheets`
+    `${formatKb(tailwindIndexCss, twAnimateCss, shadcnTailwindCss)} embedded stylesheets`
 )

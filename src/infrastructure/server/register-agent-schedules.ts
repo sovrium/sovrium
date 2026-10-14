@@ -70,7 +70,10 @@ import type { DomainContext, DomainServices } from '@/infrastructure/server/doma
  * rejects usefully — the outcome belongs to the run, not to the timer — so the
  * callback below only has to absorb a rejection.
  */
-export type FireAgentSchedule = (agent: Agent, services: DomainContext) => Promise<void>
+export type FireAgentSchedule = (agent: Agent, services: DomainContext, app: App) => Promise<void>
+
+/** A run of one agent, its app already bound. */
+type FireArmedAgent = (agent: Agent, services: DomainContext) => Promise<void>
 
 /**
  * Typed failure for one scheduled agent run — keeps the scheduler callback's
@@ -101,8 +104,7 @@ const jobIdFor = (agent: Agent): string => `agent-schedule:${agent.name}`
  * copy of the approval repository per run.
  */
 const buildAgentCallback =
-  (fire: FireAgentSchedule, agent: Agent, services: DomainContext) =>
-  (): Effect.Effect<void, never> =>
+  (fire: FireArmedAgent, agent: Agent, services: DomainContext) => (): Effect.Effect<void, never> =>
     Effect.tryPromise({
       try: () => fire(agent, services),
       catch: (cause) => new AgentScheduleRunError({ cause }),
@@ -127,7 +129,7 @@ const scheduleOne = (
   scheduler: Effect.Success<typeof CronScheduler>,
   agent: Agent,
   schedule: { readonly cron: string; readonly timezone: string },
-  run: { readonly fire: FireAgentSchedule; readonly services: DomainContext }
+  run: { readonly fire: FireArmedAgent; readonly services: DomainContext }
 ): Effect.Effect<string, never> =>
   scheduler
     .schedule(schedule.cron, buildAgentCallback(run.fire, agent, run.services), {
@@ -181,7 +183,7 @@ export const registerAgentSchedules = (
             cron: agent.schedule?.cron ?? '',
             timezone: agent.schedule?.timezone ?? resolveOperatorTimezone(),
           },
-          { fire, services }
+          { fire: (armed, context) => fire(armed, context, app), services }
         ),
       { concurrency: 1 }
     )

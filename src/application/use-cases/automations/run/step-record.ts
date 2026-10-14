@@ -19,9 +19,8 @@
  */
 
 import { redactBoundQueryValues } from '@/domain/kernel/sanitize/bound-value-redaction'
-import { gotoAddressVariables } from '@/domain/models/app/automations/actions/browser/browser-run-validation'
 import { type ActionOutcome } from '../action-handlers'
-import { redactSecretsForApp } from '../redact-secrets'
+import { redactSecretsForRunHistory } from '../redact-secrets'
 import { readActionIdentity } from './action-identity'
 import { redactedReads } from './read-tracker'
 import { maskSecretOutput, maskSecretProps, runSecretValues } from './secret-props'
@@ -37,19 +36,6 @@ const calledWriteOnlyValues = (ctx: Partial<Pick<StepContext, 'automation'>>): r
  * The step record a run keeps of one action: what it was given and what it
  * answered, with secret values redacted before anything is stored.
  */
-
-/**
- * The variables whose values are scrubbed from a step record: every one the app
- * declares, except those a browser `goto` address reads. Start-up lets an
- * address read only a variable declared `secret: false`, and the run shows the
- * address it opened as it is. A value another variable also holds is
- * still scrubbed under that variable.
- */
-const scrubbedEnvOf = (app: App): App['env'] => {
-  if (app.env?.some((variable) => variable.secret === false) !== true) return app.env
-  const shown = gotoAddressVariables(app)
-  return shown.size === 0 ? app.env : app.env.filter((variable) => !shown.has(variable.key))
-}
 
 /**
  * Redact env values AND literal connection secrets (clientSecret,
@@ -73,7 +59,7 @@ export const redactString = (
   env: Readonly<Record<string, string | undefined>>
 ): string => {
   const scrubbed = redactBoundQueryValues(input)
-  const redacted = redactSecretsForApp(scrubbed, scrubbedEnvOf(app), env, app.connections)
+  const redacted = redactSecretsForRunHistory(scrubbed, app.env, env, app.connections)
   return truncateError(typeof redacted === 'string' ? redacted : scrubbed)
 }
 
@@ -91,7 +77,7 @@ const redactRecord = (
   value: Readonly<Record<string, unknown>>,
   ctx: StepContext
 ): Readonly<Record<string, unknown>> =>
-  redactSecretsForApp(value, scrubbedEnvOf(ctx.app), ctx.processEnv, ctx.app.connections) as Record<
+  redactSecretsForRunHistory(value, ctx.app.env, ctx.processEnv, ctx.app.connections) as Record<
     string,
     unknown
   >

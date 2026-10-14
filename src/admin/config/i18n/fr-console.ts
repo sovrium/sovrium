@@ -39,17 +39,17 @@ export default {
   // l’opérateur·ice a deux noms pour une seule console.
   'admin.welcome.pulse.region': 'Ce qui demande ton attention',
   'admin.welcome.pulse.heading': 'Depuis le démarrage de cette instance',
-  'admin.welcome.pulse.failedRuns': 'exécutions en échec',
+  'admin.welcome.pulse.failedRuns': 'Exécutions en échec',
   'admin.welcome.pulse.failedRuns.where': 'Exécutions →',
-  'admin.welcome.pulse.variablesUnset': 'variables requises non définies',
+  'admin.welcome.pulse.variablesUnset': 'Variables requises non définies',
   'admin.welcome.pulse.variablesUnset.where': 'Environnement →',
-  'admin.welcome.pulse.tokensExpired': 'jetons expirés',
+  'admin.welcome.pulse.tokensExpired': 'Jetons expirés',
   'admin.welcome.pulse.tokensExpired.where': 'Connexions →',
-  'admin.welcome.pulse.invitationsPending': 'invitations en attente',
+  'admin.welcome.pulse.invitationsPending': 'Invitations en attente',
   'admin.welcome.pulse.invitationsPending.where': 'Utilisateurs →',
-  'admin.welcome.pulse.recentSubmissions': 'nouvelles réponses',
+  'admin.welcome.pulse.recentSubmissions': 'Nouvelles réponses',
   'admin.welcome.pulse.recentSubmissions.where': 'Réponses →',
-  'admin.welcome.pulse.automationsPaused': 'automatisations en pause',
+  'admin.welcome.pulse.automationsPaused': 'Automatisations en pause',
   'admin.welcome.pulse.automationsPaused.where': 'Exécutions →',
 
   'admin.welcome.counts.region': 'Ce que cette app déclare',
@@ -206,6 +206,7 @@ export default {
   'admin.login.pending': 'Connexion…',
   'admin.login.cloudSignIn': 'Se connecter avec Sovrium Cloud',
   'admin.login.forgotLink': 'Mot de passe oublié ?',
+  'admin.login.orEmail': 'Ou avec ton e-mail',
 
   'admin.forgotPassword.heading': 'Mot de passe oublié',
   'admin.forgotPassword.blurb':

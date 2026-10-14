@@ -10,7 +10,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { useMemo } from 'react'
 import {
   KANBAN_CARD_BODY_CLASSES,
-  KANBAN_DRAG_GHOST_TRANSFORM,
+  KANBAN_CARD_SLOT_ATTRIBUTES,
+  KANBAN_CLICKABLE_CARD_CLASSES,
   computeKanbanCardClasses,
   computeKanbanCardStripeClasses,
   computeKanbanDragGhostClasses,
@@ -51,7 +52,7 @@ interface CardData {
 
 /**
  * Build click + keyboard handlers for a clickable card (navigate or
- * openDrawer).
+ * openSheet).
  *
  * When the card is also draggable, we must avoid activating it while a drag
  * is in flight. We bail out of click / keyboard handlers when @dnd-kit
@@ -104,7 +105,7 @@ function buildCardClassName(
   draggableEnabled: boolean,
   isDragging: boolean
 ): string {
-  const navClass = clickable ? 'cursor-pointer hover:border-primary' : ''
+  const navClass = clickable ? KANBAN_CLICKABLE_CARD_CLASSES : ''
   const dragClass = draggableEnabled ? 'cursor-grab active:cursor-grabbing' : ''
   const ghostClass = isDragging ? computeKanbanDragGhostClasses() : ''
   return `${computeKanbanCardClasses()} ${navClass} ${dragClass} ${ghostClass}`
@@ -221,7 +222,9 @@ function CardWrapper({
       {...dragAttributes}
       {...dragListeners}
       ref={setNodeRef}
+      {...KANBAN_CARD_SLOT_ATTRIBUTES}
       data-card
+      data-dragging={isDragging ? 'true' : undefined}
       data-color={dataColor}
       data-clickable={clickable ? 'true' : undefined}
       draggable={draggableEnabled || undefined}
@@ -239,52 +242,27 @@ function CardWrapper({
 }
 
 /**
- * Append the drag ghost's tilt to dnd-kit's translate, or return the translate
- * unchanged when the card is at rest.
- *
- * `CSS.Translate.toString` returns `undefined` when there is no offset, which
- * is the resting case and must stay `undefined` — emitting a bare
- * `rotate(-1.5deg)` there would tilt every card on the board.
- */
-function joinTransform(translate: string | undefined, isDragging: boolean): string | undefined {
-  if (!isDragging) return translate
-  return translate ? `${translate} ${KANBAN_DRAG_GHOST_TRANSFORM}` : KANBAN_DRAG_GHOST_TRANSFORM
-}
-
-/**
  * The card's inline `style`: dnd-kit's drag offset plus, when the record's
  * `colorField` resolves a colour, the painted trio.
  *
  * Painting inline is what lets an author's declared hue override the
- * `bg-background-raised` default surface, and the derived foreground / border
+ * `bg-card` default surface, and the derived foreground / border
  * travel with it so the card's label stays legible and its edge stays visible
  * on a pale fill ([internal ref] A7 ruling 3).
  */
 function useCardStyle({
   transform,
   transition,
-  isDragging,
   cardColors,
 }: {
   readonly transform: ReturnType<typeof useSortable>['transform']
   readonly transition: string | undefined
-  readonly isDragging: boolean
   readonly cardColors: OptionChipColors | undefined
 }): CSSProperties {
   return useMemo<CSSProperties>(
     () => ({
-      // The drag tilt is composed into THIS transform rather than applied as a
-      // Tailwind `rotate-*` class, for two reasons: an inline `transform`
-      // outranks any class outright, so the class would be dead; and a second
-      // `transform` declaration REPLACES the first rather than adding to it, so
-      // the two can only travel together. Order is load-bearing —
-      // `translate(...) rotate(...)` spins the card about its own centre at the
-      // pointer, while `rotate(...) translate(...)` would rotate the
-      // translation VECTOR too and walk the card off the cursor by a distance
-      // that grows with the drag.
-      transform: joinTransform(CSS.Translate.toString(transform), isDragging),
+      transform: CSS.Translate.toString(transform),
       transition,
-      opacity: isDragging ? 0.6 : 1,
       ...(cardColors
         ? {
             backgroundColor: cardColors.fill,
@@ -293,7 +271,7 @@ function useCardStyle({
           }
         : {}),
     }),
-    [transform, transition, isDragging, cardColors]
+    [transform, transition, cardColors]
   )
 }
 
@@ -311,7 +289,7 @@ export function KanbanCardView({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable
   const { activate, dataColor, cardColors, coverImageSrc } = resolveCardData(card, record, format)
   const { onClick, onKeyDown } = buildNavigateHandlers(activate, isDragging)
-  const style = useCardStyle({ transform, transition, isDragging, cardColors })
+  const style = useCardStyle({ transform, transition, cardColors })
 
   // Spread @dnd-kit listeners only when the card is actually draggable.
   // Even with `useSortable({ disabled: true })`, the returned `listeners`

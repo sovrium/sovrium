@@ -16,7 +16,7 @@ meta:
 components:
   - $ref: ./_site-header.yaml
   - type: container
-    element: main
+    element: div
     props:
       className: flex w-full flex-col bg-background pt-10 px-[max(1.5rem,calc((100%-832px)/2))] max-md:px-4 max-md:pt-6
     children:
@@ -37,7 +37,7 @@ components:
           - type: text
             element: p
             props:
-              className: text-[17px] text-foreground-muted max-md:text-[15px]
+              className: text-[17px] text-muted-foreground max-md:text-[15px]
             content: The next events, soonest first. Registration takes a minute and is free.
   # One card per open event. The children below are a template drawn
   # once per event; `visibility.record` keeps, on each card, only the
@@ -56,7 +56,7 @@ components:
     children:
       - type: card
         props:
-          className: '!flex-row flex items-center gap-5 rounded-lg border border-border bg-background-raised px-4 py-6 text-left max-md:!flex-col max-md:items-start max-md:gap-3'
+          className: '!flex-row flex items-center gap-5 rounded-lg border border-border bg-card px-4 py-6 text-left max-md:!flex-col max-md:items-start max-md:gap-3'
         children:
           # The date tile.
           - type: container
@@ -88,7 +88,7 @@ components:
               # commas keep the three facts apart for a screen reader.
               - type: container
                 props:
-                  className: flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-foreground-muted
+                  className: flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground
                 children:
                   - type: container
                     props:
@@ -166,18 +166,18 @@ components:
               record: { field: seats_left, gte: 10 }
             props:
               href: /register?event=$record.id
-              className: inline-flex h-8 flex-none items-center rounded-md border border-border bg-background-raised px-3.5 text-sm font-medium text-foreground hover:bg-background-subtle
+              className: inline-flex h-8 flex-none items-center rounded-md border border-border bg-card px-3.5 text-sm font-medium text-foreground hover:bg-muted
             content: Register
           - type: link
             visibility:
               record: { field: seats_left, eq: 0 }
             props:
               href: /waitlist/$record.id
-              className: inline-flex h-8 flex-none items-center rounded-md border border-border bg-background-raised px-3.5 text-sm font-medium text-foreground hover:bg-background-subtle
+              className: inline-flex h-8 flex-none items-center rounded-md border border-border bg-card px-3.5 text-sm font-medium text-foreground hover:bg-muted
             content: Join the waitlist
   - type: text
     element: p
     props:
-      className: w-full bg-background pt-5 pb-16 text-xs text-foreground-muted px-[max(1.5rem,calc((100%-832px)/2))] max-md:px-4
+      className: w-full bg-background pt-5 pb-16 text-xs text-muted-foreground px-[max(1.5rem,calc((100%-832px)/2))] max-md:px-4
     content: No account needed. We only use your email for the event you register for.
   - $ref: ./_site-footer.yaml

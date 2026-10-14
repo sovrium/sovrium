@@ -1,0 +1,1 @@
+ALTER TABLE "system"."ai_activity_logs" ADD COLUMN "surface" text;

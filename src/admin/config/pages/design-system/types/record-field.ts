@@ -55,13 +55,13 @@ const pair = (raw: string, drawn: PageComponent): PageComponent =>
       {
         type: 'text',
         element: 'span',
-        props: { className: 'text-foreground-subtle font-mono text-[11px]' },
+        props: { className: 'text-muted-foreground font-mono text-xs' },
         content: raw,
       },
       {
         type: 'text',
         element: 'span',
-        props: { className: 'text-foreground-subtle' },
+        props: { className: 'text-muted-foreground' },
         content: '→',
       },
       drawn,
@@ -110,7 +110,7 @@ const fieldCategoryHeading = (): PageComponent =>
     type: 'text',
     element: 'p',
     props: {
-      className: 'text-foreground-subtle pt-2 text-[11px] font-medium tracking-[0.04em] uppercase',
+      className: 'text-muted-foreground pt-2 text-xs font-medium tracking-[0.04em] uppercase',
     },
     visibility: { record: { field: 'firstInCategory', eq: true } },
     content: '$record.categoryTitle',
@@ -122,7 +122,7 @@ const slotLabel = (text: string): PageComponent =>
     type: 'text',
     element: 'span',
     props: {
-      className: 'text-foreground-muted text-[10px] font-medium tracking-[0.04em] uppercase',
+      className: 'text-muted-foreground text-xs font-medium tracking-[0.04em] uppercase',
     },
     content: text,
   }) as PageComponent
@@ -179,13 +179,13 @@ const fieldCell = (): PageComponent =>
           {
             type: 'text',
             element: 'span',
-            props: { className: 'text-foreground font-mono text-[11px]' },
+            props: { className: 'text-foreground font-mono text-xs' },
             content: '$record.type',
           },
           {
             type: 'text',
             element: 'span',
-            props: { className: 'text-foreground-muted text-[10px]' },
+            props: { className: 'text-muted-foreground text-xs' },
             visibility: { record: { field: 'readOnly', eq: true } },
             content: 'read-only',
           },
@@ -224,7 +224,7 @@ const fieldCell = (): PageComponent =>
               {
                 type: 'text',
                 element: 'span',
-                props: { className: 'text-foreground-subtle text-sm' },
+                props: { className: 'text-muted-foreground text-sm' },
                 visibility: { record: { field: 'readOnly', eq: true } },
                 content: 'Set by the system — a form draws no control for it.',
               },
@@ -273,7 +273,7 @@ const fieldCell = (): PageComponent =>
                 type: 'record-field',
                 props: {
                   field: 'sampleValue',
-                  className: 'text-foreground-subtle truncate text-sm',
+                  className: 'text-muted-foreground truncate text-sm',
                 },
               } as PageComponent,
             ],
@@ -302,7 +302,7 @@ const fieldSurfaceNote = (): PageComponent =>
     type: 'text',
     element: 'p',
     props: {
-      className: 'text-foreground-subtle text-[11px] leading-relaxed',
+      className: 'text-muted-foreground text-xs leading-relaxed',
       'data-testid': 'design-system-field-surface-note',
     },
     content:
@@ -343,7 +343,7 @@ const fieldIndex = (): PageComponent =>
         element: 'p',
         props: {
           className:
-            'text-foreground-subtle pt-3 text-[10px] font-medium tracking-[0.04em] uppercase first:pt-0',
+            'text-muted-foreground pt-3 text-xs font-medium tracking-[0.04em] uppercase first:pt-0',
         },
         visibility: { record: { field: 'firstInCategory', eq: true } },
         content: '$record.categoryTitle',
@@ -353,7 +353,7 @@ const fieldIndex = (): PageComponent =>
         props: {
           href: '#design-system-field-$record.type',
           className:
-            'text-foreground-subtle hover:text-foreground hover:bg-background-subtle truncate rounded-sm px-1.5 py-1 font-mono text-[11px] no-underline',
+            'text-muted-foreground hover:text-foreground hover:bg-muted truncate rounded-sm px-1.5 py-1 font-mono text-xs no-underline',
           'data-design-field-index-entry': '$record.type',
           ...kitType('link'),
         },
@@ -536,7 +536,7 @@ const recordField: TypePageBody = {
                       {
                         type: 'text',
                         element: 'span',
-                        props: { className: 'text-foreground-subtle text-sm' },
+                        props: { className: 'text-muted-foreground text-sm' },
                         content: '\u2022',
                       },
                       {
@@ -571,7 +571,7 @@ const recordField: TypePageBody = {
                       {
                         type: 'text',
                         element: 'span',
-                        props: { className: 'text-foreground-subtle w-20 font-mono text-[11px]' },
+                        props: { className: 'text-muted-foreground w-20 font-mono text-xs' },
                         content: k,
                       },
                       {

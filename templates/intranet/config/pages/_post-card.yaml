@@ -5,7 +5,7 @@
 # Placed inside a section bound to `posts`, it is drawn once per announcement.
 type: card
 props:
-  className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5 text-left
+  className: flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3.5 text-left
 children:
   - type: link
     props:
@@ -15,11 +15,11 @@ children:
   - type: text
     element: p
     props:
-      className: text-sm leading-relaxed text-foreground-muted
+      className: text-sm leading-relaxed text-muted-foreground
     content: $record.excerpt
   - type: container
     props:
-      className: flex flex-wrap items-center gap-x-2 text-xs text-foreground-muted
+      className: flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground
     children:
       - type: text
         element: span
@@ -40,5 +40,5 @@ children:
       - type: text
         element: span
         props:
-          className: rounded-sm border border-border px-1.5 py-px text-[11px] text-foreground-muted
+          className: rounded-sm border border-border px-1.5 py-px text-[11px] text-muted-foreground
         content: $record.topic

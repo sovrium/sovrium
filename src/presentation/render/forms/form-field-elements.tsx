@@ -78,11 +78,11 @@ export interface ResolvedFormField {
   readonly dropZone?: boolean
   /** Seconds a browser recording may last; present only when `recordAudio` is set. */
   readonly recordAudioMaxSeconds?: number
+  /** The Record button's words in the page language; present only when `recordAudio` is set. */
+  readonly recordAudioLabel?: string
   /**
-   * For `user`-typed columns ([internal ref] / a forms spec): whether the picker
-   * allows multiple selections. Surfaces as the `data-allow-multiple`
-   * attribute on the picker root so the inline runtime can choose between
-   * single- and multi-select widgets.
+   * For `user`-typed columns: whether the picker allows multiple selections,
+   * as `data-allow-multiple` on the picker root, so the runtime picks the widget.
    */
   readonly allowMultiple?: boolean
   /**

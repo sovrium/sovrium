@@ -37,7 +37,9 @@
       const threshold = parseFloat(element.getAttribute('data-scroll-threshold') || '0.1')
       const delay = element.getAttribute('data-scroll-delay') || '0ms'
       const duration = element.getAttribute('data-scroll-duration') || '600ms'
-      const once = element.getAttribute('data-scroll-once') !== 'false'
+      // The server writes `data-scroll-once` for `once: true` and for the
+      // default, and leaves it off for `once: false`.
+      const once = element.getAttribute('data-scroll-once') === 'true'
 
       // Apply animation delay and duration via inline styles (if non-default)
       if (delay !== '0ms') {
@@ -81,7 +83,11 @@
                 element.classList.remove(cls)
               })
 
-              // Add the scroll animation class
+              // Restart before adding: every entrance and scroll class runs the
+              // same `enter` keyframes, and a browser does not replay an
+              // animation whose name did not change. Reading the layout between
+              // the removal and the addition makes it start again.
+              void element.offsetWidth
               element.classList.add(animationClass)
 
               // If once is true, stop observing

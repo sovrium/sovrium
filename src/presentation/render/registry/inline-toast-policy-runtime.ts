@@ -14,10 +14,10 @@
  * (`islands/runtime/toast-duration.ts`) and the three DOM helpers in
  * `islands/runtime/toast-accessibility.ts`.
  *
- * The other two cannot. `render/registry/command-palette-runtime.ts` and
- * `render/registry/reorderable-list-component.tsx` are constant JavaScript
- * STRINGS dropped into an inline `<script>`, precisely so that a command
- * palette or a three-row list costs no client chunk at all. A string has no
+ * The others cannot. `render/registry/reorderable-list-component.tsx` and the
+ * form and carried-toast readers are constant JavaScript STRINGS dropped into
+ * an inline `<script>`, precisely so that a three-row list costs no client
+ * chunk at all. A string has no
  * import graph: there is no spelling of `import { resolveToastDuration }` that
  * would resolve inside one. So the policy is transcribed here — once, for both
  * — rather than twice, inline, where it would drift apart at the first edit.
@@ -75,8 +75,7 @@
  *
  * ─── HOW TO USE IT ────────────────────────────────────────────────────────
  *
- * Splice it into the body of an inline runtime IIFE, the way
- * `COMMAND_PALETTE_RUNTIME_ACTIONS` is spliced: the function declarations
+ * Splice it into the body of an inline runtime IIFE: the function declarations
  * hoist into the surrounding closure, so a caller writes `showToast(message)`
  * or `showToast(message, variant, duration)` and nothing else.
  */
@@ -146,7 +145,6 @@ export const INLINE_TOAST_POLICY_RUNTIME = `
     container.setAttribute('role', 'status');
     container.setAttribute('aria-live', 'polite');
     container.style.position = 'fixed';
-    container.style.bottom = '16px';
     container.style.right = '16px';
     container.style.zIndex = '9999';
     container.style.display = 'flex';

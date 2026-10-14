@@ -11,6 +11,7 @@ import { ComponentSizeSchema } from '../../shared-schemas'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
 import { visibilityFields } from '../modules/visibility'
+import { ToggleVariantSchema } from './toggle'
 
 export const ToggleGroupTypeLiteral = Schema.Literal('toggle-group')
 
@@ -22,4 +23,14 @@ export const toggleGroupFields = {
   orientation: Schema.optional(OrientationSchema),
   toggleType: Schema.optional(ToggleTypeSchema),
   size: Schema.optional(ComponentSizeSchema),
+  /** The look of every item; borderless when omitted. */
+  toggleVariant: Schema.optional(ToggleVariantSchema),
+  /** The gap between items, in spacing steps; 2 when omitted, 0 joins them. */
+  spacing: Schema.optional(
+    Schema.Finite.annotate({
+      description:
+        "The gap between the items, in spacing steps of 0.25rem: 2, the default, stands them apart, and 0 joins them into one control. shadcn/ui's ToggleGroup spacing.",
+      examples: [0, 1, 2],
+    }).pipe(Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 0, maximum: 8 })))
+  ),
 } as const

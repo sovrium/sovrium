@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { buildSystemSession } from '@/application/use-cases/automations/build-guest-session'
 import { createRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
-import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
+import { resolveRedirectAgainst } from '@/domain/kernel/url/redirect-resolution'
 import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
@@ -210,9 +210,11 @@ function redirectAfterFormUpdate(
 ): Response {
   if (response.status !== 200) return response
   const { c } = at
-  // A path from the request body is honoured only once proven same-origin: no open redirect.
-  if (isSafeRedirectPath(redirectPath)) return c.redirect(redirectPath, 302)
   const referer = c.req.header('referer')
+  // An address from the request body — relative ones resolved against the page
+  // that posted it — is honoured only once proven same-origin: no open redirect.
+  const target = resolveRedirectAgainst(redirectPath, referer)
+  if (target !== undefined) return c.redirect(target, 302)
   if (referer) flashDeclaredToast(at, new URL(referer, c.req.url).pathname)
   return referer ? c.redirect(referer, 302) : response
 }

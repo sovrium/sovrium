@@ -149,6 +149,14 @@ interface LibraryEntryBase {
   readonly slug: string
   readonly title: string
   readonly category: string
+  /**
+   * The shadcn/ui block this entry mirrors, by shadcn's own id (`login-03`),
+   * so `sovrium library add login-03` gives what `npx shadcn add login-03`
+   * gives. `null` states the entry has no shadcn counterpart; absent says
+   * nothing either way. Every id named here must be one the pinned registry
+   * snapshot lists.
+   */
+  readonly shadcnBlock?: string | null
   readonly tags: readonly string[]
   /** One sentence: what installing this gives you. */
   readonly description: string

@@ -6,17 +6,40 @@
  */
 
 import { type ReactElement } from 'react'
-import { SearchGlyph } from '@/presentation/design/form-glyphs'
-import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
+import { SearchLucideGlyph } from '@/presentation/design/control-glyphs'
 import {
-  computePageSearchFieldClasses,
-  computePageSearchKeyHintClasses,
-  computeSearchInputContainerClasses,
-  computeSearchInputFieldClasses,
-  computeSearchInputIconClasses,
-} from '../../design/interactive-content-default-classes'
+  computeInputGroupAddonClasses,
+  computeInputGroupClasses,
+  computeInputGroupFieldClasses,
+} from '@/presentation/design/input-group-default-classes'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { computeSearchInputRootClasses } from '@/presentation/design/search-input-default-classes'
+import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import type { ElementProps } from './html-element-renderer'
+
+/**
+ * The search box itself, shared by both scopes: shadcn/ui's `InputGroup` — one
+ * bordered box — with a magnifier in an addon at its start and the search
+ * input as its control.
+ */
+function searchInputGroup(input: ReactElement): ReactElement {
+  return (
+    <div
+      role="group"
+      data-slot="input-group"
+      className={computeInputGroupClasses()}
+    >
+      {input}
+      <div
+        data-slot="input-group-addon"
+        data-align="inline-start"
+        className={computeInputGroupAddonClasses({ align: 'inline-start' })}
+      >
+        <SearchLucideGlyph />
+      </div>
+    </div>
+  )
+}
 
 /**
  * Configuration for {@link renderSearchInput}.
@@ -42,15 +65,13 @@ export interface RenderSearchInputConfig {
  * element inside. This pattern allows selectors like `#search-bar input`
  * to locate the input element within the named search container.
  *
- * the prestyled-islands rule (prestyled-by-default): the container ships
- * `computeSearchInputContainerClasses()` chrome (relative + full-width on
- * focal fg tone) and the inner `<input>` ships
- * `computeSearchInputFieldClasses()` chrome (border + bg + radius + focus
- * ring) so the bare `{ type: 'search-input', scope: 'subscribers' }` schema renders as a peer of
- * the regular form `<input>` controls without the author spelling any
- * Tailwind classes. The merged className appends the author-supplied one
- * merged in via `resolveClasses`, so it beats the recipe on any same-property
- * conflict.
+ * The container is the search box's root (`data-slot="search-input"`) and
+ * holds one shadcn/ui input group: the magnifier in an addon at its start and
+ * the input as the group's control, so the bare
+ * `{ type: 'search-input', scope: 'subscribers' }` schema renders as a peer of
+ * the other input groups without the author spelling any Tailwind classes. The
+ * author's className is merged onto the root through `resolveClasses`, so it
+ * beats the recipe on any same-property conflict.
  *
  * `debounceMs` / `minQueryLength` are stamped onto the INNER `<input>` as
  * `data-search-debounce` / `data-search-min-length` — subscribers resolve
@@ -67,25 +88,24 @@ export function renderSearchInput(config: RenderSearchInputConfig): ReactElement
   const className = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
 
-  const containerDefaults = computeSearchInputContainerClasses()
-  const containerClassName = resolveClasses(containerDefaults, className)
-  const fieldClassName = computeSearchInputFieldClasses()
-
   return (
     <div
       id={id}
-      className={containerClassName}
+      className={resolveClasses(computeSearchInputRootClasses(), className)}
       data-testid={testId}
+      data-slot="search-input"
     >
-      <SearchGlyph className={computeSearchInputIconClasses()} />
-      <input
-        type="search"
-        placeholder={placeholder ?? defaultPlaceholder}
-        aria-label={placeholder ?? defaultPlaceholder}
-        className={fieldClassName}
-        data-search-debounce={debounceMs === undefined ? undefined : String(debounceMs)}
-        data-search-min-length={minQueryLength === undefined ? undefined : String(minQueryLength)}
-      />
+      {searchInputGroup(
+        <input
+          type="search"
+          placeholder={placeholder ?? defaultPlaceholder}
+          aria-label={placeholder ?? defaultPlaceholder}
+          data-slot="input-group-control"
+          className={computeInputGroupFieldClasses()}
+          data-search-debounce={debounceMs === undefined ? undefined : String(debounceMs)}
+          data-search-min-length={minQueryLength === undefined ? undefined : String(minQueryLength)}
+        />
+      )}
     </div>
   )
 }
@@ -131,17 +151,8 @@ export function renderPageSearch(config: RenderPageSearchConfig): ReactElement {
   const testId = props['data-testid'] as string | undefined
   const effectivePlaceholder = placeholder ?? 'Search...'
 
-  // The prestyled-islands rule (prestyled-by-default): the SSR shell carries the same input
-  // chrome as `renderSearchInput` so the SSR page-search reads as a styled
-  // input on first paint. The hydrated `page-search-island` then swaps the
-  // SSR markup for its own inline-styled live panel (see PanelInlineStyles
-  // in page-search-island.tsx) — the island's inline styles are required
-  // because the live panel may render on a third-party host that doesn't
-  // ship Sovrium's CSS. The SSR shell is the only surface this helper paints.
-  const containerDefaults = computeSearchInputContainerClasses()
-  const containerClassName = resolveClasses(containerDefaults, className)
-  const fieldClassName = computePageSearchFieldClasses()
-
+  // The SSR shell draws the island's own box — the same input group — so the
+  // field does not move or restyle when the island mounts and replaces it.
   const islandProps = {
     placeholder: effectivePlaceholder,
     ...(typeof maxResults === 'number' ? { maxResults } : {}),
@@ -155,30 +166,22 @@ export function renderPageSearch(config: RenderPageSearchConfig): ReactElement {
   return (
     <div
       id={id}
-      className={containerClassName}
+      className={resolveClasses(computeSearchInputRootClasses(), className)}
       data-testid={testId}
+      data-slot="search-input"
       data-island="search-input"
       data-component-type={hostComponentType(props)}
       data-island-props={propsJson}
     >
-      <SearchGlyph className={computeSearchInputIconClasses({ scope: 'page' })} />
-      <input
-        type="search"
-        placeholder={effectivePlaceholder}
-        aria-label={effectivePlaceholder}
-        className={fieldClassName}
-      />
-      {/*
-        The key that opens the panel, named on the control it opens. Not a
-        `kbd` component: this is a hint printed on a field, and a keycap here
-        would compete with the field's own border for the same 20px of edge.
-      */}
-      <span
-        aria-hidden="true"
-        className={computePageSearchKeyHintClasses()}
-      >
-        /
-      </span>
+      {searchInputGroup(
+        <input
+          type="search"
+          placeholder={effectivePlaceholder}
+          aria-label={effectivePlaceholder}
+          data-slot="input-group-control"
+          className={computeInputGroupFieldClasses()}
+        />
+      )}
     </div>
   )
 }

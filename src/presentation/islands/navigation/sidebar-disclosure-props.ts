@@ -90,6 +90,8 @@ export interface DisclosureSource extends RowProjection {
    */
   readonly query?: Readonly<Record<string, string | number | boolean>>
   readonly loadingLabel: string
+  /** `skeleton` draws placeholder rows while the list loads, instead of the loading line. */
+  readonly loading?: 'skeleton'
   readonly errorLabel: string
   readonly emptyLabel: string
 }

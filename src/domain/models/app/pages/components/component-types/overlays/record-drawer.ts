@@ -56,9 +56,9 @@ export const RecordDrawerFieldRenderAsSchema = Schema.Literals([
   'key-value',
   'code',
 ]).annotate({
-  title: 'Record Drawer Field Render As',
+  title: 'Record Sheet Field Render As',
   description:
-    'How a record-drawer field renders its value: text (default, String(value)), json (pretty <pre>), list (array-of-objects as a labelled list), key-value (nested object as a definition list), code (raw string in a monospace block).',
+    'How a record-sheet field renders its value: text (default, String(value)), json (pretty <pre>), list (array-of-objects as a labelled list), key-value (nested object as a definition list), code (raw string in a monospace block).',
 })
 
 /** A single schema-derived form field the drawer renders a control for. */
@@ -68,7 +68,7 @@ export const RecordDrawerFieldSchema = Schema.Struct({
   }),
   type: Schema.String.annotate({
     description:
-      'Field type of this entry, naming the control the drawer renders for it. Left open rather than enumerated so a drawer bound to a system endpoint, which has no table schema to resolve a type from, can state one itself.',
+      'Field type of this entry, naming the control the sheet renders for it. Left open rather than enumerated so a sheet bound to a system endpoint, which has no table schema to resolve a type from, can state one itself.',
   }),
   /**
    * Display-name override for this panel entry, winning over the bound field's
@@ -88,7 +88,7 @@ export const RecordDrawerFieldSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         description:
-          "Display-name override for this drawer entry (wins over the bound field's label, then the raw name). Required to name an entry on a system-bound drawer, which has no table field schema to resolve from.",
+          "Display-name override for this sheet entry (wins over the bound field's label, then the raw name). Required to name an entry on a system-bound sheet, which has no table field schema to resolve from.",
         examples: ['Prix unitaire', 'Statut'],
       }),
       Schema.check(Schema.isNonEmpty({ message: 'label must not be empty' }))
@@ -104,7 +104,7 @@ export const RecordDrawerFieldSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         description:
-          "Guidance-text override rendered beside this drawer entry's value (wins over the bound field's description). Required to describe an entry on a system-bound drawer.",
+          "Guidance-text override rendered beside this sheet entry's value (wins over the bound field's description). Required to describe an entry on a system-bound sheet.",
         examples: ['Hors taxes, en euros.'],
       }),
       Schema.check(Schema.isNonEmpty({ message: 'description must not be empty' }))
@@ -122,7 +122,7 @@ export const RecordDrawerFieldSchema = Schema.Struct({
 }).pipe(
   Schema.annotate({
     identifier: 'RecordDrawerField',
-    title: 'Record Drawer Field',
+    title: 'Record Sheet Field',
     description: 'One field of the record: its name, its type, and how its value is rendered',
   })
 )
@@ -188,8 +188,8 @@ export const RecordDrawerActionSchema = Schema.Struct({
   action: actionWithoutFill(
     'A drawer footer action (actions[].action)',
     'RecordDrawerFooterAction',
-    'Record Drawer Footer Action',
-    'The action a drawer footer button runs against the record the drawer loaded. Every action type except `fill`, which runs only from a button on the page, a list item click or a board drop hook.'
+    'Record Sheet Footer Action',
+    'The action a sheet footer button runs against the record the sheet loaded. Every action type except `fill`, which runs only from a button on the page, a list item click or a board drop hook.'
   ),
   /** Optional button variant (visual style) — same set as the `button` component. */
   variant: Schema.optional(ButtonVariantSchema),
@@ -206,7 +206,7 @@ export const RecordDrawerActionSchema = Schema.Struct({
 }).pipe(
   Schema.annotate({
     identifier: 'RecordDrawerAction',
-    title: 'Record Drawer Action',
+    title: 'Record Sheet Action',
     description: 'One footer button: its label, the action it fires, and an optional confirm gate',
   })
 )
@@ -226,9 +226,9 @@ export const RecordDrawerActionSchema = Schema.Struct({
  * "Détail de l'enregistrement" name is kept, so existing drawers are unchanged.
  */
 export const RecordDrawerRoleSchema = Schema.Literals(['dialog', 'region']).annotate({
-  title: 'Record Drawer Role',
+  title: 'Record Sheet Role',
   description:
-    'Accessible role of the drawer surface: dialog (default) or region. Its accessible name comes from props.title.',
+    'Accessible role of the sheet surface: dialog (default) or region. Its accessible name comes from props.title.',
 })
 
 /**
@@ -249,13 +249,13 @@ export const RecordDrawerRelatedColumnSchema = Schema.Struct({
     )
   ),
 }).annotate({
-  title: 'Record Drawer Related Column',
+  title: 'Record Sheet Related Column',
   description: 'One column of a related section: a field of the related table and its header',
 })
 
 /**
  * What a click on a related row does (CAP-8). The two variants a `table`'s
- * `onRowClick` honours, and no others: `openDrawer` names another drawer on the
+ * `onRowClick` honours, and no others: `openSheet` names another drawer on the
  * page bound to the related table, which opens on the clicked row in place of
  * this one; `navigate` follows a path with `$record.*` read from the row.
  *
@@ -268,7 +268,7 @@ export const RecordDrawerRelatedRowClickSchema = Schema.Union([
   OpenDrawerActionSchema,
 ]).annotate({
   description:
-    'What a click on a listed record does: `openDrawer` opens that record in another drawer on the page, bound to `table`, in place of this one; `navigate` follows a path, with `$record.*` read from the clicked record.',
+    'What a click on a listed record does: `openSheet` opens that record in another sheet on the page, bound to `table`, in place of this one; `navigate` follows a path, with `$record.*` read from the clicked record.',
 })
 
 /**
@@ -278,7 +278,7 @@ export const RecordDrawerRelatedRowClickSchema = Schema.Union([
  *
  * The cross-table rules — `table` exists, `field` is a relationship on it that
  * points at the drawer's own table, `columns` / `sort` name real fields, an
- * `openDrawer` target is a drawer bound to `table` — need the whole config and
+ * `openSheet` target is a drawer bound to `table` — need the whole config and
  * live in `drawer-related-validation.ts`, never as a `Schema.check` here.
  */
 export const RecordDrawerRelatedSchema = Schema.Struct({
@@ -293,7 +293,7 @@ export const RecordDrawerRelatedSchema = Schema.Struct({
   }),
   field: Schema.String.annotate({
     description:
-      "Relationship column on `table` that points at the drawer's own table; the section lists the records whose value in this column is the opened record.",
+      "Relationship column on `table` that points at the sheet's own table; the section lists the records whose value in this column is the opened record.",
   }),
   columns: Schema.optional(
     Schema.Array(RecordDrawerRelatedColumnSchema).annotate({
@@ -324,7 +324,7 @@ export const RecordDrawerRelatedSchema = Schema.Struct({
   ),
   onRowClick: Schema.optional(RecordDrawerRelatedRowClickSchema),
 }).annotate({
-  title: 'Record Drawer Related',
+  title: 'Record Sheet Related',
   description:
-    'One section listing the records of another table that point at the record the drawer opened',
+    'One section listing the records of another table that point at the record the sheet opened',
 })

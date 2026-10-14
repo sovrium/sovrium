@@ -16,7 +16,7 @@
  */
 
 import { classifyStepRead, type StepRead } from '@/domain/models/app/automations/step-read-service'
-import { redactSecretsForApp } from '../redact-secrets'
+import { redactSecretsForRunHistory } from '../redact-secrets'
 import type { ActionOutcome } from '../action-handlers'
 import type { AutomationInvoker, StepContext } from './types'
 import type { App } from '@/domain/models/app'
@@ -107,6 +107,11 @@ export const redactedReads = (
   ctx: Pick<StepContext, 'app' | 'processEnv'>
 ): { readonly reads?: readonly StepRead[] } => {
   if (reads === undefined) return {}
-  const redacted = redactSecretsForApp(reads, ctx.app.env, ctx.processEnv, ctx.app.connections)
+  const redacted = redactSecretsForRunHistory(
+    reads,
+    ctx.app.env,
+    ctx.processEnv,
+    ctx.app.connections
+  )
   return { reads: redacted as readonly StepRead[] }
 }

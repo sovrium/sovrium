@@ -51,7 +51,7 @@ export const AiExtractActionSchema = Schema.Struct({
     schema: Schema.Record(Schema.String, Schema.Unknown).pipe(
       Schema.annotate({
         description:
-          'JSON Schema describing the extraction output. Example: { "name": "string", "email": "string", "age": "number" }',
+          'JSON Schema object describing the extraction output, sent to the provider unchanged: `type: object`, its `properties` and the `required` ones; a list is `type: array` with `items`. Example: { "type": "object", "properties": { "name": { "type": "string" }, "age": { "type": "number" } }, "required": ["name"] }. The step output is the extracted object itself, read as `{{steps.<name>.<field>}}`',
       })
     ),
 

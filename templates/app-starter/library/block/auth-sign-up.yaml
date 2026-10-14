@@ -3,11 +3,11 @@ name: auth-sign-up
 type: container
 element: section
 props:
-  className: flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6
+  className: flex min-h-screen justify-center bg-muted px-4 pt-10 pb-12 sm:items-center sm:px-6
 children:
   - type: container
     props:
-      className: flex w-full max-w-96 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-background-raised sm:p-8
+      className: flex w-full max-w-96 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-card sm:p-8
     children:
       - type: flex
         props:
@@ -37,7 +37,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: It takes a minute. You can change everything later.
           - type: form
             action:
@@ -49,7 +49,7 @@ children:
                 navigate: /
           - type: flex
             props:
-              className: flex items-center gap-3 text-sm text-foreground-subtle
+              className: flex items-center gap-3 text-sm text-muted-foreground
               role: separator
             children:
               - type: container
@@ -74,7 +74,7 @@ children:
               declares: auth.oauth
           - type: flex
             props:
-              className: flex flex-wrap gap-1 text-md text-foreground-muted
+              className: flex flex-wrap gap-1 text-md text-muted-foreground
             children:
               - type: text
                 element: span
@@ -102,11 +102,11 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: Ask an administrator of $app.label to invite you. The invitation email has a link that creates your account.
           - type: flex
             props:
-              className: flex flex-wrap gap-1 text-md text-foreground-muted
+              className: flex flex-wrap gap-1 text-md text-muted-foreground
             children:
               - type: text
                 element: span

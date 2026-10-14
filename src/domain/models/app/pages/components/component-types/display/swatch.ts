@@ -25,7 +25,7 @@
  * me what this token IS".
  *
  * The curve is a **static SVG**. It must stay one: a chart library on this path
- * would pull the visx chunk into any page documenting a duration, and a
+ * would pull the chart chunk into any page documenting a duration, and a
  * four-point bezier is two `<path>` elements. `[internal ref]`
  * measures the eager closure that every visitor pays, and a swatch is a
  * server-rendered element with no island at all — it appears in no registry and
@@ -68,8 +68,9 @@ export const swatchFields = {
   /**
    * The token to draw.
    *
-   * A colour swatch takes a `--sv-*` custom-property name or a `design.ramps`
-   * step; never a literal colour, which stops being true the moment the ramp is
+   * A colour swatch takes a shadcn custom-property name (`--primary`,
+   * `--muted-foreground`, `--chart-1`, `--sidebar-primary`, …) or a
+   * `design.ramps` step; never a literal colour, which stops being true the moment the ramp is
    * retuned. A `variant: 'curve'` swatch takes an easing token name or a
    * `cubic-bezier(...)` literal — a literal is legal there because a bezier is
    * the value itself rather than a reference to one.
@@ -78,8 +79,8 @@ export const swatchFields = {
     Schema.annotate({
       title: 'Token',
       description:
-        'The token to draw: a `--sv-*` custom-property name or a `design.ramps` step for a colour, or an easing name / `cubic-bezier(...)` literal under variant: curve',
-      examples: ['--sv-color-primary', 'neutral-500', 'enter'],
+        'The token to draw: a custom-property name such as `--primary`, `--muted-foreground` or `--chart-1`, or a `design.ramps` step, for a colour; an easing name or a `cubic-bezier(...)` literal under variant: curve',
+      examples: ['--primary', 'neutral-500', 'enter'],
     }),
     Schema.check(Schema.isMinLength(1))
   ),
@@ -128,8 +129,8 @@ export const swatchFields = {
   contrastAgainst: Schema.optional(
     Schema.String.annotate({
       description:
-        'Token this colour is designed to sit against. Adds the contrast ratio and its WCAG grade to the swatch.',
-      examples: ['--sv-color-background'],
+        'Token this colour is designed to sit against, named like `token` (for example `--background`). Adds the contrast ratio and its WCAG grade to the swatch.',
+      examples: ['--background'],
     })
   ),
   /** Print the resolved `cubic-bezier(...)` beside the plot. Read under `variant: 'curve'`. */

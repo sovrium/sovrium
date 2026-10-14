@@ -18,8 +18,8 @@
  *  - Container chrome on `pre.shiki` (background, padding, radius, font).
  *    The chrome background + foreground TRACK the active Shiki design: a DARK
  *    chrome (near-black `#0d0d0d`, light `#e1e4e8` text) for dark themes
- *    (`github-dark` — the default — `nord`, `dracula`, …) so their light token
- *    colours stay legible, and a LIGHT chrome (the `--color-background-subtle`
+ *    (`github-dark`, `nord`, `dracula`, …) so their light token
+ *    colours stay legible, and a LIGHT chrome (the `--color-muted`
  *    token) for light themes (`github-light`, …). This unifies the code-block
  *    chrome across every surface — config `code` components AND generic
  *    markdown fences — so a fence outside the docs zone no longer washes out
@@ -35,10 +35,10 @@
  *  1. the native PostCSS pipeline (from-source / npm-bundled), and
  *  2. the pure-JS native-free engine (compiled-binary path, issue #19).
  *
- *  - And, when the app named a dark counterpart, a dark-scheme arm repeating
- *    both of the above from that second design: `design.codeBlock.darkTheme`
- *    is the only thing that emits it, and an app that names none gets a
- *    stylesheet with no dark-scoped code-block rule in it whatsoever.
+ *  - And, when a dark counterpart resolves, a dark-scheme arm repeating both of
+ *    the above from that second design: the default pair carries one, and so
+ *    does an app naming `design.codeBlock.darkTheme`; an app naming one `theme`
+ *    and no counterpart gets no dark-scoped code-block rule whatsoever.
  *
  * Selectors used here (`pre.shiki`, `.tok-XXXXXX`, `.tok-dark-XXXXXX`) are
  * plain CSS, not Tailwind utilities, so they do NOT need to appear in
@@ -46,15 +46,9 @@
  * utility classes, not arbitrary author selectors emitted via raw CSS.
  */
 
+import { resolveCodeBlockThemes } from '@/domain/models/app/design/code-block-service'
 import { flooredPalette } from './code-block-theme-palette'
 import type { Design } from '@/domain/models/app/design'
-
-/**
- * Default Shiki design applied when `design.codeBlock.theme` is unset. Mirrors
- * the runtime default in `infrastructure/markdown/shiki-highlighter.ts` so the
- * CSS layer agrees with the highlighter output on the unconfigured-app path.
- */
-const DEFAULT_SHIKI_THEME = 'github-dark'
 
 /**
  * Common token colors per supported design. The list intentionally stays small
@@ -134,7 +128,7 @@ const generateContrastFloorRules = (themeName: string): string =>
  * The chrome background + foreground colours for a code block, resolved from
  * the active Shiki design. Dark themes get a fixed near-black chrome with light
  * text (so their light token colours stay legible); light themes defer to the
- * `--color-background-subtle` / `--color-foreground` tokens so the chrome stays
+ * `--color-muted` / `--color-foreground` tokens so the chrome stays
  * light and integrates with the surrounding page.
  */
 interface ChromeColors {
@@ -187,13 +181,13 @@ const isLightShikiTheme = (themeName: string): boolean => {
  * Resolve the chrome colours for the active code-block design. A dark design
  * pins a near-black chrome (`#0d0d0d`) with light text (`#e1e4e8`) — the same
  * dark chrome the docs code fence uses — so `github-dark`'s light tokens stay
- * legible everywhere. A light design keeps the `--color-background-subtle` token
+ * legible everywhere. A light design keeps the `--color-muted` token
  * chrome so it stays light and adapts to the operator's palette.
  */
 const resolveChromeColors = (themeName: string): ChromeColors =>
   isLightShikiTheme(themeName)
     ? {
-        background: 'var(--color-background-subtle, #f6f8fa)',
+        background: 'var(--color-muted, #f6f8fa)',
         foreground: 'var(--color-foreground, #1f2328)',
       }
     : { background: '#0d0d0d', foreground: '#e1e4e8' }
@@ -260,7 +254,7 @@ const FRAME_CHROME = `figure[data-code-frame] pre.shiki,
     font-size: 0.75rem;
     line-height: 1rem;
     font-style: normal;
-    color: var(--sv-fg-muted, oklch(0.445 0 0));
+    color: var(--color-muted-foreground);
   }
   [data-copy-code] [data-copy-glyph="copied"] { display: none; }
   [data-copy-code][data-copied="true"] [data-copy-glyph="copied"] { display: inline; }
@@ -326,12 +320,11 @@ const generateTokenColorRules = (): string =>
     .join('\n')
 
 /**
- * Resolve the active Shiki design name. Falls back to `DEFAULT_SHIKI_THEME`
- * when the operator did not declare `design.codeBlock.theme` — matching the
- * runtime default the Shiki highlighter applies to fenced code blocks.
+ * The themes the code blocks are drawn with — the same resolution the Shiki
+ * highlighter applies, so the stylesheet and the markup agree on every app.
  */
-const resolveCodeBlockThemeName = (design?: Design): string =>
-  design?.codeBlock?.theme ?? DEFAULT_SHIKI_THEME
+const codeBlockThemesOf = (design?: Design) =>
+  resolveCodeBlockThemes(design?.codeBlock?.theme, design?.codeBlock?.darkTheme)
 
 /**
  * Build a theme-name-scoped selector hook. Shiki emits `<pre class="shiki
@@ -373,7 +366,7 @@ const DARK_SCHEME_ROOT = "html:is(.dark, [data-theme='dark'])"
  * Three rules, and each one is load-bearing:
  *
  *  1. **The chrome is pinned to the DARK theme's own chrome**, not merely
- *     darkened. The light arm defers to `--color-background-subtle`, which in
+ *     darkened. The light arm defers to `--color-muted`, which in
  *     the dark scheme resolves to a mid grey — measured `oklch(0.272 0 0)`,
  *     about `rgb(76,76,76)` — and a dark theme's brightest identifier colour
  *     sits at **4.14:1** against that. Against the theme's own near-black it is
@@ -422,26 +415,24 @@ ${tokenRules}`
  *
  * The `design` parameter selects the Shiki design name emitted in the stylesheet
  * (via a comment header and a `pre.shiki.<themeName>` selector hook). When
- * `design.codeBlock.theme` is unset, the default Shiki design name
- * (`'github-dark'`) is used — matching the highlighter runtime default — so
- * the served CSS always carries a design name regardless of whether the
- * operator declared code-block config.
+ * `design.codeBlock.theme` is unset, the engine's pair applies (`github-light`,
+ * with `github-dark` under the dark scheme) — matching the highlighter — so the
+ * served CSS always carries a design name.
  *
- * When — and only when — the app also names `design.codeBlock.darkTheme`, the
+ * When a dark theme resolves (named by the app, or the default pair), the
  * dark-scheme arm is appended after everything above, so its rules win by
- * source order as well as by specificity. An app that names no counterpart gets
- * a stylesheet with no dark-scoped code-block rule in it at all.
+ * source order as well as by specificity. An app that names one `theme` and no
+ * counterpart gets a stylesheet with no dark-scoped code-block rule at all.
  */
 export const generateCodeBlockStyles = (
   design?: Design,
   darkPalette: readonly string[] = []
 ): string => {
-  const themeName = resolveCodeBlockThemeName(design)
+  const { theme: themeName, darkTheme: darkThemeName } = codeBlockThemesOf(design)
   const chromeColors = resolveChromeColors(themeName)
   const chrome = generateContainerChrome(chromeColors)
   const tokenRules = generateTokenColorRules()
   const themeHook = generateThemeScopedHook(themeName, chromeColors)
-  const darkThemeName = design?.codeBlock?.darkTheme
   const darkArm =
     darkThemeName === undefined ? '' : `\n${generateDarkSchemeArm(darkThemeName, darkPalette)}`
   const floors = generateContrastFloorRules(themeName)

@@ -186,8 +186,7 @@ const templateList = (): PageComponent =>
     props: {
       'aria-label': '$t:admin.templates.list.region',
       'data-testid': 'templates-list',
-      className:
-        'border-border divide-border bg-background-raised divide-y overflow-hidden rounded-lg border',
+      className: 'border-border divide-border bg-card divide-y overflow-hidden rounded-lg border',
     },
     dataSource: { system: { endpoint: TEMPLATES_ENDPOINT, rowsKey: 'templates', idKey: 'path' } },
     children: [templateRow()],
@@ -330,7 +329,7 @@ const noSampleNotice = (): PageComponent =>
     {
       'data-testid': 'template-no-sample',
       role: 'note',
-      className: 'border-border bg-background-raised flex flex-col gap-1 rounded-lg border p-4',
+      className: 'border-border bg-card flex flex-col gap-1 rounded-lg border p-4',
     }
   )
 
@@ -367,7 +366,7 @@ const fileTemplatePanel = (): PageComponent =>
     ],
     {
       'data-testid': 'template-file-panel',
-      className: 'border-border bg-background-raised flex flex-col gap-2 rounded-lg border p-4',
+      className: 'border-border bg-card flex flex-col gap-2 rounded-lg border p-4',
     }
   )
 

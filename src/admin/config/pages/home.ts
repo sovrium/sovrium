@@ -45,6 +45,7 @@
 // since the system-value hook keys its query on the endpoint — and the
 // sub-lines are server text beneath them.
 
+import { dashboardContent, sectionCard, sectionCards } from '../components/dashboard-blocks'
 import { withShell } from '../components/shell'
 import {
   ADMIN_ROLES_ENDPOINT,
@@ -188,14 +189,14 @@ const searchHero: PageComponent = {
   children: [
     {
       type: 'button',
-      variant: 'secondary',
+      variant: 'outline',
       props: {
         type: 'button',
         'aria-label': '$t:admin.welcome.searchHero',
         'data-command-palette-trigger': 'true',
         'data-testid': 'welcome-search-trigger',
         className:
-          'border-border text-foreground-subtle hover:text-foreground flex h-11 w-full items-center justify-start gap-2 rounded-md px-4 text-md font-normal',
+          'h-10 w-full justify-start gap-2 bg-muted/50 px-3 text-sm font-normal text-muted-foreground shadow-none',
       },
       children: [
         { type: 'icon', props: { name: 'search', size: 16, className: 'shrink-0' } },
@@ -205,18 +206,13 @@ const searchHero: PageComponent = {
           props: { className: 'flex-1 text-left' },
           content: '$t:admin.shell.searchPlaceholder',
         },
-        {
-          type: 'text',
-          element: 'span',
-          props: { className: 'text-foreground-subtle text-sm' },
-          content: '⌘K',
-        },
+        { type: 'kbd', keys: ['⌘', 'K'] },
       ],
     },
     {
       type: 'text',
       element: 'span',
-      props: { className: 'text-foreground-subtle text-xs' },
+      props: { className: 'text-xs text-muted-foreground' },
       content: '$t:admin.welcome.noAi',
     },
   ],
@@ -226,7 +222,7 @@ const hero: PageComponent = {
   type: 'container',
   element: 'section',
   props: {
-    className: 'flex flex-col items-center gap-6 px-4 pt-10 pb-6',
+    className: 'flex flex-col items-center gap-6 px-4 pt-6 pb-2 lg:px-6',
     'aria-label': '$t:admin.welcome.heroRegion',
   },
   children: [greeting, composer, searchHero],
@@ -238,16 +234,11 @@ const hero: PageComponent = {
  * One cell of the strip: a count, what it counts, the detail behind it, and the
  * console that answers it.
  *
- * `warn` decides whether a non-zero count is toned. Three of the six cells name
- * something BROKEN — a failed run, an unset required variable, an expired token
- * — and [internal ref] D3 reserves colour for consequence, which is exactly that. The
- * other three (invitations, submissions, a deliberately paused automation) are
- * states of ordinary operation and stay monochrome; toning them would spend the
- * one surviving ramp on news rather than on damage.
- *
- * A toned cell is carried TWICE, gated on `gt: 0` and `lte: 0` against the page
- * record. That is the only way config expresses "colour this if it is not zero":
- * `visibility.record` compares numerically, and there is no conditional class.
+ * `warn` decides whether a non-zero count is painted red. Three of the six
+ * cells name something BROKEN (a failed run, an unset required variable, an
+ * expired token); the other three (invitations, submissions, a deliberately
+ * paused automation) are states of ordinary operation and stay neutral. The
+ * figure is a `kpi` with `thresholds` from 1, so the colour follows the value.
  */
 interface PulseCell {
   /** The `data-testid` stem and the i18n key suffix. */
@@ -307,140 +298,63 @@ const PULSE_CELLS: readonly PulseCell[] = [
   },
 ]
 
-const COUNT_CLASS = 'font-mono text-xl leading-6'
-
-/** The count, toned or not — one node when plain, two gated ones when `warn`. */
-const pulseCount = (cell: PulseCell): readonly PageComponent[] =>
-  cell.warn
-    ? ([
-        {
-          type: 'text',
-          element: 'span',
-          visibility: { record: { field: cell.count, gt: 0 } },
-          props: { className: `text-error-fg ${COUNT_CLASS}` },
-          content: `$record.${cell.count}`,
-        },
-        {
-          type: 'text',
-          element: 'span',
-          visibility: { record: { field: cell.count, lte: 0 } },
-          props: { className: `text-foreground ${COUNT_CLASS}` },
-          content: `$record.${cell.count}`,
-        },
-      ] as readonly PageComponent[])
-    : ([
-        {
-          type: 'text',
-          element: 'span',
-          props: { className: `text-foreground ${COUNT_CLASS}` },
-          content: `$record.${cell.count}`,
-        },
-      ] as readonly PageComponent[])
-
-const pulseCellNode = (cell: PulseCell): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className: 'flex min-w-0 flex-col gap-0.5 px-4 py-3',
-      'data-testid': `welcome-pulse-${cell.key}`,
-    },
-    children: [
+/** One attention card: the figure from the attention read, its detail, the way to fix it. */
+const pulseCard = (cell: PulseCell): PageComponent =>
+  sectionCard({
+    testId: `welcome-pulse-${cell.key}`,
+    label: `$t:admin.welcome.pulse.${cell.key}`,
+    endpoint: ATTENTION_ENDPOINT,
+    valuePath: cell.count,
+    attention: cell.warn,
+    footer: [
       {
+        // shadcn's section-card footer: a column, the detail over the way to fix it.
         type: 'container',
         element: 'div',
-        props: { className: 'flex items-baseline gap-2' },
+        props: { className: 'flex flex-col items-start gap-1.5 text-sm' },
         children: [
-          ...pulseCount(cell),
           {
             type: 'text',
-            element: 'span',
-            props: { className: 'text-md font-medium' },
-            content: `$t:admin.welcome.pulse.${cell.key}`,
+            element: 'p',
+            props: { className: 'text-muted-foreground empty:hidden!' },
+            content: `$record.${cell.detail}`,
           },
-        ],
-      },
-      // `empty:hidden!` rather than a second gated node: a zero cell's detail
-      // string is `''` by contract, and an empty span would otherwise reserve a
-      // line and pull the strip's cells out of vertical agreement.
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground-subtle truncate text-xs empty:hidden!' },
-        content: `$record.${cell.detail}`,
-      },
-      {
-        type: 'link',
-        props: {
-          href: cell.href,
-          // `mt-auto` rather than a top margin: the grid stretches every cell
-          // to the tallest, and one label wrapping to two lines ("required
-          // variables unset" does, at every width above `sm`) would otherwise
-          // leave six destinations on five different baselines.
-          className: 'text-foreground-subtle hover:text-foreground mt-auto pt-1 text-xs',
-        },
-        children: [
           {
-            type: 'text',
-            element: 'span',
+            type: 'link',
+            props: {
+              href: cell.href,
+              className:
+                'text-muted-foreground underline-offset-4 hover:text-foreground hover:underline',
+            },
             content: `$t:admin.welcome.pulse.${cell.key}.where`,
           },
         ],
       },
-    ],
+    ] as readonly PageComponent[],
+  })
+
+/** A section heading over a card grid, on the content column's gutter. */
+const sectionHeading = (content: string): PageComponent =>
+  ({
+    type: 'text',
+    element: 'h2',
+    props: { className: 'px-4 text-sm font-medium text-muted-foreground lg:px-6' },
+    content,
   }) as PageComponent
 
-/**
- * The strip, and the sentence above it that says what it is anchored on.
- *
- * "Since this instance started" is exact rather than approximate:
- * `AdminAttentionResponse.since` IS the process boot, byte-identical to
- * `GET /api/admin/config/version`.`startedAt`. Two of the six cells are events
- * counted from it; the other four report what is true now. There is deliberately
- * no since-last-visit delta — that would need per-operator state the console
- * does not keep, and a strip whose numbers changed per reader is a strip two
- * operators cannot discuss.
- */
 const pulse: PageComponent = {
   type: 'container',
   element: 'section',
-  props: { className: 'flex flex-col gap-2', 'aria-label': '$t:admin.welcome.pulse.region' },
+  props: { className: 'flex flex-col gap-3', 'aria-label': '$t:admin.welcome.pulse.region' },
   children: [
-    {
-      type: 'text',
-      element: 'h2',
-      props: { className: 'text-foreground-muted text-xs font-medium tracking-wide uppercase' },
-      content: '$t:admin.welcome.pulse.heading',
-    },
-    {
-      type: 'container',
-      element: 'div',
-      props: {
-        className:
-          'border-border bg-background-raised divide-border grid grid-cols-1 divide-y overflow-hidden rounded-md border sm:grid-cols-2 sm:divide-x lg:grid-cols-3 xl:grid-cols-6',
-        'data-testid': 'welcome-pulse',
-      },
-      children: PULSE_CELLS.map(pulseCellNode),
-    },
+    sectionHeading('$t:admin.welcome.pulse.heading'),
+    sectionCards(PULSE_CELLS.map(pulseCard), { 'data-testid': 'welcome-pulse' }),
   ],
 } as PageComponent
 
-// ──────────────────────────────────────────────────────────── the nine tiles
-
 /**
- * One declaration-family tile: a head count and the composition behind it.
- *
- * The `kpi` IS the tile — it draws its own bordered card with the label above
- * the value, which is the shape the canvas draws. The sub-line cannot go inside
- * it: `kpi` has no sub-line slot (its `trend` is a static literal percentage,
- * not a binding) and it drops `props` entirely, so no class or marker reaches
- * the mounted DOM. It therefore sits UNDER the card as a caption, which is the
- * one honest degradation on this page.
- *
- * `sub` is `undefined` where the endpoint set carries no composition for that
- * family. Pages and Forms have none; the canvas drew "declared" and
- * "quote-request public", the first of which says nothing and the second of
- * which is a name no reduction yields.
+ * The second section: what the configuration declares, one section card per
+ * kind of object, each with the breakdown the reader asks next as its footer.
  */
 interface CountTile {
   readonly key: string
@@ -504,103 +418,52 @@ const COUNT_TILES: readonly CountTile[] = [
   },
 ]
 
-const countTileNode = (tile: CountTile): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: { className: 'flex min-w-0 flex-col gap-1', 'data-testid': `welcome-tile-${tile.key}` },
-    children: [
-      {
-        type: 'kpi',
-        // A literal, not a `$t:` token: a `kpi` is a lazy island whose schema
-        // fields ship to the browser as raw props, and a translation key left
-        // unresolved there prints as the key.
-        label: tile.label,
-        dataSource: { system: { endpoint: tile.endpoint, valuePath: tile.valuePath } },
-        kpiFormat: { type: 'number' },
-      },
-      ...(tile.sub === undefined
-        ? []
-        : [
+const countCard = (tile: CountTile): PageComponent =>
+  sectionCard({
+    testId: `welcome-tile-${tile.key}`,
+    label: tile.label,
+    endpoint: tile.endpoint,
+    valuePath: tile.valuePath,
+    ...(tile.sub === undefined
+      ? {}
+      : {
+          footer: [
             {
               type: 'text',
-              element: 'span',
-              // NOT `truncate`. The widest sub-line ("0 paused · 0 disabled")
-              // does not fit a ninth of 1440px, and a tile that ends in `0
-              // dis…` has spent a line saying nothing. Wrapping costs a second
-              // line under ONE tile and keeps the word.
-              props: { className: 'text-foreground-subtle px-3.5 text-xs' },
+              element: 'p',
+              props: { className: 'text-sm text-muted-foreground' },
               content: tile.sub,
             },
-          ]),
-    ],
-  }) as PageComponent
+          ] as readonly PageComponent[],
+        }),
+  })
 
 const counts: PageComponent = {
   type: 'container',
   element: 'section',
-  props: { className: 'flex flex-col gap-2 pb-2', 'aria-label': '$t:admin.welcome.counts.region' },
+  props: { className: 'flex flex-col gap-3', 'aria-label': '$t:admin.welcome.counts.region' },
   children: [
-    {
-      type: 'text',
-      element: 'h2',
-      props: { className: 'text-foreground-muted text-xs font-medium tracking-wide uppercase' },
-      content: '$t:admin.welcome.counts.heading',
-    },
-    {
-      type: 'container',
-      element: 'div',
-      props: {
-        className: 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9',
-        'data-testid': 'welcome-counts',
-      },
-      children: COUNT_TILES.map(countTileNode),
-    },
+    sectionHeading('$t:admin.welcome.counts.heading'),
+    sectionCards(COUNT_TILES.map(countCard), { 'data-testid': 'welcome-counts' }),
   ],
 } as PageComponent
 
-// ─────────────────────────────────────────── the bar facts, and why there are none
-//
-// The canvas draws an instance line in the chrome bar:
-// `<app> v<ver> (Sovrium v<engine>) · <dialect> · booted <date> <time>`.
-// It is NOT shipped here, and each of the three reasons was measured on this
-// branch rather than assumed.
-//
-//  - The app-and-engine half belongs to the SIDEBAR, and it has SHIPPED there.
-//    The identity row reads `<app> v<ver> (Sovrium v$app.engineVersion)` under
-//    the founder's operator-chrome rule; the console-keys wave landed it, and
-//    `$app.engineVersion` joined the closed app-var set to make it sayable.
-//    That binding is therefore already spent ON THIS PAGE, in the sidebar head,
-//    two hundred pixels from a breadcrumb root that names the app again. Reusing
-//    it in the chrome bar would print one fact three ways on one screen. A
-//    binding existing is a reason not to invent a second one; it is not a reason
-//    for every surface to say the thing again.
-//  - It would misprint anyway. `$app.version` resolves to `''` for an app that
-//    declares no version — deliberately, so nothing mistakes an unsubstituted
-//    token for a build — so `v$app.version` inside one `content` string renders
-//    a bare `v`. The sidebar chip solves that with `empty:hidden` on its own
-//    element; a single text node has no half to hide. Measured live on
-//    `apps/website`, which declares none: `Sovrium Website v (Sovrium v0.24.0)`.
-//  - The two tails are unreachable. The dialect (`sqlite` / `postgres`) lives on
-//    `GET /api/admin/config/version`, and this page has ONE record, spent on the
-//    pulse. The boot instant IS in that record — `$record.since` is the same
-//    timestamp — but only as a raw ISO string, and no config primitive formats a
-//    bound date: `booted 2026-09-16T13:53:39.631Z` would spend the widest part
-//    of the chrome on machine punctuation. The strip says it in words instead.
-
-export default withShell({
-  id: 'dashboard-overview',
-  name: 'dashboard-overview',
-  path: '/',
-  meta: {
-    title: '$t:admin.meta.welcome',
-    // Stated rather than inferred. `languages.default` is the CODE `en`, and
-    // it sits ahead of the renderer's `en-US` fallback — so leaving this off
-    // would silently move `<html lang>` from `en-US` to `en`.
-    lang: 'en-US',
-  },
-  // The page RECORD. Every `$record.*` above resolves from this one read,
-  // server-side, with no island.
-  dataSource: { system: { endpoint: ATTENTION_ENDPOINT } },
-  components: [hero, pulse, counts],
-} as PageConfig) satisfies PageConfig
+export default withShell(
+  {
+    id: 'dashboard-overview',
+    name: 'dashboard-overview',
+    path: '/',
+    meta: {
+      title: '$t:admin.meta.welcome',
+      // Stated rather than inferred. `languages.default` is the CODE `en`, and
+      // it sits ahead of the renderer's `en-US` fallback — so leaving this off
+      // would silently move `<html lang>` from `en-US` to `en`.
+      lang: 'en-US',
+    },
+    // The page RECORD. Every `$record.*` above resolves from this one read,
+    // server-side, with no island.
+    dataSource: { system: { endpoint: ATTENTION_ENDPOINT } },
+    components: [dashboardContent([hero, pulse, counts])],
+  } as PageConfig,
+  { flush: true }
+) satisfies PageConfig

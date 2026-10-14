@@ -8,10 +8,11 @@
 import { Effect } from 'effect'
 import {
   BatchRepository,
+  type BatchRestoreError,
   type BatchValidationError,
 } from '@/application/ports/repositories/tables/batch-repository'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { ValidationError } from '@/domain/errors'
+import { type DatabaseError, ValidationError } from '@/domain/errors'
 import { CONSTRAINT_MESSAGES } from '@/domain/errors/driver-failure'
 import { isGuestSession, SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import {
@@ -33,7 +34,6 @@ import type { LinkReader } from './linked-row-visibility'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { NotFoundError, DatabaseError } from '@/domain/errors'
 import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 
@@ -283,7 +283,7 @@ export function batchRestoreProgram(
   tableName: string,
   ids: readonly string[],
   app?: App
-): Effect.Effect<BatchRestoreRecordsResponse, DatabaseError | NotFoundError, BatchRepository> {
+): Effect.Effect<BatchRestoreRecordsResponse, BatchRestoreError, BatchRepository> {
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
     const restored = yield* batch.batchRestore(session, tableName, ids)

@@ -56,6 +56,7 @@ export function DataTableToolbarBar({
   return (
     <div
       role="toolbar"
+      data-slot="data-table-toolbar"
       data-toolbar
       data-testid="data-table-toolbar"
       aria-hidden={importDialogOpen || undefined}
@@ -75,9 +76,9 @@ export function DataTableToolbarBar({
           parent's wrap can take effect on it too; without it the cluster keeps
           its 906px max-content size and overflows the row it wrapped onto.
           The gap matches the bar's own so a wrapped cluster keeps one rhythm. */}
-      <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1.5">
+      <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
         <QueryControls {...query} />
-        <DisplayControls {...display} />
+        {hasDisplayControls(display) && <DisplayControls {...display} />}
       </div>
     </div>
   )

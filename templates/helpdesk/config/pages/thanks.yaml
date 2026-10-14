@@ -12,7 +12,7 @@ components:
     children:
       - $ref: ./_site-header.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: mx-auto flex w-full max-w-[620px] flex-1 flex-col gap-4 px-6 pt-16 pb-10 max-md:px-4 max-md:pt-8
         children:
@@ -29,13 +29,13 @@ components:
           - type: text
             element: p
             props:
-              className: text-[15px] text-foreground-muted
+              className: text-[15px] text-muted-foreground
             content: It is in the team's queue, and a person will reply to the address you gave within one business day.
           - type: container
             children:
               - type: link
                 props:
                   href: /
-                  className: inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-[13px] font-medium text-foreground hover:bg-background-subtle
+                  className: inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-[13px] font-medium text-foreground hover:bg-muted
                 content: Send another ticket
       - $ref: ./_site-footer.yaml

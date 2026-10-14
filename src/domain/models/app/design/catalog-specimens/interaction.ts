@@ -124,9 +124,9 @@ const NAVIGATION_SPECIMENS: readonly CatalogSpecimen[] = [
     // The two `pages` are the specimen's illustrative content, read by the same
     // `quickActions()` derivation the live runtime applies to a real app's
     // config — so the rows a reader sees are the rows the palette builds.
-    type: 'command-palette',
+    type: 'command',
     component: component({
-      type: 'command-palette',
+      type: 'command',
       props: {
         specimen: true,
         pages: [
@@ -276,8 +276,7 @@ const OVERLAY_SPECIMENS: readonly CatalogSpecimen[] = [
       type: 'toast',
       props: {
         role: 'status',
-        className:
-          'border-border bg-background-raised text-foreground rounded-md border px-3 py-2 text-xs',
+        className: 'border-border bg-card text-foreground rounded-md border px-3 py-2 text-xs',
       },
       content: 'Export ready',
     }),
@@ -297,10 +296,17 @@ const OVERLAY_SPECIMENS: readonly CatalogSpecimen[] = [
     ),
   },
   {
-    type: 'drawer',
+    type: 'sheet',
     refusal: overlayRefusal(
       'Slides in from an edge and covers the page for as long as it is open, so it would cover ' +
         'the kit rather than sit in it.'
+    ),
+  },
+  {
+    type: 'drawer',
+    refusal: overlayRefusal(
+      'Rises from the bottom edge over the page for as long as it is open, so it would cover the ' +
+        'kit rather than sit in it.'
     ),
   },
 ]
@@ -384,8 +390,8 @@ const SPECIALTY_SPECIMENS: readonly CatalogSpecimen[] = [
       reorderable: true,
       props: { className: 'flex flex-col gap-1 text-xs' },
       children: [
-        { type: 'list-item', content: 'First — research', props: { id: 'kit-task-1' } },
-        { type: 'list-item', content: 'Second — draft', props: { id: 'kit-task-2' } },
+        { type: 'item', content: 'First — research', props: { id: 'kit-task-1' } },
+        { type: 'item', content: 'Second — draft', props: { id: 'kit-task-2' } },
       ],
     }),
   },

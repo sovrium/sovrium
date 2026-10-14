@@ -10,8 +10,7 @@
 //
 // This is the console the binary embeds and mounts into every running app. It
 // stopped being TypeScript builders and became an app like any other: a
-// declarative config, restyled by editing `config/design.ts` and hot-reloading
-// `bun run app:admin`.
+// declarative config, previewed with `bun run app:admin` and hot-reloaded.
 //
 // It sits under `src/` because everything the binary ships lives under `src/`
 // ([internal ref] D3, superseding [internal ref] D1 in its LOCATION only). Being an app has
@@ -23,7 +22,7 @@
 // binary as a preset, and the operator's config never contains it — only WHETHER
 // it is served (`admin`, a plain boolean: absent or `true` serves it at the fixed
 // `/_admin`, `false` serves it nowhere, and `SOVRIUM_ADMIN=off` is the env-level
-// kill switch). That is the whole of D4: the `design` key cascades onto it, page
+// kill switch). That is the whole of D4: the host's `design` cascades onto it, page
 // structure and backend do not.
 //
 // `name` IS LOAD-BEARING AND MUST NOT CHANGE. `isOperatorConsoleApp`
@@ -48,7 +47,6 @@
 // type-only, and nothing else.
 
 import templates from './config/components/templates'
-import design from './config/design'
 import chromeStrings from './config/i18n/chrome'
 import consoleStrings from './config/i18n/console'
 import dataStrings from './config/i18n/data'
@@ -129,7 +127,12 @@ export default {
   // both would give the operator two overlapping keyboard entry points.
   palette: { enabled: false },
 
-  design,
+  // No `design`. The console renders on the binary's native default — shadcn/ui,
+  // base-nova with Geist — and inherits the host app's design like every page
+  // that instance serves. Its scheme follows the operator (the engine default
+  // `colorScheme` is `system`) and its code blocks pair a light and a dark
+  // theme (the engine default `codeBlock`), so declaring either here would
+  // restate the default. `app.test.ts` holds the key absent.
 
   // Every page MOUNT-RELATIVE. The console is served at one fixed base,
   // `/_admin`, and the mount primitive prefixes each path with it at render

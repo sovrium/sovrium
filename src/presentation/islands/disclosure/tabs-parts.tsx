@@ -138,7 +138,7 @@ function TabPanel({
         className={className}
         aria-busy="true"
       >
-        <div className="bg-background-subtle h-32 w-full animate-pulse rounded" />
+        <div className="bg-muted h-32 w-full animate-pulse rounded" />
       </Tabs.Panel>
     )
   }
@@ -169,10 +169,14 @@ export function TabStrip(input: {
   readonly ariaLabel: string | undefined
   readonly uid: string
   readonly className: string
+  /** shadcn/ui's TabsList variant, named on the list (`data-variant`). */
+  readonly variant: 'default' | 'line'
 }): ReactElement {
-  const { items, orientation, ariaLabel, uid, className } = input
+  const { items, orientation, ariaLabel, uid, className, variant } = input
   return (
     <Tabs.List
+      data-slot="tabs-list"
+      data-variant={variant}
       className={className}
       aria-label={ariaLabel}
       data-scrollable={isHorizontalTabList(orientation)}

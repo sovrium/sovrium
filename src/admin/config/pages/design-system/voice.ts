@@ -43,6 +43,7 @@
 // `pageCount` beside `routes`. Every other `$record.` on this page sits under a
 // `dataSource`, whose children the page-record pass deliberately leaves alone.
 
+import { ledgerTable } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
 import { DESIGN_GUIDANCE_ENDPOINT, DESIGN_ZONES_ENDPOINT } from '../../system-sources'
 import { designSystemBreadcrumb } from './chrome'
@@ -250,12 +251,12 @@ const voiceSection = (): PageComponent =>
  * no consequence attached, which is the honest default.
  */
 const MOMENT_ACCENT: readonly (readonly [moment: string, className: string])[] = [
-  ['error', 'bg-error-solid'],
-  ['destructive', 'bg-error-solid'],
+  ['error', 'bg-destructive'],
+  ['destructive', 'bg-destructive'],
   ['warning', 'bg-warning-solid'],
   ['success', 'bg-success-solid'],
   ['info', 'bg-info-solid'],
-  ['empty', 'bg-background-subtle'],
+  ['empty', 'bg-muted'],
 ]
 
 /** Every accented bar, one of which renders. */
@@ -408,29 +409,9 @@ const inPracticeSection = (): PageComponent =>
   ])
 
 /**
- * What a budget MEANS, stated once — the field is `public`/`product` and the
- * word alone tells a writer nothing about what they may spend.
- */
-const budgetNote = (budget: 'public' | 'product', body: string): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: { className: 'max-w-2xl' },
-    visibility: { record: { field: 'accentBudget', eq: budget } },
-    children: [
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: `text-foreground-subtle ${MEASURE_MD} text-md leading-relaxed` },
-        content: body,
-      },
-    ],
-  }) as PageComponent
-
-/**
  * ZONES — which route family reads in which register, and where it departs.
  *
- * A one-register app has no zone map and renders an empty list here. A
+ * A one-register app has no zone map, and the ledger says so in one line. A
  * two-register app has one, and without this block its second register was
  * undiscoverable from the console: `design.voice` alone described `/portal/*`
  * as addressing the reader the way the marketing pages do, which is precisely
@@ -475,49 +456,17 @@ const zonesSection = (): PageComponent =>
       element: 'div',
       props: { className: 'flex flex-col', 'data-testid': 'design-system-zones' },
       children: [
-        {
-          type: 'container',
-          element: 'div',
-          props: { className: 'flex flex-col' },
+        ledgerTable({
+          props: { 'aria-label': 'Zones', className: 'mb-3' },
           dataSource: {
             system: { endpoint: DESIGN_ZONES_ENDPOINT, rowsKey: 'items', idKey: 'pattern' },
           },
-          children: [
-            {
-              type: 'container',
-              element: 'div',
-              props: {
-                className: 'border-border flex flex-col gap-2 border-b py-3 last:border-b-0',
-              },
-              children: [
-                {
-                  type: 'container',
-                  element: 'div',
-                  props: { className: 'flex flex-wrap items-baseline gap-x-3 gap-y-1' },
-                  children: [
-                    {
-                      type: 'text',
-                      element: 'p',
-                      props: { className: 'text-foreground font-mono text-md font-medium' },
-                      content: '$record.pattern',
-                    },
-                    microLabelOf('$record.zone'),
-                  ],
-                },
-                budgetNote(
-                  'public',
-                  'Public accent budget: the persuasion budget — warmth, accent, marketing ' +
-                    'weight. It may only govern ungated routes.'
-                ),
-                budgetNote(
-                  'product',
-                  'Product accent budget: the working register, for everything a signed-in ' +
-                    'operator sees.'
-                ),
-              ],
-            },
+          columns: [
+            { field: 'pattern', label: 'Route pattern' },
+            { field: 'zone', label: 'Zone' },
           ],
-        } as PageComponent,
+          emptyMessage: 'No zone declared. This app reads in one register.',
+        }),
         labelledRows('Zone addresses the reader as', 'zone.voice.pronoun'),
         labelledRows('Zone prefers', 'zone.voice.prefer'),
         labelledRows('Zone avoids', 'zone.voice.avoid'),

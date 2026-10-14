@@ -8,9 +8,11 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { reportCommittedRows } from '@/application/ports/services/record-change-feed'
+import { UniqueConstraintViolationError } from '@/domain/errors'
 import { NotFoundError, DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
+import { findRestoreUniqueConflict } from '../mutation-helpers/restore-unique-conflict'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import {
   passthroughError,
@@ -142,6 +144,31 @@ function executeRestoreQuery(
 }
 
 /**
+ * Fail with the unique field a restore of `recordIds` would duplicate, if any.
+ */
+const refuseUniqueConflict = (
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string,
+  recordIds: readonly string[]
+): Effect.Effect<void, DatabaseError | UniqueConstraintViolationError> =>
+  Effect.tryPromise({
+    try: () => findRestoreUniqueConflict(tx, tableName, recordIds),
+    catch: (error) => new DatabaseError(`Failed to restore records in ${tableName}`, error),
+  }).pipe(
+    Effect.flatMap((field) =>
+      field === undefined
+        ? Effect.void
+        : Effect.fail(
+            new UniqueConstraintViolationError(
+              'Restore duplicates a unique value',
+              undefined,
+              field
+            )
+          )
+    )
+  )
+
+/**
  * Log restore activities for all restored records
  */
 function logRestoreActivities(
@@ -177,7 +204,7 @@ export function batchRestoreRecords(
   session: Readonly<Session>,
   tableName: string,
   recordIds: readonly string[]
-): Effect.Effect<number, DatabaseError | NotFoundError> {
+): Effect.Effect<number, DatabaseError | NotFoundError | UniqueConstraintViolationError> {
   return Effect.gen(function* () {
     // A restored row comes back into view: announced (and owed) as an insert.
     const restoredRecords = yield* withOutboxTransaction(insertedRowChanges(tableName))(
@@ -197,6 +224,10 @@ export function batchRestoreRecords(
             return [] as readonly Record<string, unknown>[]
           }
 
+          // A batch that would duplicate a unique value — with a live record, or
+          // between two of its own records — is refused whole, before any write.
+          yield* refuseUniqueConflict(tx, tableName, deletedRecordIds)
+
           // Restore only the filtered soft-deleted records
           return yield* executeRestoreQuery(tx, tableIdent, tableName, deletedRecordIds)
         }),
@@ -206,7 +237,7 @@ export function batchRestoreRecords(
       // otherwise flatten it back into a `DatabaseError` and the route
       // would be reduced to substring-matching prose again.
       (error) =>
-        error instanceof NotFoundError
+        error instanceof NotFoundError || error instanceof UniqueConstraintViolationError
           ? error
           : wrapDatabaseError(`Failed to restore records in ${tableName}`)(error)
     )

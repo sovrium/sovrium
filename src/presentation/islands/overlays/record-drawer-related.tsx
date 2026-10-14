@@ -59,6 +59,8 @@ export interface RelatedSection {
 export interface RelatedLabels {
   readonly newRecord: string
   readonly save: string
+  /** The Save's in-flight word (`form.saving`). */
+  readonly saving: string
   readonly cancel: string
   readonly createFailed: string
 }
@@ -66,10 +68,10 @@ export interface RelatedLabels {
 const SECTION_CLASS = 'border-border flex flex-col gap-2 border-t pt-4'
 const HEADING_CLASS = 'text-foreground text-md font-semibold'
 const TABLE_CLASS = 'w-full text-left text-sm'
-const HEADER_CELL_CLASS = 'text-foreground-muted py-1 pr-2 font-medium'
+const HEADER_CELL_CLASS = 'text-muted-foreground py-1 pr-2 font-medium'
 const CELL_CLASS = 'text-foreground py-1 pr-2'
-const LINK_ROW_CLASS = 'hover:bg-background-subtle cursor-pointer'
-const EMPTY_CLASS = 'text-foreground-muted text-sm'
+const LINK_ROW_CLASS = 'hover:bg-muted cursor-pointer'
+const EMPTY_CLASS = 'text-muted-foreground text-sm'
 const CREATE_CLASS = 'text-primary self-start text-sm font-medium hover:underline'
 
 /** An id travels as a number when it is one, so an integer relationship column matches it. */
@@ -132,7 +134,7 @@ function rowClickHandler(
       if (target !== undefined) window.location.assign(target)
     }
   }
-  if (action.action === 'openDrawer' && typeof action.component === 'string') {
+  if (action.action === 'openSheet' && typeof action.component === 'string') {
     const { component } = action
     return (row) => {
       // One drawer at a time: the target opens on the row, this one closes.

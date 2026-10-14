@@ -6,19 +6,17 @@
  */
 
 /**
- * `split-pane` SSR renderer.
+ * `resizable` SSR renderer.
  *
  * Renders a resizable two-pane layout as a STATIC side-by-side (or stacked)
  * structure server-side: a `role="group"` container holding two panes
  * separated by a `role="separator"` divider. Both panes are present in the
- * server-rendered markup (the static fallback the spec asserts), so there is
- * no blank page before hydration.
+ * server-rendered markup, so there is no blank page before hydration.
  *
- * The drag-to-resize behaviour is progressive enhancement: a sibling
- * `data-island="split-pane"` marker (which renders nothing) hydrates and wires
- * pointer-drag onto THIS static structure by id — it never re-renders the
- * panes, so nested islands inside each pane (the config editor, the live
- * preview) survive hydration untouched.
+ * Resizing is the `resizable` island's: a sibling `data-island="resizable"`
+ * marker takes this structure over by id, moving each pane's nodes into a
+ * react-resizable-panels panel, so nested islands inside each pane keep their
+ * mounted roots.
  */
 
 import { resolveClasses } from '@/presentation/design/resolve-classes'
@@ -77,6 +75,8 @@ function buildViewModel(
   const islandProps = {
     hostId,
     orientation,
+    ratio,
+    separatorLabel,
     minSize: rawProps?.['minSize'] as number | undefined,
     maxSize: rawProps?.['maxSize'] as number | undefined,
   }
@@ -111,9 +111,8 @@ function firstPaneStyle(ratio: number): React.CSSProperties {
 }
 
 /**
- * Render the static split-pane structure. The `data-island="split-pane"`
- * marker is an EMPTY sibling controller — it hydrates to wire the drag and
- * renders nothing, so the panes (and their nested islands) are never replaced.
+ * Render the static split structure, plus the hidden `data-island="resizable"`
+ * marker that takes it over once hydrated.
  */
 export const splitPaneComponent: ComponentRenderer = ({
   rawProps,
@@ -168,7 +167,7 @@ export const splitPaneComponent: ComponentRenderer = ({
       </div>,
       <div
         key="enhancer"
-        data-island="split-pane"
+        data-island="resizable"
         data-island-props={vm.islandPropsJson}
         style={HIDDEN_STYLE}
       />,

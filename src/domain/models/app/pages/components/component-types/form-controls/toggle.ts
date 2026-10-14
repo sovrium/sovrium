@@ -14,6 +14,13 @@ import { visibilityFields } from '../modules/visibility'
 
 export const ToggleTypeLiteral = Schema.Literal('toggle')
 
+/** shadcn/ui Toggle's two looks. */
+export const ToggleVariantSchema = Schema.Literals(['default', 'outline']).annotate({
+  title: 'Toggle Variant',
+  description:
+    "The toggle's look: 'default' (borderless, the default) or 'outline' (drawn with a border). shadcn/ui's Toggle variant.",
+})
+
 export const toggleFields = {
   ...coreFields,
   ...visibilityFields,
@@ -25,4 +32,6 @@ export const toggleFields = {
   ),
   toggleType: Schema.optional(ToggleTypeSchema),
   size: Schema.optional(ComponentSizeSchema),
+  /** The toggle's look; borderless when omitted. */
+  toggleVariant: Schema.optional(ToggleVariantSchema),
 } as const

@@ -133,10 +133,18 @@ export function renderResultsBody({
 }: ResultsBodyProps): React.ReactNode {
   if (records.length === 0 && emptyMessage) return renderEmptyList(emptyMessage)
   return (
-    <ul className={computeListShellClasses()}>
+    <ul
+      data-slot="item-group"
+      className={computeListShellClasses()}
+    >
       {records.map((record, i) =>
         itemTemplate ? (
-          renderItemTemplate(itemTemplate, record, `item-${i}`, inputs)
+          renderItemTemplate(
+            itemTemplate,
+            record,
+            { key: `item-${i}`, separated: i < records.length - 1 },
+            inputs
+          )
         ) : (
           // A `childTemplate` row carries the same geometry as an
           // `itemTemplate` row — the two differ in what they render INSIDE the

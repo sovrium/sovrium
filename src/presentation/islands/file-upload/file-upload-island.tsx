@@ -5,19 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useRef, type ChangeEventHandler, type ReactElement, type Ref } from 'react'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { useCallback, useRef, type ChangeEventHandler, type ReactElement, type Ref } from 'react'
 import {
-  FILE_UPLOAD_DROPZONE_PROMPT,
   fileUploadDropzoneHint,
-  computeFileUploadDropzoneClasses,
-  computeFileUploadDropzoneHintClasses,
-  computeFileUploadDropzoneIconClasses,
-  computeFileUploadDropzoneTextClasses,
   computeFileUploadErrorClasses,
+  computeFileUploadTriggerClasses,
 } from '@/presentation/design/file-upload-default-classes'
-import { UploadGlyph } from '@/presentation/design/form-glyphs'
 import { FileNameList } from './file-name-list'
+import { DropZone } from './file-upload-dropzone'
 import { useFileUploadState } from './use-file-upload-state'
 import type {
   FetchSuccessResponse,
@@ -43,15 +38,6 @@ interface FileUploadIslandProps {
   readonly onError?: FetchToastResponse
 }
 
-interface UploadLabelProps {
-  readonly inputId: string | undefined
-  readonly dropZone: boolean
-  readonly disabled: boolean
-  readonly buttonText: string
-  /** The drop target's constraint line; absent when there is nothing to say. */
-  readonly hint: string | undefined
-}
-
 interface UploadInputProps {
   readonly inputRef: Ref<HTMLInputElement>
   readonly inputId: string | undefined
@@ -59,16 +45,15 @@ interface UploadInputProps {
   readonly allowMultiple: boolean
   readonly disabled: boolean
   readonly buttonText: string
+  /** Hidden from the paint, kept for the keyboard and assistive technology. */
+  readonly hidden: boolean
   readonly onChange: ChangeEventHandler<HTMLInputElement>
 }
 
-/*
- * The file input is intentionally visible (not `sr-only`). Playwright's
- * `setInputFiles(...)` works against hidden inputs in theory, but in
- * practice some browser builds skip the synthetic `change` propagation
- * when the input is fully off-screen via `position: absolute` /
- * `clip-path`. Keeping the input on-screen mirrors the working pattern
- * in `src/presentation/islands/components/crud-form/file-field.tsx`.
+/**
+ * The native file input. Beside a drop zone it is `sr-only`: the zone's own
+ * Browse files button opens it, and its browser-drawn label, in the browser's
+ * language, never shows. Beside a plain button it stays as drawn.
  */
 function UploadInput({
   inputRef,
@@ -77,6 +62,7 @@ function UploadInput({
   allowMultiple,
   disabled,
   buttonText,
+  hidden,
   onChange,
 }: UploadInputProps): ReactElement {
   return (
@@ -88,57 +74,31 @@ function UploadInput({
       multiple={allowMultiple}
       disabled={disabled}
       aria-label={buttonText}
+      className={hidden ? 'sr-only' : undefined}
       onChange={onChange}
     />
   )
 }
 
-/**
- * The control the user clicks — a drop target when `dropZone`, a plain
- * secondary button otherwise.
- *
- * Both shapes come from the SHARED recipes in `presentation/utils/recipes`,
- * the same ones the SSR skeleton in `form-control-renderers.tsx` paints. Wave
- * R-E: this used to be a hand-written `cn(...)` composition that agreed with
- * the skeleton on nothing — it drew `min-h-[120px] px-4 py-2 shadow-sm` where
- * the skeleton drew `p-6 border-2 gap-2` — so the control resized and
- * repainted the moment the island mounted. One recipe, drawn twice, cannot do
- * that.
- */
-function UploadLabel({
+/** Without a drop zone: the input's label, drawn as an outline button. */
+function ButtonLabel({
   inputId,
-  dropZone,
   disabled,
-  buttonText,
-  hint,
-}: UploadLabelProps): ReactElement {
-  const state = disabled ? 'disabled' : 'default'
+  text,
+}: {
+  readonly inputId: string | undefined
+  readonly disabled: boolean
+  readonly text: string
+}): ReactElement {
   return (
     <label
       htmlFor={inputId}
-      className={
-        dropZone
-          ? computeFileUploadDropzoneClasses({ state })
-          : computeButtonDefaultClasses({
-              variant: 'secondary',
-              state,
-            })
-      }
+      data-slot="button"
+      data-variant="outline"
+      className={computeFileUploadTriggerClasses({ disabled })}
       aria-disabled={disabled ? 'true' : undefined}
     >
-      {dropZone ? (
-        <>
-          <UploadGlyph className={computeFileUploadDropzoneIconClasses()} />
-          <span className={computeFileUploadDropzoneTextClasses()}>
-            {FILE_UPLOAD_DROPZONE_PROMPT}
-          </span>
-          {hint !== undefined && (
-            <span className={computeFileUploadDropzoneHintClasses()}>{hint}</span>
-          )}
-        </>
-      ) : (
-        buttonText
-      )}
+      {text}
     </label>
   )
 }
@@ -199,18 +159,12 @@ export default function FileUploadIsland({
   onError,
 }: FileUploadIslandProps): ReactElement {
   const inputRef = useRef<HTMLInputElement>(null)
-  const { error, fileNames, submitting, handleChange } = useFileUploadState({
-    maxFiles,
-    maxFileSize,
-    uploadAction,
-    onSuccess,
-    onError,
-  })
+  const upload = useFileUploadState({ maxFiles, maxFileSize, uploadAction, onSuccess, onError })
+  const browse = useCallback(() => inputRef.current?.click(), [])
   const allowMultiple = typeof maxFiles === 'number' ? maxFiles > 1 : false
   const inputId = id ? `${id}-input` : undefined
   const buttonText = label ?? 'Upload file'
-  const hint = fileUploadDropzoneHint({ accept, maxFiles })
-  const controlsDisabled = disabled || submitting
+  const controlsDisabled = disabled || upload.submitting
 
   return (
     <div
@@ -219,13 +173,20 @@ export default function FileUploadIsland({
       data-dropzone={dropZone ? 'true' : undefined}
       data-island-mounted="true"
     >
-      <UploadLabel
-        inputId={inputId}
-        dropZone={dropZone}
-        disabled={controlsDisabled}
-        buttonText={buttonText}
-        hint={hint}
-      />
+      {dropZone ? (
+        <DropZone
+          disabled={controlsDisabled}
+          hint={fileUploadDropzoneHint({ accept, maxFiles, maxFileSize })}
+          onBrowse={browse}
+          onDropFiles={upload.handleFiles}
+        />
+      ) : (
+        <ButtonLabel
+          inputId={inputId}
+          disabled={controlsDisabled}
+          text={buttonText}
+        />
+      )}
       <UploadInput
         inputRef={inputRef}
         inputId={inputId}
@@ -233,11 +194,12 @@ export default function FileUploadIsland({
         allowMultiple={allowMultiple}
         disabled={controlsDisabled}
         buttonText={buttonText}
-        onChange={handleChange}
+        hidden={dropZone}
+        onChange={upload.handleChange}
       />
       <FileUploadFeedback
-        error={error}
-        fileNames={fileNames}
+        error={upload.error}
+        fileNames={upload.fileNames}
       />
     </div>
   )

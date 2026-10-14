@@ -19,16 +19,18 @@ import { defineLibraryEntry } from '@/library/manifest/define'
 export const entry = defineLibraryEntry({
   kind: 'block',
   slug: 'dl-rows',
+  shadcnBlock: null,
   title: 'Description list in a card',
   category: 'application',
   tags: ['description list', 'details', 'record', 'fields'],
   description:
     'A card that names a record and lists its facts as rows, the term on the left and the value on the right, with a rule under each row.',
   notes: [
+    'No shadcn counterpart: shadcn/ui has no description-list component; this block draws the `description-list` type in a shadcn/ui card — muted terms on the left, medium-weight values on the right, a rule under every row but the last.',
     'Place it on a page that shows one record — a path ending in `/:id` and `dataSource: { table: <your table>, mode: single, param: id }` on the page. Each detail is that record’s field drawn by its type, and an empty one reads "Not set".',
     PLACE_NOTE,
     THEME_NOTE,
-    'The rows are static text: edit `items` in the installed fragment. On a page bound to a record, write `$record.<field>` in a `detail` to show that record’s value.',
+    'Edit the terms, or add and remove rows, in `items` of the installed fragment; a row names its field with `field`.',
   ],
   params: [
     stringParam('table', 'The table the page’s record belongs to.', 'clients'),
@@ -72,7 +74,7 @@ export const entry = defineLibraryEntry({
               props: { className: 'border-b border-border p-6' },
               children: [
                 appHeading(p('title')),
-                para(p('subtitle'), 'mt-1 text-sm text-foreground-subtle'),
+                para(p('subtitle'), 'mt-1 text-sm text-muted-foreground'),
               ],
             },
             {

@@ -114,6 +114,10 @@ interface RecordDrawerIslandProps extends RelatedSlotProps, DrawerNavigationProp
    * if a host ever mounts the island without them.
    */
   readonly saveLabel?: string
+  /** The Save's in-flight word (`form.saving`). */
+  readonly savingLabel?: string
+  /** A button field's in-flight word (`action.running`). */
+  readonly runningLabel?: string
   readonly closeLabel?: string
   /** A refused save's message (`form.operationFailed`). */
   readonly saveFailedLabel?: string
@@ -149,11 +153,13 @@ function renderDrawerBody(props: DrawerContentProps): ReactElement {
 function resolveDrawerLabels(props: RecordDrawerIslandProps): {
   readonly title: string
   readonly save: string
+  readonly saving: string
   readonly close: string
 } {
   return {
     title: props.title ?? DEFAULT_TITLE,
     save: props.saveLabel ?? DEFAULT_SAVE_LABEL,
+    saving: props.savingLabel ?? 'Saving…',
     close: props.closeLabel ?? DEFAULT_CLOSE_LABEL,
   }
 }
@@ -184,7 +190,11 @@ export default function RecordDrawerIsland(props: RecordDrawerIslandProps): Reac
   const { error, setError, onChange, onClose } = useDrawerHandlers(setValues, setOpen)
   const saved = { recordFields, values, table, recordId, setOpen, setError }
   const onSave = useRecordSave({ ...saved, failedLabel: props.saveFailedLabel })
-  const slot = useRelatedSlot(props, { open, recordId, save: labels.save }, onClose)
+  const slot = useRelatedSlot(
+    props,
+    { open, recordId, save: labels.save, saving: labels.saving },
+    onClose
+  )
   const related = withDrawerNavigation(props, { record, recordId }, slot)
   const body = drawer.notFound
     ? notFoundBody(props.notFoundLabel)
@@ -199,6 +209,8 @@ export default function RecordDrawerIsland(props: RecordDrawerIslandProps): Reac
         onSave,
         onClose,
         saveLabel: labels.save,
+        savingLabel: labels.saving,
+        ...(props.runningLabel === undefined ? {} : { runningLabel: props.runningLabel }),
         ...optionalBodyProps(error, table, props.childrenHtml, related),
       })
 

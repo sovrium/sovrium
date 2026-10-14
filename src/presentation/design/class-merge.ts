@@ -30,8 +30,8 @@
  *
  *   cn('bg-primary', 'bg-emerald-600') === 'bg-emerald-600'
  *
- * Sovrium's canonical role tokens (`bg-background`, `bg-error-solid`, `text-foreground-muted`,
- * `ring-focus-ring`, …) are not part of tailwind-merge's built-in palette
+ * Sovrium's canonical role tokens (`bg-background`, `bg-destructive`, `text-muted-foreground`,
+ * `ring-ring`, …) are not part of tailwind-merge's built-in palette
  * patterns, so they are registered here into the right conflict groups via
  * `extendTailwindMerge`. State-prefixed variants (`data-[*]:bg-*`, `hover:…`)
  * are handled automatically by tailwind-merge's variant parsing.
@@ -42,24 +42,23 @@ import { extendTailwindMerge } from 'tailwind-merge'
 /** Canonical `bg-*` role utilities (background-color conflict group). */
 const CANONICAL_BG = [
   'bg-background',
-  'bg-background-subtle',
-  'bg-background-raised',
-  'bg-background-overlay',
+  'bg-muted',
+  'bg-card',
+  'bg-popover',
   'bg-foreground',
   'bg-border',
   'bg-border-strong',
-  'bg-scrim',
   'bg-primary',
   'bg-primary-hover',
   'bg-primary-active',
   'bg-primary-subtle',
-  'bg-focus-ring',
+  'bg-ring',
   'bg-success-bg',
   'bg-success-solid',
   'bg-warning-bg',
   'bg-warning-solid',
   'bg-error-bg',
-  'bg-error-solid',
+  'bg-destructive',
   'bg-info-bg',
   'bg-info-solid',
 ] as const
@@ -67,15 +66,15 @@ const CANONICAL_BG = [
 /** Canonical `text-*` role utilities (text-color conflict group). */
 const CANONICAL_TEXT = [
   'text-background',
-  'text-background-overlay',
+  'text-popover',
   'text-foreground',
-  'text-foreground-muted',
+  'text-muted-foreground',
   'text-foreground-subtle',
   'text-foreground-disabled',
   'text-foreground-inverse',
   'text-foreground-humane',
   'text-primary',
-  'text-primary-fg',
+  'text-primary-foreground',
   'text-primary-subtle-fg',
   'text-success-fg',
   'text-success-solid-fg',
@@ -93,7 +92,7 @@ const CANONICAL_BORDER = [
   'border-border-strong',
   'border-border-inverse',
   'border-primary',
-  'border-focus-ring',
+  'border-ring',
   'border-success-border',
   'border-warning-border',
   'border-error-border',
@@ -101,7 +100,7 @@ const CANONICAL_BORDER = [
 ] as const
 
 /** Canonical `ring-*` role utilities (ring-color conflict group). */
-const CANONICAL_RING = ['ring-focus-ring'] as const
+const CANONICAL_RING = ['ring-ring'] as const
 
 /**
  * tailwind-merge instance extended with Sovrium's canonical role tokens. Each

@@ -19,6 +19,17 @@
 
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { cn } from '@/presentation/design/class-merge'
+import {
+  computeItemClasses,
+  computeItemContentClasses,
+  computeItemDescriptionClasses,
+  computeItemMediaClasses,
+  computeItemTitleClasses,
+} from '@/presentation/design/item-default-classes'
+import {
+  SignatureSignedItem,
+  type SignedItemClasses,
+} from '@/presentation/design/signature-signed-item'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Tables } from '@/domain/models/app/tables'
 import type { ReactElement } from 'react'
@@ -60,24 +71,36 @@ function signedOn(signedAt: string | undefined, lang: string | undefined): strin
   )
 }
 
-/** The reading of a signature already given. */
+/**
+ * The classes of the signed reading's item parts: base-nova's outline item,
+ * its icon media, and its title and description WITHOUT the line clamp an item
+ * puts on them — a statement someone signed is never cut short. Resolved here,
+ * once, for the island too: the outline row is a `tailwind-merge`, which an
+ * island cannot afford to carry.
+ */
+const signedItemClasses = (className?: string): SignedItemClasses => ({
+  row: cn(computeItemClasses({ variant: 'outline' }), className),
+  media: computeItemMediaClasses({ variant: 'icon' }),
+  content: computeItemContentClasses(),
+  title: cn(computeItemTitleClasses(), 'line-clamp-none'),
+  description: cn(computeItemDescriptionClasses(), 'line-clamp-none'),
+})
+
+/** The reading of a signature already given: one outlined item. */
 function signedReading(
   signature: StoredSignature,
   ctx: { readonly lang: string | undefined; readonly className: string | undefined }
 ): ReactElement {
   return (
-    <figure
-      data-component-type="signature-pad"
-      data-signature-state="signed"
-      className={cn('flex flex-col gap-1', ctx.className)}
-    >
-      <figcaption className="text-sm font-medium">
-        {`Signed by ${signature.signerName ?? 'an unknown signer'} on ${signedOn(signature.signedAt, ctx.lang)}`}
-      </figcaption>
-      {signature.statement !== undefined && (
-        <blockquote className="text-muted-foreground text-sm">{signature.statement}</blockquote>
-      )}
-    </figure>
+    <SignatureSignedItem
+      title={`Signed by ${signature.signerName ?? 'an unknown signer'} on ${signedOn(signature.signedAt, ctx.lang)}`}
+      statement={signature.statement}
+      classes={signedItemClasses(ctx.className)}
+      attributes={{
+        'data-component-type': 'signature-pad',
+        'data-signature-state': 'signed',
+      }}
+    />
   )
 }
 
@@ -113,6 +136,7 @@ function padIslandProps(ctx: {
     allowTyped: root.allowTyped !== false,
     label: typeof ctx.label === 'string' ? ctx.label : 'Signature',
     lang: ctx.lang,
+    signedClasses: signedItemClasses(),
   }
 }
 
@@ -143,7 +167,7 @@ export const signaturePadComponent: ComponentRenderer = ({
       data-island-props={JSON.stringify(islandProps)}
       className={cn('flex flex-col gap-3', className)}
     >
-      <p className="text-sm">{root.statement ?? ''}</p>
+      <p className="text-muted-foreground text-sm">{root.statement ?? ''}</p>
     </div>
   )
 }

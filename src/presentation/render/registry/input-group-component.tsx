@@ -9,13 +9,14 @@
  * `input-group` — an input with a leading addon, a trailing addon, or an
  * attached control.
  *
- * ─── THE SEAM IS THE COMPONENT ─────────────────────────────────────────────
+ * ─── THE BOX IS THE COMPONENT ──────────────────────────────────────────────
  *
- * An addon does not decorate the box, it CHANGES it: the field loses the corner
- * radius it shares with the addon, the two agree on one height, and their edges
- * touch. Every one of those is a rule about the PAIR, which is why this is a
- * type rather than a prop on `input` — expressing it as `input.prefix` would put
- * the pair's rules inside the shape of one of its halves.
+ * Drawn on shadcn/ui's `InputGroup` anatomy: an addon does not decorate the
+ * field, it shares one box with it. The border, the radius and the focus ring
+ * belong to the `role="group"` element, and the field and its addons sit inside
+ * it borderless. Every one of those is a rule about the PAIR, which is why this
+ * is a type rather than a prop on `input` — expressing it as `input.prefix`
+ * would put the pair's rules inside the shape of one of its halves.
  *
  * ─── AND THE ADDON IS OUTSIDE THE VALUE, STRUCTURALLY ──────────────────────
  *
@@ -37,11 +38,18 @@
 import {
   computeInputGroupActionClasses,
   computeInputGroupAddonClasses,
+  computeInputGroupClasses,
   computeInputGroupFieldClasses,
+  computeInputGroupKbdClasses,
   computeInputGroupLabelClasses,
   computeInputGroupRootClasses,
-  computeInputGroupRowClasses,
-} from '../../design/forms-default-classes'
+  computeInputGroupTextareaClasses,
+  type InputGroupActionSize,
+  type InputGroupActionVariant,
+  type InputGroupAddonAlign,
+} from '../../design/input-group-default-classes'
+import { LucideGlyph } from '../../design/lucide-glyph'
+import { resolveLucideIconNode } from '../elements/lucide-resolver'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -51,6 +59,16 @@ import type { ReactElement } from 'react'
 interface InputGroupAction {
   readonly label: string
   readonly href: string
+  readonly variant?: InputGroupActionVariant
+  readonly size?: InputGroupActionSize
+}
+
+/** One declared addon. */
+interface InputGroupAddon {
+  readonly align?: InputGroupAddonAlign
+  readonly text?: string
+  readonly icon?: string
+  readonly kbd?: string
 }
 
 /** Read one string field off a component definition. */
@@ -92,6 +110,102 @@ const actionOf = (source: Readonly<Record<string, unknown>>): InputGroupAction |
  * Both are boxes the field's corner meets, and asking which one it was would
  * give two answers to one geometric question.
  */
+/**
+ * A text addon: shadcn/ui's `InputGroupAddon` at its alignment, keeping the
+ * `data-input-group-prefix` / `-suffix` marker that names which side it is.
+ */
+const renderAddon = (align: 'inline-start' | 'inline-end', content: string): ReactElement => (
+  <div
+    data-input-group-prefix={align === 'inline-start' ? '' : undefined}
+    data-input-group-suffix={align === 'inline-end' ? '' : undefined}
+    data-slot="input-group-addon"
+    data-align={align}
+    className={computeInputGroupAddonClasses({ align, content })}
+  >
+    {content}
+  </div>
+)
+
+/** A declared addon: its icon, key hint or text, at its alignment. */
+const renderDeclaredAddon = (addon: InputGroupAddon, index: number): ReactElement => {
+  const align = addon.align ?? 'inline-start'
+  return (
+    <div
+      key={`addon-${String(index)}`}
+      data-slot="input-group-addon"
+      data-align={align}
+      className={computeInputGroupAddonClasses({ align })}
+    >
+      {addon.icon === undefined ? undefined : (
+        <LucideGlyph
+          iconNode={resolveLucideIconNode(addon.icon)}
+          name={addon.icon}
+          aria-hidden="true"
+        />
+      )}
+      {addon.text}
+      {addon.kbd === undefined ? undefined : (
+        <kbd
+          data-slot="kbd"
+          className={computeInputGroupKbdClasses()}
+        >
+          {addon.kbd}
+        </kbd>
+      )}
+    </div>
+  )
+}
+
+/** The declared addons, when there are any. */
+const addonsOf = (source: Readonly<Record<string, unknown>>): readonly InputGroupAddon[] =>
+  Array.isArray(source['addons']) ? (source['addons'] as readonly InputGroupAddon[]) : []
+
+/** The control: an input, or a textarea when `control: textarea`. */
+const renderControl = (
+  source: Readonly<Record<string, unknown>>,
+  fieldId: string | undefined
+): ReactElement =>
+  source['control'] === 'textarea' ? (
+    <textarea
+      id={fieldId}
+      name={text(source, 'name')}
+      placeholder={text(source, 'placeholder')}
+      defaultValue={text(source, 'value')}
+      className={computeInputGroupTextareaClasses()}
+      data-slot="input-group-control"
+    />
+  ) : (
+    <input
+      id={fieldId}
+      name={text(source, 'name')}
+      type={text(source, 'inputType') ?? 'text'}
+      placeholder={text(source, 'placeholder')}
+      defaultValue={text(source, 'value')}
+      className={computeInputGroupFieldClasses()}
+      data-slot="input-group-control"
+    />
+  )
+
+/** The attached control, a link drawn as shadcn/ui's `InputGroupButton`. */
+const renderAction = (action: InputGroupAction): ReactElement => (
+  <div
+    data-slot="input-group-addon"
+    data-align="inline-end"
+    className={computeInputGroupAddonClasses({ align: 'inline-end' })}
+  >
+    <a
+      data-input-group-action=""
+      data-slot="input-group-button"
+      data-variant={action.variant ?? 'ghost'}
+      data-size={action.size ?? 'xs'}
+      href={action.href}
+      className={computeInputGroupActionClasses({ variant: action.variant, size: action.size })}
+    >
+      {action.label}
+    </a>
+  </div>
+)
+
 const renderGroupRow = ({
   source,
   fieldId,
@@ -102,50 +216,21 @@ const renderGroupRow = ({
   const prefix = text(source, 'prefix')
   const suffix = text(source, 'suffix')
   const action = actionOf(source)
-  const seam = {
-    leading: prefix !== undefined,
-    trailing: suffix !== undefined || action !== undefined,
-  }
   return (
-    <div className={computeInputGroupRowClasses()}>
-      {prefix === undefined ? undefined : (
-        <span
-          data-input-group-prefix=""
-          className={computeInputGroupAddonClasses({ side: 'leading', content: prefix })}
-        >
-          {prefix}
-        </span>
-      )}
-      <input
-        id={fieldId}
-        name={text(source, 'name')}
-        type={text(source, 'inputType') ?? 'text'}
-        placeholder={text(source, 'placeholder')}
-        defaultValue={text(source, 'value')}
-        className={computeInputGroupFieldClasses(seam)}
-      />
-      {suffix === undefined ? undefined : (
-        <span
-          data-input-group-suffix=""
-          className={computeInputGroupAddonClasses({ side: 'trailing', content: suffix })}
-        >
-          {suffix}
-        </span>
-      )}
-      {action === undefined ? undefined : (
-        <a
-          data-input-group-action=""
-          href={action.href}
-          className={computeInputGroupActionClasses()}
-        >
-          {action.label}
-        </a>
-      )}
+    <div
+      className={computeInputGroupClasses()}
+      data-slot="input-group"
+      role="group"
+    >
+      {prefix === undefined ? undefined : renderAddon('inline-start', prefix)}
+      {addonsOf(source).map(renderDeclaredAddon)}
+      {renderControl(source, fieldId)}
+      {suffix === undefined ? undefined : renderAddon('inline-end', suffix)}
+      {action === undefined ? undefined : renderAction(action)}
     </div>
   )
 }
 
-/** `input-group` — the label, then the row of addons and the field. */
 export const inputGroupComponent: ComponentRenderer = ({ elementPropsWithSpacing, component }) => {
   const source = (component ?? {}) as Readonly<Record<string, unknown>>
   const label = text(source, 'label')
@@ -164,6 +249,7 @@ export const inputGroupComponent: ComponentRenderer = ({ elementPropsWithSpacing
         <label
           htmlFor={fieldId}
           className={computeInputGroupLabelClasses()}
+          data-slot="field-label"
         >
           {label}
         </label>

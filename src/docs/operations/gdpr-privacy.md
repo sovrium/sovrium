@@ -17,7 +17,7 @@ GET /api/account/export
 Cookie: <session cookie>
 ```
 
-No request body, query or path parameters — the user id comes only from the session. The response aggregates six sources for the caller:
+No request body, query or path parameters — the user id comes only from the session. The response aggregates these sources for the caller:
 
 - **Profile** — the caller's user row.
 - **Sessions** — the caller's session rows.
@@ -25,16 +25,23 @@ No request body, query or path parameters — the user id comes only from the se
 - **Authored records** — every table record the caller authored, across every table declaring a `created-by` field.
 - **Form submissions** — every form submission the caller made. Anonymous submissions belong to nobody and are never adopted into somebody's export.
 - **Audit trail** — every admin audit-log entry the caller made, newest first, as `{ action, occurredAt, resourceType, resourceId, result }`. The entry's metadata is left out, because it can describe somebody else (a role change carries the target's roles). Entries in which the caller was only the account acted upon (their role was changed, for example) are another person's act and are not listed.
+- **Chat files** (`aiChatAttachments`) — every file the caller attached to a chat: its name, size, type and the conversation it was sent in. The bytes are downloaded separately while the file exists.
+- **AI conversations** (`aiConversations`) — every conversation the caller held with an assistant, newest first, each with every message oldest first, verbatim on both sides, and the ids of the files sent in it. A tool the assistant called is listed by its id and name only.
+- **AI facts** (`aiFacts`) — what agents remember about the caller: the fact as stored, its namespace, the agent, and when it was learned.
+- **AI activity** (`aiActivity`) — every AI activity-feed entry that names the caller, newest first: their own chat turns, and each action an agent recorded as done for them, with the agent's name and, when the feed recorded it, where the agent ran (a chat, an automation or a schedule).
+- **AI tool calls** (`aiToolCalls`) — every tool call the caller made through an AI client, newest first: the tool, the role it ran as, the transport and session, whether it succeeded, its error code and its latency.
 
-**The order is stable.** Form submissions and audit-trail entries are listed newest first; entries stamped with the same instant follow by id, highest first, so two exports of the same account list the same entries in the same order.
+**The order is stable.** Form submissions, audit-trail entries and the AI sections are listed newest first; entries stamped with the same instant follow by id, highest first, so two exports of the same account list the same entries in the same order.
 
 **Authorship is matched by field type, not by column name.** A `created-by` field may carry whatever column name your config gives it — `author`, `submitted_by`, or the literal `created_by`. The export resolves the column from the declared field **type**, so a table naming its authorship field `author` is scanned like any other. Earlier releases matched the literal name only, and returned an empty list with a `200` for such tables — a subject-access response that denied the caller's own records existed.
 
 **Secrets are never exported.** Password hashes, OAuth tokens, second-factor secrets and API keys are stripped from the export. That is a deliberate withholding rather than an oversight: a live bearer token in a JSON download is a security defect, not a data-subject right.
 
+**What the AI sections leave out, and why.** The arguments of a tool call, and the input, output and error text a tool call recorded, are withheld: they hold the records the tool read or wrote, which describe other people, and a copy frozen at call time could hand the caller records their role no longer lets them read. The records themselves stay reachable, under today's permissions, through the records API. The bookkeeping metadata stored on conversations and facts is left out too, and so are the caller's own id and address, which every listed AI entry would only repeat.
+
 ### What the export does not yet carry
 
-The export is narrower than erasure. Erasure hard-deletes several further categories the export payload does not currently offer — among them comments, AI chat transcripts and derived facts, favourites, row-level access grants, the activity feed, and uploaded files. Widening the export contract to match is a change to the published response schema and is tracked separately; the asymmetry is held against a recorded baseline in the erasure census, so it cannot grow silently.
+The export is narrower than erasure. Erasure hard-deletes several further categories the export payload does not currently offer — among them comments, favourites, row-level access grants, the activity feed, and uploaded files. Widening the export contract to match is a change to the published response schema and is tracked separately; the asymmetry is held against a recorded baseline in the erasure census, so it cannot grow silently.
 
 To satisfy an access request covering one of those categories today, serve it from the operator side through the admin dashboard.
 
@@ -70,7 +77,7 @@ The last admin who can sign in is refused on both doors, with `409`. The trail r
 
 The purge is not limited to the auth tables. It sweeps a **census** of every table that references a user, and each table carries one of three explicit verdicts. The census lives in `src/infrastructure/database/account-purge-coverage.ts` and is checked mechanically against the live database schema: adding a user-referencing table without classifying it fails the build, so the list below cannot quietly fall behind the code.
 
-**Deleted** — the rows are the user's own content and are physically removed. Identity and credentials, including sessions, linked accounts, verifications, second factors and API keys; the whole OAuth family, **access tokens included**; organization, team and invitation rows; authored table records; records the config deletes with their authored records (`onDelete: 'cascade'`); form submissions; comments and read state; row-level grants held by the user; AI conversations, derived facts, tool calls and activity rows; favourites, recent items; third-party connection tokens; every file the user uploaded — through a bucket, a signed upload URL, a record attachment, a form she submitted while signed in, or the avatar — with its bytes, on every storage provider; the activity feed; the operator search-index projection; the webhook deliveries about the user or her records, owed or already sent, with their delivery-log entries.
+**Deleted** — the rows are the user's own content and are physically removed. Identity and credentials, including sessions, linked accounts, verifications, second factors and API keys; the whole OAuth family, **access tokens included**; organization, team and invitation rows; authored table records; records the config deletes with their authored records (`onDelete: 'cascade'`); form submissions; comments and read state; row-level grants held by the user; AI conversations, derived facts, tool calls and activity rows, an agent's recorded action done for the user included; favourites, recent items; third-party connection tokens; every file the user uploaded — through a bucket, a signed upload URL, a record attachment, a form she submitted while signed in, or the avatar — with its bytes, on every storage provider; the activity feed; the operator search-index projection; the webhook deliveries about the user or her records, owed or already sent, with their delivery-log entries.
 
 **Shed** — the row belongs to somebody else, so the identifier is removed and the row stands. Grants the user **issued** to other people; published short links they created; shared workspace connections; automation pauses and approval decisions, and the account that started a run; every field naming the user in a record somebody else wrote — a user field, a last-editor or deleted-by stamp — with the lookups and formulas reading it; the moderator stamp on other people's comments; the audit trail's actor reference and actor email address.
 

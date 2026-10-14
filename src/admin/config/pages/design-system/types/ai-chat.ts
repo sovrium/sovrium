@@ -26,7 +26,7 @@ const message = (who: 'agent' | 'reader', text: string): PageComponent =>
     props: {
       className:
         who === 'reader'
-          ? 'bg-background-subtle text-foreground ml-auto max-w-[80%] rounded-lg px-3 py-2 text-sm'
+          ? 'bg-muted text-foreground ml-auto max-w-[80%] rounded-lg px-3 py-2 text-sm'
           : 'border-border text-foreground max-w-[80%] rounded-lg border px-3 py-2 text-sm',
     },
     children: [{ type: 'text', element: 'span', content: text }],

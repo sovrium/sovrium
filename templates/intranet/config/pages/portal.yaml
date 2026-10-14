@@ -47,7 +47,7 @@ components:
       - type: text
         element: p
         props:
-          className: text-sm text-foreground-muted
+          className: text-sm text-muted-foreground
         content: The must-read comes first, then the latest news.
   # Searches the hub's own pages — the ones this person may open.
   - type: container
@@ -79,7 +79,7 @@ components:
             content: Coming up
           - type: list
             props:
-              className: rounded-lg border border-border bg-background-raised
+              className: rounded-lg border border-border bg-card
             dataSource:
               table: events
               sort:
@@ -114,11 +114,11 @@ components:
               - type: link
                 props:
                   href: /people
-                  className: text-xs text-foreground-muted hover:text-foreground
+                  className: text-xs text-muted-foreground hover:text-foreground
                 content: Everyone
           - type: list
             props:
-              className: rounded-lg border border-border bg-background-raised
+              className: rounded-lg border border-border bg-card
             dataSource:
               table: members
               # A rolling window, resolved on every visit: someone who joined on
@@ -157,11 +157,11 @@ components:
               - type: link
                 props:
                   href: /resources
-                  className: text-xs text-foreground-muted hover:text-foreground
+                  className: text-xs text-muted-foreground hover:text-foreground
                 content: All resources
           - type: list
             props:
-              className: rounded-lg border border-border bg-background-raised
+              className: rounded-lg border border-border bg-card
             dataSource:
               table: resources
               sort:
@@ -194,7 +194,7 @@ components:
     children:
       - type: card
         props:
-          className: flex flex-col gap-2 rounded-lg border border-foreground/80 bg-background-raised px-4 py-3.5 text-left
+          className: flex flex-col gap-2 rounded-lg border border-foreground/80 bg-card px-4 py-3.5 text-left
         children:
           - type: text
             element: p
@@ -209,13 +209,13 @@ components:
           - type: text
             element: p
             props:
-              className: text-sm leading-relaxed text-foreground-muted
+              className: text-sm leading-relaxed text-muted-foreground
             content: $record.excerpt
           # Who wrote it and when, what it asks — the date in the warning
           # tone, since it is due — and how far the company has got.
           - type: container
             props:
-              className: flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-foreground-muted
+              className: flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted-foreground
             children:
               - type: text
                 element: span
@@ -235,7 +235,7 @@ components:
               - type: text
                 element: span
                 props:
-                  className: rounded-sm border border-border px-1.5 py-px text-[11px] text-foreground-muted
+                  className: rounded-sm border border-border px-1.5 py-px text-[11px] text-muted-foreground
                 content: $record.topic
               - type: container
                 props:
@@ -253,7 +253,7 @@ components:
               - type: text
                 element: span
                 props:
-                  className: text-xs text-foreground-muted
+                  className: text-xs text-muted-foreground
                 content: $record.ack_line acknowledged
   - type: container
     props:
@@ -270,7 +270,7 @@ components:
       - type: link
         props:
           href: /news
-          className: text-xs text-foreground-muted hover:text-foreground
+          className: text-xs text-muted-foreground hover:text-foreground
         content: All announcements
   # The three latest announcements that are not the must-read.
   - type: container

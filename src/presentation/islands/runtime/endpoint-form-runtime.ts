@@ -26,8 +26,12 @@
  */
 
 import { executeFetchAction } from '@/presentation/islands/runtime/action-executor'
+import { runErrorOutcome } from '@/presentation/islands/runtime/action-outcome'
 import { checkEndpointFormRules } from '@/presentation/islands/runtime/endpoint-form-validation'
+import { fetchSuccessLeaves } from '@/presentation/islands/runtime/fetch-action-effects'
+import { withPending } from '@/presentation/islands/runtime/pending-control'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
+import type { ExecuteFetchActionOptions } from '@/presentation/islands/runtime/fetch-action-effects'
 
 /** A toast response as the endpoint config carries it. */
 export type EndpointToastResponse = {
@@ -39,10 +43,11 @@ export type EndpointToastResponse = {
   readonly actionUrl?: string
 }
 
-/** The endpoint form's success slot: the toast, plus the two effects only a form has. */
+/** The endpoint form's success slot: the toast, `reset` (a form's own), and the two exits. */
 type EndpointSuccessResponse = EndpointToastResponse & {
   readonly close?: boolean
   readonly reset?: boolean
+  readonly navigate?: string
 }
 
 /** The `data-endpoint-config` blob serialized by `renderEndpointForm`. */
@@ -103,40 +108,27 @@ function syncSwitchState(event: Event): void {
 }
 
 /**
- * The form-only success effects, run once the request has succeeded (never
+ * The form's own success effect, run once the request has succeeded (never
  * before: what was typed is what was sent). `reset` puts every field back to
  * its authored default — the switches' `aria-checked` with them, since a native
- * reset fires no `change` — and `close` asks the dialog the form sits in to
- * close, by a bubbling event the dialog matches against its own panel.
+ * reset fires no `change`. The close and the navigation that follow it are the
+ * shared exits (`action-outcome.ts`).
  */
-function applyFormSuccessEffects(
-  form: HTMLFormElement,
-  onSuccess: EndpointSuccessResponse | undefined
-): void {
-  if (onSuccess?.reset === true) {
-    form.reset()
-    form.querySelectorAll<HTMLInputElement>(SWITCH_SELECTOR).forEach((control) => {
-      control.setAttribute('aria-checked', control.checked ? 'true' : 'false')
-    })
-  }
-  if (onSuccess?.close === true) {
-    form.dispatchEvent(new CustomEvent('sovrium:close-dialog', { bubbles: true }))
-  }
+function resetOnSuccess(form: HTMLFormElement, onSuccess: EndpointSuccessResponse | undefined) {
+  if (onSuccess?.reset !== true) return
+  form.reset()
+  form.querySelectorAll<HTMLInputElement>(SWITCH_SELECTOR).forEach((control) => {
+    control.setAttribute('aria-checked', control.checked ? 'true' : 'false')
+  })
 }
 
-/** Submit one endpoint form through the shared fetch runtime. */
-function submitEndpointForm(
-  form: HTMLFormElement,
-  dispatchToast: (response: EndpointToastResponse | undefined) => void
-): void {
-  const config = parseEndpointFormConfig(form.getAttribute('data-endpoint-config'))
-  if (!config) return
-  if (!checkEndpointFormRules(form)) return
+/** The fetch action one endpoint form sends: its config, with what was typed as the body. */
+function endpointAction(form: HTMLFormElement, config: EndpointFormConfig): FetchAction {
   const body = {
     ...(Object.fromEntries(new FormData(form)) as Record<string, unknown>),
     ...readSwitchValues(form),
   }
-  const action = {
+  return {
     type: 'fetch',
     url: config.url,
     method: config.method ?? 'POST',
@@ -145,11 +137,46 @@ function submitEndpointForm(
     ...(config.onSuccess && { onSuccess: config.onSuccess }),
     ...(config.onError && { onError: config.onError }),
   } as FetchAction
-  void executeFetchAction(action).then((result) => {
-    if (!result) return
-    dispatchToast(result.ok ? config.onSuccess : config.onError)
-    if (result.ok) applyFormSuccessEffects(form, config.onSuccess)
+}
+
+/** Send `action`, holding `submit` pending meanwhile (the built-in word unless stamped). */
+function sendHolding(
+  submit: HTMLElement | null,
+  action: FetchAction,
+  options: ExecuteFetchActionOptions
+) {
+  const send = () => executeFetchAction(action, options)
+  if (!submit) return send()
+  const label = submit.getAttribute('data-action-pending-label') ?? 'Sending…'
+  const keepPending = (result: Awaited<ReturnType<typeof send>>) =>
+    fetchSuccessLeaves(result, action.onSuccess)
+  return withPending(submit, { label, keepPending }, send)
+}
+
+/**
+ * Submit one endpoint form through the shared fetch runtime.
+ *
+ * The submit is pending while the request is open (`withPending`), so a
+ * second press or Enter sends nothing; a refusal gives it back with the focus
+ * on it before `onError`.
+ */
+async function submitEndpointForm(
+  form: HTMLFormElement,
+  submit: HTMLElement | null,
+  dispatchToast: (response: EndpointToastResponse | undefined) => void
+): Promise<void> {
+  if (submit?.getAttribute('data-pending') === 'true') return
+  const config = parseEndpointFormConfig(form.getAttribute('data-endpoint-config'))
+  if (!config || !checkEndpointFormRules(form)) return
+  const { onSuccess } = config
+  // The success runs inside the executor, in the shared order: the toast, the
+  // status and refetch, the reset, the close, then the navigation.
+  const result = await sendHolding(submit, endpointAction(form, config), {
+    origin: form,
+    successToast: () => dispatchToast(onSuccess),
+    successEffects: () => resetOnSuccess(form, onSuccess),
   })
+  if (result?.ok === false) runErrorOutcome(submit, () => dispatchToast(config.onError))
 }
 
 /**
@@ -168,6 +195,11 @@ export function setupEndpointFormHandlers(
     const form = target.closest<HTMLFormElement>('form[data-action-type="endpoint"]')
     if (!form) return
     event.preventDefault()
-    submitEndpointForm(form, dispatchToast)
+    const { submitter } = event as SubmitEvent
+    const submit =
+      submitter instanceof HTMLElement
+        ? submitter
+        : form.querySelector<HTMLElement>('button[type="submit"], input[type="submit"]')
+    void submitEndpointForm(form, submit, dispatchToast)
   })
 }

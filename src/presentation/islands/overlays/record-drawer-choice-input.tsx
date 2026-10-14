@@ -104,7 +104,7 @@ export function ChoiceField({
   const accounts = useAccountChoices(field.type === 'user')
   return (
     <label className="text-md flex flex-col gap-1">
-      <span className="text-foreground-muted">{label}</span>
+      <span className="text-muted-foreground">{label}</span>
       <ChoiceInput
         field={field}
         label={label}

@@ -7,7 +7,7 @@
 
 import { computeTableGroupSummaryCellClasses } from '@/presentation/design/table-default-classes'
 import { readSummaryValue } from './summary-aggregate'
-import { summaryCellText } from './summary-format'
+import { summaryAlignClass, summaryCellText } from './summary-format'
 import type { GroupSummaryContext, GroupSummaryLayout } from './group-summary'
 import type { DataTableSummaryItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { ReactElement } from 'react'
@@ -41,7 +41,8 @@ export function GroupSummaryCells({
       {layout.trailing.map((columnItems, offset) => (
         <td
           key={`group-summary-${groupKey}-${String(offset)}`}
-          className={`${computeTableGroupSummaryCellClasses()} ${borderClass}`}
+          data-slot="table-cell"
+          className={`${computeTableGroupSummaryCellClasses()} ${borderClass} ${columnItems[0] ? summaryAlignClass(columnItems[0].field, context) : ''}`}
           {...(columnItems[0] ? { 'data-group-summary-field': columnItems[0].field } : {})}
         >
           {columnItems.map((item) => (

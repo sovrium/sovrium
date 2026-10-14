@@ -125,6 +125,12 @@ const recordStepTables = (node: unknown): ReadonlyArray<readonly [string, string
   return [...own, ...Object.values(node).flatMap(recordStepTables)]
 }
 
+/** The record steps of an automation, by step name, mapped to the table each reads. */
+const recordStepTablesOf = (app: App, automationName: string): ReadonlyMap<string, string> => {
+  const automation = app.automations?.find((candidate) => candidate.name === automationName)
+  return new Map(recordStepTables(automation?.actions).toReversed())
+}
+
 /**
  * Every write-only value the record steps of a finished run answered, read
  * from its outputs by step name — what its answer (a webhook's, an MCP tool's)
@@ -135,8 +141,7 @@ export const writeOnlyValuesOfRun = (
   automationName: string,
   actions: Readonly<Record<string, unknown>>
 ): readonly string[] => {
-  const automation = app.automations?.find((candidate) => candidate.name === automationName)
-  const tables = new Map(recordStepTables(automation?.actions).toReversed())
+  const tables = recordStepTablesOf(app, automationName)
   const own = Object.entries(actions).flatMap(([stepName, output]) => {
     const table = tables.get(stepName)
     return table === undefined
@@ -144,6 +149,69 @@ export const writeOnlyValuesOfRun = (
       : writeOnlyValuesOfStep(app, { type: 'record', props: { table } }, output)
   })
   return [...new Set([...own, ...writeOnlyValuesIn(app, actions)])]
+}
+
+/** The field names `reveal` (`table.field` entries) names on `table`. */
+const namedFieldsOf = (reveal: readonly string[], table: string): ReadonlySet<string> =>
+  new Set(
+    reveal
+      .filter((entry) => entry.startsWith(`${table}.`))
+      .map((entry) => entry.slice(table.length + 1))
+  )
+
+/**
+ * The write-only values a webhook answer may carry to the machine its trigger
+ * authenticated, for a trigger naming `reveal` (`table.field` entries): what
+ * the run's OWN record steps read under a named field of the named table.
+ *
+ * Masking wins a tie: a value also held where it stays masked — under a
+ * write-only field nobody named, read by a record step or carried anywhere in
+ * the run's outputs, or returned by a called automation (`called`, the chain's
+ * ledger) — is never in the set, so a callee's read is never revealed, even
+ * from a named field.
+ */
+export const revealableWriteOnlyValues = (
+  app: App,
+  automationName: string,
+  input: {
+    readonly actions: Readonly<Record<string, unknown>>
+    readonly reveal: readonly string[]
+    readonly called: readonly string[]
+  }
+): ReadonlySet<string> => {
+  if (input.reveal.length === 0) return new Set()
+  const tables = recordStepTablesOf(app, automationName)
+  const reads = Object.entries(input.actions).flatMap(([stepName, output]) => {
+    const table = tables.get(stepName)
+    if (table === undefined) return []
+    const named = namedFieldsOf(input.reveal, table)
+    const fields = writeOnlyFieldNames(app, table)
+    const rows = rowsOf(output)
+    return [
+      {
+        named: rows.flatMap((row) =>
+          valuesIn(
+            row,
+            [...named].filter((f) => fields.includes(f))
+          )
+        ),
+        unnamed: rows.flatMap((row) =>
+          valuesIn(
+            row,
+            fields.filter((f) => !named.has(f))
+          )
+        ),
+      },
+    ]
+  })
+  const namedNames = new Set(input.reveal.map((entry) => entry.slice(entry.indexOf('.') + 1)))
+  const unnamedNames = new Set([...writeOnlyNamesOf(app)].filter((n) => !namedNames.has(n)))
+  const masked = new Set([
+    ...reads.flatMap((read) => read.unnamed),
+    ...stringsUnder(input.actions, unnamedNames, 0),
+    ...input.called,
+  ])
+  return new Set(reads.flatMap((read) => read.named).filter((value) => !masked.has(value)))
 }
 
 /**

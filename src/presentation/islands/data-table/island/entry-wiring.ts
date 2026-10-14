@@ -10,7 +10,7 @@ import { coerceFieldValues, createRecord } from './create-record-data'
 import { withColumnDisplayFields } from './island-setup-helpers'
 import type { DataTableIslandProps } from './island-props'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
-import type { DataTableRowClickAction } from '../body'
+import type { DataTableRowClickAction } from '../data-row-types'
 import type {
   DataTableColumn,
   DataTableToolbar,
@@ -139,6 +139,7 @@ export function toSetupParams(props: DataTableIslandProps) {
     autoSaveConfig: props.autoSave,
     saveLabel: props.saveLabel ?? DEFAULT_SAVE_LABEL,
     cancelLabel: props.cancelLabel ?? DEFAULT_CANCEL_LABEL,
+    rowActionsDisplay: props.rowActions?.display ?? 'inline',
   }
 }
 
@@ -165,7 +166,7 @@ export function toPasteParams(
  * shapes the data-table row-click handler consumes:
  *
  * - `navigate` — `{ type: 'navigate', path: <string>, openInNewTab? }`
- * - `openDrawer` — `{ action: 'openDrawer', component: <drawer-id> }`
+ * - `openSheet` — `{ action: 'openSheet', component: <drawer-id> }`
  *   discriminated by `action` (not `type`) per the OpenDrawerActionSchema.
  *
  * Returns `undefined` for unknown / unsupported variants so the row-click
@@ -180,8 +181,8 @@ export function resolveRowClickAction(
       ? { type: 'navigate', path: action.path, openInNewTab: true }
       : { type: 'navigate', path: action.path }
   }
-  if (action.action === 'openDrawer' && typeof action.component === 'string') {
-    return { type: 'openDrawer', component: action.component }
+  if (action.action === 'openSheet' && typeof action.component === 'string') {
+    return { type: 'openSheet', component: action.component }
   }
   return undefined
 }

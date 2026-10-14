@@ -42,9 +42,9 @@ const TONE_CHIP: Readonly<
     filled: 'bg-error-bg text-error-fg border-error-border',
   },
   muted: {
-    dot: 'bg-foreground-muted',
+    dot: 'bg-muted-foreground',
     outline: 'border-border',
-    filled: 'bg-background-subtle text-foreground-muted border-border',
+    filled: 'bg-muted text-muted-foreground border-border',
   },
 }
 

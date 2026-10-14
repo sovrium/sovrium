@@ -134,15 +134,41 @@ const transcriptDetails = (
 }
 
 /**
+ * The continuous text of a whisper.cpp `verbose_json` body.
+ *
+ * whisper-server joins its segments' text with line breaks, and a segment
+ * boundary can fall inside a word (`fat` / `igué`), so its `text` is not
+ * usable as it is. The segments, concatenated as the server sent them
+ * (untrimmed: a segment that continues a word carries no leading space, one
+ * that starts a word does), are the text; whitespace runs collapse to one
+ * space. With no segments, a line break after a space reads as a space and
+ * any other line break is dropped.
+ */
+export const whisperCppText = (body: Readonly<Record<string, unknown>>, text: string): string => {
+  const segments = Array.isArray(body['segments'])
+    ? body['segments']
+        .map((segment) => asRecord(segment)?.['text'])
+        .filter((segmentText): segmentText is string => typeof segmentText === 'string')
+    : []
+  if (segments.length > 0) return segments.join('').replace(/\s+/g, ' ').trim()
+  return text.replace(/\n /g, ' ').replace(/\n/g, '').trim()
+}
+
+/**
  * Read a `verbose_json` (or plain `json`) transcript body.
  *
  * `model` is the model that was asked for; a server that names the one it
  * actually used wins, and `'default'` stands for "the server chose" when
- * neither side named one.
+ * neither side named one. `joinSegments` (whisper.cpp) rebuilds the text from
+ * the segments — see {@link whisperCppText}.
  */
 export const parseTranscript = (
   payload: unknown,
-  options: { readonly model: string | undefined; readonly timestamps: boolean }
+  options: {
+    readonly model: string | undefined
+    readonly timestamps: boolean
+    readonly joinSegments?: boolean
+  }
 ): Effect.Effect<Transcript, SpeechProviderError> => {
   const body = asRecord(payload)
   const text = body?.['text']
@@ -155,7 +181,7 @@ export const parseTranscript = (
     )
   }
   return Effect.succeed({
-    text: text.trim(),
+    text: options.joinSegments === true ? whisperCppText(body, text) : text.trim(),
     model: nonEmptyString(body['model']) ?? options.model ?? 'default',
     ...transcriptDetails(body, options.timestamps),
   })

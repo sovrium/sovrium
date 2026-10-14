@@ -357,11 +357,6 @@ export const designZoneGuidanceSchema = Schema.Struct({
     description: "Declared route pattern this zone governs, or the catch-all 'everything else'",
   }),
   zone: Schema.String.annotate({ description: 'The zone this pattern belongs to' }),
-  accentBudget: optionalField(
-    Schema.Literals(['public', 'product']).annotate({
-      description: 'Which accent budget the zone carries',
-    })
-  ),
   voice: optionalField(
     zoneVoiceGuidanceSchema.annotate({
       description: 'How this zone departs from `design.voice`, field by field',

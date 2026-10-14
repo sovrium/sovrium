@@ -23,7 +23,7 @@ import { fieldWidgetOf, type FieldWidget } from '@/presentation/design/field-typ
 import { readsAsTrue } from '../../runtime/cell-value-semantics'
 import { RecordButton } from '../../runtime/record-button'
 import { CodeFieldBoundary } from './code-field-boundary'
-import { CONTROL_CLASS } from './field-chrome-classes'
+import { CONTROL_CLASS, TEXTAREA_CLASS } from './field-chrome-classes'
 import { type FieldDef, labelOf } from './field-def'
 import { FieldHelpText } from './field-help-text'
 import { LabelledControl } from './field-label'
@@ -73,7 +73,7 @@ function TextAreaField({
           name={field.name}
           value={value}
           onChange={(e) => onChange(field.name, e.target.value)}
-          className={CONTROL_CLASS}
+          className={TEXTAREA_CLASS}
           {...(field.placeholder && { placeholder: field.placeholder })}
           {...(field.autocomplete && { autoComplete: field.autocomplete })}
           {...(field.readOnly && { readOnly: true })}
@@ -244,6 +244,8 @@ interface FieldRenderArgs {
    * automation button renders disabled — there is nothing to run it against.
    */
   readonly binding?: { readonly table?: string; readonly recordId?: string }
+  /** The form's interface strings in the page language (a button's `action.running`). */
+  readonly uiStrings?: Readonly<Record<string, string>> | undefined
 }
 
 function renderTypedInputField(args: FieldRenderArgs, inputType: string) {
@@ -269,11 +271,14 @@ function renderTypedInputField(args: FieldRenderArgs, inputType: string) {
  * its CHECK constraint rejected.
  */
 const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.ReactNode> = {
-  button: ({ field, binding }) =>
+  button: ({ field, binding, uiStrings }) =>
     field.button ? (
       <RecordButton
         config={field.button}
         fieldName={field.name}
+        {...(uiStrings?.['action.running'] === undefined
+          ? {}
+          : { pendingLabel: uiStrings['action.running'] })}
         {...(binding?.table === undefined ? {} : { table: binding.table })}
         {...(binding?.recordId === undefined ? {} : { recordId: binding.recordId })}
       />

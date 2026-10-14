@@ -37,6 +37,7 @@ import { resolveUploadBucket } from '@/application/use-cases/buckets/resolve-buc
 import { checkUploadFile, checkUploadPath } from '@/application/use-cases/buckets/upload-policy'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isImageKey } from '@/domain/kernel/identity/mime-types'
+import { isChatAttachmentKey } from '@/domain/kernel/identity/storage-key'
 import { AVATAR_BUCKET_NAME, resolveAvatarBucket } from '@/domain/models/app/auth/avatar-url'
 import {
   classifyPermissionRung,
@@ -84,6 +85,7 @@ import { refuseUnlessOwnerOrAdmin } from '@/presentation/api/buckets/object-owne
 import { createHandleSignedServe } from '@/presentation/api/buckets/signed-download'
 import { createHandleBatchSign } from '@/presentation/api/buckets/signed-url-batch'
 import { createHandleSign, createHandleSignedUpload } from '@/presentation/api/buckets/signed-urls'
+import { defaultWriteGrant, denyWrite } from '@/presentation/api/buckets/write-gate'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { rejectUpload } from '@/presentation/api/runtime/upload-rejection'
@@ -165,6 +167,8 @@ function createHandleGetBucketFile(app: App) {
       }
     }
 
+    // A chat attachment is served by the chat's route alone: here it is absent.
+    if (isChatAttachmentKey(key)) return notFound(c, 'File not found')
     return serveTransformedDownload(c, key, bucket.name)
   }
 }
@@ -347,51 +351,6 @@ async function canAct(
 }
 
 /**
- * The gate a WRITE (upload / delete) falls back to when the bucket declares no
- * permission for it: a session is required.
- *
- * `public: true` governs READS only — it grants nothing on `POST`/`DELETE`
- * The one exception is an app with no `auth` block at all: there
- * is no session system to gate against, so a public bucket (including the
- * built-in `system` bucket, which resolves to `public: !app.auth`) stays anonymously
- * writable. That carve-out is what keeps page-component file-upload forms
- * working on a no-auth app; it is bounded on purpose, and a DECLARED bucket
- * without `public: true` stays unwritable there (the bucket-permission enforcement rule,
- * a buckets perm spec pins both halves).
- *
- * The way out of the asymmetry is the same explicit lever an auth-enabled app
- * uses: `permissions: { upload: 'all' }`.
- */
-function defaultWriteGrant(app: App, bucket: Bucket, session: UserSession | undefined): boolean {
-  if (bucket.public && !app.auth) return true
-  return session !== undefined
-}
-
-/**
- * Denial response for a write the caller may not perform.
- *
- * Anonymous → 401: actionable for the caller, and it carries no existence
- * signal. Authenticated but refused by role → 404: a post-authentication role
- * denial WOULD leak the bucket's existence, so it drops to the read path's
- * anti-enumeration code (S1). Mirrors `createHandleSign` — the split is by
- * endpoint and deliberate, never 403.
- */
-function denyWrite(c: Context, session: UserSession | undefined): Response {
-  if (!session) {
-    return c.json(
-      {
-        success: false,
-        error: 'Unauthorized',
-        message: 'Authentication required',
-        code: 'UNAUTHORIZED',
-      },
-      401
-    )
-  }
-  return notFound(c, 'Resource not found')
-}
-
-/**
  * Handle POST /api/buckets/:bucketName/files - Upload a file to a bucket
  *
  * Enforces per-bucket maxFileSize before authentication so oversized payloads
@@ -501,6 +460,8 @@ function createHandleDeleteBucketFile(app: App) {
       key,
     })
     if (refusal) return refusal
+    // A chat attachment is deleted with its conversation only: here it is absent.
+    if (isChatAttachmentKey(key)) return notFound(c, 'File not found')
 
     const result = await runRequestEffect(
       c,

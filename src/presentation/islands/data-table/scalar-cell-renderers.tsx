@@ -61,8 +61,8 @@ import {
   computeRatingGlyphClasses,
   computeRatingRowClasses,
   DEFAULT_RATING_MAX,
-  ratingGlyphsFor,
 } from '../../design/cell-affordances-default-classes'
+import { RatingGlyph } from '../../design/rating-glyph'
 import {
   toAttachmentArray,
   toAttachmentEntry,
@@ -94,7 +94,7 @@ export function RatingCell({
   if (Number.isNaN(score)) return EMPTY_VALUE
 
   const max = fieldOptions?.display?.max ?? DEFAULT_RATING_MAX
-  const [filledGlyph, hollowGlyph] = ratingGlyphsFor(fieldOptions?.display?.style)
+  const style = fieldOptions?.display?.style
 
   return (
     <span
@@ -110,9 +110,9 @@ export function RatingCell({
             aria-hidden="true"
             data-rating-glyph=""
             data-filled={String(filled)}
-            className={computeRatingGlyphClasses({ filled })}
+            className={`inline-flex ${computeRatingGlyphClasses({ filled })}`}
           >
-            {filled ? filledGlyph : hollowGlyph}
+            <RatingGlyph style={style} />
           </span>
         )
       })}

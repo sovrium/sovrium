@@ -34,6 +34,10 @@
  * bytes still answer the same bytes.
  */
 
+import {
+  parseSkillFrontmatter,
+  SKILL_FRONTMATTER_BLOCK,
+} from '@/domain/kernel/markdown/skill-frontmatter'
 import { EMBEDDED_SKILLS as RAW_SKILLS } from './embedded-skills.generated'
 
 // `with { type: 'file' }` imports return a path string at runtime while TS types
@@ -77,40 +81,25 @@ export const readEmbeddedSkillFile = async (name: string, relPath: string): Prom
   return Bun.file(embedded).text()
 }
 
-/** A `---`-fenced YAML block at the very start of the file, and what follows it. */
-const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/
-
 /**
  * A skill's frontmatter, parsed, and its body without it.
  *
  * Throws on a `SKILL.md` without a frontmatter block, or one missing its
  * `name`/`description` — the two keys every host reads to decide whether to
- * load the skill at all. `metadata` is `{}` when absent.
+ * load the skill at all. `metadata` is `{}` when absent. The parsing is the
+ * one `parseSkillFrontmatter` an app's own agent skills are read with.
  */
 export const readEmbeddedSkillFrontmatter = async (
   name: string
 ): Promise<EmbeddedSkillFrontmatter> => {
-  const text = await readEmbeddedSkillFile(name, 'SKILL.md')
-  const match = FRONTMATTER.exec(text)
-  const parsed: unknown = match === null ? undefined : Bun.YAML.parse(match[1] ?? '')
-  const record =
-    typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
-  const { name: declared, description, metadata } = record
-  if (match === null || typeof declared !== 'string' || typeof description !== 'string') {
+  const parsed = parseSkillFrontmatter(await readEmbeddedSkillFile(name, 'SKILL.md'))
+  if (!parsed.ok) {
     throw new Error(
       `Embedded skill '${name}' has no readable frontmatter: SKILL.md must open with a ` +
         '`---` block declaring `name` and `description`.'
     )
   }
-  return {
-    name: declared,
-    description,
-    metadata:
-      typeof metadata === 'object' && metadata !== null
-        ? (metadata as Readonly<Record<string, unknown>>)
-        : {},
-    body: text.slice(match[0].length),
-  }
+  return parsed.skill
 }
 
 /** One `key: value` line of a YAML mapping, at an exact indent. */
@@ -132,7 +121,7 @@ const PRODUCT_VERSION_LINE = /^[ \t]+product-version:.*$/
  * header is not a skill, and fabricating one here would hide that.
  */
 export const stampProductVersion = (skillMarkdown: string, version: string): string => {
-  const match = FRONTMATTER.exec(skillMarkdown)
+  const match = SKILL_FRONTMATTER_BLOCK.exec(skillMarkdown)
   if (match === null) return skillMarkdown
   const lines = (match[1] ?? '').split(/\r?\n/)
   const stamp = `product-version: ${JSON.stringify(version)}`

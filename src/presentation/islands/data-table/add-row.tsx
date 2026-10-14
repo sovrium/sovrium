@@ -12,10 +12,10 @@ import {
   computeTableAddRowClasses,
   computeTableAddRowInputClasses,
   computeTableAddRowTriggerClasses,
-  computeTableCheckboxControlClasses,
 } from '@/presentation/design/table-default-classes'
 import { resolveCellEditor, resolveInputType } from './editors/editor-registry'
 import { useGridString } from './island/grid-strings'
+import { GridCheckbox } from './selection/grid-checkbox'
 import { isWritableAddRowColumn, useAddRowDraft, type AddRowColumn } from './use-add-row-draft'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { KeyboardEvent, ReactElement } from 'react'
@@ -118,13 +118,11 @@ function InlineControl({
   const onKeyDown = draftKeyHandler(draft)
   if (widget === 'checkbox') {
     return (
-      <input
-        type="checkbox"
+      <GridCheckbox
         aria-label={column.label}
         checked={value === true}
         onChange={(event) => draft.setValue(field, event.target.checked)}
         onKeyDown={onKeyDown}
-        className={computeTableCheckboxControlClasses()}
       />
     )
   }
@@ -151,6 +149,7 @@ function InlineControl({
   }
   return (
     <input
+      data-slot="input"
       type={resolveInputType(column.type ?? 'single-line-text')}
       aria-label={column.label}
       value={String(value ?? '')}
@@ -192,7 +191,7 @@ function PickedControl({
   }
   const picked = value === undefined || value === null || value === '' ? undefined : String(value)
   return (
-    <span className={picked === undefined ? 'text-foreground-muted' : ''}>
+    <span className={picked === undefined ? 'text-muted-foreground' : ''}>
       {picked ?? restingLabel(column)}
     </span>
   )
@@ -238,7 +237,7 @@ function CellControl({
       />
     )
   }
-  return <span className="text-foreground-muted">—</span>
+  return <span className="text-muted-foreground">—</span>
 }
 
 /** One cell of the activated row. */
@@ -258,6 +257,7 @@ function AddRowCell({
   const kind = controlKindOf(column)
   return (
     <td
+      data-slot="table-cell"
       className={`${config.cellClass} ${config.borderClass} whitespace-nowrap`}
       {...(field !== undefined && { 'data-field': field })}
       {...(kind === 'picked' && field !== undefined && { onClick: () => draft.openEditor(field) })}
@@ -273,7 +273,7 @@ function AddRowCell({
       {error !== undefined && (
         <p
           role="alert"
-          className="text-error-fg mt-1 text-sm whitespace-normal"
+          className="text-destructive mt-1 text-sm whitespace-normal"
         >
           {error}
         </p>
@@ -293,15 +293,18 @@ function RestingAddRow({
   const addRowLabel = useGridString('datatable.addRow', 'New row')
   return (
     <tr
+      data-slot="table-row"
       data-add-row="true"
       className={computeTableAddRowClasses()}
     >
       <td
+        data-slot="table-cell"
         colSpan={config.columns.length}
         className={`${config.cellClass} ${config.borderClass}`}
       >
         <button
           type="button"
+          data-slot="button"
           onClick={onOpen}
           className={computeTableAddRowTriggerClasses()}
         >
@@ -352,6 +355,7 @@ export function AddRow({
   return (
     <tr
       ref={rowRef}
+      data-slot="table-row"
       data-add-row="true"
       data-add-row-open="true"
     >

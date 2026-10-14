@@ -21,7 +21,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-lg text-foreground-muted
+              className: text-lg text-muted-foreground
             children:
               - 'Not answered here? '
               - type: link
@@ -45,7 +45,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                 content: '[Answer in two sentences at most.]'
           - type: flex
             props:
@@ -59,7 +59,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                 content: '[Answer in two sentences at most.]'
           - type: flex
             props:
@@ -73,7 +73,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                 content: '[Answer in two sentences at most.]'
           - type: flex
             props:
@@ -87,7 +87,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                 content: '[Answer in two sentences at most.]'
           - type: flex
             props:
@@ -101,7 +101,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                 content: '[Answer in two sentences at most.]'
           - type: flex
             props:
@@ -115,5 +115,5 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                 content: '[Answer in two sentences at most.]'

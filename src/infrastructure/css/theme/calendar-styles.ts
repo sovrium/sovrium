@@ -8,196 +8,129 @@
 import { CALENDAR_DAY_FLOOR_RULES } from './calendar-day-floor-styles'
 
 /**
- * FullCalendar theming stylesheet (wave R-D, the `calendar` data view).
+ * FullCalendar theming stylesheet, on shadcn/ui's roles.
  *
- * FullCalendar receives NO Sovrium tokens without this file. Version 7 ships
- * its look as a theme — a plugin of hashed class names plus a `theme.css`
- * that the calendar island delivers (`islands/calendar/calendar-stylesheet.ts`)
+ * FullCalendar keeps drawing the event calendar's grid; this file gives it the
+ * theme. Version 7 ships its look as a theme — hashed classes plus a
+ * `theme.css` the calendar island delivers (`islands/calendar/calendar-stylesheet.ts`)
  * — and that stylesheet reads every colour from `--fc-classic-*` variables
- * whose factory values (its `#3788d8` event blue among them) live in a
- * `palette.css` the island deliberately does NOT load. This file supplies them,
- * bound to the `--sv-*` tokens, and lays the canvas geometry on top.
+ * whose factory values live in a `palette.css` the island deliberately does
+ * NOT load. This file supplies them from the theme's roles (`--color-border`,
+ * `--color-muted-foreground`, `--color-primary` …), so an app's `design` and
+ * the dark scheme reach the calendar with no input of its own.
  *
  * The block is PLAIN CSS composed into `buildSourceCSS`
- * (`infrastructure/css/compiler.ts`) beside `generateCodeBlockStyles` and
- * `generateMarqueeStyles`, for exactly the two reasons those two are there:
- *
- *  - **It flows through BOTH compile engines** (`buildSourceCSS` feeds both), so
- *    a rule written here needs no Tailwind candidate scan to be served.
- *  - **Tailwind cannot express it.** `.fc-daygrid-day` is not utility-shaped.
- *    The compiler is candidate-driven rather than source-scanning, so a
- *    `.fc-*` selector could never be minted as a utility.
+ * (`infrastructure/css/compiler.ts`): it flows through both compile engines,
+ * and Tailwind cannot express a `.fc-*` selector as a utility.
  *
  * ## The class names this file selects
  *
- * Version 7's own DOM carries hashed classes only (`fc-classic-YjJ`), which no
- * stylesheet should select. The semantic names below — `.fc-event`,
- * `.fc-daygrid-day`, `.fc-timegrid-slot`, `.fc-col-header-cell` … — are put
- * back by the island through FullCalendar's class hooks
- * (`islands/calendar/calendar-dom-classes.ts`), and they are the same names the
- * calendar specs locate by. So the grid is themed from the outside, on a
- * vocabulary Sovrium owns; only the toolbar is replaced, with Sovrium markup
- * driven by `calendar-default-classes.ts`.
+ * Version 7's own DOM carries hashed classes only. The semantic names below —
+ * `.fc-event`, `.fc-daygrid-day`, `.fc-col-header-cell` … — are put back by
+ * the island through FullCalendar's class hooks
+ * (`islands/calendar/calendar-dom-classes.ts`); they are also the names the
+ * calendar specs locate by. Every selector is `.fc <part>` (0,2,0) or better,
+ * above the theme's single hashed classes, and both sheets are unlayered.
  *
- * ## Two rule weights, deliberately — the single most visible calendar error
+ * ## The drawing
  *
- * The canvas uses `hair` (`--sv-border`) for the OUTER separators — under the
- * weekday header, under the all-day row, and the scrollgrid frame — and `well`
- * (`--sv-bg-subtle`, much fainter) for the INNER grid rules between cells.
- * Collapsing them into one weight is what makes a themed calendar still read as
- * unthemed: every line the same weight is the FullCalendar default look.
- *
- * The classic theme draws every cell edge from ONE variable
- * (`--fc-classic-border`), so the split cannot come from the variable bridge.
- * That variable is bound to `hair` — the outer weight — and the inner parts
- * are then walked back to `well` by explicit rules below.
- *
- * ## How these rules win
- *
- *  1. **The variable bridge is the only source.** The `--fc-classic-*`
- *     variables are declared nowhere else on the page, so the `.fc` block below
- *     is not winning a contest — it is the definition. Leaving one out would
- *     not fall back to a FullCalendar colour; it would leave the property
- *     unresolved, which is why the bridge lists the classic palette in full.
- *  2. **The geometry rules win by SPECIFICITY and ORDER.** The theme's rules
- *     are single hashed classes (0,1,0); every selector here is written
- *     `.fc <part>` (0,2,0) or better. The island also PREPENDS FullCalendar's
- *     `<style>` to `<head>`, so the compiled Sovrium stylesheet follows it.
- *     Both sheets are UNLAYERED — these rules are emitted at `buildSourceCSS`
- *     top level, not inside an `@layer` — so no cascade-layer ordering enters.
- *
- * ## What this file deliberately does NOT paint
- *
- *  - **Event FILL.** `option-colors.spec.ts` reads the computed
- *    `background-color` / `color` off `.fc-event` and asserts an AA contrast
- *    pair derived from the author's declared option colour. FullCalendar sets
- *    the per-event `--fc-event-color` / `--fc-event-contrast-color` inline on
- *    the event root, and the theme paints from them; only the label tone is
- *    re-asserted on the root (see `EVENT_RULES`), from the same variable.
- *  - **The event border.** FullCalendar draws it in the event's own colour, so
- *    it is invisible anyway and removing it buys nothing but risk.
- *  - **The tinted-vs-filled event variants.** The canvas draws a `well` fill
- *    with a 2px series-hue left rule for a "tinted" event and a solid hue for a
- *    "filled" one. Which of the two an event gets is a DATA decision made in
- *    `record-to-event.ts`, not a CSS one; converging it is a separate change.
+ * The board's: hairlines in `border`, weekday heads `text-xs font-medium` in
+ * the muted foreground, a day number in a 24px box with today's filled as a
+ * `primary` circle, events `rounded-md` `text-xs` on the `secondary` surface
+ * and its foreground. A timed event in a day row is a dot in the theme's
+ * `primary`. A `colorField` event keeps its option colour: the island sets
+ * `--fc-event-color` / `--fc-event-contrast-color` inline per event, and those
+ * outrank the role defaults below.
  */
 
 /**
- * The `--fc-classic-*` → `--sv-*` bridge, scoped to the calendar root.
+ * The `--fc-classic-*` → theme-role bridge, scoped to the calendar root.
  *
- * Every value is an indirection into an existing `--sv-*` token, so the block
- * needs no author input and no schema surface — and a tenant's `app.design`
- * override follows for free, because the override rebinds the `--sv-*` the
- * bridge points at. Dark mode follows the same way: the tokens carry it, so the
- * theme's own `[data-color-scheme=dark]` palette is not needed either.
- *
- * An event with no `colorField` wears the theme's `primary`, in its dark value
- * under the dark scheme, and its text the `primary-fg` the theme pairs with it
- * — the pair every primary button already reads at. A `colorField` chip keeps
- * its option colour: the island sets that per event, and it outranks these.
+ * `--fc-classic-event` is the theme's `primary`, which a timed event's dot
+ * reads. A block event (`EVENT_RULES`) rebinds it to the `secondary` surface on
+ * its own element: FullCalendar writes `--fc-event-color: var(--fc-classic-event)`
+ * inline on every event root, so the rebinding resolves per element.
  */
 const FC_VAR_BRIDGE = `.fc {
-      --fc-classic-button: var(--sv-bg-raised);
-      --fc-classic-button-border: var(--sv-border);
-      --fc-classic-button-strong: var(--sv-bg-subtle);
-      --fc-classic-button-strong-border: var(--sv-border-strong);
-      --fc-classic-button-outline: var(--sv-focus-ring);
-      --fc-classic-button-foreground: var(--sv-fg);
-      --fc-classic-primary: var(--sv-primary);
-      --fc-classic-primary-foreground: var(--sv-primary-fg);
-      --fc-classic-event: var(--sv-primary);
-      --fc-classic-event-contrast: var(--sv-primary-fg);
-      --fc-classic-background-event: var(--sv-success-solid);
+      --fc-classic-button: var(--color-background);
+      --fc-classic-button-border: var(--color-border);
+      --fc-classic-button-strong: var(--color-muted);
+      --fc-classic-button-strong-border: var(--color-input);
+      --fc-classic-button-outline: var(--color-ring);
+      --fc-classic-button-foreground: var(--color-foreground);
+      --fc-classic-primary: var(--color-primary);
+      --fc-classic-primary-foreground: var(--color-primary-foreground);
+      --fc-classic-event: var(--color-primary);
+      --fc-classic-event-contrast: var(--color-primary-foreground);
+      --fc-classic-background-event: var(--color-primary);
       --fc-classic-background-event-opacity: 15%;
       --fc-classic-background-event-foreground-opacity: 50%;
-      --fc-classic-highlight: var(--sv-bg-subtle);
-      --fc-classic-today: var(--sv-bg-subtle);
-      --fc-classic-now: var(--sv-error-solid);
+      --fc-classic-highlight: var(--color-accent);
+      --fc-classic-today: transparent;
+      --fc-classic-now: var(--color-destructive);
       --fc-classic-small-dot-width: 6px;
       --fc-classic-large-dot-width: 8px;
-      --fc-classic-background: var(--sv-bg);
-      --fc-classic-faint: var(--sv-bg-subtle);
-      --fc-classic-muted: var(--sv-bg-subtle);
-      --fc-classic-strong: var(--sv-border);
-      --fc-classic-foreground: var(--sv-fg);
-      --fc-classic-faint-foreground: var(--sv-fg-subtle);
-      --fc-classic-muted-foreground: var(--sv-fg-muted);
-      --fc-classic-border: var(--sv-border);
-      --fc-classic-strong-border: var(--sv-border-strong);
+      --fc-classic-background: var(--color-background);
+      --fc-classic-faint: var(--color-muted);
+      --fc-classic-muted: var(--color-muted);
+      --fc-classic-strong: var(--color-border);
+      --fc-classic-foreground: var(--color-foreground);
+      --fc-classic-faint-foreground: var(--color-muted-foreground);
+      --fc-classic-muted-foreground: var(--color-muted-foreground);
+      --fc-classic-border: var(--color-border);
+      --fc-classic-strong-border: var(--color-border);
     }`
 
 /**
- * The INNER grid rules — the `well` half of the two-weight split.
+ * The grid's hairlines — one weight, the `border` role, as shadcn/ui's table
+ * and calendar draw them — and the weekday heads.
  *
- * Month day cells, time-grid slot rows and time-grid columns are all interior
- * separators. The month day cell keeps `hair` on nothing at all; the all-day
- * row walks its bottom edge back to `hair` further down, because that edge is
- * an OUTER separator that happens to sit on a `.fc-daygrid-day`.
- */
-const INNER_GRID_RULES = `.fc .fc-daygrid-day,
-    .fc .fc-timegrid-slot,
-    .fc .fc-timegrid-col {
-      border-color: var(--sv-bg-subtle);
-    }`
-
-/**
- * Weekday header row.
+ * `!important` because FullCalendar's skeleton zeroes the edges a cell shares
+ * with its neighbour through `!important` shorthands (`border-top: 0`), which
+ * also reset that edge's colour to `currentColor`. The width stays zero; the
+ * colour comes back, so every edge of the grid reports the hairline role.
  *
- * Canvas: 10px / 500 / `muted`, 4px vertical padding, centred, with a `hair`
- * rule beneath. The column separators through the header are INNER, so the
- * shorthand lays `well` on all four edges and the bottom is then raised to
- * `hair` — the one place both weights meet on one element.
- *
- * `text-decoration: none` is not cosmetic: the cushion is an `<a>` when
+ * `text-decoration: none` on the cushion is not cosmetic: it is an `<a>` when
  * `navLinks` is on, and its default underline reappears the moment an author
  * enables them.
  */
-const HEADER_RULES = `.fc .fc-col-header-cell {
-      border-color: var(--sv-bg-subtle);
-      border-bottom-color: var(--sv-border);
-      padding: 4px 0;
+const GRID_RULES = `.fc .fc-daygrid-day,
+    .fc .fc-timegrid-slot,
+    .fc .fc-timegrid-col,
+    .fc .fc-col-header-cell {
+      border-color: var(--color-border) !important;
+    }
+
+    .fc .fc-col-header-cell {
+      padding: 6px 0;
       text-align: center;
+      font-size: var(--text-xs);
+      line-height: 1rem;
+      font-weight: 500;
+      color: var(--color-muted-foreground);
     }
 
     .fc .fc-col-header-cell-cushion {
       display: inline-block;
       padding: 0;
-      font-size: var(--text-2xs);
-      line-height: 1.4;
-      font-weight: 500;
-      color: var(--sv-fg-muted);
+      color: inherit;
       text-decoration: none;
     }`
 
 /**
- * Month day cell: box, day number, and the today badge.
+ * Month day cell and its number.
  *
- * The 3px/4px inset lives on the CELL: in FullCalendar 7 the cell is the
- * element that carries the today tint, and the number row and the event stack
- * are its two children, so one padding insets both without the tint stopping
- * short. (The row height itself is FullCalendar's — see `aspectRatio` in
- * `islands/calendar/calendar-options.ts`.)
+ * The 3px/4px inset lives on the CELL, so the number row and the event stack
+ * are both inset by one padding. Today carries no wash (`--fc-classic-today`
+ * is transparent): the primary circle on its number is the only mark, so a
+ * `secondary` event chip keeps its ground on today's cell in either scheme.
+ * Every number sits in the same 24px box, so today's circle does not move its
+ * row; `inline-flex` + centring keeps a one- and a two-digit date
+ * identical inside it.
  *
- * The day number's own padding is therefore zeroed — it would otherwise
- * compound with the cell inset — and the horizontal event margins with it, so
- * chips align on the same 4px gutter as the number instead of a 6px one.
- *
- * The today badge is a 16 × 16 `primary` circle. `inline-flex` + centring is
- * what makes a one- and a two-digit date sit identically inside it; a padded
- * inline box would grow with the digit count and stop being a circle on the
- * 10th of the month.
- *
- * ## Sampling a day number: use `:not(.fc-day-other)`
- *
- * An in-month number is `sv-fg-muted` and an out-of-month one is
- * `sv-fg-subtle`, per the canvas. A live measurement that reads "the day
- * number" generically will almost always land on the WRONG one: the first
- * `.fc-daygrid-day-number` in DOM order is the top-left cell, which is the
- * previous month's trailing day in every month that does not start on the
- * week's first day. With `firstDay={1}`, September 2026 opens on Mon 31 Aug —
- * so `.first()` reports `sv-fg-subtle` on a perfectly correct grid. Measure
- * `.fc-daygrid-day:not(.fc-day-other) .fc-daygrid-day-number` for the in-month
- * tone, and `.fc-day-other .fc-daygrid-day-number` for the other.
+ * Measure an in-month number with
+ * `.fc-daygrid-day:not(.fc-day-other) .fc-daygrid-day-number`: the first
+ * number in DOM order is usually the previous month's trailing day.
  */
 const DAY_CELL_RULES = `.fc .fc-daygrid-day {
       padding: 3px 4px;
@@ -208,63 +141,61 @@ const DAY_CELL_RULES = `.fc .fc-daygrid-day {
     }
 
     .fc .fc-daygrid-day-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
       padding: 0;
-      font-size: var(--text-2xs);
-      line-height: 1.4;
-      color: var(--sv-fg-muted);
+      border-radius: 9999px;
+      font-size: var(--text-xs);
+      line-height: 1;
+      color: var(--color-foreground);
       text-decoration: none;
     }
 
     .fc .fc-day-other .fc-daygrid-day-number {
-      color: var(--sv-fg-subtle);
+      color: var(--color-muted-foreground);
     }
 
     .fc .fc-day-today .fc-daygrid-day-number {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 16px;
-      height: 16px;
-      padding: 0;
-      border-radius: 9999px;
-      background-color: var(--sv-primary);
-      color: var(--sv-primary-fg);
+      background-color: var(--color-primary);
+      color: var(--color-primary-foreground);
     }`
 
 /**
- * Event chip + the "+N more" link.
+ * Event chips and the "+N more" link.
  *
- * The canvas' `1px 4px` sits on the CHIP, in one declaration, and
- * FullCalendar's own inner padding is zeroed to make room for it: composing it
- * from an upstream inner padding held for block events only, never for a dot
- * event. One element, one declaration, one number to check.
- *
- * Type is `--text-2xs` (10px, the canvas' 9px has no rung) on the inner box.
- *
- * The label tone of a FILLED event (a block, or a time-grid event) is
- * re-asserted on the event ROOT from FullCalendar's own per-event
- * `--fc-event-contrast-color`. The theme paints it on an inner box only, so
- * the element a reader — or `option-colors.spec.ts`, or an accessibility
- * audit — inspects for the fill/text pair would otherwise report the fill from
- * the author and a colour inherited from the page ([internal ref] A7 ruling 3). A dot
- * event has no fill, so it keeps the page's text colour.
+ * A block or time-grid event rebinds `--fc-classic-event` to the `secondary`
+ * surface on its own element (see {@link FC_VAR_BRIDGE}); its label is
+ * re-asserted on the root from FullCalendar's per-event
+ * `--fc-event-contrast-color`, so the element a reader or an audit inspects
+ * reports the fill and its ink together. A dot event has no fill and keeps
+ * the page's text colour.
  *
  * An event the author styles through the calendar's `event` part is marked
  * `sv-event-part`, and its fill and ink step back to the layered utilities
  * (`revert-layer`): both sheets here are unlayered and would otherwise win.
  */
-const EVENT_RULES = `.fc .fc-daygrid-event,
+const EVENT_RULES = `.fc .fc-daygrid-block-event,
     .fc .fc-timegrid-event {
-      border-radius: var(--radius-sm);
+      --fc-classic-event: var(--color-secondary);
+      --fc-classic-event-contrast: var(--color-secondary-foreground);
+      color: var(--fc-event-contrast-color);
+    }
+
+    .fc .fc-daygrid-event,
+    .fc .fc-timegrid-event {
+      border-radius: var(--radius-md);
     }
 
     .fc .fc-event-main {
-      font-size: var(--text-2xs);
-      line-height: 1.4;
+      font-size: var(--text-xs);
+      line-height: 1rem;
     }
 
     .fc .fc-daygrid-event {
-      padding: 1px 4px;
+      padding: 1px 6px;
       margin: 2px 0 0;
     }
 
@@ -272,11 +203,6 @@ const EVENT_RULES = `.fc .fc-daygrid-event,
     .fc .fc-daygrid-event .fc-event-time,
     .fc .fc-daygrid-event .fc-event-title {
       padding: 0;
-    }
-
-    .fc .fc-daygrid-block-event,
-    .fc .fc-timegrid-event {
-      color: var(--fc-event-contrast-color);
     }
 
     .fc .fc-event-title,
@@ -288,7 +214,7 @@ const EVENT_RULES = `.fc .fc-daygrid-event,
 
     .fc .fc-daygrid-day-bottom {
       margin: 0;
-      font-size: var(--text-2xs);
+      font-size: var(--text-xs);
     }
 
     .fc .sv-event-part,
@@ -299,34 +225,29 @@ const EVENT_RULES = `.fc .fc-daygrid-event,
 
     .fc .fc-daygrid-more-link,
     .fc .fc-timegrid-more-link {
-      padding: 0 2px;
-      border-radius: var(--radius-sm);
-      font-size: var(--text-2xs);
-      line-height: 1.4;
+      padding: 0 4px;
+      border-radius: var(--radius-md);
+      font-size: var(--text-xs);
+      line-height: 1rem;
       background-color: transparent;
-      color: var(--sv-fg-muted);
+      color: var(--color-muted-foreground);
     }
 
     .fc .fc-daygrid-more-link:hover,
     .fc .fc-timegrid-more-link:hover {
-      background-color: var(--sv-bg-subtle);
+      background-color: var(--color-muted);
+      color: var(--color-foreground);
     }`
 
 /**
- * Time-grid: gutter, slot rows, all-day row, today column.
+ * Time-grid: gutter, slot labels, all-day row, today column.
  *
- * The 44px gutter is declared on the two cells that FORM the column (the header
- * axis and the slot labels) rather than on a wrapper, because FullCalendar
- * sizes that column from its cells; `max-width` on the cushion — which is where
- * FullCalendar's own 60px cap lives — only clips the text. The 24px slot row
- * is not here: FullCalendar 7 sizes slots in script, so it is the island's
- * `slotMinHeight` (`islands/calendar/calendar-options.ts`).
- *
- * The today COLUMN takes `ground`, not the `well` a today day-cell takes. That
- * is the canvas' intent and not an inconsistency: a full-height column tint at
- * day-cell strength would dominate the whole view, so the column reads one step
- * fainter. It has to be spelled explicitly because FullCalendar routes both
- * through the single `--fc-classic-today`.
+ * The 44px gutter is declared on the cells that FORM the column (the header
+ * axis and the slot labels), because FullCalendar sizes that column from its
+ * cells. The 24px slot row is the island's `slotMinHeight`
+ * (`islands/calendar/calendar-options.ts`): FullCalendar 7 sizes slots in
+ * script. The today column stays on the page's background — a full-height
+ * tint would dominate the view.
  */
 const TIME_GRID_RULES = `.fc .fc-timegrid-axis,
     .fc .fc-timegrid-slot-label {
@@ -336,45 +257,31 @@ const TIME_GRID_RULES = `.fc .fc-timegrid-axis,
     .fc .fc-timegrid-slot-label-cushion,
     .fc .fc-timegrid-axis-cushion {
       padding: 0 4px;
-      font-family: var(--font-mono, ui-monospace, monospace);
-      font-size: var(--text-2xs);
-      line-height: 1.4;
-      color: var(--sv-fg-subtle);
+      font-size: var(--text-xs);
+      line-height: 1rem;
+      color: var(--color-muted-foreground);
     }
 
     .fc .fc-timegrid-axis-cushion {
       padding: 5px 4px;
     }
 
-    .fc .fc-timegrid .fc-daygrid-day {
-      border-bottom-color: var(--sv-border);
-    }
-
     .fc .fc-timegrid .fc-daygrid-day-frame {
       min-height: 22px;
     }
 
-    .fc .fc-timegrid-axis {
-      border-bottom-color: var(--sv-border);
-    }
-
     .fc .fc-timegrid-col.fc-day-today {
-      background-color: var(--sv-bg);
+      background-color: var(--color-background);
     }`
 
 /**
- * The current-time indicator.
- *
- * The line already resolves through `--fc-now-indicator-color`, so only the
- * marker at its left end needs converging: FullCalendar draws a CSS-triangle
- * arrow out of asymmetric borders, and the canvas draws a 7px dot. Zeroing the
- * border width is what dismantles the triangle; the explicit box then paints
- * the dot. `margin-top: -3px` re-centres it on the 1px line (half of 7px, less
- * the line).
+ * The current-time indicator: a 1px `destructive` line with a 7px dot at its
+ * left end. Zeroing the border width dismantles FullCalendar's CSS-triangle
+ * arrow; the explicit box paints the dot, re-centred on the line.
  */
 const NOW_INDICATOR_RULES = `.fc .fc-timegrid-now-indicator-line {
       border-width: 1px 0 0;
-      border-top-color: var(--sv-error-solid);
+      border-top-color: var(--color-destructive);
     }
 
     .fc .fc-timegrid-now-indicator-arrow {
@@ -383,24 +290,19 @@ const NOW_INDICATOR_RULES = `.fc .fc-timegrid-now-indicator-line {
       height: 7px;
       margin-top: -3px;
       border-radius: 9999px;
-      background-color: var(--sv-error-solid);
+      background-color: var(--color-destructive);
     }`
 
 /**
- * Generate the calendar stylesheet.
- *
- * Takes no argument, and that is the point rather than an omission: every value
- * it emits is either a fixed geometry from the canvas or an indirection into an
- * existing `--sv-*` / `--text-*` token. There is nothing to re-resolve per
- * theme, so an author override reaches the calendar without this generator
- * knowing the author exists (unlike `generateCodeBlockStyles(design)`).
+ * Generate the calendar stylesheet. It takes no argument: every value is a
+ * fixed geometry or an indirection into a theme role, so an author's `design`
+ * reaches the calendar without this generator knowing the author exists.
  */
 export function generateCalendarStyles(): string {
   return [
-    '/* ── Calendar (FullCalendar) theming — wave R-D ── */',
+    '/* ── Calendar (FullCalendar) theming ── */',
     FC_VAR_BRIDGE,
-    INNER_GRID_RULES,
-    HEADER_RULES,
+    GRID_RULES,
     DAY_CELL_RULES,
     EVENT_RULES,
     TIME_GRID_RULES,

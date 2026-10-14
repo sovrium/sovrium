@@ -75,7 +75,7 @@ export const entry = defineLibraryEntry({
               [
                 icon('mail', 'text-foreground', 26),
                 h2(p('headline'), 'sm:text-4xl'),
-                para(p('subheadline'), 'max-w-md text-md text-foreground-muted'),
+                para(p('subheadline'), 'max-w-md text-md text-muted-foreground'),
                 {
                   type: 'container',
                   props: { className: 'mt-2 w-full max-w-sm text-left' },

@@ -28,7 +28,7 @@ Component types do not each invent their own vocabulary. A small set of shared m
 
 **Seven of these modules never appear in a per-type option table**: `props` and `children` together, `content`, `visibility`, `responsive`, `interactions`, `action` and `i18n`. A table lists what the type declares for itself, and those are subtracted before it is drawn. Printing them would add roughly a hundred and ninety rows to every one of the ninety types and bury the handful that are actually about that type — `button` has thirteen options of its own and two hundred and six once the modules are counted in.
 
-**`dataSource` is the exception, and deliberately so.** It is not subtracted, so it appears in full in the own table of each of the sixteen types that accept one — `calendar`, `chart`, `container`, `drawer`, `form`, `gallery`, `graph`, `kanban`, `kpi`, `list`, `matrix`, `record-field`, `record-picker`, `select`, `table` and `timeline`. Those types do not all mean the same thing by it — a `kpi` reads one aggregate where a `table` reads a page of rows — so the per-type description is worth the repetition, and the section below covers only what they have in common.
+**`dataSource` is the exception, and deliberately so.** It is not subtracted, so it appears in full in the own table of each of the sixteen types that accept one — `chart`, `container`, `event-calendar`, `form`, `gallery`, `graph`, `kanban`, `kpi`, `list`, `matrix`, `record-field`, `record-picker`, `select`, `sheet`, `table` and `timeline`. Those types do not all mean the same thing by it — a `kpi` reads one aggregate where a `table` reads a page of rows — so the per-type description is worth the repetition, and the section below covers only what they have in common.
 
 ## `props`
 
@@ -44,7 +44,7 @@ Classes for the component's named **parts**, not just its root — the links of 
 - type: sidebar
   classes:
     parts:
-      link: h-8 rounded-md px-2.5 text-foreground-muted
+      link: h-8 rounded-md px-2.5 text-muted-foreground
       groupLabel: font-mono text-xs uppercase text-foreground-subtle
     states:
       current: { link: bg-primary-subtle font-medium text-primary-subtle-foreground }

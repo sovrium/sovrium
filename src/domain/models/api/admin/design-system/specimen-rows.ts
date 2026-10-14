@@ -36,7 +36,7 @@ const specimenRowSchema = Schema.Record(
 ).annotate({
   identifier: 'SpecimenRow',
   description:
-    'One platform fixture row. Keys include `id`, `name`, `role`, `status`, `priority`, `category`, `description`, `amount`, `share`, `views`, `size`, `recordNumber`, `active`, `startsAt`, `endsAt`, `scheduledAt` and `allDay`; values are real types, never strings that look like numbers.',
+    'One platform fixture row. Keys include `id`, `name`, `role`, `status`, `priority`, `category`, `description`, `amount`, `share`, `views`, `size`, `recordNumber`, `active`, `startsAt`, `endsAt`, `scheduledAt`, `allDay` and `location` (a place, written `lat,lng`), and `parentId` (the `id` of the row a row nests under, absent on a root); values are real types, never strings that look like numbers.',
 })
 
 /**

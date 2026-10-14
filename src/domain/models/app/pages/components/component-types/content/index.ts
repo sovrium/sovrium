@@ -22,3 +22,4 @@ export {
   FilePreviewToolSchema,
   filePreviewFields,
 } from './file-preview'
+export { AttachmentTypeLiteral, attachmentFields } from './attachment'

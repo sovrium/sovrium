@@ -33,23 +33,22 @@
 
 export default {
   // ── Persistent shell ────────────────────────────────────────────────────
-  // The mobile burger's accessible name. It renders a glyph, so this string IS
-  // the whole button as a screen reader hears it.
+  // The phone menu button's accessible name: below the medium breakpoint the
+  // sidebar folds into a sheet this button opens.
   'admin.shell.openMenu': 'Open menu',
+  // The fold control at the top of the content column. It folds the sidebar
+  // to its icon strip, and Control or Command with B does the same.
+  'admin.shell.toggleSidebar': 'Toggle sidebar',
 
   // ── Sidebar chrome ──────────────────────────────────────────────────────
-  // `admin.shell.navLoading` used to live here. It named the placeholder line
-  // the sidebar ISLAND rendered before it hydrated; the navigation is now
-  // server-rendered, so there is no un-hydrated state left to caption.
-  //
-  // The brand link leaves the console for the operator's own site, so its name
-  // has to say WHERE it goes — the app label alone would read as the console
-  // home, which the row below it already is.
-  'admin.shell.openSite': 'Open the site in a new tab',
+  // The identity row links to the console's home. Its visible text is the app,
+  // its release and the engine, so the link carries a name that says where it
+  // goes instead of reading all three aloud.
+  'admin.shell.home': 'Console home',
   // The palette trigger's accessible name and its visible placeholder differ on
   // purpose: the name is the verb, the placeholder is the invitation.
   'admin.shell.search': 'Search',
-  'admin.shell.searchPlaceholder': 'Search...',
+  'admin.shell.searchPlaceholder': 'Search…',
   // The operator menu names its FUNCTION, not its holder: the signed-in
   // operator's identity is request-time and no config binding reaches it. The
   // seam is documented in `config/components/sidebar.ts`.

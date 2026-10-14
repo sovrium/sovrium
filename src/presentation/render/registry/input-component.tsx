@@ -8,10 +8,8 @@
 /**
  * `input` — the single-line text control, in every shape its `inputType` names.
  *
- * Beside `input-group` in its own module rather than inline in the interactive
- * dispatch table, because the type stopped being a one-liner: `one-time-code`
- * is an `inputType` that does NOT name a native HTML input type, so the
- * renderer now has a decision to make rather than a prop to forward.
+ * Beside `input-group` and `input-otp` in its own module rather than inline in
+ * the interactive dispatch table.
  *
  * Source: src/domain/models/app/pages/components/form-controls.ts → InputTypeSchema
  * Specs: [internal ref]
@@ -19,9 +17,11 @@
 
 import {
   computeInputDefaultClasses,
+  computeTextareaDefaultClasses,
   type InputState,
 } from '@/presentation/design/input-default-classes'
 import * as Renderers from '../elements'
+import { renderInputOtp } from '../elements/input-otp-renderer'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
 
@@ -49,10 +49,9 @@ function deriveInputState(elementProps: Record<string, unknown>): InputState {
 /**
  * Build the merged className for an input (the prestyled-islands rule, prestyled-by-default).
  *
- * Defaults come from {@link computeInputDefaultClasses} — a Tailwind recipe
- * with inline OKLCH var-fallbacks so a schema author who writes the bare
- * `{ type: 'input', placeholder: 'Email' }` gets a complete, opinionated text
- * input with rounded border, surface fill, focus ring, and state styling.
+ * Defaults come from {@link computeInputDefaultClasses}, shadcn/ui's `Input`
+ * recipe, so a schema author who writes the bare
+ * `{ type: 'input', placeholder: 'Email' }` gets shadcn's text input.
  * Author-supplied `props.className` is merged through {@link mergePrestyle},
  * so it beats the recipe on any same-property conflict.
  */
@@ -66,12 +65,7 @@ function buildInputClassName(
   return mergePrestyle(defaults, authorClassName, replaceDefaults)
 }
 
-export const inputComponent: ComponentRenderer = ({
-  elementProps,
-  designStyles,
-  component,
-  rawProps,
-}) => {
+export const inputComponent: ComponentRenderer = ({ elementProps, designStyles, rawProps }) => {
   const mergedClassName = buildInputClassName(
     elementProps,
     elementProps.className as string | undefined,
@@ -87,16 +81,54 @@ export const inputComponent: ComponentRenderer = ({
       elementProps['aria-label'] === undefined &&
       elementProps['aria-labelledby'] === undefined && { 'aria-label': authoredLabel }),
   }
-  // `one-time-code` is the one `inputType` that is NOT an HTML input type: it
-  // names an autofill contract (`autocomplete` plus a numeric `inputmode`)
-  // rather than a native control, so it is TRANSLATED here instead of being
-  // forwarded as `type`. Forwarding it would leave the browser falling back to
-  // `text` while dropping the numeric keypad the type exists to obtain.
-  if ((component as { inputType?: string } | undefined)?.inputType === 'one-time-code') {
-    return Renderers.renderOneTimeCodeInput({
-      props,
-      ...(typeof rawProps?.['label'] === 'string' && { label: rawProps['label'] }),
-    })
-  }
-  return Renderers.renderInput(props)
+  // shadcn/ui's anatomy names the control by its slot.
+  return Renderers.renderInput({ ...props, 'data-slot': 'input' })
 }
+
+/**
+ * The `input-otp` component: a mailed verification code typed back one box
+ * per character (`renderInputOtp`, mounted by the `input-otp` island).
+ */
+export const inputOtpComponent: ComponentRenderer = ({ elementProps, rawProps }) =>
+  renderInputOtp({
+    props: elementProps,
+    ...(typeof rawProps?.['label'] === 'string' && { label: rawProps['label'] }),
+  })
+
+/**
+ * The `textarea` component: shadcn/ui's `Textarea` recipe under the author's
+ * className, which wins a same-property conflict; `replace: true` drops it.
+ *
+ * `rows`, `maxLength` and `autoResize` are top-level schema fields (siblings of
+ * `props`). `props.label`, when present, becomes the `aria-label`, so the
+ * control is found by `getByRole('textbox', { name })`.
+ */
+export const textareaComponent: ComponentRenderer = ({
+  elementProps,
+  component,
+  rawProps,
+  designStyles,
+}) => {
+  const c = (component ?? {}) as Record<string, unknown>
+  const className = mergePrestyle(
+    computeTextareaDefaultClasses(),
+    elementProps.className as string | undefined,
+    designStyles?.replace
+  )
+  return Renderers.renderTextarea({
+    props: { ...elementProps, className, 'data-slot': 'textarea' },
+    rows: c['rows'] as number | undefined,
+    maxLength: c['maxLength'] as number | undefined,
+    label: rawProps?.['label'] as string | undefined,
+    autoResize: c['autoResize'] as boolean | undefined,
+    placeholder: rawProps?.['placeholder'] as string | undefined,
+    name: rawProps?.['name'] as string | undefined,
+  })
+}
+
+/** The input family's renderers, keyed by type, for the interactive registry. */
+export const inputComponents = {
+  input: inputComponent,
+  'input-otp': inputOtpComponent,
+  textarea: textareaComponent,
+} as const satisfies Readonly<Record<string, ComponentRenderer>>

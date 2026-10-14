@@ -1,4 +1,5 @@
-# sovrium-library: block/card-heading@0.30.0
+# sovrium-library: block/card-heading@0.37.0
+# sovrium-library-params: archiveHref=%2Fclients%2Fatelier-nord%2Farchive&editHref=%2Fclients%2Fatelier-nord%2Fedit&shareHref=%2Fclients%2Fatelier-nord%2Fshare&subtitle=Client%20since%20March%202024&title=Atelier%20Nord
 name: card-heading
 type: container
 props:
@@ -31,7 +32,7 @@ children:
                   - type: text
                     element: span
                     props:
-                      className: text-sm text-foreground-subtle
+                      className: text-sm text-muted-foreground
                     content: Client since March 2024
           - type: dropdown-menu
             triggerLabel: Card actions
@@ -58,10 +59,10 @@ children:
         children:
           - type: container
             props:
-              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle h-28
+              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-muted h-28
             children:
               - type: text
                 element: span
                 props:
-                  className: font-mono text-sm text-foreground-subtle
+                  className: font-mono text-sm text-muted-foreground
                 content: '[Card content]'

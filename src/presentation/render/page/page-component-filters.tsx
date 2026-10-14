@@ -32,6 +32,7 @@ import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolv
 import { markDrawerFieldAccess } from '@/presentation/render/props/resolve-record-drawer-access'
 import { markRelatedGuestCaller } from '@/presentation/render/props/resolve-record-drawer-related'
 import { expandFieldSpecimens } from '@/presentation/render/resolve/field-specimen-resolver'
+import { groupMessageAuthors } from '@/presentation/render/resolve/message-author-resolver'
 import { resolveOpenDrawerDispatches } from '@/presentation/render/resolve/open-drawer-dispatch-resolver'
 import { markAddressedDialogs } from '@/presentation/render/resolve/overlay-triggers'
 import { resolveRuntimeCapabilities } from '@/presentation/render/resolve/runtime-capability-resolver'
@@ -53,6 +54,7 @@ import {
 } from './page-command-palette'
 import {
   applyCrudCreatePermissions,
+  applyCrudDeletePermissions,
   applyCrudUpdatePermissions,
   withholdUnofferedFormRefs,
 } from './page-crud-gating'
@@ -198,7 +200,8 @@ export function gatePageComponents(
     app,
     session
   )
-  return applyCrudUpdatePermissions(createPermFiltered, app.tables, session)
+  const updatePermFiltered = applyCrudUpdatePermissions(createPermFiltered, app.tables, session)
+  return applyCrudDeletePermissions(updatePermFiltered, app.tables, session)
 }
 
 export function applyPageComponentFilters(input: PageComponentFilterInput): Page {
@@ -232,9 +235,9 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   // collection-resolved + formRef-expanded headings are visible, BEFORE the
   // synthesized `command-palette` is appended (the palette is a sibling
   // overlay and never contains author headings).
-  const withToc = resolvePageToc(specimensExpanded)
+  const withToc = resolvePageToc(groupMessageAuthors(specimensExpanded))
   // PG-04: tag any drawer referenced by a sibling `onRowClick.action ===
-  // 'openDrawer'` with `_openDrawerDispatchedById` so its island starts
+  // 'openSheet'` with `_openDrawerDispatchedById` so its island starts
   // closed (defaultOpen=false). The data-table row-click handler dispatches
   // a `sovrium:open-drawer` CustomEvent to open the matching drawer.
   // A drawer's `related` sections must answer an anonymous caller the way the
@@ -245,7 +248,7 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   const withDrawerDispatches = markDrawerFieldAccess(
     markRelatedGuestCaller(
       resolveOpenDrawerDispatches(withToc ?? []),
-      app.auth !== undefined && session === undefined
+      app.auth === undefined ? 'open' : session === undefined ? 'guest' : undefined
     ),
     app,
     session

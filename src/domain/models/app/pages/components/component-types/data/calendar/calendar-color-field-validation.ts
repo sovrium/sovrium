@@ -42,7 +42,7 @@ function fieldType(config: unknown, table: string, field: string): unknown {
  * @returns one message per offending calendar, empty otherwise
  */
 export function validateCalendarColorFields(config: unknown): readonly string[] {
-  return collectComponentsOfType(config, 'calendar').flatMap((calendar) => {
+  return collectComponentsOfType(config, 'event-calendar').flatMap((calendar) => {
     const { colorField: field, dataSource: source } = calendar
     const { table } = isRecord(source) ? source : {}
     if (typeof field !== 'string' || typeof table !== 'string') return []

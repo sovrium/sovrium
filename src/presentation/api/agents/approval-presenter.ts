@@ -6,55 +6,12 @@
  */
 
 /**
- * Construction and serialization helpers for AI agent approval records.
- *
- * `buildApprovalRecord` materializes a fresh {@link ApprovalRecord} from an
- * agent + action + payload; `serializeApproval` shapes a record into the JSON
- * contract read by the approvals API. Kept separate from the route handlers
- * so the route module stays focused on request orchestration.
+ * Serialization of AI agent approval records: `serializeApproval` shapes a
+ * record into the JSON contract read by the approvals API. A record is built
+ * by the domain (`approval-record-service.ts`).
  */
 
-import type { ApprovalRecord } from './approval-store'
-import type { Agent } from '@/domain/models/app/agents/agent'
-
-/** Default approval timeout (seconds) — mirrors the schema default. */
-export const DEFAULT_TIMEOUT_SECONDS = 3600
-
-/**
- * Materialize a fresh pending approval record for an agent action.
- *
- * Timeout / escalation deadlines are computed from `now` so a polling client
- * sees consistent absolute timestamps without a background timer.
- * `requestedById` is the user who started the run, `undefined` for a schedule.
- */
-export const buildApprovalRecord = (
-  agent: Agent,
-  action: string,
-  payload: Readonly<Record<string, unknown>>,
-  requestedById: string | undefined
-): ApprovalRecord => {
-  const now = Date.now()
-  const timeoutSeconds = agent.approval?.timeout ?? DEFAULT_TIMEOUT_SECONDS
-  const escalateAfter = agent.approval?.escalation?.after
-  return {
-    id: crypto.randomUUID(),
-    agentName: agent.name,
-    agentRole: agent.role,
-    action,
-    actionPayload: payload,
-    status: 'pending',
-    timeoutSeconds,
-    createdAtMs: now,
-    expiresAtMs: now + timeoutSeconds * 1000,
-    actionExecuted: false,
-    executedAs: undefined,
-    escalated: false,
-    escalatedTo: agent.approval?.escalation?.to,
-    escalateAfterMs: escalateAfter === undefined ? undefined : now + escalateAfter * 1000,
-    approvedByEmail: undefined,
-    requestedById,
-  }
-}
+import type { ApprovalRecord } from '@/domain/models/app/agents/approval-record-service'
 
 /** Serialize an approval record for API responses. */
 export const serializeApproval = (record: ApprovalRecord): Record<string, unknown> => ({

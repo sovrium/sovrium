@@ -20,7 +20,7 @@ import { defineLibraryEntry } from '@/library/manifest/define'
 import type { BlockNode } from '@/library/manifest/block-kit'
 
 const INVERSE_BUTTON =
-  'inline-flex h-12 items-center justify-center whitespace-nowrap rounded-md border px-5 text-md font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-fg)]'
+  'inline-flex h-12 items-center justify-center whitespace-nowrap rounded-md border px-5 text-md font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-foreground)]'
 
 const bannerActions = (p: (key: string) => string): BlockNode =>
   flex(
@@ -29,7 +29,7 @@ const bannerActions = (p: (key: string) => string): BlockNode =>
         type: 'link',
         props: {
           href: p('ctaHref'),
-          className: `${INVERSE_BUTTON} border-primary-fg bg-primary-fg text-primary hover:opacity-90`,
+          className: `${INVERSE_BUTTON} border-primary-foreground bg-primary-foreground text-primary hover:opacity-90`,
         },
         content: p('ctaLabel'),
       },
@@ -37,7 +37,7 @@ const bannerActions = (p: (key: string) => string): BlockNode =>
         type: 'link',
         props: {
           href: p('secondaryHref'),
-          className: `${INVERSE_BUTTON} border-[color-mix(in_oklch,var(--color-primary-fg)_40%,transparent)] text-primary-fg hover:bg-[color-mix(in_oklch,var(--color-primary-fg)_10%,transparent)]`,
+          className: `${INVERSE_BUTTON} border-[color-mix(in_oklch,var(--color-primary-foreground)_40%,transparent)] text-primary-foreground hover:bg-[color-mix(in_oklch,var(--color-primary-foreground)_10%,transparent)]`,
         },
         content: p('secondaryLabel'),
       }),
@@ -56,7 +56,7 @@ export const entry = defineLibraryEntry({
     'A filled band in the primary colour carrying the closing invitation: a heading, one sentence and two actions.',
   notes: [
     PLACE_NOTE,
-    'The band is painted with `--color-primary` and its text with `--color-primary-fg`, so it inverts whatever primary colour your `theme` declares — dark on a light theme, light on a dark one.',
+    'The band is painted with `--color-primary` and its text with `--color-primary-foreground`, so it inverts whatever primary colour your `design` declares — dark on a light theme, light on a dark one.',
     'The inverted fill is a class recipe on a `card`, not a card option: edit the classes in the fragment to change it.',
   ],
   params: [
@@ -87,7 +87,7 @@ export const entry = defineLibraryEntry({
             type: 'card',
             props: {
               className:
-                'flex flex-col gap-8 rounded-xl border-primary bg-primary p-8 text-primary-fg shadow-none sm:p-12 lg:flex-row lg:items-center lg:justify-between lg:p-14',
+                'flex flex-col gap-8 rounded-xl border-primary bg-primary p-8 text-primary-foreground shadow-none sm:p-12 lg:flex-row lg:items-center lg:justify-between lg:p-14',
             },
             children: [
               stack(
@@ -97,14 +97,14 @@ export const entry = defineLibraryEntry({
                     element: 'h2',
                     props: {
                       className:
-                        'text-3xl font-semibold tracking-tight text-balance text-primary-fg sm:text-4xl',
+                        'text-3xl font-semibold tracking-tight text-balance text-primary-foreground sm:text-4xl',
                     },
                     content: p('headline'),
                   },
                   ...when(p('subheadline'), {
                     type: 'text',
                     element: 'p',
-                    props: { className: 'text-lg text-primary-fg opacity-75' },
+                    props: { className: 'text-lg text-primary-foreground opacity-75' },
                     content: p('subheadline'),
                   }),
                 ],

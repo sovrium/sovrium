@@ -6,6 +6,7 @@
  */
 
 import aiChatComponentBody from '@/domain/models/app/pages/components/component-types/ai/ai.docs.md' with { type: 'file' }
+import bubbleComponentBody from '@/domain/models/app/pages/components/component-types/display/bubble.docs.md' with { type: 'file' }
 import displayComponentsBody from '@/domain/models/app/pages/components/component-types/display/display.docs.md' with { type: 'file' }
 import stepperComponentBody from '@/domain/models/app/pages/components/component-types/display/stepper.docs.md' with { type: 'file' }
 import feedbackComponentsBody from '@/domain/models/app/pages/components/component-types/feedback/feedback.docs.md' with { type: 'file' }
@@ -34,7 +35,7 @@ export const presentationComponentArticles = [
     sidebarLabel: 'Display Components',
     body: displayComponentsBody,
     documents: [
-      componentType('empty-state'),
+      componentType('empty'),
       componentType('scroll-area'),
       componentType('swatch'),
       componentType('avatar'),
@@ -66,6 +67,18 @@ export const presentationComponentArticles = [
     stories: [],
   }),
   defineArticle({
+    slug: 'bubble-component',
+    title: 'The Bubble Component',
+    description:
+      'bubble — the surface of one chat turn, its tail on the side of the thread it sits on.',
+    keywords: ['sovrium', 'bubble', 'chat', 'message', 'speech bubble'],
+    order: 3230,
+    sidebarLabel: 'Bubble',
+    body: bubbleComponentBody,
+    documents: [componentType('bubble')],
+    stories: [],
+  }),
+  defineArticle({
     slug: 'navigation-components',
     title: 'Navigation Components',
     description:
@@ -87,7 +100,7 @@ export const presentationComponentArticles = [
       componentType('context-menu'),
       componentType('menubar'),
       componentType('breadcrumb'),
-      componentType('command-palette'),
+      componentType('command'),
       componentType('pagination'),
     ],
     stories: [
@@ -114,7 +127,7 @@ export const presentationComponentArticles = [
     documents: [
       componentType('dialog'),
       componentType('alert-dialog'),
-      componentType('drawer'),
+      componentType('sheet'),
       componentType('popover'),
       componentType('tooltip'),
       componentType('hover-card'),

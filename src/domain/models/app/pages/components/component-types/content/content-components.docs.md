@@ -18,7 +18,7 @@ components:
 
 ## `text`
 
-The primary content component: inline text, a semantic element, or a whole markdown fragment. Headings, paragraphs and quotations are all `text` with a different `element`.
+The primary content component: inline text, a semantic element, or a whole markdown fragment. Headings, paragraphs and quotations are all `text` with a different `element`. Reference: shadcn/ui Typography, which is a page of styles rather than a component: `element` covers the elements it styles.
 
 <!-- sovrium:options type:text -->
 
@@ -39,6 +39,10 @@ When the **whole** `content` is exactly one token and its value is an object or 
 <!-- sovrium:options type:code -->
 
 A framed block takes classes by part through `classes`: `frame` is the frame around the code and its bar, `caption` is the bar naming the file or the command. Painting both in the code theme's own ground makes bar and code read as one panel.
+
+The frame is drawn on the card surface, with rounded corners and a faint ring for its edge. Its bar holds the filename or the terminal marker in small muted monospace, and the copy button, a ghost icon button. A block with no filename, no terminal marker and no copy button draws no bar at all.
+
+Reference: no shadcn counterpart (the code blocks of shadcn/ui's documentation); the copy control is shadcn/ui Button.
 
 ### Frames, output and the copy button
 
@@ -98,7 +102,7 @@ Four declarations are refused when the config is validated, each because it woul
 
 ## `kbd`
 
-A key or a chord, drawn as keycaps.
+A key or a chord, drawn as keycaps. Reference: shadcn/ui Kbd.
 
 <!-- sovrium:options type:kbd -->
 
@@ -111,13 +115,15 @@ components:
 
 `code` says "this is source"; a keycap says "press this". They are different claims to a reader and different elements to a screen reader — `<kbd>` is the one HTML has for input, and nothing else in the kit emits it. Documenting a shortcut with `code` also inherits the code frame's copy affordance, which offers to put `⌘` on the clipboard.
 
-The chord is an array rather than a string because each cap is its own element — the box, the border and the bottom edge are per key. A string would need a split rule, and every split rule is wrong for some shortcut: `+` is a separator in `Ctrl+C` and a key in `Ctrl++`. `separator` is therefore text **between** the caps, never a cap of its own; it gets no box, which is exactly the distinction a reader has to make at a glance. Omitted, the caps sit adjacent with the design's own gap.
+The chord is an array rather than a string because each cap is its own element — one muted chip per key, as shadcn/ui's `KbdGroup` holds one `Kbd` per key. A string would need a split rule, and every split rule is wrong for some shortcut: `+` is a separator in `Ctrl+C` and a key in `Ctrl++`. `separator` is therefore text **between** the caps, never a cap of its own; it gets no box, which is exactly the distinction a reader has to make at a glance. Omitted, the caps sit adjacent with the design's own gap.
 
 ## `toc`
 
-A table of contents generated from the page's heading hierarchy. Clicking a link smooth-scrolls to the heading anchor, and the active section is highlighted from scroll position.
+A table of contents generated from the page's heading hierarchy. Clicking a link smooth-scrolls to the heading anchor.
 
 `toc` declares no options of its own: it is configured entirely through the open `props` bag, which the renderer reads. Set `props.sticky: true` to keep it fixed to the viewport on scroll; every other key is passed through as an HTML attribute.
+
+The links read in the muted foreground and turn to the foreground on hover, a deeper heading's link indented under the one above it, like the 'On this page' column of shadcn/ui's documentation. Reference: no shadcn counterpart.
 
 ## `search-input`
 
@@ -125,7 +131,7 @@ The search box, in one of two scopes. `scope` is **required** and has no default
 
 <!-- sovrium:options type:search-input -->
 
-A key belonging to the other scope is ignored rather than rejected. The full-text engine itself — indexing, weights, public search — is configured elsewhere; this is the UI building block.
+A key belonging to the other scope is ignored rather than rejected. The full-text engine itself — indexing, weights, public search — is configured elsewhere; this is the UI building block. Reference: shadcn/ui Input Group, Popover. The box is one bordered group with a search glyph at its start, and in the `page` scope its results open in a list below it; Enter opens the first result and Escape clears the box.
 
 ## Markdown content is not a markdown page
 

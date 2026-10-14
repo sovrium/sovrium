@@ -54,7 +54,7 @@ export const entry = defineLibraryEntry({
               {
                 type: 'text',
                 element: 'p',
-                props: { className: 'text-lg text-foreground-muted' },
+                props: { className: 'text-lg text-muted-foreground' },
                 children: [
                   'Not answered here? ',
                   {

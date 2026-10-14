@@ -37,7 +37,12 @@ export interface RelatedSlotProps {
  */
 export function useRelatedSlot(
   props: RelatedSlotProps,
-  state: { readonly open: boolean; readonly recordId: string | undefined; readonly save: string },
+  state: {
+    readonly open: boolean
+    readonly recordId: string | undefined
+    readonly save: string
+    readonly saving: string
+  },
   onReplace: () => void
 ): ReactElement | undefined {
   const { related: sections, newRecordLabel, cancelLabel, createFailedLabel } = props
@@ -45,10 +50,11 @@ export function useRelatedSlot(
     () => ({
       newRecord: newRecordLabel ?? 'New record',
       save: state.save,
+      saving: state.saving,
       cancel: cancelLabel ?? 'Cancel',
       createFailed: createFailedLabel ?? 'The record could not be created.',
     }),
-    [newRecordLabel, cancelLabel, createFailedLabel, state.save]
+    [newRecordLabel, cancelLabel, createFailedLabel, state.save, state.saving]
   )
   if (sections === undefined || sections.length === 0) return undefined
   return (

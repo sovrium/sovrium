@@ -14,16 +14,22 @@
  *
  * Each file sits in a bordered stage that is a region named by the file. An
  * image is drawn inline (its alternative text from `altField`, else its name);
- * a PDF opens in the browser's own viewer in a frame; any other type is a card
- * with its name. A plain link to the file is always there, for a browser that
- * cannot show it. Nothing here runs script: zoom opens the image whole in a
- * native popover and rotate is a checkbox the stage restyles on.
+ * a PDF opens in the browser's own viewer in a frame, a sound or a video in its
+ * own player, each in a `file-preview-frame`, with a plain link to the file
+ * below for a browser that cannot show it. Any other type is shadcn/ui's
+ * outlined `Item`: a file icon, the name and the type, and a Download button.
+ * Nothing here runs script: zoom opens the image whole in a native popover and
+ * rotate is a checkbox the stage restyles on.
  */
 
 import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
 import { cn } from '@/presentation/design/class-merge'
 import { omitInternalMarkers } from '@/presentation/render/props/internal-marker-props'
+import { fileItem } from './file-preview-item'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { Languages } from '@/domain/models/app/languages'
 import type { PreviewFile } from '@/presentation/render/resolve/file-preview-resolver'
 import type { ReactElement } from 'react'
 
@@ -38,28 +44,48 @@ interface PreviewRoot {
 
 const DEFAULT_HEIGHT = 560
 const DEFAULT_TOOLBAR: readonly Tool[] = ['download', 'open']
-const TOOL_CLASS =
-  'inline-flex h-8 items-center gap-1 rounded-md border border-border px-3 text-sm hover:bg-muted'
+/** Every toolbar control is shadcn/ui's Button at its outline variant, small. */
+const TOOL_CLASS = computePartButtonClasses({ variant: 'outline', size: 'sm' })
+
+/** The stage's own words, in the page language (`filePreview.*`, renamed under `sovrium.<key>`). */
+type Words = Readonly<Record<Tool | 'toolbar', string>>
+
+const WORD_KEYS: readonly (keyof Words)[] = ['download', 'open', 'zoom', 'rotate', 'toolbar']
+
+const wordsFor = (lang: string | undefined, languages: Languages | undefined): Words =>
+  Object.fromEntries(
+    WORD_KEYS.map((key) => [key, resolveInterpreterString(`filePreview.${key}`, lang, languages)])
+  ) as Words
+
+/** A word with the file's name in its `{name}` slot. */
+const naming = (template: string, name: string): string => template.split('{name}').join(name)
 
 const isImage = (file: PreviewFile): boolean => file.type.startsWith('image/')
 const isPdf = (file: PreviewFile): boolean => file.type === 'application/pdf'
+const isAudio = (file: PreviewFile): boolean => file.type.startsWith('audio/')
+const isVideo = (file: PreviewFile): boolean => file.type.startsWith('video/')
+
+interface ToolContext {
+  readonly file: PreviewFile
+  readonly url: string
+  readonly zoomId: string
+  readonly words: Words
+}
 
 /** One toolbar control, in the order the author listed them. */
-function tool(
-  name: Tool,
-  ctx: { readonly file: PreviewFile; readonly url: string; readonly zoomId: string }
-): ReactElement | undefined {
-  const { file, url, zoomId } = ctx
+function tool(name: Tool, ctx: ToolContext): ReactElement | undefined {
+  const { file, url, zoomId, words } = ctx
   if (name === 'download') {
     return (
       <a
         key={name}
         role="button"
+        data-slot="button"
         href={url}
         download={file.name}
         className={TOOL_CLASS}
       >
-        Download
+        {words.download}
       </a>
     )
   }
@@ -68,12 +94,13 @@ function tool(
       <a
         key={name}
         role="button"
+        data-slot="button"
         href={url}
         target="_blank"
         rel="noopener noreferrer"
         className={TOOL_CLASS}
       >
-        Open
+        {words.open}
       </a>
     )
   }
@@ -82,14 +109,16 @@ function tool(
     <button
       key={name}
       type="button"
+      data-slot="button"
       popoverTarget={zoomId}
       className={TOOL_CLASS}
     >
-      Zoom
+      {words.zoom}
     </button>
   ) : (
     <label
       key={name}
+      data-slot="button"
       className={cn(TOOL_CLASS, 'cursor-pointer')}
     >
       <input
@@ -97,7 +126,7 @@ function tool(
         data-file-preview-rotate=""
         className="sr-only"
       />
-      Rotate
+      {words.rotate}
     </label>
   )
 }
@@ -113,29 +142,51 @@ function body(
         src={ctx.url}
         alt={ctx.alt}
         loading="lazy"
+        data-slot="image"
         className={cn(
-          'mx-auto transition-transform group-has-[:checked]:rotate-90',
+          'mx-auto rounded-lg transition-transform group-has-[:checked]:rotate-90',
           ctx.fit === 'width' ? 'w-full' : 'max-h-full max-w-full object-contain'
         )}
       />
     )
   }
-  if (isPdf(file)) {
+  // Sound and video play in the browser's own player, on the same signed address.
+  if (isAudio(file)) {
     return (
-      <iframe
+      <div className="flex h-full items-center justify-center p-4">
+        <audio
+          src={ctx.url}
+          controls
+          preload="metadata"
+          data-slot="audio"
+          className="block w-full"
+        />
+      </div>
+    )
+  }
+  if (isVideo(file)) {
+    return (
+      <video
         src={ctx.url}
-        title={file.name}
-        loading="lazy"
-        className="h-full w-full border-0"
+        controls
+        preload="metadata"
+        data-slot="video"
+        className="bg-muted h-full w-full"
       />
     )
   }
   return (
-    <p className="text-muted-foreground flex h-full items-center justify-center text-sm">
-      {`${file.name} cannot be shown here. Download it to open it.`}
-    </p>
+    <iframe
+      src={ctx.url}
+      title={file.name}
+      loading="lazy"
+      className="h-full w-full border-0"
+    />
   )
 }
+
+const canShow = (file: PreviewFile): boolean =>
+  isImage(file) || isAudio(file) || isVideo(file) || isPdf(file)
 
 /** The image at full size, in a native popover the Zoom button opens. */
 function zoomPopover(id: string, url: string, alt: string): ReactElement {
@@ -143,13 +194,49 @@ function zoomPopover(id: string, url: string, alt: string): ReactElement {
     <div
       id={id}
       popover="auto"
-      className="border-border bg-background max-h-[90vh] max-w-[90vw] overflow-auto rounded-md border p-2"
+      className="bg-background max-h-[90vh] max-w-[90vw] overflow-auto rounded-lg border p-2"
     >
       <img
         src={url}
         alt={alt}
       />
     </div>
+  )
+}
+
+/** A sound player is one control high: its frame hugs it unless the author set a height. */
+const frameHeight = (file: PreviewFile, root: PreviewRoot): number | undefined =>
+  isAudio(file) && root.height === undefined ? undefined : (root.height ?? DEFAULT_HEIGHT)
+
+/**
+ * A file the browser cannot show, in its named stage: the item always offers
+ * the download, and Open joins it when the toolbar lists it.
+ */
+function itemStage(
+  index: number,
+  ctx: {
+    readonly parts: Readonly<Record<string, string>>
+    readonly listed: readonly Tool[]
+    readonly toolCtx: ToolContext
+  }
+): ReactElement {
+  const { parts, listed, toolCtx } = ctx
+  const { file } = toolCtx
+  const actions = (['download', 'open'] as const).filter(
+    (name) => name === 'download' || listed.includes(name)
+  )
+  return (
+    <section
+      key={`${file.name}-${index}`}
+      aria-label={file.name}
+      data-file-preview-stage=""
+      className={cn('flex flex-col gap-2', parts['stage'])}
+    >
+      {fileItem(
+        file,
+        actions.flatMap((name) => tool(name, toolCtx) ?? [])
+      )}
+    </section>
   )
 }
 
@@ -162,16 +249,17 @@ function stage(
     readonly alt: string | undefined
     readonly hostId: string
     readonly parts: Readonly<Record<string, string>>
+    readonly words: Words
   }
 ): ReactElement | undefined {
   const url = toSafeAssetUrl(file.url)
   if (url === undefined) return undefined
   const zoomId = `${ctx.hostId}-zoom-${index}`
   const alt = ctx.alt ?? file.name
-  const tools = (ctx.root.toolbar ?? DEFAULT_TOOLBAR).flatMap((name) => {
-    const control = tool(name, { file, url, zoomId })
-    return control === undefined ? [] : [control]
-  })
+  const toolCtx = { file, url, zoomId, words: ctx.words }
+  const listed = ctx.root.toolbar ?? DEFAULT_TOOLBAR
+  if (!canShow(file)) return itemStage(index, { parts: ctx.parts, listed, toolCtx })
+  const tools = listed.flatMap((name) => tool(name, toolCtx) ?? [])
   return (
     <section
       key={`${file.name}-${index}`}
@@ -182,15 +270,16 @@ function stage(
       {tools.length > 0 && (
         <div
           role="toolbar"
-          aria-label={`${file.name} tools`}
+          aria-label={naming(ctx.words.toolbar, file.name)}
           className={cn('flex flex-wrap gap-2', ctx.parts['toolbar'])}
         >
           {tools}
         </div>
       )}
       <div
-        className="border-border bg-muted/40 overflow-auto rounded-md border"
-        style={{ height: ctx.root.height ?? DEFAULT_HEIGHT }}
+        data-slot="file-preview-frame"
+        className="overflow-auto rounded-lg border"
+        style={{ height: frameHeight(file, ctx.root) }}
       >
         {body(file, { url, alt, fit: ctx.root.fit ?? 'contain' })}
       </div>
@@ -213,6 +302,8 @@ export const filePreviewComponent: ComponentRenderer = ({
   rawProps,
   elementProps,
   designStyles,
+  currentLang,
+  languages,
 }) => {
   const root = (component ?? {}) as PreviewRoot
   const files = (rawProps?.['_previewFiles'] ?? []) as readonly PreviewFile[]
@@ -220,16 +311,18 @@ export const filePreviewComponent: ComponentRenderer = ({
   const alt = nonEmpty(rawProps?.['_recordAlt'])
   const hostId = nonEmpty(elementProps['id']) ?? 'sv-file-preview'
   const parts = designStyles?.parts ?? {}
+  const words = wordsFor(currentLang, languages)
   return (
     <div
       {...omitInternalMarkers(elementProps)}
       data-component-type="file-preview"
+      data-slot="file-preview"
       className={cn('flex flex-col gap-4', elementProps['className'] as string | undefined)}
     >
       {shown.length === 0 ? (
         <p className="text-muted-foreground text-sm">No file to preview.</p>
       ) : (
-        shown.map((file, index) => stage(file, index, { root, alt, hostId, parts }))
+        shown.map((file, index) => stage(file, index, { root, alt, hostId, parts, words }))
       )}
     </div>
   )

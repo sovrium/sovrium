@@ -24,7 +24,7 @@ export interface ElementProps {
  */
 export type HTMLElementConfig = {
   readonly type:
-    'div' | 'span' | 'section' | 'header' | 'footer' | 'main' | 'article' | 'aside' | 'nav'
+    'div' | 'span' | 'section' | 'header' | 'footer' | 'main' | 'article' | 'aside' | 'nav' | 'ol'
   readonly props: ElementProps
   readonly content: string | undefined
   readonly children: readonly React.ReactNode[]

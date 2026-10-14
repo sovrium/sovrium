@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { renderSpinnerMark } from '@/presentation/design/spinner-mark'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import {
   buildAuthDataAttributes,
@@ -25,11 +26,9 @@ import {
   type AutomationAction,
 } from './button-action-builders'
 import { buildNavigateClick, isNavigateAction } from './button-navigate-action'
-import { renderCrudDeleteButton } from './crud-form/crud-form-renderer'
-import { renderSpinnerMark } from './spinner-mark'
+import { renderCrudDeleteButton } from './crud-form/crud-delete-button-renderer'
 import type { ElementProps } from './html-element-renderer'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
-import type { Tables } from '@/domain/models/app/tables'
 
 /**
  * Only the client runtime dispatches an action button, and that runtime is a
@@ -94,7 +93,6 @@ type RenderButtonOptions = {
   readonly children: readonly React.ReactNode[]
   readonly interactions?: unknown
   readonly action?: unknown
-  readonly tables?: Tables
   readonly routeParams?: RouteParams
   readonly loading?: boolean
 }
@@ -119,7 +117,7 @@ function renderAutomationButton(opts: {
     props,
     content,
     children,
-    buildAutomationDataAttributes(action, resolvedInputData)
+    buildAutomationDataAttributes(action, resolvedInputData, recordContext)
   )
 }
 
@@ -145,11 +143,11 @@ function clientActionAttributes(
 /**
  * The loading spinner the button draws beside its label.
  *
- * The mark itself moved to `./spinner-mark` when the `spinner` component type
- * gained a renderer of its own — see that file for why the arc is shaped and
- * weighted the way it is, and for why its 16px is an intrinsic floor rather
- * than a size. Held as a module constant, as it was before, so the button's
- * loading branch allocates nothing per render.
+ * The mark itself lives in `design/spinner-mark`, shared with the `spinner`
+ * component type and every pending control — see `design/spinner-mark-markup.ts`
+ * for why the arc is shaped and weighted the way it is, and for why its 16px is
+ * an intrinsic floor rather than a size. Held as a module constant so the
+ * button's loading branch allocates nothing per render.
  */
 const LoadingSpinner = renderSpinnerMark()
 
@@ -230,9 +228,9 @@ function renderPlainButton({
  * Renders button element with click interactions
  */
 export function renderButton(options: RenderButtonOptions): ReactElement {
-  const { props, content, children, action, tables, routeParams } = options
+  const { props, content, children, action, routeParams } = options
   if (isCrudDeleteAction(action)) {
-    return renderCrudDeleteButton({ props, content, action, tables, routeParams })
+    return renderCrudDeleteButton({ props, content, action, routeParams })
   }
 
   if (isAutomationAction(action)) {
@@ -245,6 +243,12 @@ export function renderButton(options: RenderButtonOptions): ReactElement {
     const boundRecord = (props as { _record?: Readonly<Record<string, unknown>> })._record
     const click = buildNavigateClick(action, buildRecordContext(boundRecord, routeParams))
     return renderPlainButton({ ...options, interactions: click && { click } })
+  }
+
+  // An `openSheet` button is the sheet's own trigger, as a click interaction naming its id is.
+  const sheet = (action as { action?: unknown; component?: unknown } | undefined) ?? {}
+  if (sheet.action === 'openSheet' && typeof sheet.component === 'string') {
+    return renderPlainButton({ ...options, interactions: { click: { modal: sheet.component } } })
   }
 
   const clientAttrs = clientActionAttributes(action, props, routeParams)

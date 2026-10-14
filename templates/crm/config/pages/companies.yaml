@@ -15,7 +15,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -53,10 +53,10 @@ components:
                 pagination:
                   pageSize: 25
                 onRowClick:
-                  action: openDrawer
+                  action: openSheet
                   component: company-detail
                 emptyMessage: No companies yet. Add an account, then link its people to it.
-              - type: drawer
+              - type: sheet
                 id: company-detail
                 drawerSide: right
                 drawerSize: md

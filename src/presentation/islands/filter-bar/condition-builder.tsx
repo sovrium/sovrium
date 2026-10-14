@@ -6,14 +6,18 @@
  */
 
 import { useCallback, useState } from 'react'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeFilterBarOptionClasses,
+  FILTER_BAR_APPLY_CLASSES,
+  FILTER_BAR_BUILDER_ROW_CLASSES,
+  FILTER_BAR_VALUE_CONTROL_CLASSES,
+} from '@/presentation/design/filter-bar-default-classes'
 import {
   kindOf,
   labelOf,
   operatorLabel,
   operatorsFor,
 } from '@/presentation/design/filter-expression'
-import { computeTablePanelControlClasses } from '@/presentation/design/table-default-classes'
 import type {
   FilterBarCondition,
   FilterBarField,
@@ -34,7 +38,8 @@ interface Draft {
 }
 
 /**
- * The three rows of the add-condition menu.
+ * The three rows of the add-condition builder, drawn in the add control's
+ * popover.
  *
  * FIELDS stay on screen after one is chosen, rather than being replaced by the
  * operator row. A wizard reads better on paper and is worse to use: picking the
@@ -75,7 +80,7 @@ export function ConditionBuilder({ fields, onApply }: ConditionBuilderProps): Re
   }, [draft, onApply])
 
   return (
-    <div className="border-border flex flex-wrap items-center gap-2 rounded border p-2">
+    <div className="flex flex-col gap-2">
       <FieldRow
         fields={fields}
         selected={draft.field}
@@ -98,46 +103,16 @@ export function ConditionBuilder({ fields, onApply }: ConditionBuilderProps): Re
       <button
         type="button"
         onClick={apply}
-        className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
+        data-slot="button"
+        data-variant="default"
+        data-size="sm"
+        className={FILTER_BAR_APPLY_CLASSES}
       >
         Apply
       </button>
     </div>
   )
 }
-
-/**
- * The className for one option of a `aria-pressed` segmented row — a field name
- * or an operator — in either of its two states.
- *
- * The bar draws two such rows and drew both states of both of them as inline
- * literals, so the rule "an option not yet chosen is muted and reveals its fill on
- * hover, a chosen one already wears it" was written down four times. It is one
- * rule; the rows differ only in WEIGHT, because the field row names the record's
- * own vocabulary and the operator row names the platform's.
- *
- * Deliberately local to this island rather than a shared recipe. The bar's lazy
- * chunk is small on purpose — it publishes on the shared-filter channel that the
- * much heavier grid subscribes to, and its mount cost is what keeps that race
- * from mattering — so an import added here is paid on every page carrying a
- * filter bar. Four literals in one file do not buy a cross-island edge.
- */
-const segmentedOptionClasses = ({
-  active,
-  strong = false,
-}: {
-  readonly active: boolean
-  readonly strong?: boolean
-}): string =>
-  [
-    'rounded px-2 py-1 text-sm',
-    active
-      ? 'bg-background-subtle text-foreground'
-      : 'text-foreground-muted hover:bg-background-subtle',
-    strong ? 'font-medium' : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
 
 interface FieldRowProps {
   readonly fields: readonly FilterBarField[]
@@ -147,7 +122,7 @@ interface FieldRowProps {
 
 function FieldRow({ fields, selected, onChoose }: FieldRowProps): ReactElement {
   return (
-    <span className="flex flex-wrap items-center gap-1">
+    <span className={FILTER_BAR_BUILDER_ROW_CLASSES}>
       {fields.map((field) => (
         <FieldOption
           key={field.name}
@@ -176,7 +151,7 @@ function FieldOption({
       data-filter-field-option={field.name}
       aria-pressed={active ? 'true' : 'false'}
       onClick={handleClick}
-      className={segmentedOptionClasses({ active, strong: true })}
+      className={computeFilterBarOptionClasses({ active, strong: true })}
     >
       {labelOf(field, field.name)}
     </button>
@@ -192,7 +167,7 @@ interface OperatorRowProps {
 function OperatorRow({ field, selected, onChoose }: OperatorRowProps): ReactElement {
   const kind = kindOf(field)
   return (
-    <span className="flex flex-wrap items-center gap-1">
+    <span className={FILTER_BAR_BUILDER_ROW_CLASSES}>
       {operatorsFor(field).map((operator) => (
         <OperatorOption
           key={operator}
@@ -224,7 +199,7 @@ function OperatorOption({
       data-filter-operator-option={operator}
       aria-pressed={active ? 'true' : 'false'}
       onClick={handleClick}
-      className={segmentedOptionClasses({ active })}
+      className={computeFilterBarOptionClasses({ active })}
     >
       {operatorLabel(operator, kind)}
     </button>
@@ -259,7 +234,7 @@ function ValueControl({ field, value, onChange }: ValueControlProps): ReactEleme
         aria-label={`${labelOf(field, field.name)} value`}
         value={value}
         onChange={handleChange}
-        className={computeTablePanelControlClasses()}
+        className={FILTER_BAR_VALUE_CONTROL_CLASSES}
       >
         <option value="">—</option>
         {options.map((option) => (
@@ -280,7 +255,7 @@ function ValueControl({ field, value, onChange }: ValueControlProps): ReactEleme
       aria-label={`${labelOf(field, field.name)} value`}
       value={value}
       onChange={handleChange}
-      className={computeTablePanelControlClasses()}
+      className={FILTER_BAR_VALUE_CONTROL_CLASSES}
     />
   )
 }

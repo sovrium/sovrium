@@ -37,9 +37,9 @@ export const galleryFields = {
   gridColumns: Schema.optional(GalleryGridColumnsSchema),
   galleryCard: Schema.optional(GalleryCardSchema),
   layout: Schema.optional(
-    Schema.Literals(['grid', 'masonry', 'carousel']).annotate({
+    Schema.Literals(['grid', 'masonry']).annotate({
       description:
-        'Gallery layout mode: grid | masonry | carousel. `carousel` lays the same cards on one horizontal track paged by its own controls, so a set too wide to grid is still walkable.',
+        'Gallery layout mode: grid | masonry. A single walkable track is its own type, `carousel` (shadcn/ui Carousel).',
     })
   ),
   /**

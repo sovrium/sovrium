@@ -2,7 +2,7 @@
 #
 # `baseline: extend` keeps Sovrium's built-in design system and changes only
 # what is declared here. Type stays on the two faces the platform already
-# self-hosts (IBM Plex Sans and JetBrains Mono): no family is pulled from a
+# self-hosts (Geist and Geist Mono): no family is pulled from a
 # font CDN, which would leak every visitor's address to a third party.
 #
 # Money spent for the company and owed back to a person. The design spends its
@@ -97,10 +97,9 @@ colorRoles:
 # lines up and reads as a figure; sans for sentences, descriptions and names.
 typeScale:
   families:
-    sans:
-      family: "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
     mono:
-      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+      family: Geist Mono Variable
+      fallback: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
   steps:
     display: { size: 2rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.02em, font: mono }
     h1: { size: 1.375rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.01em, font: mono }

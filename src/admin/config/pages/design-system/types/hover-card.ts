@@ -7,62 +7,46 @@
 
 // `hover-card` — what a name expands into when a pointer rests on it.
 //
-// Renders its trigger; the card is composed. It differs from a popover in what
+// Renders its trigger: the first drawing is the real component, whose card a
+// pointer resting on the name opens, and the second composes that card open. It differs from a popover in what
 // opens it and therefore in what it may hold: nobody clicked, so nothing in here
-// may be the only way to reach something.
+// may be the only way to reach something. base-nova draws it as the popover's
+// ringed card, narrower, with no arrow.
 
-import { panel } from './overlay-panel'
-import type { TypePageBody } from './body-shape'
+import { box, floatingPanel, line } from './overlay-panel'
+import type { PageComponent, TypePageBody } from './body-shape'
+
+const name = (): PageComponent =>
+  ({
+    type: 'link',
+    props: { href: '/design-system/ui-kit/avatar' },
+    content: 'Léa Fontaine',
+  }) as PageComponent
+
+const summary = (): PageComponent =>
+  box('flex items-center gap-3', [
+    { type: 'avatar', initials: 'LF', label: 'Léa Fontaine' } as PageComponent,
+    box('flex flex-col', [
+      line('Léa Fontaine', 'text-foreground text-sm font-medium', undefined, 'span'),
+      line('Owner · 14 open deals', 'text-muted-foreground text-xs', undefined, 'span'),
+    ]),
+  ])
+
+/** The real component: its first child is the trigger, the rest is the card. */
+const live = {
+  type: 'hover-card',
+  floatingSide: 'bottom',
+  floatingAlign: 'start',
+  children: [name(), summary()],
+} as PageComponent
 
 const hoverCard: TypePageBody = {
   drawings: [
+    { label: 'closed', children: [live] },
     {
       label: 'open',
       children: [
-        {
-          type: 'container',
-          element: 'div',
-          props: { className: 'flex flex-col items-start gap-1.5' },
-          children: [
-            {
-              type: 'link',
-              props: { href: '/design-system/ui-kit/avatar' },
-              content: 'Léa Fontaine',
-            },
-            panel({
-              width: 'w-72',
-              children: [
-                {
-                  type: 'container',
-                  element: 'div',
-                  props: { className: 'flex items-center gap-3' },
-                  children: [
-                    { type: 'avatar', initials: 'LF', label: 'Léa Fontaine' },
-                    {
-                      type: 'container',
-                      element: 'div',
-                      props: { className: 'flex flex-col' },
-                      children: [
-                        {
-                          type: 'text',
-                          element: 'span',
-                          props: { className: 'text-foreground text-sm font-medium' },
-                          content: 'Léa Fontaine',
-                        },
-                        {
-                          type: 'text',
-                          element: 'span',
-                          props: { className: 'text-foreground-subtle text-[11px]' },
-                          content: 'Owner · 14 open deals',
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            }),
-          ],
-        },
+        box('flex flex-col items-start gap-1', [name(), floatingPanel('hover-card', [summary()])]),
       ],
     },
   ],

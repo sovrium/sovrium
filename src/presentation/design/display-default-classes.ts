@@ -6,426 +6,114 @@
  */
 
 /**
- * Prestyled-by-default class computers for the display-category surfaces
- * empty-state, list-item rows, the `card` bubble variant,
- * static-table chrome, and the structural timeline container. These are the
- * SSR-rendered display schemas under
- * `src/domain/models/app/pages/components/component-types/display/` that
- * previously fell through to an unstyled `<div>` (empty-state /
- * timeline) or carried hard-coded `bg-info-*` aliases (the bubble) — this
- * slice paints them with the same var-with-fallback recipe established in
- * the prior slices (buttons + inputs + selects + toggles + numeric + date +
- * overlays + disclosure + feedback + navigation + layout + forms + data +
- * typography).
- *
- * Each helper paints COLOR / BORDER-COLOR / RADIUS / SHADOW classes through
- * {@link withVarFallback} so `app.design.*` overrides still win at the CSS
- * cascade layer (`var(--sv-X)` resolves the override first, falling back to
- * the inline OKLCH literal); layout / spacing classes (`flex flex-col`,
- * `px-4 py-3`, `gap-2`) stay raw — they encode structure, not color.
- *
- * Subparts covered (one or two compute helpers per schema — the
- * highest-visibility surfaces of each):
- *
- *   - EMPTY-STATE CONTAINER — outer wrapper for the empty-state composition
- *                           (centered flex column + dashed border + muted
- *                           background tint + padding). The dashed border
- *                           evokes the conventional "nothing here yet"
- *                           visual idiom; centered layout anchors the
- *                           icon-headline-description-CTA stack.
- *   - EMPTY-STATE TITLE   — primary headline above the description ("No
- *                           records yet"). Strong foreground tone +
- *                           medium-large size so the headline carries the
- *                           message without crowding the supporting body.
- *
- *   - LIST-ITEM           — single `<li>` row inside a list composition.
- *                           The `interactive` axis flips the row from
- *                           passive chrome (no hover bg, no cursor change)
- *                           to actionable (hover bg-subtle + cursor-pointer)
- *                           when the schema's action fields are bound. The
- *                           `state` axis covers `'default' | 'selected' |
- *                           'disabled'` — selected rows tint with
- *                           primary-subtle so the current row reads at a
- *                           glance.
- *
- *   - SPEECH-BUBBLE       — chat bubble container with asymmetric rounded
- *                           corners (sharp bottom-left or bottom-right to
- *                           form a tail). The `side` axis flips the sharp
- *                           corner between `'left'` (sender, sharp bottom-
- *                           left) and `'right'` (receiver, sharp bottom-
- *                           right). Uses info-tone palette so the bubble
- *                           reads as conversational chrome.
- *
- *   - STATIC-TABLE SHELL  — outer `<table>` wrapper (border + radius +
- *                           bg + overflow-hidden so the inner corners clip
- *                           cleanly). Distinct from the data-table shell
- *                           (`data-default-classes.ts`) — static-table is a
- *                           pure presentational composition (the schema
- *                           ships rows as inline literal arrays), while
- *                           data-table renders an island with live records.
- *   - STATIC-TABLE HEADER ROW — `<thead>` chrome (bg-bgSubtle + uppercase +
- *                           muted-fg). Mirrors the data-table header's
- *                           visual rhythm so the two table variants read as
- *                           one design language.
- *   - STATIC-TABLE CELL   — `<td>` body cell + `<th>` header cell (px / py
- *                           + text size + fg tone). The `kind` axis flips
- *                           between `'header'` (semibold + uppercase +
- *                           muted-fg) and `'data'` (regular weight + full-
- *                           strength fg) so the same compute can paint both
- *                           subparts of the table.
- *
- *   - TIMELINE CONTAINER  — outer vertical wrapper for the structural-
- *                           display timeline (children list). Renders as a
- *                           flex-col with a left-padded "rail" — the rail
- *                           is what `computeTimelineRailClasses` paints.
- *                           NOTE: This is the structural-display `timeline`
- *                           schema (children container), NOT the data-bound
- *                           `data-timeline` Gantt island
- *                           (`src/presentation/islands/timeline/`).
- *   - TIMELINE RAIL       — vertical line down the left edge of the
- *                           container that connects child events. Pure
- *                           chrome: 2px wide on the border tone, positioned
- *                           absolute behind the dot markers each event
- *                           paints.
- *
- * Intentionally NOT covered (this slice scopes to ≤20 helpers + 8
- * components):
- *
- *   - ASPECT-RATIO        — schema is a pass-through container (only a
- *                           ratio prop); no chrome to style. Rendered as a
- *                           bare `<div>` with `aspect-ratio` CSS — the
- *                           schema author owns the inner content; no
- *                           helper would add value.
- *   - RESIZABLE           — schema is a pass-through container (only an
- *                           orientation prop); Base UI Resizable handles
- *                           the gutter chrome via its own primitives. No
- *                           per-component opinion to register at this
- *                           layer.
- *   - COMMAND             — the `command-palette` component is synthesized
- *                           at render-time (NOT schema-authored) and the
- *                           overlay DOM is built lazily on first `Cmd+K`
- *                           inside a stringified runtime IIFE
- *                           (`command-palette-runtime-dom.ts`) using inline
- *                           `element.style.background = '#ffffff'` etc.
- *                           Restyling needs the runtime to thread CSS
- *                           variable expressions through the style strings
- *                           — a different surface than this SSR-class
- *                           recipe — and is tracked as a follow-up slice.
- *   - ACCORDION / TABS    — already restyled by the disclosure slice
- *                           (`disclosure-default-classes.ts`, commit
- *                           `1b3f551a7`). Untouched here.
- *   - SCROLL-AREA         — handled by a sibling island helper file
- *                           (`src/presentation/islands/scroll-area-default-
- *                           classes.ts`) because it lives in the islands/
- *                           layer (Base UI ScrollArea is client-only).
- *
- * Helper file lives in `src/presentation/ui/sections/renderers/element-
- * renderers/` because every schema in this slice is server-rendered through
- * the component registry (no island side). Mirrors the location chosen for
- * `button-default-classes.ts`, `input-default-classes.ts`,
- * `feedback-default-classes.ts`, `navigation-default-classes.ts`,
- * `layout-default-classes.ts`, `forms-default-classes.ts`,
- * `data-default-classes.ts`, and `typography-default-classes.ts`.
+ * Adapted from shadcn/ui empty, item, table and avatar (https://ui.shadcn.com), registry commit 3464245c4513b7998b1d11fa9c67b71cc1534dc7.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
+/**
+ * Class computers for the server-rendered display surfaces.
+ *
+ * Four of them are on shadcn/ui's anatomy, base-nova's strings unchanged and
+ * one `data-slot` per part, stamped by their renderers: `empty`, `item`, the
+ * static `table` and `avatar`. Each is shadcn's role utilities
+ * (`bg-muted`, `text-muted-foreground`, `border-border` …) read straight off
+ * the theme, so an app's `design` repaints them without a `--sv-*` hook.
+ *
+ * The `description-list` and the record-field value have no shadcn row; they
+ * read the same role utilities.
+ */
+
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────
-// EMPTY-STATE — outer container + headline
+// EMPTY — base-nova's `Empty`, `EmptyHeader`, `EmptyTitle`, `EmptyDescription`,
+// `EmptyContent`
 // ──────────────────────────────────────────────────────────────────────────────
 
-const EMPTY_STATE_CONTAINER = [
-  'flex flex-col items-center justify-center text-center gap-3 px-6 py-12',
-  // Dashed border evokes the conventional "nothing here yet" affordance
-  // (mirrors the empty-state scene fixture's idiom). Bg-subtle tint anchors
-  // the surface so the icon + headline + body read as a contained module.
-  'border border-dashed',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `rounded-[${v('radius-lg', T.radiusLg)}]`,
-].join(' ')
-
-/**
- * Compute the default className for the outer empty-state wrapper. Centered
- * flex column with a dashed border (the conventional "no records yet"
- * idiom) + bg-subtle tint so the surface reads as a contained empty
- * module. Generous py-12 + gap-3 give the icon + headline + body +
- * optional CTA enough breathing room to feel like an intentional state
- * rather than a layout glitch.
- */
-export const computeEmptyStateContainerClasses = (): string => EMPTY_STATE_CONTAINER
-
-const EMPTY_STATE_TITLE = ['text-lg font-semibold', `text-[${v('sv-fg', T.fg)}]`].join(' ')
-
-/**
- * Compute the default className for the empty-state primary headline ("No
- * records yet", "Nothing to show"). Strong full-fg tone + semibold weight
- * + text-lg so the headline anchors the empty module; the surrounding
- * description text (paired below) inherits the muted-fg + text-sm tone via
- * the standard paragraph renderer.
- */
-export const computeEmptyStateTitleClasses = (): string => EMPTY_STATE_TITLE
+// The empty recipe lives in its own leaf module, for the same reason as the item.
+export {
+  computeEmptyContentClasses,
+  computeEmptyDescriptionClasses,
+  computeEmptyHeaderClasses,
+  computeEmptyMediaClasses,
+  computeEmptyStateContainerClasses,
+  computeEmptyStateTitleClasses,
+} from './empty-default-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────
-// LIST-ITEM — single row inside a list composition
+// ITEM — base-nova's `Item`, at its default variant and size
 // ──────────────────────────────────────────────────────────────────────────────
 
-/**
- * List-item state axis:
- *   - `'default'`  — regular row tone
- *   - `'selected'` — currently-selected row, tinted with primary-subtle bg
- *   - `'disabled'` — dimmed row (opacity-50 + cursor-not-allowed)
- */
-export type ListItemState = 'default' | 'selected' | 'disabled'
+// The item recipe lives in its own leaf module so an island drawing an item
+// pays for those few strings rather than for this whole file.
+export { computeListItemClasses } from './item-default-classes'
 
-const LIST_ITEM_LAYOUT = 'px-3 py-2 text-base transition-colors'
-
-const LIST_ITEM_SURFACE_BASE = `text-[${v('sv-fg', T.fg)}]`
-
-const LIST_ITEM_INTERACTIVE = [
-  'cursor-pointer',
-  `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-].join(' ')
-
-const LIST_ITEM_SELECTED = `bg-[${v('sv-primary-subtle', T.primarySubtle)}]`
-
-const LIST_ITEM_DISABLED = 'opacity-50 cursor-not-allowed'
+/** shadcn/ui's Item variants: the border and the ground. */
+const ITEM_VARIANT = {
+  default: '',
+  outline: 'border-border',
+  muted: 'bg-muted/50',
+} as const
 
 /**
- * Compute the default className for a single `<li>` row. The `interactive`
- * axis flips the row between passive chrome (no hover bg, default cursor)
- * and an actionable hit-target (hover bg-subtle + cursor-pointer) for
- * schema authors who bind `actionFields` to the item. The `state` axis
- * covers the three RBAC-style row tones:
- *
- *   - `'default'`  — base row (no tint).
- *   - `'selected'` — primary-subtle bg tint so the row reads as the
- *                    currently-active record (e.g. the open detail row in a
- *                    master-detail UI). Pairs with the same primary
- *                    palette buttons + focus rings register.
- *   - `'disabled'` — 50% opacity + not-allowed cursor (overrides the
- *                    interactive cursor when both flags are set).
+ * shadcn/ui's Item sizes. base-nova draws `sm` with the same padding as
+ * `default` at the commit this is read from; here `sm` is the shorter row its
+ * name promises.
  */
-export const computeListItemClasses = ({
-  state = 'default',
-  interactive = false,
-}: {
-  readonly state?: ListItemState
-  readonly interactive?: boolean
-} = {}): string =>
-  [
-    LIST_ITEM_LAYOUT,
-    LIST_ITEM_SURFACE_BASE,
-    ...(interactive && state !== 'disabled' ? [LIST_ITEM_INTERACTIVE] : []),
-    ...(state === 'selected' ? [LIST_ITEM_SELECTED] : []),
-    ...(state === 'disabled' ? [LIST_ITEM_DISABLED] : []),
-  ].join(' ')
+const ITEM_SIZE = {
+  default: '',
+  sm: 'gap-2 py-1.5',
+} as const
+
+/** The variant and size of an item, appended to the row's own classes. */
+export const computeItemVariantClasses = (
+  variant: keyof typeof ITEM_VARIANT,
+  size: keyof typeof ITEM_SIZE
+): string => `${ITEM_VARIANT[variant]} ${ITEM_SIZE[size]}`.trim()
+
+/** `item-media`: the leading glyph or picture. */
+export const computeItemMediaClasses = (): string =>
+  "flex shrink-0 items-center justify-center gap-2 group-has-data-[slot=item-description]/item:translate-y-0.5 group-has-data-[slot=item-description]/item:self-start [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4"
+
+/** `item-content`: the column holding the title and the description. */
+export const computeItemContentClasses = (): string => 'flex flex-1 flex-col gap-1'
+
+/** `item-title`. */
+export const computeItemTitleClasses = (): string =>
+  'line-clamp-1 flex w-fit items-center gap-2 text-sm leading-snug font-medium underline-offset-4'
+
+/** `item-description`. */
+export const computeItemDescriptionClasses = (): string =>
+  'line-clamp-2 text-left text-sm leading-normal font-normal text-muted-foreground'
+
+/** `item-actions`. */
+export const computeItemActionsClasses = (): string => 'flex items-center gap-2'
+
+/** `item-header` and `item-footer`: full-width lines above and below the body. */
+export const computeItemEdgeClasses = (): string =>
+  'flex basis-full items-center justify-between gap-2'
 
 // ──────────────────────────────────────────────────────────────────────────────
-// SPEECH-BUBBLE — chat bubble with asymmetric corners
+// TABLE (static rows) — base-nova's `Table` parts
 // ──────────────────────────────────────────────────────────────────────────────
 
-/**
- * Speech-bubble side axis (which corner is "sharp" to form the tail):
- *   - `'left'`  — sharp bottom-left, rounded other three (sender)
- *   - `'right'` — sharp bottom-right, rounded other three (receiver)
- */
-export type SpeechBubbleSide = 'left' | 'right'
-
-const SPEECH_BUBBLE_LAYOUT = 'px-4 py-3 text-base max-w-md'
-
-const SPEECH_BUBBLE_SURFACE = [
-  `bg-[${v('sv-info-bg', T.infoBg)}]`,
-  'border',
-  `border-[${v('sv-info-border', T.infoBorder)}]`,
-  `text-[${v('sv-info-fg', T.infoFg)}]`,
-]
-
-const SPEECH_BUBBLE_RADIUS_LEFT = [
-  `rounded-tl-[${v('radius-md', T.radiusMd)}]`,
-  `rounded-tr-[${v('radius-md', T.radiusMd)}]`,
-  `rounded-br-[${v('radius-md', T.radiusMd)}]`,
-  // Sharp bottom-left corner — the "tail" anchor for sender bubbles.
-  'rounded-bl-none',
-].join(' ')
-
-const SPEECH_BUBBLE_RADIUS_RIGHT = [
-  `rounded-tl-[${v('radius-md', T.radiusMd)}]`,
-  `rounded-tr-[${v('radius-md', T.radiusMd)}]`,
-  `rounded-bl-[${v('radius-md', T.radiusMd)}]`,
-  // Sharp bottom-right corner — the "tail" anchor for receiver bubbles.
-  'rounded-br-none',
-].join(' ')
-
-/**
- * Compute the default className for a chat-style speech bubble. The `side`
- * axis flips which corner is "sharp" (no radius) to form the visual tail —
- * left-side bubbles point down-left (the sender), right-side bubbles point
- * down-right (the receiver). Uses the info-tone palette (light blue
- * background + matching foreground) so the bubble reads as conversational
- * chrome distinct from focal cards / banners.
- *
- * Replaces the previously inline `bg-info-bg border border-info-border
- * text-info-fg ...` alias string in `special-components.tsx` so the bubble
- * tone now flows through the same var-fallback registration as every other
- * info-toned surface (badges, alerts).
- */
-export const computeSpeechBubbleClasses = ({
-  side = 'left',
-}: {
-  readonly side?: SpeechBubbleSide
-} = {}): string =>
-  [
-    SPEECH_BUBBLE_LAYOUT,
-    ...SPEECH_BUBBLE_SURFACE,
-    side === 'right' ? SPEECH_BUBBLE_RADIUS_RIGHT : SPEECH_BUBBLE_RADIUS_LEFT,
-  ].join(' ')
+// The static-table recipe lives in its own leaf module, for the same reason.
+export {
+  computeStaticTableBodyClasses,
+  computeStaticTableCaptionClasses,
+  computeStaticTableCellClasses,
+  computeStaticTableContainerClasses,
+  computeStaticTableRowClasses,
+  computeStaticTableShellClasses,
+} from './static-table-default-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────
-// STATIC-TABLE — shell + header row + cell
-// ──────────────────────────────────────────────────────────────────────────────
-
-const STATIC_TABLE_SHELL = [
-  'w-full border-separate border-spacing-0 overflow-hidden',
-  `bg-[${v('sv-bg', T.bg)}]`,
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `rounded-[${v('radius-base', T.radiusBase)}]`,
-].join(' ')
-
-/**
- * Compute the default className for the outer `<table>` wrapper of a
- * static-table composition (schema-author-supplied `tableHeaders` +
- * `tableRows` literal arrays). Distinct from the data-table shell in
- * `data-default-classes.ts` — static-table is a pure presentational
- * composition (no island, no live records), while data-table renders an
- * interactive island with sortable/filterable rows.
- *
- * Separate borders with no spacing, not `border-collapse`: a collapsed border
- * lends half of each 1px rule to the rows either side of it, so the header row
- * and the first and last body rows landed on half pixels (27, 28.5, 28, 28.5).
- * With separate borders the shell's rule belongs to the table and the header
- * rule to its cells, and every row is a whole number of pixels tall. Rounded
- * corners + overflow-hidden keep the cells inside the rounded shell.
- */
-export const computeStaticTableShellClasses = (): string => STATIC_TABLE_SHELL
-
-// On the header CELLS: a separate-border table draws no border on a `<tr>`.
-// `*:` (`:is(.row > *)`, one class) rather than `[&>th]` (a class and a type):
-// an author's own `[&_th]:border-…` on the table must still win, as a cell's
-// border won over its row's under `border-collapse`.
-const STATIC_TABLE_HEADER_ROW = [
-  '*:border-b',
-  `*:border-[${v('sv-border-strong', T.borderStrong)}]`,
-].join(' ')
-
-/**
- * Compute the default className for the `<thead>` row of a static-table.
- * Pairs with the shell at the top of the table: bg-subtle tint so the
- * header reads as chrome distinct from the body cells, bottom border
- * separating the header from the first body row. Mirrors the data-table
- * header recipe so the two table variants share visual rhythm.
- */
-export const computeStaticTableHeaderRowClasses = (): string => STATIC_TABLE_HEADER_ROW
-
-/**
- * Static-table cell kind:
- *   - `'header'` — `<th>` header cell (semibold uppercase muted-fg)
- *   - `'data'`   — `<td>` body cell (regular weight + full-strength fg)
- */
-export type StaticTableCellKind = 'header' | 'data'
-
-/**
- * Row padding comes from the density token, not from a literal. The token's
- * default IS `5px`, so this reads like a `5px` literal until an author
- * declares `design.density` — at which point it follows, which
- * a literal never could.
- */
-const STATIC_TABLE_CELL_LAYOUT_BASE = 'px-2 py-(--sv-density-row-y) text-left'
-
-/**
- * Header 11px, body 12px — the same pairing `data-default-classes.ts` uses, so
- * the two table variants keep reading as one component family rather than two.
- *
- * They shared ONE 11px step until the data-table ramp separated them, and this
- * constant's whole job is to track that ramp: a static table and a data table
- * differ in where their rows come from, never in how a cell is set. A reader
- * comparing the two on one page is the reason the pairing has to move in both
- * places at once — which is also why the two halves are named rather than
- * spelled inline at the call site below.
- */
-const STATIC_TABLE_HEADER_TEXT = 'text-xs'
-const STATIC_TABLE_BODY_TEXT = 'text-sm'
-
-const STATIC_TABLE_CELL_HEADER = [
-  `${STATIC_TABLE_HEADER_TEXT} font-medium`,
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-].join(' ')
-
-const STATIC_TABLE_CELL_DATA = [STATIC_TABLE_BODY_TEXT, `text-[${v('sv-fg', T.fg)}]`].join(' ')
-
-/**
- * Compute the default className for a static-table cell (`<th>` or
- * `<td>`). The `kind` axis flips between header and data cell typography:
- *
- *   - `'header'` — semibold + uppercase + tracking-wider + muted-fg so
- *                  column labels read as quiet chrome. Same recipe the
- *                  data-table header row uses.
- *   - `'data'`   — text-sm + regular weight + full-strength fg so the
- *                  cell content carries the actual reading load.
- *
- * Padding stays the same on both kinds so columns align cleanly between
- * the header and body rows.
- */
-export const computeStaticTableCellClasses = ({
-  kind,
-}: {
-  readonly kind: StaticTableCellKind
-}): string =>
-  [
-    STATIC_TABLE_CELL_LAYOUT_BASE,
-    kind === 'header' ? STATIC_TABLE_CELL_HEADER : STATIC_TABLE_CELL_DATA,
-  ].join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// TIMELINE (structural display) — container + left rail
-// ──────────────────────────────────────────────────────────────────────────────
-
-const TIMELINE_CONTAINER = ['relative flex flex-col gap-4 pl-6'].join(' ')
-
-/**
- * Compute the default className for the structural-display `timeline`
- * container. NOT to be confused with the data-bound `data-timeline` Gantt
- * island (`src/presentation/islands/timeline/`) — this is the schema
- * author's `{ type: 'timeline', children: [...] }` container that renders
- * a vertical event list with a left rail connecting the dots.
- *
- * `relative` + `pl-6` reserve the left strip for the rail line + dot
- * markers; the children render to the right of the rail.
- */
-export const computeTimelineContainerClasses = (): string => TIMELINE_CONTAINER
-
-const TIMELINE_RAIL = [
-  'absolute left-2 top-2 bottom-2 w-0.5',
-  `bg-[${v('sv-border', T.border)}]`,
-].join(' ')
-
-/**
- * Compute the default className for the vertical rail line down the left
- * edge of the timeline container. Pure chrome: 2px wide on the standard
- * border tone, positioned absolute behind the dot markers each timeline
- * event paints. The `top-2 bottom-2` insets keep the rail short of the
- * container's outer padding so it visually starts at the first dot and
- * ends at the last.
- */
-export const computeTimelineRailClasses = (): string => TIMELINE_RAIL
-
-// ──────────────────────────────────────────────────────────────────────────────
-// AVATAR — the disc, its group overlap, its initials and its presence dot
+// AVATAR — base-nova's `Avatar`, `AvatarImage`, `AvatarFallback`,
+// `AvatarBadge`, `AvatarGroup`, `AvatarGroupCount`
 // ──────────────────────────────────────────────────────────────────────────────
 
 /** The three rungs of the avatar size ladder. See `display/avatar.ts`. */
-export type AvatarSize = 'sm' | 'md' | 'lg'
+export type AvatarSize = 'sm' | 'default' | 'lg'
 
 /** Corner shape of an avatar box. */
 export type AvatarShape = 'circle' | 'square'
@@ -434,144 +122,114 @@ export type AvatarShape = 'circle' | 'square'
 export type AvatarStatus = 'online' | 'away' | 'busy' | 'offline'
 
 /**
- * The box, per rung — 24 / 32 / 40px SQUARE, and the type step derived from it.
- *
- * `size-*` is rem-based off the ROOT font size, so the per-rung `text-*` on the
- * same element cannot move it: the ladder measures the same three numbers the
- * schema names whatever the initials end up sized at. That is the whole reason
- * the schema refuses a free pixel value — see its module docstring.
+ * base-nova's `Avatar` root. The rung is read off `data-size` (24 / 32 / 40px),
+ * which the renderer stamps, so the ladder lives in the one string; the
+ * `after:` ring is the hairline base-nova draws over the picture.
  */
-const AVATAR_BOX: Record<AvatarSize, string> = {
-  sm: 'size-6 text-[0.625rem]',
-  md: 'size-8 text-xs',
-  lg: 'size-10 text-sm',
-}
+const AVATAR_ROOT =
+  'group/avatar relative flex size-8 shrink-0 rounded-full select-none after:absolute after:inset-0 after:rounded-full after:border after:border-border after:mix-blend-darken data-[size=lg]:size-10 data-[size=sm]:size-6 dark:after:mix-blend-lighten'
 
 /**
- * The disc's own skin.
+ * The fallback's ground and ink, on the root as well as on the fallback.
  *
- * Deliberately quiet: an avatar is a person's or a record's identity, and the
- * chrome around it competes with a photograph. `bg-subtle` under `fg-muted`
- * initials is the resting surface the rest of the display cluster uses.
+ * base-nova paints them on `AvatarFallback` only. Sovrium's root carries them
+ * too, for two rungs that have no fallback element to paint: the empty disc
+ * (no picture, no name), which would otherwise be an outline, and the
+ * initials a session-bound avatar draws in the browser, which arrive without
+ * the server's classes. A picture covers the ground, so it changes nothing
+ * where a picture is drawn.
  */
-const AVATAR_SKIN = [
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  `border border-[${v('sv-border', T.border)}]`,
-].join(' ')
-
-// `overflow-visible` and not `overflow-hidden`: the presence dot sits ON the
-// lower-right corner, and clipping the box would cut it in half. The picture is
-// clipped by its OWN radius instead (see `computeAvatarImageClasses`).
-const AVATAR_LAYOUT =
-  'relative inline-flex shrink-0 select-none items-center justify-center overflow-visible font-medium leading-none'
+const AVATAR_ROOT_GROUND =
+  'items-center justify-center bg-muted text-sm text-muted-foreground data-[size=sm]:text-xs'
 
 /**
- * Compute the className for one avatar box — a single avatar's root, or one
- * member of a group.
- *
- * `shape: 'square'` keeps the SAME box and softens the corners to the design
- * radius rather than fully, so a row of mixed shapes still aligns on one
- * baseline. That is the schema's claim; this is where it is kept.
+ * `shape: 'square'` keeps the box and softens its corners instead of rounding
+ * them fully — Sovrium's, since base-nova draws only discs.
+ */
+const AVATAR_SQUARE = 'rounded-md after:rounded-md'
+
+const shapeClass = (shape: AvatarShape): string => (shape === 'square' ? AVATAR_SQUARE : '')
+
+/**
+ * Compute the className for one avatar root (`data-slot="avatar"`), a single
+ * avatar or one member of a group. `size` is read through `data-size`; it
+ * stays in the signature so a caller cannot forget to stamp it.
  */
 export const computeAvatarBoxClasses = ({
-  size,
   shape,
 }: {
   readonly size: AvatarSize
   readonly shape: AvatarShape
 }): string =>
-  [
-    AVATAR_LAYOUT,
-    AVATAR_BOX[size],
-    shape === 'square' ? `rounded-[${v('radius-base', T.radiusBase)}]` : 'rounded-full',
-    AVATAR_SKIN,
-  ].join(' ')
+  [AVATAR_ROOT, AVATAR_ROOT_GROUND, shapeClass(shape)].filter((part) => part !== '').join(' ')
 
-/** The picture, clipped to the box it sits in. */
+/** The picture (`data-slot="avatar-image"`), clipped to the box it sits in. */
 export const computeAvatarImageClasses = ({ shape }: { readonly shape: AvatarShape }): string =>
-  [
-    'size-full object-cover',
-    shape === 'square' ? `rounded-[${v('radius-base', T.radiusBase)}]` : 'rounded-full',
-  ].join(' ')
-
-/**
- * The negative inline-start margin that makes a stack a STACK.
- *
- * Applied to every member after the first. A group drawn as a plain row is the
- * thing this variant is not, and the pull-back is the only fact that separates
- * them — which is why a design system component avatar spec measures it
- * rather than looking at the picture. The ring paints the page ground between
- * two overlapping discs so the seam reads as depth rather than as a collision.
- */
-export const computeAvatarStackOffsetClasses = (): string =>
-  `-ml-2 ring-2 ring-[${v('sv-bg', T.bg)}]`
-
-/**
- * One member of a stack: the same disc, pulled back over the one before it.
- *
- * Composed HERE rather than at the call site, beside the overflow disc that
- * composes the same two recipes. Two reasons, and the second is the load-bearing
- * one. A caller joining these itself joins them RAW, with no tailwind-merge
- * between them — so the day the box recipe and the offset recipe reach for the
- * same utility, the winner is decided by Tailwind's own emission order rather
- * than by which one was meant to win. And an arbitrary-value class written at a
- * call site under `rendering/component-registry/` is invisible to the
- * arbitrary-var safelist, which scans this directory and not that one.
- *
- * `stacked` is false for the first member only: a group drawn as a plain row is
- * the thing this variant is not, and the pull-back is the only fact separating
- * them.
- */
-export const computeAvatarMemberClasses = ({
-  size,
-  shape,
-  stacked,
-}: {
-  readonly size: AvatarSize
-  readonly shape: AvatarShape
-  readonly stacked: boolean
-}): string =>
-  [computeAvatarBoxClasses({ size, shape }), stacked ? computeAvatarStackOffsetClasses() : '']
+  ['aspect-square size-full rounded-full object-cover', shape === 'square' ? 'rounded-md' : '']
     .filter((part) => part !== '')
     .join(' ')
 
-/** The row a group of members sits in. */
-export const computeAvatarGroupClasses = (): string => 'inline-flex items-center'
-
-/** The `+N` disc that stands for the members a `max` hid. */
-export const computeAvatarOverflowClasses = ({ size }: { readonly size: AvatarSize }): string =>
+/** The initials (`data-slot="avatar-fallback"`) on the muted ground. */
+export const computeAvatarFallbackClasses = ({ shape }: { readonly shape: AvatarShape }): string =>
   [
-    computeAvatarBoxClasses({ size, shape: 'circle' }),
-    computeAvatarStackOffsetClasses(),
-    `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  ].join(' ')
+    'flex size-full items-center justify-center rounded-full bg-muted text-sm text-muted-foreground group-data-[size=sm]/avatar:text-xs',
+    shape === 'square' ? 'rounded-md' : '',
+  ]
+    .filter((part) => part !== '')
+    .join(' ')
 
-/** The tone of each presence, one per member of the schema's four-state union. */
-const AVATAR_STATUS_TONE: Record<AvatarStatus, string> = {
-  online: `bg-[${v('sv-success-solid', T.successSolid)}]`,
-  away: `bg-[${v('sv-warning-solid', T.warningSolid)}]`,
-  busy: `bg-[${v('sv-error-solid', T.errorSolid)}]`,
-  offline: `bg-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-}
+/** One member of a stack: the same root; the group pulls it back and rings it. */
+export const computeAvatarMemberClasses = ({
+  size,
+  shape,
+}: {
+  readonly size: AvatarSize
+  readonly shape: AvatarShape
+}): string => computeAvatarBoxClasses({ size, shape })
+
+/** The row a group of members sits in (`data-slot="avatar-group"`). */
+export const computeAvatarGroupClasses = (): string =>
+  'group/avatar-group flex -space-x-2 *:data-[slot=avatar]:ring-2 *:data-[slot=avatar]:ring-background'
+
+/** The `+N` disc (`data-slot="avatar-group-count"`) for the members a `max` hid. */
+export const computeAvatarOverflowClasses = (): string =>
+  'relative flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm text-muted-foreground ring-2 ring-background group-has-data-[size=lg]/avatar-group:size-10 group-has-data-[size=sm]/avatar-group:size-6 [&>svg]:size-4 group-has-data-[size=lg]/avatar-group:[&>svg]:size-5 group-has-data-[size=sm]/avatar-group:[&>svg]:size-3'
 
 /**
- * The presence dot on the lower-right corner.
- *
- * Absolutely positioned, so it takes the box out of flow and the avatar's own
- * measured geometry stays the ladder's — a dot that grew the box would make
- * `size: 'lg'` mean 40px for a person with no presence and something else for a
- * person with one.
+ * The tone of each presence. base-nova's `AvatarBadge` is `bg-primary`; a
+ * presence is a status, so it takes the status roles instead.
+ */
+const AVATAR_STATUS_TONE: Record<AvatarStatus, string> = {
+  online: 'bg-success-solid',
+  away: 'bg-warning-solid',
+  busy: 'bg-destructive',
+  offline: 'bg-muted-foreground',
+}
+
+/** base-nova's `AvatarBadge`, less its tone: the corner dot, sized per rung by the root's `data-size`. */
+const AVATAR_BADGE_BASE = [
+  'absolute right-0 bottom-0 z-10 inline-flex items-center justify-center rounded-full text-primary-foreground bg-blend-color ring-2 ring-background select-none',
+  'group-data-[size=sm]/avatar:size-2 group-data-[size=sm]/avatar:[&>svg]:hidden',
+  'group-data-[size=default]/avatar:size-2.5 group-data-[size=default]/avatar:[&>svg]:size-2',
+  'group-data-[size=lg]/avatar:size-3 group-data-[size=lg]/avatar:[&>svg]:size-2',
+].join(' ')
+
+/**
+ * base-nova's `AvatarBadge` as shadcn draws it (`data-slot="avatar-badge"`),
+ * in the primary colour: the "she is here now" dot of a presence indicator.
+ */
+export const computeAvatarBadgeClasses = (): string => `${AVATAR_BADGE_BASE} bg-primary`
+
+/**
+ * The presence dot (`data-slot="avatar-badge"`) on the lower-right corner,
+ * sized per rung by the root's `data-size`. Absolutely positioned, so the box
+ * keeps the ladder's geometry whether or not a presence is drawn.
  */
 export const computeAvatarStatusClasses = ({ status }: { readonly status: AvatarStatus }): string =>
-  [
-    'absolute right-0 bottom-0 block size-2 rounded-full',
-    `ring-2 ring-[${v('sv-bg', T.bg)}]`,
-    AVATAR_STATUS_TONE[status],
-  ].join(' ')
+  `${AVATAR_BADGE_BASE} ${AVATAR_STATUS_TONE[status]}`
 
 // ──────────────────────────────────────────────────────────────────────────────
-// DESCRIPTION-LIST — the <dl>, its rows, and the three cells of a row
+// DESCRIPTION-LIST — the <dl>, its rows, and the cells of a row
 // ──────────────────────────────────────────────────────────────────────────────
 
 /** Where the term sits relative to its detail. See `display/description-list.ts`. */
@@ -589,145 +247,91 @@ export type DescriptionListLayout = 'rows' | 'stacked'
 export const computeDescriptionListRootClasses = (): string => 'w-full'
 
 /**
- * The `<dl>` itself.
- *
- * `rows` stacks the pairs vertically; `stacked` flows them as a responsive row
- * of blocks. Same element either way — the accessible pairing is what must
- * survive the switch, and it is the half a stylesheet could not have produced.
+ * The `<dl>` itself (`data-slot="description-list"`). `rows` stacks the pairs
+ * vertically; `stacked` flows them as a responsive row of blocks. Same element
+ * either way — the accessible pairing is what must survive the switch.
  */
 export const computeDescriptionListClasses = ({
   layout,
 }: {
   readonly layout: DescriptionListLayout
-}): string => (layout === 'stacked' ? 'flex flex-wrap gap-x-8 gap-y-4' : 'flex flex-col text-base')
+}): string => (layout === 'stacked' ? 'flex flex-wrap gap-x-8 gap-y-4' : 'flex flex-col')
 
 /**
- * One `<dt>`/`<dd>` pair's wrapper — a `<div>`, which `<dl>` permits precisely
- * so a row can be addressed as one thing.
+ * One `<dt>`/`<dd>` pair's wrapper (`data-slot="description-list-item"`) — a
+ * `<div>`, which `<dl>` permits precisely so a row can be addressed as one
+ * thing.
  *
- * Under `rows` it is a two-column grid (term, detail) with the cells
- * top-aligned, so a term and its detail share a baseline row and the geometry
- * assertion reads `beside`. Auto-placement without this wrapper would pull the
- * next row's term into the detail column of the row above it.
- *
- * There is no third column for the action, and there was one until the action
- * moved inside the detail cell: a `<dl>` row admits `<dt>` and `<dd>` and
- * nothing else, so a link drawn as their sibling was invalid markup, and the
- * pairing assistive technology reads off that structure stopped being
- * predictable. The action rides in the `<dd>` now — see
- * {@link computeDescriptionDetailClasses}.
+ * Under `rows` it is a two-column grid, the term a third of the width and the
+ * detail two thirds, ruled underneath unless it is the last row or the author
+ * turned `dividers` off. The rule and the vertical padding are drawn by the two
+ * CELLS, which the grid stretches to one height, so they read as one unbroken
+ * line under the row while each `<dd>` still carries the rule it sits on; the
+ * term's `pr-4` stands in for a column gap that would break that line.
+ * Auto-placement without this wrapper would pull the next row's term into the
+ * detail column of the row above it. The action rides inside the `<dd>`: a
+ * `<dl>` row admits `<dt>` and `<dd>` and nothing else.
  */
 export const computeDescriptionRowClasses = ({
   layout,
+  dividers = true,
 }: {
   readonly layout: DescriptionListLayout
+  readonly dividers?: boolean
 }): string =>
   layout === 'stacked'
     ? 'flex min-w-[8rem] flex-col gap-1'
-    : 'grid grid-cols-[minmax(0,12rem)_1fr] items-start gap-x-4'
+    : [
+        'grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] *:py-3 [&>dt]:pr-4',
+        dividers ? '*:border-b last:*:border-b-0' : '*:border-b-0',
+      ].join(' ')
 
 /**
- * The rule under a row, or its explicit absence.
- *
- * The colour goes on `border-[…]` — every side — rather than on `border-b-[…]`:
- * the width utilities leave the other three at the preflight's `0`, so painting
- * all four is invisible, and `border-[<value>]` is the arbitrary spelling the
- * rest of this recipe tree already resolves as a COLOUR. A side-scoped
- * arbitrary value is ambiguous between a width and a colour — the same trap
- * `text-[var(…)]` sets one utility over.
- *
- * The `off` arm is spelled out rather than omitted so the absence is a
- * declaration a reader can see, and so it survives a stylesheet that ever gave
- * `<dd>` a border of its own.
+ * The `<dt>` (`data-slot="description-list-term"`): small and muted, because
+ * the term names the fact and the detail IS the fact.
  */
-const dividerClasses = (dividers: boolean): string =>
-  dividers ? `border-b border-[${v('sv-border', T.border)}]` : 'border-b-0'
+export const computeDescriptionTermClasses = (): string => 'text-sm text-muted-foreground'
 
 /**
- * The `<dt>`.
- *
- * Muted, because the term names the fact and the detail IS the fact; a summary
- * panel whose labels shout is one a reader has to look past.
- */
-export const computeDescriptionTermClasses = ({
-  layout,
-  dividers,
-}: {
-  readonly layout: DescriptionListLayout
-  readonly dividers: boolean
-}): string =>
-  [
-    layout === 'stacked' ? 'text-sm' : 'py-2 text-base',
-    `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-    layout === 'stacked' ? 'border-b-0' : dividerClasses(dividers),
-  ].join(' ')
-
-/**
- * The `<dd>`.
+ * The `<dd>` (`data-slot="description-list-detail"`): small, medium weight, in
+ * the foreground.
  *
  * `min-h-5` is load-bearing rather than cosmetic: an EMPTY detail keeps a box of
  * its own, so a summary panel does not silently lose a line when one fact is
- * missing. A collapsed row tells the reader the fact was never declared, when in
- * truth it is declared and empty.
+ * missing.
  *
  * `withAction` turns the cell into a row of its own so the link sits at its far
- * edge, where a trailing action column would sit. It is off
- * by default because most rows carry no action, and a cell that became a flex
- * container unconditionally would change how every detail's own content lays
- * out for the benefit of the few that do.
+ * edge. It is off by default because most rows carry no action.
  */
 export const computeDescriptionDetailClasses = ({
-  layout,
-  dividers,
   withAction = false,
 }: {
-  readonly layout: DescriptionListLayout
-  readonly dividers: boolean
   readonly withAction?: boolean
-}): string =>
+} = {}): string =>
   [
-    'm-0 min-h-5',
+    'm-0 min-h-5 text-sm font-medium text-foreground',
     withAction ? 'flex items-start justify-between gap-4' : '',
-    layout === 'stacked' ? 'text-base' : 'py-2 text-base',
-    `text-[${v('sv-fg', T.fg)}]`,
-    layout === 'stacked' ? 'border-b-0' : dividerClasses(dividers),
   ]
     .filter(Boolean)
     .join(' ')
 
-/** The placeholder standing in for a declared-and-empty detail. */
+/** The muted dash standing in for a declared-and-empty detail. */
 export const computeDescriptionEmptyClasses = (): string =>
-  `select-none text-[${v('sv-fg-disabled', T.fgDisabled)}]`
+  'font-normal text-muted-foreground select-none'
 
 /**
- * The link at the far edge of a detail cell, because a control must always do
- * something.
- *
- * Both parameters are accepted and unread, and that is the point rather than an
- * oversight. The link is not a grid cell of the row drawing its own segment of
- * the row's rule; it sits INSIDE the `<dd>`, so the pair around it draws that
- * rule and a border here would read as a permanent underline on a
- * link that underlines on hover. The shape of the call is kept so every
- * description-list recipe is asked the same two questions, and so the answer
- * `border-b-0` is a declaration a reader can see rather than an omission.
+ * The row's action (`data-slot="description-list-action"`): shadcn/ui's Button
+ * at its link variant and small size, at the far edge of the detail cell.
  */
-export const computeDescriptionActionClasses = ({
-  layout: _layout,
-  dividers: _dividers,
-}: {
-  readonly layout: DescriptionListLayout
-  readonly dividers: boolean
-}): string =>
-  [
-    'shrink-0 self-start border-b-0 text-sm underline-offset-2 hover:underline',
-    `text-[${v('sv-primary', T.primary)}]`,
-  ].join(' ')
+export const computeDescriptionActionClasses = (): string =>
+  `${computePartButtonClasses({ variant: 'link', size: 'sm' })} shrink-0 self-start`
 
 // ──────────────────────────────────────────────────────────────────────────────
 // RECORD-FIELD VALUE — one bound record value, drawn read-only
 // ──────────────────────────────────────────────────────────────────────────────
 
-const RECORD_FIELD_VALUE = ['text-base', `text-[${v('sv-fg', T.fg)}]`].join(' ')
+const RECORD_FIELD_VALUE =
+  'text-base text-foreground has-data-[slot=record-field-empty]:text-muted-foreground'
 
 /**
  * The value a `record-field` draws — the read-only twin of a form control.
@@ -743,5 +347,9 @@ const RECORD_FIELD_VALUE = ['text-base', `text-[${v('sv-fg', T.fg)}]`].join(' ')
  * — while the labels naming them read 12px and the controls beside them 13px.
  * Unruled is not neutral: it is the largest step on the page, claimed by the
  * one thing on it that should read as quiet content.
+ *
+ * A filled value is written in the foreground. An empty one is an em dash
+ * (`data-slot="record-field-empty"`) in the muted foreground, so an absent
+ * value reads as absent rather than as a gap in the page.
  */
 export const computeRecordFieldValueClasses = (): string => RECORD_FIELD_VALUE

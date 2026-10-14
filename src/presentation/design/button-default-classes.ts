@@ -20,7 +20,8 @@
  * `uiKitButton` is a thin wrapper around the schema, not the source of styling.
  *
  * Layout / spacing classes (`h-8 px-3 py-1.5`) stay as raw Tailwind utilities;
- * only color / radius / shadow / motion / focus classes go through
+ * a colour with a shadcn twin is its role utility (`bg-primary`, `ring-ring`),
+ * and radius, shadow and the roles shadcn does not declare go through
  * {@link withVarFallback} so `app.design.*` overrides still win at the CSS
  * cascade layer (var lookups resolve the emitted variable first, fall back to
  * the inline literal).
@@ -49,6 +50,7 @@
  * so the directory move and that registration are load-bearing together.
  */
 
+import { cva } from 'class-variance-authority'
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 import type { ButtonVariantSchema } from '@/domain/models/app/pages/components/button-variant'
 
@@ -56,15 +58,15 @@ import type { ButtonVariantSchema } from '@/domain/models/app/pages/components/b
  * Schema-aligned variant vocabulary, read off `ButtonVariantSchema`
  * (`src/domain/models/app/pages/components/button-variant.ts`) rather than
  * spelled a second time, so a member added to the schema cannot be missing
- * from the recipe's `Record<ButtonVariant, …>` tables without a type error.
+ * from the recipe's `cva` variant tables without a type error where they are called.
  * The import is type-only, so no island bundle gains the schema. The two
  * fixture-vocabulary aliases (`primary` / `base`) are NOT accepted here —
  * the dispatcher in `interactive-components.ts` always passes schema values.
  */
 export type ButtonVariant = typeof ButtonVariantSchema.Type
 
-/** Schema-aligned size vocabulary (`ComponentSizeSchema`). */
-export type ButtonSize = 'sm' | 'md' | 'lg'
+/** Schema-aligned size vocabulary (`ButtonSizeSchema`): four text sizes, four square icon sizes. */
+export type ButtonSize = 'xs' | 'sm' | 'default' | 'lg' | 'icon' | 'icon-xs' | 'icon-sm' | 'icon-lg'
 
 /** Visual state computed by the dispatcher from `loading` + `props.disabled`. */
 export type ButtonState = 'default' | 'disabled' | 'loading'
@@ -83,72 +85,74 @@ export interface ButtonDefaultClassesInput {
 // {@link computeButtonDefaultClasses}.
 // ──────────────────────────────────────────────────────────────────────────────
 
-const VARIANT_CLASS: Record<ButtonVariant, string> = {
-  default: [
-    `bg-[${v('sv-primary', T.primary)}]`,
-    `text-[${v('sv-primary-fg', T.primaryFg)}]`,
-    `border-[${v('sv-primary', T.primary)}]`,
-    `hover:bg-[${v('sv-primary-hover', T.primaryHover)}]`,
-    `active:bg-[${v('sv-primary-active', T.primaryActive)}]`,
-  ].join(' '),
-  // Hover AND active both land on `error-700`, which is not a copy-paste slip.
-  // The ramp's `error-600` is byte-identical to `error-solid` (`#c13520`), so
-  // the previous `hover:bg-error-600` painted the button its own resting colour
-  // and the variant had no hover feedback at all — measured live, not inferred.
-  // `error-700` (`#a12b1a`) is the canvas' `.btn-dan-h`, and the ramp stops
-  // there, so `active` has nowhere darker to go and repeats it rather than
-  // pretending to a step that does not exist.
-  destructive: [
-    `bg-[${v('sv-error-solid', T.errorSolid)}]`,
-    `text-[${v('sv-error-solid-fg', T.errorSolidFg)}]`,
-    `border-[${v('sv-error-solid', T.errorSolid)}]`,
-    `hover:bg-[${v('sv-error-700', T.error700)}]`,
-    `active:bg-[${v('sv-error-700', T.error700)}]`,
-  ].join(' '),
-  // `outline` is the one variant with no counterpart on the canvas, which draws
-  // a single non-primary filled button (`.btn-sec`). It is kept, and read
-  // literally: the border is the whole affordance, so the fill is the page
-  // rather than a raised surface — that is what distinguishes it from
-  // `secondary` now that `secondary` has moved onto `.btn-sec`. The border does
-  // NOT darken on hover: the canvas never moves a border colour on hover, and
-  // the fill already carries the state.
-  outline: [
-    'bg-transparent',
-    `text-[${v('sv-fg', T.fg)}]`,
-    `border-[${v('sv-border-strong', T.borderStrong)}]`,
-    `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  ].join(' '),
-  // `.btn-sec` exactly: raised fill, strong border, well on hover, border fixed.
-  secondary: [
-    `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-    `text-[${v('sv-fg', T.fg)}]`,
-    `border-[${v('sv-border-strong', T.borderStrong)}]`,
-    `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  ].join(' '),
-  // `.btn-gho` rests MUTED and resolves to full ink on hover. Resting at full
-  // ink made ghost and secondary read as the same emphasis with different
-  // chrome; the canvas separates them by weight of text, not by border.
-  ghost: [
-    'bg-transparent',
-    `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-    'border-transparent',
-    `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-    `hover:text-[${v('sv-fg', T.fg)}]`,
-  ].join(' '),
-  link: [
-    'bg-transparent',
-    `text-[${v('sv-primary', T.primary)}]`,
-    'border-transparent',
-    'underline-offset-4',
-    'hover:underline',
-  ].join(' '),
-  fab: [
-    `bg-[${v('sv-primary', T.primary)}]`,
-    `text-[${v('sv-primary-fg', T.primaryFg)}]`,
-    `border-[${v('sv-primary', T.primary)}]`,
-    `hover:bg-[${v('sv-primary-hover', T.primaryHover)}]`,
-  ].join(' '),
-}
+const VARIANT_CLASS = cva('', {
+  variants: {
+    variant: {
+      default: [
+        'bg-primary',
+        'text-primary-foreground',
+        'border-primary',
+        `hover:bg-[${v('sv-primary-hover', T.primaryHover)}]`,
+        `active:bg-[${v('sv-primary-active', T.primaryActive)}]`,
+      ].join(' '),
+      // Hover AND active both land on `error-700`, which is not a copy-paste slip.
+      // The ramp's `error-600` is byte-identical to `error-solid` (`#c13520`), so
+      // the previous `hover:bg-error-600` painted the button its own resting colour
+      // and the variant had no hover feedback at all — measured live, not inferred.
+      // `error-700` (`#a12b1a`) is the canvas' `.btn-dan-h`, and the ramp stops
+      // there, so `active` has nowhere darker to go and repeats it rather than
+      // pretending to a step that does not exist.
+      destructive: [
+        'bg-destructive',
+        `text-[${v('sv-error-solid-fg', T.errorSolidFg)}]`,
+        'border-destructive',
+        `hover:bg-[${v('sv-error-700', T.error700)}]`,
+        `active:bg-[${v('sv-error-700', T.error700)}]`,
+      ].join(' '),
+      // `outline`: the border is the whole affordance, so the fill is the page.
+      // The border does NOT darken on hover; the fill carries the state.
+      outline: [
+        'bg-transparent',
+        'text-foreground',
+        `border-[${v('sv-border-strong', T.borderStrong)}]`,
+        'hover:bg-muted',
+      ].join(' '),
+      // base-nova's `secondary`: a filled `--secondary` ground with its own
+      // foreground and no visible edge, so it never reads as `outline`. The
+      // hover deepens the fill by a step of ink, as the part recipe does
+      // (`button-variant-classes.ts`).
+      secondary: [
+        'bg-secondary',
+        'text-secondary-foreground',
+        'border-transparent',
+        'hover:bg-secondary/80',
+      ].join(' '),
+      // `.btn-gho` rests MUTED and resolves to full ink on hover. Resting at full
+      // ink made ghost and secondary read as the same emphasis with different
+      // chrome; the canvas separates them by weight of text, not by border.
+      ghost: [
+        'bg-transparent',
+        'text-muted-foreground',
+        'border-transparent',
+        'hover:bg-muted',
+        'hover:text-foreground',
+      ].join(' '),
+      link: [
+        'bg-transparent',
+        'text-primary',
+        'border-transparent',
+        'underline-offset-4',
+        'hover:underline',
+      ].join(' '),
+      fab: [
+        'bg-primary',
+        'text-primary-foreground',
+        'border-primary',
+        `hover:bg-[${v('sv-primary-hover', T.primaryHover)}]`,
+      ].join(' '),
+    },
+  },
+})
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Layout / spacing — pure Tailwind utilities, no var-fallbacks.
@@ -160,8 +164,8 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
  *
  * They were literals — `text-[0.8125rem]` — for a real reason: Tailwind's
  * `text-[…]` arbitrary syntax is ambiguous between a COLOR and a FONT-SIZE and
- * infers which from the value, so `text-[var(--sv-font-size-sm,…)]` resolved the
- * font-size candidate as a colour, beat the real `text-[var(--sv-fg,…)]` and
+ * infers which from the value, so a `text-[var(--font-size-sm,…)]` resolved the
+ * font-size candidate as a colour, beat the real colour class and
  * painted the element browser-default black.
  * `text-[length:var(…)]` disambiguates but hides the class from the scanner in
  * `infrastructure/css/arbitrary-var-safelist.ts`, so it would go missing from the
@@ -174,30 +178,49 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
  *
  * The mapping is the canvas': `.btn-sm` 12px, `.btn` 13px, `.btn-lg` 14px.
  */
-const SIZE_CLASS_DEFAULT: Record<ButtonSize, string> = {
-  sm: 'h-7 px-2.5 py-1 text-sm',
-  md: 'h-8 px-3 py-1.5 text-base',
-  lg: 'h-10 px-4 py-2 text-md',
-}
+const SIZE_CLASS_DEFAULT = cva('', {
+  variants: {
+    size: {
+      xs: 'h-6 gap-1 px-2 py-0.5 text-xs',
+      sm: 'h-7 px-2.5 py-1 text-sm',
+      default: 'h-8 px-3 py-1.5 text-base',
+      lg: 'h-10 px-4 py-2 text-md',
+      // shadcn/ui's square icon-only sizes: the box is the icon's, the label names it.
+      'icon-xs': "size-6 p-0 [&_svg:not([class*='size-'])]:size-3",
+      'icon-sm': 'size-7 p-0',
+      icon: 'size-8 p-0',
+      'icon-lg': 'size-9 p-0',
+    },
+  },
+})
 
-const SIZE_CLASS_LINK: Record<ButtonSize, string> = {
-  sm: 'h-auto p-0 text-sm',
-  md: 'h-auto p-0 text-base',
-  lg: 'h-auto p-0 text-md',
-}
+const SIZE_CLASS_LINK = cva('', {
+  variants: {
+    size: {
+      xs: 'h-auto p-0 text-xs',
+      sm: 'h-auto p-0 text-sm',
+      default: 'h-auto p-0 text-base',
+      lg: 'h-auto p-0 text-md',
+      'icon-xs': 'size-6 p-0',
+      'icon-sm': 'size-7 p-0',
+      icon: 'size-8 p-0',
+      'icon-lg': 'size-9 p-0',
+    },
+  },
+})
 
 const sizeClasses = (size: ButtonSize, variant: ButtonVariant): string => {
   if (variant === 'fab') return 'h-14 w-14 p-0'
-  if (variant === 'link') return SIZE_CLASS_LINK[size]
-  return SIZE_CLASS_DEFAULT[size]
+  if (variant === 'link') return SIZE_CLASS_LINK({ size: size })
+  return SIZE_CLASS_DEFAULT({ size: size })
 }
 
 const FOCUS_CLASS = [
   'focus-visible:outline-none',
   'focus-visible:ring-2',
   'focus-visible:ring-offset-2',
-  `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-  `focus-visible:ring-offset-[${v('sv-bg', T.bg)}]`,
+  'focus-visible:ring-ring',
+  'focus-visible:ring-offset-background',
 ].join(' ')
 
 const STATE_CLASS: Record<ButtonState, string> = {
@@ -267,7 +290,7 @@ const linkClasses = (size: ButtonSize, state: ButtonState): string =>
   [
     'inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap',
     sizeClasses(size, 'link'),
-    VARIANT_CLASS.link,
+    VARIANT_CLASS({ variant: 'link' }),
     FOCUS_CLASS,
     STATE_CLASS[state],
   ]
@@ -279,7 +302,7 @@ const filledClasses = (variant: ButtonVariant, size: ButtonSize, state: ButtonSt
     'inline-flex items-center justify-center gap-1.5 border font-medium whitespace-nowrap',
     radiusClass(variant),
     sizeClasses(size, variant),
-    VARIANT_CLASS[variant],
+    VARIANT_CLASS({ variant: variant }),
     elevationClass(variant),
     state === 'default' ? MOTION_DEFAULT : '',
     FOCUS_CLASS,
@@ -306,7 +329,7 @@ const filledClasses = (variant: ButtonVariant, size: ButtonSize, state: ButtonSt
  */
 export const computeButtonDefaultClasses = (input: ButtonDefaultClassesInput = {}): string => {
   const variant = input.variant ?? 'default'
-  const size = input.size ?? 'md'
+  const size = input.size ?? 'default'
   const state = input.state ?? 'default'
   return variant === 'link' ? linkClasses(size, state) : filledClasses(variant, size, state)
 }

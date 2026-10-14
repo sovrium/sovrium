@@ -5,101 +5,112 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// `drawer` — a panel that slides in from an edge and covers the page.
+// `drawer` — a panel that rises from the bottom edge, and is dragged away.
 //
-// Refused by the catalogue for the same reason as its siblings: it would cover
-// the kit rather than sit in it. Drawn as the panel at each edge, and — unlike
-// every other overlay here — with a real Sizes section, because a drawer is the
-// one overlay whose WIDTH is a declared key.
+// The panel from a SIDE edge is `sheet` (`sheet.ts`). This one is shadcn's
+// Drawer: rounded on the edge facing the page, a grip to drag it by, its header
+// centred, its actions stacked at the bottom where a thumb reaches them.
 //
-// ─── THE SIZES SECTION IS AUTHORED, AND THE SCHEMA CANNOT SUPPLY IT ────────
-//
-// The derived Sizes section follows a closed `size` union. A drawer's width is
-// `drawerSize`, a differently-named key, so `sizeCount` reads 0 and the derived
-// section never fires. The axis is real and declared; only its name is not the
-// one the projection looks for.
+// Never drawn OPEN live, for the reason every modal overlay is: it covers the
+// page while it is open, so an open one would cover the kit. The first drawing
+// is the real component shut — its trigger, and the drawer that trigger names,
+// which stays closed until it is pressed. Each drawing after it is the panel at
+// rest over the ground it would dim. See `overlay-panel.ts`.
 
-import { panel, panelHead } from './overlay-panel'
+import { box, line } from './overlay-panel'
 import type { PageComponent, TypePageBody } from './body-shape'
 
-/** The drawer panel pinned to one edge of a page-shaped frame. */
-const atEdge = (
-  side: 'left' | 'right',
-  width: string,
-  children: readonly PageComponent[]
-): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className: `border-border bg-background-subtle flex w-full rounded-lg border p-3 ${side === 'right' ? 'justify-end' : 'justify-start'}`,
-    },
-    children: [panel({ width, children: [...children] })],
-  }) as PageComponent
+const grip = (): PageComponent =>
+  box('bg-muted mx-auto mt-4 h-1.5 w-[100px] shrink-0 rounded-full', [], 'drawer-handle')
 
-const row = (label: string, value: string): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className:
-        'border-border flex items-baseline justify-between gap-4 border-b py-1.5 last:border-b-0',
-    },
+const header = (title: string, description: string): PageComponent =>
+  box(
+    'flex flex-col gap-0.5 p-4 text-center',
+    [
+      line(title, 'text-foreground text-base font-medium', 'drawer-title'),
+      line(description, 'text-muted-foreground text-sm', 'drawer-description'),
+    ],
+    'drawer-header'
+  )
+
+const footer = (): PageComponent =>
+  box(
+    'mt-auto flex flex-col gap-2 p-4',
+    [
+      { type: 'button', variant: 'default', label: 'Show 24 deals', props: { type: 'button' } },
+      { type: 'button', variant: 'outline', label: 'Cancel', props: { type: 'button' } },
+    ] as PageComponent[],
+    'drawer-footer'
+  )
+
+/** The panel's `drawer-content`, pinned to one edge of a page-shaped frame. */
+const atEdge = (side: 'bottom' | 'top', children: readonly PageComponent[]): PageComponent =>
+  box(
+    `bg-background relative flex h-80 w-full flex-col overflow-hidden rounded-lg border ${side === 'bottom' ? 'justify-end' : 'justify-start'}`,
+    [
+      box('absolute inset-0 bg-black/10', [], 'drawer-overlay'),
+      box(
+        `bg-background text-foreground relative flex flex-col text-sm ${side === 'bottom' ? 'rounded-t-xl border-t' : 'rounded-b-xl border-b'}`,
+        children,
+        'drawer-content'
+      ),
+    ]
+  )
+
+/** The id the live trigger names; nothing else on the page uses it. */
+const LIVE_ID = 'design-system-kit-drawer'
+
+/** The real component, shut: a trigger, and the drawer it opens. */
+const live = (): readonly PageComponent[] => [
+  {
+    type: 'button',
+    variant: 'outline',
+    label: 'Filters',
+    props: { type: 'button', interactions: { click: { modal: LIVE_ID } } },
+  } as PageComponent,
+  {
+    type: 'drawer',
+    props: { id: LIVE_ID },
+    title: 'Filters',
+    description: 'Narrow the list without leaving it.',
     children: [
       {
         type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground-subtle text-[11px]' },
-        content: label,
-      },
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground text-sm' },
-        content: value,
+        element: 'p',
+        content: 'Stage, owner and close date go here.',
       },
     ],
-  }) as PageComponent
+  } as PageComponent,
+]
 
 const drawer: TypePageBody = {
   drawings: [
+    { label: 'closed', children: [box('flex flex-col items-start gap-1', live())] },
     {
-      label: 'right',
+      label: 'bottom',
       children: [
-        atEdge('right', 'w-72', panelHead('Filters', 'Narrow the list without leaving it.')),
-      ],
-    },
-    {
-      label: 'record',
-      children: [
-        atEdge('right', 'w-80', [
-          ...panelHead('Rénovation atelier'),
-          row('Company', 'Menuiserie Roux'),
-          row('Stage', 'Proposal'),
-          row('Amount', '24 500 €'),
-          row('Close date', '2026-10-14'),
+        atEdge('bottom', [
+          grip(),
+          header('Filters', 'Narrow the list without leaving it.'),
+          footer(),
         ]),
       ],
     },
     {
-      label: 'left',
-      children: [atEdge('left', 'w-64', panelHead('Sections', 'Everywhere this document goes.'))],
-    },
-  ],
-  sizes: [
-    {
-      label: "drawerSize: 'sm' · 256px",
-      children: [atEdge('right', 'w-64', panelHead('Filters'))],
-    },
-    {
-      label: "drawerSize: 'md' · 320px",
-      children: [atEdge('right', 'w-80', panelHead('Filters'))],
+      label: "side: 'top'",
+      children: [
+        atEdge('top', [
+          header('Search', 'Type a name, a company or an email.'),
+          box('mb-4 flex flex-col', [grip()]),
+        ]),
+      ],
     },
     {
-      label: "drawerSize: 'lg' · 512px",
-      children: [atEdge('right', 'w-[32rem]', panelHead('Filters'))],
+      label: 'handle: false',
+      children: [
+        atEdge('bottom', [header('Filters', 'Narrow the list without leaving it.'), footer()]),
+      ],
     },
-    { label: "drawerSize: 'full'", children: [atEdge('right', 'w-full', panelHead('Filters'))] },
   ],
 }
 

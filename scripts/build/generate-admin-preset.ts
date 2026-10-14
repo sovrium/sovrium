@@ -154,26 +154,56 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = ${json}
 `
 }
 
-const write = async (relative: string, contents: string): Promise<void> => {
-  const target = join(REPO_ROOT, relative)
+const write = async (target: string, contents: string): Promise<void> => {
   const config = await prettier.resolveConfig(target)
   const formatted = await prettier.format(contents, { ...config, parser: 'typescript' })
   writeFileSync(target, formatted)
 }
 
-export const generateAdminPreset = async (): Promise<string> => {
-  const parsed = await loadSchemaFromTsFile(join(REPO_ROOT, ADMIN_APP_PATH))
+/**
+ * What freezing one parsed config produced: the file it wrote, or the refusal
+ * lines and nothing on disk.
+ */
+export type AdminPresetOutcome =
+  | { readonly valid: true; readonly written: string }
+  | { readonly valid: false; readonly refusal: readonly string[] }
+
+/**
+ * Validate a parsed console config and, only if it decodes, write the module.
+ *
+ * The seam the CLI below and the unit test share. It RETURNS the refusal rather
+ * than exiting, so a test can hold the property the generator exists for: an
+ * invalid config is refused with the decoder's own lines, in bounded time, and
+ * writes nothing. Bounded time is not this file's doing — `decodeAppConfigObject`
+ * decodes first-mistake-only and widens to every mistake only when the config's
+ * nesting makes that affordable — but this is the build step that once spent
+ * ten minutes and ~9 GB on a deeply nested invalid console before saying so.
+ *
+ * `outputPath` is absolute and defaults to the committed module; the test points
+ * it into a temp directory so a regression that wrote anyway is visible there.
+ */
+export const freezeAdminPreset = async (
+  parsed: unknown,
+  outputPath: string = join(REPO_ROOT, OUTPUT_PATH)
+): Promise<AdminPresetOutcome> => {
   const decoded = decodeAppConfigObject(parsed)
-  if (!decoded.valid) {
-    printStderr(`${ADMIN_APP_PATH} is not a valid Sovrium configuration:`)
-    for (const error of decoded.errors) printStderr(`  ${error}`)
-    process.exit(1)
-  }
+  if (!decoded.valid) return { valid: false, refusal: decoded.errors }
   // The RAW parsed object is emitted, never `decoded.app`. The decoded value
   // carries schema-applied defaults and branded types that do not round-trip
   // through JSON; the runtime re-decodes the raw object with the SAME schema,
   // so whatever defaults exist are applied there, once, by the schema itself.
-  await write(OUTPUT_PATH, renderPresetModule(parsed))
+  await write(outputPath, renderPresetModule(parsed))
+  return { valid: true, written: outputPath }
+}
+
+export const generateAdminPreset = async (): Promise<string> => {
+  const parsed = await loadSchemaFromTsFile(join(REPO_ROOT, ADMIN_APP_PATH))
+  const outcome = await freezeAdminPreset(parsed)
+  if (!outcome.valid) {
+    printStderr(`${ADMIN_APP_PATH} is not a valid Sovrium configuration:`)
+    for (const error of outcome.refusal) printStderr(`  ${error}`)
+    process.exit(1)
+  }
   return OUTPUT_PATH
 }
 

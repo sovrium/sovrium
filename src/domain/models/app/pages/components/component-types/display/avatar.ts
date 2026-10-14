@@ -61,10 +61,10 @@ import { visibilityFields } from '../modules/visibility'
 export const AvatarTypeLiteral = Schema.Literal('avatar')
 
 /** The three box sizes an avatar draws at. */
-export const AvatarSizeSchema = Schema.Literals(['sm', 'md', 'lg']).annotate({
+export const AvatarSizeSchema = Schema.Literals(['sm', 'default', 'lg']).annotate({
   title: 'Avatar Size',
   description:
-    'Box size: `sm` 24px, `md` 32px (default), `lg` 40px. The status dot, the group overlap and the initials type step are all derived from it.',
+    'Box size: `sm` 24px, `default` 32px, `lg` 40px (shadcn/ui Avatar sizes). The status dot, the group overlap and the initials type step are all derived from it.',
 })
 
 /**

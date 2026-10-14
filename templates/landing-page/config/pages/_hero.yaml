@@ -24,7 +24,7 @@ children:
       - type: text
         element: p
         props:
-          className: max-w-[640px] text-[19px] leading-[1.55] text-foreground-muted
+          className: max-w-[640px] text-[19px] leading-[1.55] text-muted-foreground
         content: $t:hero.lead
       - type: container
         props:
@@ -45,13 +45,13 @@ children:
           - type: link
             props:
               href: '#how-it-works'
-              className: inline-flex h-9 items-center rounded-md border border-border bg-background-raised px-[11px] text-[13px] font-medium text-foreground no-underline hover:bg-background-subtle
+              className: inline-flex h-9 items-center rounded-md border border-border bg-card px-[11px] text-[13px] font-medium text-foreground no-underline hover:bg-muted
             content: $t:hero.cta2
   # The product view. Two tables share it: five columns from a tablet up,
   # three on a phone, so nothing runs off a narrow screen.
   - type: container
     props:
-      className: w-full max-w-[960px] overflow-hidden rounded-lg border border-border bg-background-raised text-left shadow-lg
+      className: w-full max-w-[960px] overflow-hidden rounded-lg border border-border bg-card text-left shadow-lg
     children:
       - type: container
         props:
@@ -76,7 +76,7 @@ children:
         caption: $t:shot.caption
         classes:
           parts:
-            header: bg-background-subtle
+            header: bg-muted
         tableHeaders: [$t:shot.time, $t:shot.guest, $t:shot.covers, $t:shot.table, $t:shot.status]
         tableColumns: [{ className: font-mono }, {}, { align: right }]
         tableRows:
@@ -90,7 +90,7 @@ children:
         caption: $t:shot.caption
         classes:
           parts:
-            header: bg-background-subtle
+            header: bg-muted
         tableHeaders: [$t:shot.time, $t:shot.guest, $t:shot.covers]
         tableColumns: [{ className: font-mono }, {}, { align: right }]
         tableRows:

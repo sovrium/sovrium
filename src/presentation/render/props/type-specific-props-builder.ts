@@ -119,6 +119,17 @@ const gridColumns = (component: GridWriteInput) =>
     ? withoutInlineEditing(component.columns)
     : withCallerWritableColumns(component.columns, callerTableOf(component))
 
+/** A builder lifting the named top-level keys of the component beside the base props. */
+const lift =
+  (...keys: readonly string[]) =>
+  ({ baseElementPropsWithType, component }: BuilderArgs): Record<string, unknown> => ({
+    ...baseElementPropsWithType,
+    ...Object.fromEntries(keys.map((key) => [key, (component as Record<string, unknown>)[key]])),
+  })
+
+/** A record gallery's keys: `gallery`, and `carousel`, which declares no grid ones. */
+const galleryBuilder = lift('dataSource', 'gridColumns', 'galleryCard', 'emptyMessage', 'layout')
+
 const TYPE_BUILDERS: {
   readonly [K in ComponentType]?: (args: BuilderArgs<ComponentOfType<K>>) => Record<string, unknown>
 } = {
@@ -155,6 +166,8 @@ const TYPE_BUILDERS: {
       summary: component.summary,
       toolbar: component.toolbar,
       bulkActions: component.bulkActions,
+      // Inline buttons, or one `…` menu per row, for the action column.
+      rowActions: component.rowActions,
       ...gridDrawingProps(component),
       // Row fill by declared option colour: the field the author named, plus the
       // `optionValue → hex` map resolved from `app.tables`. A filled row
@@ -209,7 +222,7 @@ const TYPE_BUILDERS: {
     search: component.search,
   }),
 
-  calendar: ({ baseElementPropsWithType, component, resolved }) => ({
+  'event-calendar': ({ baseElementPropsWithType, component, resolved }) => ({
     ...baseElementPropsWithType,
     dataSource: component.dataSource,
     dateField: component.dateField,
@@ -226,14 +239,8 @@ const TYPE_BUILDERS: {
     search: component.search,
   }),
 
-  gallery: ({ baseElementPropsWithType, component }) => ({
-    ...baseElementPropsWithType,
-    dataSource: component.dataSource,
-    gridColumns: component.gridColumns,
-    galleryCard: component.galleryCard,
-    emptyMessage: component.emptyMessage,
-    layout: component.layout,
-  }),
+  gallery: galleryBuilder,
+  carousel: galleryBuilder,
 
   chart: ({ baseElementPropsWithType, component, resolved }) => ({
     ...baseElementPropsWithType,
@@ -303,10 +310,9 @@ const TYPE_BUILDERS: {
   // former top-level reads forwarded `undefined` on every render. Nothing
   // consumed them either — `buildSelectProps` reads neither, and `baseProps` is
   // a three-key allowlist.
-  select: ({ baseElementPropsWithType, component }) => ({
-    ...baseElementPropsWithType,
-    dataSource: component.dataSource,
-  }),
+  select: lift('dataSource'),
+  combobox: lift('dataSource'),
+  'native-select': lift('dataSource'),
 
   // `modal` has NO entry: `modalFields` is `coreFields + visibilityFields`, so
   // the `id` / `title` / `sections` this table used to forward were all
@@ -325,7 +331,7 @@ const TYPE_BUILDERS: {
   // renderer never looked. Its own module: the keys are spread conditionally so
   // the lift cannot shadow a `props`-spelled twin, and that reasoning is longer
   // than the lines it guards. See `empty-state-copy-builder.ts`.
-  'empty-state': buildEmptyStateElementProps,
+  empty: buildEmptyStateElementProps,
 }
 
 /**

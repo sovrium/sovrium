@@ -42,6 +42,7 @@
 // binding is what keeps them, which is why `columnsFrom` exists at all.
 
 import { fillHost, pageHeading } from '../../components/data-page'
+import { dataTable, recordSheet } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
 import { TABLES_OVERVIEW_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
@@ -52,7 +53,7 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 /**
  * The drawer id the grid's `onRowClick` dispatches to.
  *
- * Named once: `onRowClick: { action: 'openDrawer', component: … }` finds its
+ * Named once: `onRowClick: { action: 'openSheet', component: … }` finds its
  * drawer by id, so a mismatch between the two is a row click that opens
  * nothing, with no error anywhere.
  */
@@ -74,7 +75,7 @@ const noTablesState = (): PageComponent =>
     props: {
       'aria-label': '$t:admin.tables.empty.heading',
       className:
-        'border-border bg-background-raised flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center',
+        'border-border bg-card flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center',
     },
     children: [
       {
@@ -86,7 +87,7 @@ const noTablesState = (): PageComponent =>
       {
         type: 'text',
         element: 'p',
-        props: { className: 'text-foreground-muted max-w-md text-md leading-relaxed' },
+        props: { className: 'text-muted-foreground max-w-md text-md leading-relaxed' },
         content: '$t:admin.tables.empty.body',
       },
       {
@@ -176,8 +177,7 @@ const directoryPage: PageConfig = withShell(
  * page and a builder page would visibly change under the SPA nav's content swap.
  */
 const recordGrid = (): PageComponent =>
-  ({
-    type: 'table',
+  dataTable({
     props: { 'aria-label': 'Records $param.table' },
     dataSource: { table: '$param.table' },
     columnsFrom: 'table',
@@ -253,7 +253,7 @@ const recordGrid = (): PageComponent =>
     // is the PAGER and the "1–25 of 28" summary. A grid may cap; it may not cap
     // silently.
     pagination: { pageSize: 25, pageSizeOptions: [25, 50, 100] },
-    onRowClick: { action: 'openDrawer', component: RECORD_DRAWER_ID },
+    onRowClick: { action: 'openSheet', component: RECORD_DRAWER_ID },
     emptyMessage: 'No records',
   }) as PageComponent
 
@@ -271,8 +271,7 @@ const recordGrid = (): PageComponent =>
  * records API enforces the real per-field decision regardless.
  */
 const recordDrawer = (): PageComponent =>
-  ({
-    type: 'drawer',
+  recordSheet({
     id: RECORD_DRAWER_ID,
     props: { title: 'Record details' },
     dataSource: { table: '$param.table' },

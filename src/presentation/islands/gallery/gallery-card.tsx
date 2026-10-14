@@ -13,6 +13,8 @@ import {
   GALLERY_CARD_BODY_CLASSES,
   GALLERY_CARD_BODY_NO_COVER_CLASSES,
   GALLERY_CARD_DEFAULT_TITLE_CLASSES,
+  GALLERY_CARD_SLOT_ATTRIBUTES,
+  GALLERY_CLICKABLE_CARD_CLASSES,
   GALLERY_COVER_FALLBACK_HEIGHT_CLASS,
   computeGalleryCardBadgeClasses,
   computeGalleryCardClasses,
@@ -34,9 +36,6 @@ import type { TableRecord } from '../runtime/types'
 import type { Action } from '@/domain/models/app/pages/components/action'
 import type { GalleryCard } from '@/domain/models/app/pages/components/component-types/data/gallery'
 
-/** A card that opens a record: the pointer and the hover border say so. */
-const CLICKABLE_CARD_CLASSES = 'cursor-pointer hover:border-primary'
-
 /** The gallery's classes for the record components a card slot draws. */
 const CARD_CHILD_CLASSES: CardChildClasses = {
   avatar: GALLERY_CARD_AVATAR_CLASSES,
@@ -46,7 +45,7 @@ const CARD_CHILD_CLASSES: CardChildClasses = {
 /** An absent key reads as `undefined` when destructured, so a no-op result omits it. */
 interface CardData {
   readonly navigatePath?: string
-  readonly openDrawer?: () => void
+  readonly openSheet?: () => void
   readonly coverImageSrc?: string
 }
 
@@ -65,7 +64,7 @@ function resolveNavigatePath(
   return toSafeRedirectPath(substitute(onClick.path, record))
 }
 
-/** The card's `openDrawer` click on this record, as a board card's opens it. */
+/** The card's `openSheet` click on this record, as a board card's opens it. */
 function resolveDrawerOpener(
   onClick: GalleryCard['onClick'],
   record: TableRecord,
@@ -93,7 +92,7 @@ function resolveCardData(
   if (!card) return {}
   return {
     navigatePath: resolveNavigatePath(card.onClick, record),
-    openDrawer: resolveDrawerOpener(card.onClick, record, table),
+    openSheet: resolveDrawerOpener(card.onClick, record, table),
     coverImageSrc: resolveCoverImage(card.coverImage, record),
   }
 }
@@ -157,6 +156,7 @@ function GalleryCardBody({
     <>
       {coverImageSrc && (
         <div
+          data-slot="gallery-cover"
           data-aspect-ratio={card.aspectRatio}
           style={boxStyle}
           className={boxClasses}
@@ -169,7 +169,10 @@ function GalleryCardBody({
           />
         </div>
       )}
-      <div className={pieces?.body ?? GALLERY_CARD_BODY_CLASSES}>
+      <div
+        data-slot="card-content"
+        className={pieces?.body ?? GALLERY_CARD_BODY_CLASSES}
+      >
         {card.children?.map((child, index) =>
           renderCardChild(child, record, index, CARD_CHILD_CLASSES)
         )}
@@ -246,6 +249,7 @@ function HoverOverlay({
   if (!overlayChildren || overlayChildren.length === 0) return undefined
   return (
     <div
+      data-slot="gallery-overlay"
       data-role="gallery-card-overlay"
       className={computeGalleryOverlayClasses()}
     >
@@ -286,7 +290,10 @@ function CardBody({
     )
   }
   return (
-    <div className={GALLERY_CARD_BODY_NO_COVER_CLASSES}>
+    <div
+      data-slot="card-content"
+      className={GALLERY_CARD_BODY_NO_COVER_CLASSES}
+    >
       <GalleryCardDefault record={record} />
     </div>
   )
@@ -314,8 +321,8 @@ export function GalleryCardView({
   readonly featured?: boolean
 }): ReactElement {
   const pieces = useContext(GalleryClassesContext)
-  const { navigatePath, openDrawer, coverImageSrc } = resolveCardData(card, record, table)
-  const clickable = navigatePath !== undefined || openDrawer !== undefined
+  const { navigatePath, openSheet, coverImageSrc } = resolveCardData(card, record, table)
+  const clickable = navigatePath !== undefined || openSheet !== undefined
   const body = (
     <CardBody
       card={card}
@@ -326,15 +333,16 @@ export function GalleryCardView({
 
   return (
     <div
+      {...GALLERY_CARD_SLOT_ATTRIBUTES}
       data-role="gallery-card"
       data-component-type="card"
       data-clickable={clickable ? 'true' : undefined}
       data-featured={featured ? '' : undefined}
-      className={`${pieces?.card ?? computeGalleryCardClasses()} ${clickable ? CLICKABLE_CARD_CLASSES : ''}${featuredCardClasses(featured, clickable)}`}
+      className={`${pieces?.card ?? computeGalleryCardClasses()} ${clickable ? GALLERY_CLICKABLE_CARD_CLASSES : ''}${featuredCardClasses(featured, clickable)}`}
     >
       <CardClickTarget
         navigatePath={navigatePath}
-        openDrawer={openDrawer}
+        openSheet={openSheet}
         body={body}
         featured={featured}
       />

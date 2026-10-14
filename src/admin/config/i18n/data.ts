@@ -510,6 +510,9 @@ export default {
   'admin.automations.runs.detail.field.finished': 'Finished',
   'admin.automations.runs.detail.field.duration': 'Duration (ms)',
   'admin.automations.runs.detail.field.attempt': 'Attempt',
+  'admin.automations.runs.detail.facts.title': 'Run',
+  'admin.automations.runs.detail.facts.description':
+    'What started it, how it ended, and how long it took.',
   'admin.automations.runs.detail.failure': 'Failure',
   'admin.automations.runs.detail.log': 'Log',
   'admin.automations.runs.detail.dataIn': 'Data in',

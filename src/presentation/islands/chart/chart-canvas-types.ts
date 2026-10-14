@@ -9,7 +9,7 @@ import type { ChartCategoryOption } from './chart-aggregate'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 
 /** Every mark `ChartTypeSchema` accepts. */
-export type ChartType = 'bar' | 'line' | 'pie' | 'area' | 'donut' | 'scatter'
+export type ChartType = 'bar' | 'line' | 'pie' | 'area' | 'donut' | 'scatter' | 'radar' | 'radial'
 
 export interface ChartAxisConfig {
   readonly field: string
@@ -22,10 +22,19 @@ export interface ChartAxisConfig {
 export interface ChartLegendConfig {
   readonly position?: 'top' | 'bottom' | 'left' | 'right' | 'none'
   readonly visible?: boolean
+  /** The row field naming each entry. */
+  readonly nameKey?: string
 }
 
 export interface ChartTooltipConfig {
   readonly format?: string
+  readonly indicator?: 'dot' | 'line' | 'dashed'
+  readonly hideLabel?: boolean
+  readonly hideIndicator?: boolean
+  /** The row field naming each entry. */
+  readonly nameKey?: string
+  /** The row field heading the callout. */
+  readonly labelKey?: string
 }
 
 /**

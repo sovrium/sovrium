@@ -202,10 +202,13 @@ const VERBS: Readonly<Record<string, Verb>> = {
   goto: (scope, values, step, timeoutMs) =>
     scope.session.goto(fillValue(values, step['url']), timeoutMs).pipe(Effect.as({})),
   fill: fillStep,
+  // An irreversible click holds its idempotency key once its element is found, right before the click.
   click: (scope, values, step, timeoutMs) =>
-    scope.session
-      .click(targetOf(values, step), timeoutMs)
-      .pipe(Effect.as(step['irreversible'] === true ? { submitted: true as const } : {})),
+    step['irreversible'] === true
+      ? scope.session
+          .click(targetOf(values, step), timeoutMs, scope.beforeSubmit)
+          .pipe(Effect.as({ submitted: true as const }))
+      : scope.session.click(targetOf(values, step), timeoutMs).pipe(Effect.as({})),
   select: (scope, values, step, timeoutMs) => {
     const option = fillValue(values, step['option'])
     return scope.session
@@ -222,9 +225,11 @@ const VERBS: Readonly<Record<string, Verb>> = {
       Effect.as({})
     ),
   press: (scope, values, step, timeoutMs) => {
-    const key = String(step['key'] ?? '')
+    const key = fillValue(values, step['key'])
     const on = step['target'] === undefined ? undefined : targetOf(values, step)
-    return scope.session.press(key, on, timeoutMs).pipe(Effect.as({ value: key }))
+    return scope.session
+      .press(key, on, timeoutMs)
+      .pipe(Effect.as({ value: readsEnv(step['key']) ? '***' : key }))
   },
   waitFor: (scope, values, step, timeoutMs) =>
     waitOrAssert(scope, values, step, timeoutMs).pipe(Effect.as({})),

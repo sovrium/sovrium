@@ -52,11 +52,13 @@
  *                      `chart` / `kpi` carry their own. An earlier note here
  *                      said that arm was "confined to `table`" — it quoted a
  *                      policy that module has since reversed, so do not
- *                      restore it. What stays in this state is what flat rows
- *                      cannot shape: a graph, a location, a hierarchy, a
- *                      stored file, one record of yours.
+ *                      restore it. A graph, a location and a hierarchy are
+ *                      fixture content too now. What stays in this state is
+ *                      what no fixture can shape: a stored file, one record
+ *                      of yours.
  */
 
+import { SPECIMEN_TABLE_NAME } from '@/domain/models/app/design/specimen-fixture'
 import { SHOWN_SPECIMENS_BY_CATEGORY } from './content'
 import { TRIGGERED_SPECIMENS_BY_CATEGORY } from './interaction'
 import { KIT_DATA_SPECIMENS, KIT_FORM_CONTROL_SPECIMENS } from './kit'
@@ -96,6 +98,14 @@ const component = (value: unknown): Component => value as Component
  * emit — the failure the whole spec exists to catch.
  */
 const FORM_CONTROL_SPECIMENS: readonly CatalogSpecimen[] = [
+  {
+    type: 'calendar',
+    component: component({ type: 'calendar', defaultValue: '2026-10-14' }),
+  },
+  {
+    type: 'label',
+    component: component({ type: 'label', text: 'Work email', required: true }),
+  },
   {
     type: 'record-picker',
     refusal: {
@@ -138,6 +148,10 @@ const FORM_CONTROL_SPECIMENS: readonly CatalogSpecimen[] = [
     }),
   },
   {
+    type: 'input-otp',
+    component: component({ type: 'input-otp', props: { name: 'specimen-code' } }),
+  },
+  {
     type: 'textarea',
     component: component({ type: 'textarea', props: { placeholder: 'Describe the issue' } }),
   },
@@ -168,9 +182,36 @@ const FORM_CONTROL_SPECIMENS: readonly CatalogSpecimen[] = [
     }),
   },
   {
+    // The INPUT reading: one native radio per star, under `field`. The other
+    // reading ("4 of 5") needs a bound record, and the console binds none of
+    // yours, so a read-only specimen would only ever say "Not rated".
+    type: 'rating',
+    component: component({ type: 'rating', field: 'satisfaction', readOnly: false }),
+  },
+  {
     type: 'select',
     component: component({
       type: 'select',
+      options: [
+        { value: 'draft', label: 'Draft' },
+        { value: 'sent', label: 'Sent' },
+      ],
+    }),
+  },
+  {
+    type: 'combobox',
+    component: component({
+      type: 'combobox',
+      options: [
+        { value: 'draft', label: 'Draft' },
+        { value: 'sent', label: 'Sent' },
+      ],
+    }),
+  },
+  {
+    type: 'native-select',
+    component: component({
+      type: 'native-select',
       options: [
         { value: 'draft', label: 'Draft' },
         { value: 'sent', label: 'Sent' },
@@ -222,7 +263,7 @@ const FORM_CONTROL_SPECIMENS: readonly CatalogSpecimen[] = [
  * would document the override rather than the default.
  */
 const STRUCTURAL_SPECIMENS: readonly CatalogSpecimen[] = [
-  { type: 'divider', component: component({ type: 'divider' }) },
+  { type: 'separator', component: component({ type: 'separator' }) },
   { type: 'spacer', component: component({ type: 'spacer', size: 'md' }) },
 ]
 
@@ -246,6 +287,36 @@ const layoutChildren = (...labels: readonly string[]): readonly unknown[] =>
  * children so the container itself is what the reader sees.
  */
 const LAYOUT_SPECIMENS: readonly CatalogSpecimen[] = [
+  {
+    type: 'message-scroller',
+    component: component({
+      type: 'message-scroller',
+      height: '160px',
+      children: [
+        { type: 'marker', content: 'Today', variant: 'separator' },
+        {
+          type: 'message',
+          author: 'Léa Moreau',
+          children: [{ type: 'bubble', content: 'Can the invoice be split in two?' }],
+        },
+        {
+          type: 'message',
+          author: 'Support',
+          align: 'end',
+          children: [{ type: 'bubble', align: 'end', content: 'Yes, that is done.' }],
+        },
+      ],
+    }),
+  },
+  {
+    type: 'aspect-ratio',
+    component: component({
+      type: 'aspect-ratio',
+      ratio: 1,
+      props: { className: 'w-32' },
+      children: [{ type: 'qr-code', value: 'https://sovrium.com', size: 72 }],
+    }),
+  },
   {
     type: 'container',
     component: component({
@@ -280,9 +351,9 @@ const LAYOUT_SPECIMENS: readonly CatalogSpecimen[] = [
     }),
   },
   {
-    type: 'split-pane',
+    type: 'resizable',
     component: component({
-      type: 'split-pane',
+      type: 'resizable',
       props: { className: 'gap-2' },
       children: layoutChildren('Left pane', 'Right pane'),
     }),
@@ -299,6 +370,9 @@ const LAYOUT_SPECIMENS: readonly CatalogSpecimen[] = [
 
 /** The endpoint the data specimens read their rows from. Platform, not operator. */
 export const CATALOG_FIXTURE_ENDPOINT = '/api/admin/design-system/specimen-rows'
+
+/** The same fixture as nodes and edges, for `graph` and `matrix`. Platform, not operator. */
+export const CATALOG_FIXTURE_GRAPH_ENDPOINT = '/api/admin/design-system/specimen-graph'
 
 /**
  * The wrapper attribute that records where a specimen's ROWS came from.
@@ -318,11 +392,14 @@ const fixtureRows = {
   system: { endpoint: CATALOG_FIXTURE_ENDPOINT, rowsKey: 'items', idKey: 'id', totalKey: 'total' },
 } as const
 
+/** The graph binding `graph` and `matrix` share: `{ nodes, edges }`, the keys both read by default. */
+const fixtureGraph = { system: { endpoint: CATALOG_FIXTURE_GRAPH_ENDPOINT } } as const
+
 /**
  * The data types — most drawn from platform fixture rows, two drawn from their
- * own config (`form`, and `filter-bar` spread in from the kit), and four
- * reported rather than drawn (`graph`, `matrix`, `map` and `tree`, at the foot
- * of the array).
+ * own config (`form`, and `filter-bar` spread in from the kit), and four at
+ * the foot of the array drawn from the fixture's graph (`graph`, `matrix`) or
+ * its reserved table (`map`, `tree`).
  *
  * Count them against `data/index.ts` rather than trusting this line: the split
  * moves, and a figure here would lag the array.
@@ -389,6 +466,16 @@ const DATA_SPECIMENS: readonly CatalogSpecimen[] = [
     }),
   },
   {
+    type: 'carousel',
+    wrapperProps: FIXTURE_SOURCE,
+    component: component({
+      type: 'carousel',
+      props: { id: 'design-system-fixture-carousel' },
+      dataSource: fixtureRows,
+      emptyMessage: 'No specimen rows',
+    }),
+  },
+  {
     // ─── THE BARE MODE, WHICH IS THE ONE A3 NAMES ──────────────────────────
     //
     // `form` was refused as a specimen because its two BOUND modes emit a live
@@ -441,10 +528,10 @@ const DATA_SPECIMENS: readonly CatalogSpecimen[] = [
     }),
   },
   {
-    type: 'calendar',
+    type: 'event-calendar',
     wrapperProps: FIXTURE_SOURCE,
     component: component({
-      type: 'calendar',
+      type: 'event-calendar',
       props: { id: 'design-system-fixture-calendar' },
       dataSource: fixtureRows,
       dateField: 'startsAt',
@@ -515,77 +602,68 @@ const DATA_SPECIMENS: readonly CatalogSpecimen[] = [
       },
     }),
   },
-  // ─── THE TWO THE FIXTURE CANNOT REACH ────────────────────────────────────
+  // ─── THE FOUR THAT READ MORE THAN FLAT ROWS ──────────────────────────────
   //
-  // Every drawn specimen above reads `CATALOG_FIXTURE_ENDPOINT`, whose envelope
-  // is `{ items, total }` — a flat list of rows. These two read a different
-  // KIND of envelope: two collections that address each other by id, nodes and
-  // edges. The platform publishes no such fixture, and the one graph an
-  // instance can actually serve is the operator's own access map, which is the
-  // read the confidentiality bound keeps out of a preview frame ([internal ref] A3
-  // clause 3) — the same standing that reports `record-picker` rather than
-  // drawing it.
-  //
-  // So the refusal is `needs-data-source` rather than `no-renderer`: both
-  // renderers exist and both work, and what is missing is something honest for
-  // them to lay out. Minting a nodes-and-edges fixture endpoint to fill the gap
-  // is a runtime, not a registration, and is deliberately not done here.
-  //
-  // Their notes are DIFFERENT sentences, not one pasted twice. The two draw
-  // different readings of the same wire — one follows the edges, the other
-  // crosses the sets — and a reader who meets the identical paragraph on both
-  // pages learns that the console has a refusal, not what these components are.
+  // `graph` and `matrix` read two collections that address each other by id,
+  // so they bind the fixture GRAPH served beside the rows: people, teams and
+  // projects, and the edges between them. `map` and `tree` read a field a flat
+  // row did not carry, a place and a parent, so they bind the reserved
+  // specimen TABLE, whose rows carry both. All four stay on platform content:
+  // none names a table of yours, which is the confidentiality bound.
   {
     type: 'graph',
-    refusal: {
-      state: 'needs-data-source',
-      note:
-        'Places the nodes of a bound graph into ordered columns and draws the edges between them. ' +
-        'The only graph this instance can read is your own access map, and binding a preview ' +
-        'frame to it is what the confidentiality bound forbids; the platform’s specimen fixture ' +
-        'publishes rows rather than nodes and edges, so there is no path for it to lay out here.',
-    },
+    wrapperProps: FIXTURE_SOURCE,
+    component: component({
+      type: 'graph',
+      props: { id: 'design-system-fixture-graph' },
+      layout: 'layered',
+      dataSource: fixtureGraph,
+      columns: [
+        { kinds: ['person'], label: 'People', groupBy: 'family' },
+        { kinds: ['team'], label: 'Teams', sortBy: 'level', sortDirection: 'desc' },
+        { kinds: ['project'], label: 'Projects' },
+      ],
+      label: 'Who works on what',
+      emptyMessage: 'No specimen graph to draw.',
+    }),
   },
   {
     type: 'matrix',
-    refusal: {
-      state: 'needs-data-source',
-      note:
-        'Crosses two sets of nodes from a bound graph and marks each intersection an edge ' +
-        'connects, so an absent pair stays a visible empty cell. It reads the same envelope the ' +
-        'map next door does and meets the same wall: your own access map is the one graph this ' +
-        'instance holds, and a fixture of flat rows gives it no two sets to cross.',
-    },
+    wrapperProps: FIXTURE_SOURCE,
+    component: component({
+      type: 'matrix',
+      props: { id: 'design-system-fixture-matrix' },
+      dataSource: fixtureGraph,
+      rows: { kinds: ['person'], groupBy: 'family' },
+      columns: { kinds: ['project'] },
+      cell: { from: 'edges', kind: 'access', glyph: 'quadrant', opsField: 'ops' },
+      label: 'Who can reach which project',
+      emptyMessage: 'No access to draw.',
+    }),
   },
-  // ─── TWO MORE THE FLAT FIXTURE CANNOT SHAPE ──────────────────────────────
-  //
-  // Both read records, and both need a FIELD the specimen fixture does not
-  // carry: `map` places a pin at a `geolocation` value, `tree` nests a record
-  // under the one its `parentField` relationship names. The fixture's rows are
-  // flat — a name, a role, a status, two dates — so either renderer would draw
-  // its own empty state and present it as the component. The real data lives
-  // in your own tables, which is the read the confidentiality bound keeps out.
   {
     type: 'map',
-    refusal: {
-      state: 'needs-data-source',
-      note:
-        'Places one pin per record at its location, with a list of the same pins a keyboard ' +
-        'can use. It needs a geolocation field on a table of yours, and this console reads ' +
-        'none of yours; the platform’s specimen rows carry no location, so there is nothing ' +
-        'to pin. See it on a data-bound page.',
-    },
+    wrapperProps: FIXTURE_SOURCE,
+    component: component({
+      type: 'map',
+      props: { id: 'design-system-fixture-map' },
+      dataSource: { table: SPECIMEN_TABLE_NAME },
+      locationField: 'location',
+      labelField: 'name',
+      emptyMessage: 'No specimen rows to pin.',
+    }),
   },
   {
     type: 'tree',
-    refusal: {
-      state: 'needs-data-source',
-      note:
-        'Nests the records of one table under their parents and opens them branch by branch. ' +
-        'The hierarchy lives in a relationship that points back at the same table, and the ' +
-        'platform’s specimen rows are flat, with no parent to nest under; your own tables are ' +
-        'what this console may not read. See it on a data-bound page.',
-    },
+    wrapperProps: FIXTURE_SOURCE,
+    component: component({
+      type: 'tree',
+      props: { id: 'design-system-fixture-tree' },
+      dataSource: { table: SPECIMEN_TABLE_NAME },
+      parentField: 'parentId',
+      labelField: 'name',
+      emptyMessage: 'No specimen rows to nest.',
+    }),
   },
   ...KIT_DATA_SPECIMENS,
 ]

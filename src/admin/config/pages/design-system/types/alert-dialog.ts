@@ -11,30 +11,48 @@
 // holds focus until it is answered, so a live one on a documentation page would
 // trap a reader inside an example. Drawn as its panel. See `overlay-panel.ts`.
 //
-// The two labels are its only own keys, and the drawing spends both: the
-// confirm names the consequence rather than agreeing, which is the whole reason
-// this type exists beside `dialog`.
+// Unlike a dialog it draws no corner close: the only ways out are the two
+// buttons in its footer band. The labels are its own keys, and the drawings
+// spend both — the confirm names the consequence rather than agreeing, which is
+// the whole reason this type exists beside `dialog`. `variant: destructive`
+// shows on the confirm button alone.
 
-import { overPage, panel, panelActions, panelHead } from './overlay-panel'
+import { dialogPanel, overPage } from './overlay-panel'
 import type { TypePageBody } from './body-shape'
 
 const alertDialog: TypePageBody = {
   drawings: [
     {
-      label: 'open',
+      label: 'default',
       children: [
-        overPage([
-          panel({
-            width: 'w-[26rem]',
-            children: [
-              ...panelHead(
-                'Revoke this share link?',
-                'Anyone holding it loses access immediately. The link cannot be restored, and a new one will have a different address.'
-              ),
-              panelActions('Keep the link', 'Revoke link', true),
-            ],
-          }),
-        ]),
+        overPage(
+          'alert-dialog',
+          dialogPanel({
+            kind: 'alert-dialog',
+            title: 'Make the new prices live?',
+            description:
+              'Customers see them on their next visit. The old prices stay in the history.',
+            cancel: 'Not yet',
+            confirm: 'Go live',
+          })
+        ),
+      ],
+    },
+    {
+      label: 'destructive',
+      children: [
+        overPage(
+          'alert-dialog',
+          dialogPanel({
+            kind: 'alert-dialog',
+            title: 'Revoke this share link?',
+            description:
+              'Anyone holding it loses access immediately. The link cannot be restored, and a new one will have a different address.',
+            cancel: 'Keep the link',
+            confirm: 'Revoke link',
+            destructive: true,
+          })
+        ),
       ],
     },
   ],

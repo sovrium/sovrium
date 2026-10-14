@@ -24,11 +24,11 @@ const fitTo = (options: SvgRasterizeOptions) => {
 
 /**
  * A common sans-serif the host may have, kept as a glyph fallback behind the
- * embedded IBM Plex Sans (a script Plex does not cover, such as CJK). The
+ * embedded Geist (a script Geist does not cover, such as Greek or CJK). The
  * WebAssembly build of resvg cannot list system fonts the way the native one
  * does, so the usual locations are probed once, in order, and the first
  * readable file is kept for the process. Finding none is normal — a slim
- * container has no fonts — and costs nothing: Plex is always there.
+ * container has no fonts — and costs nothing: Geist is always there.
  */
 const SYSTEM_SANS_CANDIDATES: readonly string[] = [
   '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
@@ -64,21 +64,21 @@ export interface SvgRasterizerDependencies {
 
 /**
  * The fonts SVG text is drawn with, in precedence order: the TTF/OTF fonts
- * declared in `assets`, then the embedded IBM Plex Sans, then the host's
+ * declared in `assets`, then the embedded Geist, then the host's
  * common sans when it has one. resvg resolves a named `font-family` among all
  * of them, and draws text whose family is absent (or unnamed) with the FIRST
- * font loaded — a declared font when there is one, IBM Plex Sans otherwise.
+ * font loaded — a declared font when there is one, Geist otherwise.
  */
 export const svgFontBuffers = async (
   fonts: ReadonlyArray<Uint8Array>,
   systemSans: Promise<Uint8Array | undefined>
 ): Promise<Uint8Array[]> => {
   // Reached lazily, like the WebAssembly: the boot path never reads the font files.
-  const { loadPlexSans } = await import('./plex-sans-woff2')
-  const [plex, host] = await Promise.all([loadPlexSans(), systemSans])
+  const { loadGeistSans } = await import('./geist-sans-woff2')
+  const [geist, host] = await Promise.all([loadGeistSans(), systemSans])
   return [
     ...fonts.filter(isSfnt).map((font) => new Uint8Array(font)),
-    ...plex.map((font) => new Uint8Array(font)),
+    ...geist.map((font) => new Uint8Array(font)),
     ...(host === undefined ? [] : [new Uint8Array(host)]),
   ]
 }

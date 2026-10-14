@@ -95,7 +95,10 @@ export const mapComponent: ComponentRenderer = ({
       data-component-type="map"
       data-island="map"
       data-island-props={JSON.stringify(islandProps)}
-      className={cn('flex flex-col gap-3', elementProps['className'] as string | undefined)}
+      className={cn(
+        '@container flex flex-col gap-3',
+        elementProps['className'] as string | undefined
+      )}
       style={{ minHeight: root.height ?? 400 }}
     />
   )

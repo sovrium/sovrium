@@ -10,7 +10,7 @@ import { coerceFieldValue, isComputedFieldType } from '../../runtime/field-value
 import { cursorOfCell, rectangleBetween, type GridCursor } from './grid-cursor-model'
 import type { DataTableGridColumn, DataTableRow } from './table-features'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
-import type { CellCommit } from '../body'
+import type { CellCommit } from '../data-row-types'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
 
 /**

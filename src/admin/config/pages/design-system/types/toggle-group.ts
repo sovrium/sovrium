@@ -13,6 +13,9 @@
 // that separates them is one word.
 //
 // The `size` union is the schema's, so the Sizes section here is real.
+//
+// The items are drawn apart, a small gap between each, as shadcn/ui's Toggle
+// Group draws them by default, and `orientation` turns the row into a column.
 
 import type { TypePageBody } from './body-shape'
 
@@ -39,6 +42,25 @@ const toggleGroup: TypePageBody = {
             { label: 'Lost', value: 'lost' },
           ],
           toggleType: 'multiple',
+        },
+      ],
+    },
+  ],
+  options: [
+    {
+      id: 'orientation',
+      title: 'Orientation',
+      configKey: 'toggle-group.orientation',
+      drawings: [
+        {
+          label: 'orientation: horizontal',
+          children: [{ type: 'toggle-group', options: VIEWS, toggleType: 'single' }],
+        },
+        {
+          label: 'orientation: vertical',
+          children: [
+            { type: 'toggle-group', options: VIEWS, toggleType: 'single', orientation: 'vertical' },
+          ],
         },
       ],
     },

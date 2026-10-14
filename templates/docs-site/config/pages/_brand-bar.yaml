@@ -47,5 +47,5 @@ children:
       - type: link
         props:
           href: /docs/guides/configuration
-          className: text-foreground-muted hover:text-foreground
+          className: text-muted-foreground hover:text-foreground
         content: Guides

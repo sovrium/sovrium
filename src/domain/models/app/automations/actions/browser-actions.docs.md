@@ -75,6 +75,8 @@ Text is matched case-insensitively as part of a longer text, unless `exact: true
 
 Each step waits for its element up to its `timeoutMs`, then fails — or, when the step is `optional`, is skipped and the run carries on. `dismiss` clicks an overlay such as a cookie banner if it shows, and carries on either way.
 
+`fill` sets a time, date, date-and-time, month or week field the way a person picking a value does, and the page is told about the change. After every `fill`, the field is read back: when it does not hold the value given — a field that keeps fewer characters, or one that reformats what is typed — the step fails rather than reporting `ok`, and the error names the step without repeating the value.
+
 ## When a site renames an element
 
 `selfHeal: true` lets a run get through a small redesign. When a step misses its element, the driver shows a model the page's outline (the roles, names and labels of what is on screen) and the locator that missed, and asks for one other locator. The step is retried once with it, and only when it names exactly one visible element of a kind the step can act on: a field for `fill`, a box for `check`, a list for `select`, a file field for `upload`. A suggestion that matches several elements, or the wrong kind of element, is not used, and the step fails naming it.
@@ -95,13 +97,13 @@ The model is reached like every AI call, local first unless the operator says ot
 
 ## Values, secrets and one-time codes
 
-Every value is filled in when its step is reached: it can read the trigger, earlier steps, and what this run read a moment earlier (`{{steps.<action>.extracted.<name>}}`). A value written as `$env.NAME` is typed into the page and recorded nowhere: not in the run's stored input, not in its trace, not in an error. So is a one-time code: `{{totp $env.NAME}}` types the current six-digit code for the base32 secret held in that variable.
+Every value is filled in when its step is reached — the `key` of a `press` step included, so a key templated from trigger data lets that data choose which key is pressed; write the key out when it must not: it can read the trigger, earlier steps, and what this run read a moment earlier (`{{steps.<action>.extracted.<name>}}`). This holds wherever the action sits: at the top level, inside a `path` branch, or inside a `loop`, where `{{loop.item}}` reads the item it runs for. A value written as `$env.NAME` is typed into the page and recorded nowhere: not in the run's stored input, not in its trace, not in an error. So is a one-time code: `{{totp $env.NAME}}` types the current six-digit code for the base32 secret held in that variable.
 
 A secret read from `$env` — a one-time code included — can only be read by the `value` of a `fill` step, the one field that is never recorded. Anywhere else it would be shown: an address in the trace and the run output, an option, a checked text or a locator in the trace and in error messages, a confirmation message to the people asked to approve. So a step that reads `$env` in any other field refuses the app when it starts, naming the step and the field.
 
 One exception: the `url` of a `goto` step may read a variable the app declares with `secret: false`, such as a base address that changes from one environment to the next (`url: $env.PORTAL_BASE_URL/declarations`). The address is then shown in the trace and the run output like any other. A `goto` address that reads a variable declared without `secret: false`, or one the app does not declare at all, refuses the app when it starts, naming the automation, the step and the variable; a one-time code is never accepted in an address. A site that only accepts a secret in its address (a token in the query) cannot be driven safely and is not supported.
 
-The trace shows every value a step typed, except a value read from `$env` and a value marked `sensitive: true`, which read `***`. As everywhere in a run's history, any text equal to the value of an environment variable the app declares reads `***` too, wherever it came from, unless that variable is declared `secret: false`. Fields holding a `$env` or `sensitive` value are painted over in every screenshot.
+The trace shows every value a step typed, except a value read from `$env` and a value marked `sensitive: true`, which read `***`. As everywhere in a run's history, any text equal to the value of an environment variable the app declares reads `***` too, wherever it came from, unless that variable is declared `secret: false` — whether its value comes from its default or from the environment — and a secret shorter than six characters is masked only where it is the whole value, never inside other text. Fields holding a `$env` or `sensitive` value are painted over in every screenshot.
 
 ## What the browser can reach
 
@@ -117,7 +119,7 @@ On the desktop app's WebKit browser the check is made on every address the run o
 
 Mark the click that commits something — submits, pays, sends, deletes — with `irreversible: true`. It is never retried, by the step's `retry` or the automation's, and a failure after it is reported as `outcome_unknown` instead of being replayed.
 
-With `idempotencyKey`, a key that already went through skips the whole browser run: no browser is opened and no step is played, not even the sign-in. The action answers the `reference` stored the first time, with `skipped: already-submitted`, and the automation's later actions carry on with it. A key whose earlier run stopped after its irreversible click without confirming it answers `outcome_unknown` and submits nothing: a person checks on the site.
+With `idempotencyKey`, a key that already went through skips the whole browser run: no browser is opened and no step is played, not even the sign-in. The action answers the `reference` stored the first time, with `skipped: already-submitted`, and the automation's later actions carry on with it. A key is held only once the irreversible click's element is found and the click is about to be made: a run that fails before that — the button never appeared — leaves the key free, and the next run with it plays normally. A key whose earlier run stopped after its irreversible click without confirming it answers `outcome_unknown` and submits nothing: a person checks on the site.
 
 `confirm` on an irreversible click asks a person first. The run waits with the browser open on the filled form, a screenshot of it attached to the request; approved, the same browser makes the click; rejected, or unanswered within `confirm.timeout` (never longer than `BROWSER_HOLD_MAX_MS`), the browser is closed and nothing is submitted. Approvers answer it like any approval request.
 

@@ -61,7 +61,7 @@ Inside a `{{…}}` expression, `$env.NAME` is read as a value, quoted or not: `{
 
 ## Secrets never reach a log
 
-A value resolved from `$env` is redacted from run logs, from the step outputs the operator console shows, and from the runs API. That is why a credential belongs in `env` or in a connection rather than inline in an action's properties: an inlined secret is an ordinary string, and every one of those surfaces prints it.
+A value resolved from `$env` is redacted from run logs, from the step outputs the operator console shows, and from the runs API. Two exceptions keep run history readable: the value of a variable declared `secret: false` is shown as it is, whether it comes from its `default` or from the environment (unless a secret variable holds the same value), and a secret shorter than six characters is not masked inside other text, so a variable holding `3` does not turn `step 3` into `step ***`. A value that is exactly a short secret is still masked, and a secret is always masked whole, even when another secret's value is part of it. Keep real credentials six characters or longer. That is why a credential belongs in `env` or in a connection rather than inline in an action's properties: an inlined secret is an ordinary string, and every one of those surfaces prints it.
 
 ## This block is the app's, not the operator's
 

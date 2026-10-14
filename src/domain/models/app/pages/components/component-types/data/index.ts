@@ -12,6 +12,7 @@ export { GraphTypeLiteral, graphFields } from './graph'
 export { CalendarTypeLiteral, calendarFields } from './calendar'
 export { ChartTypeLiteral, chartFields } from './chart'
 export { KpiTypeLiteral, kpiFields } from './kpi'
+export { CarouselTypeLiteral, carouselFields } from './carousel'
 export { GalleryTypeLiteral, galleryFields } from './gallery'
 export { FormTypeLiteral, formFields } from './form'
 export { ListTypeLiteral, listFields } from './list'
@@ -21,3 +22,4 @@ export { TreeTypeLiteral, treeFields } from './tree'
 
 // Re-export sub-schemas from data component types
 export * from './table/schema'
+export { QuestionnaireTypeLiteral, questionnaireFields } from './questionnaire'

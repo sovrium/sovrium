@@ -37,6 +37,7 @@ import {
   applyPageLevelRecordBinding,
   type SystemRecordFetcher,
 } from '@/presentation/render/resolve/page-system-record-binding'
+import { recordAddresser } from '@/presentation/render/resolve/row-attachment-addresses'
 import { resolveSelectOptionSources } from '@/presentation/render/resolve/select-option-source-resolver'
 import {
   indexTemplatesByName,
@@ -363,15 +364,13 @@ export async function resolveAndFilterPage(
 ): Promise<Page | { readonly unauthorized: true } | undefined> {
   const { rawPage, app, routeParams, session, cookies, db, collectionRecord } = input
 
-  // Y-5: Resolve the page-level `dataSource: { mode: 'single' }` (if any)
-  // before component filters run so `expandFormRefs` can resolve
-  // `inlinePrefill` tokens like `$parent.id` against the host record —
-  // independently of `resolvePageDataSources`, which works per component.
+  // Y-5: Resolve the page-level `dataSource: { mode: 'single' }` (if any) before
+  // component filters run so `expandFormRefs` can resolve `inlinePrefill` tokens
+  // like `$parent.id` against the host record, independently of per-component binding.
   const parentRecord = await resolveGatedParentRecord(input)
   if (parentRecord === 'not-found') return undefined
 
-  // The single-mode record first, else the collection record (embedded forms).
-  const hostRecord = parentRecord ?? collectionRecord
+  const hostRecord = parentRecord ?? collectionRecord // the single-mode record, else the collection's
 
   // CAP-2 + the page-level system-record resolution rule: distribute the page-level single record to descendant
   // `$record.*` — server-side for BOTH arms now. The DB `{ table, mode: single }`
@@ -384,6 +383,7 @@ export async function resolveAndFilterPage(
     fetchSystemRecord: input.fetchSystemRecord,
     translate: keyTranslatorFor(rawPage, input),
     recordText: db.recordText,
+    addressRecord: recordAddresser(app, db.signFileUrl),
   })
   if (binding.kind === 'not-found') return undefined
   const boundPage = binding.page

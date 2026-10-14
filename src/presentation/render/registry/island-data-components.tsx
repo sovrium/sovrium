@@ -6,38 +6,27 @@
  */
 
 import {
-  GALLERY_CARD_BODY_CLASSES,
-  GALLERY_COVER_FALLBACK_HEIGHT_CLASS,
-  computeGalleryCardClasses,
-  computeGalleryGridClasses,
-} from '@/presentation/design/gallery-default-classes'
-import { declaredGalleryPartClasses } from '@/presentation/design/gallery-part-class-resolution'
-import {
   computeTableFillShellClasses,
   computeTableShellClasses,
 } from '@/presentation/design/table-default-classes'
-import { computeTimelineShellClasses } from '@/presentation/design/timeline-default-classes'
+import { TIMELINE_SHELL_CLASSES } from '@/presentation/design/timeline-anatomy-classes'
 import { withGridChipPart } from '@/presentation/render/props/option-badge-paints'
 import { withRecordTextProp } from '@/presentation/render/props/record-value-format'
 import {
   resolveRowExpandDrawerProps,
   resolveRowExpandRowClick,
 } from '@/presentation/render/props/resolve-row-expand'
-import { resolveWeekdayFields } from '@/presentation/render/props/resolve-weekday-fields'
-import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
+import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
 import { renderComponentSearchBar } from './component-search-bar'
 import { DataTableSkeleton } from './data-table-skeleton'
+import { galleryComponents } from './gallery-component'
 import { islandCalendarComponent } from './island-calendar-component'
 import { islandChartComponent } from './island-chart-component'
 import { KanbanSkeleton } from './island-kanban-skeleton'
 import { islandKpiComponent } from './island-kpi-component'
 import { RowExpandDrawerHost } from './row-expand-drawer-host'
 import { staticTableComponent } from './static-table-component'
-import type {
-  ComponentDispatchConfig,
-  ComponentRenderer,
-  DispatchableComponentType,
-} from './component-dispatch-config'
+import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
 /**
  * Extracts data-table island props from section component props.
@@ -99,6 +88,8 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     // resolved server-side alongside the create label.
     saveLabel: elementProps.saveLabel,
     cancelLabel: elementProps.cancelLabel,
+    // How the action column draws its actions: inline buttons, or a `…` menu per row.
+    rowActions: elementProps.rowActions,
     // Every other string the grid writes itself, where it differs from English.
     uiStrings: elementProps.uiStrings,
     // The bound view's grouping (a grid groups only through a view).
@@ -106,7 +97,7 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     summary: elementProps.summary,
     // Row-click action surfaced to the island. The schema narrows this to the
     // two variants the handler implements — `{ type: 'navigate', path }` and
-    // `{ action: 'openDrawer', component }` — so nothing else can arrive here.
+    // `{ action: 'openSheet', component }` — so nothing else can arrive here.
     onRowClick: elementProps.onRowClick,
   }
 }
@@ -138,26 +129,6 @@ function extractKanbanProps(elementProps: Record<string, unknown>): Record<strin
     // The declared display properties of the columns the card footer names,
     // so a `currency` footer item prints the column's own currency.
     fieldMeta: elementProps.fieldMeta,
-  }
-}
-
-/** The gallery island's props, the author's piece classes merged here, on the server. */
-function extractGalleryProps(
-  elementProps: Record<string, unknown>,
-  tables: ComponentDispatchConfig['tables'],
-  parts: Readonly<Record<string, string>> | undefined
-): Record<string, unknown> {
-  const tableName = (elementProps.dataSource as { readonly table?: unknown } | undefined)?.table
-  const weekdays = resolveWeekdayFields(tables?.find((table) => table.name === tableName))
-  return {
-    ...(weekdays === undefined ? {} : { weekdays }),
-    dataSource: elementProps.dataSource,
-    gridColumns: elementProps.gridColumns,
-    galleryCard: elementProps.galleryCard,
-    emptyMessage: elementProps.emptyMessage,
-    layout: elementProps.layout,
-    featured: elementProps.featured,
-    ...declaredGalleryPartClasses(parts),
   }
 }
 
@@ -222,8 +193,9 @@ export const recordBoundTimelineComponent: ComponentRenderer = ({ elementProps }
       data-island-props={JSON.stringify(islandProps)}
       data-component="data-timeline"
       data-component-type="data-timeline"
+      data-slot="timeline"
       data-testid={elementProps['data-testid'] as string | undefined}
-      className={hostClassName(elementProps, computeTimelineShellClasses())}
+      className={hostClassName(elementProps, TIMELINE_SHELL_CLASSES)}
     >
       {/* Loading skeleton — preserved as Suspense fallback, inside the frame
           the host draws, so nothing re-draws as the island mounts. */}
@@ -231,12 +203,12 @@ export const recordBoundTimelineComponent: ComponentRenderer = ({ elementProps }
         aria-label="Loading timeline..."
         role="status"
       >
-        <div className="bg-background-inset mb-3 h-4 w-40 animate-pulse rounded-sm" />
+        <div className="bg-muted mb-3 h-4 w-40 animate-pulse rounded-md" />
         <div className="space-y-2">
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={`timeline-skeleton-${String(i)}`}
-              className="bg-background-inset h-7 animate-pulse rounded-sm"
+              className="bg-muted h-6 animate-pulse rounded-md"
             />
           ))}
         </div>
@@ -247,48 +219,8 @@ export const recordBoundTimelineComponent: ComponentRenderer = ({ elementProps }
 
 /** Data-oriented island components: data-table, kanban, calendar */
 export const islandDataComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
-  calendar: islandCalendarComponent,
-  gallery: ({ elementProps, tables, designStyles }) => {
-    const islandProps = extractGalleryProps(elementProps, tables, designStyles?.parts)
-    // The ONE element naming the gallery; the grid writes `data-columns` onto it.
-    const layout = typeof elementProps.layout === 'string' ? elementProps.layout : 'grid'
-    return (
-      <div
-        data-island="gallery"
-        data-island-props={JSON.stringify(islandProps)}
-        {...namedHost('gallery', { 'data-layout': layout, 'data-gallery-layout': layout })}
-        data-testid={elementProps['data-testid'] as string | undefined}
-        className={hostClassName(elementProps)}
-      >
-        {/* Loading skeleton — preserved as Suspense fallback.
-
-            Grid and card chrome come from the SAME recipes the hydrated island
-            uses (`gallery-default-classes.ts`), so the cards do not re-draw at
-            hydration: only the pulsing bars are replaced, inside boxes whose
-            border, radius, fill and gutter never move. */}
-        <div
-          className={`${computeGalleryGridClasses()} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`}
-          aria-label="Loading gallery..."
-          role="status"
-        >
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={`gallery-skeleton-${String(i)}`}
-              className={computeGalleryCardClasses()}
-            >
-              <div
-                className={`bg-background-inset w-full animate-pulse ${GALLERY_COVER_FALLBACK_HEIGHT_CLASS}`}
-              />
-              <div className={GALLERY_CARD_BODY_CLASSES}>
-                <div className="bg-background-inset h-4 w-3/4 animate-pulse rounded-sm" />
-                <div className="bg-background-inset h-3 w-1/2 animate-pulse rounded-sm" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  },
+  'event-calendar': islandCalendarComponent,
+  ...galleryComponents,
   chart: islandChartComponent,
   kpi: islandKpiComponent,
   kanban: ({ elementProps, currentLang, languages, tables }) => {
@@ -329,7 +261,7 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
     const { elementProps, component, tables, languages, currentLang } = ctx
     if (elementProps['dataSource'] === undefined) return staticTableComponent(ctx)
     // `rowExpand` resolves to the wiring an author writes by hand: a synthesized
-    // drawer beside the grid, opened by an `openDrawer` row-click. The grid
+    // drawer beside the grid, opened by an `openSheet` row-click. The grid
     // island learns nothing new, and a row that expands is a row carrying a row
     // action — so it keeps its focusability and its Enter route for free.
     const expandDrawer = resolveRowExpandDrawerProps({ component, tables, languages, currentLang })

@@ -43,7 +43,7 @@
 import type { MatrixTwinRowView } from '@/presentation/render/resolve/matrix-projection'
 import type { ReactElement } from 'react'
 
-const HEADER_CELL = 'border-b border-border py-1 pr-3 text-left font-medium text-foreground-subtle'
+const HEADER_CELL = 'border-b border-border py-1 pr-3 text-left font-medium text-muted-foreground'
 const BODY_CELL = 'border-b border-border py-1 pr-3 text-foreground'
 
 /**

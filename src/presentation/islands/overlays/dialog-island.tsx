@@ -7,18 +7,20 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback } from 'react'
+import {
+  computeAlertDialogMediaClasses,
+  computeDialogContentClasses,
+  computeDialogFooterClasses,
+  computeDialogOverlayClasses,
+  type DialogKind,
+} from '@/presentation/design/dialog-default-classes'
+import { LucideGlyph } from '@/presentation/design/lucide-glyph'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { DialogActions } from './dialog-actions'
 import { dispatchConfirmAction, type DialogConfirmAction } from './dialog-confirm-action'
 import { useDialogOpenState, useDismissalGuard, useHostControls } from './dialog-open-state'
-import { useLiveInjectedMarkup } from './live-injected-markup'
-import {
-  computeAlertDialogPopupClasses,
-  computeDialogDescriptionClasses,
-  computeDialogPopupClasses,
-  computeDialogTitleClasses,
-  computeOverlayBackdropClasses,
-} from './overlay-default-classes'
+import { DialogChildren, DialogHeading } from './dialog-parts'
+import { useOverlayPending } from './overlay-pending'
 import type { MouseEvent, ReactElement } from 'react'
 
 interface DialogIslandProps {
@@ -36,6 +38,15 @@ interface DialogIslandProps {
   readonly 'data-testid'?: string
   /** Serialized children HTML from SSR (rendered inside the popup body) */
   readonly childrenHtml?: string
+  /** Serialized `footer` slot HTML from SSR, drawn in the popup's footer band. */
+  readonly footerHtml?: string
+  /** `false` draws no corner close button (the dialog's `showCloseButton`). */
+  readonly showCloseButton?: boolean
+  /** An alert dialog's size, named on the popup as `data-size`. */
+  readonly size?: 'default' | 'sm'
+  /** An alert dialog's icon, as server-resolved Lucide geometry. */
+  readonly iconNode?: unknown
+  readonly iconName?: string
   /**
    * Automation action dispatched when the confirm button is pressed.
    * When present and `type: 'automation'`, confirming POSTs the action to the
@@ -51,35 +62,53 @@ interface DialogIslandProps {
   readonly hasOpener?: boolean
 }
 
-/**
- * The dialog's body: the SSR-rendered children, injected when the popup opens.
- *
- * The popup does not exist until the dialog opens, so this markup arrives after
- * the page's first-load pass — `useLiveInjectedMarkup` runs its scripts and
- * mounts its island markers, which is what lets a form placed in a dialog
- * submit through its action. Closing unmounts the popup, and with it those
- * islands, so a reopened dialog holds exactly one live copy.
- *
- * SECURITY: `html` is server-rendered from the app's configuration, not user
- * input.
- */
-function DialogChildren({
-  html,
-  className,
+/** An alert dialog's icon tile, decorative; `undefined` when it names no icon. */
+const mediaOf = (iconNode: unknown, iconName: string | undefined): ReactElement | undefined =>
+  iconNode === undefined ? undefined : (
+    <div
+      data-slot="alert-dialog-media"
+      aria-hidden="true"
+      className={computeAlertDialogMediaClasses()}
+    >
+      <LucideGlyph
+        iconNode={iconNode}
+        name={iconName}
+      />
+    </div>
+  )
+
+/** The body: the authored children, then the `footer` slot in the band at the popup's foot. */
+function BodySlots({
+  kind,
+  childrenHtml,
+  footerHtml,
   onCancel,
 }: {
-  readonly html: string
-  readonly className?: string
-  /** Closes the dialog: a hosted form's Cancel (`data-dialog-cancel`) was pressed. */
+  readonly kind: DialogKind
+  readonly childrenHtml?: string
+  readonly footerHtml?: string
   readonly onCancel: (event: MouseEvent<HTMLDivElement>) => void
 }): ReactElement {
-  const ref = useLiveInjectedMarkup(html)
   return (
-    <div
-      ref={ref}
-      className={className}
-      onClick={onCancel}
-    />
+    <>
+      {childrenHtml && (
+        <DialogChildren
+          html={childrenHtml}
+          onCancel={onCancel}
+        />
+      )}
+      {footerHtml && (
+        <div
+          data-slot={`${kind}-footer`}
+          className={`${computeDialogFooterClasses(kind)} *:contents`}
+        >
+          <DialogChildren
+            html={footerHtml}
+            onCancel={onCancel}
+          />
+        </div>
+      )}
+    </>
   )
 }
 
@@ -96,8 +125,13 @@ interface DialogPopupBodyProps {
   readonly id?: string
   readonly testId?: string
   readonly childrenHtml?: string
+  readonly footerHtml?: string
+  readonly showCloseButton?: boolean
+  readonly size?: 'default' | 'sm'
+  readonly media?: ReactElement
   readonly onConfirm?: () => void
   readonly onCancel: (event: MouseEvent<HTMLDivElement>) => void
+  readonly panelRef: (node: HTMLElement | null) => void
 }
 
 function DialogPopupBody({
@@ -113,34 +147,40 @@ function DialogPopupBody({
   id,
   testId,
   childrenHtml,
+  footerHtml,
+  showCloseButton,
+  size,
+  media,
   onConfirm,
   onCancel,
+  panelRef,
 }: DialogPopupBodyProps): ReactElement {
+  const kind: DialogKind = isAlertDialog ? 'alert-dialog' : 'dialog'
   return (
     <Dialog.Popup
+      ref={panelRef}
       role={isAlertDialog ? 'alertdialog' : 'dialog'}
-      className={resolveClasses(
-        isAlertDialog ? computeAlertDialogPopupClasses() : computeDialogPopupClasses(),
-        className
-      )}
+      data-slot={`${kind}-content`}
+      data-size={isAlertDialog ? (size ?? 'default') : undefined}
+      className={resolveClasses(computeDialogContentClasses(kind), className)}
       id={id}
       data-testid={testId}
     >
-      {title && <Dialog.Title className={computeDialogTitleClasses()}>{title}</Dialog.Title>}
-      {description && (
-        <Dialog.Description className={computeDialogDescriptionClasses()}>
-          {description}
-        </Dialog.Description>
-      )}
-      {childrenHtml && (
-        <DialogChildren
-          html={childrenHtml}
-          className="mb-4"
-          onCancel={onCancel}
-        />
-      )}
+      <DialogHeading
+        kind={kind}
+        title={title}
+        description={description}
+        media={media}
+      />
+      <BodySlots
+        kind={kind}
+        childrenHtml={childrenHtml}
+        footerHtml={footerHtml}
+        onCancel={onCancel}
+      />
       <DialogActions
-        isAlertDialog={isAlertDialog}
+        showCloseButton={showCloseButton}
+        kind={kind}
         closeLabel={closeLabel}
         cancelLabel={cancelLabel}
         confirmLabel={confirmLabel}
@@ -156,61 +196,46 @@ function DialogPopupBody({
  * Dialog island — wraps Base UI Dialog for modal dialogs and alert dialogs.
  *
  * Provides focus trapping, escape-to-close, backdrop click dismissal,
- * and animated enter/exit transitions out of the box.
+ * and animated enter/exit transitions out of the box. Confirm dispatches its
+ * automation (if any) before `Dialog.Close` collapses the dialog; a pending
+ * control inside holds the reader's dismissals (`overlay-pending.ts`); the host
+ * names the dialog, and while open points at the portaled panel.
  */
-export default function DialogIsland({
-  title,
-  description,
-  closeLabel = 'Close',
-  cancelLabel = 'Cancel',
-  confirmLabel,
-  confirmText,
-  variant = 'default',
-  className,
-  id,
-  childrenHtml,
-  action,
-  hasOpener,
-  'data-testid': testId,
-}: DialogIslandProps): ReactElement {
-  const isAlertDialog = variant === 'destructive' || confirmLabel !== undefined
+export default function DialogIsland(props: DialogIslandProps): ReactElement {
+  const { closeLabel = 'Close', cancelLabel = 'Cancel', variant = 'default', id } = props
+  const { action, hasOpener, iconNode, iconName, 'data-testid': testId, ...body } = props
+  const isAlertDialog = variant === 'destructive' || props.confirmLabel !== undefined
   const { open, setOpen, onOpenChangeComplete, onCancel } = useDialogOpenState(hasOpener, id)
-
-  // Dispatch the confirm button's configured automation action before
-  // the Base UI `Dialog.Close` collapses the dialog. No action ⇒ confirm closes.
   const handleConfirm = useCallback((): void => dispatchConfirmAction(action), [action])
-  const handleOpenChange = useDismissalGuard(isAlertDialog, setOpen)
-  // The host names the dialog; while open it points at the portaled panel.
+  const { panelRef, onOpenChange } = useOverlayPending(useDismissalGuard(isAlertDialog, setOpen))
   const { id: panelId, anchor } = useHostControls(open, id)
 
   return (
     <Dialog.Root
       modal
       open={open}
-      onOpenChange={handleOpenChange}
+      onOpenChange={onOpenChange}
       onOpenChangeComplete={onOpenChangeComplete}
     >
       {anchor}
       <Dialog.Portal>
         <Dialog.Backdrop
           data-overlay
-          className={computeOverlayBackdropClasses()}
+          data-slot={isAlertDialog ? 'alert-dialog-overlay' : 'dialog-overlay'}
+          className={computeDialogOverlayClasses()}
         />
         <DialogPopupBody
+          {...body}
           isAlertDialog={isAlertDialog}
-          title={title}
-          description={description}
           closeLabel={closeLabel}
           cancelLabel={cancelLabel}
-          confirmLabel={confirmLabel}
-          confirmText={confirmText}
           variant={variant}
-          className={className}
           id={panelId}
           testId={testId}
-          childrenHtml={childrenHtml}
+          media={mediaOf(iconNode, iconName)}
           onConfirm={handleConfirm}
           onCancel={onCancel}
+          panelRef={panelRef}
         />
       </Dialog.Portal>
     </Dialog.Root>

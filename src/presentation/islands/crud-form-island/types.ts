@@ -54,6 +54,10 @@ export interface CrudFormIslandProps {
   readonly submitInPlace?: boolean
   readonly redirectUrl?: string
   readonly successToast?: SuccessToast
+  /** The toast a refused save shows after its inline error (`onError.toast`). */
+  readonly errorToast?: SuccessToast
+  /** `onSuccess.close`: `false` keeps the dialog the form sits in open after a save. */
+  readonly close?: boolean
   /** When true, the form clears its fields after a successful submission. */
   readonly resetOnSuccess?: boolean
   /** Field names retained when the form resets after success. */
@@ -85,6 +89,8 @@ export interface CrudFormIslandProps {
    * sent only where they differ from English — absent on an English page.
    */
   readonly uiStrings?: FormStrings
+  /** A delete button's in-flight word, resolved in the page language (its `pendingLabel` first). */
+  readonly pendingLabel?: string
   /**
    * Optional auto-save configuration. When `saveMode` is `auto` or `onBlur`,
    * field edits are persisted automatically (debounced or on blur) without an
@@ -125,6 +131,12 @@ export interface SubmitContext {
   readonly rememberUpdatedAt?: (response: unknown) => void
   readonly redirectUrl?: string
   readonly successToast?: SuccessToast
+  /** The toast a refused save shows after its inline error and the focus. */
+  readonly errorToast?: SuccessToast
+  /** `onSuccess.close`: `true` closes the overlay the form sits in, `false` keeps it open. */
+  readonly close?: boolean
+  /** The form element submitted: the overlay holding it is the one `close` closes. */
+  readonly origin?: Element
   /** When true, clear the form fields after a successful submission. */
   readonly resetOnSuccess?: boolean
   /** Field names retained when the form resets after success. */

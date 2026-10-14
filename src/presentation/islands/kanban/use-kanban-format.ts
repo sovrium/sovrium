@@ -28,7 +28,7 @@ export interface KanbanFormat {
   readonly currencyOptionsFor: (field: string) => CurrencyDisplayOptions | undefined
   /** The footer columns' metadata, carrying each option badge's paints by value. */
   readonly fieldMeta?: FieldMetaMap
-  /** The board's bound table, named in a card's `openDrawer` like a grid row's. */
+  /** The board's bound table, named in a card's `openSheet` like a grid row's. */
   readonly table?: string
   /** `optionValue → #RRGGBB` declared on the field `card.colorField` names. */
   readonly colorFieldColors?: Readonly<Record<string, string>>

@@ -47,7 +47,7 @@
  * somehow resolves against it still cannot name a reachable origin. No DNS
  * lookup occurs — URL parsing is purely lexical.
  */
-const SAFE_ORIGIN = 'https://sovrium.invalid'
+export const SAFE_ORIGIN = 'https://sovrium.invalid'
 
 /**
  * True when `value` is a redirect target that provably stays on the current

@@ -6,216 +6,133 @@
  */
 
 /**
- * Prestyled-by-default class computers for `file-upload`.
- *
- * ## Why it lives here
- * The SSR skeleton and the hydrated island must paint the SAME dropzone, and
- * `[internal ref]` forbids `presentation-island →
- * presentation-component`, so a recipe in the SSR tree is out of the island's
- * reach. A hand-written approximation on the island side disagrees on every
- * value that matters (e.g. `p-6 border-2 gap-2` on `bg-subtle` against
- * `min-h-[120px] px-4 py-2 shadow-sm` on `bg-background`), so a dropzone
- * visibly jumps on hydration. This directory is the one both sides may import —
- * the same placement `kpi` and `button` use.
- *
- * ## Safelist
- * This directory is registered in `RECIPE_DIRS`
- * (`src/infrastructure/css/arbitrary-var-safelist.ts`), so the `v(…)` template
- * literals below reach the compiler's `@source inline(...)` safelist. Written
- * anywhere else they would emit no CSS rule at all.
- *
- * ## Target
- * Canvas oracle: `variants.mjs:130` (`SP['file-upload']` and its four states),
- * `kit.mjs:95` (the specimen), `spec-form.mjs:29-30` (`dropZone` / `fileList`
- * in a form). The drawing is deliberately quiet: a ONE-pixel dashed rule, not
- * two, on the disabled-foreground grey; the raised ground rather than the
- * subtle one, so the zone reads as a place to put something rather than as a
- * well already holding something; and 16px of padding around a 4px stack.
- *
- * | part      | property                  | value                        |
- * |-----------|---------------------------|------------------------------|
- * | dropzone  | border / radius / padding | 1px dashed fg-disabled · r6 · 16px |
- * | dropzone  | ground / gap / align      | bg-raised · 4px · centred    |
- * | · hover   | border / ground           | fg · bg-subtle               |
- * | · invalid | border                    | error-solid                  |
- * | · disabled| opacity                   | 0.5                          |
- * | icon      | size                      | 18px                         |
- * | text      | size / tone               | 12px · fg                    |
- * | hint      | size / tone               | 11px · fg-muted              |
- * | file row  | border / radius / padding | 1px border · r4 · 6px 10px   |
- * | file name | size / family             | 12px · mono                  |
- *
- * ## Colour / layout split
- * Colour, radius and shadow go through {@link withVarFallback} so an
- * `app.design.*` override still wins at the cascade layer; layout, spacing and
- * type steps stay raw Tailwind because they encode structure, not colour.
- * Type steps are rungs of the platform ladder — `text-2xs` 10 · `text-xs` 11 ·
- * `text-sm` 12 · `text-base` 13 — never an arbitrary `text-[Npx]`.
+ * Adapted from shadcn/ui empty and item (https://ui.shadcn.com), registry commit 3464245c4513b7998b1d11fa9c67b71cc1534dc7.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
  */
-
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// DROPZONE — the dashed drop target
-// ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Which of the drop target's four drawn states to paint.
+ * The `file-upload` drop zone and its picked files, drawn on shadcn/ui's
+ * anatomy (base-nova). The server-rendered placeholder and the hydrated island
+ * both read this module, so the zone does not move or change its words on
+ * mount.
  *
- * `hover` is the drag-over state, not the pointer-over one: the drawing labels
- * it "Release to upload", so it fires while a file is held over the zone.
- */
-export type FileUploadDropzoneState = 'default' | 'hover' | 'invalid' | 'disabled'
-
-const DROPZONE_LAYOUT = 'flex flex-col items-center gap-1 p-4 text-center'
-
-const DROPZONE_BASE = [
-  'border border-dashed',
-  `rounded-[${v('radius-md', T.radiusMd)}]`,
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-].join(' ')
-
-/**
- * The drop target itself.
+ * - The drop zone is an `empty` with a dashed edge: an `empty-icon` holding
+ *   the upload glyph, an `empty-title`, an `empty-description` naming the
+ *   accepted types and the limits, and an `empty-content` holding an outline
+ *   "Browse files" button. While a file is dragged over it, it is edged in
+ *   the ring colour on the half-strength muted surface.
+ * - Each picked file is an outlined small `item`: the file glyph its media,
+ *   the name its title.
  *
- * A ONE-pixel dashed rule, where this shipped as `border-2`. Two pixels of
- * dash reads as a placeholder — the "scuffed" look the old doc-comment named
- * out loud — and the canvas spends weight on consequence rather than on
- * affordance. The dashes already say "drop here"; their thickness says nothing
- * further.
+ * The header, title, description and content strings are the merged `empty`
+ * recipe's (`display-default-classes.ts`), spelled here because the island
+ * cannot pay for that module's other surfaces; the item strings are
+ * base-nova's `outline` variant, which the merged item recipe does not carry.
  */
+
+import { computePartButtonClasses } from './button-variant-classes'
+
+/** Which of the drop zone's states to paint; `hover` is a file held over it. */
+type FileUploadDropzoneState = 'default' | 'hover' | 'invalid' | 'disabled'
+
+const EDGE: Readonly<Record<FileUploadDropzoneState, string>> = {
+  default: 'border-border',
+  hover: 'border-ring bg-muted/50',
+  invalid: 'border-destructive',
+  disabled: 'border-border cursor-not-allowed opacity-50',
+}
+
+/** base-nova's `Empty`, with the dashed edge drawn. */
 export const computeFileUploadDropzoneClasses = ({
-  state,
+  state = 'default',
 }: { readonly state?: FileUploadDropzoneState } = {}): string =>
-  [
-    DROPZONE_LAYOUT,
-    DROPZONE_BASE,
-    state === 'invalid'
-      ? `border-[${v('sv-error-solid', T.errorSolid)}] bg-[${v('sv-bg-raised', T.bgRaised)}]`
-      : state === 'hover'
-        ? `border-[${v('sv-fg', T.fg)}] bg-[${v('sv-bg-subtle', T.bgSubtle)}]`
-        : `border-[${v('sv-fg-disabled', T.fgDisabled)}] bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-    state === 'disabled' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
-  ].join(' ')
+  `flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl border border-dashed p-6 text-center text-balance transition-colors ${EDGE[state]}`
 
-/**
- * The centred glyph at the top of the stack.
- *
- * The drawing puts an 18px upload arrow here, drawn on the 16-unit grid at
- * stroke 1.5 like every other glyph since R-F. `size-[18px]` rather than a type
- * step because an SVG is sized, not typeset — the old recipe used `text-xl`,
- * which only worked because the glyph was the literal character `+`.
- */
+/** base-nova's `EmptyHeader`. */
+export const computeFileUploadHeaderClasses = (): string =>
+  'flex max-w-sm flex-col items-center gap-2'
+
+/** base-nova's `EmptyMedia`, `icon` variant. */
 export const computeFileUploadDropzoneIconClasses = (): string =>
-  ['size-[18px] shrink-0', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
+  "mb-2 flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
 
-/** The actionable line — "Drop a CSV or browse", with `browse` underlined. */
+/** base-nova's `EmptyTitle`. */
 export const computeFileUploadDropzoneTextClasses = (): string =>
-  ['text-sm', `text-[${v('sv-fg', T.fg)}]`].join(' ')
+  'text-sm font-medium tracking-tight'
 
-/**
- * The constraint hint under it — "Up to 25 MB", or the rejection reason.
- *
- * 11px, where this shipped at `text-2xs` (10px). The two oracles disagree here
- * — `kit.mjs:95` draws 10px, `spec-form.mjs:29` draws 11px — and the ladder
- * breaks the tie: 10px is the rung reserved for chrome that is not meant to be
- * read (a keyboard hint, a count), and a size limit is meant to be read.
- */
-export const computeFileUploadDropzoneHintClasses = ({
-  state,
-}: { readonly state?: FileUploadDropzoneState } = {}): string =>
-  [
-    'text-xs',
-    state === 'invalid'
-      ? `text-[${v('sv-error-fg', T.errorFg)}]`
-      : `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  ].join(' ')
+/** base-nova's `EmptyDescription`: the accepted types and the limits. */
+export const computeFileUploadDropzoneHintClasses = (): string =>
+  'text-sm/relaxed text-muted-foreground'
 
-// ──────────────────────────────────────────────────────────────────────────────
-// PICKED FILES — the list under the control
-// ──────────────────────────────────────────────────────────────────────────────
+/** base-nova's `EmptyContent`, holding the Browse files button. */
+export const computeFileUploadContentClasses = (): string =>
+  'flex w-full max-w-sm min-w-0 flex-col items-center gap-2.5 text-sm text-balance'
 
-/** The list wrapper: one row per picked file, 6px apart. */
-export const computeFileUploadListClasses = (): string => 'flex flex-col gap-1.5'
+/** The list of picked files: base-nova's `ItemGroup` at its small size. */
+export const computeFileUploadListClasses = (): string => 'flex w-full flex-col gap-2.5'
 
-/**
- * One picked file.
- *
- * A bordered row rather than a bare `<li>`: the drawing gives every picked file
- * its own box so a list of three reads as three things you can still remove,
- * not as a paragraph of filenames. This shipped as an unstyled `<ul>` of plain
- * text, which is why a picked file was indistinguishable from help copy.
- */
+/** One picked file: base-nova's `Item`, `outline` variant, `sm` size. */
 export const computeFileUploadFileRowClasses = (): string =>
-  [
-    'flex items-center gap-2 px-2.5 py-1.5 text-sm',
-    'border',
-    `border-[${v('sv-border', T.border)}]`,
-    `rounded-[${v('radius-base', T.radiusBase)}]`,
-    `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  ].join(' ')
+  'group/item flex w-full flex-wrap items-center gap-2.5 rounded-lg border border-border px-3 py-2.5 text-sm'
 
-/**
- * The file mark at the head of a row.
- *
- * The two oracles draw different marks here — `variants.mjs:130` a 20px grey
- * thumbnail box, `spec-form.mjs:30` a 14px file glyph — and the glyph wins
- * because it is the one drawn INSIDE a form, which is where this row lives. A
- * grey box is a placeholder for an image preview, and the island has no
- * preview to show: it holds filenames.
- */
+/** base-nova's `ItemMedia`, `icon` variant: the file glyph. */
 export const computeFileUploadFileMarkClasses = (): string =>
-  ['shrink-0', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
+  "flex shrink-0 items-center justify-center gap-2 text-muted-foreground [&_svg:not([class*='size-'])]:size-4"
 
-/** The filename — monospace, because a filename is an identifier. */
+/** base-nova's `ItemContent`. */
+export const computeFileUploadFileContentClasses = (): string =>
+  'flex min-w-0 flex-1 flex-col gap-1'
+
+/** base-nova's `ItemTitle`: the file's name. */
 export const computeFileUploadFileNameClasses = (): string =>
-  ['min-w-0 flex-1 truncate font-mono', `text-[${v('sv-fg', T.fg)}]`].join(' ')
-
-// A picked file's SIZE and its REMOVE control are in the drawings and are
-// deliberately absent here. The island's state carries filenames and nothing
-// else, so a size recipe would have no value to format and a remove recipe no
-// control to paint — and inventing either means adding behaviour, which needs
-// its own spec rather than a paint wave. Written speculatively they would be
-// dead exports the lint gate is right to reject; the gap is recorded here so
-// the next reader knows it was seen rather than missed.
-
-/** The validation message under the control — the field contract's error rung. */
-export const computeFileUploadErrorClasses = (): string =>
-  ['text-xs', `text-[${v('sv-error-fg', T.errorFg)}]`].join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// DRAWN COPY — shared so the skeleton and the island say the same thing
-// ──────────────────────────────────────────────────────────────────────────────
+  'line-clamp-1 flex w-fit items-center gap-2 text-sm leading-snug font-medium break-all'
 
 /**
- * The prompt inside the drop target. `spec-form.mjs:29`, verbatim.
- *
- * Shared for the same reason the classes are: two separately written prompts
- * would change the words on hydration as well as the box. It does not repeat
- * the field's own label: the label sits above the zone, in the field wrapper,
- * and saying it twice is the redundancy [internal ref] D4 cuts.
+ * Without a drop zone, the label that opens the picker: base-nova's outline
+ * button. A `<label>` takes no `disabled`, so the disabled look is spelled.
  */
-export const FILE_UPLOAD_DROPZONE_PROMPT = 'Drag and drop, or browse'
+export const computeFileUploadTriggerClasses = ({
+  disabled = false,
+}: { readonly disabled?: boolean } = {}): string =>
+  `${computePartButtonClasses({ variant: 'outline' })} cursor-pointer${disabled ? ' pointer-events-none opacity-50' : ''}`
+
+/** The validation message under the control. */
+export const computeFileUploadErrorClasses = (): string => 'text-sm text-destructive'
+
+// ──────────────────────────────────────────────────────────────────────────────
+// DRAWN COPY — shared so the placeholder and the island say the same thing
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** The drop zone's title. */
+export const FILE_UPLOAD_DROPZONE_PROMPT = 'Drop files here'
+
+/** The button that opens the file picker. */
+export const FILE_UPLOAD_BROWSE_LABEL = 'Browse files'
+
+/** A byte count in the largest whole unit a reader expects: `10 MB`, `512 KB`. */
+const formatSize = (bytes: number): string => {
+  const [unit, size] = bytes >= 1_048_576 ? ['MB', 1_048_576] : ['KB', 1024]
+  return `${Number((bytes / size).toFixed(1))} ${unit}`
+}
 
 /**
- * The constraint line under the prompt, or `undefined` when there is nothing
- * true to say.
- *
- * An empty hint renders no element at all rather than an empty one: a blank
- * 11px line under the prompt reads as a loading state. `accept` arrives as the
- * raw HTML attribute (`image/*,.pdf`), so it is shown as written — inventing a
- * prose translation of a MIME list would be guessing at what the author meant.
+ * The description under the title, or `undefined` when there is nothing true
+ * to say. `accept` is shown as the author wrote it: a prose translation of a
+ * MIME list would be a guess at what the author meant.
  */
 export const fileUploadDropzoneHint = ({
   accept,
   maxFiles,
+  maxFileSize,
 }: {
   readonly accept?: string
   readonly maxFiles?: number
+  readonly maxFileSize?: number
 }): string | undefined => {
   const parts = [
     accept === undefined || accept.trim() === '' ? undefined : accept,
     maxFiles === undefined ? undefined : `up to ${maxFiles} file${maxFiles === 1 ? '' : 's'}`,
+    maxFileSize === undefined ? undefined : `${formatSize(maxFileSize)} each`,
   ].filter((part): part is string => part !== undefined)
   return parts.length === 0 ? undefined : parts.join(' · ')
 }

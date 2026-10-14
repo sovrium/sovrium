@@ -91,6 +91,7 @@ import {
   optionShowcase,
   previewCard,
 } from './sections'
+import { labelledSpecimenFrame, specimenFrame } from './specimen-frame'
 import { TYPE_BODIES } from './types/type-bodies'
 import type { TypeDrawing } from './types/body-shape'
 import type { Page as PageConfig } from '@/domain/models/app'
@@ -527,38 +528,22 @@ const authoredVariantBodies = (): readonly PageComponent[] =>
  * section, and a label repeating the heading is a word doing no work.
  */
 const restingDrawing = (type: string, drawing: TypeDrawing, labelled: boolean): PageComponent => {
-  const card = previewCard([
-    {
-      type: 'container',
-      element: 'article',
-      props: {
-        className: 'w-full',
-        'data-design-specimen': type,
-        'data-design-drawing': drawing.label,
-        // Each drawing keeps an address of its own, because a spec that wants
-        // ONE of them — the icon inside a split button, the sentence a
-        // `record-field` binds — cannot reach it through the section. The
-        // type-level address sits on the section instead; see there.
-        'data-testid': `design-system-specimen-${type}-${drawing.label}`,
-      },
-      children: [...drawing.children],
-    } as PageComponent,
-  ])
-  if (!labelled) return card
-  return {
+  const article = {
     type: 'container',
-    element: 'div',
-    props: { className: 'flex flex-col gap-2' },
-    children: [
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground font-mono text-[11px]' },
-        content: drawing.label,
-      } as PageComponent,
-      card,
-    ],
+    element: 'article',
+    props: {
+      className: 'w-full',
+      'data-design-specimen': type,
+      'data-design-drawing': drawing.label,
+      // Each drawing keeps an address of its own, because a spec that wants
+      // ONE of them — the icon inside a split button, the sentence a
+      // `record-field` binds — cannot reach it through the section. The
+      // type-level address sits on the section instead; see there.
+      'data-testid': `design-system-specimen-${type}-${drawing.label}`,
+    },
+    children: [...drawing.children],
   } as PageComponent
+  return labelled ? labelledSpecimenFrame(drawing.label, [article]) : specimenFrame([article])
 }
 
 /** One resting section per type that draws one, each behind its own name. */
@@ -998,7 +983,7 @@ const usedOnSection = (): readonly PageComponent[] => [
         element: 'span',
         props: {
           className:
-            'border-border bg-background-subtle text-foreground-muted rounded border px-1.5 py-0.5 font-mono text-[11px]',
+            'border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]',
           'data-design-usage-route': '$record.route',
         },
         content: '$record.route',
@@ -1206,10 +1191,10 @@ const typePage: PageConfig = withShell(
   {
     breadcrumb: { 'design-system': 'Design system', [KIT_SLUG]: 'UI kit' },
     // The kit's own column, so a reader who arrived at one type can reach every
-    // other one. COLLAPSED here: twelve category rows with only the one this
-    // type belongs to open, the other eleven a click away. The index draws the
-    // same content with every group expanded, which is what an index is for.
+    // other one: twelve category rows, only this type's open. Below `lg` it
+    // folds into the Browse categories drawer.
     navColumn: kitNavColumn({ onIndex: false }),
+    navColumnDrawer: true,
   }
 )
 

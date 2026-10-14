@@ -13,10 +13,15 @@
  */
 
 import { useEffect, useRef, type ReactElement } from 'react'
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
+import { computePopoverContentClasses } from '../overlays/popover-default-classes'
 import type { MapItem } from './map-types'
 
-const BUTTON =
-  'inline-flex h-8 items-center rounded-md border border-border px-3 text-sm hover:bg-muted'
+/** The card's actions: base-nova's outline `sm` button. */
+const BUTTON = computePartButtonClasses({ variant: 'outline', size: 'sm' })
+
+/** The pin card: the popover surface, held in the frame's corner. */
+const CARD = `absolute top-3 right-3 ${computePopoverContentClasses()}`
 
 export function MapCard({
   item,
@@ -38,18 +43,26 @@ export function MapCard({
       ref={ref}
       role="dialog"
       aria-label={item.label}
+      data-slot="popover-content"
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return
         event.stopPropagation()
         onClose()
       }}
-      className="bg-background border-border absolute top-3 right-3 z-10 flex w-64 flex-col gap-3 rounded-md border p-3 shadow-md"
+      className={CARD}
     >
-      <p className="text-sm font-medium">{item.label}</p>
+      <p
+        data-slot="popover-title"
+        className="font-medium"
+      >
+        {item.label}
+      </p>
       <div className="flex gap-2">
         {canOpen && (
           <button
             type="button"
+            data-slot="button"
+            data-variant="outline"
             className={BUTTON}
             onClick={onOpen}
           >
@@ -58,6 +71,8 @@ export function MapCard({
         )}
         <button
           type="button"
+          data-slot="button"
+          data-variant="outline"
           className={BUTTON}
           onClick={onClose}
         >

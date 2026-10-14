@@ -15,19 +15,18 @@
  * spacing); this slice tests how those tokens compose into a populated
  * prose surface that a schema author would actually render.
  *
- * Each helper paints the COLOR / FONT-WEIGHT / DECORATION classes through
- * {@link withVarFallback} so `app.design.*` overrides still win at the CSS
- * cascade layer (`var(--sv-X)` resolves the override first, falling back
- * to the inline OKLCH literal). The type rungs (`text-base`, `text-xl`,
+ * Each helper paints COLOUR through the shadcn role utilities
+ * (`text-foreground`, `text-muted-foreground`, `bg-muted`) and radius through
+ * {@link withVarFallback}, so `app.design.*` overrides still win at the CSS
+ * cascade layer. The type rungs (`text-base`, `text-xl`,
  * `text-3xl`) and structural-spacing classes (`mb-3`, `mt-4`, `pl-4`) stay raw
  * — a rung is a Tailwind utility backed by `--text-*`, which the platform theme
  * layer declares, so an override already wins at the variable and cascading it
  * a second time here would be redundant. This depends on the ladder emitting
  * `--text-*`: a `--font-size-*` namespace would be read by no utility.
  *
- * The Sovrium typographic identity is value-driven (IBM Plex Sans +
- * JetBrains Mono — two families, since [internal ref] amendment A2 withdrew the
- * serif grace note), so the helpers'
+ * The typographic identity is value-driven (Geist + Geist Mono, shadcn/ui's
+ * two families), so the helpers'
  * job is mostly to BAKE IN the color / weight / decoration / tracking
  * defaults — the font-family + size cascade already lives in the theme
  * layer's `@theme` block. Once authors write `{ type: 'text', element:
@@ -97,7 +96,7 @@
  * swatches living in `foundations.spec.ts` and structural typography
  * primitives like font-family registration are out of scope):
  *
- *   - FONT-FAMILY DECLARATIONS — IBM Plex Sans / JetBrains Mono are
+ *   - FONT-FAMILY DECLARATIONS — Geist / Geist Mono are
  *                              registered as `--font-sans` /
  *                              `--font-mono` in the theme
  *                              layer (see `TOKENS.fontSans` /
@@ -141,6 +140,7 @@
  * `data-default-classes.ts`.
  */
 
+import { cva } from 'class-variance-authority'
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -178,12 +178,12 @@ const HEADING_LEVEL_TYPE: Record<HeadingLevel, string> = {
   6: 'text-sm font-semibold uppercase tracking-wider',
 }
 
-const HEADING_COLOR = `text-[${v('sv-fg', T.fg)}]`
+const HEADING_COLOR = 'text-foreground'
 
 /**
  * Compute the default className for a heading element (`<h1>`..`<h6>`)
  * rendered inside the typography-in-chrome cluster. Paints the per-level
- * size + weight + tracking recipe in the central `sv-fg` tone so all
+ * size + weight + tracking recipe in the central `foreground` tone so all
  * headings track the active foreground color (light mode: near-black;
  * dark mode: near-white) without spelling out the chrome.
  *
@@ -220,11 +220,15 @@ export type BodyVariant = 'default' | 'lead' | 'muted'
 // class here would also have WON the tailwind-merge conflict and replaced the
 // rung's own leading — which is how `leading-relaxed` (1.625) came to sit on a
 // step the canvas draws at 1.55.
-const BODY_VARIANT: Record<BodyVariant, string> = {
-  default: [`text-[${v('sv-fg', T.fg)}]`, 'text-md'].join(' '),
-  lead: [`text-[${v('sv-fg-muted', T.fgMuted)}]`, 'text-xl'].join(' '),
-  muted: [`text-[${v('sv-fg-muted', T.fgMuted)}]`, 'text-sm'].join(' '),
-}
+const BODY_VARIANT = cva('', {
+  variants: {
+    variant: {
+      default: ['text-foreground', 'text-md'].join(' '),
+      lead: ['text-muted-foreground', 'text-xl'].join(' '),
+      muted: ['text-muted-foreground', 'text-sm'].join(' '),
+    },
+  },
+})
 
 /**
  * Compute the default className for a paragraph (`<p>`) rendered inside
@@ -240,7 +244,7 @@ export const computeBodyClasses = ({
   variant = 'default',
 }: {
   readonly variant?: BodyVariant
-} = {}): string => BODY_VARIANT[variant]
+} = {}): string => BODY_VARIANT({ variant: variant })
 
 // ──────────────────────────────────────────────────────────────────────────────
 // INLINE CODE — the `<code>` mark inside a sentence
@@ -251,15 +255,15 @@ const INLINE_CODE = [
   // interrupts, so the mono face does not out-measure the sentence around it.
   'font-mono text-sm',
   'px-1 py-0.5',
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
+  'bg-muted',
+  'text-foreground',
   `rounded-[${v('radius-sm', T.radiusSm)}]`,
 ].join(' ')
 
 /**
  * Compute the default className for an inline `<code>` mark — the
  * code-as-chip pattern inside a sentence ("call `compileCSS(app)` to
- * build"). Paints a subtle background (`sv-bg-subtle`) so the inline
+ * build"). Paints a subtle background (`muted`) so the inline
  * token reads as a distinct chip without overwhelming the sentence;
  * small radius (`radius-sm`) clips the chip tight to its glyphs so it
  * rides inside the line rather than sitting on it — the same 2px step a
@@ -283,17 +287,17 @@ const CODE_BLOCK = [
   // sample that changes size between running text and its own block reads as
   // two different languages.
   'font-mono text-sm',
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
+  'bg-muted',
+  'text-foreground',
   'border',
-  `border-[${v('sv-border', T.border)}]`,
+  'border-border',
   `rounded-[${v('radius-md', T.radiusMd)}]`,
 ].join(' ')
 
 /**
  * Compute the default className for a code-block container — a `<pre>` or
  * `<div>` wrapping a multi-line code sample. Paints the same subtle
- * background as inline code (`sv-bg-subtle`) so inline + block code share
+ * background as inline code (`muted`) so inline + block code share
  * a tone; adds a border + `radius-md` to give the block a definite
  * boundary; and sets the SAME `text-sm` as inline code, because a sample that
  * changes size between running text and its own block reads as two different
@@ -313,8 +317,8 @@ export const computeCodeBlockClasses = (): string => CODE_BLOCK
 
 const BLOCKQUOTE_WRAPPER = [
   'border-l-4 pl-4 italic',
-  `border-[${v('sv-border', T.border)}]`,
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
+  'border-border',
+  'text-muted-foreground',
 ].join(' ')
 
 /**
@@ -332,7 +336,7 @@ const BLOCKQUOTE_WRAPPER = [
  */
 export const computeBlockquoteClasses = (): string => BLOCKQUOTE_WRAPPER
 
-const BLOCKQUOTE_EMPHASIS = ['italic', `text-[${v('sv-fg', T.fg)}]`].join(' ')
+const BLOCKQUOTE_EMPHASIS = ['italic', 'text-foreground'].join(' ')
 
 /**
  * Compute the default className for the inner emphasis line of a
@@ -379,11 +383,11 @@ const LIST_CONTAINER = 'flex flex-col gap-1'
 export const computeListClasses = (): string => LIST_CONTAINER
 
 // A list item is prose, so it sits on the body step rather than a step of its own.
-const LIST_ITEM = [`text-[${v('sv-fg', T.fg)}]`, 'text-md'].join(' ')
+const LIST_ITEM = ['text-foreground', 'text-md'].join(' ')
 
 /**
  * Compute the default className for an individual list item. Body-text
- * size + neutral `sv-fg` color so the item reads as content (not chrome),
+ * size + neutral `foreground` color so the item reads as content (not chrome),
  * tracking the same tone as a default body paragraph. The fixture
  * renders list items as `<span>` children of a flex container (rather
  * than `<li>`) to keep the ARIA tree flat, so the marker glyph ('•' / '1.')

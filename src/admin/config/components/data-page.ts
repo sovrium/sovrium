@@ -51,6 +51,8 @@
 // once, while the Developer pages used one: a page whose title is an `h2` reads
 // to a screen reader as a section of some absent parent.
 
+import { dataPageHeader } from './page-header'
+import { lineTabs } from './tabs-line'
 import type { Page as PageConfig } from '@/domain/models/app'
 
 /** One node of a page's component tree, as the config type expresses it. */
@@ -58,7 +60,8 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 
 /**
  * The heading every data surface names itself by: `h1` + orienting sentence,
- * both `sr-only`.
+ * both `sr-only` — the library's `page-header` block, installed in
+ * `page-header.ts` with both lines kept for screen readers.
  *
  * Both arguments are `content`-bound, so both may be `$t:` tokens. They are not
  * the only place one resolves: since 2026-09-18 `props` and every schema-level
@@ -96,31 +99,7 @@ export function pageHeading(
   // The `h1` and the `p` stay SIBLINGS in one wrapper either way, so a reader
   // addressing "the sentence under the heading" finds the same element whether
   // it is painted or not.
-  if (options.showBlurb === true) {
-    return {
-      type: 'container',
-      element: 'div',
-      props: { className: 'flex flex-col' },
-      children: [
-        { type: 'text', element: 'h1', content: heading, props: { className: 'sr-only' } },
-        {
-          type: 'text',
-          element: 'p',
-          content: blurb,
-          props: { className: 'text-foreground-muted max-w-3xl text-sm' },
-        },
-      ],
-    } as PageComponent
-  }
-  return {
-    type: 'container',
-    element: 'div',
-    props: { className: 'sr-only' },
-    children: [
-      { type: 'text', element: 'h1', content: heading },
-      { type: 'text', element: 'p', content: blurb },
-    ],
-  } as PageComponent
+  return dataPageHeader(heading, blurb, options)
 }
 
 /**
@@ -197,7 +176,7 @@ export function emptyState(title: string, body: string, hint: string): PageCompo
     props: {
       'aria-label': title,
       className:
-        'border-border bg-background-raised flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center',
+        'border-border bg-card flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center',
     },
     children: [
       {
@@ -209,7 +188,7 @@ export function emptyState(title: string, body: string, hint: string): PageCompo
       {
         type: 'text',
         element: 'p',
-        props: { className: 'text-foreground-muted max-w-md text-md leading-relaxed' },
+        props: { className: 'text-muted-foreground max-w-md text-md leading-relaxed' },
         content: body,
       },
       {
@@ -345,14 +324,13 @@ export function tabbedBody(
    */
   options: { readonly fill?: boolean } = {}
 ): PageComponent {
-  return {
-    type: 'tabs',
+  return lineTabs({
     defaultTab: '$query.tab',
     ...(options.fill === true ? { layout: 'fill' as const } : {}),
     panels: specs.map((spec) => ({ id: spec.id, label: spec.label })),
     props: { 'aria-label': ariaLabel, 'data-testid': 'admin-subview-tabs' },
     children: bodies,
-  } as PageComponent
+  })
 }
 
 /**

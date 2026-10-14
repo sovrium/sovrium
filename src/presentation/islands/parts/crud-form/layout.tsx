@@ -11,13 +11,17 @@ import {
   groupFieldsIntoSections,
 } from '@/domain/models/app/pages/components/component-types/data/form/sections-service'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
-import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
 import {
-  computeFormFieldErrorClasses,
-  computeFormGroupClasses,
-  computeFormGroupLabelClasses,
-  computeFormHelpTextClasses,
-} from '@/presentation/design/form-layout-classes'
+  computeFieldClasses,
+  computeFieldDescriptionClasses,
+  computeFieldErrorClasses,
+  computeFieldGroupClasses,
+  computeFieldLegendClasses,
+  computeFieldSetClasses,
+} from '@/presentation/design/field-default-classes'
+import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
+import { pendingControlProps } from '@/presentation/design/pending-state'
+import { renderPendingContent } from '@/presentation/design/spinner-mark'
 import { type FieldDef, labelOf, renderField } from './fields'
 import { FormRegions } from './main-aside'
 import { formAsideOf, type FormAsideLayout } from './main-aside-regions'
@@ -99,54 +103,62 @@ function ClearControl(props: {
         .split('{label}')
         .join(labelOf(field))}
       onClick={onClick}
-      className="text-foreground-muted hover:text-foreground mt-1 text-xs underline"
+      className="text-muted-foreground hover:text-foreground text-left text-xs underline"
     >
       {uiStrings?.['form.clear'] ?? 'Clear'}
     </button>
   )
 }
 
+/**
+ * A visible field, as shadcn/ui's `Field`: its label, control and description,
+ * then — when a submit refused it — its error. `data-invalid` marks the whole
+ * field so its ink turns destructive with the control's own `aria-invalid`.
+ */
 function renderVisibleField(field: FieldDef, props: RenderProps, invalidSet: Set<string>) {
   const value = props.values[field.name] ?? ''
+  const invalid = invalidSet.has(field.name)
   return (
-    <React.Fragment key={field.name}>
-      <div>
-        {renderField({
-          field,
-          value,
-          onChange: props.onChange,
-          invalid: invalidSet.has(field.name),
-          ...(props.binding === undefined ? {} : { binding: props.binding }),
-        })}
-        {offersClear(field, value, props) && (
-          <ClearControl
-            field={field}
-            onChange={props.onChange}
-            uiStrings={props.uiStrings}
-          />
-        )}
-        {isMarkedCleared(props.values, field.name) && (
-          <input
-            type="hidden"
-            name={clearMarkOf(field.name)}
-            value="1"
-          />
-        )}
-      </div>
+    <div
+      key={field.name}
+      data-slot="field"
+      data-orientation="vertical"
+      {...(invalid && { 'data-invalid': 'true' })}
+      className={computeFieldClasses()}
+    >
+      {renderField({
+        field,
+        value,
+        onChange: props.onChange,
+        invalid,
+        uiStrings: props.uiStrings,
+        ...(props.binding === undefined ? {} : { binding: props.binding }),
+      })}
+      {offersClear(field, value, props) && (
+        <ClearControl
+          field={field}
+          onChange={props.onChange}
+          uiStrings={props.uiStrings}
+        />
+      )}
+      {isMarkedCleared(props.values, field.name) && (
+        <input
+          type="hidden"
+          name={clearMarkOf(field.name)}
+          value="1"
+        />
+      )}
       {props.fieldError?.field === field.name && (
-        // Same recipe as every other field message in the system
-        // (`form-layout-classes.ts`): the error tone at caption size, so the
-        // message pairs with the invalid control's border instead of
-        // inheriting the body's foreground at the body size.
         <span
           role="alert"
-          className={computeFormFieldErrorClasses()}
+          data-slot="field-error"
+          className={computeFieldErrorClasses()}
           data-error={field.name}
         >
           {props.fieldError.message}
         </span>
       )}
-    </React.Fragment>
+    </div>
   )
 }
 
@@ -191,24 +203,37 @@ export function FormFields(props: FormFieldsProps) {
   const grouped = groupFieldsIntoSections(fields, props.sections)
 
   return (
-    <>
+    <div
+      data-slot="field-group"
+      className={computeFieldGroupClasses()}
+    >
       {grouped.sections.map((section) => (
         <fieldset
           key={section.title}
-          className={computeFormGroupClasses()}
+          data-slot="field-set"
+          className={computeFieldSetClasses()}
         >
           {/* The title is the group's name AND a heading, so a reader can jump to it. */}
-          <legend>
-            <h2 className={computeFormGroupLabelClasses()}>{section.title}</h2>
+          <legend
+            data-slot="field-legend"
+            data-variant="legend"
+            className={computeFieldLegendClasses()}
+          >
+            <h2>{section.title}</h2>
           </legend>
           {section.description !== undefined && (
-            <p className={computeFormHelpTextClasses()}>{section.description}</p>
+            <p
+              data-slot="field-description"
+              className={computeFieldDescriptionClasses()}
+            >
+              {section.description}
+            </p>
           )}
           {renderFieldRun(section.fields, layout, renderProps, invalidSet)}
         </fieldset>
       ))}
       {renderFieldRun(grouped.rest, layout, renderProps, invalidSet)}
-    </>
+    </div>
   )
 }
 
@@ -269,12 +294,16 @@ function SubmitButton({
   return (
     <button
       type="submit"
+      data-slot="button"
       data-crud-submit=""
       className={computeButtonDefaultClasses()}
-      disabled={props.state.isPending || locked}
+      disabled={locked}
+      {...pendingControlProps(props.state.isPending)}
       {...(props.variant && { 'data-variant': props.variant })}
     >
-      {props.state.isPending ? (props.savingLabel ?? 'Saving...') : props.submitLabel}
+      {props.state.isPending
+        ? renderPendingContent(props.savingLabel ?? 'Saving…')
+        : props.submitLabel}
     </button>
   )
 }

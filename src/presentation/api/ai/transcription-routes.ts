@@ -16,12 +16,12 @@ import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { logError } from '@/infrastructure/logging/logger'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { checkChatRateLimit } from '@/infrastructure/process/chat-rate-limit'
 import { rateLimitedResponse } from '@/infrastructure/process/rate-limit-response'
 import {
   createAiAnonRateLimit,
   type AiAnonRateLimit,
-} from '@/presentation/api/ai/ai-anon-rate-limit'
-import { checkChatRateLimit } from '@/presentation/api/ai/chat-rate-limit'
+} from '@/presentation/api/middleware/ai-anon-rate-limit'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'

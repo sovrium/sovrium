@@ -23,7 +23,7 @@ import {
   type DrawerFieldLocale,
 } from '@/presentation/render/props/resolve-record-drawer-fields'
 import {
-  RELATED_GUEST_CALLER_KEY,
+  relatedCallerModeOf,
   resolveRelatedSections,
   type RelatedCaller,
 } from '@/presentation/render/props/resolve-record-drawer-related'
@@ -88,6 +88,8 @@ function drawerControlLabels(
   const resolve = (key: string) => resolveInterpreterString(key, currentLang, languages)
   return {
     saveLabel: resolve('recordDrawer.save'),
+    savingLabel: resolve('form.saving'),
+    runningLabel: resolve('action.running'),
     closeLabel: resolve('recordDrawer.close'),
     newRecordLabel: resolve('datatable.newRecord'),
     cancelLabel: resolve('datatable.cancel'),
@@ -200,9 +202,11 @@ function relatedCallerOf(
   rawProps: Readonly<Record<string, unknown>> | undefined,
   session: RelatedCaller['session']
 ): RelatedCaller {
+  const mode = relatedCallerModeOf(rawProps)
   return {
     session,
-    guest: rawProps?.[RELATED_GUEST_CALLER_KEY] === true,
+    guest: mode === 'guest',
+    openApp: mode === 'open',
     callerTables: rawProps?.[RELATED_CALLER_TABLES_KEY] as RelatedCaller['callerTables'],
   }
 }
@@ -308,7 +312,7 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
       data-island-props={JSON.stringify(props)}
       // The host names the drawer, served and mounted, closed and open — the
       // surface portaled out of it does not name it a second time.
-      data-component-type="drawer"
+      data-component-type="sheet"
       data-testid={elementProps['data-testid'] as string | undefined}
       style={HIDDEN_STYLE}
     >

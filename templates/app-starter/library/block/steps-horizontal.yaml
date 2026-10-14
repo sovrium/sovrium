@@ -1,4 +1,4 @@
-# sovrium-library: block/steps-horizontal@0.30.0
+# sovrium-library: block/steps-horizontal@0.37.0
 name: steps-horizontal
 type: container
 props:
@@ -18,7 +18,7 @@ children:
           - type: container
             props:
               role: listitem
-              className: flex-1 border-t-2 pt-3 text-sm border-foreground text-foreground-muted
+              className: flex-1 border-t-2 pt-3 text-sm border-foreground text-muted-foreground
             children:
               - type: text
                 element: span
@@ -26,7 +26,7 @@ children:
           - type: container
             props:
               role: listitem
-              className: flex-1 border-t-2 pt-3 text-sm border-foreground text-foreground-muted
+              className: flex-1 border-t-2 pt-3 text-sm border-foreground text-muted-foreground
             children:
               - type: text
                 element: span
@@ -43,7 +43,7 @@ children:
           - type: container
             props:
               role: listitem
-              className: flex-1 border-t-2 pt-3 text-sm border-border text-foreground-subtle
+              className: flex-1 border-t-2 pt-3 text-sm border-border text-muted-foreground
             children:
               - type: text
                 element: span

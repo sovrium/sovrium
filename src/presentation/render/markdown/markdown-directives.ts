@@ -110,10 +110,10 @@ const normaliseCalloutType = (raw: string | undefined): CalloutType => {
  */
 const CALLOUT_ACCENT_CLASSES: Readonly<Record<CalloutType, string>> = {
   info: 'border-l-info-solid bg-info-bg',
-  note: 'border-l-foreground-subtle bg-background-subtle',
+  note: 'border-l-foreground-subtle bg-muted',
   tip: 'border-l-success-solid bg-success-bg',
   warning: 'border-l-warning-solid bg-warning-bg',
-  danger: 'border-l-error-solid bg-error-bg',
+  danger: 'border-l-destructive bg-error-bg',
 }
 
 /**
@@ -186,7 +186,7 @@ const renderCta = (innerHtml: string): string => {
 const renderIcon = (attrs: Readonly<Record<string, string>>, _innerHtml: string): string => {
   const name = attrs['name'] ?? ''
   const nameAttr = name.length > 0 ? ` data-icon-name="${escapeAttr(name)}"` : ''
-  return `<svg data-component="icon" class="md-icon"${nameAttr} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"></svg>`
+  return `<svg data-component="icon" data-slot="icon" class="md-icon"${nameAttr} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"></svg>`
 }
 
 /**

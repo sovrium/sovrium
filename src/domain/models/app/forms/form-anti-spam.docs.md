@@ -41,6 +41,8 @@ The client is told nothing specific, because a bot that learns **why** it was re
 
 A spam-flagged submission never writes to the bound table, never fires the submit automation, and never counts against the availability cap. The submitter's address is stored only as a salted hash; the raw address is never persisted.
 
+A duplicate answered from its idempotency key (see [Form Submissions](/en/docs/form-submissions)) is not a submission: it counts against neither limit nor the availability cap. The key is not a spam defence either — a request with no key is accepted as before, and the limits above still apply to it.
+
 ### A partial block does not turn the rest off
 
 Omitting `antiSpam` entirely still renders the honeypot and still enforces the per-IP limit. Writing a block that sets only the rate limit does **not** replace the honeypot default — it adds to it. To genuinely disable the trap you have to say so with `honeypot: false`.

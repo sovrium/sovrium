@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  LIVE_ROWS_PREDICATE,
+  REFERENCED_KEY_COLUMNS,
+  type TableWithReferencedKeys,
+} from '../sql/sql-key-constraints'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
 
@@ -58,6 +63,46 @@ export const upgradeFormReferencedAttachments = (
   })
 }
 
+/** The column lists the `foreignKeys` entries reference, by referenced config table name. */
+type ReferencedKeys = ReadonlyMap<string, readonly (readonly string[])[]>
+
+const referencedKeysOf = (tables: readonly Table[]): ReferencedKeys => {
+  const entries = tables.flatMap((t) => t.foreignKeys ?? [])
+  const grouped = Map.groupBy(entries, (entry) => entry.referencedTable)
+  return new Map(
+    [...grouped].map(([name, keys]) => [name, keys.map((key) => key.referencedFields)])
+  )
+}
+
+/** Whether a `foreignKeys` entry references exactly `columns` of `tableName`, in any order. */
+const isReferencedKey = (
+  references: ReferencedKeys,
+  tableName: string,
+  columns: readonly string[]
+): boolean =>
+  (references.get(tableName) ?? []).some(
+    (key) => key.length === columns.length && key.every((column) => columns.includes(column))
+  )
+
+/**
+ * Mark on each table the unique columns a `foreignKeys` entry references on
+ * their own (`REFERENCED_KEY_COLUMNS`): such a field keeps a table-level
+ * `UNIQUE` over every row instead of the live-rows index, because neither engine
+ * accepts a reference to a partial index.
+ */
+const markReferencedKeyColumns = (
+  tables: readonly Table[],
+  references: ReferencedKeys
+): readonly Table[] =>
+  tables.map((t) => {
+    const columns = (references.get(t.name) ?? []).flatMap((key) =>
+      key.length === 1 && key[0] !== undefined ? [key[0]] : []
+    )
+    if (columns.length === 0) return t
+    const marked: TableWithReferencedKeys = { ...t, [REFERENCED_KEY_COLUMNS]: columns }
+    return marked
+  })
+
 /**
  * the pages access publishing requirement (slug-management): Normalize the table-
  * level `unique: [{ fields: [...] }]` sugar into the existing primitives
@@ -67,12 +112,18 @@ export const upgradeFormReferencedAttachments = (
  *   - single-field entry → set `field.unique = true` on the matching
  *     field (idempotent — leaves an already-unique field alone).
  *   - multi-field entry → append a unique btree index to `table.indexes`
- *     under a deterministic name (`uq_<table>_<f1>_<f2>__<i>`).
+ *     under a deterministic name (`uq_<table>_<f1>_<f2>__<i>`), over live
+ *     records only (`WHERE deleted_at IS NULL`), like a single-field `unique` —
+ *     unless a `foreignKeys` entry references those columns: a reference needs a
+ *     key unique over every row, so that index keeps no `WHERE`.
  *
  * Unknown field names are silently dropped — they would have failed
  * upstream Effect Schema validation if the author meant a real column.
  */
-const normalizeTopLevelUnique = (tables: readonly Table[]): readonly Table[] =>
+const normalizeTopLevelUnique = (
+  tables: readonly Table[],
+  references: ReferencedKeys
+): readonly Table[] =>
   tables.map((t) => {
     const uniqueGroups = (
       t as Table & { readonly unique?: ReadonlyArray<{ readonly fields: ReadonlyArray<string> }> }
@@ -97,6 +148,7 @@ const normalizeTopLevelUnique = (tables: readonly Table[]): readonly Table[] =>
       name: `uq_${t.name}_${g.fields.join('_')}__${idx}`.slice(0, 60),
       fields: g.fields,
       unique: true,
+      ...(isReferencedKey(references, t.name, g.fields) ? {} : { where: LIVE_ROWS_PREDICATE }),
     }))
     const mergedIndexes =
       compositeIndexes.length === 0 ? t.indexes : [...(t.indexes ?? []), ...compositeIndexes]
@@ -107,6 +159,19 @@ const normalizeTopLevelUnique = (tables: readonly Table[]): readonly Table[] =>
       ...(mergedIndexes ? { indexes: mergedIndexes } : {}),
     } as Table
   })
+
+/**
+ * The uniqueness half of {@link applySchemaDefaults}: top-level `unique` sugar
+ * flattened, and the keys a `foreignKeys` entry references marked. Exported for
+ * the boot fast path, which compares the catalog with the config's tables
+ * before any other default applies, and must read uniqueness exactly as the
+ * migration writes it — or a top-level `unique` read as no uniqueness at all,
+ * and the boot took the full migration every time.
+ */
+export const applyUniqueDefaults = (tables: readonly Table[]): readonly Table[] => {
+  const references = referencedKeysOf(tables)
+  return markReferencedKeyColumns(normalizeTopLevelUnique(tables, references), references)
+}
 
 /**
  * Apply schema-author-friendly defaults to the sorted table list:
@@ -120,6 +185,8 @@ const normalizeTopLevelUnique = (tables: readonly Table[]): readonly Table[] =>
  *   - Pages-002: top-level `unique: [{ fields: [...] }]` flattens into
  *     field-level `unique: true` (single field) or composite unique
  *     indexes so existing migration paths apply without modification.
+ *   - A unique key some `foreignKeys` entry references stays unique over
+ *     every row, trash included (see {@link markReferencedKeyColumns}).
  */
 export const applySchemaDefaults = (
   sortedTables: readonly Table[],
@@ -132,5 +199,5 @@ export const applySchemaDefaults = (
       : t
   )
   const withFormAttachments = upgradeFormReferencedAttachments(withScopePk, app)
-  return normalizeTopLevelUnique(withFormAttachments)
+  return applyUniqueDefaults(withFormAttachments)
 }

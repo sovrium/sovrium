@@ -75,6 +75,7 @@
 // shape `/links/:slug`, `/users/:email` and `/tables/:table` already take.
 
 import { fillHost, pageHeading, toolbarRow } from '../components/data-page'
+import { dataTable } from '../components/data-table-blocks'
 import { withShell } from '../components/shell'
 import { DECISIONS_ENDPOINT } from '../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
@@ -227,8 +228,7 @@ const REGISTER_COLUMNS = [
  * or none: two of the three were measured to buy exactly nothing.
  */
 const registerGrid = (): PageComponent =>
-  ({
-    type: 'table',
+  dataTable({
     props: { id: REGISTER_GRID_ID, 'aria-label': '$t:admin.decisions.register.region' },
     dataSource: DECISION_ROWS,
     columns: REGISTER_COLUMNS,
@@ -287,7 +287,7 @@ const part = (heading: string, body: string): PageComponent =>
       {
         type: 'text',
         element: 'p',
-        props: { className: 'text-foreground-muted max-w-[72ch] text-md leading-relaxed' },
+        props: { className: 'text-muted-foreground max-w-[72ch] text-md leading-relaxed' },
         content: body,
       },
     ],
@@ -370,8 +370,7 @@ const recordRail = (): PageComponent =>
     element: 'aside',
     props: {
       'aria-label': '$t:admin.decisions.record.region',
-      className:
-        'border-border bg-background-raised flex shrink-0 flex-col gap-3 rounded-lg border p-4 lg:w-72',
+      className: 'border-border bg-card flex shrink-0 flex-col gap-3 rounded-lg border p-4 lg:w-72',
     },
     children: [
       {
@@ -479,7 +478,7 @@ const documentBody = (): PageComponent =>
                 element: 'div',
                 props: {
                   className:
-                    'border-border bg-background-raised flex min-w-0 flex-1 flex-col gap-5 rounded-lg border p-6',
+                    'border-border bg-card flex min-w-0 flex-1 flex-col gap-5 rounded-lg border p-6',
                 },
                 children: [
                   part('$t:admin.decisions.part.context', '$record.context'),
@@ -502,7 +501,7 @@ const backToRegister = (): PageComponent =>
     content: '$t:admin.decisions.back',
     props: {
       href: '/decisions',
-      className: 'text-foreground-muted hover:text-foreground text-sm underline',
+      className: 'text-muted-foreground hover:text-foreground text-sm underline',
     },
   }) as PageComponent
 

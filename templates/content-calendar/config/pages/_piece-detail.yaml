@@ -1,7 +1,7 @@
 # One piece, opened over the page: when and where it goes out, who owns it,
 # which campaign it serves, its brief and its files. Opened by a click on the
 # calendar or a row of the grid, or directly with `?record=<id>`.
-type: drawer
+type: sheet
 id: piece-detail
 drawerSide: right
 drawerSize: md

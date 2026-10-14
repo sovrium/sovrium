@@ -27,7 +27,7 @@ const worklistGrid = (source: Node, columns: readonly Node[], drawerId: string):
   type: 'table',
   dataSource: source,
   columns,
-  onRowClick: { action: 'openDrawer', component: drawerId },
+  onRowClick: { action: 'openSheet', component: drawerId },
   phoneLayout: 'rows',
   pagination: { pageSize: 25 },
   emptyMessage: 'Nothing here. New [orders] land in this list.',
@@ -92,7 +92,7 @@ const tabbedGrids = (view: Node, p: P, drawerId: string): Node => {
 
 /** The side panel a row opens: the record's fields, editable in place. */
 const detailDrawer = (drawerId: string, p: P): Node => ({
-  type: 'drawer',
+  type: 'sheet',
   id: drawerId,
   props: { title: '[Order]' },
   drawerSide: 'right',

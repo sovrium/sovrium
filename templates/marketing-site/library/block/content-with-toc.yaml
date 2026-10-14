@@ -35,7 +35,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-lg text-pretty text-foreground-muted sm:text-xl
+                  className: text-lg text-pretty text-muted-foreground sm:text-xl
                 content: '[What the reader can do by the end.]'
               - type: text
                 element: h2
@@ -45,7 +45,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-lg
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-lg
                 content: '[Paragraph.]'
               - type: code
                 props:
@@ -60,7 +60,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-lg
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-lg
                 content: '[Paragraph.]'
               - type: text
                 element: h2
@@ -70,5 +70,5 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-lg
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-lg
                 content: '[Paragraph.]'

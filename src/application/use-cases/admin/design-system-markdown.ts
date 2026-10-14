@@ -189,7 +189,6 @@ const zoneSection = (document: Readonly<DesignSystemDocument>): Section => {
   const rows = zones.map((zone) => [
     zone.pattern,
     zone.zone,
-    zone.accentBudget ?? '',
     zone.voice === undefined ? 'inherits design.voice' : overrides(zone.voice),
   ])
 
@@ -199,12 +198,10 @@ const zoneSection = (document: Readonly<DesignSystemDocument>): Section => {
       rows.length === 0
         ? []
         : [
-            'Each pattern governs a route family. A `public` budget may spend the accent ' +
-              'demonstratively; a `product` zone keeps it quiet. A voice field declared here ' +
-              'replaces the same field of the app voice for those routes; an undeclared field ' +
-              'inherits it.',
+            'Each pattern governs a route family. A voice field declared here replaces the ' +
+              'same field of the app voice for those routes; an undeclared field inherits it.',
             '',
-            ...table(['Pattern', 'Zone', 'Accent budget', 'Voice departures'], rows),
+            ...table(['Pattern', 'Zone', 'Voice departures'], rows),
           ],
   }
 }

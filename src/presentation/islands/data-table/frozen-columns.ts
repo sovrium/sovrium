@@ -71,7 +71,7 @@ export const NO_FROZEN_OFFSETS: FrozenOffsets = {}
  * measurement cannot be a class. Everything here is a design decision, so it
  * lives in the recipe where `app.design.*` can reach it. Both halves used to
  * carry a hand-written `backgroundColor`, and they had already drifted: the
- * header painted `--sv-bg-subtle` and the body `--sv-bg`, so a pinned column
+ * header painted `--muted` and the body `--background`, so a pinned column
  * read as two different surfaces stacked on each other.
  */
 export const FROZEN_CELL_CLASS = computeTableFrozenCellClasses()

@@ -220,16 +220,16 @@ function resolveEmbedPrefill(
 }
 
 /**
- * Read the opt-in `props.headingLevel` render hint off a formRef component's
- * `props` bag. Returns `'h1'` (the default) for anything other than an explicit
- * `'h2'`/`'h3'` so an existing embedded form keeps its `<h1 class="form-title">`
- * unless the author opts into demoting it. It is a pure
- * render hint — deliberately NOT surfaced on the wrapper `<div>` (see
- * `buildWrapperProps`), so it never leaks onto the DOM as an attribute.
+ * Read the `props.headingLevel` render hint off a formRef component's `props`
+ * bag. An embedded title is a section of its host page, so it is an `<h2>`
+ * unless the author writes `'h1'` or `'h3'`; only a form on its own page is
+ * headed by an `<h1>` by default. It is a pure render hint — deliberately NOT
+ * surfaced on the wrapper `<div>` (see `buildWrapperProps`), so it never leaks
+ * onto the DOM as an attribute.
  */
 function readHeadingLevel(originalProps: Record<string, unknown> | undefined): 'h1' | 'h2' | 'h3' {
   const raw = originalProps?.['headingLevel']
-  return raw === 'h2' || raw === 'h3' ? raw : 'h1'
+  return raw === 'h1' || raw === 'h3' ? raw : 'h2'
 }
 
 /**

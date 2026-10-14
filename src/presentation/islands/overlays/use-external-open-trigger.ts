@@ -38,7 +38,7 @@ function consumePendingOpen(id: string): boolean {
  *    so the island owns the trigger wiring for itself.
  *
  * 2. The `sovrium:open-drawer` CustomEvent dispatched by the data-table
- *    island when a row click resolves to an `action: 'openDrawer'` action
+ *    island when a row click resolves to an `action: 'openSheet'` action
  *    (PG-04 quick-edit drawer pattern). The event's `detail.id` matches the
  *    drawer component id, and `detail.record` carries the clicked row's
  *    record so the drawer's child form can be populated client-side. The
@@ -78,8 +78,9 @@ export function useExternalOpenTrigger(
       recordRef.current = detail
       setOpen(true)
     })
-    const unsubscribeCrudSuccess = subscribeIslandEvent('sovrium:crud-success', () => {
-      if (!closeOnCrudSuccess) return
+    // A form that asked to stay open (`onSuccess.close: false`) keeps it open.
+    const unsubscribeCrudSuccess = subscribeIslandEvent('sovrium:crud-success', (detail) => {
+      if (!closeOnCrudSuccess || detail.close === false) return
       setOpen(false)
     })
     const closeHandler = (event: Event): void => {

@@ -17,6 +17,7 @@ import { acceptEntryAdmits } from '@/domain/models/app/forms/form-file-upload-va
  *   - `form` (HTMLFormElement)
  *   - `removeIfPresent` (DOM helper)
  *   - `showFieldError` (inline-error helper)
+ *   - `S` (page-language strings: `form.fileTooLarge`, `form.fileTypeNotAccepted`)
  *
  * It also relies on `labelOf` / `fieldErrorMessage` (field-errors fragment).
  *
@@ -131,10 +132,9 @@ export const FORM_RUNTIME_FILE_HANDLERS_SCRIPT = `
     if (oversize) {
       showFieldError(
         input,
-        'File size ' +
-          formatBytesShort(oversize.size) +
-          ' exceeds maximum of ' +
-          formatBytesShort(maxFileSize)
+        (S['form.fileTooLarge'] || 'File size {size} exceeds maximum of {max}')
+          .split('{size}').join(formatBytesShort(oversize.size))
+          .split('{max}').join(formatBytesShort(maxFileSize))
       )
       return
     }
@@ -142,7 +142,11 @@ export const FORM_RUNTIME_FILE_HANDLERS_SCRIPT = `
       return !fileMatchesAccept(f, accept)
     })
     if (rejected) {
-      showFieldError(input, 'File type not accepted: ' + (rejected.type || rejected.name))
+      showFieldError(
+        input,
+        (S['form.fileTypeNotAccepted'] || 'File type not accepted: {type}')
+          .split('{type}').join(rejected.type || rejected.name)
+      )
       return
     }
     var existing = fileStash[name] || []

@@ -101,10 +101,60 @@ const checkedManifest = (manifest: BundleManifest) =>
     )
   )
 
+/** The `path` of every entry the validated document declares under `assets`. */
+const declaredAssetPaths = (document: Readonly<Record<string, unknown>>): readonly string[] => {
+  const { assets } = document
+  if (!Array.isArray(assets)) return []
+  return assets.flatMap((asset: unknown) =>
+    typeof asset === 'object' && asset !== null && typeof Reflect.get(asset, 'path') === 'string'
+      ? [String(Reflect.get(asset, 'path'))]
+      : []
+  )
+}
+
+/**
+ * The private assets as `project/<path>` entries, read from the project the
+ * validation already checked them in (symbolic links followed, inside the
+ * project, outside `public/`). Unpacked, they sit beside `project/app.json`,
+ * where the asset loader resolves them.
+ */
+const collectAssetEntries = (request: BundleRequest) =>
+  Effect.gen(function* () {
+    const paths = declaredAssetPaths(request.document)
+    // Case-blind: unpacked on a case-insensitive filesystem, `App.json` would
+    // land on the config entry just the same.
+    const clash = paths.find(
+      (path) => `project/${path}`.toLowerCase() === BUNDLE_CONFIG_ENTRY.toLowerCase()
+    )
+    if (clash !== undefined) {
+      return yield* new BundleRefusal({
+        reason: `The asset "${clash}" would be written over the config entry ${BUNDLE_CONFIG_ENTRY}`,
+        guidance: `Rename the asset file and its path under assets, then run the command again.`,
+      })
+    }
+    const workspace = yield* BackupWorkspace
+    const projectDir = dirname(request.configPath)
+    return yield* Effect.forEach(paths, (path) =>
+      Effect.flatMap(workspace.readFileIfExists(join(projectDir, path)), (bytes) =>
+        // Validation found the file a moment ago; one that vanished since is
+        // refused rather than carried as an empty file a host would trust.
+        bytes === undefined
+          ? Effect.fail(
+              new BundleRefusal({
+                reason: `The asset "${path}" disappeared from the project directory while the bundle was written`,
+                guidance: 'Restore the file, then run the command again.',
+              })
+            )
+          : Effect.succeed({ path: `project/${path}`, bytes })
+      )
+    )
+  })
+
 /**
  * The archive entries, config first: `project/app.json` from the validated
- * document, then `public/` and `seed/`. The config graph is read for its
- * refusal only — its files travel inlined in the document, never as sources.
+ * document, then the declared assets beside it, then `public/` and `seed/`.
+ * The config graph is read for its refusal only — its files travel inlined in
+ * the document, never as sources.
  */
 const collectBundleEntries = (request: BundleRequest) =>
   Effect.gen(function* () {
@@ -121,15 +171,16 @@ const collectBundleEntries = (request: BundleRequest) =>
       path: BUNDLE_CONFIG_ENTRY,
       bytes: new TextEncoder().encode(`${JSON.stringify(request.document, undefined, 2)}\n`),
     }
+    const assetEntries = yield* collectAssetEntries(request)
     const publicEntries = yield* collectTree(request.publicDirectory, 'public/')
     const seedEntries = yield* collectTree(join(dirname(request.configPath), 'seed'), 'seed/')
-    return [config, ...publicEntries, ...seedEntries]
+    return [config, ...assetEntries, ...publicEntries, ...seedEntries]
   })
 
 /**
  * `sovrium bundle`: one gzipped tar holding the validated config resolved into
- * `project/app.json`, the static files under `public/` and the seed files under
- * `seed/`, with a manifest of every entry's size and sha256.
+ * `project/app.json`, the private assets it declares beside it, the static
+ * files under `public/` and the seed files under `seed/`, with a manifest of every entry's size and sha256.
  *
  * Every refusal happens before the archive exists, and the archive is written
  * atomically, so a refused bundle never leaves a file a host might deploy.

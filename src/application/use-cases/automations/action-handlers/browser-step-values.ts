@@ -44,7 +44,9 @@ export const fillValue = (scope: StepValueScope, value: unknown): string => {
   if (value === undefined || value === null) return ''
   const text = String(value)
   const { runContext } = scope
-  if (runContext === undefined || runContext.propsFinal === true) return text
+  if (runContext === undefined) return text
+  // Props a caller handed over as data stay text; a `path` or `loop` kept these as written for us.
+  if (runContext.propsFinal === true && runContext.handlerFills !== true) return text
   const referenced = referenceAuthoredValues(text, { envLookup: runContext.envLookup })
   const view = buildRunContextView({
     ...runContext,

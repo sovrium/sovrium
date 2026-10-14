@@ -37,12 +37,12 @@
 
 import { Effect } from 'effect'
 import { LookupApproverIdentity } from '@/application/use-cases/agents/approval'
-import type { ApprovalRecord } from './approval-store'
 import type {
   ApprovalMirrorRecord,
   ApprovalRepository,
   ApprovalUserIdentity,
 } from '@/application/ports/repositories/ai/approval-repository'
+import type { ApprovalRecord } from '@/domain/models/app/agents/approval-record-service'
 import type { Context } from 'effect'
 
 /**

@@ -7,7 +7,7 @@
 
 /**
  * What selecting a node does: `navigate` follows the configured path filled
- * with the node's `$record.*` values, held to this site; `openDrawer` opens
+ * with the node's `$record.*` values, held to this site; `openSheet` opens
  * the record in the named drawer — the two verbs a card click takes.
  */
 
@@ -17,7 +17,7 @@ import type { TableRecord } from '../runtime/types'
 
 export type TreeSelect =
   | { readonly type: 'navigate'; readonly path: string }
-  | { readonly action: 'openDrawer'; readonly component: string }
+  | { readonly action: 'openSheet'; readonly component: string }
 
 export function selectTreeNode(
   onSelect: TreeSelect | undefined,

@@ -232,7 +232,10 @@ export function renderForm(config: RenderFormConfig): ReactElement {
   // PG-04 (Consoles-as-Config): a `form.endpoint` block routes to the
   // custom-endpoint submit renderer — a plain SSR `<form>` enhanced by the
   // vanilla runtime, distinct from the table-bound `crud` island.
-  const endpointForm = renderEndpointForm(props, component, effectiveConfig.designStyles)
+  const endpointForm = renderEndpointForm(props, component, effectiveConfig.designStyles, {
+    lang: effectiveConfig.lang,
+    languages: effectiveConfig.languages,
+  })
   if (endpointForm) return endpointForm
   return renderBareFormVariant(props, children)
 }

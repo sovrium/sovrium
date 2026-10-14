@@ -6,6 +6,11 @@
  */
 
 /**
+ * Adapted from shadcn/ui native-select and badge (https://ui.shadcn.com), registry commit 3464245c4513b7998b1d11fa9c67b71cc1534dc7.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
+ */
+
+/**
  * The grid's EDITING chrome — the filter and sort builders' shared panel, the
  * inline auto-save status, the chip an applied filter or sort row is drawn as,
  * and the per-row action buttons with the confirm bar one of them opens.
@@ -25,9 +30,13 @@
  * {@link swapUtility}; see `table-class-swap.ts`.
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 import { computeButtonDefaultClasses } from './button-default-classes'
 import { swapUtility } from './table-class-swap'
+import {
+  TABLE_BUTTON_BASE,
+  TABLE_BUTTON_GHOST,
+  TABLE_BUTTON_SIZE_ICON_XS,
+} from './table-toolbar-default-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // PANEL — the filter and sort builders' shared chrome
@@ -48,8 +57,8 @@ import { swapUtility } from './table-class-swap'
 // most of a row-height further down the screen.
 const TABLE_PANEL = [
   'flex flex-col gap-2 border-b p-2.5 text-sm',
-  `bg-[${v('sv-bg', T.bg)}]`,
-  `border-[${v('sv-border', T.border)}]`,
+  `bg-background`,
+  `border-border`,
 ].join(' ')
 
 /**
@@ -69,7 +78,7 @@ export const computeTablePanelClasses = (): string => TABLE_PANEL
  * Tone only; the panel's own `text-sm` carries the size. A caption that also
  * declared a step would fight the panel whenever either moved.
  */
-export const computeTablePanelCaptionClasses = (): string => `text-[${v('sv-fg-muted', T.fgMuted)}]`
+export const computeTablePanelCaptionClasses = (): string => `text-muted-foreground`
 
 /**
  * Compute the default className for a panel's text actions — `Clear all`,
@@ -81,61 +90,38 @@ export const computeTablePanelCaptionClasses = (): string => `text-[${v('sv-fg-m
  * affordances beside a commit that is the only one the reader came for.
  */
 export const computeTablePanelLinkClasses = (): string =>
-  [`text-[${v('sv-fg-muted', T.fgMuted)}]`, 'underline', `hover:text-[${v('sv-fg', T.fg)}]`].join(
-    ' '
-  )
+  [`text-muted-foreground`, 'underline', `hover:text-foreground`].join(' ')
 
-// Canvas: a `.input` narrowed to `height:32px; padding:4px 10px; font-size:12px`.
-//
-// 32px rather than the platform's 36: a filter row is three of these side by
-// side inside a panel that is itself inside the grid, and at full control height
-// the row alone was taller than two records.
-const TABLE_PANEL_CONTROL = [
-  'h-8 border px-2.5 py-1 text-sm',
-  `rounded-[${v('radius-base', T.radiusBase)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-].join(' ')
+// shadcn/ui's `native-select` at `size: sm` raised to 32px, the height the
+// toolbar's buttons stand at: a filter row is three of these side by side
+// inside a panel that is itself inside the grid. The chevron is the page's own
+// select rule (`component-layer-generators.ts`), so the inset is not restated.
+const TABLE_PANEL_CONTROL =
+  'h-8 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30'
 
-// The LIST-box variant of the panel control: a `<select multiple>` shows its
-// options as rows, so the single-line `h-8` would clip every row after the
-// first. The height is the rows' own (the element's `size` caps how many show)
-// and the floor width keeps a short list readable when the bar is narrow —
-// unfloored, a flex row on a phone squeezed it to the width of its border.
-// Same surface, border and radius as the single-line control.
-const TABLE_PANEL_LISTBOX = [
-  'h-auto min-w-40 border px-1 py-1 text-sm',
-  `rounded-[${v('radius-base', T.radiusBase)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-].join(' ')
+// The LIST-box variant: a `<select multiple>` shows its options as rows, so the
+// single-line `h-8` would clip every row after the first. The floor width keeps
+// a short list readable when the bar is narrow.
+const TABLE_PANEL_LISTBOX =
+  'h-auto min-w-40 rounded-lg border border-input bg-transparent p-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30'
 
 /**
  * Compute the default className for a `<select>` or `<input>` inside a panel —
  * or, with `multiple`, for a `<select multiple>` list box.
- *
- * `border-strong` at rest, like the add-row editor and for the same reason: the
- * control sits on a ruled surface, and drawn in the border tone it dissolves
- * into the rules around it.
  */
 export const computeTablePanelControlClasses = (options?: {
   readonly multiple?: boolean
 }): string => (options?.multiple === true ? TABLE_PANEL_LISTBOX : TABLE_PANEL_CONTROL)
 
 /**
- * Compute the default className for a panel row's remove `×`.
- *
- * A fixed 24px column with the glyph centred in it, so the removes line up down
- * the right edge of a stack of rows whose contents are all different widths.
- * Muted at rest: a control that deletes should be available without advertising
- * itself, and the row it removes is the thing the reader is looking at.
+ * Compute the default className for a panel row's icon buttons (remove `×`,
+ * move up, move down): base-nova's `ghost` / `icon-xs`, so the removes line up
+ * down the right edge of a stack of rows of different widths.
  */
 export const computeTablePanelRemoveClasses = (): string =>
-  [
-    'w-6 text-center',
-    `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-    `hover:text-[${v('sv-fg', T.fg)}]`,
-  ].join(' ')
+  [TABLE_BUTTON_BASE, TABLE_BUTTON_GHOST, TABLE_BUTTON_SIZE_ICON_XS, 'text-muted-foreground'].join(
+    ' '
+  )
 
 // ──────────────────────────────────────────────────────────────────────────────
 // SAVE INDICATOR — the inline auto-save status
@@ -171,30 +157,19 @@ export const computeTableSaveIndicatorClasses = ({
 }: {
   readonly status: TableSaveStatus
 }): string =>
-  [
-    TABLE_SAVE_INDICATOR,
-    status === 'error'
-      ? `text-[${v('sv-error-fg', T.errorFg)}]`
-      : `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  ].join(' ')
+  [TABLE_SAVE_INDICATOR, status === 'error' ? `text-destructive` : `text-muted-foreground`].join(
+    ' '
+  )
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CHIP — an applied filter, a sort row, a `filter-bar` term
 // ──────────────────────────────────────────────────────────────────────────────
 
-// Canvas `.chip`: `border:1px solid #d3d3d3; border-radius:6px; padding:4px 8px;
-// font-size:12px; background:#fefefe; gap:4px`.
-//
-// RAISED on the panel's ground, where the chips shipped as a well on a raised
-// panel — the elevation upside down. A chip is a thing the reader put there and
-// can pick up again; it should sit ON the surface, not be pressed into it.
-const TABLE_CHIP = [
-  'inline-flex items-center gap-1 border px-2 py-1 text-sm',
-  `rounded-[${v('radius-md', T.radiusMd)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-].join(' ')
+// An outline badge grown to hold its own remove buttons: the page's fill on a
+// rule, so an applied condition sits ON the panel as an object the reader put
+// there and can lift again.
+const TABLE_CHIP =
+  'inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background pr-0.5 pl-2 text-sm text-muted-foreground'
 
 /**
  * Compute the default className for an applied-condition chip.
@@ -215,7 +190,7 @@ export const computeTableChipClasses = (): string => TABLE_CHIP
  * part they picked and the part that distinguishes one chip from the next, so
  * it takes full ink and medium weight and the rest recedes behind it.
  */
-export const computeTableChipValueClasses = (): string => `font-medium text-[${v('sv-fg', T.fg)}]`
+export const computeTableChipValueClasses = (): string => `font-medium text-foreground`
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ACTION COLUMN — the per-row buttons and the confirm bar one of them opens
@@ -304,8 +279,8 @@ export const computeTableActionRowClasses = (): string => 'inline-flex gap-1'
 // as a popup that had opened somewhere near the row instead.
 const TABLE_INLINE_CONFIRM = [
   'flex items-center gap-2.5 border-t px-2 py-2 text-sm',
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `border-[${v('sv-border', T.border)}]`,
+  `bg-muted`,
+  `border-border`,
 ].join(' ')
 
 /**

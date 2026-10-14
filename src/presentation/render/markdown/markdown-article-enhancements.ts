@@ -80,7 +80,7 @@ const DOCS_PROSE_PATCH = `
 .prose [data-component="alert"][data-type="note"]{border-left-color:var(--color-foreground-subtle);}
 .prose [data-component="alert"][data-type="tip"]{border-left-color:var(--color-success-solid);}
 .prose [data-component="alert"][data-type="warning"]{border-left-color:var(--color-warning-solid);}
-.prose [data-component="alert"][data-type="danger"]{border-left-color:var(--color-error-solid);}
+.prose [data-component="alert"][data-type="danger"]{border-left-color:var(--color-destructive);}
 .prose .md-callout p,.prose [data-component="alert"] p{color:inherit;}
 .prose .md-callout :first-child,.prose [data-component="alert"] :first-child{margin-top:0;}
 .prose .md-callout :last-child,.prose [data-component="alert"] :last-child{margin-bottom:0;}

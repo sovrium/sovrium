@@ -116,15 +116,15 @@ How the app looks where tokens cannot reach. Two pages can use identical tokens 
 
 ## Zones
 
-`design.zones` is the one key here that describes **routes** rather than tokens or words: which route patterns belong to which zone, what accent budget each zone carries, and how each zone's voice departs from `design.voice`.
+`design.zones` is the one key here that describes **routes** rather than tokens or words: which route patterns belong to which zone, and how each zone's voice departs from `design.voice`.
 
 <!-- sovrium:options DesignZoneSchema -->
 
 ```yaml
 design:
   zones:
-    - { pattern: '/app/*', zone: product, accentBudget: product }
-    - { pattern: 'everything else', zone: marketing, accentBudget: public }
+    - { pattern: '/app/*', zone: product }
+    - { pattern: 'everything else', zone: marketing }
 ```
 
 ## Component guidance

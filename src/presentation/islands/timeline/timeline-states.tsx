@@ -12,7 +12,7 @@ import type { ReactElement } from 'react'
  * island host names the timeline once, whatever state is drawn inside it.
  *
  * The LOADING state draws no frame: the host's shell
- * (`computeTimelineShellClasses`) frames it — the same frame the records arrive
+ * (`TIMELINE_SHELL_CLASSES`) frames it — the same frame the records arrive
  * into, so the chrome never re-draws under them. The error / missing-binding /
  * empty states are semantic status surfaces on the `error` and `warning` tones,
  * and the host's shell steps out of the box around them: the neutral data-view
@@ -27,11 +27,11 @@ export function TimelineLoading(): ReactElement {
       role="status"
       aria-label="Loading timeline..."
     >
-      <div className="bg-background-subtle mb-3 h-4 w-40 animate-pulse rounded" />
+      <div className="bg-muted mb-3 h-4 w-40 animate-pulse rounded" />
       <div className="space-y-2">
-        <div className="bg-background-subtle h-6 w-3/4 animate-pulse rounded" />
-        <div className="bg-background-subtle h-6 w-1/2 animate-pulse rounded" />
-        <div className="bg-background-subtle h-6 w-2/3 animate-pulse rounded" />
+        <div className="bg-muted h-6 w-3/4 animate-pulse rounded" />
+        <div className="bg-muted h-6 w-1/2 animate-pulse rounded" />
+        <div className="bg-muted h-6 w-2/3 animate-pulse rounded" />
       </div>
     </div>
   )
@@ -79,7 +79,7 @@ export function TimelineMissingStartField(): ReactElement {
 export function TimelineEmpty({ message }: { readonly message?: string }): ReactElement {
   return (
     <div
-      className="border-border bg-background-subtle text-foreground-muted text-md rounded border p-6 text-center"
+      className="border-border bg-muted text-muted-foreground text-md rounded border p-6 text-center"
       data-timeline-state="empty"
       role="status"
     >

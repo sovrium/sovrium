@@ -6,8 +6,13 @@
  */
 
 import { aiChatComponent } from './ai-chat-component'
+import { aspectRatioComponents } from './aspect-ratio-component'
+import { attachmentComponents } from './attachment-component'
+import { bottomDrawerComponents } from './bottom-drawer-component'
 import { codeBlockComponent } from './code-block-component'
+import { collapsibleComponents } from './collapsible-component'
 import { commandPaletteComponent } from './command-palette-component'
+import { dayCalendarComponents } from './day-calendar-component'
 import { designComponents } from './design-components'
 import { displayComponents } from './display-components'
 import { favoritesButtonComponent } from './favorites-button-component'
@@ -15,12 +20,17 @@ import { filePreviewComponent } from './file-preview-component'
 import { interactiveComponents } from './interactive-components'
 import { islandComponents } from './island-components'
 import { islandGraphComponent } from './island-graph-component'
+import { labelComponents } from './label-component'
 import { mapComponent } from './map-component'
+import { markerComponents } from './marker-component'
 import { marqueeComponent } from './marquee-component'
 import { matrixComponent } from './matrix-component'
 import { mediaComponents } from './media-components'
+import { messageComponents } from './message-component'
+import { messageScrollerComponents } from './message-scroller-component'
 import { navigationComponents } from './navigation-components'
 import { progressComponent } from './progress-component'
+import { questionnaireComponents } from './questionnaire-component'
 import { ratingComponent } from './rating-component'
 import { recordFieldComponent } from './record-field-component'
 import { reorderableListComponent } from './reorderable-list-component'
@@ -62,6 +72,17 @@ export const COMPONENT_REGISTRY: Partial<Record<DispatchableComponentType, Compo
   // page components any config may declare — the design-system console is their
   // first consumer, not their owner.
   ...designComponents,
+  // The shadcn/ui primitives a config draws with no island of their own.
+  ...aspectRatioComponents,
+  ...labelComponents,
+  ...collapsibleComponents,
+  ...markerComponents,
+  ...attachmentComponents,
+  ...messageComponents,
+  ...messageScrollerComponents,
+  ...questionnaireComponents,
+  ...bottomDrawerComponents,
+  ...dayCalendarComponents,
   // `code` — standalone code block with optional frame chrome (filename header,
   // terminal marker, command output) and a working copy button. Extracted from
   // `textComponents` so neither file carries two growing dispatches.
@@ -91,7 +112,7 @@ export const COMPONENT_REGISTRY: Partial<Record<DispatchableComponentType, Compo
   // `split-pane` — resizable two-pane layout.
   // SSR renders the static side-by-side structure; a sibling `data-island`
   // marker hydrates the drag-to-resize behaviour in place.
-  'split-pane': splitPaneComponent,
+  resizable: splitPaneComponent,
   'record-field': recordFieldComponent,
   stepper: stepperComponent,
   rating: ratingComponent,
@@ -110,7 +131,7 @@ export const COMPONENT_REGISTRY: Partial<Record<DispatchableComponentType, Compo
   // `command-palette` is never schema-authored — it is synthesized at render
   // time by `render-page` and appended to every page so the global `Cmd+K`
   // palette is available app-wide.
-  'command-palette': commandPaletteComponent,
+  command: commandPaletteComponent,
   // ONE entry for both comment surfaces: `commentsComponent` reads `display`
   // and hands a `display: 'count'` component to the inline-total renderer. The
   // registry is keyed by `type`, and the two are now one type.

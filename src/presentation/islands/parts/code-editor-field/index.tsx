@@ -14,13 +14,17 @@ import { python } from '@codemirror/lang-python'
 import { sql } from '@codemirror/lang-sql'
 import { yaml } from '@codemirror/lang-yaml'
 import { EditorState } from '@codemirror/state'
-import CodeMirror from '@uiw/react-codemirror'
+import CodeMirror, { EditorView } from '@uiw/react-codemirror'
 import { computeCodeEditorFrameClasses } from '@/presentation/design/code-editor-default-classes'
 import {
   computeFormFieldClasses,
   computeFormFieldLabelClasses,
 } from '@/presentation/design/form-layout-classes'
-import { sovriumEditorTheme, sovriumSyntaxHighlighting } from './editor-theme'
+import {
+  sovriumEditorTheme,
+  sovriumReadOnlyGround,
+  sovriumSyntaxHighlighting,
+} from './editor-theme'
 import type { CodeEditorFieldProps } from './props'
 import type { Extension } from '@codemirror/state'
 
@@ -59,12 +63,20 @@ const LANGUAGE_MAP: Record<string, () => Extension> = {
  * allocation itself is unavoidable — CodeMirror wants a fresh list per mount —
  * so it moves out of the component rather than being silenced in place.
  */
-const buildExtensions = (language: string, tabSize: number): Extension[] => {
+/**
+ * CodeMirror's content is the element that takes the text, so it carries the
+ * input group's `input-group-control` slot: the frame rings while it has focus.
+ */
+const GROUP_CONTROL = EditorView.contentAttributes.of({ 'data-slot': 'input-group-control' })
+
+const buildExtensions = (language: string, tabSize: number, readOnly: boolean): Extension[] => {
   const langFactory = LANGUAGE_MAP[language]
   return [
     EditorState.tabSize.of(tabSize),
     ...(langFactory ? [langFactory()] : []),
     sovriumSyntaxHighlighting,
+    GROUP_CONTROL,
+    ...(readOnly ? [sovriumReadOnlyGround] : []),
   ]
 }
 
@@ -108,7 +120,7 @@ export function CodeEditorField({
   foldGutter = true,
   indentWithTab = true,
 }: CodeEditorFieldProps) {
-  const extensions = buildExtensions(language, tabSize)
+  const extensions = buildExtensions(language, tabSize, readOnly)
 
   const minHeight = minLines ? `${minLines * 1.5}em` : '6em'
   const maxHeight = maxLines ? `${maxLines * 1.5}em` : '400px'
@@ -138,6 +150,8 @@ export function CodeEditorField({
         }}
         minHeight={minHeight}
         maxHeight={maxHeight}
+        role="group"
+        data-slot="input-group"
         className={computeCodeEditorFrameClasses()}
       />
     </div>

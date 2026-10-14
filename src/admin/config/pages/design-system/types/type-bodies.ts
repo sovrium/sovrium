@@ -20,9 +20,13 @@
 import accordion from './accordion'
 import aiChat from './ai-chat'
 import alertDialog from './alert-dialog'
+import aspectRatio from './aspect-ratio'
+import attachment from './attachment'
+import audio from './audio'
 import avatar from './avatar'
 import badge from './badge'
 import breadcrumb from './breadcrumb'
+import bubble from './bubble'
 import buttonGroup from './button-group'
 import calendar from './calendar'
 import card from './card'
@@ -30,6 +34,8 @@ import chart from './chart'
 import checkbox from './checkbox'
 import code from './code'
 import codeEditor from './code-editor'
+import collapsible from './collapsible'
+import combobox from './combobox'
 import commandPalette from './command-palette'
 import comments from './comments'
 import container from './container'
@@ -38,10 +44,10 @@ import datePicker from './date-picker'
 import dateRangePicker from './date-range-picker'
 import descriptionList from './description-list'
 import dialog from './dialog'
-import divider from './divider'
 import drawer from './drawer'
 import dropdownMenu from './dropdown-menu'
 import emptyState from './empty-state'
+import eventCalendar from './event-calendar'
 import field from './field'
 import fieldSpecimen from './field-specimen'
 import fileUpload from './file-upload'
@@ -49,20 +55,29 @@ import filterBar from './filter-bar'
 import flex from './flex'
 import form from './form'
 import gallery from './gallery'
-import { genericBody } from './generic-body'
+import { genericBody, refusedBody } from './generic-body'
+import graph from './graph'
 import grid from './grid'
 import hoverCard from './hover-card'
+import icon from './icon'
 import input from './input'
 import inputGroup from './input-group'
 import kanban from './kanban'
 import kbd from './kbd'
 import kpi from './kpi'
+import label from './label'
 import languageSwitcher from './language-switcher'
 import link from './link'
 import list from './list'
 import listItem from './list-item'
+import map from './map'
+import marker from './marker'
 import marquee from './marquee'
+import matrix from './matrix'
 import menubar from './menubar'
+import message from './message'
+import messageScroller from './message-scroller'
+import nativeSelect from './native-select'
 import navigationMenu from './navigation-menu'
 import numberInput from './number-input'
 import pagination from './pagination'
@@ -75,8 +90,11 @@ import recordField from './record-field'
 import recordPicker from './record-picker'
 import reorderableList from './reorderable-list'
 import richTextEditor from './rich-text-editor'
+import scrollArea from './scroll-area'
 import searchInput from './search-input'
 import select from './select'
+import separator from './separator'
+import sheet from './sheet'
 import sidebar from './sidebar'
 import skeleton from './skeleton'
 import slider from './slider'
@@ -99,19 +117,28 @@ import toc from './toc'
 import toggle from './toggle'
 import toggleGroup from './toggle-group'
 import tooltip from './tooltip'
+import tree from './tree'
 import type { TypePageBody } from './body-shape'
 
 /**
  * The types whose only drawing is themselves.
  *
- * Each publishes no variant axis and has one appearance: an icon is an icon, a
- * video is a video. They author a single resting drawing rather than a list, so
+ * Each publishes no variant axis and has one appearance: a video is a video, a frame
+ * is a frame. `audio` and `icon` left this list when each needed a drawing of
+ * its own (see their modules). They author a single resting drawing rather than a list, so
  * the page shows it bare, under the section's own heading.
+ *
+ * `carousel` is here because its one appearance is the catalogue's own
+ * fixture-bound exhibit: slides of specimen rows, with its two arrows.
+ *
+ * `scroll-area` left for a page of its own: a scroll area shows nothing of
+ * itself until it holds more than its height, so its page draws the real
+ * component filled past that height.
  *
  * `image` was here until it stopped being true: it publishes `default avatar
  * thumbnail hero`, so its page derives four sections and drew one.
  */
-const GENERIC_TYPES = ['audio', 'icon', 'iframe', 'scroll-area', 'video'] as const
+const GENERIC_TYPES = ['carousel', 'iframe', 'rating', 'video'] as const
 
 /**
  * The types the catalogue REPORTS, and that have no drawing to author yet.
@@ -122,32 +149,31 @@ const GENERIC_TYPES = ['audio', 'icon', 'iframe', 'scroll-area', 'video'] as con
  * refused too and is listed above only because it ALSO has one appearance of
  * its own the day a console can hold it.
  *
- * These are here rather than absent because absence is not a third answer.
- * A type in neither list draws its derived variant sections and stops — and
- * `graph` and `matrix` publish no variant axis, so "and stops" was the whole
- * page: no drawing, no reason, nothing for a reader to act on. That is the
- * fall-through `[internal ref]` exists to catch, and naming them here
- * is what turns it into a stated refusal.
+ * These are here rather than absent because absence is not a third answer: a
+ * type in neither list draws its derived variant sections and stops, and a
+ * type with no variant axis would then show no drawing and no reason. That is
+ * the fall-through `[internal ref]` exists to catch, and naming them
+ * here is what turns it into a stated refusal.
  *
  * Why they are refused at all is the catalogue's to say, not this file's:
- * `graph` and `matrix` read a nodes-and-edges envelope, the platform's specimen
- * fixture publishes rows, and the one graph an instance holds is the
- * operator's own access map.
- * `map` and `tree` meet the same wall from another side — a location, a
- * parent — and `file-preview` needs a signed file of yours; `signature-pad` is
- * refused because its Sign button is a write path of its own.
+ * `file-preview` needs a signed file of yours, and `signature-pad` is refused
+ * because its Sign button is a write path of its own. `graph`, `matrix`, `map`
+ * and `tree` left this list once the specimen fixture served a graph and gave
+ * its rows a place and a parent: each now draws from it, with a page of its own.
  *
  * The sentence a reader sees comes from the catalogue record itself
  * (`catalog-specimens.ts`), bound through `$record.refusalReason`, so the
  * console cannot drift into inventing its own.
  */
-const REPORTED_TYPES = ['graph', 'matrix', 'map', 'tree', 'file-preview', 'signature-pad'] as const
+const REPORTED_TYPES = ['file-preview', 'signature-pad'] as const
 
 /** Type name → its authored body. */
 export const TYPE_BODIES: Readonly<Record<string, TypePageBody>> = {
   ...Object.fromEntries(GENERIC_TYPES.map((t) => [t, genericBody(t)])),
   ...Object.fromEntries(REPORTED_TYPES.map((t) => [t, genericBody(t)])),
   'qr-code': qrCode,
+  audio,
+  icon,
   marquee,
   'ai-chat': aiChat,
   card,
@@ -161,9 +187,9 @@ export const TYPE_BODIES: Readonly<Record<string, TypePageBody>> = {
   avatar,
   code,
   'description-list': descriptionList,
-  'empty-state': emptyState,
+  empty: emptyState,
   kbd,
-  'list-item': listItem,
+  item: listItem,
   'search-input': searchInput,
   swatch,
   tabs,
@@ -174,10 +200,12 @@ export const TYPE_BODIES: Readonly<Record<string, TypePageBody>> = {
   badge,
   breadcrumb,
   'button-group': buttonGroup,
-  'command-palette': commandPalette,
+  command: commandPalette,
   'context-menu': contextMenu,
   dialog,
-  divider,
+  'scroll-area': scrollArea,
+  separator,
+  sheet,
   drawer,
   'dropdown-menu': dropdownMenu,
   'hover-card': hoverCard,
@@ -200,6 +228,8 @@ export const TYPE_BODIES: Readonly<Record<string, TypePageBody>> = {
   field,
   input,
   'input-group': inputGroup,
+  combobox,
+  'native-select': nativeSelect,
   'radio-group': radioGroup,
   'record-picker': recordPicker,
   'rich-text-editor': richTextEditor,
@@ -210,22 +240,37 @@ export const TYPE_BODIES: Readonly<Record<string, TypePageBody>> = {
   toggle,
   'toggle-group': toggleGroup,
   calendar,
+  'event-calendar': eventCalendar,
   chart,
   comments,
   'filter-bar': filterBar,
   form,
   gallery,
+  graph,
   kanban,
   kpi,
   list,
+  map,
+  matrix,
   table,
+  tree,
   container,
   flex,
   sidebar,
-  'split-pane': splitPane,
+  resizable: splitPane,
   'field-specimen': fieldSpecimen,
   preview,
   specimen,
   'record-field': recordField,
   tooltip,
+  'aspect-ratio': aspectRatio,
+  label,
+  collapsible,
+  marker,
+  attachment,
+  message,
+  'message-scroller': messageScroller,
+  bubble,
+  // Refused by the schema before it reaches a specimen: see `refusedBody`.
+  questionnaire: refusedBody,
 }

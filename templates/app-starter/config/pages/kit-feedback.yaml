@@ -21,7 +21,7 @@ components:
       - type: text
         element: p
         props:
-          className: text-md text-foreground-muted
+          className: text-md text-muted-foreground
         content: 'Alerts, empty states, progress, confirmations and paging, each one block of the library.'
   - component: alert-inline
   - component: alert-validation-summary

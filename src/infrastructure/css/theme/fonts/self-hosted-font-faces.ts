@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { JETBRAINS_MONO_FONT_FACE } from './jetbrains-mono'
-import { PLEX_SANS_FONT_FACE } from './plex-sans'
+import { GEIST_FONT_FACE } from './geist'
+import { GEIST_MONO_FONT_FACE } from './geist-mono'
 
 /**
  * The self-hosted `@font-face` set, assembled by `buildDefaultLayer` in
@@ -25,8 +25,9 @@ import { PLEX_SANS_FONT_FACE } from './plex-sans'
  * that constant contains no `@font-face` and no `.woff2` — the token layer is
  * a pure token block.
  *
- * Two families only: [internal ref] amendment A2 deletes the Source Serif italic
- * grace note along with the `fg-humane` role. See
- * `[internal ref]`.
+ * Two families, shadcn/ui's: Geist for `--font-sans` and Geist Mono for
+ * `--font-mono` (the `font-geist` and `font-geist-mono` items of the pinned
+ * registry snapshot).
+ * (§ Self-hosted fonts).
  */
-export const SELF_HOSTED_FONT_FACES = `${PLEX_SANS_FONT_FACE}\n\n${JETBRAINS_MONO_FONT_FACE}`
+export const SELF_HOSTED_FONT_FACES = `${GEIST_FONT_FACE}\n\n${GEIST_MONO_FONT_FACE}`

@@ -35,7 +35,7 @@
  * presentation-island` layer boundary disallows island imports from
  * `ui/sections/`. Mirrors the location chosen for
  * `disclosure-default-classes.ts`, `select-default-classes.ts`,
- * `toggle-default-classes.ts`, `numeric-default-classes.ts`,
+ * `toggle-default-classes.ts`,
  * `date-default-classes.ts`, and `overlay-default-classes.ts`.
  */
 

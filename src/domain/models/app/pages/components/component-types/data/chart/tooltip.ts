@@ -18,6 +18,38 @@ export const ChartTooltipSchema = Schema.Struct({
       examples: ['{label}: {value}', '{value}'],
     })
   ),
+  /** The mark beside each value */
+  indicator: Schema.optional(
+    Schema.Literals(['dot', 'line', 'dashed']).annotate({
+      description:
+        "The mark beside each value, in the series colour: 'dot' (the default), 'line' or 'dashed'. shadcn/ui's ChartTooltipContent indicator.",
+    })
+  ),
+  /** Drop the callout heading */
+  hideLabel: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Leave the heading (the hovered category) off the callout (default: false)',
+    })
+  ),
+  /** Drop the indicator */
+  hideIndicator: Schema.optional(
+    Schema.Boolean.annotate({
+      description: 'Leave the indicator off each value of the callout (default: false)',
+    })
+  ),
+  /** Field naming each entry */
+  nameKey: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Row field naming each entry of the callout, such as a display name beside a code',
+    })
+  ),
+  /** Field heading the callout */
+  labelKey: Schema.optional(
+    Schema.String.annotate({
+      description: 'Row field heading the callout instead of the category value',
+    })
+  ),
 }).annotate({
   title: 'Chart Tooltip',
   description: 'Tooltip display configuration',

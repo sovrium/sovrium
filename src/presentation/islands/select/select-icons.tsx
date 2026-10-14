@@ -5,44 +5,72 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
-/** Chevron-down icon used by select/combobox triggers. */
-export function ChevronDown(): ReactElement {
+/**
+ * The lucide glyphs shadcn/ui's select and combobox draw, as inline SVG: the
+ * geometry of lucide's `chevron-down`, `chevron-up` and `check`, sized by the
+ * class the caller passes (shadcn's parts size an unsized glyph to 16px).
+ */
+function LucideGlyph({
+  className,
+  children,
+}: {
+  readonly className?: string
+  readonly children: ReactNode
+}): ReactElement {
   return (
     <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
       fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
     >
-      <path
-        d="M3 4.5L6 7.5L9 4.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      {children}
     </svg>
   )
 }
 
-/** Check-mark icon used by select-option indicators. */
-export function CheckMark(): ReactElement {
+/** lucide `chevron-down`: the select and combobox trigger's glyph. */
+export function ChevronDown({ className }: { readonly className?: string }): ReactElement {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-    >
-      <path
-        d="M3.5 7L6 9.5L10.5 5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <LucideGlyph className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </LucideGlyph>
+  )
+}
+
+/** lucide `chevron-up`: the select popup's scroll-up arrow. */
+export function ChevronUp({ className }: { readonly className?: string }): ReactElement {
+  return (
+    <LucideGlyph className={className}>
+      <path d="m18 15-6-6-6 6" />
+    </LucideGlyph>
+  )
+}
+
+/** lucide `check`: the selected option's mark. */
+export function CheckMark({ className }: { readonly className?: string }): ReactElement {
+  return (
+    <LucideGlyph className={className}>
+      <path d="M20 6 9 17l-5-5" />
+    </LucideGlyph>
+  )
+}
+
+/** lucide `x`: a clearable select's clear control. */
+export function XMark({ className }: { readonly className?: string }): ReactElement {
+  return (
+    <LucideGlyph className={className}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </LucideGlyph>
   )
 }

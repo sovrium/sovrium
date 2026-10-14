@@ -10,35 +10,52 @@ import { mapStringsDeep } from './value-walker'
 import type { EnvVar } from '@/domain/models/app/env'
 
 /**
- * Replace any occurrence of an env-var value with `***` so secrets cannot
- * leak into automation run history / logs.
+ * Replace every occurrence of each value of `envLookup` with `***`, whatever
+ * its length — the write-only masking reads it (`run/write-only-values.ts`),
+ * where a four-digit code is still a value nobody may read. The env and
+ * connection redactors below skip short values (see {@link MIN_MASKED_LENGTH}).
  *
- * Strategy:
- *   - Build the list of "secret strings" from the resolved env lookup.
- *   - For every string in the input tree, replace every secret occurrence
- *     with the placeholder `***`.
- *
- * Pure: takes the resolved env lookup directly so it can be tested without
+ * Pure: takes the resolved lookup directly so it can be tested without
  * touching `process.env`.
  */
 export const redactSecretsInValue = (
   value: unknown,
   envLookup: Readonly<Record<string, string>>
-): unknown => {
-  const secrets = collectSecrets(envLookup)
-  if (secrets.length === 0) return value
-  return walkAndRedact(value, secrets)
-}
+): unknown => walkAndRedact(value, collectSecrets(envLookup), 1)
 
 /**
- * Build the list of secret strings to scrub. Empty strings are excluded
- * (would replace everything with `***`).
+ * The shortest value the redactor masks. A shorter one (`3`, `on`, `4821`) is
+ * part of too many ordinary words, numbers and identifiers: masking it turns
+ * `browser step 3` into `browser step ***` and a run id into noise, sending a
+ * reader after something that does not exist. The line is the one the
+ * screenshot painter already draws (`run-admin-only-output.ts`).
  */
-const collectSecrets = (envLookup: Readonly<Record<string, string>>): readonly string[] =>
-  Object.values(envLookup).filter((v) => v.length > 0)
+const MIN_MASKED_LENGTH = 6
 
-const walkAndRedact = (value: unknown, secrets: readonly string[]): unknown =>
-  mapStringsDeep(value, (s) => redactString(s, secrets))
+/** Build the list of secret strings to scrub: every value of the lookup. */
+const collectSecrets = (envLookup: Readonly<Record<string, string>>): readonly string[] =>
+  Object.values(envLookup)
+
+/**
+ * Mask every secret in every string of `value`. A string that IS a secret
+ * reads `***` whatever its length; inside other text, values shorter than
+ * `minLength` are left alone (the empty string always, which would replace
+ * everything), and the longest is replaced first, so a secret is masked WHOLE
+ * even when a shorter one is part of it — replaced first, the shorter one
+ * would leave the rest of the longer one readable.
+ */
+const walkAndRedact = (
+  value: unknown,
+  secrets: readonly string[],
+  minLength: number = MIN_MASKED_LENGTH
+): unknown => {
+  const exact = new Set(secrets.filter((secret) => secret.length > 0))
+  if (exact.size === 0) return value
+  const masked = [...exact]
+    .filter((secret) => secret.length >= Math.max(minLength, 1))
+    .toSorted((a, b) => b.length - a.length)
+  return mapStringsDeep(value, (s) => (exact.has(s) ? '***' : redactString(s, masked)))
+}
 
 const redactString = (input: string, secrets: readonly string[]): string =>
   secrets.reduce((acc, secret) => acc.split(secret).join('***'), input)
@@ -49,12 +66,15 @@ const redactString = (input: string, secrets: readonly string[]): string =>
  *
  * Two conditions, both required:
  *
- *  1. the variable carries an explicit `secret: false` — the marker is scoped
- *     to the DEFAULT, so anything else (including a mistyped non-boolean) keeps
- *     redacting and a config written before the marker existed is unaffected;
- *  2. that default is the value actually IN FORCE. When the operator supplied
- *     an OS value, what is resolved is theirs and not the one the author
- *     inspected, so it stays hidden.
+ *  1. the variable carries an explicit `secret: false` — anything else
+ *     (including a mistyped non-boolean) keeps redacting, and a config written
+ *     before the marker existed is unaffected;
+ *  2. by default, that the DEFAULT is the value actually IN FORCE: when the
+ *     operator supplied an OS value, what is resolved is theirs and not the
+ *     one the author inspected, so the admin config view and the boot ledger
+ *     keep it hidden. Run history (`whateverSource`) shows the value of a
+ *     `secret: false` variable wherever it comes from: the author declared the
+ *     variable public, and a run reads it like any other value it prints.
  *
  * A value another, secret-bearing variable also resolves to is excluded: a
  * collision must fail closed, because unredacting the shared string would
@@ -62,11 +82,13 @@ const redactString = (input: string, secrets: readonly string[]): string =>
  */
 const collectDeclaredVisibleValues = (
   envVars: ReadonlyArray<EnvVar>,
-  processEnv: Readonly<Record<string, string | undefined>>
+  processEnv: Readonly<Record<string, string | undefined>>,
+  whateverSource: boolean
 ): ReadonlySet<string> => {
   const inForceDefault = (v: EnvVar): string | undefined => {
     const fromOs = processEnv[v.key]
-    return fromOs === undefined || fromOs === '' ? v.default : undefined
+    if (fromOs === undefined || fromOs === '') return v.default
+    return whateverSource ? fromOs : undefined
   }
   const declaredVisible = envVars
     .filter((v) => v.secret === false)
@@ -103,15 +125,18 @@ export const redactSecretsForEnv = (
   value: unknown,
   envVars: ReadonlyArray<EnvVar> | undefined,
   processEnv: Readonly<Record<string, string | undefined>>
-): unknown => {
-  if (!envVars || envVars.length === 0) return value
+): unknown => walkAndRedact(value, envSecrets(envVars, processEnv, false))
+
+/** The env values {@link redactSecretsForEnv} masks; `whateverSource` see {@link collectDeclaredVisibleValues}. */
+const envSecrets = (
+  envVars: ReadonlyArray<EnvVar> | undefined,
+  processEnv: Readonly<Record<string, string | undefined>>,
+  whateverSource: boolean
+): readonly string[] => {
+  if (!envVars || envVars.length === 0) return []
   const lookup = withoutUnresolvedReferences(buildEnvLookup(envVars, processEnv), processEnv)
-  const visible = collectDeclaredVisibleValues(envVars, processEnv)
-  if (visible.size === 0) return redactSecretsInValue(value, lookup)
-  return redactSecretsInValue(
-    value,
-    Object.fromEntries(Object.entries(lookup).filter(([, v]) => !visible.has(v)))
-  )
+  const visible = collectDeclaredVisibleValues(envVars, processEnv, whateverSource)
+  return collectSecrets(lookup).filter((v) => !visible.has(v))
 }
 
 /**
@@ -247,22 +272,35 @@ export const collectConnectionSecrets = (
 /**
  * Top-level convenience: redact env values AND literal connection secrets
  * from a free-form value tree. Use this for any text that may surface to
- * a user (run-history rows, trigger HTTP responses, log lines).
+ * a user (trigger HTTP responses, the admin config view, the boot ledger).
  *
- * Order: connection secrets first (typically longer/rarer strings), then
- * env secrets. Both passes are idempotent — running them in either order
- * yields the same `***`-replaced output, but secrets-first means a
- * connection literal is masked even if it happened to coincide with an
- * env value substring.
+ * One pass over both lists, longest value first, so a connection literal and
+ * an env value are each masked whole whichever is part of the other.
  */
 export const redactSecretsForApp = (
   value: unknown,
   envVars: ReadonlyArray<EnvVar> | undefined,
   processEnv: Readonly<Record<string, string | undefined>>,
   connections: ReadonlyArray<RedactableConnection> | undefined
-): unknown => {
-  const connectionSecrets = collectConnectionSecrets(connections)
-  const afterConnections =
-    connectionSecrets.length === 0 ? value : walkAndRedact(value, connectionSecrets)
-  return redactSecretsForEnv(afterConnections, envVars, processEnv)
-}
+): unknown =>
+  walkAndRedact(value, [
+    ...collectConnectionSecrets(connections),
+    ...envSecrets(envVars, processEnv, false),
+  ])
+
+/**
+ * {@link redactSecretsForApp} for a run's history — step input, output and
+ * error, reads, loop frames: a variable declared `secret: false` is shown
+ * whether its value comes from its default or from the environment, unless a
+ * secret variable holds the same value.
+ */
+export const redactSecretsForRunHistory = (
+  value: unknown,
+  envVars: ReadonlyArray<EnvVar> | undefined,
+  processEnv: Readonly<Record<string, string | undefined>>,
+  connections: ReadonlyArray<RedactableConnection> | undefined
+): unknown =>
+  walkAndRedact(value, [
+    ...collectConnectionSecrets(connections),
+    ...envSecrets(envVars, processEnv, true),
+  ])

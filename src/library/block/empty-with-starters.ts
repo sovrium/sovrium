@@ -28,12 +28,12 @@ const starter = (
   props: {
     href,
     className:
-      'flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-foreground hover:border-border-strong hover:bg-background-subtle',
+      'flex flex-col gap-2 rounded-lg border border-border bg-card p-5 text-foreground hover:border-border-strong hover:bg-muted',
   },
   children: [
     { type: 'icon', props: { name: iconName, size: 20 } },
     span(title, 'mt-2 text-md font-semibold text-foreground'),
-    span(description, 'text-sm text-foreground-subtle'),
+    span(description, 'text-sm text-muted-foreground'),
   ],
 })
 
@@ -73,7 +73,7 @@ export const entry = defineLibraryEntry({
       name,
       appRegion([
         stack(
-          [appHeading(p('title')), para(p('description'), 'text-md text-foreground-muted')],
+          [appHeading(p('title')), para(p('description'), 'text-md text-muted-foreground')],
           'max-w-2xl gap-2'
         ),
         grid(

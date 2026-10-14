@@ -31,8 +31,6 @@
  * below are the narrowest projection each rule actually reads.
  */
 
-import { PUBLIC_BUDGET_ZONE_NAMES } from './zones'
-
 /** The projection of an app config these rules read. Deliberately not `App`. */
 interface DesignValidationInput {
   readonly design?: {
@@ -62,7 +60,6 @@ interface DesignValidationInput {
     readonly zones?: ReadonlyArray<{
       readonly pattern: string
       readonly zone: string
-      readonly accentBudget?: string
       readonly voice?: { readonly pronoun?: string }
     }>
   }
@@ -304,15 +301,6 @@ const validateTypeScaleFontReferences = (app: DesignValidationInput): string | t
  * ranking happens to reach first. Both are plausible, one is silently ignored,
  * and no surface anywhere says which. Refusing is the only outcome that names
  * the ambiguity.
- *
- * ### 4d — a public-budget zone name carrying a non-public budget
- *
- * `accentBudget` is authoritative for the budget lock — the zone NAME no longer
- * decides it. But `PUBLIC_BUDGET_ZONE_NAMES` still holds the convention, and a
- * config declaring `{ zone: 'marketing', accentBudget: 'product' }` makes the
- * name and the budget disagree. Whichever a future reader trusts, the other is
- * a lie. This is the rule that lets `accentBudget` become authoritative without
- * the zone name quietly becoming meaningless.
  */
 /** The zone entries a config declares, or `undefined` when it declares none. */
 type ZoneEntries = NonNullable<NonNullable<DesignValidationInput['design']>['zones']>
@@ -351,18 +339,6 @@ const findDuplicatePattern = (zones: ZoneEntries): string | true => {
   return `\`design.zones\` declares the pattern '${offender.pattern}' twice. Entries rank by specificity, not declaration order, so two entries with the same pattern are equally specific and the winner is arbitrary — one zone would govern the route and the other would silently never apply.`
 }
 
-/** 4d — a conventionally-public zone name carrying a non-public budget. */
-const findContradictoryBudget = (zones: ZoneEntries): string | true => {
-  const offender = zones.find(
-    (entry) =>
-      PUBLIC_BUDGET_ZONE_NAMES.includes(entry.zone) &&
-      entry.accentBudget !== undefined &&
-      entry.accentBudget !== 'public'
-  )
-  if (offender === undefined) return true
-  return `\`design.zones\` entry '${offender.pattern}' names zone '${offender.zone}', which carries the PUBLIC accent budget by convention, but declares \`accentBudget: '${offender.accentBudget ?? ''}'\`. The name and the budget contradict each other and a reader cannot tell which is meant: either declare \`accentBudget: 'public'\`, or rename the zone. Conventionally-public zone names: ${PUBLIC_BUDGET_ZONE_NAMES.join(', ')}`
-}
-
 const validateZoneRules = (app: DesignValidationInput): string | true => {
   const zones = app.design?.zones
   if (!zones) return true
@@ -373,10 +349,7 @@ const validateZoneRules = (app: DesignValidationInput): string | true => {
   const orphan = findOrphanVoiceOverride(zones, app.design?.voice !== undefined)
   if (orphan !== true) return orphan
 
-  const duplicate = findDuplicatePattern(zones)
-  if (duplicate !== true) return duplicate
-
-  return findContradictoryBudget(zones)
+  return findDuplicatePattern(zones)
 }
 
 /**
@@ -411,7 +384,7 @@ export const validateAllDesignReferences = (app: DesignValidationInput): string 
 
   // Density LAST: it is the only rule that resolves a name against the zone
   // map, so a zone map with
-  // duplicate patterns or an illegal budget has to be reported before an
+  // duplicate patterns has to be reported before an
   // "unknown zone" message that would send the author to the wrong line.
   return validateDensityZoneReferences(app)
 }

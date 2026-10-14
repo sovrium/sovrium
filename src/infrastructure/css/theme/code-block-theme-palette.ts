@@ -7,6 +7,7 @@
 
 import { Data, Effect } from 'effect'
 import { contrastRatio } from '@/domain/kernel/color/option-chip-color'
+import { resolveCodeBlockThemes } from '@/domain/models/app/design/code-block-service'
 import { logWarning } from '@/infrastructure/logging/logger'
 import type { Design } from '@/domain/models/app/design'
 
@@ -58,7 +59,10 @@ const paletteOf = (theme: ShikiThemeColours): readonly string[] => {
 export const loadCodeBlockDarkPalette = (
   design: Readonly<Design> | undefined
 ): Effect.Effect<readonly string[]> => {
-  const name = design?.codeBlock?.darkTheme
+  const name = resolveCodeBlockThemes(
+    design?.codeBlock?.theme,
+    design?.codeBlock?.darkTheme
+  ).darkTheme
   if (name === undefined || name === '') return Effect.succeed([])
   return Effect.tryPromise({
     try: async () => {

@@ -10,7 +10,16 @@ import {
   resolveInterpreterString,
   resolveTranslationPattern,
 } from '@/domain/models/app/languages/translation-resolver'
-import { COMMAND_PALETTE_RUNTIME } from './command-palette-runtime'
+import {
+  COMMAND_GROUP_CLASSES,
+  COMMAND_INPUT_CLASSES,
+  COMMAND_INPUT_GROUP_CLASSES,
+  COMMAND_INPUT_WRAPPER_CLASSES,
+  COMMAND_ITEM_CLASSES,
+  COMMAND_LIST_CLASSES,
+  COMMAND_ROOT_CLASSES,
+} from '@/presentation/design/command-default-classes'
+import { renderAuthoredGroups } from './command-groups-host'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
 
@@ -68,12 +77,11 @@ const ADMIN_SEARCH: PaletteSearch = { endpoint: '/api/admin/search' }
  *
  * Two things travel to the client and nothing else: the canonical
  * `data-command-palette-config` marker (so the page advertises exactly one
- * palette) carrying the declared binding, and the `command-palette` island that
- * hosts the overlay.
+ * palette) carrying the declared binding, and the `command` island that hosts
+ * the overlay, mounted with the page so the console's search is ready at once.
  *
- * The generic `command-palette-runtime` `<script>` is deliberately omitted. Both
- * runtimes bind the same ⌘K, so shipping them together would open two overlays
- * on one keystroke — which is why `search` is a MODE rather than an addition.
+ * The built-in quick-action payload is deliberately omitted: one ⌘K opens one
+ * palette, which is why `search` is a MODE rather than an addition.
  */
 function renderSearchPalette(search: PaletteSearch): ReactElement {
   const configJson = serializeJsonForScript({ search })
@@ -90,8 +98,8 @@ function renderSearchPalette(search: PaletteSearch): ReactElement {
         dangerouslySetInnerHTML={{ __html: configJson }}
       />
       <div
-        data-island="command-palette"
-        data-component-type="command-palette"
+        data-island="command"
+        data-component-type="command"
         data-island-props={islandProps}
         className="hidden"
       >
@@ -101,26 +109,19 @@ function renderSearchPalette(search: PaletteSearch): ReactElement {
   )
 }
 
-/**
- * One quick action, as `quickActions()` in `command-palette-runtime-actions.ts`
- * builds it. Mirrored here so a SPECIMEN can be drawn server-side; see
- * {@link renderSpecimenOverlay} for why the mirror is the only option.
- */
+/** One quick action, as the island's `quickActions()` builds it. */
 interface QuickAction {
   readonly label: string
   readonly action: string
 }
 
 /**
- * The quick-action catalogue, derived from the SAME config the live runtime
+ * The quick-action catalogue, derived from the SAME config the live palette
  * reads: one "create" per table, one "go to" per navigable page, and the
- * unconditional dark-mode toggle.
- *
- * A transcription of `quickActions()`, which lives in the runtime as a
- * JavaScript SOURCE STRING and therefore cannot be imported. The duplication is
- * real and is the cheaper of two bad options: the alternative is a specimen
- * whose result rows are invented here, which would document this file instead
- * of the palette.
+ * unconditional dark-mode toggle. A transcription of `quickActions()` in
+ * `islands/command/command-actions-data.ts`: a render module may not import an
+ * island, and the alternative, rows invented here, would document this file
+ * instead of the palette.
  */
 const specimenQuickActions = (
   tables: ReadonlyArray<{ readonly name: string }>,
@@ -137,11 +138,7 @@ const specimenQuickActions = (
   { label: 'Toggle dark mode', action: 'toggle-dark-mode' },
 ]
 
-/**
- * A quick action matches a query when every whitespace-separated token appears
- * in its label — `actionMatchesQuery` in the runtime, transcribed for the same
- * reason as above.
- */
+/** Every whitespace-separated token appears in the label: `actionMatchesQuery`, transcribed. */
 const specimenActionMatches = (label: string, query: string): boolean => {
   const haystack = label.toLowerCase()
   return query
@@ -150,30 +147,55 @@ const specimenActionMatches = (label: string, query: string): boolean => {
     .every((token) => token.length === 0 || haystack.includes(token))
 }
 
+/** The specimen's "Quick actions" group, in cmdk's own markup. */
+function renderSpecimenActionGroup(actions: readonly QuickAction[]): ReactElement {
+  return (
+    <div
+      cmdk-group=""
+      data-slot="command-group"
+      className={COMMAND_GROUP_CLASSES}
+    >
+      <div cmdk-group-heading="">Quick actions</div>
+      <div
+        cmdk-group-items=""
+        role="group"
+        aria-label="Quick actions"
+      >
+        {actions.map((action) => (
+          <div
+            key={action.label}
+            cmdk-item=""
+            role="option"
+            aria-selected="false"
+            aria-label={action.label}
+            data-command-action={action.action}
+            data-slot="command-item"
+            className={COMMAND_ITEM_CLASSES}
+          >
+            <span>{action.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /**
- * SPECIMEN mode: the overlay as a still picture, in place, wired to nothing.
+ * SPECIMEN mode: the palette's command menu as a still picture, in place,
+ * wired to nothing.
  *
- * ─── WHY A MODE, WHEN THE WHOLE FILE EXISTS TO RENDER NOTHING ──────────────
+ * The live palette renders nothing until it is opened, so a specimen of its
+ * resting state would draw nothing at all. This draws the menu's own markup,
+ * cmdk's attributes and the same slot classes the live menu wears
+ * (`design/command-default-classes.ts`), and withholds everything that makes it
+ * a palette: no `[data-command-palette-config]` block (the page still
+ * advertises exactly one palette, its own), no island, and no `role="dialog"`
+ * (one keystroke still opens exactly one dialog, and this is not it).
  *
- * The live palette deliberately emits no overlay DOM: two `role="dialog"` and
- * two `role="searchbox"` in one document resolve every unrelated query twice.
- * That is a fact about a page that HOSTS a palette, and the design-system
- * console's own state strip is not that page — it needs the overlay's
- * appearance and must not acquire a second live palette to get it.
- *
- * So this draws the overlay's own markup and withholds everything that makes it
- * a palette: no `[data-command-palette-config]` block (the page still advertises
- * exactly one palette — its own), no runtime `<script>`, no `data-island`, and
- * no `role="dialog"` / `aria-modal` (one keystroke still opens exactly one
- * dialog, and this is not it). The shell keeps `data-command-palette` because
- * that is the selector `theme/command-palette-styles.ts` paints the panel, the
- * search row and the result rows through — a specimen wearing different classes
- * would document a palette nobody ships.
- *
- * `query` is what the overlay is drawn WITH, and it is what makes the `empty`
- * cell a real state rather than a second copy of `default`: the runtime's own
- * filter drops every action that does not match, and a query matching none
- * leaves the list the palette actually shows when it has nothing to offer.
+ * `query` is what the menu is drawn WITH, and it is what makes the `empty`
+ * cell a real state: the live filter drops every action that does not match,
+ * and a query matching none leaves the list the palette shows when it has
+ * nothing to offer.
  */
 function renderSpecimenOverlay(
   tables: ReadonlyArray<{ readonly name: string }>,
@@ -185,42 +207,39 @@ function renderSpecimenOverlay(
   )
   return (
     <div
-      data-command-palette="true"
       data-command-palette-specimen="true"
-      data-component="command-palette"
+      data-component="command"
       className="flex justify-center p-4"
     >
-      <div className="w-full max-w-lg overflow-hidden">
-        <input
-          data-command-palette-input="true"
-          type="search"
-          role="searchbox"
-          aria-label="Search"
-          placeholder="Search…"
-          defaultValue={query}
-          readOnly
-          className="w-full border-none outline-none"
-        />
+      <div
+        cmdk-root=""
+        data-slot="command"
+        className={`${COMMAND_ROOT_CLASSES} ring-foreground/10 max-w-lg ring-1`}
+      >
+        <div className={COMMAND_INPUT_WRAPPER_CLASSES}>
+          <div className={COMMAND_INPUT_GROUP_CLASSES}>
+            <input
+              cmdk-input=""
+              data-slot="command-input"
+              type="text"
+              role="combobox"
+              aria-expanded="true"
+              aria-label="Search"
+              placeholder="Search…"
+              defaultValue={query}
+              readOnly
+              className={COMMAND_INPUT_CLASSES}
+            />
+          </div>
+        </div>
         <div
-          data-command-palette-results="true"
-          className="max-h-64 overflow-y-auto"
+          cmdk-list=""
+          role="listbox"
+          aria-label="Suggestions"
+          data-slot="command-list"
+          className={COMMAND_LIST_CLASSES}
         >
-          {matched.length > 0 && (
-            <section data-command-palette-section="actions">
-              <h3 data-command-palette-heading="quick actions">Quick actions</h3>
-              {matched.map((action) => (
-                <div
-                  key={action.label}
-                  role="option"
-                  aria-selected="false"
-                  aria-label={action.label}
-                  data-command-action={action.action}
-                >
-                  <span>{action.label}</span>
-                </div>
-              ))}
-            </section>
-          )}
+          {matched.length > 0 && renderSpecimenActionGroup(matched)}
         </div>
       </div>
     </div>
@@ -321,28 +340,16 @@ const paletteStrings = (config: ComponentDispatchConfig): Readonly<Record<string
 }
 
 /**
- * Renderer for the render-time-synthesized `command-palette` component.
+ * Renderer for the `command` component: the ⌘K palette, synthesized on every
+ * page unless the app opts out or the page places its own.
  *
- * This component type is never schema-authored — it is injected into every
- * page by `render-page` so the global `Cmd+K` palette is available app-wide.
- *
- * The renderer emits ONLY two `<script>` tags: a JSON config block (tables +
- * their text fields + navigable pages) and the inline runtime. It deliberately
- * renders **no overlay / dialog / input DOM at all** server-side.
- *
- * Rationale — the command palette is a global, always-present feature. If its
- * `<input role="searchbox">` and `<div role="dialog">` were pre-rendered into
- * every page's SSR output, they would pollute generic page selectors used by
- * unrelated specs (`page.locator('input')`, `page.locator('[role="dialog"]')`
- * would resolve two elements and fail Playwright strict mode). Instead, the
- * runtime (`command-palette-runtime.ts`) builds the entire overlay DOM lazily
- * on the first `Cmd+K` and keeps it cached thereafter — so a page that never
- * opens the palette stays free of command-palette DOM.
- *
- * Quick actions — "Create new
- * record in <table>", "Go to <page>", "Toggle dark mode" — and the per-table
- * record-creation dialog are likewise assembled entirely client-side by the
- * runtime from the JSON config.
+ * The BUILT-IN mode emits two things: a JSON config block (tables + their text
+ * fields + navigable pages + the dialog's words) and a DEFERRED island host.
+ * The host is `data-island-deferred`, not `data-island`, so nothing mounts and
+ * nothing loads until a reader opens the palette: the head capture script turns
+ * it into a `data-island` on the first ⌘K (see `COMMAND_PALETTE_CAPTURE_SCRIPT`).
+ * No overlay, dialog or input is pre-rendered: a `role="dialog"` and a search
+ * field on every page would be a second match for every unrelated selector.
  */
 export const commandPaletteComponent: ComponentRenderer = (
   config: ComponentDispatchConfig
@@ -353,6 +360,8 @@ export const commandPaletteComponent: ComponentRenderer = (
     return renderSearchPalette(search)
   }
 
+  const authored = specimenQuery === undefined ? renderAuthoredGroups(config) : undefined
+  if (authored !== undefined) return authored
   const tables = paletteTables(config)
   const componentProps = (config.component?.props ?? {}) as { readonly pages?: PalettePage[] }
   const pages = Array.isArray(componentProps.pages) ? componentProps.pages : []
@@ -373,8 +382,14 @@ export const commandPaletteComponent: ComponentRenderer = (
         data-command-palette-config="true"
         dangerouslySetInnerHTML={{ __html: paletteConfigJson }}
       />
-      {/* eslint-disable-next-line sovrium/require-sanitized-html -- engine-authored runtime script constant; no config or record value is interpolated into it */}
-      <script dangerouslySetInnerHTML={{ __html: COMMAND_PALETTE_RUNTIME }} />
+      <div
+        data-island-deferred="command"
+        data-component-type="command"
+        data-island-props="{}"
+        className="hidden"
+      >
+        <span className="sr-only" />
+      </div>
     </>
   )
 }

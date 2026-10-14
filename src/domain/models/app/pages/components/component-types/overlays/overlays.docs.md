@@ -1,10 +1,10 @@
 # Overlay Components
 
-> The seven types that float above the page — dialog, alert-dialog, drawer, popover, tooltip, hover-card and toast.
+> The seven types that float above the page — dialog, alert-dialog, sheet, popover, tooltip, hover-card and toast.
 
-Overlay components float above the page. The three floating ones — popover, tooltip, hover-card — share `floatingSide` and `floatingAlign` positioning. The dialog family is opened by a **sibling** component whose `interactions.click.modal` names the overlay's `props.id`, and traps focus while open unless the dialog opts out of hydration. All accept the shared `props` bag plus the `visibility` and `responsive` modules.
+Overlay components float above the page. The three floating ones — popover, tooltip, hover-card — share `floatingSide` and `floatingAlign` positioning. The dialog family is opened by a **sibling** component whose `interactions.click.modal` names the overlay's `props.id`, and traps focus while open unless the dialog opts out of hydration. All accept the shared `props` bag plus the `visibility` and `responsive` modules. The panels follow shadcn/ui's anatomy. A dialog, an alert dialog, a sheet, a popover and a hover card paint the `popover` colour as their surface — `design.colors.popover` recolours them — and draw a faint ring around their edge rather than a border. `design.colors.border` reaches the dividers they still draw: the band at the foot of an alert dialog that holds its buttons, and the inner edge of a sheet. A tooltip is the inverse: a small chip in the `foreground` colour. The backdrop behind a dialog or a sheet is a light tint that blurs the page where the browser supports it.
 
-An overlay is gated with the triggers that open it. When every button, row click or action that opens a dialog, drawer or popover is hidden from a viewer — by `visibility` or a capability gate — the overlay is left out of that viewer's page too, not rendered and hidden. An overlay's own `visibility` still applies on top, so the two combine as AND.
+An overlay is gated with the triggers that open it. When every button, row click or action that opens a dialog, sheet or popover is hidden from a viewer — by `visibility` or a capability gate — the overlay is left out of that viewer's page too, not rendered and hidden. An overlay's own `visibility` still applies on top, so the two combine as AND.
 
 ```yaml
 components:
@@ -20,21 +20,19 @@ components:
       - { type: text, content: 'Are you sure?' }
 ```
 
-`progress` and `skeleton` are often reached for alongside these; both are feedback types and are documented there.
+A dialog, an alert dialog, a sheet, a record-detail sheet and a popover can each be closed by an action inside it: a button, a form, a file upload or a record-detail sheet's footer action whose `onSuccess` sets `close: true` closes the overlay it sits in once its request succeeds, after its toast. When two are nested, only the innermost closes. A failed request closes nothing. See [Once the action has answered](/en/docs/interactive-components#once-the-action-has-answered). `progress` and `skeleton` are often reached for alongside these; both are feedback types and are documented there.
 
 ## `dialog`
 
-A modal dialog. The dialog itself declares no trigger: it is opened by a sibling whose `props.interactions.click.modal` names this dialog's `props.id`. Clicking the backdrop or pressing Escape closes it, and focus is trapped within the panel while it is open.
-
-Whether a dialog starts open depends on that opener. A dialog named by any `interactions.click.modal` in the page's configuration stays closed until it is opened — even when the trigger is not drawn, because it sits in a tab panel the reader has not opened, in another view of the page, or behind a `visibility` rule that hides it on this record. A dialog is closed whenever its trigger is absent, whatever the reason. A dialog nothing names opens on its own when the page loads.
+A modal dialog. Reference: shadcn/ui Dialog. The dialog itself declares no trigger: it is opened by a sibling whose `props.interactions.click.modal` names this dialog's `props.id`. Clicking the backdrop or pressing Escape closes it, and focus is trapped within the panel while it is open. Whether a dialog starts open depends on that opener. A dialog named by any `interactions.click.modal` in the page's configuration stays closed until it is opened — even when the trigger is not drawn, because it sits in a tab panel the reader has not opened, in another view of the page, or behind a `visibility` rule that hides it on this record. A dialog is closed whenever its trigger is absent, whatever the reason. A dialog nothing names opens on its own when the page loads.
 
 <!-- sovrium:options type:dialog -->
 
 `props.id` is the identifier the opener names; `props.title` and `props.description` are the heading and the supporting line, and both accept a `$t:` key that prints the active language's text — in the dialog's accessible name too; `children` are rendered inside the panel; and `formRef` names a top-level form from `app.forms[]` to render in the body.
 
-A dialog has a close button in its header, named "Close" in the page language. A dialog that holds a form through `formRef` also offers a Cancel beside the form's submit, which closes the dialog without sending the form; both labels come from the page language, and an author renames them under `sovrium.dialog.close` and `sovrium.dialog.cancel`. A multi-step or one-question form keeps its own step buttons. A dialog wrapping a form shows one title: its own, or the form's when it declares none.
+A dialog has a close button in its top corner — an X icon, named "Close" in the page language. A dialog that holds a form through `formRef` also offers a Cancel beside the form's submit, which closes the dialog without sending the form; both labels come from the page language, and an author renames them under `sovrium.dialog.close` and `sovrium.dialog.cancel`. A multi-step or one-question form keeps its own step buttons. A dialog wrapping a form shows one title: its own, or the form's when it declares none. A dialog waits for the work it holds. While a form inside it is sending, or a button inside it is running its action, Escape and a click on the backdrop do not close it, and its close button and Cancel are disabled, so the reader sees how the request ended — and, for a form, any field the server refused. A close the action itself asks for once it succeeds still closes it. The same holds for a `sheet`, a record-detail sheet and a `popover`, whose click outside also waits.
 
-**Write the heading and the supporting line inside `props`.** The option table above lists `title` and `description` because the schema declares them beside `type` as well, but only the `props` spelling reaches the panel today: a top-level `title` decodes cleanly and draws nothing. `hydrate` and `formRef` are the two keys this type reads from its own level.
+**The heading and the supporting line** may be written beside `type` (`title`, `description`) or inside `props`; when both are written, the `props` spelling wins. `footer` holds components drawn in the band at the foot of the panel, under the body — the dialog's own Cancel and Save, say. `showCloseButton: false` draws no corner close button, leaving Escape, the backdrop and the footer's buttons to close it. `hydrate` and `formRef` are the other keys this type reads from its own level.
 
 ### `hydrate: false` — the dialog without JavaScript
 
@@ -55,31 +53,31 @@ Everything else is the same — the same trigger, the same backdrop and Escape d
 
 ## `alert-dialog`
 
-A confirmation dialog for a destructive action, with explicit confirm and cancel buttons.
+A confirmation dialog for a destructive action, with explicit confirm and cancel buttons. Reference: shadcn/ui Alert Dialog. The two buttons sit in a band at its foot, and a `destructive` variant shows its intent on the confirm button alone. Escape closes it like Cancel; a click outside it does not.
 
 <!-- sovrium:options type:alert-dialog -->
 
-`content` is the message, `confirmLabel` and `cancelLabel` the two buttons, `trigger` the element that opens it, and `action` what running the confirm does — typically a `crud` delete.
+`content` is the message, `confirmLabel` and `cancelLabel` the two buttons, `trigger` the element that opens it, and `action` what running the confirm does — typically a `crud` delete. `size: sm` draws a narrower confirmation whose icon, title and two buttons stack and centre. `icon` names a Lucide icon drawn in a tile with the title — above it at `size: sm` and on a narrow screen, beside it at the default size on a wide one; it is decorative and hidden from assistive technology.
 
 `confirmText` asks for a typed confirmation: the dialog draws a field, and the confirm button stays disabled until the reader has typed exactly that text. Use it for what cannot be undone — deleting an account or everything in a workspace — and make it something the reader knows, such as `$session.email` or `$record.name`, rather than a fixed word.
 
-## `drawer`
+## `sheet`
 
-A panel that slides in from a screen edge.
+A panel that slides in from a screen edge. Reference: shadcn/ui Sheet. It was named `drawer` until shadcn/ui's name was adopted; `drawer` is now the panel rising from the bottom edge, and a side panel's keys written on a `drawer` are refused with a message naming `sheet`.
 
-<!-- sovrium:options type:drawer depth=3 -->
+<!-- sovrium:options type:sheet depth=3 -->
 
-`drawerSide` is the edge it slides from — `left`, `right`, `top`, `bottom` — and `drawerSize` a preset of `sm`, `md`, `lg` or `full`. Its close button is named "Close" in the page language, like a dialog's, and is renamed under the same `sovrium.dialog.close`.
+`drawerSide` is the edge it slides from — `left`, `right`, `top`, `bottom` — and `drawerSize` a preset of `sm`, `md`, `lg` or `full`. Its close button is the same X icon as a dialog's, named "Close" in the page language and renamed under the same `sovrium.dialog.close`. `title` and `description` name and describe it, `footer` draws its actions at the foot of the panel below the body, and `showCloseButton: false` draws no close button, leaving Escape and the overlay to close it. A button whose `action` is `{ action: openSheet, component: <id> }` opens it, as a click interaction naming its id does.
 
-### The record-detail drawer
+### The record-detail sheet
 
-Give a drawer a `dataSource` and it becomes record-bound: it fetches one record, renders a control per field, and — unless you turn editing off — saves back through the record API. This is the panel a `table` opens on a row click, and it also self-opens on a `?record=<id>` deep link.
+Give a sheet a `dataSource` and it becomes record-bound: it fetches one record, renders a control per field, and — unless you turn editing off — saves back through the record API. This is the panel a `table` opens on a row click, and it also self-opens on a `?record=<id>` deep link.
 
-A drawer opened on a record it cannot show — one that does not exist, or one its reader may not read — says "This record could not be found." in the page language (`sovrium.recordDrawer.notFound` renames it) and offers nothing to edit or save; it says the same for both, so a reader cannot tell a hidden record from a missing one.
+A sheet opened on a record it cannot show — one that does not exist, or one its reader may not read — says "This record could not be found." in the page language (`sovrium.recordDrawer.notFound` renames it) and offers nothing to edit or save; it says the same for both, so a reader cannot tell a hidden record from a missing one.
 
-Opening a drawer on a record writes `?record=<id>&drawer=<drawer id>` into the address — whatever opened it: a grid row, a list item, a calendar event or another drawer's footer — so the link a reader copies reopens that drawer on that record, and only that drawer. Record ids are per table, so on a page declaring several record drawers a bare `?record=<id>` cannot say which one it means: it opens exactly one, the first record-bound drawer the page declares.
+Opening a sheet on a record writes `?record=<id>&drawer=<sheet id>` into the address — whatever opened it: a grid row, a list item, a calendar event or another sheet's footer — so the link a reader copies reopens that sheet on that record, and only that sheet. Record ids are per table, so on a page declaring several record sheets a bare `?record=<id>` cannot say which one it means: it opens exactly one, the first record-bound sheet the page declares.
 
-`dataSource` takes `{ table }` for a database record or `{ system }` to fetch one from a read endpoint; a system-bound drawer is read-only, because there is no table to save to. `recordFields` lists the fields to show, each `{ name, type }`, with `label` to rename an entry and `renderAs` to choose the rendering: `text`, the default, stringifies the value, and `json`, `list`, `key-value` and `code` each unpack a nested one. `canEdit: false` renders the record read-only; an attachment then reads as its file's name, linking to the file, as in the grid. An editable drawer draws each field with the control the form draws for it: a `status` or `single-select` is a choice of its options, a `user` a choice of accounts shown by name, and the drawer saves the stored value. A single-valued `relationship` is a picker searching the related table by its `displayField`: it shows the linked record by that field, and saving stores the picked record's key. An optional link also offers a Clear control, and saving then unlinks the record. The picker's candidates follow the related table's read permissions, so a record the reader may not read is neither offered nor named. A drawer shows each reader only what they may read: a field their role cannot read is left out, a field it cannot write is shown as its value without an editable control, and Save sends only the fields the reader may write. A drawer in which the reader may change none of the fields it shows — the table's `update` refuses her, or every field is read-only for her — draws no Save button at all. Save refuses a required field left blank, naming it in the page language; an optional field left empty saves. `actions` are footer buttons firing against the loaded record — `$record.*` resolves at click time, and `confirm` gates the click. A footer action may also be `{ action: openDrawer, component: <id> }`, which closes this drawer and opens the named one on the same record — a detail drawer whose Decide button opens the decision drawer. The drawer's `props.className` lands on the drawer surface the reader sees. `role` is `dialog` by default or `region`, and its accessible name comes from `props.title`, which accepts a `$t:` key like a dialog's. A drawer's title may name its record: `title: $record.name`, or `Role of $record.name`; it follows the record the drawer opens. `id` is what a grid's `onRowClick: { action: openDrawer, component: <id> }` names.
+`dataSource` takes `{ table }` for a database record or `{ system }` to fetch one from a read endpoint; a system-bound drawer is read-only, because there is no table to save to. `recordFields` lists the fields to show, each `{ name, type }`, with `label` to rename an entry and `renderAs` to choose the rendering: `text`, the default, stringifies the value, and `json`, `list`, `key-value` and `code` each unpack a nested one. `canEdit: false` renders the record read-only; an attachment then reads as its file's name, linking to the file, as in the grid. An editable drawer draws each field with the control the form draws for it: a `status` or `single-select` is a choice of its options, a `user` a choice of accounts shown by name, and the drawer saves the stored value. A single-valued `relationship` is a picker searching the related table by its `displayField`: it shows the linked record by that field, and saving stores the picked record's key. An optional link also offers a Clear control, and saving then unlinks the record. The picker's candidates follow the related table's read permissions, so a record the reader may not read is neither offered nor named. A drawer shows each reader only what they may read: a field their role cannot read is left out, a field it cannot write is shown as its value without an editable control, and Save sends only the fields the reader may write. A drawer in which the reader may change none of the fields it shows — the table's `update` refuses her, or every field is read-only for her — draws no Save button at all. Save refuses a required field left blank, naming it in the page language; an optional field left empty saves. `actions` are footer buttons firing against the loaded record — `$record.*` resolves at click time, and `confirm` gates the click. A footer action may also be `{ action: openSheet, component: <id> }`, which closes this sheet and opens the named one on the same record — a detail sheet whose Decide button opens the decision sheet. The sheet's `props.className` lands on the sheet surface the reader sees. `role` is `dialog` by default or `region`, and its accessible name comes from `props.title`, which accepts a `$t:` key like a dialog's. A sheet's title may name its record: `title: $record.name`, or `Role of $record.name`; it follows the record the sheet opens. `id` is what a grid's `onRowClick: { action: openSheet, component: <id> }` names.
 
 A read-only drawer lists its fields as a description list and draws each value as the grid does: a choice as a badge in its option colour, a user with an avatar, a date in the page's date format, a date-time as its date and time in the page language, at the field's own `timeZone`, else the operator time zone, a stored file by the name it was uploaded under, as a link to it, a checkbox as a check mark, a multi-select as chips, an amount in its currency. With no session, the drawer leaves out every field an anonymous reader may not read — no label, no empty value. An editable drawer draws each field with the control a form draws for its type, one input high: a date picker, a number input, a text area for long text, a checkbox, and a file picker for an attachment. A date-and-time field keeps a text box holding the stored instant.
 
@@ -93,7 +91,7 @@ pages:
   - name: Contacts
     path: /contacts
     components:
-      - type: drawer
+      - type: sheet
         id: contact-detail
         dataSource: { table: contacts }
         canEdit: true
@@ -143,7 +141,7 @@ A repeat may **name** its element with `as`. Inside a named repeat, `$<as>.<key>
         - { type: text, content: 'Leg from $leg.from' }
 ```
 
-Each leg draws its own stops, the outer name stays readable inside the inner copies, and a leg whose `stops` list is empty draws none — the container is left with no content at all, so a `:empty` rule can style it. Without `as`, a repeat behaves exactly as described above. Two levels is the limit.
+Each leg draws its own stops, the outer name stays readable inside the inner copies, and a leg whose `stops` list is empty draws none — the container is left with no content at all, so a `:empty` rule can style it. Without `as`, a repeat behaves exactly as described above. Two levels is the limit. **Where a copy resolves its tokens.** Inside a drawer, a copy resolves them in its text, its string children and its `data-*` attributes. On a page bound to one record, where the server expands the repeat before the page is sent, a copy also resolves them in its `title`, `description` and `label`, and in its `href`, `src` and `alt`, whether those are written as props or at the component's root, so an `item` per step can read `title: $step.name`. A value is always inserted as text: markup in a value prints as written and never becomes elements.
 
 `repeat` has two supported positions: a record-bound drawer's `children`, where a record has been fetched, and a page bound to one record — a page-level `dataSource` of `{ system }` or `{ table, mode: 'single' }` — where the copies are drawn on the server and arrive in the first response. Those are the only places an array carried by a record exists. These shapes are refused when the app boots, each because the failure would otherwise be silent:
 
@@ -167,7 +165,7 @@ Linked rows are a different problem, and `repeat` does not solve it. An order's 
 A record usually has records of its own in other tables: a company's contacts, a project's tasks, an asset's loans. They are not stored on the record — each points back to it through a relationship column — so the drawer reads them separately. `related` declares those reads. Each entry becomes its own section below the record's fields, headed by its `label`, listing the rows of `table` whose `field` points at the record the drawer opened.
 
 ```yaml
-- type: drawer
+- type: sheet
   id: company-detail
   dataSource: { table: companies }
   related:
@@ -180,22 +178,22 @@ A record usually has records of its own in other tables: a company's contacts, a
       sort: [{ field: name, direction: asc }]
       limit: 10
       emptyMessage: No contact for this company yet.
-      onRowClick: { action: openDrawer, component: contact-detail }
+      onRowClick: { action: openSheet, component: contact-detail }
 ```
 
-A related section prints labels and money as the grid does: a relationship column shows the related record's `displayField`, a `user` column the account's name, and a `currency` column the amount in the field's own currency. The list is read when the drawer opens, and again each time it opens on another record. It is read-only and compact: no toolbar, no inline editing. It follows the related table's own permissions. A `columns` entry on a field of `table` its reader may not read is left out, and the page does not name it. A reader who may not read `table` sees no section at all, and the create button appears only for a reader allowed to create in `table`. A click on a row does nothing unless `onRowClick` says so: `openDrawer` opens that row in another drawer on the page, bound to `table`, in place of this one; `navigate` follows a path, with `$record.*` taken from the clicked row.
+A related section prints labels and money as the grid does: a relationship column shows the related record's `displayField`, a `user` column the account's name, and a `currency` column the amount in the field's own currency. The list is read when the drawer opens, and again each time it opens on another record. It is read-only and compact: no toolbar, no inline editing. It follows the related table's own permissions. A `columns` entry on a field of `table` its reader may not read is left out, and the page does not name it. A reader who may not read `table` sees no section at all, and the create button appears only for a reader allowed to create in `table`. A click on a row does nothing unless `onRowClick` says so: `openSheet` opens that row in another sheet on the page, bound to `table`, in place of this one; `navigate` follows a path, with `$record.*` taken from the clicked row.
 
-`field` must be a `relationship` column of `table` whose `relatedTable` is the drawer's own table. Sovrium refuses to start otherwise, naming the entry (`related[0].field`), the column and the table. The same goes for a `table` that does not exist, a `columns` or `sort` field `table` does not have, an `openDrawer` target that is not a drawer on the page bound to `table`, and `related` on a drawer that is not bound to a table. Related lists go one level deep: a related row's own related records are reached by opening it.
+`field` must be a `relationship` column of `table` whose `relatedTable` is the drawer's own table. Sovrium refuses to start otherwise, naming the entry (`related[0].field`), the column and the table. The same goes for a `table` that does not exist, a `columns` or `sort` field `table` does not have, an `openSheet` target that is not a sheet on the page bound to `table`, and `related` on a sheet that is not bound to a table. Related lists go one level deep: a related row's own related records are reached by opening it.
 
-**Migrating from `record-drawer`:** rename the `type` to `drawer` and change nothing else. `dataSource`, `recordFields`, `canEdit`, `actions`, `role` and `id` all carry over unchanged, and a drawer additionally accepts `drawerSide` and `drawerSize`. The `dataSource` is what makes it record-bound, so the renamed drawer still answers the same `openDrawer` row-click.
+**Migrating from `record-drawer`:** rename the `type` to `sheet` and change nothing else. `dataSource`, `recordFields`, `canEdit`, `actions`, `role` and `id` all carry over unchanged, and a sheet additionally accepts `drawerSide` and `drawerSize`. The `dataSource` is what makes it record-bound, so the renamed sheet still answers the same `openSheet` row-click.
 
 #### Moving between records
 
-`navigation.siblings: true` adds Previous and Next to a record drawer opened from a table row. They step through the rows that table shows, in its current order, filter and page, and the address follows, so each step is a link. A drawer opened from its address alone has no list to step through and draws neither. `navigation.fullPage` adds an "Open full page" link to the record's own page, written with `$record.id`.
+`navigation.siblings: true` adds Previous and Next to a record sheet opened from a table row. They step through the rows that table shows, in its current order, filter and page, and the address follows, so each step is a link. A sheet opened from its address alone has no list to step through and draws neither. `navigation.fullPage` adds an "Open full page" link to the record's own page, written with `$record.id`.
 
 ## `popover`
 
-A floating panel anchored to a trigger, opened on click.
+A floating panel anchored to a trigger, opened on click. Reference: shadcn/ui Popover. `props.title` and `props.description` head the panel.
 
 <!-- sovrium:options type:popover -->
 
@@ -203,13 +201,13 @@ A floating panel anchored to a trigger, opened on click.
 
 ## `tooltip`
 
-A small hover hint anchored to a trigger.
+A small hover hint anchored to a trigger. Reference: shadcn/ui Tooltip. It draws a small arrow pointing at its trigger.
 
 <!-- sovrium:options type:tooltip -->
 
 ## `hover-card`
 
-A richer popover that opens on hover, for a profile preview or a link peek.
+A richer popover that opens on hover, for a profile preview or a link peek. Reference: shadcn/ui Hover Card.
 
 <!-- sovrium:options type:hover-card -->
 
@@ -217,8 +215,8 @@ A richer popover that opens on hover, for a profile preview or a link peek.
 
 ## `toast`
 
-A transient notification. Toasts are usually emitted from an action's `onSuccess` or `onError` handler rather than placed in the tree directly; page-level placement is configured on the page itself.
+A transient notification. Reference: shadcn/ui Sonner, which shadcn/ui now recommends in place of its earlier toast; this one component stands for both (Reference: shadcn/ui Toast). Toasts are usually emitted from an action's `onSuccess` or `onError` handler rather than placed in the tree directly; page-level placement is configured on the page itself.
 
-`toast` declares no schema option of its own — its fields ride in the open `props` bag. `variant` is `success`, `error`, `warning`, `info`, `default` or `destructive`; `message` is the text and substitutes `$variable` references; `duration` is the auto-dismiss time in milliseconds, defaulting to 5000; `actionLabel` and `actionUrl` add an action button. Two kinds are left off the timer: one whose `variant` is `error` or `destructive`, and one that renders an action button (`actionLabel` together with `actionUrl`). A failure nobody read is a failure that did not happen, and an action that expires before it is reached is not an action.
+A toast placed in the tree is drawn where it is written, with `content` as its text. `toastVariant` is its tone — `success`, `error`, `warning`, `info` or `loading`; `duration`, in milliseconds, removes it once that time has passed, and without one it stays; `actionLabel` together with `actionUrl` adds an action button that posts once to that URL and closes the toast. The toasts an action raises from its `onSuccess` or `onError` follow the rules below: their `duration` defaults to 5000, and two kinds are left off the timer: one whose `variant` is `error` or `destructive`, and one that renders an action button. A failure nobody read is a failure that did not happen, and an action that expires before it is reached is not an action.
 
 Neither one is stranded either. A toast that is not on a timer carries a close button, and `Escape` clears the most recent one, so a reader who is done with it never has to leave it holding the corner of the screen. Each kind still ends its own way as well: an action toast goes when its button is used, and any toast goes when the page changes. A toast that does expire on its own carries no close button. An `error` or `destructive` toast is also announced urgently to assistive technology, interrupting whatever is being read; every other toast waits its turn. An explicit `duration` overrides all of this, an error included. Multiple toasts stack without overlapping.

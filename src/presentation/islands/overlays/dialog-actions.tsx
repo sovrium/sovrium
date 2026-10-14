@@ -7,12 +7,19 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { useEffect, useId, useState } from 'react'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeDialogCloseClasses,
+  computeDialogFooterClasses,
+  type DialogKind,
+} from '@/presentation/design/dialog-default-classes'
+import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
+import { OverlayCloseGlyph } from '@/presentation/design/overlay-close-glyph'
 import {
   resolveSessionTemplate,
   restoreInertTemplateValue,
   type SessionUser,
 } from '@/presentation/design/session-template'
-import { computeDialogActionsClasses } from './overlay-default-classes'
 import type { ReactElement } from 'react'
 
 /**
@@ -50,10 +57,10 @@ function TypedConfirmField({
 }): ReactElement {
   const inputId = useId()
   return (
-    <div className="mb-4 flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5">
       <label
         htmlFor={inputId}
-        className="text-foreground-muted text-sm"
+        className="text-muted-foreground text-sm"
       >
         {expected ? `To confirm, type “${expected}”` : 'To confirm, type the text asked for'}
       </label>
@@ -64,44 +71,85 @@ function TypedConfirmField({
         spellCheck={false}
         value={typed}
         onChange={(event) => onType(event.target.value)}
-        className="border-border bg-background text-foreground text-md focus-visible:outline-ring w-full rounded-md border px-3 py-2 font-mono focus-visible:outline-2 focus-visible:outline-offset-2"
+        className={computeInputDefaultClasses()}
       />
     </div>
   )
 }
 
-/** The confirm button — locked while a typed confirmation is unmet — or the corner close mark. */
-function ConfirmOrClose(props: {
-  readonly confirmLabel?: string
-  readonly closeLabel: string
+/** The `dialog-close` corner button a dialog with nothing to confirm draws. */
+function CornerClose({ closeLabel }: { readonly closeLabel: string }): ReactElement {
+  return (
+    <Dialog.Close
+      data-component-type="button"
+      data-overlay-close=""
+      data-slot="dialog-close"
+      aria-label={closeLabel}
+      className={computeDialogCloseClasses()}
+    >
+      <OverlayCloseGlyph />
+    </Dialog.Close>
+  )
+}
+
+/** The confirm button, locked while a typed confirmation is unmet. */
+function ConfirmButton(props: {
+  readonly kind: DialogKind
+  readonly confirmLabel: string
   readonly variant: 'default' | 'destructive'
   readonly locked: boolean
   readonly onConfirm?: () => void
 }): ReactElement {
-  if (!props.confirmLabel) {
-    return (
-      <Dialog.Close
-        data-component-type="button"
-        aria-label={props.closeLabel}
-        className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors"
-      >
-        <span aria-hidden="true">✕</span>
-      </Dialog.Close>
-    )
-  }
-  const tone =
-    props.variant === 'destructive'
-      ? 'bg-error-solid text-error-solid-fg hover:opacity-90'
-      : 'bg-primary text-primary-fg hover:bg-primary-hover'
   return (
     <Dialog.Close
       data-component-type="button"
+      data-slot={props.kind === 'alert-dialog' ? 'alert-dialog-action' : undefined}
       onClick={props.onConfirm}
       disabled={props.locked}
-      className={`text-md rounded-md px-4 py-2 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${tone}`}
+      className={computeButtonDefaultClasses({ variant: props.variant })}
     >
       {props.confirmLabel}
     </Dialog.Close>
+  )
+}
+
+/** The `*-footer` band: Cancel (alert dialog) and confirm, or the corner close. */
+function DialogFooter(props: {
+  readonly kind: DialogKind
+  readonly closeLabel: string
+  readonly cancelLabel: string
+  readonly confirmLabel?: string
+  readonly variant: 'default' | 'destructive'
+  readonly locked: boolean
+  readonly onConfirm?: () => void
+}): ReactElement {
+  return (
+    <div
+      data-slot={`${props.kind}-footer`}
+      className={computeDialogFooterClasses(props.kind)}
+    >
+      {props.kind === 'alert-dialog' && (
+        <Dialog.Close
+          data-component-type="button"
+          data-overlay-close=""
+          data-slot="alert-dialog-cancel"
+          className={computeButtonDefaultClasses({ variant: 'outline' })}
+        >
+          {props.cancelLabel}
+        </Dialog.Close>
+      )}
+      {props.confirmLabel ? (
+        <ConfirmButton
+          kind={props.kind}
+          confirmLabel={props.confirmLabel}
+          variant={props.variant}
+          locked={props.locked}
+          onConfirm={props.onConfirm}
+        />
+      ) : (
+        <CornerClose closeLabel={props.closeLabel} />
+      )}
+    </div>
   )
 }
 
@@ -117,15 +165,18 @@ function ConfirmOrClose(props: {
  * the name, not that they typed something close to it.
  */
 export function DialogActions({
-  isAlertDialog,
+  kind,
   closeLabel,
   cancelLabel,
   confirmLabel,
   confirmText,
   variant,
   onConfirm,
+  showCloseButton,
 }: {
-  readonly isAlertDialog: boolean
+  /** `false` draws no corner close button. */
+  readonly showCloseButton?: boolean
+  readonly kind: DialogKind
   readonly closeLabel: string
   readonly cancelLabel: string
   readonly confirmLabel?: string
@@ -134,11 +185,14 @@ export function DialogActions({
   readonly variant: 'default' | 'destructive'
   /** Fired when the confirm button is pressed, BEFORE the dialog closes. */
   readonly onConfirm?: () => void
-}): ReactElement {
+}): ReactElement | null {
   const [typed, setTyped] = useState('')
   const expected = useExpectedText(confirmText?.trim())
   const asks = confirmText !== undefined && confirmText.trim() !== ''
   const locked = asks && (expected === undefined || expected === '' || typed.trim() !== expected)
+  if (!confirmLabel && kind !== 'alert-dialog') {
+    return showCloseButton === false ? null : <CornerClose closeLabel={closeLabel} />
+  }
   return (
     <>
       {asks && (
@@ -148,24 +202,15 @@ export function DialogActions({
           onType={setTyped}
         />
       )}
-      <div className={computeDialogActionsClasses()}>
-        {isAlertDialog && (
-          <Dialog.Close
-            data-component-type="button"
-            className="border-border bg-background text-foreground hover:bg-background-subtle text-md rounded-md border px-4 py-2 font-medium transition-colors"
-          >
-            {cancelLabel}
-          </Dialog.Close>
-        )}
-
-        <ConfirmOrClose
-          confirmLabel={confirmLabel}
-          closeLabel={closeLabel}
-          variant={variant}
-          locked={locked}
-          onConfirm={onConfirm}
-        />
-      </div>
+      <DialogFooter
+        kind={kind}
+        closeLabel={closeLabel}
+        cancelLabel={cancelLabel}
+        confirmLabel={confirmLabel}
+        variant={variant}
+        locked={locked}
+        onConfirm={onConfirm}
+      />
     </>
   )
 }

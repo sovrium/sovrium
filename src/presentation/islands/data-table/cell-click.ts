@@ -20,3 +20,13 @@ import type { MouseEvent } from 'react'
  * which clicks a row owns.
  */
 export const stopClickPropagation = (e: MouseEvent): void => e.stopPropagation()
+
+/**
+ * Does this click land on a link or a button INSIDE the row, rather than on the
+ * row itself? An email cell's `mailto:` link, a phone cell's `tel:` link and a
+ * cell's own button each own their click: the row's action must not fire too.
+ */
+export const clickLandsOnInnerControl = (e: MouseEvent<Element>): boolean => {
+  const control = (e.target as Element | null)?.closest?.('a,button')
+  return control != null && control !== e.currentTarget && e.currentTarget.contains(control)
+}

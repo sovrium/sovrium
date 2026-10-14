@@ -6,6 +6,13 @@
  */
 
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import {
+  computeAvatarBadgeClasses,
+  computeAvatarBoxClasses,
+  computeAvatarFallbackClasses,
+  computeAvatarGroupClasses,
+  computeAvatarImageClasses,
+} from '@/presentation/design/display-default-classes'
 
 /**
  * One presence entry as delivered by the `/api/realtime/presence` SSE stream.
@@ -37,7 +44,7 @@ interface PresenceIndicatorIslandProps {
  * in two tabs, the server snapshot legitimately contains two entries with the
  * same `user.id` but distinct `joinedAt` timestamps. We preserve the
  * connection-keyed shape inside this reducer; the rendering layer deduplicates
- * by `user.id` so the indicator surfaces one chip per user.
+ * by `user.id` so the indicator surfaces one avatar per user.
  *
  * - `presence-sync`: replace the whole list with the server snapshot (one
  *   entry per connection — the renderer dedupes).
@@ -77,7 +84,7 @@ function applyPresenceMessage(
  * Deduplicate a connection-keyed presence list to one entry per `user.id`.
  *
  * When the same user holds multiple connections (e.g. two browser tabs), only
- * the most recently-joined entry is surfaced as a chip ([internal ref]-035a).
+ * the most recently-joined entry is surfaced as an avatar ([internal ref]-035a).
  */
 function uniqueByUserId(entries: readonly PresenceUser[]): readonly PresenceUser[] {
   // Build a one-entry-per-user map by feeding the list to `new Map(...)` in
@@ -96,56 +103,78 @@ function initials(name: string): string {
   return `${(parts[0] ?? '').charAt(0)}${(parts[1] ?? '').charAt(0)}`.toUpperCase()
 }
 
-/** Renders a single presence avatar chip (avatar image or initials + name). */
-function PresenceChip({ user }: { readonly user: PresenceUser }): ReactElement {
+const AVATAR_CLASSES = computeAvatarBoxClasses({ size: 'sm', shape: 'circle' })
+const AVATAR_IMAGE_CLASSES = computeAvatarImageClasses({ shape: 'circle' })
+const AVATAR_FALLBACK_CLASSES = computeAvatarFallbackClasses({ shape: 'circle' })
+const AVATAR_BADGE_CLASSES = computeAvatarBadgeClasses()
+const AVATAR_GROUP_CLASSES = computeAvatarGroupClasses()
+
+/**
+ * One viewer, as shadcn/ui's small Avatar: her photo or her initials, with the
+ * badge saying she is here now, and her name on hover.
+ */
+function PresenceAvatar({ user }: { readonly user: PresenceUser }): ReactElement {
   return (
     <span
+      data-slot="avatar"
+      data-size="sm"
       data-presence-user-id={user.id}
       title={user.name}
-      className="border-border bg-background-raised text-foreground text-md inline-flex items-center gap-2 rounded-full border py-0.5 pr-3 pl-0.5"
+      className={AVATAR_CLASSES}
     >
       {user.avatarUrl ? (
         <img
+          data-slot="avatar-image"
           src={user.avatarUrl}
           alt={user.name}
-          width={28}
-          height={28}
-          className="h-7 w-7 rounded-full object-cover"
+          width={24}
+          height={24}
+          className={AVATAR_IMAGE_CLASSES}
         />
       ) : (
         <span
           aria-hidden="true"
-          className="bg-primary text-primary-fg flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold"
+          data-slot="avatar-fallback"
+          className={AVATAR_FALLBACK_CLASSES}
         >
           {initials(user.name)}
         </span>
       )}
-      <span className="font-medium">{user.name}</span>
+      <span
+        aria-hidden="true"
+        data-slot="avatar-badge"
+        className={AVATAR_BADGE_CLASSES}
+      />
     </span>
   )
 }
 
 /**
- * Presence-indicator island — Wave-6 presence awareness.
- *
- * Renders the list of colleagues currently viewing the same page. Opens an
- * `EventSource` against `/api/realtime/presence?pagePath=...` and reconciles
- * `presence-sync` / `join` / `leave` events into a live viewer list.
- *
- * The island is rendered on every page configured with `presence: true`
- * (the SSR placeholder is injected by `DynamicPage`).
+ * The viewers' names, written beside the group so a reader (and assistive
+ * technology) reads who is here, not only their initials.
  */
-export default function PresenceIndicatorIsland({
-  pagePath,
-  'data-testid': testId = 'presence-indicator',
-}: PresenceIndicatorIslandProps): ReactElement {
-  // `entries` is the connection-keyed underlying state — one element per
-  // server-side connection, so closing one of a user's tabs removes only that
-  // tab's entry (not the user from another tab). `visibleUsers` is the
-  // rendered, deduplicated-by-user.id view ([internal ref]-035a).
-  const [entries, setEntries] = useState<readonly PresenceUser[]>([])
-  const visibleUsers = useMemo(() => uniqueByUserId(entries), [entries])
+function PresenceNames({ users }: { readonly users: readonly PresenceUser[] }): ReactElement {
+  return (
+    <span className="text-muted-foreground text-sm">
+      {users.map((user, index) => (
+        <span key={user.id}>
+          {index > 0 && ', '}
+          <span data-presence-name="">{user.name}</span>
+        </span>
+      ))}
+    </span>
+  )
+}
 
+/**
+ * The viewers of `pagePath`, one per person: an `EventSource` on
+ * `/api/realtime/presence?pagePath=...` reconciles `presence-sync` / `join` /
+ * `leave` events into a connection-keyed list — one element per server-side
+ * connection, so closing one of a user's tabs removes only that tab's entry —
+ * returned deduplicated by user id ([internal ref]-035a).
+ */
+function usePresenceUsers(pagePath: string | undefined): readonly PresenceUser[] {
+  const [entries, setEntries] = useState<readonly PresenceUser[]>([])
   useEffect(() => {
     if (
       pagePath === undefined ||
@@ -154,11 +183,9 @@ export default function PresenceIndicatorIsland({
     ) {
       return undefined
     }
-
     const source = new EventSource(
       `/api/realtime/presence?pagePath=${encodeURIComponent(pagePath)}`
     )
-
     const handleMessage = (event: MessageEvent): void => {
       try {
         const parsed = JSON.parse(event.data) as Parameters<typeof applyPresenceMessage>[1]
@@ -167,28 +194,47 @@ export default function PresenceIndicatorIsland({
         // Malformed frame — ignore; the next valid event reconciles.
       }
     }
-
     source.addEventListener('message', handleMessage)
-
     return () => {
       source.removeEventListener('message', handleMessage)
       source.close()
     }
   }, [pagePath])
+  return useMemo(() => uniqueByUserId(entries), [entries])
+}
 
+/**
+ * Presence-indicator island — who else is on this page, as shadcn/ui's avatar
+ * group with the viewers' names beside it.
+ *
+ * The island is rendered on every page configured with `presence: true`
+ * (the SSR placeholder is injected by `DynamicPage`).
+ */
+export default function PresenceIndicatorIsland({
+  pagePath,
+  'data-testid': testId = 'presence-indicator',
+}: PresenceIndicatorIslandProps): ReactElement {
+  const visibleUsers = usePresenceUsers(pagePath)
   return (
     <div
       data-testid={testId}
+      data-slot="presence-indicator"
       data-presence-count={visibleUsers.length}
       aria-label="Users viewing this page"
-      className="flex flex-wrap items-center gap-2"
+      className="flex items-center gap-2"
     >
-      {visibleUsers.map((user) => (
-        <PresenceChip
-          key={user.id}
-          user={user}
-        />
-      ))}
+      <div
+        data-slot="avatar-group"
+        className={AVATAR_GROUP_CLASSES}
+      >
+        {visibleUsers.map((user) => (
+          <PresenceAvatar
+            key={user.id}
+            user={user}
+          />
+        ))}
+      </div>
+      <PresenceNames users={visibleUsers} />
     </div>
   )
 }

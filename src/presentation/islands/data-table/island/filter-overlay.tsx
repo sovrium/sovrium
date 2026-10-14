@@ -21,7 +21,9 @@ import {
   DEFAULT_FILTER_OPERATOR,
   getOperatorsForType,
   isSelectValueField,
+  operatorLabel,
 } from './filter-operators'
+import { labelOfField, type FieldLabels } from './panel-field-labels'
 import type { FilterConjunction, FilterRow } from './use-ui-state'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
@@ -51,6 +53,7 @@ import type { FieldMetaMap } from '../../hooks/use-inline-editing'
  */
 interface FilterOverlayProps {
   readonly tableFields: readonly string[]
+  readonly fieldLabels?: FieldLabels
   readonly fieldMeta?: FieldMetaMap
   readonly activeFilters: readonly FilterRow[]
   readonly filterConjunction: FilterConjunction
@@ -67,10 +70,14 @@ interface FilterOverlayProps {
 
 interface ActiveFilterChipProps {
   readonly row: FilterRow
+  /** The field in the words the builder offered it in. */
+  readonly fieldWords: string
+  /** The operator in the words its select option reads. */
+  readonly operatorWords: string
   readonly onRemove: (id: string) => void
 }
 
-function ActiveFilterChip({ row, onRemove }: ActiveFilterChipProps) {
+function ActiveFilterChip({ row, fieldWords, operatorWords, onRemove }: ActiveFilterChipProps) {
   const handleClick = useCallback(() => onRemove(row.id), [row.id, onRemove])
   return (
     <span
@@ -81,7 +88,7 @@ function ActiveFilterChip({ row, onRemove }: ActiveFilterChipProps) {
           what distinguishes one committed filter from the next, so it takes the
           chip's full ink and the rest recedes behind it. */}
       <span>
-        {row.field} {row.operator}{' '}
+        {fieldWords} {operatorWords}{' '}
         <span className={computeTableChipValueClasses()}>{row.value}</span>
       </span>
       <button
@@ -104,6 +111,7 @@ function ActiveFilterChip({ row, onRemove }: ActiveFilterChipProps) {
 // eslint-disable-next-line max-lines-per-function, complexity -- single-screen panel with 4 native form controls + chip list; further extraction would just split a single visual unit across files
 export function FilterOverlay({
   tableFields,
+  fieldLabels,
   fieldMeta,
   activeFilters,
   filterConjunction,
@@ -217,6 +225,8 @@ export function FilterOverlay({
             <ActiveFilterChip
               key={row.id}
               row={row}
+              fieldWords={labelOfField(fieldLabels, row.field)}
+              operatorWords={operatorLabel(row.operator, fieldMeta?.[row.field]?.type)}
               onRemove={onRemoveFilter}
             />
           ))}
@@ -245,7 +255,7 @@ export function FilterOverlay({
                   The column header already shows the label, so naming the field
                   differently here would ask the operator to translate between
                   the two halves of the same grid. */}
-              {fieldMeta?.[f]?.label ?? f}
+              {labelOfField(fieldLabels, f)}
             </option>
           ))}
         </select>

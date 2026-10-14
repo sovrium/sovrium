@@ -265,7 +265,7 @@ function resolveKanbanInputs(
 
 /** A calendar's or a timeline's colour palette, and a calendar's day-valued fields. */
 function resolveRecordViewInputs(
-  type: 'calendar' | 'timeline',
+  type: 'event-calendar' | 'timeline',
   component: Component,
   tables: Tables | undefined
 ): TypeSpecificResolvedInputs {
@@ -331,7 +331,7 @@ export function resolveTypeSpecificInputs(
 
   if (type === 'chart' || type === 'kpi') return resolveFigureInputs(type, component, tables)
 
-  if (type === 'calendar' || type === 'timeline') {
+  if (type === 'event-calendar' || type === 'timeline') {
     return resolveRecordViewInputs(type, component, tables)
   }
 

@@ -13,7 +13,8 @@
  * puts their rules here rather than on their own schemas: a component cannot
  * see `app.design` from inside its own branch.
  *
- * Two rules today: the easing token, and the specimen subject.
+ * Three rules today: the easing token, the retired colour-token spelling
+ * (`retired-token-name-validation.ts`), and the specimen subject.
  *
  * ─── A PLOTTED EASING TOKEN MUST NAME A CURVE ─────────────────────────────
  *
@@ -24,7 +25,7 @@
  *
  * That is deliberately the OPPOSITE of a COLOUR swatch, which reports an
  * unresolvable colour token at render time, and the difference is the namespace
- * rather than the taste. `--sv-*` colour properties are emitted from ramps,
+ * rather than the taste. Colour custom properties are emitted from ramps,
  * colour roles and engine defaults, and no single table in the config
  * enumerates them, so a decode-time membership test would refuse names that
  * exist. Easing names have exactly two sources — the platform's four inherited
@@ -156,6 +157,7 @@ import {
   isEasingLiteral,
   resolvableEasingCurves,
 } from '@/domain/models/app/design/easing-curve'
+import { validateRetiredTokenNames } from '@/domain/models/app/design/retired-token-name-validation'
 import { parseRouteParamRef } from '@/domain/models/app/pages/route-param-ref'
 import { isRecordFieldRef } from '@/domain/models/app/pages/substitute-record-vars'
 import {
@@ -522,6 +524,9 @@ export const validateAllDesignConsoleComponents = (
     .map((token) => validateEasingToken(token, resolvable))
     .find((error) => error !== undefined)
   if (easingError !== undefined) return easingError
+
+  const retiredTokenError = validateRetiredTokenNames(app.pages)
+  if (retiredTokenError !== undefined) return retiredTokenError
 
   const pages = Array.isArray(app.pages) ? app.pages : []
   return (

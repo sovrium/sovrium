@@ -6,9 +6,10 @@
  */
 
 import { useSystemCursorPages } from '../../../hooks/use-system-cursor-pages'
+import { useRuntimeFilter, type RuntimeFilter } from '../../faceted-filter/runtime-filter'
 import { buildSummaryAggregateParam } from '../../summary-aggregate'
 import { useDataTableQuery } from '../../use-data-table-query'
-import { buildGroupByParam, buildLabelsParam, toServerFilterGroup } from '../island-setup-helpers'
+import { buildGroupByParam, buildLabelsParam } from '../island-setup-helpers'
 import type { SetupContext } from './setup-params'
 import type { EffectiveLayout } from './use-effective-layout'
 import type { EffectiveQuery } from './use-effective-query'
@@ -29,30 +30,32 @@ export type RecordsQuery = ReturnType<typeof useRecordsQuery>
  * again from the first page rather than appending a different list's rows under
  * the old one.
  *
- * Its filter-builder rows travel with the request (`runtimeFilter`): filtering
- * the loaded rows in the browser would hide every match on a page not fetched
- * yet. A row the API cannot express leaves them to the browser instead.
+ * The reader's narrowing (`RuntimeFilter`) is part of that key.
  */
 function resolveLoadMoreFeed(
   ctx: SetupContext,
   layout: EffectiveLayout,
   effective: EffectiveQuery,
-  system: SystemQueryParams
+  feed: { readonly system: SystemQueryParams; readonly runtime: RuntimeFilter }
 ) {
+  const { system, runtime } = feed
   const { dataSource, paginationConfig } = ctx.params
-  if (dataSource.system !== undefined || paginationConfig?.style !== 'loadMore') return undefined
+  const style = paginationConfig?.style
+  // `infinite` appends through the same continuation as `loadMore`; only what
+  // asks for the next page differs (the end of the rows scrolling into view).
+  if (dataSource.system !== undefined || (style !== 'loadMore' && style !== 'infinite'))
+    return undefined
   const { tableState } = layout
-  const runtimeFilter = toServerFilterGroup(ctx.ui.activeFilters, ctx.ui.filterConjunction)
   const identity = [
     ctx.tableKey,
     effective.sorting,
     effective.filter,
-    runtimeFilter ?? ctx.ui.activeFilters,
+    runtime.key,
     tableState.globalFilter,
     tableState.pagination.pageSize,
     system.sharedFilterParams,
   ]
-  return { identity, runtimeFilter }
+  return { identity }
 }
 
 /**
@@ -103,18 +106,24 @@ export function useRecordsQuery(
   // control changes it.
   const effectiveGroupByConfig: ViewGroupBy | undefined = groupByConfig
 
-  const loadMoreFeed = resolveLoadMoreFeed(ctx, layout, effective, system)
+  // A table-bound grid sends the reader's narrowing with every request, so the
+  // rows, the pager and the summary all count the narrowed set.
+  const runtime = useRuntimeFilter(ctx.ui, Boolean(dataSource.system), tableState.setPagination)
+  const loadMoreFeed = resolveLoadMoreFeed(ctx, layout, effective, { system, runtime })
 
   const cursorPages = useSystemCursorPages(
     loadMoreFeed?.identity ?? systemFeedIdentity(ctx, layout, effective, system)
   )
 
+  // A load-more or infinite feed continues from an OFFSET (its cursor), so the
+  // page window is always the first, shifted by that offset.
   const pagination: PaginationState = loadMoreFeed
-    ? { pageIndex: Number(cursorPages.cursor ?? 0), pageSize: tableState.pagination.pageSize }
+    ? { pageIndex: 0, pageSize: tableState.pagination.pageSize }
     : tableState.pagination
 
   const query = useDataTableQuery({
     ...requestParams(ctx, effectiveGroupByConfig, loadMoreFeed),
+    ...(runtime.filter && { runtimeFilter: runtime.filter }),
     ...(dataSource.system && {
       system: dataSource.system,
       systemQuery: system.systemQuery,
@@ -127,6 +136,7 @@ export function useRecordsQuery(
     }),
     // DB-table grids merge the shared-filter publisher's value as raw query params.
     ...(!dataSource.system && { sharedFilterParams: system.sharedFilterParams }),
+    ...(loadMoreFeed && { offset: Number(cursorPages.cursor ?? 0) }),
     pagination,
     sorting: effective.sorting,
     globalFilter: tableState.globalFilter,
@@ -145,7 +155,7 @@ export function useRecordsQuery(
     loadMore: loadMoreFeed !== undefined,
     // The builder's rows already narrowed the request, so the rows must not be
     // narrowed a second time in the browser.
-    filteredOnServer: loadMoreFeed?.runtimeFilter !== undefined,
+    filteredOnServer: runtime.builderOnServer,
   }
 }
 
@@ -173,6 +183,5 @@ function requestParams(
     ...(groupByParam !== undefined && { groupByParam }),
     ...(labelsParam !== undefined && !dataSource.system && { labelsParam }),
     ...(loadMoreFeed && { loadMore: true }),
-    ...(loadMoreFeed?.runtimeFilter && { runtimeFilter: loadMoreFeed.runtimeFilter }),
   }
 }

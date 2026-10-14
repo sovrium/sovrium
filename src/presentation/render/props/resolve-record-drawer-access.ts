@@ -136,7 +136,7 @@ const fieldAccessFor = (
 
 /** The table a drawer is bound to, when it is bound to one. */
 const drawerTable = (record: Readonly<Record<string, unknown>>): string | undefined => {
-  if (record['type'] !== 'drawer') return undefined
+  if (record['type'] !== 'sheet') return undefined
   const dataSource = record['dataSource'] as { readonly table?: unknown } | undefined
   return typeof dataSource?.table === 'string' ? dataSource.table : undefined
 }

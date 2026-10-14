@@ -14,6 +14,7 @@ export function FilterPanel(props: GridPanelsProps) {
   return (
     <FilterOverlay
       tableFields={props.tableFields}
+      fieldLabels={props.fieldLabels}
       fieldMeta={props.fieldMeta}
       activeFilters={props.ui.activeFilters}
       filterConjunction={props.ui.filterConjunction}
@@ -31,6 +32,7 @@ export function SortPanel(props: GridPanelsProps) {
   return (
     <SortOverlay
       tableFields={props.tableFields}
+      fieldLabels={props.fieldLabels}
       activeSorts={props.ui.activeSorts}
       onAddSort={props.ui.addSort}
       onRemoveSort={props.ui.removeSort}

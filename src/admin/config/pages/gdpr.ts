@@ -48,6 +48,7 @@
 // "Cancel" — two buttons reading "Cancel" one dialog apart, meaning opposite
 // things, is the ambiguity the longer label buys out of.
 
+import { dataTable } from '../components/data-table-blocks'
 import { COLUMN, ROW_HINT, row, status } from '../components/settings-row'
 import { withShell } from '../components/shell'
 import type { Page as PageConfig } from '@/domain/models/app'
@@ -225,8 +226,7 @@ export default withShell(
               // body column in full, because a table squeezed into a 416px
               // measure beside an empty action cell reads as a mistake.
               row('$t:admin.gdpr.pending.region', [
-                {
-                  type: 'table',
+                dataTable({
                   props: { id: PENDING_GRID_ID, 'aria-label': '$t:admin.gdpr.pending.region' },
                   dataSource: {
                     system: {
@@ -271,7 +271,7 @@ export default withShell(
                     },
                   ],
                   emptyMessage: '$t:admin.gdpr.pending.empty',
-                } as PageComponent,
+                }) as PageComponent,
               ]),
               // ── Your account ─────────────────────────────────────────────
               row('$t:admin.gdpr.account.label', [
@@ -281,7 +281,7 @@ export default withShell(
                   props: {
                     href: '/profile',
                     className:
-                      'border-border-strong bg-background-raised text-foreground hover:bg-background-subtle inline-flex h-8 w-fit items-center rounded-[var(--radius-base,4px)] border px-3 text-base font-medium',
+                      'border-border-strong bg-card text-foreground hover:bg-muted inline-flex h-8 w-fit items-center rounded-[var(--radius-base,4px)] border px-3 text-base font-medium',
                     'data-testid': 'gdpr-profile-link',
                   },
                 } as PageComponent),

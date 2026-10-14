@@ -11,6 +11,9 @@ import {
 } from '@/domain/models/app/languages/translation-resolver'
 import type { Languages } from '@/domain/models/app/languages'
 
+/** A row action's built-in in-flight words, read by the grid while its request is open. */
+const ROW_ACTION_PENDING_KEYS = ['form.saving', 'form.deleting', 'form.sending', 'action.running']
+
 /**
  * The grid island's interpreter-provided strings, resolved against the active
  * page language: English default, French built-in, and an author
@@ -37,7 +40,7 @@ export function dataTableInterpreterStrings(
     saveLabel: resolveInterpreterString('datatable.save', currentLang, languages),
     cancelLabel: resolveInterpreterString('datatable.cancel', currentLang, languages),
     uiStrings: resolveInterpreterStringOverrides(
-      ['datatable.', 'rateLimit.', 'confirmGate.'],
+      ['datatable.', 'rateLimit.', 'confirmGate.', ...ROW_ACTION_PENDING_KEYS],
       currentLang,
       languages
     ),

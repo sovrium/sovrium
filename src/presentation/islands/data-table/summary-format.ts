@@ -21,6 +21,8 @@
 
 import { resolveCurrencyOptions } from '@/domain/kernel/format/currency-format'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
+import { defaultAlignOfFieldType } from '@/domain/models/app/tables/field-type-presentation-service'
+import { formatRecordText } from '@/domain/models/app/tables/record-text-service'
 import { resolvePageTimezone } from '../runtime/page-timezone'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type {
@@ -46,6 +48,50 @@ export interface SummaryFormatContext {
  * cardinality, not a value drawn from the column's unit — rendering "7 orders"
  * as `$7.00` would be worse than not formatting it at all.
  */
+/** The declared column a summary describes, when there is one. */
+const summaryColumn = (field: string, context: SummaryFormatContext): FieldColumn | undefined =>
+  context.columns?.find((col): col is FieldColumn => 'field' in col && col.field === field)
+
+/**
+ * A summary of a column declaring no `format` reads as the column's cells do:
+ * a currency field in its currency, a percentage as a percentage, anything
+ * else as its stored number.
+ */
+function formatByFieldType(value: number, field: string, context: SummaryFormatContext): string {
+  const meta = context.fieldMeta?.[field]
+  if (meta?.type === 'currency') {
+    const currency = resolveCurrencyOptions(meta)
+    return formatRecordText(
+      value,
+      { format: 'currency', ...(currency === undefined ? {} : { currency }) },
+      context.locale
+    )
+  }
+  if (meta?.type === 'percentage') {
+    const precision = meta.display?.precision
+    return formatRecordText(
+      value,
+      { format: 'percent', ...(precision === undefined ? {} : { precision }) },
+      context.locale
+    )
+  }
+  return String(value)
+}
+
+/**
+ * The alignment a summary cell takes: its column's declared `align`, else the
+ * field type's default (quantities to the right), so the figure sits where the
+ * column's values do.
+ */
+export function summaryAlignClass(field: string, context: SummaryFormatContext): string {
+  const align =
+    summaryColumn(field, context)?.align ??
+    defaultAlignOfFieldType(context.fieldMeta?.[field]?.type)
+  if (align === 'right') return 'text-right'
+  if (align === 'center') return 'text-center'
+  return ''
+}
+
 export function formatSummaryValue(
   value: number | undefined,
   item: DataTableSummaryItem,
@@ -54,10 +100,8 @@ export function formatSummaryValue(
   if (value === undefined) return PENDING_VALUE
   if (item.function === 'count') return String(value)
 
-  const column = context.columns?.find(
-    (col): col is FieldColumn => 'field' in col && col.field === item.field
-  )
-  if (!column?.format) return String(value)
+  const column = summaryColumn(item.field, context)
+  if (!column?.format) return formatByFieldType(value, item.field, context)
 
   return formatCellValue(value, column.format, context.locale, {
     currency: resolveCurrencyOptions(context.fieldMeta?.[item.field]),

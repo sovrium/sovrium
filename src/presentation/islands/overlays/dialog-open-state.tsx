@@ -15,13 +15,12 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { MouseEvent, ReactElement } from 'react'
 
-/** Base UI dismissal reasons blocked for alert-dialogs (confirmation must be explicit). */
-const ALERT_DIALOG_BLOCKED_REASONS = new Set([
-  'escape-key',
-  'close-watcher',
-  'outside-press',
-  'focus-out',
-])
+/**
+ * Base UI dismissal reasons blocked for alert-dialogs: a stray click outside
+ * never dismisses a confirmation, while Escape still closes it like Cancel —
+ * Base UI's own alert dialog and the grid's row confirmation answer the same.
+ */
+const ALERT_DIALOG_BLOCKED_REASONS = new Set(['outside-press', 'focus-out'])
 
 /**
  * Whether a trigger DRAWN on the page right now (`data-click-modal="<id>"`,
@@ -198,9 +197,10 @@ function useExternalOpenTrigger(id: string | undefined, setOpen: (open: boolean)
 }
 
 /**
- * Build the `onOpenChange` handler for the dialog. For alert dialogs, Escape /
- * outside-press / focus-out dismissals are BLOCKED — confirmation must be
- * explicit (Cancel / Confirm button). Regular dialogs dismiss freely. Extracted
+ * Build the `onOpenChange` handler for the dialog. For alert dialogs, the
+ * outside-press / focus-out dismissals are BLOCKED — a stray click never
+ * answers a confirmation — while Escape closes it like Cancel. Regular dialogs
+ * dismiss freely. Extracted
  * to a hook so the island component stays under its line cap.
  */
 export function useDismissalGuard(

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeCalendarCreateBackdropClasses } from '@/presentation/design/calendar-default-classes'
 import type { ReactElement } from 'react'
 
 interface CalendarCreateModalProps {
@@ -89,7 +90,7 @@ function CalendarCreateForm({
           type="text"
           name="title"
           required
-          className="border-border bg-background-raised text-foreground focus:border-focus-ring focus:ring-focus-ring text-md mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:ring-1 focus:outline-none"
+          className="border-border bg-card text-foreground focus:border-ring focus:ring-ring text-md mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:ring-1 focus:outline-none"
         />
       </label>
       {dateField && clickedDate && (
@@ -103,13 +104,13 @@ function CalendarCreateForm({
         <button
           type="button"
           onClick={onClose}
-          className="border-border text-foreground hover:bg-background-subtle text-md rounded border px-3 py-2 font-medium"
+          className="border-border text-foreground hover:bg-muted text-md rounded border px-3 py-2 font-medium"
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="bg-primary text-primary-fg hover:bg-primary-hover text-md rounded px-3 py-2 font-medium"
+          className="bg-primary text-primary-foreground hover:bg-primary-hover text-md rounded px-3 py-2 font-medium"
         >
           Create
         </button>
@@ -144,7 +145,7 @@ export function CalendarCreateModal({
   return (
     <>
       <div
-        className="bg-scrim/50 fixed inset-0 z-40"
+        className={computeCalendarCreateBackdropClasses()}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -155,7 +156,7 @@ export function CalendarCreateModal({
         data-modal="create-event"
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
-        <div className="bg-background-raised w-full max-w-md rounded-lg p-6 shadow-xl">
+        <div className="bg-card w-full max-w-md rounded-lg p-6 shadow-xl">
           <h2
             id="calendar-create-modal-title"
             className="text-foreground mb-4 text-xl font-semibold"

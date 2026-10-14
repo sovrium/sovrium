@@ -1,0 +1,1 @@
+ALTER TABLE "system"."ai_messages" ADD COLUMN "parts" jsonb;

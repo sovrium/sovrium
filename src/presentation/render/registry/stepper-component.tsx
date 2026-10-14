@@ -28,24 +28,18 @@
 
 import { cn } from '@/presentation/design/class-merge'
 import {
-  STEPPER_LABEL,
-  STEPPER_MARKER,
-  STEPPER_RAIL_ITEM,
-} from '@/presentation/design/stepper-default-classes'
+  computeStepperButtonClasses,
+  stepperButtonAttributes,
+  STEPPER_ACTIONS_CLASSES,
+  type StepperButtonVariant,
+} from '@/presentation/design/stepper-anatomy-classes'
 import { renderButton } from '@/presentation/render/elements/button-renderer'
 import { omitInternalMarkers } from '@/presentation/render/props/internal-marker-props'
 import { localizeChildLabel } from './island-child-label'
+import { stepRail, type StepperStep } from './stepper-rail'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
-
-/** One authored step, read loosely off the component root. */
-interface StepperStep {
-  readonly id: string
-  readonly label: string
-  readonly description?: string
-  readonly optional?: boolean
-}
 
 /** The stepper's own root keys, narrowed off the ~60-branch component union. */
 interface StepperRoot {
@@ -61,10 +55,11 @@ const COMPACT_ABOVE = 5
 
 const HIDDEN_STYLE = { display: 'none' } as const
 
-const BUTTON_SECONDARY =
-  'inline-flex h-9 items-center rounded-md border border-border px-4 text-sm font-medium hover:bg-muted'
-const BUTTON_PRIMARY =
-  'inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90'
+/** The class and the shadcn part attributes of one footer button. */
+const buttonProps = (variant: StepperButtonVariant) => ({
+  ...stepperButtonAttributes(variant),
+  className: computeStepperButtonClasses(variant),
+})
 
 /** The button that runs `onFinish`, drawn by the button renderer itself. */
 function finishButton(root: StepperRoot, label: string): ReactElement {
@@ -74,62 +69,12 @@ function finishButton(root: StepperRoot, label: string): ReactElement {
       ? { click: { navigate: action.path } }
       : undefined
   return renderButton({
-    props: { type: 'button', className: BUTTON_PRIMARY, 'data-stepper-finish': '', hidden: true },
+    props: { type: 'button', ...buttonProps('default'), 'data-stepper-finish': '', hidden: true },
     content: label,
     children: [],
     interactions,
     action: action?.type === 'navigate' ? undefined : (action as Component['action']),
   })
-}
-
-/** One position of the rail: its number, its name and its one-line ask. */
-function railItem(
-  step: StepperStep,
-  index: number,
-  ctx: { readonly linear: boolean; readonly part?: string }
-): ReactElement {
-  const number = (
-    <span
-      aria-hidden="true"
-      data-stepper-number=""
-      className={STEPPER_MARKER}
-    >
-      {index + 1}
-    </span>
-  )
-  const words = (
-    <span className="flex flex-col">
-      <span className={STEPPER_LABEL}>{step.label}</span>
-      {step.description !== undefined && (
-        <span className="text-muted-foreground text-xs">{step.description}</span>
-      )}
-    </span>
-  )
-  return (
-    <li
-      key={step.id}
-      data-stepper-step={step.id}
-      data-state={index === 0 ? 'current' : 'todo'}
-      {...(index === 0 && { 'aria-current': 'step' })}
-      className={cn(STEPPER_RAIL_ITEM, ctx.part)}
-    >
-      {ctx.linear ? (
-        <>
-          {number}
-          {words}
-        </>
-      ) : (
-        <button
-          type="button"
-          data-stepper-goto={step.id}
-          className="flex items-start gap-2 text-left"
-        >
-          {number}
-          {words}
-        </button>
-      )}
-    </li>
-  )
 }
 
 /** Localize one step's label and description to the page language. */
@@ -162,7 +107,7 @@ function compactProgress({
     >
       <p
         data-stepper-count=""
-        className="text-muted-foreground font-mono text-xs"
+        className="text-muted-foreground text-xs tabular-nums"
       >
         {`Step 1 of ${total}`}
       </p>
@@ -172,7 +117,7 @@ function compactProgress({
       >
         <div
           data-stepper-bar=""
-          className="bg-foreground h-full"
+          className="bg-primary h-full"
           style={{ width: `${Math.round(100 / Math.max(total, 1))}%` }}
         />
       </div>
@@ -190,6 +135,7 @@ function stepPanel(
   return (
     <section
       key={step.id}
+      data-slot="stepper-content"
       data-stepper-panel={step.id}
       data-optional={step.optional === true ? 'true' : 'false'}
       hidden={index !== 0}
@@ -221,14 +167,15 @@ function stepperFooter({
 }): ReactElement {
   return (
     <div
+      data-slot="stepper-actions"
       data-stepper-footer=""
-      className={cn('flex items-center gap-2', part)}
+      className={cn(STEPPER_ACTIONS_CLASSES, part)}
     >
       <button
         type="button"
         data-stepper-back=""
         hidden
-        className={BUTTON_SECONDARY}
+        {...buttonProps('outline')}
       >
         Back
       </button>
@@ -237,44 +184,19 @@ function stepperFooter({
         type="button"
         data-stepper-skip=""
         hidden={steps[0]?.optional !== true}
-        className={BUTTON_SECONDARY}
+        {...buttonProps('outline')}
       >
         Skip
       </button>
       <button
         type="button"
         data-stepper-next=""
-        className={BUTTON_PRIMARY}
+        {...buttonProps('default')}
       >
         Continue
       </button>
       {finishButton(root, finishLabel)}
     </div>
-  )
-}
-
-/** The ordered rail of steps, hidden on a phone and past five steps. */
-function stepRail(ctx: {
-  readonly steps: readonly StepperStep[]
-  readonly ariaLabel: unknown
-  readonly linear: boolean
-  readonly vertical: boolean
-  readonly compactOnly: boolean
-  readonly parts: Readonly<Record<string, string>>
-}): ReactElement {
-  const { steps, ariaLabel, linear, vertical, compactOnly, parts } = ctx
-  return (
-    <ol
-      aria-label={typeof ariaLabel === 'string' ? ariaLabel : 'Steps'}
-      data-stepper-rail=""
-      className={cn(
-        compactOnly ? 'hidden' : 'hidden gap-4 sm:flex',
-        vertical ? 'sm:flex-col md:w-56 md:shrink-0' : 'sm:flex-row sm:flex-wrap',
-        parts['rail']
-      )}
-    >
-      {steps.map((step, index) => railItem(step, index, { linear, part: parts['step'] }))}
-    </ol>
   )
 }
 
@@ -306,6 +228,7 @@ export const stepperComponent: ComponentRenderer = ({
     <div
       {...hostProps}
       id={hostId}
+      data-slot="stepper"
       data-stepper={hostId}
       data-orientation={vertical ? 'vertical' : 'horizontal'}
       className={cn(

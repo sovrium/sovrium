@@ -36,10 +36,12 @@ import {
 } from '@/presentation/render/resolve/record-read-gate'
 import { resolveRouteBoundTables } from '@/presentation/render/resolve/route-bound-table-resolver'
 import { resolvePageRouteParams } from '@/presentation/render/resolve/route-param-props-resolver'
+import { attachmentAddressing } from '@/presentation/render/resolve/row-attachment-addresses'
 import { type RowLevelReadCheck } from '@/presentation/render/resolve/row-rule-read-check'
 import { resolveTabsLazyPanels } from '@/presentation/render/resolve/tabs-lazy-resolver'
 import { resolvePageTwoFactorAttempt } from '@/presentation/render/resolve/two-factor-attempt-resolver'
 import { resolvePageWindowProps } from '@/presentation/render/resolve/window-props-resolver'
+import { resolveSidebarState } from '../resolve/sidebar-state-resolver'
 import { resolvePageLanguage } from './page-lang-resolver'
 import { definedOnly, resolveAndFilterPage } from './page-row-scope-resolver'
 import type { App } from '@/domain/models/app'
@@ -206,8 +208,9 @@ export async function resolveCollectionAndFilter(
   // P7 then the four `$`-reference passes, in one step — see
   // `prepareRequestPage`. `'not-found'` is the route-bound-table 404.
   const invited = await resolveRequestBoundPasses(input)
-  const matchedPage = prepareRequestPage({ ...input, matchedPage: invited })
-  if (matchedPage === 'not-found') return undefined
+  const prepared = prepareRequestPage({ ...input, matchedPage: invited })
+  if (prepared === 'not-found') return undefined
+  const matchedPage = resolveSidebarState(prepared, cookies)
   // Pure pass-throughs to `resolveAndFilterPage` — the per-request locale and
   // query context, grouped so it reads as one thing.
   const { detectedLanguage, requestQuery } = input
@@ -218,22 +221,15 @@ export async function resolveCollectionAndFilter(
     detectedLanguage,
     input.urlLanguage
   )
-  const db = {
-    ...input.db,
-    recordText: { locale: lang, tables: app.tables, languages: app.languages },
-  }
-  // editorial-role preview bypasses
-  // collection.filter so admins/editors can preview drafts at the
-  // canonical public URL. The route layer guarantees `previewMode` is
-  // only `true` for editorial sessions, so the resolver does not need
-  // to recheck the role here.
-  //
-  // When the matched page is a collection page over a table with
-  // `rowLevelPermissions.read.when`, build a per-request predicate: a row the
-  // reader may not read answers as a missing one — the same 404 and the same
-  // page, signed in or not, as the records API answers her. The table-read and
-  // field-read halves ride with it — see `collectionReadGateOf`.
-  const collectionResolution = await resolveCollectionPage(matchedPage, routeParams, db, {
+  const recordText = { locale: lang, tables: app.tables, languages: app.languages }
+  const db = { ...input.db, recordText }
+  // Editorial-role preview bypasses `collection.filter` so admins/editors can
+  // preview drafts at the canonical URL (the route layer only sets `previewMode`
+  // for editorial sessions). A row the reader may not read answers as a missing
+  // one — the records API's 404 — see `collectionReadGateOf`, and the page's
+  // attachment tokens are addresses — see `collectionAttachments`.
+  const collectionPage = collectionAttachments(matchedPage, app, db).page
+  const collectionResolution = await resolveCollectionPage(collectionPage, routeParams, db, {
     bypassFilter: previewMode,
     ...collectionReadGateOf(matchedPage, app, session, db),
   })
@@ -244,10 +240,8 @@ export async function resolveCollectionAndFilter(
     return undefined
   }
   const rawPage = collectionResolution.kind === 'match' ? collectionResolution.page : matchedPage
-  // A collection page resolves its host record here (not via
-  // `resolvePageParentRecord`, which only handles `dataSource: single`).
-  // Thread it so an embedded form's `inlinePrefill` `$record.*` tokens
-  // resolve against the collection record.
+  // The collection record, for an embedded form's `inlinePrefill` `$record.*`
+  // tokens (`resolvePageParentRecord` handles `dataSource: single` only).
   const collectionRecord =
     collectionResolution.kind === 'match' ? collectionResolution.record : undefined
   return resolveAndFilterPage({
@@ -312,10 +306,39 @@ function collectionReadGateOf(
   const tableName = page.collection.table
   const gate = callerRecordGateOf({ app, tableName, session, db })
   if (gate.kind === 'refused') return { refuseRecord: true }
+  const { address } = collectionAttachments(page, app, db)
   return {
-    projectRecord: gate.project,
+    projectRecord: async (record) => address(await gate.project(record)),
     ...(gate.rowCheck !== undefined ? { rowLevelReadCheck: gate.rowCheck } : {}),
     readRows: async (query) =>
       (await readRowsForCaller({ app, tableName, session, db, query })).rows,
+  }
+}
+
+/** A collection record, given its attachment parts. */
+type RecordAddress = (
+  record: Readonly<Record<string, unknown>>
+) => Promise<Readonly<Record<string, unknown>>>
+
+/**
+ * A collection page's attachment addressing, as a list row's: the page with
+ * each attachment token of its table rewritten (before its record is
+ * substituted), and how its record, once projected, is given the parts. A page
+ * naming no attachment, or no collection, is used as it is.
+ */
+function collectionAttachments(
+  page: Page,
+  app: App,
+  db: DataSourceDb
+): { readonly page: Page; readonly address: RecordAddress } {
+  const tableName = page.collection?.table
+  const addressing =
+    tableName === undefined
+      ? undefined
+      : attachmentAddressing({ template: page.components, app, tableName, sign: db.signFileUrl })
+  if (addressing === undefined) return { page, address: async (record) => record }
+  return {
+    page: { ...page, components: addressing.rewrite(page.components) },
+    address: addressing.address,
   }
 }

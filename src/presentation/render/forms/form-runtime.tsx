@@ -67,10 +67,8 @@
  */
 
 import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
-import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
 import { SCOPED_VAR_CHAIN_SOURCE } from '@/domain/models/app/pages/substitute-record-vars'
 import { FORM_RUNTIME_MARK } from '@/presentation/design/runtime-ready-marks'
-import { resolveDocumentLang } from './form-field-resolver'
 import { FORM_RUNTIME_AUDIO_RECORDER_SCRIPT } from './form-runtime-audio-recorder'
 import {
   FORM_RUNTIME_CONDITION_EVALUATOR_SCRIPT,
@@ -81,12 +79,20 @@ import {
 import { FORM_RUNTIME_EDIT_LINK_SCRIPT } from './form-runtime-edit-link'
 import { FORM_RUNTIME_FIELD_ERRORS_SCRIPT } from './form-runtime-field-errors'
 import { FORM_RUNTIME_FILE_HANDLERS_SCRIPT } from './form-runtime-file-handlers'
-import { resolveOnErrorText, resolveOnSuccessText } from './form-runtime-i18n'
+import {
+  resolveOnErrorText,
+  resolveOnSuccessText,
+  resolvePendingLabel,
+  resolveRuntimeStrings,
+} from './form-runtime-i18n'
 import { FORM_RUNTIME_MULTI_STEP_SCRIPT } from './form-runtime-multi-step'
+import { FORM_RUNTIME_NOTICE_SCRIPT } from './form-runtime-notice'
 import { FORM_RUNTIME_ONE_QUESTION_SCRIPT } from './form-runtime-one-question'
+import { FORM_RUNTIME_PENDING_SCRIPT } from './form-runtime-pending'
 import { FORM_RUNTIME_RATING_SCRIPT } from './form-runtime-rating'
 import { FORM_RUNTIME_RECORD_WRITTEN_SCRIPT } from './form-runtime-record-written'
 import { FORM_RUNTIME_SAVE_BAR_SCRIPT } from './form-runtime-save-bar'
+import { FORM_RUNTIME_SUBMIT_SCRIPT } from './form-runtime-submit'
 import type { Form, FormOnError, FormOnSuccess } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
 
@@ -111,6 +117,8 @@ export interface FormRuntimeConfig extends RuntimeConditionsConfig {
   readonly strings?: Readonly<Record<string, string>>
   /** `submitTo.table`, announced on success (`form-runtime-record-written.ts`). */
   readonly table?: string
+  /** `display.pendingLabel`, resolved: the submit's in-flight word (else `form.sending`). */
+  readonly pendingLabel?: string
 }
 
 /**
@@ -136,11 +144,7 @@ export function buildFormRuntimeConfig(
       : undefined
   const onError =
     form.onError !== undefined ? resolveOnErrorText(form.onError, languages, activeLang) : undefined
-  const strings = resolveInterpreterStringOverrides(
-    ['form.requiredNamed', 'form.submissionFailed', 'form.editAnswers'],
-    resolveDocumentLang(languages, activeLang),
-    languages
-  )
+  const strings = resolveRuntimeStrings(languages, activeLang)
   return {
     formName: form.name,
     ...(onSuccess !== undefined ? { onSuccess } : {}),
@@ -150,6 +154,7 @@ export function buildFormRuntimeConfig(
     oneQuestion: isOneQuestion,
     ...(strings !== undefined ? { strings } : {}),
     ...(form.submitTo.table !== undefined ? { table: form.submitTo.table } : {}),
+    ...resolvePendingLabel(form, languages, activeLang),
     ...runtimeConditionsConfig(form),
   }
 }
@@ -208,7 +213,7 @@ ${FORM_RUNTIME_MULTI_STEP_SCRIPT}
 ${FORM_RUNTIME_ONE_QUESTION_SCRIPT}
 ${FORM_RUNTIME_CONDITION_EVALUATOR_SCRIPT}
 ${FORM_RUNTIME_CONDITIONS_SCRIPT}
-${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}
+${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}${FORM_RUNTIME_PENDING_SCRIPT}${FORM_RUNTIME_NOTICE_SCRIPT}
   function validateForm() {
     var inputs = namedInputs()
     var firstError = null
@@ -254,16 +259,6 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}
     } else {
       renderToast(msg, onError.variant || 'error')
     }
-  }
-  function renderToast(message, variant) {
-    removeIfPresent(document.querySelector('[data-form-toast="' + formName + '"]'))
-    var toast = document.createElement('div')
-    toast.setAttribute('data-form-toast', formName)
-    toast.setAttribute('data-variant', variant || 'success')
-    toast.setAttribute('role', 'status')
-    toast.className = 'form-toast'
-    toast.textContent = message
-    document.body.appendChild(toast)
   }
 
   // ---- onSuccess interpolation ----------------------------------------------
@@ -428,67 +423,7 @@ ${FORM_RUNTIME_RATING_SCRIPT}${FORM_RUNTIME_RECORD_WRITTEN_SCRIPT}${FORM_RUNTIME
     return snapshot
   }
 
-  function handleSubmissionResult(result) {
-    if (!result.ok) {
-      if (result.body && Array.isArray(result.body.fieldErrors)) {
-        result.body.fieldErrors.forEach(function (entry) {
-          var input = form.querySelector('[name="' + entry.name + '"]')
-          if (input) showFieldError(input, entry.message)
-        })
-      }
-      renderOnError(result.body && result.body.message)
-      return
-    }
-    announceRecordWritten(result.body)
-    applyOnSuccess({
-      submissionId: result.body.submissionId || '',
-      linkedRecordId: result.body.linkedRecordId || '',
-      // Bound-table columns for $record.<column> (absent on table-less forms).
-      record: result.body.record || {},
-      form: snapshotValues(),
-    })
-    renderEditLink(result.body.editUrl)
-  }
-
-  form.addEventListener('submit', function (event) {
-    event.preventDefault()
-    clearFieldErrors()
-    var validation = validateForm()
-    if (!validation.ok) {
-      renderOnError(onError.message || FAILED)
-      return
-    }
-    var fetchInit
-    if (hasFileInputs) {
-      fetchInit = {
-        method: 'POST',
-        headers: { Accept: 'application/json' },
-        body: buildMultipartBody(),
-      }
-    } else {
-      fetchInit = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(snapshotValues()),
-      }
-    }
-    fetch(form.action, fetchInit)
-      .then(function (response) {
-        return response
-          .json()
-          .catch(function () {
-            return {}
-          })
-          .then(function (body) {
-            return { ok: response.ok, status: response.status, body: body || {} }
-          })
-      })
-      .then(handleSubmissionResult)
-      .catch(function (_err) {
-        renderOnError(null)
-      })
-  })
-})()`
+${FORM_RUNTIME_SUBMIT_SCRIPT}})()`
 
 /**
  * SSR mount for the form runtime. Emits two `<script>` blocks:

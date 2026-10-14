@@ -2,7 +2,7 @@
 
 > The `kpi` component — a single summary metric, with an optional comparison, sparkline and thresholds.
 
-A KPI card states one number. It aggregates the records its `dataSource` binds and formats the result. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. Bound to a view, the number counts or totals the records the view returns.
+A KPI card states one number. Reference: shadcn/ui Card, as the section cards of its dashboard block draw it: the label and its `icon` are the card description, in the muted foreground; the figure is the card title, in semibold tabular digits; the `trend` is an outline badge beside them; the `sparkline` sits in the card content and a ratio's two counts in the card footer. The card paints the `card` colour with a faint ring instead of a border, and while its figure loads it draws skeletons where the label and the figure will sit. It aggregates the records its `dataSource` binds and formats the result. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. Bound to a view, the number counts or totals the records the view returns.
 
 The figure is computed by the server over every record the binding matches, through the table's aggregate read (`GET /api/tables/:tableId/aggregate`) — one request per card, never a page of records added up in the browser, so a count over 250 records says 250. Cards that ask the same question of the same table and filter share one request. A card with a `sparkline` also reads the records the sparkline is drawn from. A count, or a figure over a number field, comes from the aggregate read; a `min` or `max` over a date is still worked out from a page of records.
 
@@ -60,11 +60,11 @@ The aggregate read answers a ratio when it is sent `numerator` and `denominator`
 
 All three of `comparisonPeriod`, `direction` and `changePercent` are required once `trend` is present. `comparisonPeriod` is `previousDay`, `previousWeek`, `previousMonth`, `previousQuarter` or `previousYear`; `direction` is `up`, `down` or `flat`; `changePercent` is the change as a number; and `color` is `green`, `red`, `yellow` or `gray`.
 
-**`direction` and `color` are independent on purpose.** Revenue up is green; churn up is red. Sovrium will not guess which of your metrics improve by rising, so state the colour you mean.
+The badge shows `changePercent` after an arrow that follows `direction`, and `color` paints that arrow. **`direction` and `color` are independent on purpose.** Revenue up is green; churn up is red. Sovrium will not guess which of your metrics improve by rising, so state the colour you mean. The arrow carries the direction on its own, so a reader who cannot tell the colours apart still reads it.
 
 ## `sparkline`
 
-All four properties are required once `sparkline` is present: `field` is plotted along the line, `groupBy` buckets the points, `interval` is `minute`, `hour`, `day`, `week` or `month` (a minute or an hour is a UTC one), and `days` is how far back the line covers — `interval: hour` with `days: 1` draws the last 24 hours, one point per hour holding a record.
+All four properties are required once `sparkline` is present: `field` is plotted along the line, `groupBy` buckets the points, `interval` is `minute`, `hour`, `day`, `week` or `month` (a minute or an hour is a UTC one), and `days` is how far back the line covers — `interval: hour` with `days: 1` draws the last 24 hours, one point per hour holding a record. The line is drawn in the second chart colour (`chart-2`).
 
 ## Size and tone
 

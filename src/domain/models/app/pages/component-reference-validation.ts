@@ -39,7 +39,7 @@ import { isFileRefValue } from '@/domain/kernel/config-parsing/ref-value-kind'
  * (and the slot's `children`), and whose `component` is a string, written as a
  * member of a component list.
  * A `specimen` holds a component OBJECT and sits beside `type`, and its
- * `subject` is a lone object rather than a list member; an `openDrawer` action
+ * `subject` is a lone object rather than a list member; an `openSheet` action
  * carries `action`; none of them matches.
  * The message offers no file spelling: `component:` is never read from disk.
  */

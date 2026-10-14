@@ -86,7 +86,7 @@ markdown:
       heading1: '!mt-3 !mb-3.5 !text-[36px] tracking-tight'
       heading2: '!mt-6 !mb-3 !text-[24px]'
       heading3: '!my-3'
-      lead: '!mt-0 !mb-3.5 !text-[16px] !leading-[1.6] text-foreground-muted'
+      lead: '!mt-0 !mb-3.5 !text-[16px] !leading-[1.6] text-muted-foreground'
       paragraph: '!my-3 !text-[15px] !leading-[1.7] text-[var(--tw-prose-body)]'
       list: '!my-3'
       table: '!my-3'
@@ -96,12 +96,12 @@ markdown:
       # A callout's first line is its title, written on a line of its own.
       callout: >-
         !my-3 rounded-r-lg border border-l-[3px] border-[#e5ded5]
-        border-l-[var(--color-warmth-border,var(--color-border-strong))] bg-[#f5f0eb] px-4 !py-3
+        border-l-[var(--color-border-strong)] bg-[#f5f0eb] px-4 !py-3
         !text-foreground dark:border-[#262626] dark:bg-[#171717]
         *:!my-0 *:first:!mb-0.5
       calloutNote: '!border-l-primary !bg-primary-subtle'
       calloutTip: '!border-l-success !bg-success/10'
-      calloutWarning: '!border-l-warning !bg-background-subtle'
+      calloutWarning: '!border-l-warning !bg-muted'
       codeFrame: '!my-3 !border-[#0d0d0d]'
       codeCaption: '!h-[34px] !border-white/10 !bg-[#0d0d0d] !py-0 !text-[#8b949e]'
       codeBlock: '!py-3 !text-[13px] !leading-[1.65]'

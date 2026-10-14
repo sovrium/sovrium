@@ -6,8 +6,7 @@
  */
 
 import { useContext, useId, type ReactElement, type ReactNode } from 'react'
-import { computeFormFieldLabelClasses } from '@/presentation/design/form-layout-classes'
-import { LABEL_CLASS } from './field-chrome-classes'
+import { computeFieldLabelClasses } from '@/presentation/design/field-default-classes'
 import { SideLabelsContext } from './side-labels-context'
 
 /**
@@ -19,13 +18,33 @@ const SIDE_ROW_CLASS = 'flex w-full flex-col gap-1 md:flex-row md:items-start md
 const SIDE_LABEL_COLUMN_CLASS = 'flex flex-col gap-1 md:w-48 md:shrink-0 md:pt-2'
 const SIDE_CONTROL_CLASS = 'flex min-w-0 flex-1 flex-col'
 
+/** The field's name, as shadcn/ui's `FieldLabel`, pointing at its control by id. */
+function FieldLabel({
+  htmlFor,
+  children,
+}: {
+  readonly htmlFor: string
+  readonly children: ReactNode
+}): ReactElement {
+  return (
+    <label
+      data-slot="field-label"
+      htmlFor={htmlFor}
+      className={computeFieldLabelClasses()}
+    >
+      {children}
+    </label>
+  )
+}
+
 /**
- * A field's label and its control.
+ * A field's label and its control, laid into the `field` that holds them
+ * (shadcn/ui's `Field` anatomy: the label, the control, then its description).
  *
- * Above (the default), the `<label>` WRAPS its control, as it always has.
- * Beside, a wrapping label would span the whole row, so the label is a sibling
- * pointing at the control by id — the only shape in which the name can sit in
- * a column of its own and still name the control for assistive technology.
+ * The label is a sibling pointing at the control by id rather than wrapping it,
+ * above and beside alike: a wrapping label would carry the control and its
+ * help inside the label's own box, where the field's parts can no longer be
+ * laid out — or styled — one by one.
  */
 export function LabelledControl({
   label,
@@ -33,30 +52,25 @@ export function LabelledControl({
   help,
 }: {
   readonly label: ReactNode
-  /** The control, given the id a side label points at (`undefined` above). */
-  readonly control: (id: string | undefined) => ReactElement
+  /** The control, given the id its label points at. */
+  readonly control: (id: string) => ReactElement
   readonly help?: ReactNode
 }): ReactElement {
   const side = useContext(SideLabelsContext)
   const id = useId()
   if (!side) {
     return (
-      <label className={LABEL_CLASS}>
-        {label}
-        {control(undefined)}
+      <>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        {control(id)}
         {help}
-      </label>
+      </>
     )
   }
   return (
     <div className={SIDE_ROW_CLASS}>
       <div className={SIDE_LABEL_COLUMN_CLASS}>
-        <label
-          htmlFor={id}
-          className={computeFormFieldLabelClasses()}
-        >
-          {label}
-        </label>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
         {help}
       </div>
       <div className={SIDE_CONTROL_CLASS}>{control(id)}</div>

@@ -62,8 +62,10 @@ import { collectProseSpacingNotices } from '@/domain/models/app/design/prose-spa
 import { collectSupersededDesignNotices } from '@/domain/models/app/design/superseded-notices'
 import { validateDocumentOutputBuckets } from '@/domain/models/app/document-output-validation'
 import { undeclaredEnvReferenceRefusals } from '@/domain/models/app/env-reference-validation'
-import { collectUnprefixedEngineKeyNotices } from '@/domain/models/app/languages/engine-key-prefix-validation'
+import { collectEngineKeyNotices } from '@/domain/models/app/languages/engine-key-prefix-validation'
+import { canReportEveryDecodeMistake } from '@/domain/models/app/pages/component-nesting-depth-service'
 import { validateComponentFieldReferences } from '@/domain/models/app/pages/components/component-field-references'
+import { validateComponentSemantics } from '@/domain/models/app/pages/components/component-types/component-semantic-validation'
 import { validateComponentXorRules } from '@/domain/models/app/pages/components/component-types/component-xor-rules'
 import { validateCalendarColorFields } from '@/domain/models/app/pages/components/component-types/data/calendar/calendar-color-field-validation'
 import { validateCardSlotComponents } from '@/domain/models/app/pages/components/component-types/data/card-slot-validation'
@@ -329,12 +331,11 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     // verdict needs `tables[]`, which no drawer schema node can see. See
     // `drawer-related-validation.ts`.
     ...validateDrawerRelatedReferences(normalized),
-    // A card slot holds record components only (`card-slot-validation.ts`).
+    // Card slots hold record components; the other component-type rules gathered.
     ...validateCardSlotComponents(normalized),
-    // One `series` styles an aggregated chart (`aggregate-series-validation.ts`).
-    ...validateAggregateSeries(normalized),
-    // A relative-date filter value must be one of the grammar's tokens.
-    ...validateRelativeDateFilters(normalized),
+    ...validateComponentSemantics(normalized),
+    ...validateAggregateSeries(normalized), // one `series` styles an aggregated chart
+    ...validateRelativeDateFilters(normalized), // a relative-date value is a grammar token
     ...validateRecordEventLoops(normalized), // a record automation re-firing its own trigger
     ...validateApprovalTimeouts(normalized), // an approval `timeout` must decide its outcome
     ...validateDelayLimits(normalized), // over-long delays (`delay-limits-validation.ts`)
@@ -354,6 +355,10 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     ...validatePreviewOptionPaths(normalized),
   ]
 }
+
+/** The AppSchema decode, under the options explained inside {@link decodeAppConfigObject}. */
+const decodeApp = (errors: 'first' | 'all') =>
+  Schema.decodeUnknownResult(AppSchema, { onExcessProperty: 'error', reportInput: true, errors })
 
 /**
  * Run an already-parsed config OBJECT through the full pipeline.
@@ -411,16 +416,11 @@ export const decodeAppConfigObject = (
   // untrusted body: the prose half would then echo somebody else's document into
   // the operator's terminal. `init --from-url` is that case and reads the
   // stripped `findings` instead.
-  //
-  // `errors: 'all'` so one run reports every mistake rather than the first the
-  // decoder met. The cost is union residue — every member the decoder tried
-  // reports its own complaints — and `collectDecodeProblems` keeps only the
-  // member the author meant at each union, so one mistake is still one problem.
-  const decoded = Schema.decodeUnknownResult(AppSchema, {
-    onExcessProperty: 'error',
-    reportInput: true,
-    errors: 'all',
-  })(parsed)
+  // `errors: 'all'` reports every mistake but costs fivefold per failing ancestor, so a deeply
+  // nested config stops at its first one, same message (`component-nesting-depth-service.ts`).
+  const first = decodeApp('first')(parsed)
+  const full = Result.isFailure(first) && canReportEveryDecodeMistake(parsed)
+  const decoded = full ? decodeApp('all')(parsed) : first
   if (Result.isFailure(decoded)) {
     return { valid: false, ...describeDecodeError(decoded.failure, parsed, refSources, configFile) }
   }
@@ -444,7 +444,7 @@ export const decodeAppConfigObject = (
       // id, and only the document as written shows what the author spelled.
       ...collectImplicitFieldIdNotices(parsed),
       ...collectProseSpacingNotices(parsed),
-      ...collectUnprefixedEngineKeyNotices(decoded.success.languages),
+      ...collectEngineKeyNotices(decoded.success.languages),
     ],
   }
 }

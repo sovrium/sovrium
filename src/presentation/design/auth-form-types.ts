@@ -24,6 +24,7 @@
  *   {@link withAuthFieldHints} so the skeleton and the island draw the same.
  * - `errorId` is the id of the field's inline-error region, unique per form so
  *   two forms on one page never share one.
+ * - `labelKey` names the catalogue key a built-in default label is worded by.
  */
 export interface AuthFormField {
   readonly name: string
@@ -34,6 +35,12 @@ export interface AuthFormField {
   readonly autoComplete?: string
   readonly inputMode?: 'numeric'
   readonly errorId?: string
+  /**
+   * The catalogue key a built-in field's label is worded by (`auth.email`,
+   * `auth.password`): the renderer words it in the page language and drops
+   * the key, so it never reaches the island.
+   */
+  readonly labelKey?: string
 }
 
 /** What an auth form's browser hints depend on. */
@@ -143,9 +150,14 @@ const ENGINE_STRING_PREFIXES: Readonly<Record<string, readonly string[]>> = {
   regenerateBackupCodes: ['twoFactor.'],
 }
 
-/** The catalogue key prefixes an auth form of `method` resolves for its island. */
-export const authFormStringPrefixes = (method: string): readonly string[] =>
-  ENGINE_STRING_PREFIXES[method] ?? []
+/**
+ * The catalogue key prefixes an auth form of `method` resolves for its island:
+ * its own, and the error summary's sentence every form can show.
+ */
+export const authFormStringPrefixes = (method: string): readonly string[] => [
+  ...(ENGINE_STRING_PREFIXES[method] ?? []),
+  'auth.fixErrors',
+]
 
 /** Whether a form's method is one of the account methods. */
 export const isAccountFormMethod = (method: string | undefined): boolean =>
@@ -212,9 +224,37 @@ export function authPendingLabel(method: string | undefined): string {
   return PENDING_LABELS[method ?? 'login'] ?? 'Signing in…'
 }
 
+/**
+ * The catalogue key of a method's built-in submit word (`auth.submit.<method>`),
+ * or `undefined` for a method the catalogue words no submit for.
+ */
+export function authSubmitLabelKey(method: string | undefined): string | undefined {
+  const key = method ?? 'login'
+  return key !== 'verifyTwoFactor' && SUBMIT_LABELS[key] !== undefined
+    ? `auth.submit.${key}`
+    : undefined
+}
+
+/** The catalogue key of each method's built-in in-flight word, where it is not `form.saving`. */
+const PENDING_LABEL_KEYS: Readonly<Record<string, string>> = {
+  login: 'auth.pending.login',
+  signup: 'auth.pending.signup',
+  logout: 'auth.pending.logout',
+  resetPassword: 'form.sending',
+  setNewPassword: 'form.saving',
+  verifyTwoFactor: 'auth.pending.verifyTwoFactor',
+}
+
+/** The catalogue key of a method's built-in in-flight word, mirroring {@link authPendingLabel}. */
+export function authPendingLabelKey(method: string | undefined): string {
+  if (isAccountFormMethod(method)) return PENDING_LABEL_KEYS[method ?? ''] ?? 'form.saving'
+  return PENDING_LABEL_KEYS[method ?? 'login'] ?? 'auth.pending.login'
+}
+
 const EMAIL_FIELD: AuthFormField = {
   name: 'email',
   label: 'Email',
+  labelKey: 'auth.email',
   required: true,
   inputType: 'email',
 }
@@ -222,6 +262,7 @@ const EMAIL_FIELD: AuthFormField = {
 const PASSWORD_FIELD: AuthFormField = {
   name: 'password',
   label: 'Password',
+  labelKey: 'auth.password',
   required: true,
   inputType: 'password',
 }

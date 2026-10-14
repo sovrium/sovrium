@@ -91,7 +91,7 @@ A top-level form renders inline inside a page through the form control's `formRe
 
 A `formRef` expands wherever it sits: a `dialog` with `formRef` inside any container, and a `form` with `formRef` inside a dialog's `children`, render the referenced form with its labels, rules and submission endpoint. When a form that writes to `submitTo.table` is sent from a dialog, the dialog closes and every grid on the page reading that table shows the new record without a reload.
 
-A form's inputs and selects are drawn at the height of an `input` component (36 px by default), under labels on a 19 px line, so a form and an input written beside it line up.
+A form's inputs and selects are drawn at the height of an `input` component (32 px by default), under labels on a 19 px line, so a form and an input written beside it line up.
 
 ```yaml
 pages:

@@ -16,7 +16,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -102,10 +102,10 @@ components:
                     children:
                       # Events are quiet outlined chips: the page spends its
                       # colour on the figures above, not on the month.
-                      - type: calendar
+                      - type: event-calendar
                         classes:
                           parts:
-                            event: '!border-border !bg-background-raised !text-foreground'
+                            event: '!border-border !bg-card !text-foreground'
                         dataSource:
                           table: events
                           filter:

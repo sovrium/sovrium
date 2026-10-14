@@ -48,7 +48,7 @@ export function PhoneRows({
             >
               {title === undefined || title === null ? '' : String(title)}
             </span>
-            <span className="text-foreground-muted flex min-w-0 flex-wrap gap-x-3 text-sm">
+            <span className="text-muted-foreground flex min-w-0 flex-wrap gap-x-3 text-sm">
               {detailColumns.map((column) => {
                 const cell = cellOf(column.id)
                 return (

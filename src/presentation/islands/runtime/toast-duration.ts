@@ -70,3 +70,15 @@ export function resolveToastDuration(input: ToastDismissalInput): number | undef
   if (input.hasAction === true) return undefined
   return DEFAULT_TOAST_DURATION_MS
 }
+
+/**
+ * Mark the toast element with its variant and its authored `duration`; the
+ * duration is kept so a success carried to the next page (`action-outcome.ts`)
+ * is timed there as it was here.
+ */
+export function markToastTiming(toast: Element, input: ToastDismissalInput): void {
+  if (input.variant) toast.setAttribute('data-variant', input.variant)
+  if (input.duration !== undefined && input.duration > 0) {
+    toast.setAttribute('data-duration', String(input.duration))
+  }
+}

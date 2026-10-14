@@ -32,10 +32,10 @@
  * `theme.colors` is an open record, and Sovrium's default carries 306 value
  * declarations whose spellings include CSS `var()` fallback chains that
  * `DesignThemeSchema` cannot hold. That is precisely why
- * `src/admin/config/design.ts` keeps `DEFAULT_DESIGN_SOURCE` as a NAMED export
- * feeding a generator, rather than as the app's own `design` ([internal ref] refused
- * widening the config surface to hold those chains). There is no in-schema
- * object to deep-merge with.
+ * the default is generated from the shadcn/ui registry snapshot by a build
+ * script, never declared as any app's `design` ([internal ref] refused widening the
+ * config surface to hold those chains). There is no in-schema object to
+ * deep-merge with.
  *
  * ─── THE SEVEN THAT CASCADE, AND THE FIVE THAT DO NOT ──────────────────────
  *

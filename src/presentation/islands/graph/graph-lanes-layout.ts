@@ -38,8 +38,8 @@
  * ─── WHAT THE FIGURES ARE, AND WHERE THEY CAME FROM ────────────────────────
  *
  * From the design oracle — `processesSvg` in the admin console's canvas
- * generator (`[internal ref]
- * generator/org.mjs`). Lane height 46, a 176 x 28 rx=4 box at a 200px pitch, a
+ * generator, archived at
+ * `[internal ref]`. Lane height 46, a 176 x 28 rx=4 box at a 200px pitch, a
  * 24px connector with an arrowhead, and the lanes starting at y=30. That last
  * one is not a coincidence to be maintained: `HEADER_HEIGHT + 4` is what
  * `placeColumn` already uses for its first band, and it is 30.

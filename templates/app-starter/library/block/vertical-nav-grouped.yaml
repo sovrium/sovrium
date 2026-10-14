@@ -6,7 +6,7 @@ props:
 children:
   - type: sidebar
     props:
-      className: w-64 rounded-lg border border-border bg-background-raised
+      className: w-64 rounded-lg border border-border bg-card
     groups:
       - label: Workspace
         items:

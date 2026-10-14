@@ -99,7 +99,7 @@ function SearchBox({ value, placeholder, onChange }: SearchBoxProps) {
       placeholder={placeholder}
       aria-label={placeholder}
       data-search-input="true"
-      className="border-border bg-background-raised text-foreground focus:border-focus-ring focus:ring-focus-ring text-md mb-2 w-full rounded-md border py-2 pr-3 pl-3 focus:ring-1 focus:outline-none"
+      className="border-border bg-card text-foreground focus:border-ring focus:ring-ring text-md mb-2 w-full rounded-md border py-2 pr-3 pl-3 focus:ring-1 focus:outline-none"
     />
   )
 }

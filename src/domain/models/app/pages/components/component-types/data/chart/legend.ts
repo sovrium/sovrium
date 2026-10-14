@@ -31,6 +31,12 @@ export const ChartLegendSchema = Schema.Struct({
   visible: Schema.optional(
     Schema.Boolean.annotate({ description: 'Show or hide the legend (default: true)' })
   ),
+  /** Field naming each entry */
+  nameKey: Schema.optional(
+    Schema.String.annotate({
+      description: 'Row field naming each legend entry, such as a display name beside a code',
+    })
+  ),
 }).annotate({
   title: 'Chart Legend',
   description: 'Legend display configuration',

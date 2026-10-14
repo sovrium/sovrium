@@ -1,14 +1,14 @@
 # Charts
 
-> The `chart` component — six chart types over an aggregate of records, with series, axes, a legend and a tooltip.
+> The `chart` component — eight chart types over an aggregate of records, with series, axes, a legend and a tooltip.
 
-A chart summarises records and plots the result. The chart kind is the `chartType` **property**, not the component `type`: a chart component is always `type: chart`. A chart bound to a table binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. The axes, series and aggregate stay on the chart either way: they say how the records are plotted.
+A chart summarises records and plots the result. Reference: shadcn/ui Chart. The chart kind is the `chartType` **property**, not the component `type`: a chart component is always `type: chart`. A chart bound to a table binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. The axes, series and aggregate stay on the chart either way: they say how the records are plotted.
 
 <!-- sovrium:options type:chart depth=3 -->
 
-`chartType` is `bar`, `line`, `area`, `pie`, `donut` or `scatter`. `legend` takes `{ position, visible }`, where `position` is `top`, `bottom`, `left`, `right` or `none`, and `tooltip` takes `{ format }` — a template supporting `{label}` and `{value}`.
+`chartType` is `bar`, `line`, `area`, `pie`, `donut`, `scatter`, `radar` — one spoke per category, the values joined into one shape — or `radial`, one arc per category around a common centre. `legend` takes `{ position, visible, nameKey }`, where `position` is `top`, `bottom`, `left`, `right` or `none`. Without a `format`, the `tooltip` callout is headed by the hovered category and lists each series' name and value beside an `indicator` — `dot` (the default), `line` or `dashed`; `hideLabel` drops the heading and `hideIndicator` the indicator, `labelKey` heads it from another field of the row, and `nameKey` (on `tooltip` or `legend`) names each entry from another field, such as a display name beside a code. `format` replaces each row with a template supporting `{label}` and `{value}`.
 
-A `series` entry takes `field`, `label` for the legend and tooltip, `color` as a theme token or a raw value, `stack` — series sharing a stack group name stack together — and `fillOpacity` from 0 to 1 for area and bar fills. An axis takes `field`, `label`, `scale` (`linear` or `logarithmic`), `format` (`date`, `currency`, `number` or `percent`) and `gridLines`.
+A `series` entry takes `field`, `label` for the legend and tooltip, `color` as a theme token or a raw value, or `{ light, dark }` for one colour per colour scheme, `icon` for a Lucide icon drawn before its name in the legend, `stack` — series sharing a stack group name stack together — and `fillOpacity` from 0 to 1 for area and bar fills. An axis takes `field`, `label`, `scale` (`linear` or `logarithmic`), `format` (`date`, `currency`, `number` or `percent`) and `gridLines`.
 
 A `currency` value axis writes its ticks in the page language's compact notation with the field's currency (`€3.5K`, `3,5 k€`), never with cents.
 

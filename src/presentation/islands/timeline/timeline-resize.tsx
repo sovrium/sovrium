@@ -84,6 +84,7 @@ function ResizeHandle({
   )
   return (
     <span
+      data-slot="timeline-handle"
       data-timeline-resize-handle={edge}
       aria-hidden="true"
       style={HANDLE_STYLE[edge]}

@@ -80,7 +80,7 @@ function ClearLink(props: {
       data-component-type="button"
       aria-label={field.clearName ?? `Clear ${props.label}`}
       onClick={onClick}
-      className="text-foreground-muted hover:text-foreground self-start text-xs underline"
+      className="text-muted-foreground hover:text-foreground self-start text-xs underline"
     >
       {field.clearLabel ?? 'Clear'}
     </button>
@@ -110,7 +110,7 @@ export function LinkField({
     >
       <label
         htmlFor={inputId}
-        className="text-foreground-muted"
+        className="text-muted-foreground"
       >
         {label}
       </label>

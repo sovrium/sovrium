@@ -17,7 +17,6 @@
  * the island mounts.
  */
 
-import { computeBadgeClasses, type BadgeVariant } from './navbar-default-classes'
 import type { ReactElement } from 'react'
 
 /**
@@ -96,19 +95,4 @@ export function NavChevronDown(): ReactElement {
       />
     </svg>
   )
-}
-
-/**
- * A small pill rendered next to a navigation item's label (e.g. "New", "Beta"),
- * reusing the shared badge variant tones via {@link computeBadgeClasses}. Same
- * element in the SSR placeholder and the hydrated island.
- */
-export function NavItemBadge({
-  text,
-  variant,
-}: {
-  readonly text: string
-  readonly variant?: BadgeVariant
-}): ReactElement {
-  return <span className={computeBadgeClasses({ variant })}>{text}</span>
 }

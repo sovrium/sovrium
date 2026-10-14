@@ -23,6 +23,7 @@ import {
 } from '@/domain/models/app/pages/confirm-gate-labels'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { substituteRecordInInputData } from '@/presentation/render/resolve/record-template-substitution'
+import { buildPendingLabelAttribute } from './button-pending-label'
 import type { CrudFormAction } from './crud-form/crud-form-types'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { Languages } from '@/domain/models/app/languages'
@@ -65,7 +66,7 @@ export type AutomationAction = {
   name: string
   await?: boolean
   inputData?: Record<string, unknown>
-  onSuccess?: { toast?: { message?: string; variant?: string } }
+  onSuccess?: { toast?: { message?: string; variant?: string }; navigate?: string; close?: boolean }
   onError?: { toast?: { message?: string; variant?: string } }
 }
 
@@ -132,13 +133,33 @@ function outcomeToastAttributes(
 }
 
 /**
+ * The `data-on-success-navigate` / `-close` pair of an automation's success:
+ * the address with its `$record.*` filled here, from the record the button is
+ * drawn for, so the client navigates to the row it was pressed on.
+ */
+function successExitAttributes(
+  onSuccess: AutomationAction['onSuccess'],
+  record: Readonly<Record<string, unknown>> | undefined
+): Record<string, string> {
+  const navigate = onSuccess?.navigate
+  return {
+    ...(navigate !== undefined && {
+      'data-on-success-navigate':
+        record === undefined ? navigate : substituteRecordVars(navigate, record),
+    }),
+    ...(onSuccess?.close === true && { 'data-on-success-close': 'true' }),
+  }
+}
+
+/**
  * Build data attributes for automation actions. `data-action-input` carries
  * the JSON-serialized `inputData` (with `$record.*` already substituted) so
  * the client runtime can POST it to the form-action endpoint.
  */
 export function buildAutomationDataAttributes(
   action: AutomationAction,
-  resolvedInputData: Record<string, unknown> | undefined
+  resolvedInputData: Record<string, unknown> | undefined,
+  record?: Readonly<Record<string, unknown>>
 ): Record<string, string> {
   return {
     'data-action-type': 'automation',
@@ -149,6 +170,7 @@ export function buildAutomationDataAttributes(
     }),
     ...outcomeToastAttributes('success', action.onSuccess?.toast),
     ...outcomeToastAttributes('error', action.onError?.toast),
+    ...successExitAttributes(action.onSuccess, record),
   }
 }
 
@@ -347,6 +369,7 @@ export function overlayButtonSchemaFallbacks(
       lang.currentLang,
       lang.languages
     ),
+    ...buildPendingLabelAttribute(componentRaw['action'], lang),
   }
 }
 

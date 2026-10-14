@@ -18,7 +18,7 @@ components:
 
 ## `progress`
 
-A determinate indicator: how far along something is, as a bar, a circle or a named step rail.
+A determinate indicator: how far along something is, as a bar, a circle or a named step rail. Reference: shadcn/ui Progress; the circle and the step rail are Sovrium's.
 
 <!-- sovrium:options type:progress -->
 
@@ -32,7 +32,7 @@ Every key below is declared beside `type`, not inside `props` — the renderer r
 
 ## `spinner`
 
-An indeterminate spinner for a short wait, where there is no progress to report.
+An indeterminate spinner for a short wait, where there is no progress to report. Reference: shadcn/ui Spinner.
 
 `spinner` declares no options of its own — it is configured entirely through the open `props` bag. `props.size` picks a size preset, and `props.className` carries colour utilities. Anything else is passed through as an HTML attribute.
 
@@ -40,7 +40,7 @@ Reach for `skeleton` rather than `spinner` when you know the shape of what is lo
 
 ## `skeleton`
 
-A shaped placeholder shown while content is fetching.
+A shaped placeholder shown while content is fetching. Reference: shadcn/ui Skeleton.
 
 <!-- sovrium:options type:skeleton -->
 

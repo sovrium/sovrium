@@ -96,6 +96,14 @@ export const dialogFields = {
    * no per-key validation and no JSON Schema surface — a behavioural switch
    * there would be neither typechecked nor documented.
    */
+  showCloseButton: Schema.optional(
+    Schema.Boolean.annotate({
+      title: 'Show Close Button',
+      defaultNote: 'true',
+      description:
+        "Draws the close button in the dialog's corner. `false` leaves Escape, the overlay and any button of the `footer` to close it. shadcn/ui's Dialog showCloseButton.",
+    })
+  ),
   hydrate: Schema.optional(
     Schema.Boolean.annotate({
       title: 'Hydrate',

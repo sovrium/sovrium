@@ -206,7 +206,7 @@ const richTextEditor: TypePageBody = {
                 {
                   type: 'text',
                   element: 'p',
-                  props: { className: 'text-foreground-subtle text-[11px]' },
+                  props: { className: 'text-muted-foreground text-xs' },
                   content: 'Uploading signed-proposal.pdf…',
                 },
               ],

@@ -1,4 +1,5 @@
-# sovrium-library: block/page-heading-actions@0.30.0
+# sovrium-library: block/page-heading-actions@0.37.0
+# sovrium-library-params: deleteHref=%2Finvoices%2Finv-0142%2Fdelete&duplicateHref=%2Finvoices%2Fnew%3Ffrom%3Dinv-0142&editHref=%2Finvoices%2Finv-0142%2Fedit&primaryHref=%2Finvoices%2Finv-0142%2Fremind&primaryLabel=Send%20reminder&secondaryHref=%2Finvoices%2Finv-0142.pdf&secondaryLabel=Download%20PDF&title=Invoice%20INV-0142
 name: page-heading-actions
 type: container
 props:
@@ -36,11 +37,11 @@ children:
                     props:
                       name: users
                       size: 14
-                      className: text-foreground-subtle
+                      className: text-muted-foreground
                   - type: text
                     element: span
                     props:
-                      className: text-sm text-foreground-subtle
+                      className: text-sm text-muted-foreground
                     content: Atelier Nord
               - type: flex
                 props:
@@ -50,11 +51,11 @@ children:
                     props:
                       name: calendar
                       size: 14
-                      className: text-foreground-subtle
+                      className: text-muted-foreground
                   - type: text
                     element: span
                     props:
-                      className: text-sm text-foreground-subtle
+                      className: text-sm text-muted-foreground
                     content: Due 12 Oct 2026
               - type: badge
                 badgeVariant: outline
@@ -66,7 +67,7 @@ children:
           - type: link
             props:
               href: /invoices/inv-0142.pdf
-              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-8 px-3 text-base'
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-card text-foreground hover:bg-muted hover:text-foreground h-8 px-3 text-base'
             content: Download PDF
           - type: dropdown-menu
             triggerLabel: More actions
@@ -91,5 +92,5 @@ children:
           - type: link
             props:
               href: /invoices/inv-0142/remind
-              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-8 px-3 text-base'
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground h-8 px-3 text-base'
             content: Send reminder

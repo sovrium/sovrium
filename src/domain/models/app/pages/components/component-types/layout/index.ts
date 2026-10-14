@@ -16,3 +16,5 @@ export { SplitPaneTypeLiteral, SplitPaneOrientationSchema, splitPaneFields } fro
 export { GridTypeLiteral, gridFields } from './grid'
 export { SidebarTypeLiteral, sidebarFields } from './sidebar'
 export { CardTypeLiteral, cardFields } from './card'
+export { AspectRatioTypeLiteral, AspectRatioValueSchema, aspectRatioFields } from './aspect-ratio'
+export { MessageScrollerTypeLiteral, messageScrollerFields } from './message-scroller'

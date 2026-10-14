@@ -21,6 +21,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   realpathSync,
   rmSync,
@@ -55,6 +56,19 @@ import { THROWAWAY_RUNTIME_MANIFEST_ENV } from './throwaway-runtime-manifest'
  * checkout's `node_modules` (a worktree under `[internal ref]`). Packages
  * symlinked INSIDE a real `node_modules` (Bun's isolated linker) are fine: their
  * resolved paths are the same in every checkout.
+ *
+ * A third shape is refused: a real `node_modules` holding ORPHANED packages,
+ * i.e. installed directories whose lockfile key is absent from `bun.lock`
+ * (see {@link findOrphanedPackages}). `bun install` adds and updates packages
+ * but never deletes a nested copy the lockfile stopped listing, so a long-lived
+ * checkout accretes them. Measured 2026-10-14 (release 0.38.0, CI run 6935): the
+ * primary checkout still held `d3-scale/node_modules/d3-array` (and siblings
+ * under `d3-geo`, `d3-time`, `victory-vendor`) from an August install. Same
+ * version as the hoisted copy, but a second module PATH, so the island bundle
+ * carried d3 twice and all 242 chunk names differed from a fresh install. The
+ * committed manifest came from that checkout and CI's drift gate went red. Two
+ * fresh installs at two different paths produce byte-identical manifests, so
+ * the checkout PATH is not an input; the install's CONTENTS are.
  */
 export function describeNonCanonicalNodeModules(root: string): string | null {
   const nodeModules = join(root, 'node_modules')
@@ -72,7 +86,69 @@ export function describeNonCanonicalNodeModules(root: string): string | null {
       `with a real \`bun install\` in this checkout.`
     )
   }
+  const orphans = findOrphanedPackages(root)
+  if (orphans.length > 0) {
+    const shown = orphans.slice(0, 8).join(', ')
+    const more = orphans.length > 8 ? ` and ${orphans.length - 8} more` : ''
+    return (
+      `${nodeModules} holds ${orphans.length} package(s) that bun.lock does not list ` +
+      `(${shown}${more}). \`bun install\` never removes them, and a stale nested copy ` +
+      `is a second module path that changes every island chunk name. Reinstall from ` +
+      `scratch: rm -rf node_modules && bun install --frozen-lockfile`
+    )
+  }
   return null
+}
+
+/**
+ * Every installed package directory under `<root>/node_modules` whose lockfile
+ * key is absent from `<root>/bun.lock`, in the lockfile's own key syntax
+ * (`d3-scale/d3-array` is `node_modules/d3-scale/node_modules/d3-array`).
+ *
+ * Fails OPEN — returns `[]` — when there is no `bun.lock` or it does not parse:
+ * this guards a known accretion, it is not a lockfile validator, and a checkout
+ * without a lockfile has no canonical install to compare against. Dot-entries
+ * (`.bin`, `.cache`) and directories without a `package.json` are not packages
+ * and are skipped.
+ */
+export function findOrphanedPackages(root: string): readonly string[] {
+  const lockPath = join(root, 'bun.lock')
+  if (!existsSync(lockPath)) return []
+  const known = readLockfileKeys(lockPath)
+  if (known === null) return []
+  return listInstalledPackageKeys(join(root, 'node_modules'), '').filter((key) => !known.has(key))
+}
+
+function readLockfileKeys(lockPath: string): ReadonlySet<string> | null {
+  try {
+    const parsed: unknown = Bun.JSONC.parse(readFileSync(lockPath, 'utf8'))
+    if (typeof parsed !== 'object' || parsed === null || !('packages' in parsed)) return null
+    const { packages } = parsed
+    if (typeof packages !== 'object' || packages === null) return null
+    return new Set(Object.keys(packages))
+  } catch {
+    // An unparseable lockfile means no canonical install to compare against: fail open.
+    return null
+  }
+}
+
+function listInstalledPackageKeys(nodeModules: string, prefix: string): readonly string[] {
+  if (!existsSync(nodeModules)) return []
+  const names = readdirSync(nodeModules).flatMap((entry): readonly string[] => {
+    if (entry.startsWith('.')) return []
+    if (!entry.startsWith('@')) return [entry]
+    const scopeDir = join(nodeModules, entry)
+    if (!statSync(scopeDir).isDirectory()) return []
+    return readdirSync(scopeDir)
+      .filter((sub) => !sub.startsWith('.'))
+      .map((sub) => `${entry}/${sub}`)
+  })
+  return names.flatMap((name): readonly string[] => {
+    const dir = join(nodeModules, name)
+    if (!existsSync(join(dir, 'package.json'))) return []
+    const key = prefix === '' ? name : `${prefix}/${name}`
+    return [key, ...listInstalledPackageKeys(join(dir, 'node_modules'), key)]
+  })
 }
 
 /**

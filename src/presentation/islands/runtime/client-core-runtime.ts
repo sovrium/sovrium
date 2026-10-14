@@ -35,10 +35,13 @@ import { setupAwaitingScriptControls } from '@/presentation/islands/runtime/awai
 import { setupEndpointFormHandlers } from '@/presentation/islands/runtime/endpoint-form-runtime'
 import { setupNativeSelectPublishers } from '@/presentation/islands/runtime/native-select-publisher'
 import { hydrateSessionBindings } from '@/presentation/islands/runtime/session-resolver'
+import { leavesPage, runErrorOutcome, runSuccessOutcome } from './action-outcome'
+import { automationPressHeaders } from './automation-press-headers'
 import { delegate, bindActionButtons, parseActionInput } from './client-event-delegate'
 import { showToast } from './client-toast'
 import { dispatchToastResponse, setupFetchButtonHandlers } from './fetch-button-runtime'
 import { setupFillHandlers } from './fill-runtime'
+import { withPending } from './pending-control'
 
 // ─── Modal lifecycle ────────────────────────────────────────────────────────
 
@@ -54,7 +57,9 @@ function openModal(modalId: string): void {
   focusable?.focus()
 }
 
+/** A dialog holding a pending control waits for it: Escape and the backdrop do nothing. */
 function closeModal(dialog: HTMLElement): void {
+  if (dialog.querySelector('[data-pending="true"]') !== null) return
   dialog.setAttribute('hidden', '')
   dialog.setAttribute('aria-hidden', 'true')
 }
@@ -72,6 +77,14 @@ function setupModalHandlers(): void {
   delegate<HTMLElement>('click', '[data-backdrop]', (backdrop) => {
     const dialog = backdrop.parentElement?.querySelector<HTMLElement>('[role="dialog"]')
     if (dialog) closeModal(dialog)
+  })
+
+  // A control inside a `hydrate: false` dialog asking it to close (`action-outcome.ts`):
+  // a programmatic close, so a pending control inside does not hold it.
+  document.addEventListener('sovrium:close-dialog', (event) => {
+    const panel = (event.target as Element | null)?.closest?.('[role="dialog"]')
+    const container = panel?.parentElement
+    if (container?.hasAttribute('data-modal-container')) container.style.display = 'none'
   })
 
   document.addEventListener('keydown', (event) => {
@@ -150,33 +163,56 @@ function showOutcomeToast(button: Element, outcome: 'success' | 'error'): void {
  * carries the run's outcome in its body, so an awaited press reads the body:
  * `onSuccess` unless the run `failed`, `onError` when it did. A refused press
  * (non-2xx) or a network failure shows `onError` in either mode; a
- * fire-and-forget press shows `onSuccess` on the press itself.
+ * fire-and-forget press shows `onSuccess` once its start is ACCEPTED — never
+ * before the POST has answered, so a refused start never says "done".
+ *
+ * From the press to that answer the button is pending (`withPending`): the
+ * word is `data-action-pending-label`, resolved by the server in the page
+ * language. An error gives it back with the focus on it, then `onError`.
+ */
+async function pressAutomation(
+  button: HTMLElement,
+  name: string
+): Promise<'success' | 'error' | undefined> {
+  const awaitValue = button.getAttribute('data-action-await') === 'true'
+  const inputData = parseActionInput(button.getAttribute('data-action-input'))
+  try {
+    const response = await fetch(`/api/automations/${encodeURIComponent(name)}/form-action`, {
+      method: 'POST',
+      headers: automationPressHeaders(),
+      body: JSON.stringify({ inputData }),
+    })
+    const body = (await response.json().catch(() => undefined)) as
+      { readonly status?: unknown } | undefined
+    return !response.ok || (awaitValue && body?.status === 'failed') ? 'error' : 'success'
+  } catch {
+    // Network/dispatch failure: the automation did not run.
+    return 'error'
+  }
+}
+
+/**
+ * A success then closes the overlay the button sits in and moves on, as its
+ * `data-on-success-close` / `-navigate` ask (`action-outcome.ts`); a success
+ * that leaves the page keeps the button pending until it goes.
  */
 function setupAutomationButtonHandlers(): void {
   bindActionButtons('automation', async (button) => {
     const name = button.getAttribute('data-action-name')
     if (!name) return
-    const awaitValue = button.getAttribute('data-action-await') === 'true'
-    const inputData = parseActionInput(button.getAttribute('data-action-input'))
-    if (!awaitValue) showOutcomeToast(button, 'success')
-
-    try {
-      const response = await fetch(`/api/automations/${encodeURIComponent(name)}/form-action`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputData }),
-      })
-      const body = (await response.json().catch(() => undefined)) as
-        { readonly status?: unknown } | undefined
-      if (!response.ok || (awaitValue && body?.status === 'failed')) {
-        showOutcomeToast(button, 'error')
-      } else if (awaitValue) {
-        showOutcomeToast(button, 'success')
-      }
-    } catch {
-      // Network/dispatch failure: the automation did not run.
-      showOutcomeToast(button, 'error')
-    }
+    const label = button.getAttribute('data-action-pending-label') ?? 'Running…'
+    const navigate = button.getAttribute('data-on-success-navigate') ?? undefined
+    const keepPending = (sent: 'success' | 'error' | undefined) =>
+      sent === 'success' && leavesPage(navigate)
+    const press = () => pressAutomation(button, name)
+    const outcome = await withPending(button, { label, keepPending }, press)
+    if (outcome === undefined) return
+    if (outcome === 'error') return runErrorOutcome(button, () => showOutcomeToast(button, 'error'))
+    runSuccessOutcome(button, {
+      toast: () => showOutcomeToast(button, 'success'),
+      close: button.getAttribute('data-on-success-close') === 'true',
+      navigate,
+    })
   })
 }
 

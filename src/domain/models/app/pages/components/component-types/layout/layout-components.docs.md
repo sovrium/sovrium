@@ -1,6 +1,6 @@
 # Layout Components
 
-> Structural page components — container, flex, grid, card and split-pane. The sidebar has its own page.
+> Structural page components — container, flex, grid, card and resizable. The sidebar has its own page.
 
 Layout components arrange the page. They define the visual skeleton — centred containers, flex and grid tracks, cards, resizable panes — and host other components as `children`. Positioning is expressed as Tailwind classes in `props.className`: these components add structure, not styling opinions.
 
@@ -73,40 +73,52 @@ When the column count is the thing changing across breakpoints, declare it inste
 
 ## `card`
 
-A bordered, padded surface for grouping related content — prestyled with background, border, radius, shadow and padding. A `props.className` you supply is appended last, so it wins the Tailwind cascade and can tighten the defaults.
+A surface for grouping related content. Reference: shadcn/ui Card. It paints the `card` colour with a faint ring instead of a border, rounds its corners with `radius-xl`, and spaces and pads its children by 16 px. Its children sit directly inside it, so it pads all four sides itself. A `props.className` you supply is merged last, so it wins every conflict with these defaults.
+
+A card can also be laid out on shadcn/ui's anatomy: `title` and `description` fill its header above the body, `action` (one component, such as a "Change plan" button) sits in the header on the title row and to its right, and `footer` (a list of components) draws a muted band below the body. A card declaring any of them puts its `children` in the body between them. `size: sm` draws a tighter card with a smaller title.
+
+```yaml
+- type: card
+  title: Team plan
+  description: Renews on 1 November 2026
+  action: { type: button, variant: outline, size: sm, label: Change plan }
+  children:
+    - { type: text, element: p, content: 12 of 15 seats in use. }
+  footer:
+    - { type: button, label: Download last invoice }
+```
 
 <!-- sovrium:options type:card -->
 
-### `variant` — three cards that do one extra job
+### `variant` — two cards that do one extra job
 
-Omit `variant` and you get the ordinary raised card. Each of the three named modes is a card that also does one specific thing, and each was its own component type until they were folded in here.
+Omit `variant` and you get the ordinary raised card. Each of the two named modes is a card that also does one specific thing, and each was its own component type until they were folded in here.
 
-| `variant`  | What it adds                                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------------------------------- |
-| `bubble`   | A tail, for a message in a conversation. Painted on the info-toned surface with the tail-side corner squared. |
-| `specimen` | A stage around the children, so a drawn component and its caption read as one unit.                           |
-| `scoped`   | A design boundary — the card emits the scope marker and holds its children inside it.                         |
+| `variant`  | What it adds                                                                          |
+| ---------- | ------------------------------------------------------------------------------------- |
+| `specimen` | A stage around the children, so a drawn component and its caption read as one unit.   |
+| `scoped`   | A design boundary — the card emits the scope marker and holds its children inside it. |
 
-`variant` is the card's rendering **mode**, not its paint. That is why omitting it leaves an ordinary card rather than an unstyled one, and it is the same axis `badge` carries: a mode changes what a component draws, where a style changes how the same drawing is painted. Keys belonging to one mode are **inert** under the others rather than refused — a `side` on a `specimen` card decodes cleanly and does nothing.
+`variant` is the card's rendering **mode**, not its paint. That is why omitting it leaves an ordinary card rather than an unstyled one, and it is the same axis `badge` carries: a mode changes what a component draws, where a style changes how the same drawing is painted. Keys belonging to one mode are **inert** under the others rather than refused.
 
-`variant: bubble` takes `content` or `children` for the message, and `side` for the tail: `left` is the sender and the default, `right` the receiver.
+A message in a conversation is its own type, [`bubble`](/en/docs/bubble-component), with `align: start` or `align: end` for its side of the thread. `variant: bubble` and `side` are refused on a `card`, each with a message naming `bubble`.
 
 ```yaml
 components:
-  - { type: card, variant: bubble, content: 'Can you send the invoice over?' }
-  - { type: card, variant: bubble, side: right, content: 'On its way.' }
+  - { type: bubble, content: 'Can you send the invoice over?' }
+  - { type: bubble, align: end, content: 'On its way.' }
 ```
 
-**`speech-bubble` is now `card` with `variant: bubble`.** It is no longer a component type and there is no alias — a config still declaring it is refused at startup with a message pointing here. It was a card with a tail and nothing else, so the tail became a variant: `content`, `children` and `side` carry over unchanged.
+**`speech-bubble` is now `bubble`.** There is no alias — a config still declaring it is refused at startup with a message naming `bubble`. `content` and `children` carry over unchanged; `side: left` becomes `align: start` and `side: right` becomes `align: end`.
 
 `variant: specimen` wraps the children in a stage element, so the drawing is one addressable thing next to whatever caption sits beside it. Anything in `props` passes through untouched, which is how a style-guide page marks up what is being shown without the engine needing to know.
 
 `variant: scoped` makes the card a design boundary: it carries the scope marker and its children render **inside** it, so the styles keying on that scope reach them and nothing else on the page. Use it when one page has to show two design systems at once.
 
-## `split-pane`
+## `resizable`
 
-Two resizable regions separated by a draggable divider. The first two `children` become the panes.
+Two resizable regions separated by a draggable handle. Reference: shadcn/ui Resizable. It was named `split-pane`; a config still writing `type: split-pane` is refused with a message naming `resizable`, and renaming the `type` is the whole migration. The first two `children` become the panes.
 
-<!-- sovrium:options type:split-pane -->
+<!-- sovrium:options type:resizable -->
 
 `orientation` is `horizontal` — side by side — by default, or `vertical` for stacked. `defaultRatio` is the fraction of the container the first pane starts at, between 0 and 1, defaulting to `0.5`. `minSize` and `maxSize` bound how far the first pane may be dragged, in pixels.

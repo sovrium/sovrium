@@ -7,12 +7,16 @@
 
 import { type ReactElement } from 'react'
 import {
-  computeFormFieldClasses,
-  computeFormFieldErrorClasses,
-  computeFormFieldLabelClasses,
-  computeFormHelpTextClasses,
-  computeFormRequiredMarkClasses,
-} from '@/presentation/design/form-layout-classes'
+  computeFieldClasses,
+  computeFieldContentClasses,
+  computeFieldDescriptionClasses,
+  computeFieldErrorClasses,
+  computeFieldGroupClasses,
+  computeFieldLabelClasses,
+  computeFieldLegendClasses,
+  computeFieldTitleClasses,
+} from '@/presentation/design/field-default-classes'
+import { computeFormRequiredMarkClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { toUncontrolledTextareaProps } from '../props/uncontrolled-form-props'
 import type { ElementProps } from './html-element-renderer'
@@ -46,100 +50,170 @@ export interface RenderFieldConfig {
   readonly fieldLabel?: string
   readonly fieldDescription?: string
   readonly fieldError?: string
+  /** Several messages, drawn as one list. */
+  readonly errors?: readonly string[]
+  /** `vertical` (the default), `horizontal`, or `responsive` (horizontal from `md` up). */
+  readonly orientation?: 'vertical' | 'horizontal' | 'responsive'
+  /** Makes the field a `fieldset` named by this legend. */
+  readonly legend?: string
+  /** A title beside a choice control, above its description. */
+  readonly fieldTitle?: string
   readonly required?: boolean
   readonly controlId?: string
   readonly children: readonly React.ReactNode[]
 }
 
-/**
- * Renders a composed form field: label + optional description + control + optional error.
- *
- * Plain SSR HTML — no Base UI primitive, no client island. Native `<label
- * htmlFor=...>` provides label-click focus without hydration. ARIA wiring
- * (aria-describedby for description and error) is left to the underlying
- * input renderer / future ACs; the spec under test only asserts visible
- * text and label-click behavior.
- *
- * Required indicator is a literal `*` appended inside the label, separated
- * from the label text by a space. We render it with a sibling `<span>` so
- * the visible text remains the original label (the `*` is supplemental,
- * matching common form-field UX) and `getByText('Email')` continues to
- * resolve to the label.
- *
- * ─── PAINT (wave R-E) ──────────────────────────────────────────────────────
- *
- * Every class comes from `form-layout-classes.ts`, the module the standalone
- * form pipeline and the CRUD field shell already share. Before R-E this
- * renderer painted nothing on the root or the label and reached for
- * `text-gray-500` / `text-red-600` on the two messages — the only two stock
- * Tailwind palette classes left in `src/`. They were invisible to the theme:
- * `gray-500` is a blue-tinted grey that no Sovrium ramp contains, and neither
- * responded to `app.design.colors`, so a `field` was the one component an
- * operator could not recolour. Routing all four parts through the shared
- * contract also means a `field` and a standalone form field are now the same
- * object rather than two things that resemble each other.
- */
-export function renderField(config: RenderFieldConfig): ReactElement {
-  const { props, fieldLabel, fieldDescription, fieldError, required, controlId, children } = config
-  const id = props.id as string | undefined
-  const className = props.className as string | undefined
-  const testId = props['data-testid'] as string | undefined
+/** The label above (or beside) the control, with its required mark. */
+const renderLabel = (config: RenderFieldConfig): ReactElement | undefined =>
+  config.fieldLabel === undefined ? undefined : (
+    <label
+      className={computeFieldLabelClasses()}
+      htmlFor={config.controlId}
+      data-slot="field-label"
+    >
+      {config.fieldLabel}
+      {/* A real sibling, NOT aria-hidden: the control's required state may come only from here. */}
+      {config.required === true && (
+        <>
+          {' '}
+          <span className={computeFormRequiredMarkClasses()}>*</span>
+        </>
+      )}
+    </label>
+  )
 
+/** The help text under the control. */
+const renderDescription = (config: RenderFieldConfig): ReactElement | undefined =>
+  config.fieldDescription === undefined ? undefined : (
+    <p
+      className={computeFieldDescriptionClasses()}
+      id={config.controlId ? `${config.controlId}-description` : undefined}
+      data-slot="field-description"
+    >
+      {config.fieldDescription}
+    </p>
+  )
+
+/** The error: `fieldError` as one line, `errors` as one list (one item each). */
+const renderError = (config: RenderFieldConfig): ReactElement | undefined => {
+  const errors = config.errors ?? []
+  if (config.fieldError === undefined && errors.length === 0) return undefined
   return (
     <div
-      id={id}
-      className={resolveClasses(computeFormFieldClasses(), className)}
-      data-testid={testId}
-      data-component="field"
-      data-component-type={props['data-component-type'] as string | undefined}
+      className={computeFieldErrorClasses()}
+      role="alert"
+      id={config.controlId ? `${config.controlId}-error` : undefined}
+      data-slot="field-error"
     >
-      {fieldLabel !== undefined && (
-        <label
-          className={computeFormFieldLabelClasses()}
-          htmlFor={controlId}
-        >
-          {fieldLabel}
-          {/*
-            The marker is a real sibling `<span>` so it can be tinted, but it
-            is deliberately NOT `aria-hidden`: the label's accessible name was
-            `"Email *"` before R-E and stays `"Email *"` after. Hiding it would
-            only be correct if the control underneath were guaranteed to carry
-            `aria-required`, and the control here comes from the config — so
-            the asterisk is the only required signal a screen reader gets.
-          */}
-          {required === true && (
-            <>
-              {' '}
-              <span className={computeFormRequiredMarkClasses()}>*</span>
-            </>
-          )}
-        </label>
+      {config.fieldError}
+      {errors.length === 0 ? undefined : (
+        <ul className="ml-4 flex list-disc flex-col gap-1">
+          {errors.map((message) => (
+            <li key={message}>{message}</li>
+          ))}
+        </ul>
       )}
-      {children}
-      {/*
-        Help text and error message render AFTER the control (below it in
-        document order) — spec FORMCTRL-049 asserts `descBox.y >
-        inputBox.y`, matching the conventional "label / control / help"
-        stack. Rendering above the control breaks both the visual
-        hierarchy and the spec.
-      */}
-      {fieldDescription !== undefined && (
-        <p
-          className={computeFormHelpTextClasses()}
-          id={controlId ? `${controlId}-description` : undefined}
+    </div>
+  )
+}
+
+/** A choice field's content column: the title (naming the control), then the description. */
+const renderTitledContent = (config: RenderFieldConfig): ReactElement => (
+  <div
+    data-slot="field-content"
+    className={computeFieldContentClasses()}
+  >
+    <label
+      htmlFor={config.controlId}
+      id={config.controlId ? `${config.controlId}-title` : undefined}
+      data-slot="field-label"
+      className={computeFieldTitleClasses()}
+    >
+      {config.fieldTitle}
+    </label>
+    {renderDescription(config)}
+  </div>
+)
+
+/**
+ * The parts of a field, in reading order. Each part sits in its own fixed JSX
+ * slot rather than in one spread array, so React needs no key for the label,
+ * description or error; the controls keep the keys `renderChildren` gave them.
+ */
+const renderParts = (config: RenderFieldConfig): ReactElement =>
+  config.fieldTitle === undefined ? (
+    <>
+      {renderLabel(config)}
+      {config.children}
+      {renderDescription(config)}
+      {renderError(config)}
+    </>
+  ) : (
+    <>
+      {config.children}
+      {renderTitledContent(config)}
+      {renderError(config)}
+    </>
+  )
+
+/**
+ * Renders a composed form field on shadcn/ui's `Field` anatomy: label (or a
+ * title beside a choice control), the control, the help text, the error.
+ *
+ * Plain SSR HTML — no client island. Native `<label htmlFor>` gives
+ * label-click focus. `orientation` lays the label above the control, beside
+ * it, or beside it from `md` up; `legend` turns the field into a `fieldset`
+ * named by its legend, its controls grouped inside. Every class comes from
+ * `form-layout-classes.ts`, the module the form pipeline shares.
+ */
+export function renderField(config: RenderFieldConfig): ReactElement {
+  const { props, legend } = config
+  const orientation = config.orientation ?? 'vertical'
+  const invalid = config.fieldError !== undefined || (config.errors?.length ?? 0) > 0
+  const shared = {
+    id: props.id as string | undefined,
+    className: resolveClasses(
+      computeFieldClasses(orientation),
+      props.className as string | undefined
+    ),
+    'data-testid': props['data-testid'] as string | undefined,
+    'data-component': 'field',
+    'data-component-type': props['data-component-type'] as string | undefined,
+    'data-orientation': orientation,
+    'data-invalid': invalid ? 'true' : undefined,
+  }
+  if (legend !== undefined) {
+    return (
+      <fieldset
+        {...shared}
+        className={resolveClasses('flex flex-col gap-4', props.className as string | undefined)}
+        data-slot="field-set"
+      >
+        <legend
+          data-slot="field-legend"
+          data-variant="legend"
+          className={computeFieldLegendClasses()}
         >
-          {fieldDescription}
-        </p>
-      )}
-      {fieldError !== undefined && (
-        <p
-          className={computeFormFieldErrorClasses()}
-          role="alert"
-          id={controlId ? `${controlId}-error` : undefined}
+          {legend}
+        </legend>
+        {renderDescription(config)}
+        <div
+          data-slot="field-group"
+          className={computeFieldGroupClasses()}
         >
-          {fieldError}
-        </p>
-      )}
+          {config.children}
+        </div>
+        {renderError(config)}
+      </fieldset>
+    )
+  }
+  return (
+    <div
+      {...shared}
+      role="group"
+      data-slot="field"
+    >
+      {renderParts(config)}
     </div>
   )
 }

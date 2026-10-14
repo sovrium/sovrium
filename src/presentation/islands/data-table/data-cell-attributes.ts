@@ -10,7 +10,7 @@ import {
   computeTableFillPreviewClasses,
 } from '@/presentation/design/table-default-classes'
 import { readAiRefinementStatus } from '../runtime/ai-refinement-status'
-import { columnAlignClass } from './column-align'
+import { columnPlacementClass } from './column-align'
 import { presentationAttributes, type CellPresentation } from './column-presentation'
 import { FROZEN_CELL_CLASS, frozenCellStyle, type FrozenOffsets } from './frozen-columns'
 import { rowIdOf } from './row-identity'
@@ -170,7 +170,7 @@ export function dataCellAttributes(params: {
   const positionClass = positioned && !pinStyle ? 'relative' : ''
   return {
     ...(ctx.gridRole && { role: 'gridcell' }),
-    className: `${ctx.cellClass} ${ctx.borderClass} whitespace-nowrap ${columnAlignClass(meta?.align)} ${presentation.className} ${positionClass} ${pinStyle ? FROZEN_CELL_CLASS : ''} ${cellMarkerClass(cursorAttrs, isCursor)}`,
+    className: `${ctx.cellClass} ${ctx.borderClass} whitespace-nowrap ${columnPlacementClass(meta)} ${presentation.className} ${positionClass} ${pinStyle ? FROZEN_CELL_CLASS : ''} ${cellMarkerClass(cursorAttrs, isCursor)}`,
     ...presentationAttributes(presentation, pinStyle),
     ...(meta?.field && { 'data-field': meta.field }),
     ...cursorAttrs,

@@ -6,8 +6,8 @@
  */
 
 /**
- * Two design-system admin reads that are not projections of the token
- * document, as registry entries: the catalog's specimen rows and the list of
+ * Three design-system admin reads that are not projections of the token
+ * document, as registry entries: the catalog's specimen rows and graph and the list of
  * live public shares. Their siblings — the exports and the facets — are
  * `design-system-read-operations.ts`.
  *
@@ -19,6 +19,10 @@
  *     ignored rather than refused. No audit event: the fixture is a platform
  *     constant identical on every instance, so a row for it would record
  *     nothing about the operator.
+ *   - **Specimen graph** (`GET /api/admin/design-system/specimen-graph`) — the
+ *     same fixture re-read as nodes and edges (people, teams, projects), for
+ *     the `graph` and `matrix` specimens a flat list of rows cannot feed. No
+ *     parameter and no audit event, for the reason the rows give.
  *   - **Shares** (`GET /api/admin/design-system/shares`) — the live public
  *     share links of this app, newest first, METADATA ONLY: `{ id, createdAt }`.
  *     Never the token, the share URL (which IS the token) or its digest — the
@@ -38,11 +42,16 @@ import { listDesignSystemShares } from '@/application/use-cases/admin/design-sys
 import { parseOptionalCap, parseOptionalPositive } from '@/domain/kernel/format/query-cap-parsers'
 import {
   designSystemSharesResponseSchema,
+  specimenGraphResponseSchema,
   specimenRowsQuerySchema,
   specimenRowsResponseSchema,
   type SpecimenRowsQuery,
 } from '@/domain/models/api/admin/design-system'
-import { windowSpecimenRows } from '@/domain/models/app/design/specimen-fixture'
+import {
+  specimenRows as fixtureRows,
+  windowSpecimenRows,
+} from '@/domain/models/app/design/specimen-fixture'
+import { specimenGraph } from '@/domain/models/app/design/specimen-graph'
 
 const specimenRows = defineAdminRead<SpecimenRowsQuery>({
   id: 'design-system.specimen-rows',
@@ -98,6 +107,40 @@ const specimenRows = defineAdminRead<SpecimenRowsQuery>({
     ),
 })
 
+const specimenGraphRead = defineAdminRead<undefined>({
+  id: 'design-system.specimen-graph',
+  method: 'get',
+  path: '/api/admin/design-system/specimen-graph',
+  pathParams: [],
+  queryParams: [],
+  tool: {
+    suffix: 'design_system_specimen_graph',
+    description:
+      'The platform fixture graph the design-system catalog draws its graph and matrix specimens from: people, teams and projects, and the member, owns and access edges between them, as GET /api/admin/design-system/specimen-graph answers it (admin-only, read-only).',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  openapi: {
+    summary: 'Read the design-system specimen graph',
+    description:
+      'The platform fixture rows re-read as a graph: `nodes` of people, teams and projects, ' +
+      'and `edges` between them, every edge naming two of the nodes and every `access` edge ' +
+      'carrying its permission letters in `ops`. Identical on every read. Admin only.',
+    operationIdBase: 'getAdminDesignSpecimenGraph',
+    responseSchema: specimenGraphResponseSchema,
+    responseDescription: 'The fixture graph',
+  },
+  subject: 'specimen graph',
+  decode: () => ({ _tag: 'Ok', input: undefined }),
+  // No admin audit event: a platform constant records nothing about the operator.
+  read: () =>
+    Effect.map(DateTime.now, (now) =>
+      answerWithSchema(
+        specimenGraphResponseSchema,
+        specimenGraph(fixtureRows(DateTime.toDateUtc(now)))
+      )
+    ),
+})
+
 const sharesList = defineAdminRead<undefined>({
   id: 'design-system.shares.list',
   method: 'get',
@@ -133,8 +176,9 @@ const sharesList = defineAdminRead<undefined>({
     }),
 })
 
-/** The specimen rows and the share list, in the order the registry lists them. */
+/** The specimen rows and graph and the share list, in the order the registry lists them. */
 export const DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
   specimenRows,
+  specimenGraphRead,
   sharesList,
 ]

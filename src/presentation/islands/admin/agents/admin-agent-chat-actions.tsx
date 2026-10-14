@@ -123,7 +123,7 @@ function AutomationStatus({
 }): ReactElement | undefined {
   if (action.type !== 'automation' || action.status === undefined) return undefined
   const failed = action.status === 'failed'
-  const tone = failed ? 'text-foreground font-medium' : 'text-foreground-muted'
+  const tone = failed ? 'text-foreground font-medium' : 'text-muted-foreground'
   const duration = typeof action.duration === 'number' ? ` · ${action.duration}s` : ''
   return (
     <p className={`flex flex-wrap items-center gap-2 text-sm ${tone}`}>
@@ -135,7 +135,7 @@ function AutomationStatus({
         <span className="text-foreground-subtle font-mono">run {action.runId}</span>
       ) : undefined}
       {failed ? (
-        <span className="text-foreground-muted">Open Automations to read the run log.</span>
+        <span className="text-muted-foreground">Open Automations to read the run log.</span>
       ) : undefined}
     </p>
   )
@@ -144,13 +144,13 @@ function AutomationStatus({
 /** One action card. */
 function ActionCard({ action }: { readonly action: ChatTurnAction }): ReactElement {
   return (
-    <li className="border-border bg-background-subtle flex items-start gap-3 rounded-md border px-3 py-2">
+    <li className="border-border bg-muted flex items-start gap-3 rounded-md border px-3 py-2">
       <span className="text-foreground-subtle mt-1">
         <ActionIcon type={action.type} />
       </span>
       <div className="flex min-w-0 flex-col gap-1">
         <p className="text-foreground text-sm font-medium">{actionTitle(action)}</p>
-        <p className="text-foreground-muted text-sm leading-relaxed">{action.description}</p>
+        <p className="text-muted-foreground text-sm leading-relaxed">{action.description}</p>
         <AutomationStatus action={action} />
       </div>
     </li>

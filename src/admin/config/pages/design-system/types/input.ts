@@ -64,8 +64,7 @@ const input: TypePageBody = {
           fieldLabel: 'Verification code',
           children: [
             {
-              type: 'input',
-              inputType: 'one-time-code',
+              type: 'input-otp',
               props: { name: 'code', placeholder: '123456' },
             },
           ],

@@ -120,19 +120,19 @@ function LanesHeadings({
     <>
       <text
         data-graph-lane-label=""
+        data-slot="graph-column-label"
         x={GLYPH_CX - GLYPH_RADIUS - 2}
         y={HEADING_DY}
         className={HEADING_CLASS}
-        fill="currentColor"
       >
         {lanes.label}
       </text>
       <text
         data-graph-station-label=""
+        data-slot="graph-column-label"
         x={stationX}
         y={HEADING_DY}
         className={HEADING_CLASS}
-        fill="currentColor"
       >
         {lanes.stationLabel}
       </text>

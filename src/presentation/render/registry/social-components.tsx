@@ -295,7 +295,11 @@ export const commentsComponent: ComponentRenderer = (context) => {
             elementProps,
             session,
             threading: cfg.threading,
-            uiStrings: resolveInterpreterStringOverrides(['comments.'], currentLang, languages),
+            uiStrings: resolveInterpreterStringOverrides(
+              ['comments.', 'form.saving', 'form.deleting'],
+              currentLang,
+              languages
+            ),
           })
         )
       : undefined
@@ -343,7 +347,7 @@ export const commentCountComponent: ComponentRenderer = ({ component, rawProps, 
         typeof elementProps['data-testid'] === 'string' ? elementProps['data-testid'] : undefined
       }
       aria-label="Comment count"
-      className="comment-count text-foreground-muted text-xs"
+      className="comment-count text-muted-foreground text-xs"
     >
       {label}
     </span>

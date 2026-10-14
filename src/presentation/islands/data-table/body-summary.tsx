@@ -45,7 +45,7 @@ import {
   computeTableSummaryRowClasses,
 } from '@/presentation/design/table-default-classes'
 import { readSummaryValue, type SummaryAggregations } from './summary-aggregate'
-import { summaryCellText, type SummaryFormatContext } from './summary-format'
+import { summaryAlignClass, summaryCellText, type SummaryFormatContext } from './summary-format'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type {
   DataTableColumn,
@@ -125,10 +125,14 @@ export function TableSummaryFooter({
   const context: SummaryFormatContext = { columns, fieldMeta, locale }
 
   return (
-    <tfoot data-summary="true">
+    <tfoot
+      data-slot="table-footer"
+      data-summary="true"
+    >
       {layers.map((layer, layerIndex) => (
         <tr
           key={`summary-row-${String(layerIndex)}`}
+          data-slot="table-row"
           role="row"
           className={computeTableSummaryRowClasses()}
         >
@@ -137,7 +141,8 @@ export function TableSummaryFooter({
             return (
               <td
                 key={`summary-${String(layerIndex)}-${String(columnIndex)}`}
-                className={computeTableSummaryCellClasses()}
+                data-slot="table-cell"
+                className={`${computeTableSummaryCellClasses()} ${entry ? summaryAlignClass(entry.item.field, context) : ''}`}
                 {...(entry ? { 'data-summary-field': entry.item.field } : {})}
               >
                 {entry

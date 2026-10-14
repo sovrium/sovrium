@@ -365,6 +365,13 @@ const bootstrap = async (): Promise<void> => {
   mountIslandsWithin()
 }
 
+// A host the page defers until it is wanted — the built-in ⌘K palette, whose
+// head capture script turns its marker into a `data-island` on the first open
+// — asks for a mount after this runtime has already scanned the page. A scan
+// that lands first finds the marker anyway; this answers the one that lands
+// after.
+document.addEventListener('sovrium:mount-islands', () => mountIslandsWithin())
+
 // This module is served as `<script type="module">`, which is deferred, so
 // `readyState` is past `loading` by the time it evaluates and the top-level
 // `await` below is the live path. It is deliberate: it sequences the preload

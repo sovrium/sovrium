@@ -28,6 +28,7 @@ import {
 } from '@/presentation/render/registry/system-detail-mode'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
 import { readsAnotherRecord } from './bound-node-record'
+import { walkComponentSlots, type ComponentListEntry } from './component-slot-walk'
 import { desugarSystemSourceRef } from './data-source-contracts'
 import { emptyListMarkers } from './empty-list-markers'
 import { resolveListIslandInputs } from './list-island-inputs'
@@ -59,9 +60,8 @@ import type { Component } from '@/domain/models/app/pages/components'
  * Patterns).
  *
  * The key difference from `substituteRecordInComponent`: when a component
- * declares a `dataSource`, its `children` are LEFT UNSUBSTITUTED.
- * Reasoning: those children are per-row templates that
- * `expandDataSourceChildren` substitutes later against each fetched row.
+ * declares a `dataSource`, its `children` are LEFT UNSUBSTITUTED: they are
+ * per-row templates `expandDataSourceChildren` fills against each fetched row.
  * Pre-substituting them with the parent category/tag record would
  * clobber the inner `$record.*` tokens (eg. `$record.title` of a post)
  * with the parent's fields (eg. `$record.title` of a category), making
@@ -84,9 +84,9 @@ export function substituteRecordInCollectionTemplate(
     return injectRecordFieldValue(component, record, tableName)
   }
 
-  // `scope` is the PAGE binding's: what `$record.` may print there,
-  // plus the two things only a page bound to one record does — expand a
-  // `repeat`, and print a lone object token in a `code` node as JSON.
+  // `scope` is the PAGE binding's: what `$record.` may print there, plus the two
+  // things only a page bound to one record does — expand a `repeat`, and print a
+  // lone object token in a `code` node as JSON.
   const { printable, json } = pageScopeReads(component, record, scope)
   const resolvedContent = substituteRecordInContent(component.content, printable)
   const baseProps = withPlainTextPin(
@@ -95,7 +95,6 @@ export function substituteRecordInCollectionTemplate(
   )
   const baseContent = json ?? resolvedContent.content
   const templatePatch = buildRecordTemplatePatch(component, record, tableName)
-
   if (component.dataSource) {
     return {
       ...component,
@@ -108,17 +107,18 @@ export function substituteRecordInCollectionTemplate(
 
   const own = { ...component, props: baseProps, content: baseContent, ...templatePatch }
   if (scope !== undefined && isRepeating(component)) return expandRepeat(own, scope)
-
+  // Slots (a card's `footer`) are walked as `children` are. A string entry is
+  // an escaped React child (see `substituteRecordInComponent`): never escape it here.
+  const walk = (entries: readonly ComponentListEntry[]): readonly ComponentListEntry[] =>
+    filterChildrenForRecord(entries, record).map((child) =>
+      typeof child === 'string'
+        ? substituteRecordVars(child, withRecordText(printable))
+        : substituteRecordInCollectionTemplate(child, record, tableName, scope)
+    )
   return {
     ...own,
-    // String children render as React children (escaped) — see the note in
-    // `substituteRecordInComponent`. No escaping here, or they double-escape.
-    children: filterChildrenForRecord(component.children ?? [], record).map(
-      (child: Component | string) =>
-        typeof child === 'string'
-          ? substituteRecordVars(child, withRecordText(printable))
-          : substituteRecordInCollectionTemplate(child, record, tableName, scope)
-    ),
+    ...walkComponentSlots(component, walk),
+    children: walk(component.children ?? []),
   }
 }
 

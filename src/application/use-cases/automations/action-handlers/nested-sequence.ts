@@ -135,9 +135,12 @@ const runOne = async (
   extra: { readonly index: number; readonly resume?: Parameters<NestedStepInvoker>[0]['resume'] }
 ): Promise<SequenceRun> => {
   const reads = { ...input.previousSteps, ...withStepMetadata(run.outputs, run.metadata) }
-  const { props, refusal, authored, templateVars } = input.fillProps(action, reads)
+  const { props, refusal, authored, templateVars, handlerFills } = input.fillProps(action, reads)
   const refused = refusal === undefined ? {} : { refusal }
-  const asWritten = authored === true ? { authored } : {}
+  const asWritten = {
+    ...(authored === true ? { authored } : {}),
+    ...(handlerFills === true ? { handlerFills } : {}),
+  }
   const vars = templateVars === undefined ? {} : { templateVars }
   const resumed = extra.resume === undefined ? {} : { resume: extra.resume }
   const scopes = input.loopScopes === undefined ? {} : { loopScopes: input.loopScopes }

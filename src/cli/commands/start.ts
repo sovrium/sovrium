@@ -38,7 +38,7 @@ import {
   readPublicDirEnv,
   resolveDefaultPublicDir,
 } from './option-parsing'
-import { watchConfigGraph } from './start-watch'
+import { holdReloadPath } from './start-watch'
 import { lazyImportIndex, lazyImportLogger, lazyImportCli, resolveConfigAnchor } from './utils'
 import { collectConfigAttribution } from './validate'
 import type { StartOptions } from '@/application/use-cases/server/start-server-options'
@@ -245,8 +245,17 @@ export const handleStartCommand = async (
 
   checkForUpdatesInBackground(version)
 
-  // If watch mode enabled, set up file watchers over the whole config graph
-  if (watchMode && configFile) {
-    await watchConfigGraph({ configFile, server, app, configHash, configPath, options })
+  // The reload path, on every start from a config file: `sovrium reload`
+  // (SIGUSR1) runs it, and under --watch every save of the config graph does.
+  if (configFile) {
+    await holdReloadPath({
+      configFile,
+      server,
+      app,
+      configHash,
+      configPath,
+      options,
+      watch: watchMode,
+    })
   }
 }

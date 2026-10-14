@@ -44,7 +44,7 @@ export { ComponentTypeSchema } from './component-type-union-definitions'
  * renderer is still an engine-owned element with a `root`.
  */
 export const UNSTYLEABLE_COMPONENT_TYPES = [
-  'command-palette',
+  'command',
   'customHTML',
 ] as const satisfies readonly DeclaredComponentType[]
 
@@ -130,11 +130,16 @@ export const FORM_REF_HOST_TYPES: ReadonlySet<string> = new Set(
 const CONTAINER_TYPES: ReadonlySet<string> = new Set([
   // Layout containers
   'container',
-  'split-pane',
+  'resizable',
   'flex',
   'grid',
   'sidebar',
   'card',
+  'bubble',
+  // A fixed-ratio frame holds one medium; a conversation frame its turns and
+  // notes (`component-children-validation.ts`)
+  'aspect-ratio',
+  'message-scroller',
   // Text elements (wrap inline text/component children, e.g. <h1>Welcome</h1>)
   'text',
   // Interactive containers (wrap icon + text children, e.g. <Button><Icon /> Submit</Button>)
@@ -151,22 +156,26 @@ const CONTAINER_TYPES: ReadonlySet<string> = new Set([
   // Overlay containers
   'alert-dialog',
   'dialog',
+  'sheet',
   'drawer',
   'popover',
   'tooltip',
   'hover-card',
   // Display containers
-  'empty-state',
+  'message',
+  'empty',
   // A marquee scrolls its children, so it must be able to hold them
   'marquee',
   'scroll-area',
   'accordion',
+  // One region behind one trigger; its children are the region
+  'collapsible',
   'tabs',
   // A stepper's children are its step bodies, index-aligned with `steps` the
   // way a tab set's children are aligned with `panels`
   'stepper',
   'timeline',
-  'list-item',
+  'item',
   // Reorderable list wraps list-item children for drag-and-drop reordering
   'reorderable-list',
   // A dropdown's children are its TRIGGER, and there is no ambiguity about
@@ -175,9 +184,48 @@ const CONTAINER_TYPES: ReadonlySet<string> = new Set([
   // naming its operator needs an avatar and two lines inside that affordance
   // (the dropdown-children-are-the-trigger rule / Q9(a)), and a `triggerLabel` string cannot hold them.
   'dropdown-menu',
+  // A context menu's children are the REGION it is attached to: they render in
+  // place, and a right click (or a long press) over them opens `menuItems` at
+  // the pointer. As with a dropdown the popup is its own structured field, so
+  // children have no other slot to fill.
+  'context-menu',
   // Custom components (may need arbitrary children)
   'customHTML',
 ])
+
+/**
+ * Component SLOTS: component arrays a type holds BESIDE `children`, each drawn in
+ * its own place (a message's `header` above the turn, its `footer` below).
+ *
+ * Injected exactly as `children` is, and with the consumer's own children
+ * schema, for the reason `children` is injected at all: the field holds
+ * components, and the component union can only be built here. Every slot is
+ * therefore as expressive as `children` in its context (a template slot, a
+ * page child) and no more. The renderer receives a slot through the same
+ * pipeline a child takes (`presentation/render/elements/slot-children.ts`).
+ */
+const SLOT_TYPES: Readonly<Record<string, readonly string[]>> = {
+  message: ['header', 'footer'],
+  dialog: ['footer'],
+  sheet: ['footer'],
+  item: ['media', 'header', 'actions', 'footer'],
+  card: ['action', 'footer'],
+  sidebar: ['header', 'footer'],
+}
+
+/**
+ * The slots that hold ONE component rather than a list — an item's `media`.
+ * Such a slot takes any component a design-system specimen may draw (the
+ * union `SpecimenComponentSchema` builds), written as a single object.
+ */
+const SINGLE_SLOTS: ReadonlySet<string> = new Set(['item.media', 'card.action'])
+
+/** The slot keys a type declares. */
+export const componentSlotsOf = (type: string): readonly string[] => SLOT_TYPES[type] ?? []
+
+/** Whether a type's slot holds one component rather than a list. */
+export const isSingleComponentSlot = (type: string, slot: string): boolean =>
+  SINGLE_SLOTS.has(`${type}.${slot}`)
 
 // ─── Derived component shape ────────────────────────────────────────────────
 
@@ -253,9 +301,22 @@ export function buildComponentUnion(
     // refusal it carries is a safety rule that must not vary by call site.
     const isSpecimen = ast._tag === 'Literal' && ast.literal === 'specimen'
 
+    const slots =
+      ast._tag === 'Literal' && typeof ast.literal === 'string'
+        ? Object.fromEntries(
+            componentSlotsOf(ast.literal).map((slot) => [
+              slot,
+              isSingleComponentSlot(String(ast.literal), slot)
+                ? singleSlotField
+                : childrenField['children'],
+            ])
+          )
+        : {}
+
     return Schema.Struct({
       type: typeLiteral,
       ...(isContainer ? childrenField : {}),
+      ...slots,
       ...(isSpecimen ? specimenComponentField : {}),
       ...fields,
       ...extraFields,
@@ -325,6 +386,20 @@ const specimenComponentField: Readonly<InjectableFields> = {
     )
   ),
 } as const
+
+/**
+ * A slot holding ONE component (see {@link SINGLE_SLOTS}): suspended for the
+ * reason {@link specimenComponentField} is, and over the same union.
+ */
+const singleSlotField = Schema.optional(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the union it points at is Schema.Codec<any, any, never>; see ComponentSchema
+  Schema.suspend((): Schema.Codec<any, any, never> => SpecimenComponentSchema).pipe(
+    Schema.annotate({
+      title: 'Slot Component',
+      description: 'One component, drawn in this slot of its parent.',
+    })
+  )
+)
 
 /**
  * The specimen union itself. Its own `children` recurse back into it, which is

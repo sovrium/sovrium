@@ -268,7 +268,7 @@ export const KanbanCardSchema = Schema.Struct({
       Schema.check(Schema.isMinLength(1))
     )
   ),
-  /** What a click on the card does — `navigate` or `openDrawer` */
+  /** What a click on the card does — `navigate` or `openSheet` */
   onClick: Schema.optional(CardClickActionSchema),
   /** Field reference or $record.* variable for the cover image URL */
   coverImage: Schema.optional(
@@ -312,7 +312,7 @@ export const KanbanCardSchema = Schema.Struct({
  * Some moves need a value from the person at that moment — the amount when a
  * deal is won, the reason when it is lost. A hook names the column value it
  * answers to and the action to run once the move has persisted, with the moved
- * card's record in scope: `openDrawer` opens the named drawer on that record
+ * card's record in scope: `openSheet` opens the named drawer on that record
  * (the quick-edit drawer holding the amount), `fill` writes one of its values
  * into a form on the page.
  *
@@ -324,7 +324,7 @@ export const KanbanCardSchema = Schema.Struct({
  * drag:
  *   onDrop:
  *     - when: { value: Won }
- *       action: { action: openDrawer, component: deal-won }
+ *       action: { action: openSheet, component: deal-won }
  * ```
  */
 export const KanbanDropHookSchema = Schema.Struct({
@@ -342,7 +342,7 @@ export const KanbanDropHookSchema = Schema.Struct({
   /** The action run once the move has been saved, on the moved card's record. */
   action: Schema.Union([OpenDrawerActionSchema, FillActionSchema]).annotate({
     description:
-      'What runs once the move has been saved, with the moved card as `$record`: `openDrawer` opens the named drawer on that record, `fill` writes one of its values into a form control on the page',
+      'What runs once the move has been saved, with the moved card as `$record`: `openSheet` opens the named drawer on that record, `fill` writes one of its values into a form control on the page',
   }),
 }).annotate({
   identifier: 'KanbanDropHook',

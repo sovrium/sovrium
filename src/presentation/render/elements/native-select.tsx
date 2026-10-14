@@ -5,8 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { cn } from '@/presentation/design/class-merge'
+import {
+  computeNativeSelectClasses,
+  computeNativeSelectIconClasses,
+  computeNativeSelectOptionClasses,
+  computeNativeSelectWrapperClasses,
+  computeSelectLabelClasses,
+} from '@/presentation/design/select-default-classes'
 import { renderSsrSelectOptions } from './select-ssr-options'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 /**
  * The `select.native` rendering — the browser's own control, server-rendered
@@ -53,10 +61,48 @@ export interface NativeSelectProps {
 }
 
 /** Utility tokens matching the themed control's resting surface. */
-const CONTROL_CLASSES =
-  'border-border bg-background-raised text-foreground w-full rounded-md border px-3 py-2 text-md shadow-sm'
+/** lucide `chevron-down`, shadcn/ui `NativeSelect`'s glyph. */
+function renderNativeSelectIcon(): ReactElement {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={computeNativeSelectIconClasses()}
+      data-slot="native-select-icon"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
 
-const LABEL_CLASSES = 'text-foreground mb-1 block text-md font-medium'
+/** shadcn/ui `NativeSelect`: the wrapper carrying the size, the `<select>`, its chevron. */
+function renderNativeSelectFrame(children: ReactNode, listbox = false): ReactElement {
+  return (
+    <div
+      className={computeNativeSelectWrapperClasses()}
+      data-slot="native-select-wrapper"
+      data-size="default"
+    >
+      {children}
+      {/* A `multiple` select is a listbox, not a dropdown: it has no chevron. */}
+      {!listbox && renderNativeSelectIcon()}
+    </div>
+  )
+}
+
+/**
+ * A `multiple` select draws its rows in the box, so the one-line height and the
+ * chevron's gutter shadcn's recipe sets for a dropdown are given back.
+ */
+const LISTBOX_CLASSES = 'h-auto py-1 pr-2.5'
 
 /** Narrow an unknown field to a string, or drop it. */
 function str(value: unknown): string | undefined {
@@ -89,23 +135,27 @@ function publisherAttributes(publishes: unknown): Record<string, string | undefi
  * Kept beside the native rendering because they are the same markup with one
  * attribute between them — which is precisely what the `select.native` design observed, and what
  * makes it cheap for the two to drift apart if they live in different files.
- * The hydrated trigger lives in `plain-select.tsx` / `searchable-select.tsx`
- * and is styled via the prestyled-islands rule var-fallback recipe in
- * `select-default-classes.ts`; this skeleton uses theme-layer-emitted utility
- * tokens instead, because the component layer cannot import the islands-layer
- * recipe under the layer boundary rules.
+ * Both are shadcn/ui's `NativeSelect`, from the same `select-default-classes.ts`
+ * the hydrated trigger in `plain-select.tsx` / `searchable-select.tsx` reads, so
+ * the skeleton stands at the trigger's height before the island replaces it.
  */
 export function renderSsrSelectPlaceholder(props: NativeSelectProps): ReactElement {
-  return (
+  return renderNativeSelectFrame(
     <select
-      className={CONTROL_CLASSES}
+      className={computeNativeSelectClasses()}
+      data-slot="native-select"
+      data-size="default"
       // NOT `str()`: `defaultValue` is `string | number | boolean` in the
       // schema, and narrowing to a string here would silently DROP a numeric or
       // boolean default that the pre-extraction renderer passed through.
       defaultValue={toDefaultValue(props.defaultValue, false)}
       disabled
     >
-      {renderSsrSelectOptions(props.options, str(props.placeholder))}
+      {renderSsrSelectOptions(
+        props.options,
+        str(props.placeholder),
+        computeNativeSelectOptionClasses()
+      )}
     </select>
   )
 }
@@ -117,9 +167,13 @@ export function renderNativeSelect(
 ): ReactElement {
   const multiple = props.multiple === true
   const label = str(props.label)
-  const control = (
+  const control = renderNativeSelectFrame(
     <select
-      className={CONTROL_CLASSES}
+      className={
+        multiple ? cn(computeNativeSelectClasses(), LISTBOX_CLASSES) : computeNativeSelectClasses()
+      }
+      data-slot="native-select"
+      data-size="default"
       defaultValue={toDefaultValue(props.defaultValue, multiple)}
       multiple={multiple}
       disabled={props.disabled === true ? true : undefined}
@@ -128,8 +182,13 @@ export function renderNativeSelect(
       data-testid={str(props['data-testid'])}
       {...publisherAttributes(props.publishes)}
     >
-      {renderSsrSelectOptions(props.options, str(props.placeholder))}
-    </select>
+      {renderSsrSelectOptions(
+        props.options,
+        str(props.placeholder),
+        computeNativeSelectOptionClasses()
+      )}
+    </select>,
+    multiple
   )
 
   if (label === undefined || label.length === 0) {
@@ -137,7 +196,12 @@ export function renderNativeSelect(
   }
   return (
     <label className={str(props.className)}>
-      <span className={LABEL_CLASSES}>{label}</span>
+      <span
+        className={computeSelectLabelClasses()}
+        data-slot="label"
+      >
+        {label}
+      </span>
       {control}
     </label>
   )

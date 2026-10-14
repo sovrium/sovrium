@@ -69,8 +69,8 @@ const NEUTRAL_OUTLINE: CSSProperties = {
 }
 
 /** The paint of a chip whose option declares no colour (or none a chip can use). */
-const neutralPaint = (surface: ChipSurface): OptionChipPaint | undefined =>
-  surface === 'grid' ? undefined : { style: NEUTRAL_OUTLINE }
+const neutralPaint = (surface: ChipSurface, form?: BadgeForm): OptionChipPaint | undefined =>
+  surface === 'grid' && form !== 'outline-dot' ? undefined : { style: NEUTRAL_OUTLINE }
 
 /** `outline` — the quiet chip of a secondary column: no fill, a strong edge, no dot. */
 const OUTLINE_PAINT: OptionChipPaint = {
@@ -95,10 +95,10 @@ export function resolveOptionChipPaint(
 ): OptionChipPaint | undefined {
   if (form === 'outline') return OUTLINE_PAINT
   const derived = color === undefined ? undefined : deriveOptionChipColors(color)
-  if (derived === undefined) return neutralPaint(surface)
+  if (derived === undefined) return neutralPaint(surface, form)
   if (form === 'outline-dot') {
     return {
-      ...neutralPaint(surface),
+      ...neutralPaint(surface, form),
       dot: { className: DOT_CLASSES, style: { backgroundColor: derived.fill } },
     }
   }

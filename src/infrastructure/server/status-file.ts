@@ -91,6 +91,8 @@ export interface StatusReloadRecord {
    * open connection that it must reconnect when nothing was ever torn down.
    */
   readonly kind?: ReloadKind
+  /** The top-level key that forced a restart — present on a successful restart only. */
+  readonly reason?: string
   readonly durationMs: number
   readonly outcome: ReloadOutcomeLabel
   /** Present on a failure only. */

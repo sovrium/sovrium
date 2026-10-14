@@ -15,8 +15,7 @@
  * `x` is its column index, its `y` is the running height of the band stack
  * above it. Nothing iterates, nothing settles, nothing is random.
  *
- * That is why there is no force layout here, and the reason is not only that
- * `@visx/network` is absent from `node_modules`. A force simulation is
+ * That is why there is no force layout here. A force simulation is
  * non-deterministic — the same read draws differently twice — which makes a
  * visual regression untellable from a re-run, and it needs a browser to settle,
  * which makes it hostile to the server-rendered half of this component. A
@@ -32,7 +31,6 @@
  * audit. It is drawn whole, and the page scrolls.
  */
 
-import { pathHorizontalDiagonal } from '@visx/shape'
 import type {
   GraphColumnView,
   GraphEdgeView,
@@ -102,21 +100,20 @@ interface Segment {
   readonly target: Point
 }
 
+/** A coordinate as an SVG path writes it: at most three decimals, as d3-path rounds. */
+const coordinate = (value: number): string => String(Math.round(value * 1000) / 1000)
+
 /**
- * The edge generator — a horizontal cubic bezier between two points.
- *
- * Both accessors are passed explicitly rather than left to default. `@visx`
- * defaults `x` to the datum's `y` and `y` to its `x`, because its horizontal
- * links are built from a vertical tree layout with the coordinates swapped;
- * the points here are already in screen space, so overriding both is what keeps
- * the swap from silently transposing the whole drawing.
+ * The edge generator — a horizontal cubic bezier between two points, leaving
+ * the source and arriving at the target horizontally, its two control points
+ * at the midpoint of the run. The same curve d3's `linkHorizontal` draws,
+ * written out because one path does not justify a charting dependency.
  */
-const linkPath = pathHorizontalDiagonal<Segment, Point>({
-  source: (link) => link.source,
-  target: (link) => link.target,
-  x: (node) => node.x,
-  y: (node) => node.y,
-})
+const linkPath = ({ source, target }: Segment): string => {
+  const middle = coordinate((source.x + target.x) / 2)
+  const [x0, y0, x1, y1] = [source.x, source.y, target.x, target.y].map(coordinate)
+  return `M${x0},${y0}C${middle},${y0},${middle},${y1},${x1},${y1}`
+}
 
 /** Lay one column's bands out from `top`, returning the bands and the height used. */
 const placeColumn = (
@@ -186,7 +183,7 @@ const placeEdges = (
       source: { x: from.x + COLUMN_WIDTH, y: from.y + NODE_HEIGHT / 2 },
       target: { x: to.x, y: to.y + NODE_HEIGHT / 2 },
     })
-    return path === null ? [] : [{ ...edge, path }]
+    return [{ ...edge, path }]
   })
 
 /** Place every column, then every edge, and size the canvas to hold them. */

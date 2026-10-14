@@ -33,3 +33,16 @@ export const carriesCredential = (c: Context): boolean =>
   hasSessionCookie(c.req.header('cookie')) ||
   present(c.req.header('authorization')) ||
   present(c.req.header('x-api-key'))
+
+/**
+ * Whether the request's ONLY credential is an API key: an `x-api-key`, and
+ * neither a session cookie nor an `Authorization` header. A session resolved
+ * from such a request is the key's — a machine's — and never a person's
+ * browser session, which a signed-in caller's cookie would carry beside any
+ * key. The session context does not record where it came from, so a route
+ * that answers a machine differently from a person asks the request here.
+ */
+export const presentsApiKeyOnly = (c: Context): boolean =>
+  present(c.req.header('x-api-key')) &&
+  !hasSessionCookie(c.req.header('cookie')) &&
+  !present(c.req.header('authorization'))

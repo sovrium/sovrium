@@ -48,8 +48,10 @@
 // `[internal ref]`'s surface.
 
 import { CARD_CLASS } from '../../components/card'
+import { factsCardFrom } from '../../components/card-blocks'
 import { emptyState, pageHeading, tabQuery, tabbedBody, tabPanel } from '../../components/data-page'
 import { withShell } from '../../components/shell'
+import { lineTabs } from '../../components/tabs-line'
 import { INSTANCE_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -76,16 +78,8 @@ const text = (element: string, className: string, content: string): PageComponen
 const sectionLabel = (content: string): PageComponent =>
   text('h2', 'text-foreground-subtle text-sm font-medium tracking-wide uppercase', content)
 
-/** A bordered card holding labelled content (separation by border, not depth). */
-const card = (children: readonly PageComponent[]): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className: 'border-border bg-background-raised flex flex-col gap-3 rounded-lg border p-5',
-    },
-    children,
-  }) as PageComponent
+/** A section card: the library's `dl-rows` card, installed in `card-blocks.ts`. */
+const card = (children: readonly PageComponent[]): PageComponent => factsCardFrom(children)
 
 /** A labelled key→value row (e.g. "Base URL" → the API root). */
 const keyValueRow = (label: string, value: string): PageComponent =>
@@ -286,13 +280,12 @@ const examplesCard = (): PageComponent => {
 
   return card([
     sectionLabel('$t:admin.api.examples.heading'),
-    {
-      type: 'tabs',
+    lineTabs({
       defaultTab: 'http',
       props: { 'aria-label': '$t:admin.api.examples.heading', className: 'flex flex-col gap-3' },
       panels: tabs.map((t) => t.panel),
       children: tabs.map((t) => t.body),
-    } as PageComponent,
+    }),
     text('p', 'text-foreground-subtle text-sm', '$t:admin.api.examples.note'),
   ])
 }
@@ -340,7 +333,7 @@ const scalarCard = (): PageComponent =>
         rel: 'noopener noreferrer',
         'data-testid': 'api-docs-scalar-link',
         className:
-          'bg-primary text-primary-fg inline-flex w-fit items-center gap-2 rounded-md px-3 py-1.5 text-md font-medium hover:opacity-90',
+          'bg-primary text-primary-foreground inline-flex w-fit items-center gap-2 rounded-md px-3 py-1.5 text-md font-medium hover:opacity-90',
       },
     } as PageComponent,
   ])

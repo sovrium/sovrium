@@ -7,6 +7,8 @@
 
 import { useState } from 'react'
 import { cn } from '@/presentation/design/class-merge'
+import { pendingControlProps } from '@/presentation/design/pending-state'
+import { renderPendingContent } from '@/presentation/design/spinner-mark'
 
 interface FormState {
   readonly error?: string
@@ -27,24 +29,29 @@ export interface DeleteViewProps {
   readonly className?: string
   readonly id?: string
   readonly testId?: string
+  /** The delete button's caption while the delete is in flight, in the page language. */
+  readonly pendingLabel?: string
 }
 
 function ActionButton({
   label,
   onClick,
   isPending,
+  pendingLabel,
 }: {
   readonly label: string
   readonly onClick: () => void
   readonly isPending?: boolean
+  readonly pendingLabel?: string | undefined
 }) {
+  const pending = isPending === true
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={isPending}
+      onClick={pending ? undefined : onClick}
+      {...pendingControlProps(pending)}
     >
-      {isPending ? 'Deleting...' : label}
+      {pending ? renderPendingContent(pendingLabel ?? 'Deleting…') : label}
     </button>
   )
 }
@@ -84,17 +91,20 @@ function DeleteFormButton({
   redirectUrl,
   label,
   isPending,
+  pendingLabel,
 }: {
   readonly table: string
   readonly recordId: string
   readonly redirectUrl: string
   readonly label: string
   readonly isPending: boolean
+  readonly pendingLabel?: string | undefined
 }) {
   return (
     <form
       method="POST"
       action={buildDeleteFormAction(table, recordId)}
+      onSubmit={isPending ? (event) => event.preventDefault() : undefined}
     >
       <input
         type="hidden"
@@ -103,9 +113,9 @@ function DeleteFormButton({
       />
       <button
         type="submit"
-        disabled={isPending}
+        {...pendingControlProps(isPending)}
       >
-        {isPending ? 'Deleting...' : label}
+        {isPending ? renderPendingContent(pendingLabel ?? 'Deleting…') : label}
       </button>
     </form>
   )
@@ -120,6 +130,7 @@ function DeleteContent({
 }) {
   const { state, confirm, onSubmit, table, recordId } = props
   const [showConfirm, setShowConfirm] = useState(false)
+  const busy = { isPending: state.isPending, pendingLabel: props.pendingLabel }
 
   if (state.deleted) return <p>This record has been deleted.</p>
 
@@ -138,7 +149,7 @@ function DeleteContent({
         <ActionButton
           label={`Confirm ${label}`}
           onClick={onSubmit}
-          isPending={state.isPending}
+          {...busy}
         />
         <button
           type="button"
@@ -157,7 +168,7 @@ function DeleteContent({
         recordId={recordId}
         redirectUrl={props.redirectUrl}
         label={label}
-        isPending={state.isPending}
+        {...busy}
       />
     )
   }
@@ -166,7 +177,7 @@ function DeleteContent({
     <ActionButton
       label={label}
       onClick={onSubmit}
-      isPending={state.isPending}
+      {...busy}
     />
   )
 }

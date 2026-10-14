@@ -35,8 +35,6 @@ Sovrium's own prebuilt components look for the conventional roles — `primary`,
 
 Every page is painted in the theme's `background` colour (`darkColors.background` in the dark scheme), so a page whose components do not reach the bottom of the window never shows the browser's white below them. A component that sets its own background still draws over it.
 
-One border does not follow `border`: the outline of an unchecked switch, checkbox or radio. It is drawn in `--sv-border-control`, the only border token held at 3:1 against the page in both light and dark, because an unchecked control has no fill to show where it is. A pale `border` would take that edge with it, so the control keeps its own.
-
 ## Where the other categories are documented
 
 `colors` is one of twenty-one keys. The rest have their own articles:

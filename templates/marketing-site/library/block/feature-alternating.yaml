@@ -1,4 +1,5 @@
-# sovrium-library: block/feature-alternating@0.30.0
+# sovrium-library: block/feature-alternating@0.37.0
+# sovrium-library-params: linkHref=%2Ffeatures&linkLabel=%5BLearn%20how%5D
 name: feature-alternating
 type: container
 element: section
@@ -31,7 +32,7 @@ children:
                       - type: text
                         element: span
                         props:
-                          className: font-mono text-sm text-foreground-subtle
+                          className: font-mono text-sm text-muted-foreground
                         content: '[01]'
                   - type: text
                     element: h2
@@ -41,7 +42,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-md leading-relaxed text-pretty text-foreground-muted
+                      className: text-md leading-relaxed text-pretty text-muted-foreground
                     content: 'Two or three sentences that show how it works in practice, with one concrete example.'
                   - type: container
                     props:
@@ -68,7 +69,7 @@ children:
                   - type: text
                     element: span
                     props:
-                      className: font-mono text-sm text-foreground-subtle
+                      className: font-mono text-sm text-muted-foreground
                     content: image · 4:3
           - type: grid
             props:
@@ -88,7 +89,7 @@ children:
                       - type: text
                         element: span
                         props:
-                          className: font-mono text-sm text-foreground-subtle
+                          className: font-mono text-sm text-muted-foreground
                         content: '[02]'
                   - type: text
                     element: h2
@@ -98,7 +99,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-md leading-relaxed text-pretty text-foreground-muted
+                      className: text-md leading-relaxed text-pretty text-muted-foreground
                     content: 'Same rhythm as the first. The image changes sides, the copy keeps its length.'
                   - type: container
                     props:
@@ -125,5 +126,5 @@ children:
                   - type: text
                     element: span
                     props:
-                      className: font-mono text-sm text-foreground-subtle
+                      className: font-mono text-sm text-muted-foreground
                     content: image · 4:3

@@ -12,34 +12,59 @@
  */
 
 import { useMemo, type ReactElement } from 'react'
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
+import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
+import {
+  computeInputGroupLabelClasses,
+  computeInputGroupRootClasses,
+} from '@/presentation/design/input-group-default-classes'
+import { pendingControlProps } from '@/presentation/design/pending-state'
+import {
+  SignatureSignedItem,
+  type SignedItemClasses,
+} from '@/presentation/design/signature-signed-item'
 
-const BUTTON =
-  'inline-flex h-9 items-center rounded-md border border-border px-4 text-sm font-medium hover:bg-muted disabled:opacity-50'
-const PRIMARY =
-  'inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50'
+/** Clear: base-nova's ghost button, small. */
+const CLEAR = computePartButtonClasses({ variant: 'ghost', size: 'sm' })
+/** The drawn/typed switch: base-nova's outline button, small. */
+const TOGGLE = computePartButtonClasses({ variant: 'outline', size: 'sm' })
+/** Sign, the one primary button of the pad. */
+const SIGN = computePartButtonClasses({ variant: 'default', size: 'sm' })
 
 export function SignedReading({
   signerName,
   signedAt,
   statement,
   lang,
+  classes,
 }: {
   readonly signerName: string
   readonly signedAt: string
   readonly statement: string
   readonly lang?: string
+  readonly classes: SignedItemClasses
 }): ReactElement {
   const day = new Intl.DateTimeFormat(lang ?? 'en-GB', { dateStyle: 'long' }).format(
     Date.parse(signedAt)
   )
   return (
-    <figure
-      role="status"
-      className="flex flex-col gap-1"
+    <SignatureSignedItem
+      title={`Signed by ${signerName} on ${day}`}
+      statement={statement}
+      classes={classes}
+    />
+  )
+}
+
+/** The words the signer agrees to, above the well. */
+export function PadStatement({ statement }: { readonly statement: string }): ReactElement {
+  return (
+    <p
+      data-slot="signature-pad-statement"
+      className="text-muted-foreground text-sm"
     >
-      <figcaption className="text-sm font-medium">{`Signed by ${signerName} on ${day}`}</figcaption>
-      <blockquote className="text-muted-foreground text-sm">{statement}</blockquote>
-    </figure>
+      {statement}
+    </p>
   )
 }
 
@@ -60,24 +85,36 @@ export function SignatureInput({
   const wellStyle = useMemo(() => ({ height }), [height])
   if (typed) {
     return (
-      <label className="flex flex-col gap-1 text-sm">
-        Full name
+      <div
+        data-slot="field"
+        className={computeInputGroupRootClasses()}
+      >
+        <label
+          htmlFor="signature-pad-typed-name"
+          data-slot="field-label"
+          className={computeInputGroupLabelClasses()}
+        >
+          Full name
+        </label>
         <input
+          id="signature-pad-typed-name"
           type="text"
           autoComplete="name"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          className="border-border h-9 rounded-md border px-3"
+          data-slot="input"
+          className={computeInputDefaultClasses()}
         />
-      </label>
+      </div>
     )
   }
   return (
     <canvas
       ref={canvasRef}
       data-signature-well=""
+      data-slot="signature-pad-well"
       aria-label="Signing well: draw your signature"
-      className="border-border text-foreground w-full touch-none rounded-md border border-b-2"
+      className="bg-background text-foreground focus-visible:ring-ring/50 w-full touch-none rounded-lg border border-dashed outline-none focus-visible:ring-3"
       style={wellStyle}
     />
   )
@@ -95,11 +132,15 @@ export function PadActions(props: {
   readonly onSign: () => void
 }): ReactElement {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div
+      data-slot="signature-pad-actions"
+      className="flex flex-wrap items-center justify-end gap-2"
+    >
       {!props.typed && (
         <button
           type="button"
-          className={BUTTON}
+          data-slot="button"
+          className={CLEAR}
           disabled={!props.inked}
           onClick={props.onClear}
         >
@@ -109,18 +150,20 @@ export function PadActions(props: {
       {props.allowTyped && (
         <button
           type="button"
-          className={BUTTON}
+          data-slot="button"
+          className={TOGGLE}
           onClick={props.onToggle}
         >
           {props.typed ? 'Draw instead' : 'Type your name instead'}
         </button>
       )}
-      <span className="flex-1" />
       <button
         type="button"
-        className={PRIMARY}
-        disabled={!props.ready || props.saving}
-        onClick={props.onSign}
+        data-slot="button"
+        className={SIGN}
+        disabled={!props.ready}
+        {...pendingControlProps(props.saving)}
+        onClick={props.saving ? undefined : props.onSign}
       >
         {props.saving ? 'Signing…' : 'Sign'}
       </button>
@@ -133,7 +176,7 @@ export function SaveFailed(): ReactElement {
   return (
     <p
       role="alert"
-      className="text-error-fg text-sm"
+      className="text-destructive text-sm"
     >
       The signature could not be saved. Check the connection and sign again.
     </p>

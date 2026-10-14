@@ -33,6 +33,7 @@ stated reason:
 - Clicking a row opens the record; row-level controls do not steal that click.
 - Destructive actions always confirm, naming the count; a toast confirms completion and offers undo when possible.
 - Tables, filter bars, selection, pagination, toolbars, bulk actions and views: `sovrium docs data-components/data-components`.
+- Outside a table, the `pagination` type is shadcn/ui's Pagination: a centred pager whose current page is an outlined button. It shows no range, so state the range in text beside it: `sovrium docs components/navigation-components`.
 
 ## Search and filtering
 

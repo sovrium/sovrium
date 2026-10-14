@@ -143,6 +143,10 @@ export interface WatchContext {
   readonly options: StartOptions
   readonly state: WatchState
   readonly graphWatcher: ReturnType<typeof createConfigGraphWatcher>
+  /** The journal tag: `watch` under `--watch`, `reload` for a start that only takes `sovrium reload`. */
+  readonly tag: 'watch' | 'reload'
+  /** Whether an accepted config is snapshotted for undo — only a watched session keeps a history. */
+  readonly history: boolean
   /**
    * Name the file that changed the way the operator sees it: relative to the
    * config directory (`config/pages.ts`), never as a `../../..` walk from an
@@ -165,6 +169,8 @@ export const commitReload = async (
     readonly signature: string
     readonly durationMs: number
     readonly kind: ReloadKind | undefined
+    /** The key that forced a restart, for a restart. */
+    readonly reason?: string | undefined
   }
 ): Promise<void> => {
   const { state } = ctx
@@ -183,7 +189,9 @@ export const commitReload = async (
   // The snapshot NAME it answers is discarded here and nowhere else: it
   // exists for `_config_write_file`, which reports it back to the AI that
   // asked for the edit. The watcher has nobody to report it to.
-  await snapshotConfigGraph(ctx.configFile, outcome.files, outcome.anchor.configHash)
+  if (ctx.history) {
+    await snapshotConfigGraph(ctx.configFile, outcome.files, outcome.anchor.configHash)
+  }
 
   // BEFORE the line below, deliberately. `[watch] Server reloaded` is what a
   // person waits for and what a test harness greps for, so anything that
@@ -203,6 +211,7 @@ export const commitReload = async (
     lastReload: {
       at: new Date().toISOString(),
       ...(save.kind !== undefined && { kind: save.kind }),
+      ...(save.reason !== undefined && { reason: save.reason }),
       durationMs: save.durationMs,
       outcome: 'success',
       findings: [],
@@ -212,7 +221,7 @@ export const commitReload = async (
   // One line, not fourteen. The reloaded server suppresses the startup
   // banner (`StartOptions.reload`) so this summary is the whole report
   // of a save: what happened, and how long the operator waited for it.
-  printJournal('watch', `Server reloaded in ${formatDuration(save.durationMs)}`)
+  printJournal(ctx.tag, `Server reloaded in ${formatDuration(save.durationMs)}`)
 }
 
 /**
@@ -258,9 +267,9 @@ export const reportFailedReload = async (
   // three-outcome sentence because a decode refusal never reaches the
   // listener at all, which the reader can see from the words.
   if (isConfigRejectedError(failure.error)) {
-    printJournalError('watch', formatConfigRejection(failure.error, 'reloaded'))
+    printJournalError(ctx.tag, formatConfigRejection(failure.error, 'reloaded'))
   } else {
-    printJournalError('watch', describeReloadFailure(failure))
+    printJournalError(ctx.tag, describeReloadFailure(failure))
   }
 
   const { state } = ctx

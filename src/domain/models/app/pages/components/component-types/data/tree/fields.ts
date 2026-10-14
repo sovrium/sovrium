@@ -20,7 +20,7 @@
  *
  * ─── SELECTION SPEAKS THE RECORD VERBS, AND PUBLISHES ──────────────────────
  *
- * `onSelect` is the card vocabulary (`navigate`, `openDrawer`), for the reason
+ * `onSelect` is the card vocabulary (`navigate`, `openSheet`), for the reason
  * `map` gives. `publishes` is the shared-filter publisher a `graph` already
  * carries, so a tree can sit beside a `table` and narrow it to the selected
  * branch without inventing a second channel.

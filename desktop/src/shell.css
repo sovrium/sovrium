@@ -5,22 +5,40 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  *
  * The shell's own chrome. Every value comes from `tokens.generated.css`, which
- * is generated from the same design source as the engine's theme layer — so the
- * window around the app and the app inside it cannot drift apart.
+ * is generated from the same source as the engine's theme layer — the pinned
+ * shadcn/ui registry snapshot — so the window around the app and the app inside
+ * it cannot drift apart.
  *
- * Hand-written, unlike its neighbour. Do not add token VALUES here; add them to
- * the design source and regenerate.
+ * Hand-written, unlike its neighbour. Do not add token VALUES here; they come
+ * from the snapshot and are regenerated.
  *
- * ## The one rule that is not a token
+ * ## shadcn's variables, shadcn's anatomy (ADR-045)
  *
- * Colour carries consequence and nothing else (ADR-024 D3). There is no
- * decorative accent in this file: the primary role paints one button per screen
- * and the active tab's underline, the error and warning roles paint refusals,
- * and everything else is the neutral ramp. When a surface reads as unfinished
- * the answer is in the spacing rhythm or the type, never in adding a colour —
- * which is why the type scale does more work here than it would in a UI that
- * had a palette to fall back on.
+ * The shell reads shadcn's variables under shadcn's names (`--background`,
+ * `--card`, `--muted-foreground`, `--primary`, `--destructive`, `--border`,
+ * `--input`, `--ring` …) and draws each piece the way shadcn's component of
+ * the same job does: a panel is a Card, a button is a Button (default, outline,
+ * ghost and the destructive variant), a field is an Input, a notice is an
+ * Alert, the tabs are a line Tabs list. Translucent steps such as `bg-primary/90`
+ * are written `color-mix(in oklab, var(--primary) 90%, transparent)`, which is
+ * what Tailwind compiles them to. Sizes are shadcn's `h-9` on the spacing scale.
+ *
+ * Only shadcn's names are read here. The `--sv-*` aliases of those names left
+ * the token file in P10; the `--sv-*` variables it still carries are Sovrium's
+ * extensions, which the shell has no use for.
  */
+
+/*
+ * Geist and Geist Mono, bundled with the shell. `--font-sans` and `--font-mono`
+ * name 'Geist Variable' and 'Geist Mono Variable'; these are the faces behind
+ * those names. Vite resolves each import from `node_modules` and copies its
+ * woff2 files next to the bundle, so the fonts load from the shell's own origin
+ * and the CSP's `default-src 'self'` (which `font-src` falls back to) admits
+ * them without a `data:` source. The upright faces only: the shell sets nothing
+ * in italic. License: OFL-1.1, attributed in the desktop third-party notices.
+ */
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 
 html,
 body {
@@ -28,18 +46,18 @@ body {
 }
 
 /*
- * Role tokens are `--sv-*`; SCALE tokens are not — they keep the `--font-*`,
+ * Colour roles are shadcn's variables; SCALE tokens keep the `--font-*`,
  * `--text-*`, `--spacing-*` and `--radius-*` names Tailwind registers them
  * under in the engine, so the shell and the app inside it address the same
- * variable by the same name. `var(--sv-text-sm)` would resolve to nothing.
+ * variable by the same name.
  */
 body {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   line-height: var(--text-sm--line-height);
-  color: var(--sv-fg);
-  background: var(--sv-bg);
+  color: var(--foreground);
+  background: var(--background);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -92,7 +110,7 @@ body {
   margin: 0;
   font-size: var(--text-base);
   line-height: var(--text-base--line-height);
-  color: var(--sv-fg-muted);
+  color: var(--muted-foreground);
 }
 
 .view__footer {
@@ -107,9 +125,10 @@ body {
   flex-direction: column;
   gap: var(--spacing-3);
   padding: var(--spacing-5);
-  background: var(--sv-bg-raised);
-  border: 1px solid var(--sv-border);
-  border-radius: var(--radius-lg);
+  color: var(--card-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
 }
 
@@ -118,33 +137,30 @@ body {
   text-align: center;
 }
 
+/* shadcn's destructive Alert: the card stays a card, the words carry the consequence. */
 .panel--error {
-  background: var(--sv-error-bg);
-  border-color: var(--sv-error-border);
+  border-color: color-mix(in oklab, var(--destructive) 30%, var(--border));
 }
 
 /*
  * A refused save where the app never stopped answering.
  *
- * Deliberately NOT the error tone, and deliberately not a yellow one either.
- * Painting it red would send the user hunting an outage that is not happening;
- * and there is no amber to reach for, because ADR-024 amendment A1 retired
- * every colour ramp except `error` — `--sv-warning-*` is registered at chroma
- * ZERO, so `background: var(--sv-warning-bg)` renders as plain grey. That is
- * the design system answering correctly rather than failing: colour is reserved
- * for consequence, and "nothing broke" is not one.
+ * Deliberately NOT the destructive tone, and deliberately not a yellow one
+ * either. Painting it red would send the user hunting an outage that is not
+ * happening; and shadcn defines no warning variable to reach for, which is the
+ * design system answering correctly rather than failing: "nothing broke" is not
+ * a consequence.
  *
  * So the emphasis is structural — a full-height rule down the left edge, which
  * catches the eye without claiming an alarm.
  */
 .panel--notice {
-  border-color: var(--sv-border-strong);
   border-left-width: 3px;
-  border-left-color: var(--sv-fg-subtle);
+  border-left-color: var(--muted-foreground);
 }
 
 .panel--danger {
-  border-color: var(--sv-border-strong);
+  border-color: var(--input);
 }
 
 .panel__subtitle {
@@ -153,7 +169,7 @@ body {
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
-  color: var(--sv-fg-subtle);
+  color: var(--muted-foreground);
 }
 
 /* A container a lazily-loaded fragment is dropped into. */
@@ -174,16 +190,12 @@ body {
 .panel__lead {
   margin: 0;
   line-height: var(--text-sm--line-height);
-  color: var(--sv-fg-muted);
+  color: var(--muted-foreground);
 }
 
-/*
- * `--sv-error-fg`, not `--sv-error`. A role with -bg/-fg/-solid slots registers
- * no bare name, so `var(--sv-error)` resolves to nothing and the text silently
- * keeps the muted colour.
- */
+/* shadcn's destructive AlertDescription: `text-destructive/90`. */
 .panel--error .panel__lead {
-  color: var(--sv-error-fg);
+  color: color-mix(in oklab, var(--destructive) 90%, transparent);
 }
 
 .panel__meta {
@@ -191,7 +203,7 @@ body {
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--sv-fg-subtle);
+  color: var(--muted-foreground);
 }
 
 .panel__note {
@@ -199,13 +211,13 @@ body {
   max-width: 46rem;
   font-size: var(--text-xs);
   line-height: var(--text-xs--line-height);
-  color: var(--sv-fg-subtle);
+  color: var(--muted-foreground);
 }
 
 /* A note that has to be read, not skimmed past. Weight and value, not colour. */
 .panel__note--strong {
   font-weight: var(--font-weight-medium);
-  color: var(--sv-fg);
+  color: var(--foreground);
 }
 
 /* ------------------------------------------------------------------ tiles */
@@ -220,7 +232,7 @@ body {
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
-  color: var(--sv-fg-subtle);
+  color: var(--muted-foreground);
 }
 
 .tiles {
@@ -237,19 +249,19 @@ body {
   color: inherit;
   text-align: left;
   cursor: pointer;
-  background: var(--sv-bg-raised);
-  border: 1px solid var(--sv-border);
-  border-radius: var(--radius-md);
-  transition: border-color var(--duration-fast) var(--ease-default);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  transition: background-color var(--duration-fast) var(--ease-default);
 }
 
 .tile:hover {
-  border-color: var(--sv-primary);
+  background: var(--accent);
 }
 
 .tile:focus-visible {
-  outline: 2px solid var(--sv-focus-ring);
-  outline-offset: 2px;
+  outline: 3px solid color-mix(in oklab, var(--ring) 50%, transparent);
+  outline-offset: 0;
 }
 
 .tile__name {
@@ -259,7 +271,7 @@ body {
 .tile__description {
   font-size: var(--text-xs);
   line-height: var(--text-xs--line-height);
-  color: var(--sv-fg-muted);
+  color: var(--muted-foreground);
 }
 
 /* ------------------------------------------------------ ways, safety, lists */
@@ -290,7 +302,7 @@ body {
   padding-left: var(--spacing-5);
   font-size: var(--text-xs);
   line-height: var(--text-xs--line-height);
-  color: var(--sv-fg-muted);
+  color: var(--muted-foreground);
 }
 
 .bullets {
@@ -320,12 +332,12 @@ body {
   cursor: pointer;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--radius-base);
+  border-radius: var(--radius-md);
 }
 
 .recents__open:hover {
-  background: var(--sv-bg-subtle);
-  border-color: var(--sv-border);
+  color: var(--accent-foreground);
+  background: var(--accent);
 }
 
 .recents__name {
@@ -336,7 +348,7 @@ body {
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  color: var(--sv-fg-subtle);
+  color: var(--muted-foreground);
 }
 
 /* ---------------------------------------------------------------- buttons */
@@ -345,60 +357,71 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: var(--sv-density-button-h);
+  height: calc(var(--spacing-1) * 9);
   padding: 0 var(--spacing-4);
   font: inherit;
   font-weight: var(--font-weight-medium);
-  color: var(--sv-fg);
+  color: var(--foreground);
   cursor: pointer;
-  background: var(--sv-bg-raised);
-  border: 1px solid var(--sv-border-strong);
-  border-radius: var(--radius-base);
+  background: var(--background);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
+/* The outline Button: `hover:bg-accent hover:text-accent-foreground`. */
 .button:hover:not([disabled]) {
-  background: var(--sv-bg-subtle);
+  color: var(--accent-foreground);
+  background: var(--accent);
 }
 
 .button:focus-visible {
-  outline: 2px solid var(--sv-focus-ring);
-  outline-offset: 2px;
+  outline: 3px solid color-mix(in oklab, var(--ring) 50%, transparent);
+  outline-offset: 0;
 }
 
+/* shadcn's `disabled:opacity-50`, on every variant. */
 .button[disabled] {
-  color: var(--sv-fg-disabled);
   cursor: not-allowed;
-}
-
-.button--primary {
-  color: var(--sv-primary-fg);
-  background: var(--sv-primary);
-  border-color: var(--sv-primary);
-}
-
-.button--primary:hover:not([disabled]) {
-  background: var(--sv-primary-hover);
-}
-
-.button--primary[disabled] {
   opacity: 0.5;
 }
 
-.button--danger {
-  color: var(--sv-error-solid-fg);
-  background: var(--sv-error-solid);
-  border-color: var(--sv-error-solid);
+.button--primary {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: none;
 }
 
+.button--primary:hover:not([disabled]) {
+  color: var(--primary-foreground);
+  background: color-mix(in oklab, var(--primary) 90%, transparent);
+}
+
+/* base-nova's destructive Button: `bg-destructive/10 text-destructive`. */
+.button--danger {
+  color: var(--destructive);
+  background: color-mix(in oklab, var(--destructive) 10%, transparent);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.button--danger:hover:not([disabled]) {
+  color: var(--destructive);
+  background: color-mix(in oklab, var(--destructive) 20%, transparent);
+}
+
+/* The ghost Button. */
 .button--quiet {
-  color: var(--sv-fg-muted);
+  color: var(--muted-foreground);
   background: transparent;
   border-color: transparent;
+  box-shadow: none;
 }
 
 .button--quiet:hover:not([disabled]) {
-  color: var(--sv-fg);
-  background: var(--sv-bg-subtle);
+  color: var(--accent-foreground);
+  background: var(--accent);
 }
 
 /* ------------------------------------------------------------ form pieces */
@@ -411,17 +434,18 @@ body {
 
 .field__label {
   font-size: var(--text-xs);
-  color: var(--sv-fg-muted);
+  color: var(--muted-foreground);
 }
 
 .field__input {
-  height: var(--sv-density-control-h);
+  height: calc(var(--spacing-1) * 9);
   padding: 0 var(--spacing-3);
   font: inherit;
-  color: var(--sv-fg);
-  background: var(--sv-bg);
-  border: 1px solid var(--sv-border-strong);
-  border-radius: var(--radius-base);
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .field__input--short {
@@ -429,8 +453,9 @@ body {
 }
 
 .field__input:focus-visible {
-  outline: 2px solid var(--sv-focus-ring);
-  outline-offset: 1px;
+  border-color: var(--ring);
+  outline: 3px solid color-mix(in oklab, var(--ring) 50%, transparent);
+  outline-offset: 0;
 }
 
 /*
@@ -443,14 +468,14 @@ body {
  * keyboard handling.
  */
 input[type='checkbox'] {
-  accent-color: var(--sv-primary);
+  accent-color: var(--primary);
   width: 1rem;
   height: 1rem;
 }
 
 input[type='checkbox']:focus-visible {
-  outline: 2px solid var(--sv-focus-ring);
-  outline-offset: 2px;
+  outline: 3px solid color-mix(in oklab, var(--ring) 50%, transparent);
+  outline-offset: 0;
 }
 
 .form__actions {
@@ -493,7 +518,7 @@ input[type='checkbox']:focus-visible {
   margin: 0;
   overflow-wrap: anywhere;
   font-size: var(--text-xs);
-  color: var(--sv-fg-subtle);
+  color: var(--muted-foreground);
 }
 
 .row {
@@ -502,7 +527,7 @@ input[type='checkbox']:focus-visible {
   justify-content: space-between;
   gap: var(--spacing-4);
   padding: var(--spacing-2) 0;
-  border-top: 1px solid var(--sv-border);
+  border-top: 1px solid var(--border);
 }
 
 .row:first-of-type {
@@ -518,7 +543,7 @@ input[type='checkbox']:focus-visible {
 }
 
 .row__label {
-  color: var(--sv-fg-muted);
+  color: var(--muted-foreground);
 }
 
 .row__controls {
@@ -536,22 +561,23 @@ input[type='checkbox']:focus-visible {
 .tabs {
   display: flex;
   gap: var(--spacing-1);
-  border-bottom: 1px solid var(--sv-border);
+  border-bottom: 1px solid var(--border);
 }
 
 .tabs__tab {
   padding: var(--spacing-2) var(--spacing-3);
   font: inherit;
-  color: var(--sv-fg-muted);
+  color: var(--muted-foreground);
   cursor: pointer;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
 }
 
+/* shadcn's line Tabs: the active trigger takes the foreground and its underline. */
 .tabs__tab--active {
-  color: var(--sv-fg);
-  border-bottom-color: var(--sv-primary);
+  color: var(--foreground);
+  border-bottom-color: var(--foreground);
 }
 
 .tab {
@@ -572,10 +598,10 @@ input[type='checkbox']:focus-visible {
   font-size: var(--text-2xs);
   line-height: var(--line-height-relaxed);
   white-space: pre-wrap;
-  color: var(--sv-fg-muted);
-  background: var(--sv-bg-inset);
-  border: 1px solid var(--sv-border);
-  border-radius: var(--radius-base);
+  color: var(--muted-foreground);
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .log--full {
@@ -593,7 +619,7 @@ input[type='checkbox']:focus-visible {
  */
 .log--snippet {
   max-height: none;
-  color: var(--sv-fg);
+  color: var(--foreground);
 }
 
 .log__block {
@@ -615,26 +641,28 @@ input[type='checkbox']:focus-visible {
   padding: var(--spacing-1) var(--spacing-3);
   font: inherit;
   font-size: var(--text-xs);
-  color: var(--sv-fg-muted);
+  color: var(--muted-foreground);
   cursor: pointer;
   background: transparent;
-  border: 1px solid var(--sv-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-full);
 }
 
 .chip:hover {
-  background: var(--sv-bg-subtle);
+  color: var(--accent-foreground);
+  background: var(--accent);
 }
 
 .chip:focus-visible {
-  outline: 2px solid var(--sv-focus-ring);
-  outline-offset: 2px;
+  outline: 3px solid color-mix(in oklab, var(--ring) 50%, transparent);
+  outline-offset: 0;
 }
 
+/* A pressed Toggle: `data-[state=on]:bg-accent`, bordered so it reads as chosen. */
 .chip--active {
-  color: var(--sv-primary-subtle-fg);
-  background: var(--sv-primary-subtle);
-  border-color: var(--sv-primary);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  border-color: var(--ring);
 }
 
 .clients {
@@ -670,19 +698,19 @@ input[type='checkbox']:focus-visible {
   flex-direction: column;
   gap: var(--spacing-1);
   padding-left: var(--spacing-3);
-  border-left: 2px solid var(--sv-border-strong);
+  border-left: 2px solid var(--input);
 }
 
 .finding__path {
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  color: var(--sv-fg-subtle);
+  color: var(--muted-foreground);
 }
 
 .finding__message {
   margin: 0;
-  color: var(--sv-fg);
+  color: var(--foreground);
 }
 
 .finding__accepted {
@@ -690,14 +718,14 @@ input[type='checkbox']:focus-visible {
   overflow-wrap: anywhere;
   font-size: var(--text-xs);
   line-height: var(--text-xs--line-height);
-  color: var(--sv-fg);
+  color: var(--foreground);
 }
 
 .finding__source {
   margin: 0;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  color: var(--sv-fg-subtle);
+  color: var(--muted-foreground);
 }
 
 /* ----------------------------------------------------------------- notice */
@@ -708,12 +736,14 @@ input[type='checkbox']:focus-visible {
   justify-content: space-between;
   gap: var(--spacing-3);
   padding: var(--spacing-3) var(--spacing-4);
-  background: var(--sv-info-bg);
-  border: 1px solid var(--sv-info-border);
-  border-radius: var(--radius-base);
+  color: var(--card-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
+/* shadcn's default Alert: a card with the card's own text colour. */
 .notice__text {
   margin: 0;
-  color: var(--sv-info-fg);
+  color: var(--card-foreground);
 }

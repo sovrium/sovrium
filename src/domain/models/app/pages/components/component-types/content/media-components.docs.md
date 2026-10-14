@@ -30,6 +30,8 @@ Give every image `width` and `height`: the browser then reserves its box before 
 
 A failed load shows a placeholder. Wrap an `image` in a `link` to make it clickable.
 
+Every variant draws a plain `<img>`, as shadcn/ui's blocks draw a picture: the default with rounded-lg corners, covering its box; `avatar` round; `thumbnail` rounded-md; `hero` rounded-xl. No variant draws a border. Reference: no shadcn counterpart.
+
 ## `icon`
 
 An inline SVG from the Lucide icon set.
@@ -37,13 +39,13 @@ An inline SVG from the Lucide icon set.
 | `props` key   | Description                                                                                  |
 | ------------- | -------------------------------------------------------------------------------------------- |
 | `name`        | Lucide icon name, mapped to the matching SVG. Substitutes `$variable`.                       |
-| `size`        | Width and height in pixels. Defaults to 24.                                                  |
+| `size`        | Width and height in pixels. Without it the icon draws at 16 pixels.                          |
 | `color`       | SVG stroke colour. Defaults to `currentColor`, so it inherits the surrounding text.          |
-| `strokeWidth` | SVG stroke width. Defaults to 1.5.                                                           |
+| `strokeWidth` | SVG stroke width. Defaults to 2.                                                             |
 | `className`   | Tailwind classes, appended after the prestyle.                                               |
 | `ariaLabel`   | Accessible label — sets `role="img"` and `aria-label`. Without it the icon is `aria-hidden`. |
 
-Icons draw at stroke 1.5 where Lucide's own default is 2. At the size an icon actually renders, a 2px stroke reads heavier than the text beside it and makes the glyph the loudest thing in a row of controls. Set `strokeWidth` yourself and your value wins.
+Icons draw at lucide's own 2-pixel stroke, the weight shadcn/ui's components draw every icon at, so an icon placed on a page matches the icons inside the buttons, menus and inputs around it. Set `strokeWidth` yourself and your value wins. The icon never shrinks when the row it sits in runs short of room. Reference: no shadcn counterpart (shadcn/ui draws its icons with lucide, the same set).
 
 Icons render correctly as children of `button` and `link`, and emit `data-testid="icon-{name}"`.
 
@@ -62,6 +64,8 @@ A player for direct files and for YouTube or Vimeo embeds.
 | `aspectRatio` | Responsive sizing — `16:9`, `4:3`, or a custom ratio.                            |
 | `tracks`      | Subtitle and caption tracks, in VTT format.                                      |
 
+A self-hosted video spans its column with rounded-lg corners on the muted ground, which shows while the poster or first frame loads, in the light and the dark scheme. Reference: no shadcn counterpart.
+
 ## `audio`
 
 An audio player.
@@ -74,6 +78,8 @@ An audio player.
 | `loop`      | Loop playback.                                                     |
 | `sources`   | Several formats with their MIME types, for cross-browser fallback. |
 
+The browser draws its own transport controls; the player spans its column and Sovrium draws no box of its own around them. Reference: no shadcn counterpart.
+
 ## `iframe`
 
 An embedded external frame.
@@ -85,6 +91,8 @@ An embedded external frame.
 | `sandbox`                        | Sandbox attribute restricting what the frame may do.                  |
 | `allow`                          | Permissions granted to the frame, such as camera or microphone.       |
 | `width`, `height`, `aspectRatio` | Responsive sizing.                                                    |
+
+The frame spans its column with rounded-lg corners and a border, on the page background. Reference: no shadcn counterpart.
 
 ## `qr-code`
 
@@ -103,7 +111,7 @@ components:
     props: { aria-label: 'Spring promo' }
 ```
 
-The symbol is rendered on the server and ships no JavaScript. It works with scripting disabled and prints from the browser's own print dialog. The SVG always carries a `viewBox`, so it scales cleanly whether or not you set `size`, and its quiet zone is painted rather than left transparent, which keeps it scannable on a dark background.
+The symbol is rendered on the server and ships no JavaScript. It works with scripting disabled and prints from the browser's own print dialog. The SVG always carries a `viewBox`, so it scales cleanly whether or not you set `size`, and its quiet zone is painted rather than left transparent, which keeps it scannable on a dark background. The symbol takes only the room it needs, on a white quiet zone with rounded corners and a faint ring, and that quiet zone stays white in the dark scheme, because a scanner needs dark modules on a light ground. Without `size`, the symbol is drawn 160 pixels wide, and a width class in `props.className` sizes it instead. Reference: no shadcn counterpart.
 
 Inside a record drawer's `children`, or a board or gallery card, `value` may name the record, `value: $record.sku`, and so may the `aria-label`. That symbol is drawn in the browser once the record is known — and, in a drawer, redrawn when it opens on another record — so it needs scripting, unlike a symbol whose value is written out.
 
@@ -123,8 +131,10 @@ A payload longer than the largest QR version can hold is not encodable. The page
 
 ## `file-preview`
 
-A stored file drawn inline: a PDF in the browser's own viewer inside a bordered stage, an image with zoom, any other type as a card with a Download button.
+A stored file drawn inline: a PDF in the browser's own viewer inside a bordered stage, an image with zoom, a sound or a video in the browser's own player, any other type as an outlined item with a file icon, its name and its type, and a Download button.
 
 <!-- sovrium:options type:file-preview -->
 
-Name the file one of two ways, never both: `field`, an attachment field of the bound record (the invoice of this order), or `file`, a fixed `{ bucket, key }` (the handbook every member reads). A field holding several files previews each in its own stage, one after the other, unless `list: none`, which previews the first only. `toolbar` picks the buttons, in order — `download` and `open` by default, `zoom` (the image at full size) and `rotate` (a quarter turn) for images. A PDF opens in the browser's own viewer; any other type is shown by its name, with its download. The file is served through an address signed for the reader's own session, so a reader who may not read the record or the bucket sees no preview at all. The stage is a region named by the file, an image takes its alternative text from `altField` or else its file name, and a plain link to the file is always present for a reader whose browser cannot show it.
+Name the file one of two ways, never both: `field`, an attachment field of the bound record (the invoice of this order), or `file`, a fixed `{ bucket, key }` (the handbook every member reads). A field holding several files previews each in its own stage, one after the other, unless `list: none`, which previews the first only. `toolbar` picks the buttons, in order — `download` and `open` by default, `zoom` (the image at full size) and `rotate` (a quarter turn) for images. A PDF opens in the browser's own viewer, and an `audio/*` or `video/*` file plays in the browser's own player, its download still offered; any other type is shown as an outlined item naming the file and its type, with a Download button on the same signed address. The file is served through an address signed for the reader's own session, so a reader who may not read the record or the bucket sees no preview at all. The stage is a region named by the file, an image takes its alternative text from `altField` or else its file name, and a plain link to the file is always present for a reader whose browser cannot show it.
+
+Reference: shadcn/ui Item (the download face), shadcn/ui Button.

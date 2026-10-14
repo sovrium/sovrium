@@ -35,11 +35,11 @@ import { guardedKeyRecord } from './token-value-schemas'
  *
  * `DEFAULT` was the one reserved key: it emitted the bare `--radius` variable
  * rather than `--radius-<name>`, mirroring Tailwind's convention that a scale
- * has an unsuffixed member. Measured, NOTHING reads `var(--radius)`
- * anywhere in the engine, in either shipped app, or in any template — the
- * component recipes all spend named steps (`--radius-base`, `--radius-md`, …).
- * So an author who declared `radius.DEFAULT` got a variable emitted into the
- * stylesheet and no corner anywhere drawn from it.
+ * has an unsuffixed member. The component recipes spend named steps
+ * (`--radius-base`, `--radius-md`, …), so an author who declared
+ * `radius.DEFAULT` drew no corner they could see. `--radius` is the default
+ * theme's own base, the value its `sm`…`4xl` steps derive from, so the key
+ * stays refused rather than writing a variable the author did not mean.
  *
  * A silently inert key is worse than a refused one: it looks like a decision
  * that was made and is in fact a decision that went nowhere. It is refused by

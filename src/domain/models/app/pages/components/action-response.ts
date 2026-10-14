@@ -12,12 +12,17 @@ import { SuccessPageActionSchema } from '../../forms/on-success'
 /**
  * Toast notification variant
  */
-export const ToastVariantSchema = Schema.Literals(['success', 'error', 'warning', 'info']).annotate(
-  {
-    title: 'Toast Variant',
-    description: 'Visual style of the toast notification',
-  }
-)
+export const ToastVariantSchema = Schema.Literals([
+  'success',
+  'error',
+  'warning',
+  'info',
+  'loading',
+]).annotate({
+  title: 'Toast Variant',
+  description:
+    "Visual style of the toast notification. 'loading' marks a toast that says what is happening while it happens.",
+})
 
 /**
  * Toast notification configuration
@@ -128,7 +133,7 @@ export const ActionResponseSchema = Schema.Struct({
   navigate: Schema.optional(
     Schema.String.annotate({
       description:
-        'URL path to navigate to. Supports $variable references. An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
+        'URL path to navigate to. Supports $variable references. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so on a page an `http://` or `https://` address is refused — use a link to send the reader to another site. Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
       examples: ['/dashboard', '/posts/$record.slug'],
     }).pipe(Schema.check(formAddressCheck))
   ),
@@ -194,16 +199,45 @@ export const ActionResponseSchema = Schema.Struct({
   redirect: Schema.optional(
     Schema.String.annotate({
       description:
-        'URL navigated to after the success page is shown. Supports $record.X interpolation. Only meaningful when type is "successPage". An `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`). Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
+        'URL navigated to after the success page is shown. Supports $record.X interpolation. Only meaningful when type is "successPage". A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): on a page an `http://` or `https://` address is refused, as for navigate. Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
       examples: ['/support/tickets/$record.id'],
     }).pipe(Schema.check(formAddressCheck))
   ),
   /** Toast notification to show */
   toast: Schema.optional(ToastSchema),
-}).annotate({
-  title: 'Action Response',
-  description: 'Defines behavior after action success or failure',
-})
+  /**
+   * Close the overlay the control sits in once the action succeeds — a dialog,
+   * an alert dialog, a drawer, a record drawer or a popover; when two are
+   * nested, only the innermost. Unset keeps each surface's own habit: a `crud`
+   * form in a dialog closes it after its write, a button closes nothing.
+   * `false` keeps the overlay open even after a write, for an "add another"
+   * dialog that resets. A control in no overlay has nothing to close, and the
+   * key does nothing there. Refused beside `type: successPage`, whose page
+   * would be closed before anyone read it.
+   */
+  close: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Whether the dialog, sheet or popover the control sits in closes once the action succeeds; when two are nested, only the innermost closes. Unset keeps the default: a crud form in a dialog closes it after its write, a button closes nothing. false keeps it open even after a write, for an add-another dialog that resets. A control in no overlay has nothing to close. true is refused beside type: successPage, which would be closed before anyone read it.',
+      examples: [true, false],
+    })
+  ),
+}).pipe(
+  Schema.annotate({
+    title: 'Action Response',
+    description:
+      'Defines behavior after action success or failure. On success the effects run in one order: the toast, then the reset, then closing the overlay, then leaving the page.',
+  }),
+  // Piped AFTER the annotation: a trailing annotate on a checked node lands on
+  // the check, and the struct's title/description would vanish from app.json.
+  Schema.check(
+    Schema.makeFilter((response) =>
+      response.close === true && response.type === 'successPage'
+        ? "onSuccess declares both 'close: true' and type 'successPage' — the success page is drawn where the form was, so closing its dialog would hide it before anyone read it. Keep one: type 'successPage' to show the page in the dialog, or 'close' with a toast to close it and confirm on the page below."
+        : true
+    )
+  )
+)
 
 /** @public */
 export type ActionResponse = Schema.Schema.Type<typeof ActionResponseSchema>

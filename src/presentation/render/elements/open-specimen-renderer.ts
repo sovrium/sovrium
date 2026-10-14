@@ -30,7 +30,7 @@
  * an admin design system spec exists to catch a specimen that documents markup
  * the app never emits. A calendar hand-shaped out of a table and some buttons
  * would look right and teach a reader a structure this app does not ship, so
- * what is rendered here is the same `<DateGrid>` a visitor clicks, the same
+ * what is rendered here is the same react-day-picker grid a visitor clicks, the same
  * month-nav buttons, and the same menu rows — reached through each component's
  * `depicted` mode rather than through a second implementation.
  *
@@ -110,8 +110,7 @@ export const renderOpenDatePickerPopup = (options: OpenDatePickerOptions): strin
       depicted: true,
       label: options.label,
       viewMonth: viewMonthFor(minDateObj ?? maxDateObj),
-      onPrevMonth: NOOP,
-      onNextMonth: NOOP,
+      onMonthChange: NOOP,
       minDateObj,
       maxDateObj,
       datePickerMode: options.datePickerMode ?? 'single',
@@ -150,7 +149,7 @@ export const renderOpenDateRangePanel = (options: OpenDateRangeOptions): string 
       months: options.months ?? 2,
       presets: options.presets ?? [],
       onPresetClick: NOOP,
-      onShiftMonths: NOOP,
+      onMonthChange: NOOP,
       viewMonth: viewMonthFor(range?.from ?? minDate ?? maxDate),
       minDate,
       maxDate,

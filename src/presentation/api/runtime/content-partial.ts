@@ -243,16 +243,20 @@ export function extractDocumentTitle(fullHtml: string): string | undefined {
 
 /**
  * The headers every content-only partial carries: the {@link PARTIAL_ECHO_HEADER}
- * echo that says the body really is the region, and the destination's
- * {@link TITLE_HEADER} when its document declares one. One spelling for every
- * route that answers a partial, so the console and an app's pages cannot
- * disagree on what a partial says about itself.
+ * echo that says the body really is the region, the destination's
+ * {@link TITLE_HEADER} when its document declares one, and
+ * {@link NEEDS_CLIENT_HEADER} when its document loads the page client script.
+ * One spelling for every route that answers a partial, so the console and an
+ * app's pages cannot disagree on what a partial says about itself — a console
+ * surface swapped in from one that shipped no client script would otherwise
+ * keep every control the script enables drawn disabled.
  */
 export function partialEchoHeaders(fullHtml: string): Readonly<Record<string, string>> {
   const title = extractDocumentTitle(fullHtml)
   return {
     [PARTIAL_ECHO_HEADER]: PARTIAL_VALUE,
     ...(title === undefined ? {} : { [TITLE_HEADER]: title }),
+    ...(documentLoadsClientScript(fullHtml) ? { [NEEDS_CLIENT_HEADER]: '1' } : {}),
   }
 }
 

@@ -43,7 +43,7 @@ function EntryDescription({ field }: { readonly field: RecordDrawerField }) {
   return (
     <span
       id={fieldDescriptionId(field.name)}
-      className="text-foreground-muted text-sm"
+      className="text-muted-foreground text-sm"
     >
       {field.description}
     </span>
@@ -64,7 +64,7 @@ export function StructuredFieldDisplay({
 }): ReactElement {
   return (
     <div className="text-md flex flex-col gap-1">
-      <span className="text-foreground-muted">{entryLabel(field)}</span>
+      <span className="text-muted-foreground">{entryLabel(field)}</span>
       <StructuredValue
         renderAs={field.renderAs ?? 'json'}
         value={value}
@@ -144,7 +144,7 @@ export function ReadOnlyEntry({
 }): ReactElement {
   return (
     <div className="text-md flex flex-col gap-1">
-      <dt className="text-foreground-muted">{entryLabel(field)}</dt>
+      <dt className="text-muted-foreground">{entryLabel(field)}</dt>
       <dd className="flex flex-col gap-1">{children}</dd>
     </div>
   )
@@ -204,11 +204,14 @@ export function FieldButton({
   config,
   record,
   table,
+  pendingLabel,
 }: {
   readonly field: RecordDrawerField
   readonly config: RecordButtonConfig
   readonly record: RawRecord
   readonly table?: string
+  /** The in-flight word in the page language (`action.running`), from the host. */
+  readonly pendingLabel?: string
 }): ReactElement {
   return (
     <RecordButton
@@ -216,6 +219,7 @@ export function FieldButton({
       fieldName={field.name}
       record={record}
       {...(table === undefined ? {} : { table })}
+      {...(pendingLabel === undefined ? {} : { pendingLabel })}
       {...(record['id'] === undefined ? {} : { recordId: String(record['id']) })}
     />
   ) as ReactElement
@@ -240,7 +244,7 @@ export function PresenceEntry({
   const text = stored === undefined ? '' : stored === true ? presence.set : presence.unset
   return (
     <div className="text-md flex flex-col gap-1">
-      <span className="text-foreground-muted">{entryLabel(field)}</span>
+      <span className="text-muted-foreground">{entryLabel(field)}</span>
       <span
         data-field={field.name}
         className="text-foreground"

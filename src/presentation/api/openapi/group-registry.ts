@@ -8,10 +8,11 @@
 import { adminGroup } from '../admin/openapi'
 import { activeScopeGroup } from '../admin/openapi-active-scope'
 import { agentCollectionGroup, agentGroupSpec } from '../agents/openapi'
-import { aiChatGroup } from '../ai/openapi-chat'
-import { aiConversationGroup } from '../ai/openapi-conversations'
-import { aiFactsGroup } from '../ai/openapi-facts'
-import { ragGroup } from '../ai/openapi-rag'
+import { aiChatGroup } from '../agents/openapi-chat'
+import { aiConversationGroup } from '../agents/openapi-conversations'
+import { aiFactsGroup } from '../agents/openapi-facts'
+import { ragGroup } from '../agents/openapi-rag'
+import { aiChatAttachmentGroup } from '../ai/openapi-attachments'
 import { analyticsGroup } from '../analytics/openapi'
 import { authGroup } from '../auth/openapi'
 import { accountGroup } from '../auth/openapi-account'
@@ -66,6 +67,7 @@ export const STATIC_GROUPS: readonly StaticGroupSpec[] = [
   accountGroup,
   scimGroup,
   aiChatGroup,
+  aiChatAttachmentGroup,
   aiConversationGroup,
   ragGroup,
   automationCollectionGroup,

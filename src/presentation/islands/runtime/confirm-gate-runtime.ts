@@ -30,20 +30,31 @@ import {
   CONFIRM_CANCEL_LABEL_ATTR,
   CONFIRM_CANCEL_LABEL_FALLBACK,
 } from '@/domain/models/app/pages/confirm-gate-labels'
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
+import {
+  computeDialogDescriptionClasses,
+  computeDialogTitleClasses,
+} from '@/presentation/design/dialog-default-classes'
+import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
 import { restoreInertTemplateValue } from '@/presentation/design/session-template'
 import { fetchSessionUser, resolveSessionTemplate } from './session-resolver'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
-const DIALOG_CLASS =
-  'border-border bg-background-raised mt-2 flex flex-col gap-2 rounded-md border p-3'
-const TITLE_CLASS = 'text-foreground text-md'
-const MESSAGE_CLASS = 'text-foreground-subtle text-sm'
-const INPUT_CLASS = 'border-border rounded border px-2 py-1 text-md'
+/**
+ * The gate draws on shadcn/ui's alert-dialog anatomy, inline rather than modal:
+ * a card-ground panel, the alert-dialog title and description, the `Input`
+ * recipe for the type-to-confirm textbox, and base-nova's `buttonVariants` for
+ * the two affordances (destructive confirm, outline cancel), both at `sm`. The
+ * part-button recipe rather than the `button` component's: this runtime ships to
+ * every page, and the component recipe carries the schema's variant table.
+ */
+const DIALOG_CLASS = 'mt-2 flex flex-col gap-2 rounded-lg border bg-card p-3 text-card-foreground'
+const TITLE_CLASS = computeDialogTitleClasses('alert-dialog')
+const MESSAGE_CLASS = computeDialogDescriptionClasses('alert-dialog')
+const INPUT_CLASS = computeInputDefaultClasses()
 const BUTTON_ROW_CLASS = 'flex items-center gap-2'
-const CONFIRM_BTN_CLASS =
-  'bg-error-bg text-error-fg rounded-md px-3 py-1 text-md font-medium transition-opacity hover:opacity-90 disabled:opacity-50'
-const CANCEL_BTN_CLASS =
-  'border-border text-foreground-subtle hover:bg-background-subtle rounded-md border px-3 py-1 text-md transition-colors'
+const CONFIRM_BTN_CLASS = computePartButtonClasses({ variant: 'destructive', size: 'sm' })
+const CANCEL_BTN_CLASS = computePartButtonClasses({ variant: 'outline', size: 'sm' })
 
 /**
  * Parse the `data-confirm-config` blob into the OBJECT-form confirm descriptor.

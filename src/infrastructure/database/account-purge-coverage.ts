@@ -86,6 +86,7 @@ export const PURGED_SYSTEM_TABLES = [
       'Chat transcripts. `user_id` cascades, so this DELETE is behaviour-neutral; ' +
       'it is named so the enumeration is the honest answer to "what does erasure delete?".',
   },
+  { table: 'ai_chat_attachments', column: 'user_id', reason: 'Chat uploads. Cascades; named.' },
   {
     table: 'ai_facts',
     column: 'user_id',
@@ -93,11 +94,7 @@ export const PURGED_SYSTEM_TABLES = [
       'Derived long-term memory the agent inferred ABOUT the user — personal data ' +
       'by construction. Cascades; named for the same reason.',
   },
-  {
-    table: 'user_favorites',
-    column: 'user_id',
-    reason: 'Per-user bookmarks. Cascades; named.',
-  },
+  { table: 'user_favorites', column: 'user_id', reason: 'Per-user bookmarks. Cascades; named.' },
   {
     table: 'user_recent_items',
     column: 'user_id',
@@ -246,9 +243,9 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
     verdict: 'delete',
     columns: ['actor_name', 'user_email'],
     reason:
-      'Names the acting person twice, by raw user id AND by address, in two bare ' +
-      "columns. Compound predicate scoped to `actor_type = 'user'` so agent rows " +
-      'are never swept by a colliding name.',
+      'Names the person as actor (id or address) and as whom an agent acted for (address). ' +
+      "The actor match is scoped to `actor_type = 'user'`, so no agent is swept by a colliding " +
+      'name; the `user_email` match is not, so an agent action naming the person goes too.',
   },
   'system.ai_tool_calls': {
     verdict: 'delete',
@@ -483,9 +480,9 @@ export type ExportStatus = 'exported' | 'withheld' | 'gap'
  *
  * ── Why a ratchet, not an assertion of zero gaps ─────────────────────────────
  *
- * The honest state today is that the export offers `profile`, `sessions`, `accounts`,
- * `authoredRecords` and `formSubmissions`, while erasure hard-deletes far more — comments, chat
- * transcripts, derived facts, favourites, recent items, row-level grants, the activity feed,
+ * The honest state today is that the export offers the profile, sessions, accounts, authored
+ * records, form submissions, audit acts, chat files and the AI footprint, while erasure still
+ * hard-deletes more — comments, favourites, recent items, row-level grants, the activity feed,
  * uploaded files. Closing that asymmetry means EXPANDING the published export contract in
  * `src/domain/models/api/account/account.ts`, which is a schema-surface decision and not this
  * change's to make.
@@ -503,6 +500,11 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   // Offered today.
   'auth.account': 'exported',
   'system.form_submissions': 'exported',
+  'system.ai_chat_attachments': 'exported',
+  'system.ai_activity_logs': 'exported',
+  'system.ai_conversations': 'exported',
+  'system.ai_facts': 'exported',
+  'system.ai_tool_calls': 'exported',
 
   // Deliberately withheld — credentials and pure derivations.
   'auth.two_factor': 'withheld',
@@ -521,10 +523,6 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   'auth.team_member': 'gap',
   'auth.invitation': 'gap',
   'system.activity_logs': 'gap',
-  'system.ai_activity_logs': 'gap',
-  'system.ai_conversations': 'gap',
-  'system.ai_facts': 'gap',
-  'system.ai_tool_calls': 'gap',
   'system.comment_read_state': 'gap',
   'system.file_storage_metadata': 'gap',
   'system.record_comments': 'gap',

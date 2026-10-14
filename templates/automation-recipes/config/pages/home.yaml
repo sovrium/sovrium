@@ -45,12 +45,12 @@ components:
           - type: link
             props:
               href: /sign-in
-              className: inline-flex h-8 items-center rounded-md border border-border bg-background-raised px-3 text-[13px] font-medium text-foreground no-underline hover:bg-background-subtle
+              className: inline-flex h-8 items-center rounded-md border border-border bg-card px-3 text-[13px] font-medium text-foreground no-underline hover:bg-muted
             content: Sign in
   - type: container
-    element: main
+    element: div
     props:
-      className: min-h-screen bg-background-subtle
+      className: min-h-screen bg-muted
     children:
       - type: container
         props:
@@ -63,7 +63,7 @@ components:
               - type: text
                 element: p
                 props:
-                  className: font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-muted
+                  className: font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground
                 content: Four recipes · one config file
               - type: text
                 element: h1
@@ -73,7 +73,7 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-[15px] leading-relaxed text-foreground-muted
+                  className: text-[15px] leading-relaxed text-muted-foreground
                 content: Each recipe below is a few lines of the app's configuration, a trigger and its steps. Every run is stored in this app's own database; sign in to see what ran and why.
               - type: container
                 props:
@@ -87,7 +87,7 @@ components:
                   - type: link
                     props:
                       href: https://sovrium.com/en/docs
-                      className: inline-flex h-8 items-center rounded-md border border-border bg-background-raised px-3 text-sm font-medium text-foreground no-underline hover:bg-background-subtle max-md:hidden
+                      className: inline-flex h-8 items-center rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground no-underline hover:bg-muted max-md:hidden
                     content: Read the configuration
           - type: grid
             props:
@@ -123,7 +123,7 @@ components:
                     children:
                       - type: container
                         props:
-                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-muted px-2 font-mono text-[12px] text-foreground
                         children:
                           - type: icon
                             props: { name: webhook, size: 13 }
@@ -134,7 +134,7 @@ components:
                         props: { name: arrow-right, size: 13, className: text-foreground-subtle }
                       - type: container
                         props:
-                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-muted px-2 font-mono text-[12px] text-foreground
                         children:
                           - type: text
                             element: span
@@ -142,7 +142,7 @@ components:
                   - type: text
                     element: p
                     props:
-                      className: text-[13px] leading-relaxed text-foreground-muted
+                      className: text-[13px] leading-relaxed text-muted-foreground
                     content: 'A POST to the webhook becomes a lead row: the way in for a form, a shop or any external system that holds the token.'
                   # On a phone the declaration folds away; the trigger and steps stay.
                   - type: container
@@ -186,7 +186,7 @@ components:
                     children:
                       - type: container
                         props:
-                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-muted px-2 font-mono text-[12px] text-foreground
                         children:
                           - type: icon
                             props: { name: database, size: 13 }
@@ -197,7 +197,7 @@ components:
                         props: { name: arrow-right, size: 13, className: text-foreground-subtle }
                       - type: container
                         props:
-                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-muted px-2 font-mono text-[12px] text-foreground
                         children:
                           - type: text
                             element: span
@@ -206,7 +206,7 @@ components:
                         props: { name: arrow-right, size: 13, className: text-foreground-subtle }
                       - type: container
                         props:
-                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-muted px-2 font-mono text-[12px] text-foreground
                         children:
                           - type: text
                             element: span
@@ -214,7 +214,7 @@ components:
                   - type: text
                     element: p
                     props:
-                      className: text-[13px] leading-relaxed text-foreground-muted
+                      className: text-[13px] leading-relaxed text-muted-foreground
                     content: 'Every new lead emails the team and adds a line to the activity log: one trigger, two steps. The email is tried three times before the run fails.'
                   # On a phone the declaration folds away; the trigger and steps stay.
                   - type: container
@@ -258,7 +258,7 @@ components:
                     children:
                       - type: container
                         props:
-                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-muted px-2 font-mono text-[12px] text-foreground
                         children:
                           - type: icon
                             props: { name: clock, size: 13 }
@@ -269,7 +269,7 @@ components:
                         props: { name: arrow-right, size: 13, className: text-foreground-subtle }
                       - type: container
                         props:
-                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-muted px-2 font-mono text-[12px] text-foreground
                         children:
                           - type: text
                             element: span
@@ -277,7 +277,7 @@ components:
                   - type: text
                     element: p
                     props:
-                      className: text-[13px] leading-relaxed text-foreground-muted
+                      className: text-[13px] leading-relaxed text-muted-foreground
                     content: 'Weekday evenings at 18:00, one email to the team: scheduled work without an outside scheduler.'
                   # On a phone the declaration folds away; the trigger and steps stay.
                   - type: container
@@ -320,7 +320,7 @@ components:
                     children:
                       - type: container
                         props:
-                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-muted px-2 font-mono text-[12px] text-foreground
                         children:
                           - type: icon
                             props: { name: triangle-alert, size: 13 }
@@ -331,7 +331,7 @@ components:
                         props: { name: arrow-right, size: 13, className: text-foreground-subtle }
                       - type: container
                         props:
-                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-background-subtle px-2 font-mono text-[12px] text-foreground
+                          className: inline-flex h-6 items-center gap-1.5 rounded-sm border border-border bg-muted px-2 font-mono text-[12px] text-foreground
                         children:
                           - type: text
                             element: span
@@ -339,7 +339,7 @@ components:
                   - type: text
                     element: p
                     props:
-                      className: text-[13px] leading-relaxed text-foreground-muted
+                      className: text-[13px] leading-relaxed text-muted-foreground
                     content: When a recipe fails after its last retry, the operators are emailed and the failed run is written to the activity log with its error.
                   # On a phone the declaration folds away; the trigger and steps stay.
                   - type: container

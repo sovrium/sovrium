@@ -16,7 +16,7 @@
  * article; it is the wrong one for a field, for three reasons that compound:
  *
  *  - **It pins its own palette.** Typography sets colours from its own scale,
- *    not from `--sv-*`, so a themed app moved every surface around the editor
+ *    not from the theme's roles, so a themed app moved every surface around the editor
  *    and none of the text inside it. Two of the four classes above existed
  *    only to claw individual colours back one at a time — `dark:prose-invert`
  *    for the dark ground, `prose-strong:text-inherit` because a bold run was
@@ -61,7 +61,7 @@ const RTE_ROOT = `
     .rte {
       font-size: 0.8125rem;
       line-height: 1.6;
-      color: var(--sv-fg, oklch(0.14 0 0));
+      color: var(--foreground);
       overflow-wrap: break-word;
     }
     .rte > :first-child { margin-top: 0; }
@@ -89,7 +89,7 @@ const RTE_FLOW = `
       margin: 1em 0 0.35em;
       font-weight: 600;
       line-height: 1.3;
-      color: var(--sv-fg, oklch(0.14 0 0));
+      color: var(--foreground);
     }
     .rte h1 { font-size: 1.125rem; }
     .rte h2 { font-size: 1rem; }
@@ -129,8 +129,8 @@ const RTE_LISTS = `
     .rte blockquote {
       margin: 0.5em 0;
       padding-left: 0.75em;
-      border-left: 2px solid var(--sv-border, oklch(0.92 0 0));
-      color: var(--sv-fg-muted, oklch(0.445 0 0));
+      border-left: 2px solid var(--border);
+      color: var(--muted-foreground);
     }
 `
 
@@ -141,15 +141,15 @@ const RTE_CODE = `
       font-size: 0.9em;
       padding: 0.1em 0.3em;
       border-radius: var(--radius-sm, 2px);
-      background: var(--sv-bg-subtle, oklch(0.965 0 0));
+      background: var(--muted);
     }
     .rte pre {
       margin: 0.5em 0;
       padding: 0.75em 1em;
       overflow-x: auto;
-      border: 1px solid var(--sv-border, oklch(0.92 0 0));
+      border: 1px solid var(--border);
       border-radius: var(--radius-md, 6px);
-      background: var(--sv-bg-subtle, oklch(0.965 0 0));
+      background: var(--muted);
       font-family: var(--font-mono, ui-monospace, monospace);
       font-size: 0.75rem;
       line-height: 1.7;
@@ -164,7 +164,7 @@ const RTE_FIGURES = `
     .rte hr {
       margin: 0.75em 0;
       border: 0;
-      border-top: 1px solid var(--sv-border, oklch(0.92 0 0));
+      border-top: 1px solid var(--border);
     }
 
     .rte img {
@@ -184,13 +184,13 @@ const RTE_FIGURES = `
       padding: 0.3em 0.5em;
       text-align: left;
       vertical-align: top;
-      border-bottom: 1px solid var(--sv-border, oklch(0.92 0 0));
+      border-bottom: 1px solid var(--border);
     }
     .rte th {
       font-size: 0.6875rem;
       font-weight: 500;
-      color: var(--sv-fg-subtle, oklch(0.54 0 0));
-      border-bottom-color: var(--sv-border-strong, oklch(0.87 0 0));
+      color: var(--muted-foreground);
+      border-bottom-color: var(--input);
     }
     .rte td { font-size: 0.75rem; }
 `
@@ -201,7 +201,7 @@ const RTE_EDITOR = `
        ring from the frame, not from itself. */
     .rte .ProseMirror { outline: none; }
     .rte .ProseMirror-selectednode {
-      outline: 2px solid var(--sv-focus-ring, oklch(0.205 0 0));
+      outline: 2px solid var(--ring);
       outline-offset: 1px;
     }
 `
@@ -209,14 +209,14 @@ const RTE_EDITOR = `
 /**
  * Emit the `.rte` block.
  *
- * Every colour is a `--sv-*` read with the design-system default as its
- * fallback, so a theme override wins at the cascade and an unthemed app still
- * paints correctly. Sizes are the platform ladder's rungs spelled as `rem`
+ * Every colour is a read of one of the theme's shadcn roles (`--foreground`,
+ * `--muted`, `--muted-foreground`, `--border`, `--input`, `--ring`), so a
+ * theme override moves the content with the frame around it. Sizes are the platform ladder's rungs spelled as `rem`
  * rather than as `--text-*` reads, because these rules are emitted outside the
  * utility layer where those variables are not guaranteed to be in scope.
  *
  * Composed from named blocks rather than one template literal, the way
- * `calendar-styles.ts` and `command-palette-styles.ts` are: a stylesheet this
+ * `calendar-styles.ts` is: a stylesheet this
  * size reads better as named sections than as one wall, and each name says
  * what its rules are for.
  */

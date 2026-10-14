@@ -7,13 +7,13 @@ meta:
   description: Sign in to Brunel Stock.
 components:
   - type: container
-    element: main
+    element: div
     props:
-      className: flex min-h-screen items-center justify-center bg-background-subtle px-5 py-12
+      className: flex min-h-screen items-center justify-center bg-muted px-5 py-12
     children:
       - type: container
         props:
-          className: flex w-full max-w-sm flex-col gap-6 rounded-lg border border-border bg-background-raised p-6 shadow-sm
+          className: flex w-full max-w-sm flex-col gap-6 rounded-lg border border-border bg-card p-6 shadow-sm
         children:
           - type: container
             props:

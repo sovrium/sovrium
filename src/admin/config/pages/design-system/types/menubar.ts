@@ -8,87 +8,60 @@
 // `menubar` — the application menu bar, shut and with one menu down.
 //
 // The first drawing is the real component: a menubar at rest is its row of
-// triggers, which is a real resting state and worth drawing as one. The second
-// composes the open menu under it, for the same reason every other overlay here
-// is composed — a live one closes the moment focus leaves it.
+// triggers, outlined in the `border` colour, which is a real resting state and
+// worth drawing as one. The second composes the open menu under a drawn bar
+// whose open trigger is filled, for the same reason every other overlay here is
+// composed — a live one closes the moment focus leaves it. See `menu-panel.ts`.
 
-import { panel } from './overlay-panel'
+import { menuPanel } from './menu-panel'
+import { box, line } from './overlay-panel'
 import type { PageComponent, TypePageBody } from './body-shape'
 
-const item = (label: string, shortcut?: string): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: { className: 'flex items-baseline justify-between gap-6 rounded px-2 py-1.5' },
-    children: [
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground text-sm' },
-        content: label,
-      },
-      ...(shortcut === undefined
-        ? []
-        : [
-            {
-              type: 'text',
-              element: 'span',
-              props: { className: 'text-foreground-subtle font-mono text-[10px]' },
-              content: shortcut,
-            } as PageComponent,
-          ]),
-    ],
-  }) as PageComponent
+const go = { type: 'navigate', path: '/design-system' } as const
 
+const MENUS = ['File', 'Edit', 'View', 'Help'] as const
+
+/** The bar, drawn with base-nova's `menubar` and `menubar-trigger` classes. */
 const bar = (openIndex: number): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: { className: 'border-border flex items-center gap-1 rounded-md border px-1 py-1' },
-    children: ['File', 'Edit', 'View', 'Help'].map(
-      (label, i) =>
-        ({
-          type: 'text',
-          element: 'span',
-          props: {
-            className:
-              i === openIndex
-                ? 'bg-background-subtle text-foreground rounded px-2 py-1 text-sm font-medium'
-                : 'text-foreground rounded px-2 py-1 text-sm',
-          },
-          content: label,
-        }) as PageComponent
+  box(
+    'flex h-8 items-center gap-0.5 rounded-lg border p-[3px]',
+    MENUS.map((label, i) =>
+      line(
+        label,
+        `flex items-center rounded-sm px-1.5 py-[2px] text-sm font-medium ${i === openIndex ? 'bg-muted' : ''}`,
+        'menubar-trigger',
+        'span'
+      )
     ),
-  }) as PageComponent
+    'menubar'
+  )
 
 const menubar: TypePageBody = {
   drawings: [
     {
       label: 'default',
-      children: [bar(-1)],
+      children: [
+        {
+          type: 'menubar',
+          menus: MENUS.map((label) => ({
+            label,
+            items: [{ label: `${label} menu`, action: go }],
+          })),
+        } as PageComponent,
+      ],
     },
     {
       label: 'with open menu',
       children: [
-        {
-          type: 'container',
-          element: 'div',
-          props: { className: 'flex flex-col items-start gap-1' },
-          children: [
-            bar(0),
-            panel({
-              width: 'w-56',
-              children: [
-                {
-                  type: 'container',
-                  element: 'div',
-                  props: { className: 'flex flex-col' },
-                  children: [item('New record', '⌘N'), item('Import CSV'), item('Export', '⌘E')],
-                },
-              ],
-            }),
-          ],
-        },
+        box('flex flex-col items-start gap-1', [
+          bar(0),
+          menuPanel('menubar', [
+            { label: 'New record', shortcut: '⌘N', highlighted: true },
+            { label: 'Import CSV' },
+            'separator',
+            { label: 'Export', shortcut: '⌘E' },
+          ]),
+        ]),
       ],
     },
   ],

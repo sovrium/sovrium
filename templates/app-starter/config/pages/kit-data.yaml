@@ -27,12 +27,11 @@ components:
       - type: text
         element: p
         props:
-          className: text-md text-foreground-muted
+          className: text-md text-muted-foreground
         content: 'Figures, grids, cards, calendars and lists, each bound to one of the app’s tables.'
   - component: kpi-row-trend
   - component: kpi-sparkline
-  - component: table-with-actions
-  - component: table-with-filters
+  - component: data-table
   - component: gallery-cards
   - component: calendar-month
   - component: calendar-week

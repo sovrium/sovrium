@@ -31,7 +31,7 @@ const row = (index: number): Readonly<Record<string, unknown>> =>
           href: `#member-${index}`,
           'aria-label': `Profile of team member ${index}`,
           className:
-            'inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground',
+            'inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground',
         },
         children: [{ type: 'icon', props: { name: 'link', size: 18 } }],
       },

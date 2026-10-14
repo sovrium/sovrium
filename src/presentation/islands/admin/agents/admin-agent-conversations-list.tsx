@@ -50,8 +50,8 @@ function ConversationCard({
       className={[
         'flex w-full flex-col gap-1 rounded-md border px-3 py-2.5 text-left transition-colors',
         active
-          ? 'text-foreground-muted border-border-strong/40 bg-background-subtle'
-          : 'text-foreground-muted hover:border-border hover:bg-background-subtle border-transparent',
+          ? 'text-muted-foreground border-border-strong/40 bg-muted'
+          : 'text-muted-foreground hover:border-border hover:bg-muted border-transparent',
       ].join(' ')}
     >
       <span className="text-foreground text-md truncate font-medium">{conversation.title}</span>

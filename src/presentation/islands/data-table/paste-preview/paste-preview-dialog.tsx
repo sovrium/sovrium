@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeDialogOverlayClasses } from '@/presentation/design/dialog-default-classes'
 import {
   computeTableDialogPanelClasses,
   computeTableDialogPositionerClasses,
   computeTableDialogTitleClasses,
 } from '@/presentation/design/table-default-classes'
-import { computeOverlayBackdropClasses } from '../../overlays/overlay-default-classes'
 import { computeMismatchMatrix } from './cell-mismatch'
 import { PasteDialogFooter } from './paste-dialog-footer'
 import { PreviewMappingHeader } from './preview-mapping-header'
@@ -58,7 +58,8 @@ export function PastePreviewDialog({
   return (
     <>
       <div
-        className={computeOverlayBackdropClasses()}
+        data-slot="dialog-overlay"
+        className={computeDialogOverlayClasses()}
         onClick={onCancel}
         aria-hidden="true"
       />

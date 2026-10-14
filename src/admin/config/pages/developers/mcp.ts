@@ -46,6 +46,7 @@
 // row template" seam irrelevant here: the empty state is a sibling gated on a
 // number, not a slot on the binding.
 
+import { factsCardFrom } from '../../components/card-blocks'
 import { emptyState, pageHeading, tabQuery, tabbedBody, tabPanel } from '../../components/data-page'
 import { withShell } from '../../components/shell'
 import { INSTANCE_ENDPOINT, MCP_TOOLS_ENDPOINT } from '../../system-sources'
@@ -62,16 +63,8 @@ const text = (element: string, className: string, content: string): PageComponen
 const sectionLabel = (content: string): PageComponent =>
   text('h2', 'text-foreground-subtle text-sm font-medium tracking-wide uppercase', content)
 
-/** A bordered card holding labelled content. */
-const card = (children: readonly PageComponent[]): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className: 'border-border bg-background-raised flex flex-col gap-3 rounded-lg border p-5',
-    },
-    children,
-  }) as PageComponent
+/** A section card: the library's `dl-rows` card, installed in `card-blocks.ts`. */
+const card = (children: readonly PageComponent[]): PageComponent => factsCardFrom(children)
 
 // The visible title block is retired here for the same reason it is on `/api`:
 // the chrome bar's trail already ends in this page's name, so a second copy of
@@ -238,7 +231,7 @@ const categoryGroup = (category: string, label: string, countField: string): Pag
         type: 'list',
         props: {
           className:
-            'border-border divide-border bg-background-raised divide-y overflow-hidden rounded-lg border',
+            'border-border divide-border bg-card divide-y overflow-hidden rounded-lg border',
         },
         dataSource: {
           system: {
@@ -266,8 +259,7 @@ const noToolsState = (): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className:
-        'border-border bg-background-raised flex flex-col items-start gap-2 rounded-lg border p-5',
+      className: 'border-border bg-card flex flex-col items-start gap-2 rounded-lg border p-5',
     },
     visibility: { record: { field: 'mcpToolCount', eq: 0 } },
     children: [

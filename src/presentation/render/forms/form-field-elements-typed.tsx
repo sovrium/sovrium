@@ -15,7 +15,7 @@
  * (`form-runtime.tsx`) is all the script it carries. So the rating here is the
  * `RatingScale` CONTRACT drawn with native radios rather than the island
  * itself — a radio group named by the label, one radio per rank named
- * "n of max", the same glyphs and the same tones — and the runtime supplies the
+ * "n of max", the same glyph and the same tones — and the runtime supplies the
  * two behaviours native radios lack: choosing the chosen rank again clears it,
  * and the glyphs up to the chosen rank are drawn filled.
  */
@@ -25,7 +25,6 @@ import {
   computeRatingRankClasses,
   computeRatingRowClasses,
   DEFAULT_RATING_MAX,
-  ratingGlyphsFor,
 } from '@/presentation/design/cell-affordances-default-classes'
 import {
   computeFormFieldClasses,
@@ -33,6 +32,7 @@ import {
   computeFormHelpTextClasses,
   computeFormRequiredMarkClasses,
 } from '@/presentation/design/form-layout-classes'
+import { RatingGlyph } from '@/presentation/design/rating-glyph'
 import { ariaRequired, FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-field-chrome'
 import { DescriptionText, HelpText } from './form-help-text'
 import type { ResolvedFormField } from './form-field-elements'
@@ -58,8 +58,8 @@ export function RequiredMark({ required }: { readonly required: boolean }) {
 
 /** Classes of a filled and of a hollow glyph, the pair the runtime repaints with. */
 const RATING_GLYPH_CLASS = {
-  filled: `leading-none ${computeRatingGlyphClasses({ filled: true })}`,
-  hollow: `leading-none ${computeRatingGlyphClasses({ filled: false })}`,
+  filled: `inline-flex leading-none ${computeRatingGlyphClasses({ filled: true })}`,
+  hollow: `inline-flex leading-none ${computeRatingGlyphClasses({ filled: false })}`,
 } as const
 
 /** A rank's classes: the ring its transparent radio cannot draw on keyboard focus. */
@@ -71,9 +71,9 @@ function RatingRank(props: {
   readonly rank: number
   readonly ranks: number
   readonly current: number
-  readonly glyphs: readonly [string, string]
+  readonly style: string | undefined
 }) {
-  const { field, rank, ranks, current, glyphs } = props
+  const { field, rank, ranks, current, style } = props
   const filled = rank <= current
   return (
     <label className={RATING_RANK_CLASS}>
@@ -93,7 +93,7 @@ function RatingRank(props: {
         data-filled={filled ? 'true' : 'false'}
         className={filled ? RATING_GLYPH_CLASS.filled : RATING_GLYPH_CLASS.hollow}
       >
-        {filled ? glyphs[0] : glyphs[1]}
+        <RatingGlyph style={style} />
       </span>
     </label>
   )
@@ -112,7 +112,6 @@ export function RatingInput({
   readonly defaultValue: string | undefined
 }) {
   const ranks = field.column?.max ?? DEFAULT_RATING_MAX
-  const glyphs = ratingGlyphsFor(field.column?.ratingStyle)
   const score = Number(defaultValue)
   const current = Number.isFinite(score) ? score : 0
   const legendId = `field-${field.name}-legend`
@@ -133,7 +132,6 @@ export function RatingInput({
         aria-labelledby={legendId}
         {...ariaRequired(field.required)}
         data-rating-scale="true"
-        data-rating-glyphs={`${glyphs[0]}${glyphs[1]}`}
         data-rating-filled-class={RATING_GLYPH_CLASS.filled}
         data-rating-hollow-class={RATING_GLYPH_CLASS.hollow}
         className={`${computeRatingRowClasses()} w-fit`}
@@ -145,7 +143,7 @@ export function RatingInput({
             rank={index + 1}
             ranks={ranks}
             current={current}
-            glyphs={glyphs}
+            style={field.column?.ratingStyle}
           />
         ))}
       </span>

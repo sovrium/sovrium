@@ -35,7 +35,7 @@ components:
               - type: text
                 element: p
                 props:
-                  className: max-w-[640px] text-[19px] leading-[1.55] text-foreground-muted max-md:text-[16px]
+                  className: max-w-[640px] text-[19px] leading-[1.55] text-muted-foreground max-md:text-[16px]
                 content: Essays on building and running software a small team owns — config, backups, licences and the first five minutes.
           # The essays, newest first. The first card is featured: it spans the
           # row with its cover on the left. The others go two by two, one per
@@ -74,7 +74,7 @@ components:
                 - type: text
                   element: span
                   props:
-                    className: self-start rounded-sm border border-border px-1.5 py-px text-[11.5px] leading-4 font-medium text-foreground-muted
+                    className: self-start rounded-sm border border-border px-1.5 py-px text-[11.5px] leading-4 font-medium text-muted-foreground
                   content: $record.tags
                 - type: text
                   element: h2
@@ -86,12 +86,12 @@ components:
                 - type: text
                   element: p
                   props:
-                    className: text-[15px] leading-[1.6] text-foreground-muted
+                    className: text-[15px] leading-[1.6] text-muted-foreground
                   content: $record.excerpt
                 - type: text
                   element: p
                   props:
-                    className: text-[13px] leading-normal text-foreground-muted
+                    className: text-[13px] leading-normal text-muted-foreground
                   content: $record.author_name · $record.date_label
           # The newsletter sign-up: the address goes to the `newsletter` form
           # (config/forms/newsletter.yaml) and lands in `subscribers`.

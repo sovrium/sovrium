@@ -81,7 +81,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  * Skipped here so one mistake is named once. Removing an entry does not lose
  * coverage — it duplicates it.
  */
-const REPORTED_BY_ANOTHER_RULE: ReadonlySet<string> = new Set(['table', 'select'])
+const REPORTED_BY_ANOTHER_RULE: ReadonlySet<string> = new Set([
+  'table',
+  'select',
+  'combobox',
+  'native-select',
+])
 
 /**
  * Whether a bound name resolves WITHOUT an `app.tables[]` entry.

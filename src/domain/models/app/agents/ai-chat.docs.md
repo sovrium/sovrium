@@ -69,6 +69,30 @@ x-api-key: <your-api-key>
 
 The reply carries the text, the actions taken, and the session id to continue with.
 
+A turn is saved at the end of its conversation's current branch. A client showing an older version of a conversation (after an edit or a regeneration) sends `parentId`, the id of the last message it shows, and the turn is saved below it instead; an id that is not a message of the caller's conversation is ignored.
+
+### Sending files
+
+A chat that declares an `attachments` block uploads each file through `POST /api/ai/chat/attachments?chat=<chat id>`, which answers with an `attachmentId`. The message then names it by that id in `parts`, in place of (or beside) `message`; the client never sends the bytes:
+
+```json
+{
+  "sessionId": "sess_abc123",
+  "parts": [
+    { "type": "text", "text": "Does this price list match our 2026 rates?" },
+    { "type": "file", "attachmentId": "att_…" }
+  ]
+}
+```
+
+`parts` holds 1 to 20 parts: `text` parts, and `file` or `image` parts naming an upload. Every upload a message names must be one the caller made; one that is not answers `404`, and nothing reaches the model or is saved. A file reaches the model as the text read from it, quoted as a document under its name. A picture (PNG, JPEG, GIF or WebP) reaches it as an image only when you declare the model able to read images with `AI_VISION=1`; otherwise the message is refused with `422`. An SVG is markup, and is read as text.
+
+**How much text a file gives.** Since every later turn of a conversation reads its files again, the text quoted from them is bounded: at most 20,000 characters of any one file (`AI_CHAT_MAX_FILE_CHARS`), and 50,000 of all the files one turn carries (`AI_CHAT_MAX_TURN_FILE_CHARS`), the newest message's files served first. A document cut short ends with `[…truncated, N more characters]`, so the model knows it did not read the whole file. Raise either limit for a model with a large context window; an unset or invalid value keeps the default.
+
+**What is kept.** A message sent as parts is stored with them, as references to the uploads, never their bytes or their text. Each later turn of the conversation reads every file sent in it again from its bucket, so a follow-up question can refer to a file without attaching it again; once the upload is deleted, it reads as removed. Editing a question keeps the files it was sent with, and regenerating an answer reads them again. `GET /api/ai/conversations/<sessionId>` returns each message's `parts`, naming the uploads the caller still holds.
+
+**Where files may go.** A file or a picture goes only to a provider `ECO_AI_PROVIDER_PRECEDENCE` allows for that turn, judged again on every turn. Under `local-only` it is read by the local model alone; a turn that would reach a cloud provider with one fails with `503` instead of answering as if it had read it.
+
 `POST /api/ai/transcriptions` turns a recording into text for chat dictation. Send `multipart/form-data` with a `file` part and optional `language` and `quality` fields; the answer is `{ text, language?, durationSeconds?, model }`. It needs a signed-in user when the app declares `auth` (otherwise 404). It refuses a missing, non-audio or over-25 MB file with 400, answers 429 when rate-limited (under the same `AI_CHAT_RATE_LIMIT` settings as chat messages, counted separately) and 503 when no speech provider is configured, and never stores the recording.
 
 The speech engine receives the recording under a file name whose extension comes from its audio type (`audio/webm` → `.webm`, `audio/mp4` → `.m4a`), so a browser recording named `.weba` is still accepted by engines that pick their decoder from the file name. A name that already matches its type is sent unchanged.
@@ -85,16 +109,54 @@ A destructive operation additionally requires confirmation before it executes. T
 
 ## Streaming
 
-Responses stream as server-sent events, so a reader sees progressive text rather than waiting for the whole answer.
+Responses stream as server-sent events from `POST /api/ai/chat/stream`, so a reader sees progressive text rather than waiting for the whole answer. Each event names its type on its `event:` line and carries JSON:
+
+| Event         | Carries                                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `content`     | `{ text }`, the next piece of the answer; now and then `html`, the answer so far rendered and sanitized |
+| `reasoning`   | `{ text }`, the model's thinking, apart from the answer (a reasoning model's `<think>` block too)       |
+| `tool_call`   | `{ id, name, arguments }`, a tool the agent calls                                                       |
+| `tool_result` | `{ id, name, ok, outcome, content }`, what the call did: `ok`, `denied`, `failed` or `pending-approval` |
+| `elicit`      | `{ elicitationId, message, requestedSchema }`, a question the agent asks the person (below)             |
+| `done`        | `{ sessionId, messageId, questionId, stopReason, html, citations? }`, last (below)                      |
+
+A final `data: [DONE]` follows `done`. `messageId` and `questionId` are the ids the answer and its question are saved under, so they can be edited or regenerated through the conversation routes once the stream has closed. `citations` lists the knowledge passages the answer cites, as on the buffered reply. A tool call and its result come before the answer they lead to. `stopReason` is `end`, `stopped`, `awaiting_input` (a call waits for approval, or a question for its answer, below), `length`, `tool-limit` or `error`.
+
+The answer's Markdown is rendered on the server — raw HTML in a reply is shown as text, and an image a reply names is never loaded — then cleaned by the same sanitizer as every rich-text value, and sent as `html`. The `ai-chat` component draws that, so the browser runs no Markdown renderer of its own.
 
 | Behaviour            | Detail                                                                 |
 | -------------------- | ---------------------------------------------------------------------- |
 | Chunks               | Forwarded in real time as the provider emits them                      |
-| Completion           | A final marker event; the message is assembled from the chunks         |
-| Persistence          | A streamed message is persisted once complete                          |
+| Persistence          | The answer is persisted once the turn ends; reasoning is never saved   |
 | Permissions          | Identical to the non-streaming path                                    |
 | Time to first chunk  | A `504` when the provider sends nothing before the configured deadline |
 | A dropped connection | Handled gracefully; a partial response is discarded rather than stored |
+
+### Stopping a turn
+
+`POST /api/ai/chat/stop` with `{ sessionId }` stops the caller's turn in progress on that session and answers `202`; with no turn in progress it answers `404`. The turn stops at its next step: a tool call already running finishes, so a stop never leaves half a write. The stream then ends with `done` and `stopReason: stopped`, and the conversation keeps exactly what was streamed before the stop.
+
+### Approving a call from the chat
+
+When the agent calls an action its `approval` rule covers, the turn pauses: the call arrives as `tool_result` with `outcome: pending-approval` and an `approvalId`, nothing is written, and the turn ends with `stopReason: awaiting_input`. The person the turn answered decides with `POST /api/ai/chat/approvals/{approvalId}` and `{ "decision": "approve" }` or `{ "decision": "reject" }`. The answer is the rest of the turn, as a new stream of the same events: approved, the call runs — as that person, within the agent's limits — and the agent goes on; rejected, nothing runs, the model is told the call was denied, and it answers. Nobody else can decide it: for any other account the approval does not exist (`404`). An approval already decided outside the chat, on the agent's own approval routes (`/api/agents/{agent}/approvals/{id}/approve` or `/reject`), or past its timeout, answers `409`. The paused turn is held in the server's memory and the first decision takes it, so a second decision on the same call, or one sent after the server restarted, finds nothing and answers `404`: send the message again for the agent to make the call anew. The `ai-chat` component shows the paused call with Approve and Deny buttons.
+
+### When the agent asks a question
+
+In a streamed chat with someone signed in, a declared agent can ask that person a short question rather than guess, with its built-in `ask_user` tool. The question is a `message` and a **flat** form, the shape of the form mode of MCP elicitation: each field is a string (a list of choices with `enum`, or a `format`: `date`, `date-time`, `email`, `uri`), a number, an integer or a boolean, with a `title`, and a `required` list names the fields that must be answered. A form with a nested object or a list is never shown: the model is told the fields must be flat, and it goes on, usually asking in prose instead. The form stays short: at most 12 fields and 50 choices per field, and a question of at most 2,000 characters; a longer one is refused the same way.
+
+The turn pauses on the question: the stream carries `elicit` and ends with `stopReason: awaiting_input`. The person answers with `POST /api/ai/chat/elicitations/{elicitationId}`:
+
+| Body                                               | Means                                                          |
+| -------------------------------------------------- | -------------------------------------------------------------- |
+| `{ "action": "accept", "content": { "date": … } }` | The answer, one value per field                                |
+| `{ "action": "decline" }`                          | She skips the question                                         |
+| `{ "action": "cancel" }`                           | She dismisses it, for example by sending a new message instead |
+
+The answer is checked against the question before the model sees it: a required field left out, a value outside the choices, a value of the wrong type, or a text longer than 4,000 characters answers `400`, names the field, and the question stays open. Otherwise an accepted or declined answer is the rest of the turn, as a new stream: the model reads it as the result of its question, and goes on; a declined question reaches the model as such, with no content. A cancelled question is different: it closes **without** resuming the turn, so the model is not asked again and no tool runs. The answer is `{ "status": "cancelled" }` rather than a stream, and the paused turn is saved to the conversation as it stood: the person's message, then the agent's message carrying `elicitation: { message, state: "cancelled" }`, with `server`, the declared name of the MCP server that asked, for a question relayed from one. The `ai-chat` component shows a dismissed question as a line reading it, and who asked. The person's next message carries the conversation on. Only the person the turn answered can answer it; for anyone else it does not exist (`404`). A question already answered, or left unanswered for an hour, answers `409`. Like a paused approval, it is kept in the server's memory and does not survive a restart.
+
+The `ai-chat` component draws the question inside the agent's answer as a questionnaire: the question above, one screen per field (choices as radio buttons, Yes and No for a boolean, a date or email box where the format asks for one), Skip on a field that is not required, Decline on every screen, and Send answer on the last. Once answered, it gives way to a line reading the answers, or Declined, and the agent's reply follows. Sending a new message while a question is open cancels it, and the new message is answered as usual.
+
+`ask_user` is offered only where someone can answer: an agent run by an automation or on its schedule is never offered it, nor is a chat with a visitor signed in to nothing. On the buffered `POST /api/ai/chat`, which cannot show a form, the model is told to ask in prose.
 
 ## Rate limits
 

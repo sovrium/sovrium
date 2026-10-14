@@ -8,7 +8,7 @@
 import { NotFoundError } from '@/domain/errors'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
-import { handleRouteError } from './error-handlers'
+import { handleRouteError, restoreUniqueConflict } from './error-handlers'
 import type { Context } from 'hono'
 
 // ============================================================================
@@ -159,7 +159,8 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
     )
   }
 
+  // A batch that would duplicate a unique value: refused whole, the field named.
   // Everything else — driver faults included — is classified and sanitized by
   // the shared handler.
-  return handleRouteError(c, error)
+  return restoreUniqueConflict(c, error) ?? handleRouteError(c, error)
 }

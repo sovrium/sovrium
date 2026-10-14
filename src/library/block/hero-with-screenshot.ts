@@ -89,7 +89,7 @@ export const entry = defineLibraryEntry({
                   type: 'container',
                   props: {
                     className:
-                      'mt-10 w-full rounded-t-xl border border-b-0 border-border bg-background-raised p-2',
+                      'mt-10 w-full rounded-t-xl border border-b-0 border-border bg-card p-2',
                   },
                   children: [
                     media({

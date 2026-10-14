@@ -65,6 +65,21 @@ export function isNoindexPage(page: Page): boolean {
 }
 
 /**
+ * The `<meta name="robots">` directive of a page, or `undefined` for none (an
+ * indexable page by default). Read from {@link isNoindexPage}, the predicate the
+ * sitemap, the crawl policy and the Markdown twin's `X-Robots-Tag` read too: a
+ * withheld page whose `robots` string does not already say `noindex` has it
+ * prepended (`robots: follow` renders `noindex, follow`); `noindex: true` alone
+ * renders `noindex`. This is what marks the built-in not-found pages `noindex`.
+ */
+export function robotsDirectiveOf(page: Page): string | undefined {
+  const robots = page.meta?.robots?.trim() ?? ''
+  if (!isNoindexPage(page)) return robots.length > 0 ? robots : undefined
+  if (robots.length === 0) return 'noindex'
+  return robots.includes('noindex') ? robots : `noindex, ${robots}`
+}
+
+/**
  * Whether a page is eligible for the sitemap.
  *
  * Excluded when: the page is not anonymously readable (`isPublicPage`),

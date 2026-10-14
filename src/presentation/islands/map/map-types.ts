@@ -21,4 +21,4 @@ export interface MapItem {
 
 export type PinClick =
   | { readonly type: 'navigate'; readonly path: string }
-  | { readonly action: 'openDrawer'; readonly component: string }
+  | { readonly action: 'openSheet'; readonly component: string }

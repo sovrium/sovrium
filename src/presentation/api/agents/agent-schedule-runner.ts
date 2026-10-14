@@ -27,99 +27,129 @@
  * envelope belongs to the route, the work belongs here.
  */
 
-import { MirrorApprovalCreate } from '@/application/use-cases/agents/approval'
+import { Effect, Option } from 'effect'
+import { dispatchAgentAction } from '@/application/use-cases/agents/agent-action-dispatch'
+import {
+  runAgentTurnToEnd,
+  type AgentTurnResult,
+} from '@/application/use-cases/agents/agent-runtime'
+import { resolveAgentLimits } from '@/domain/models/app/agents/agent-gate-validation'
+import {
+  buildAgentActionTools,
+  buildAgentSystemPrompt,
+  isAgentActionName,
+} from '@/domain/models/app/agents/agent-turn-service'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
-import { recordAgentActivity } from './agent-activity-log'
-import { callAgentAi } from './agent-ai-call'
+import { logError } from '@/infrastructure/logging/logger'
+import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import {
   acquireConcurrencySlot,
-  recordTokenUsage,
   releaseConcurrencySlot,
-  resolveAgentLimits,
-} from './agent-limits'
-import { runApprovalMirror, toMirrorRecord } from './approval-mirror'
-import { buildApprovalRecord } from './approval-presenter'
-import { appendAgentActivityEntry, putApproval } from './approval-store'
+} from '@/infrastructure/process/agent-limits'
+import { recordAgentActivity } from './agent-activity-log'
+import { recordFeedAction } from './approval-store-access'
+import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /** Generic action label recorded for a scheduled agent run. */
 export const SCHEDULE_ACTION = 'agent.scheduled'
 
+/** Model calls a scheduled run may make before it stops asking for tools. */
+const SCHEDULE_MAX_STEPS = 10
+
 /** What a completed scheduled run decided, before any HTTP mapping. */
-export type ScheduledRunOutcome =
+export type ScheduledRunOutcome = (
   | { readonly kind: 'completed' }
   | { readonly kind: 'pending_approval'; readonly approvalId: string }
-
-/**
- * Decide whether the agent's approval configuration requires its scheduled
- * action to be queued for human review. `mode: 'all'` pauses every action;
- * `mode: 'selective'` pauses only listed actions; `mode: 'none'` never pauses.
- */
-const scheduleRequiresApproval = (agent: Agent): boolean => {
-  const mode = agent.approval?.mode ?? 'none'
-  if (mode === 'all') return true
-  if (mode === 'selective') {
-    return (agent.approval?.required ?? []).includes(SCHEDULE_ACTION)
-  }
-  return false
+) & {
+  /** Actions the run took past the agent's rate and window gates — each charged as it passed. */
+  readonly actionsCharged: number
 }
 
+/** Agent actions a run's gates admitted: each one was charged to the agent's counters. */
+const chargedActions = (turn: AgentTurnResult | undefined): number =>
+  (turn?.toolResults ?? []).filter(
+    (result) => isAgentActionName(result.name) && result.outcome !== 'denied'
+  ).length
+
+/** The scheduled run itself, on the agent runtime; `undefined` when it could not run. */
+const runScheduledTurn = (
+  agent: Agent,
+  taskPrompt: string,
+  services: DomainContext,
+  app: App
+): Promise<AgentTurnResult | undefined> =>
+  runOnDomain(
+    services,
+    runAgentTurnToEnd({
+      surface: 'schedule',
+      agent,
+      app,
+      tools: {
+        runAction: (action, props) =>
+          dispatchAgentAction({ app, agentName: agent.name, action, props }),
+      },
+      messages: [
+        { role: 'system', content: buildAgentSystemPrompt(agent) },
+        { role: 'user', content: taskPrompt },
+      ],
+      toolDefinitions: buildAgentActionTools(agent),
+      maxSteps: SCHEDULE_MAX_STEPS,
+      model: { model: agent.model, temperature: agent.temperature, maxTokens: agent.maxTokens },
+    }).pipe(
+      Effect.asSome,
+      Effect.tapCause((cause) =>
+        Effect.sync(() => {
+          logError('[agents] scheduled run failed', cause, { agent: agent.name })
+        })
+      ),
+      // effect-swallow: a run whose provider failed is still a run the schedule fired — it is recorded like any other, and the failure is logged above.
+      Effect.catchCause(() => Effect.succeedNone),
+      Effect.map(Option.getOrUndefined)
+    )
+  )
+
 /**
- * Run the scheduled task once: the AI round-trip carrying `taskPrompt` as the
- * user message, the token accounting that charges
- * it to the agent's daily budget, the activity-feed
- * attribution, and the approval decision.
+ * Run the scheduled task once, on the agent runtime: `taskPrompt` is the user
+ * message, the agent's allowlisted actions are its tools, and each call the
+ * model makes runs through the agent's gates. Approval is per CALL: a run
+ * starts at once, and only an action the agent's approval rule covers waits for
+ * a human — the run's outcome is then `pending_approval`, naming it.
  *
- * The caller owns the concurrency slot — see {@link fireAgentSchedule} and the
- * route handler.
- *
- * @returns the tokens the round-trip consumed alongside the outcome, so an HTTP
- *   caller can apply the post-call daily-budget gate `/execute` applies.
+ * The run is charged to the agent's daily token budget and recorded on the
+ * activity feeds as `agent.scheduled`; each action it took is recorded as
+ * itself. The caller owns the concurrency slot.
  */
 export const runScheduledAgentTask = async (
   agent: Agent,
   taskPrompt: string,
-  services: DomainContext
+  services: DomainContext,
+  app: App | undefined
 ): Promise<ScheduledRunOutcome> => {
   const agentName = agent.name
-
-  // The AI round-trip's `usage.total_tokens` feeds the per-day budget. Until
-  // this path recorded it, scheduled runs cost real provider tokens that
-  // `GET /usage` never saw and `maxTokensPerDay` could never be reached by.
-  const tokensUsed = await callAgentAi(agent, SCHEDULE_ACTION, taskPrompt)
-  recordTokenUsage(agentName, tokensUsed)
+  const turn =
+    app === undefined ? undefined : await runScheduledTurn(agent, taskPrompt, services, app)
 
   await recordAgentActivity(services, {
     actorName: agentName,
     action: SCHEDULE_ACTION,
     targetTable: undefined,
+    surface: 'schedule',
   })
-  appendAgentActivityEntry({
-    id: crypto.randomUUID(),
+  await recordFeedAction(services, {
     action: SCHEDULE_ACTION,
     agentName,
-    actor: { type: 'agent', name: agentName },
     targetTable: undefined,
     recordId: undefined,
-    createdAt: new Date().toISOString(),
     runStartedById: undefined,
   })
 
-  if (!scheduleRequiresApproval(agent)) return { kind: 'completed' }
-
-  const record = buildApprovalRecord(
-    agent,
-    SCHEDULE_ACTION,
-    {
-      action: SCHEDULE_ACTION,
-      taskPrompt,
-    },
-    undefined
-  )
-  putApproval(record)
-  await runApprovalMirror(services, MirrorApprovalCreate(toMirrorRecord(record)))
-  return { kind: 'pending_approval', approvalId: record.id }
+  const pending = turn?.toolResults.find((result) => result.approvalId !== undefined)
+  const actionsCharged = chargedActions(turn)
+  return pending?.approvalId === undefined
+    ? { kind: 'completed', actionsCharged }
+    : { kind: 'pending_approval', approvalId: pending.approvalId, actionsCharged }
 }
 
 /**
@@ -135,7 +165,11 @@ export const runScheduledAgentTask = async (
  * Deliberately NOT subject to `permissions.trigger`, nor to the caller-facing
  * action rate limiter: the cron expression the operator wrote IS the rate.
  */
-export const fireAgentSchedule = async (agent: Agent, services: DomainContext): Promise<void> => {
+export const fireAgentSchedule = async (
+  agent: Agent,
+  services: DomainContext,
+  app: App
+): Promise<void> => {
   const { schedule } = agent
   if (schedule === undefined || agent.enabled === false) return
   if (!isAiProviderConfigured(process.env)) return
@@ -143,7 +177,7 @@ export const fireAgentSchedule = async (agent: Agent, services: DomainContext): 
   const limits = resolveAgentLimits(agent.limits)
   if (!acquireConcurrencySlot(agent.name, limits.maxConcurrentTasks)) return
   try {
-    await runScheduledAgentTask(agent, schedule.taskPrompt, services)
+    await runScheduledAgentTask(agent, schedule.taskPrompt, services, app)
   } finally {
     releaseConcurrencySlot(agent.name)
   }

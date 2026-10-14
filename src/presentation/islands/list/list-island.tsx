@@ -6,26 +6,20 @@
  */
 
 import { withRecordTextFields } from '@/domain/models/app/tables/record-text-service'
-import {
-  computeListLoadMoreClasses,
-  computeListShellClasses,
-} from '@/presentation/design/list-default-classes'
+import { computeListShellClasses } from '@/presentation/design/list-default-classes'
 import {
   renderEmptyList,
   renderItemTemplate,
   type ItemTemplate,
   type ListRowInputs,
 } from '../parts/list-item-rows'
-import { LoadMoreButton } from '../parts/load-more-button'
 import { hasDataBinding } from '../runtime/data-binding'
 import { resolvePageLocale } from '../runtime/page-locale'
+import { ListContinuation } from './list-continuation'
 import { useListRowClick } from './list-row-click'
 import { ListError, ListLoading, ListMissing, type ListStrings } from './list-status'
 import { useListRecords, type ListRecordsDataSource } from './use-list-records'
 import type { ReactElement } from 'react'
-
-/** The list's load-more footer. Pure: resolved once, not per page loaded. */
-const LIST_LOAD_MORE_CLASSES = computeListLoadMoreClasses()
 
 interface ListIslandProps extends ListRowInputs {
   /** What a click on an item does — a grid row's `onRowClick`. */
@@ -41,12 +35,9 @@ interface ListIslandProps extends ListRowInputs {
    * How the reader reaches the records beyond the first page — carried from
    * `listDisplay.loadMore`.
    *
-   * Only `'button'` renders a control. `'infinite'` is accepted by the schema
-   * and is deliberately NOT implemented: scroll-triggered paging needs a
-   * sentinel row, an intersection observer and a re-entrancy guard, and none of
-   * that can be called shipped until something specifies how it behaves at the
-   * end of the set. A list declaring it pages exactly as one declaring nothing
-   * does — first page only, and no control promising more.
+   * `'button'` draws a Load more control; `'infinite'` loads the next page as
+   * the reader scrolls to the last item, keeping that control for the keyboard
+   * and announcing how many items are loaded.
    */
   readonly loadMore?: string
   readonly emptyMessage?: string
@@ -89,6 +80,7 @@ function renderRows(input: {
   if (itemTemplate === undefined) return undefined
   return (
     <ul
+      data-slot="item-group"
       aria-label={inputs.ariaLabel}
       className={inputs.listClasses ?? computeListShellClasses()}
       onClick={inputs.onItemEvent}
@@ -96,7 +88,12 @@ function renderRows(input: {
     >
       {records.map((record, i) =>
         // A fetched record carries no text: attach how its formatted fields read.
-        renderItemTemplate(itemTemplate, withText(record, inputs), `item-${i}`, inputs)
+        renderItemTemplate(
+          itemTemplate,
+          withText(record, inputs),
+          { key: `item-${i}`, separated: i < records.length - 1 },
+          inputs
+        )
       )}
     </ul>
   )
@@ -171,6 +168,7 @@ export default function ListIsland({
     isLoadingMore,
     loadMore: fetchMore,
     retry,
+    total,
   } = useListRecords(dataSource)
   // The declared cap, applied to what is DRAWN: a page is a transport concern
   // and the cap a display one, so the last visible row ignores page boundaries.
@@ -190,7 +188,6 @@ export default function ListIsland({
   if (status !== undefined) return status
 
   const atCap = maxItems !== undefined && drawn.length >= maxItems
-  const showLoadMore = loadMore === 'button' && hasMore && !atCap
 
   return (
     <>
@@ -200,13 +197,14 @@ export default function ListIsland({
         itemTemplate,
         inputs: { ...rowInputs, onItemEvent },
       })}
-      {showLoadMore ? (
-        <LoadMoreButton
-          onClick={fetchMore}
-          isLoading={isLoadingMore}
-          footerClassName={LIST_LOAD_MORE_CLASSES}
-        />
-      ) : undefined}
+      <ListContinuation
+        mode={loadMore}
+        hasMore={hasMore && !atCap}
+        isLoading={isLoadingMore}
+        loaded={drawn.length}
+        total={total}
+        onLoadMore={fetchMore}
+      />
     </>
   )
 }

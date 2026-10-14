@@ -28,11 +28,9 @@
  *
  * ─── AND WHY `emptyIcon` IS NOT HERE ───────────────────────────────────────
  *
- * The schema declares it and no renderer in `src/` reads it — the empty-state
- * module draws a title, a description and its children, never an illustration.
- * Forwarding it would make an inert field look wired, which is the same reason
- * `timezone` is absent from `EDIT_META_KEYS`. It is a one-line addition here on
- * the day the renderer draws one.
+ * The renderer reads it, with `emptyMedia`, straight off the component it is
+ * handed, so there is nothing to lift: the two keys have no `props` twin to
+ * shadow.
  *
  * Its own module because `type-specific-props-builder.ts` sits at its 400-line
  * cap, and the reasoning above is longer than the three lines it guards.
@@ -45,7 +43,7 @@ import type { ComponentOfType } from '@/domain/models/app/pages/components'
 /** The slice of the builder args this entry reads. */
 type EmptyStateBuilderArgs = {
   readonly baseElementPropsWithType: Record<string, unknown>
-  readonly component: ComponentOfType<'empty-state'>
+  readonly component: ComponentOfType<'empty'>
 }
 
 export function buildEmptyStateElementProps({

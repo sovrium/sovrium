@@ -23,7 +23,7 @@ components:
           - type: text
             element: p
             props:
-              className: text-lg text-foreground-muted
+              className: text-lg text-muted-foreground
             content: '[What the team writes about, in one line.]'
   - component: blog-cards
   - component: blog-list

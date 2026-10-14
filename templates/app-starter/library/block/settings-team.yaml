@@ -17,7 +17,7 @@ children:
       - type: text
         element: p
         props:
-          className: text-md text-foreground-muted
+          className: text-md text-muted-foreground
         content: 'Who can sign in to $app.label, and what they can do.'
   - type: container
     element: section
@@ -40,7 +40,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: Change a role to change what someone can see and do.
           - type: button
             visibility:
@@ -52,7 +52,7 @@ children:
                   modal: settings-team-invite
       - type: container
         props:
-          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+          className: flex flex-col divide-y rounded-lg border bg-card divide-border border-border
         children:
           - type: container
             props:
@@ -110,11 +110,11 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: Each invitation link works for seven days, then expires.
       - type: container
         props:
-          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+          className: flex flex-col divide-y rounded-lg border bg-card divide-border border-border
         children:
           - type: container
             props:

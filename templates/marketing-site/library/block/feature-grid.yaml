@@ -1,4 +1,5 @@
-# sovrium-library: block/feature-grid@0.30.0
+# sovrium-library: block/feature-grid@0.37.0
+# sovrium-library-params: eyebrow=%5BEyebrow%5D&headline=Group%20the%20benefits%20under%20one%20idea&subheadline=A%20sentence%20that%20frames%20the%20six%20items%20below.
 name: feature-grid
 type: container
 element: section
@@ -23,7 +24,7 @@ children:
               - type: text
                 element: span
                 props:
-                  className: font-mono text-sm text-foreground-subtle
+                  className: font-mono text-sm text-muted-foreground
                 content: '[Eyebrow]'
           - type: text
             element: h2
@@ -33,7 +34,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-lg text-pretty text-foreground-muted sm:text-xl
+              className: text-lg text-pretty text-muted-foreground sm:text-xl
             content: A sentence that frames the six items below.
       - type: grid
         props:
@@ -56,7 +57,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                  className: text-md leading-relaxed text-pretty text-muted-foreground
                 content: 'Each item states a result for the reader, in their words.'
           - type: flex
             props:
@@ -75,7 +76,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                  className: text-md leading-relaxed text-pretty text-muted-foreground
                 content: Keep it to two lines so the grid scans in one pass.
           - type: flex
             props:
@@ -94,7 +95,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                  className: text-md leading-relaxed text-pretty text-muted-foreground
                 content: 'Name what happens, not the mechanism behind it.'
           - type: flex
             props:
@@ -113,7 +114,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                  className: text-md leading-relaxed text-pretty text-muted-foreground
                 content: A concrete example beats an adjective.
           - type: flex
             props:
@@ -132,7 +133,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                  className: text-md leading-relaxed text-pretty text-muted-foreground
                 content: 'If a number supports it, cite where it comes from.'
           - type: flex
             props:
@@ -151,5 +152,5 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                  className: text-md leading-relaxed text-pretty text-muted-foreground
                 content: 'The sixth item closes the argument, it does not pad it.'

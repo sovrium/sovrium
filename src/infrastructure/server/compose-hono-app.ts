@@ -36,7 +36,6 @@ import {
 } from '@/infrastructure/server/api-error-envelope'
 import { domainContextMiddleware, provideDomain } from '@/infrastructure/server/domain-runtime'
 import { resolveAuthContext } from '@/infrastructure/server/hono-auth-context'
-import { attachConfigHashSetter } from '@/infrastructure/server/lock-file-cleanup'
 import { catalogRequestCacheMiddleware } from '@/infrastructure/server/middleware/catalog-request-cache'
 import { dbQueryCountMiddleware } from '@/infrastructure/server/middleware/db-query-count-header'
 import { hostRedirect } from '@/infrastructure/server/middleware/host-redirect'
@@ -234,22 +233,18 @@ export async function createHonoApp(
 
   // X-Sovrium-Config response header middleware. Carries the SHA-256 hash of
   // the file-loaded config so operators can identify which config a running
-  // server was launched with (and detect a hash change after a SIGUSR1
-  // reload) from any HTTP response without hitting the admin API. Config is
-  // code-only — there is no runtime config-mutation surface and therefore no
-  // file-vs-DB drift to report; the header is just the plain hash.
-  let currentConfigHash = configHash ?? ''
+  // server is serving from any HTTP response without hitting the admin API.
+  // Config is code-only — there is no runtime config-mutation surface and
+  // therefore no file-vs-DB drift to report; the header is just the plain
+  // hash. A reload builds a new app with the new hash, so the header only
+  // ever names a configuration the server accepted.
+  const currentConfigHash = configHash ?? ''
   if (currentConfigHash) {
     honoApp.use('*', async (c, next) => {
       await next()
       c.header('X-Sovrium-Config', currentConfigHash)
     })
   }
-
-  // Register the setter the SIGUSR1 reload calls to update the hash
-  attachConfigHashSetter(honoApp, (hash: string) => {
-    currentConfigHash = hash
-  })
 
   // Analytics retention cleanup middleware — purges stale page view records.
   // Runs awaited on page requests to guarantee old data is removed before response.
@@ -297,7 +292,7 @@ export async function createHonoApp(
   // live nodemailer transport would sit in the import graph of a file that is
   // otherwise a request handler. Constructing it at the root is what lets that
   // file name the factory as a TYPE only and hold no transport.
-  const emailHandlers = createEmailHandlers(app?.auth, app?.name)
+  const emailHandlers = createEmailHandlers(app?.auth, app?.name, undefined, app.languages)
   // There are no config-mutation REST routes (config-code-only, [internal ref]):
   // config changes ONLY by editing the app config file.
 

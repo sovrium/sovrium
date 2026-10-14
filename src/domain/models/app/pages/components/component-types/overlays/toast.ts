@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { ToastVariantSchema } from '../../action-response'
 import { contentFields } from '../modules/content'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
@@ -16,4 +17,28 @@ export const toastFields = {
   ...coreFields,
   ...contentFields,
   ...i18nFields,
+  /** The toast's tone, as an action's toast `variant`. */
+  toastVariant: Schema.optional(ToastVariantSchema),
+  /** How long the toast stays, in milliseconds; it stays until dismissed when omitted. */
+  duration: Schema.optional(
+    Schema.Finite.annotate({
+      description:
+        'How long the placed toast stays on screen, in milliseconds. Without it the toast stays until its action is used.',
+      examples: [2000, 5000],
+    }).pipe(Schema.check(Schema.isInt(), Schema.isGreaterThan(0)))
+  ),
+  /** The label of the toast's action button. */
+  actionLabel: Schema.optional(
+    Schema.String.annotate({
+      description: "Label of the toast's action button. Drawn only together with actionUrl.",
+      examples: ['Undo import', 'Retry'],
+    })
+  ),
+  /** Where the action button posts. */
+  actionUrl: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'URL the action button posts to, once, when pressed; the toast closes afterwards. Drawn only together with actionLabel.',
+    })
+  ),
 } as const

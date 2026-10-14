@@ -57,10 +57,12 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'code-editor',
   'date-range-picker',
   'filter-bar',
-  // `split-pane` — resizable two-pane layout. The SSR renderer emits the static
-  // structure plus an empty `data-island="split-pane"` enhancement marker that
-  // hydrates drag-to-resize in place.
-  'split-pane',
+  // `resizable` — two panes and a handle. The SSR renderer emits the static
+  // split plus an empty `data-island="resizable"` marker that takes it over.
+  'resizable',
+  // `input-otp` — the code's boxes are drawn on the server; the island makes
+  // them follow the one real input.
+  'input-otp',
   // `stepper` — every step body is server-rendered; an empty enhancement
   // marker moves between them, so without this entry Continue does nothing.
   'stepper',
@@ -71,8 +73,9 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'tree',
   'map',
   'kanban',
-  'calendar',
+  'event-calendar',
   'gallery',
+  'carousel',
   'chart',
   // `graph` — the DRAWING half of a hybrid. Its data, its accessible twin, its
   // degraded notice and its empty state are all server-rendered; only the
@@ -88,7 +91,17 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'ai-chat',
   'tabs',
   'accordion',
+  // `collapsible` mounts only under `hydrate: true`; its `<details>` form needs
+  // nothing (see `zeroJsDialogNeedsNoRuntime`, which excuses that instance).
+  'collapsible',
+  // `message-scroller` opens at its latest turn only once its script has run.
+  'message-scroller',
+  // `questionnaire` draws every screen in the browser.
+  'questionnaire',
+  // `calendar` draws its day grid in the browser.
+  'calendar',
   'select',
+  'combobox',
   'dialog',
   'alert-dialog',
   // `drawer`, in BOTH of its shapes. A drawer carrying a `dataSource` is the
@@ -97,6 +110,8 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   // children through the `drawer` island. ONE entry covers both, because the
   // gate is keyed by TYPE and the renderer decides which island the page ends
   // up mounting. `record-drawer` was its own entry until the two merged.
+  'sheet',
+  // `drawer` — the bottom drawer, on Base UI's Drawer.
   'drawer',
   'popover',
   'tooltip',
@@ -210,11 +225,15 @@ export function isZeroJsDialog(component: {
  * `date-picker`, `file-upload`, …). Neither gate walks into the expansion, so
  * whether the runtime is needed is invisible here. Keeping the bundle for that
  * shape costs an unused chunk; dropping it would leave a real form dead.
+ *
+ * A `collapsible` without `hydrate: true` is the same case, without the form
+ * caveat: it is the browser's own `<details>`, and mounts nothing.
  */
 export function zeroJsDialogNeedsNoRuntime(component: {
   readonly type?: string
   readonly hydrate?: unknown
   readonly formRef?: unknown
 }): boolean {
+  if (component.type === 'collapsible') return component.hydrate !== true
   return isZeroJsDialog(component) && component.formRef === undefined
 }

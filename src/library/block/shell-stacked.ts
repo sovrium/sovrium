@@ -20,7 +20,6 @@ import {
   flex,
   grid,
   logo,
-  navLink,
   param,
   PLACE_NOTE,
   stack,
@@ -41,10 +40,9 @@ const topBar = (brand: string, menuId: string): readonly Readonly<Record<string,
     [
       logo(brand),
       {
-        type: 'container',
-        element: 'nav',
-        props: { 'aria-label': 'Main', className: 'hidden items-center gap-6 md:flex' },
-        children: LINKS.map(([label, href]) => navLink(label, href)),
+        type: 'navigation-menu',
+        props: { 'aria-label': 'Main', className: 'hidden md:flex' },
+        navItems: LINKS.map(([label, href]) => ({ label, href })),
       },
       flex(
         [
@@ -67,7 +65,7 @@ const topBar = (brand: string, menuId: string): readonly Readonly<Record<string,
         'items-center gap-2'
       ),
     ],
-    'h-16 gap-6'
+    'h-14 gap-6'
   ),
   menuPanel(menuId, [
     {
@@ -117,14 +115,14 @@ export const entry = defineLibraryEntry({
           props: { className: 'border-b border-border px-4 py-7 sm:px-8' },
           children: [
             stack(
-              [appTitle(p('title')), para(p('description'), 'text-md text-foreground-muted')],
+              [appTitle(p('title')), para(p('description'), 'text-md text-muted-foreground')],
               'gap-1'
             ),
           ],
         },
         {
           type: 'container',
-          element: 'main',
+          element: 'div',
           props: { className: 'px-4 py-8 sm:px-8' },
           children: [
             grid(

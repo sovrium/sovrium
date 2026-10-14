@@ -1,14 +1,14 @@
 # Calendars
 
-> The `calendar` component — a month, week or day view of date-bearing records.
+> The `event-calendar` component — a month, week or day view of date-bearing records.
 
-A calendar places each record on the date its `dateField` names. The field mappings sit at the top level; only click handling and the time-grid settings live under `calendarEvent` and `calendarInteraction`. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. `dateField` and the other mappings stay on the calendar either way.
+An event calendar places each record on the date its `dateField` names. It was named `calendar`; a config still writing `type: calendar` is refused with a message naming `event-calendar`, and renaming the `type` is the whole migration. The field mappings sit at the top level; only click handling and the time-grid settings live under `calendarEvent` and `calendarInteraction`. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. `dateField` and the other mappings stay on the calendar either way. FullCalendar draws the grid; the chrome around it is shadcn/ui's: a button group of the two period arrows, an outline Today button, the period title and a toggle group of the views, which the arrow keys walk as one tab stop. Weekday heads are muted, the grid is ruled in the border colour and today's date sits in a `primary` circle. Reference: shadcn/ui Button Group, Toggle Group.
 
-<!-- sovrium:options type:calendar depth=3 -->
+<!-- sovrium:options type:event-calendar depth=3 -->
 
 `dateField` supplies each event's start and `endDateField` its end, for events that span time. The end of a `date` range is the last day included: a leave from the 3rd to the 17th is drawn on the 17th and not on the 18th, and dragging it keeps that meaning. A `datetime` end is the instant it names. `labelField` is rendered as the event's label, and `defaultView` is `month`, `week` or `day`. `maxEventsPerDay` caps a day cell before it collapses into a "+N more" affordance.
 
-`calendarEvent.onEventClick` runs when an event is clicked and `calendarInteraction.onDateClick` when an empty date or slot is. `onEventClick` takes `{ action: openDrawer, component: <id> }` like a grid row, opening the named drawer on the clicked record, or a `navigate` path. A `navigate` path is filled from the clicked event's record and only ever opens a page on this site; one that points to another site or at a script does not navigate. `calendarInteraction.timeSlotInterval` is the slot length in minutes for week and day views, and `showCurrentTimeIndicator` draws a line at the current time.
+`calendarEvent.onEventClick` runs when an event is clicked and `calendarInteraction.onDateClick` when an empty date or slot is. `onEventClick` takes `{ action: openSheet, component: <id> }` like a grid row, opening the named sheet on the clicked record, or a `navigate` path. A `navigate` path is filled from the clicked event's record and only ever opens a page on this site; one that points to another site or at a script does not navigate. `calendarInteraction.timeSlotInterval` is the slot length in minutes for week and day views, and `showCurrentTimeIndicator` draws a line at the current time.
 
 ```yaml
 tables:
@@ -21,7 +21,7 @@ pages:
   - name: Bookings
     path: /bookings
     components:
-      - type: calendar
+      - type: event-calendar
         dataSource: { table: bookings }
         dateField: starts_at
         endDateField: ends_at
@@ -38,7 +38,7 @@ In month view a calendar renders a timed event as a small dot by default. A dot 
 
 Expect that as a visible layout change on any month-view calendar that sets `colorField` — day cells that used to hold lines of dots now hold bands of filled blocks.
 
-With no `colorField`, an event wears the theme's `primary`, in its dark value under the dark scheme, its text in `primary-foreground`. A `date` field draws an all-day event, with no time.
+With no `colorField`, an event block sits on the theme's `secondary` surface with its text in `secondary-foreground`, in either scheme, and a timed event's dot wears the theme's `primary`. A `date` field draws an all-day event, with no time.
 
 A calendar places a date-time event at the operator time zone's wall clock (`SOVRIUM_TIMEZONE`), or at the zone its field declares, on the same day and hour the grid shows, wherever the reader's browser is; a `date` field stays an all-day event.
 
@@ -56,7 +56,7 @@ Below the small breakpoint, a calendar in month view reads as an agenda: the mon
 
 ## Styling a calendar by part
 
-A calendar's inner elements take classes by part through `classes`: `event` (each event chip), `day` (each day cell of the month grid), `dayNumber` (the date in a day cell), `columnHeader` (each weekday heading) and `toolbar` (the bar holding the period's title and its controls). `classes: { parts: { event: 'bg-background-raised text-foreground' } }` draws the month's events as quiet chips rather than in their colour.
+A calendar's inner elements take classes by part through `classes`: `event` (each event chip), `day` (each day cell of the month grid), `dayNumber` (the date in a day cell), `columnHeader` (each weekday heading) and `toolbar` (the bar holding the period's title and its controls). `classes: { parts: { event: 'bg-card text-foreground' } }` draws the month's events as quiet chips rather than in their colour.
 
 ## A field the reader may not read
 

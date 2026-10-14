@@ -23,7 +23,7 @@ components:
 
 <!-- sovrium:options type:comments -->
 
-`display: thread` is the default and draws the full section — the list, its pagination and its composer. `display: count` draws a single inline total. Both bind the same way: on a collection page they auto-resolve `$record.id` and the collection's table for API calls, and both respect the table's `comment` permission.
+`display: thread` is the default and draws the full section — the list, its pagination and its composer. Reference: shadcn/ui Item. Each comment is an item: the author's avatar is its media, the author's name and a muted time its title, and the text under them is shown whole; a reply is indented under a rule with a smaller avatar. The composer is an input group, its textarea above an addon that holds the submit button. `display: count` draws a single inline total. Both bind the same way: on a collection page they auto-resolve `$record.id` and the collection's table for API calls, and both respect the table's `comment` permission.
 
 Every key in the table above is a schema field written beside `type`, and each one is also accepted inside `props` — the resolver reads the component first and falls back to the bag. One key is props-only, because the schema does not declare it:
 

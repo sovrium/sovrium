@@ -6,333 +6,136 @@
  */
 
 /**
- * Prestyled-by-default class computers for the `kpi` data view (wave R-D).
- *
- * A KPI card is the smallest data view Sovrium ships: one metric, optionally
- * captioned, optionally trended, optionally sparklined. This module owns every
- * class that card paints so the SSR skeleton and the hydrated island are drawn
- * from ONE source and cannot drift apart on hydration.
- *
- * ## Why it lives in `presentation/utils/recipes`
- * The card is drawn TWICE: once by the SSR placeholder in
- * `ui/sections/rendering/component-registry/island-data-components.tsx` (a
- * `presentation-component`) and once by the hydrated island in
- * `islands/kpi/kpi-card.tsx` (a `presentation-island`).
- * `[internal ref]` forbids BOTH directions across that seam, so a
- * recipe both sides need can only live in `presentation-util`. Same reasoning
- * and same directory as `button-default-classes.ts` and
- * `navbar-default-classes.ts` — the F1 precedent.
- *
- * ## Safelist
- * The directory `src/presentation/utils/recipes` is registered in
- * `RECIPE_DIRS` (`src/infrastructure/css/arbitrary-var-safelist.ts`), so the
- * `v(…)` template literals below are resolved at build time and emitted into
- * the compiler's `@source inline(...)` safelist. A recipe whose arbitrary
- * classes are NOT safelisted emits no CSS rule at all and paints nothing.
- *
- * ## Colour / layout split
- * Colour, radius and shadow go through {@link withVarFallback} so an
- * `app.design.*` override still wins at the CSS cascade layer; layout, spacing
- * and type steps stay raw Tailwind because they encode structure, not colour.
- *
- * ## Type steps
- * Every size is a rung of the platform ladder
- * (`PLATFORM_TYPE_LADDER`, `inherited-tokens.generated.ts`) — `text-2xs` 10 ·
- * `text-xs` 11 · `text-sm` 12 · `text-base` 13 · `text-md` 14 · … ·
- * `text-4xl` 30/36. No arbitrary `text-[Npx]` anywhere.
- *
- * Parts covered (each maps 1:1 to an element the card already emits, so no
- * `data-*` attribute moves):
- *
- *   - CARD      — the `data-component="kpi"` surface: bordered, raised, flat
- *   - LABEL     — the `data-role="kpi-label"` caption beside the icon
- *   - ICON      — the `data-role="kpi-icon"` glyph wrapper
- *   - VALUE     — the `data-role="kpi-value"` metric, the card's focal element
- *   - TREND     — the `data-role="kpi-trend"` comparison row under the value
- *   - SPARKLINE — the `data-role="sparkline"` mini line chart at the bottom
- *
- * Canvas oracle: `spec-data.mjs:426-428` (`kpiCard`, `trendLine`, `sparkline`)
- * plus `variants.mjs:100` for the value's type step.
+ * Adapted from shadcn/ui dashboard-01 section cards (https://ui.shadcn.com), registry commit 3464245c4513b7998b1d11fa9c67b71cc1534dc7.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
+/**
+ * The `kpi` on shadcn/ui's anatomy: one of the section cards of the
+ * dashboard-01 block.
+ *
+ * The island HOST is the card (`data-slot="card"`, `@container/card`); its
+ * header holds the label as the card description and the figure as the card
+ * title, with the trend as an outline badge in the card action; the content
+ * holds the sparkline and the footer a ratio's counts. Every part is the
+ * card recipe's (`card-default-classes.ts`), with the section cards'
+ * overrides on the title and the footer.
+ *
+ * The card is drawn twice — by the SSR host in
+ * `render/registry/island-kpi-component.tsx` and by the hydrated island in
+ * `islands/kpi/kpi-card.tsx` — so every class is here, and the two cannot
+ * drift apart on hydration.
+ */
+
+import { CARD_PART_CLASSES, CARD_SURFACE } from '@/presentation/design/card-default-classes'
 import { responsiveClasses, type ResponsiveValues } from '@/presentation/design/responsive-classes'
 
 /**
- * The column rhythm of whatever the KPI host holds: the SSR skeleton, and then
- * the mounted card's label row, value, trend and sparkline. The host draws the
- * card chrome ({@link computeKpiCardClasses}); this is only the stack inside it.
+ * Compute the className for the KPI host — the card itself.
+ *
+ * `@container/card` lets the figure grow on a wide card. An error or
+ * missing-binding state is a semantic status surface of its own
+ * (`role="alert"`), so the card steps out of the box around it rather than
+ * framing the alert as a metric that happens to be broken.
  */
-export const KPI_STACK_CLASSES = 'flex flex-col gap-1'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// CARD — the outer `data-component="kpi"` surface
-// ──────────────────────────────────────────────────────────────────────────────
-
-// Canvas `kpiCard`: 1px `hair` border · 6px radius · `raised` fill ·
-// 12px/14px padding · NO shadow · flex column on a 4px gap.
-//
-// Three deliberate departures from what shipped before this wave:
-//
-//   - the radius drops from `rounded-lg` (8px) to `radius-md` (6px), which is
-//     the radius every other R-D surface (list shell, gallery card, kanban
-//     column, chart shell) now carries. A card that rounds harder than the
-//     table beside it reads as a different system.
-//   - `shadow-sm` is REMOVED. The canvas draws no elevation on a KPI: the card
-//     is separated from the page ground by its border and its `raised` fill,
-//     which is a layer difference rather than a lift. A metric is read, not
-//     picked up.
-//   - the column gap moves from per-child `mt-*` margins to one `gap-1` on the
-//     container. With margins, an absent trend left the sparkline carrying its
-//     own top margin against the value; with a gap the spacing is a property
-//     of the stack and is correct for every combination of optional children.
-const KPI_CARD = [
-  KPI_STACK_CLASSES,
-  'px-3.5 py-3',
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `rounded-[${v('radius-md', T.radiusMd)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  // An error or missing-binding state is a semantic status surface of its own
-  // (`role="alert"` on the `error` / `warning` tone): the card steps out of the
-  // box so the alert is not framed as a metric that happens to be broken.
-  'has-[>[role=alert]]:contents',
-].join(' ')
+export const computeKpiCardClasses = (): string =>
+  `${CARD_SURFACE} @container/card has-[>[role=alert]]:contents`
 
 /**
- * Compute the default className for the outer KPI card surface — the island
- * HOST, the one element that carries `data-component="kpi"`.
- *
- * Bordered and raised, on `radius-md`, with NO shadow: the canvas separates a
- * KPI from the page by layer and hairline, never by elevation. Padding is the
- * canvas' 12px/14px pair (`py-3` / `px-3.5`), tighter than the `p-4` that
- * shipped, because a KPI is a dense readout rather than a content card.
- *
- * Drawn by the host, which stands for the KPI before and after the island
- * mounts, so the chrome never re-draws across hydration and the metric never
- * reflows. What the host holds — the SSR skeleton, then the mounted card —
- * stacks on {@link KPI_STACK_CLASSES} inside it.
+ * What the island mounts inside the host: `display: contents`, so the header,
+ * content and footer it draws are the card's own flex children, spaced by the
+ * card's `--card-spacing` gap.
  */
-export const computeKpiCardClasses = (): string => KPI_CARD
+export const KPI_STACK_CLASSES = 'contents'
+
+/** The card header: the label, the figure and the trend. */
+export const KPI_HEADER_CLASSES = CARD_PART_CLASSES.header
+
+/** The label — the card description, an optional icon before it. */
+export const computeKpiLabelClasses = (): string =>
+  `${CARD_PART_CLASSES.description} flex items-center gap-1.5`
 
 /**
- * The label ROW — the flex line holding the optional icon and the caption.
- *
- * Not a "part" in its own right (it carries no `data-role`), so it ships as a
- * constant rather than a `compute*` export. The 6px gap is the canvas value;
- * `gap-2` (8px) let the glyph drift away from the word it labels.
+ * The icon box beside the label. Its 16px geometry is set on the `<svg>`
+ * itself (lucide's renderer writes the attributes), so this owns only the
+ * flex behaviour: `shrink-0` keeps the glyph square when a long label pushes.
  */
-export const KPI_LABEL_ROW_CLASSES = 'flex items-center gap-1.5'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// LABEL — the `data-role="kpi-label"` caption
-// ──────────────────────────────────────────────────────────────────────────────
-
-// Canvas: 11px, weight 400, `muted`. Two changes: the step drops from
-// `text-md` (14) to `text-xs` (11), and `font-medium` is REMOVED. A caption
-// competing with the metric at 14px medium is the single loudest thing wrong
-// with the card that shipped — the number is the content, the caption is the
-// key to it.
-const KPI_LABEL = ['text-xs', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
+export const computeKpiIconClasses = (): string => 'inline-flex shrink-0'
 
 /**
- * Compute the default className for the KPI caption (`data-role="kpi-label"`).
- *
- * 11px regular on the muted tone. Regular weight and the small rung are what
- * make it read as the metric's key rather than as a heading above it; the
- * canvas draws it at exactly this weight for that reason.
- *
- * Canvas `muted` maps to `sv-fg-muted` rather than to the value-exact
- * `sv-fg-subtle` — the wave-level role-over-value mapping recorded in the R-D
- * target table, following R-B's table header. The caption renders ~0.10 OkLab
- * lightness darker than the drawing; that is a named, accepted divergence.
+ * The figure's type size when no `size` is declared: the section cards'
+ * `text-2xl`, rising to `text-3xl` on a card at least 250px wide.
  */
-export const computeKpiLabelClasses = (): string => KPI_LABEL
-
-// ──────────────────────────────────────────────────────────────────────────────
-// ICON — the `data-role="kpi-icon"` glyph wrapper
-// ──────────────────────────────────────────────────────────────────────────────
-
-// Canvas: `prose` (#565656). `prose` maps EXACTLY to `sv-fg-muted` (.453 vs
-// .445), so the icon and the caption beside it now share one tone — they are
-// one label, and painting the glyph a step lighter than its word (the previous
-// `text-foreground-subtle`) split a single line into two.
-//
-// `shrink-0` keeps the glyph square when a long caption pushes the row: a flex
-// child with intrinsic SVG geometry will otherwise compress on the main axis
-// and the icon goes oval.
-const KPI_ICON = ['inline-flex shrink-0', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
+const KPI_VALUE_DEFAULT_SIZE = 'text-2xl @[250px]/card:text-3xl'
 
 /**
- * Compute the default className for the KPI icon wrapper
- * (`data-role="kpi-icon"`).
+ * Compute the className for the figure — the card title (`data-role="kpi-value"`).
  *
- * The glyph's BOX is 16px and is set on the `<svg>` itself (`width`/`height`
- * props on `LucideGlyph`) rather than here — lucide's renderer writes the
- * attributes, and a class fighting them would be resolved by whichever the
- * cascade happened to favour. This computer owns the tone and the flex
- * behaviour only.
+ * The section cards' semibold tabular figures, in the sans face: tabular
+ * digits align a column of figures and keep a live value from jittering.
+ * `truncate` holds a long currency aggregate to one line. No colour: the
+ * island appends the tone or a matching threshold's ink, else the card
+ * foreground.
+ *
+ * @param sized - true when the author declared a `size`, whose classes then
+ *   set the type size alone
  */
-export const computeKpiIconClasses = (): string => KPI_ICON
+export const computeKpiValueClasses = ({ sized = false }: { sized?: boolean } = {}): string =>
+  `truncate font-semibold tabular-nums${sized ? '' : ` ${KPI_VALUE_DEFAULT_SIZE}`}`
 
-// ──────────────────────────────────────────────────────────────────────────────
-// VALUE — the `data-role="kpi-value"` metric
-// ──────────────────────────────────────────────────────────────────────────────
+/** The card action that holds the trend badge. */
+export const KPI_ACTION_CLASSES = CARD_PART_CLASSES.action
 
-// Canvas: mono family, weight 600, nowrap + ellipsis.
-//
-// `font-mono` is the load-bearing one. A KPI is read as a QUANTITY and often
-// sits in a grid beside its siblings; a proportional font gives `1` and `8`
-// different widths, so a column of figures never aligns and a live-updating
-// value jitters horizontally as its digits change. Tabular mono fixes both.
-//
-// `truncate` matters because the value is the one string on the card whose
-// length the author does not control — a currency-formatted aggregate can be
-// arbitrarily long, and without it the card grows and breaks the grid row it
-// sits in.
-//
-// The type step is `text-4xl` (30/36). The Configuration drawing sets 26/32
-// and the Rendering drawing 30/36; there is no 26/32 rung on the ladder and
-// `text-4xl` IS 30/36 exactly, so R-D takes the Rendering figure. The weight
-// (600) comes from the Configuration drawing, the only one that states one —
-// down from the `font-bold` (700) that shipped.
-const KPI_VALUE = 'truncate font-mono text-4xl font-semibold'
+/** The card content that holds the sparkline. */
+export const KPI_CONTENT_CLASSES = CARD_PART_CLASSES.content
 
-/**
- * Compute the default className for the KPI metric (`data-role="kpi-value"`).
- *
- * Colour is NOT included: the value's tone is the threshold map the island
- * computes (`THRESHOLD_COLOR_CLASS`), which resolves a configured threshold
- * name to a semantic role utility and falls back to `text-foreground`. Baking
- * a colour here would have to be overridden on every thresholded card, so the
- * recipe ships geometry and type and lets the caller append the tone.
- *
- * The rendered element also carries `data-threshold` when a threshold
- * resolved — that attribute is the stable hook specs assert on, and it is
- * untouched by this recipe.
- */
-export const computeKpiValueClasses = (): string => KPI_VALUE
+/** The sparkline's `<svg>`: 28px tall, matching its own viewBox. */
+export const KPI_SPARKLINE_SVG_CLASSES = 'block h-7 w-full'
 
-// ──────────────────────────────────────────────────────────────────────────────
-// TREND — the `data-role="kpi-trend"` comparison row
-// ──────────────────────────────────────────────────────────────────────────────
+/** The sparkline's series colour: the second chart colour. */
+export const KPI_SPARKLINE_STROKE = 'var(--chart-2)'
 
-// Canvas `trendLine`: 12px, weight 400, 4px outer gap / 2px inner gap, no top
-// margin of its own.
-//
-// The top margin is dropped because the card's `gap-1` now owns the vertical
-// rhythm of the whole stack — `mt-1` on the trend plus a gap on the parent
-// would double the space, and only under the combination that has both a value
-// and a trend.
-//
-// `font-medium` is removed for the same reason it is removed from the label:
-// the trend is context for the number, not a second number.
-const KPI_TREND = ['flex items-center gap-1', 'text-sm'].join(' ')
-
-/**
- * Compute the default className for the trend row (`data-role="kpi-trend"`).
- *
- * 12px regular on a 4px gap. Colour is NOT included: the direction tone
- * (`text-success-fg` / `text-error-fg` / `text-warning-fg` /
- * `text-foreground-muted`) is resolved by the island from the trend config and
- * appended by the caller, exactly as for the value.
- *
- * The row carries the OUTER 4px gap. The arrow and the percentage are one
- * group at the inner 2px gap — see {@link KPI_TREND_GROUP_CLASSES}.
- */
-export const computeKpiTrendClasses = (): string => KPI_TREND
-
-/**
- * The arrow + percentage pair inside the trend row, on the canvas' 2px INNER
- * gap.
- *
- * A glyph and the number it modifies are one token; at the row's 4px they read
- * as two. Ships as a constant rather than a `compute*` export because it
- * carries no `data-role` and is not a part in its own right — it is the inner
- * half of the trend's two-gap geometry.
- */
-export const KPI_TREND_GROUP_CLASSES = 'inline-flex items-center gap-0.5'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// SPARKLINE — the `data-role="sparkline"` mini line chart
-// ──────────────────────────────────────────────────────────────────────────────
-
-// Canvas: 28px tall, 6px above the trend, `S1` stroke at 1.5.
-//
-// The height moves from `h-8` (32) to `h-7` (28) and the top margin from
-// `mt-2` (8) to `mt-1.5` (6). Both are on the sparkline rather than on the
-// card's gap because the SVG's own `viewBox` is 28 units tall: matching the
-// rendered box to the viewBox is what keeps `preserveAspectRatio="none"` from
-// stretching the stroke vertically.
-const KPI_SPARKLINE_CONTAINER = 'mt-1.5 w-full'
-
-const KPI_SPARKLINE_SVG = 'h-7 w-full'
-
-/**
- * The `S1` series hue — the first slot of the chart palette.
- *
- * Spelled as a raw `var()` with a hex fallback rather than through
- * {@link withVarFallback}, for two reasons: `sv-chart-1` has no entry in
- * `TOKENS` (the chart palette is scheme-invariant and is declared only by the
- * theme layer), and this value is consumed as an SVG `stroke` ATTRIBUTE, not
- * as a Tailwind arbitrary value — so it needs neither the underscore escaping
- * nor the safelist round-trip. Mirrors `DEFAULT_BAR_FILL` in
- * `islands/timeline/timeline-view.tsx`, which resolves the same slot the same
- * way.
- *
- * This replaces `text-primary` + `stroke="currentColor"`. A sparkline is a
- * SERIES, and painting it with the brand primary made a chart of one series
- * disagree with every other chart on the page, where series 1 is `S1`.
- */
-export const KPI_SPARKLINE_STROKE = 'var(--sv-chart-1, #398ad6)'
-
-/** The canvas stroke weight for the sparkline polyline (was 2). */
+/** The sparkline's stroke weight. */
 export const KPI_SPARKLINE_STROKE_WIDTH = 1.5
 
 /**
- * Compute the default className for the sparkline wrapper
- * (`data-role="sparkline"`) or, with `part: 'svg'`, for the `<svg>` inside it.
- *
- * The wrapper owns the 6px offset from the trend above and full width; the
- * SVG owns the 28px height that matches its own viewBox. Splitting them is
- * what keeps the polyline unstretched — a wrapper-only height would let the
- * SVG size itself.
+ * The card footer holding a ratio's counts — the section cards' footer:
+ * a column of lines, in the muted foreground.
  */
-export const computeKpiSparklineClasses = ({
-  part = 'container',
-}: {
-  part?: 'container' | 'svg'
-} = {}): string => (part === 'svg' ? KPI_SPARKLINE_SVG : KPI_SPARKLINE_CONTAINER)
+export const KPI_FOOTER_CLASSES = `${CARD_PART_CLASSES.footer} flex-col items-start gap-1.5 text-sm text-muted-foreground tabular-nums`
+
+/** A skeleton — base-nova's `Skeleton`. */
+export const KPI_SKELETON_CLASSES = 'animate-pulse rounded-md bg-muted'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // VALUE SIZE — the KPI's `size`, per breakpoint
 // ──────────────────────────────────────────────────────────────────────────────
 
-/** `md` is the recipe's own size; `sm` suits a row of figures on a phone. */
+/** `md` is the section cards' wide-card size; `sm` suits a row of figures on a phone. */
 const KPI_VALUE_SIZES = {
   sm: {
-    mobile: 'text-2xl',
-    sm: 'sm:text-2xl',
-    md: 'md:text-2xl',
-    lg: 'lg:text-2xl',
-    xl: 'xl:text-2xl',
-    '2xl': '2xl:text-2xl',
+    mobile: 'text-xl',
+    sm: 'sm:text-xl',
+    md: 'md:text-xl',
+    lg: 'lg:text-xl',
+    xl: 'xl:text-xl',
+    '2xl': '2xl:text-xl',
   },
   md: {
+    mobile: 'text-3xl',
+    sm: 'sm:text-3xl',
+    md: 'md:text-3xl',
+    lg: 'lg:text-3xl',
+    xl: 'xl:text-3xl',
+    '2xl': '2xl:text-3xl',
+  },
+  lg: {
     mobile: 'text-4xl',
     sm: 'sm:text-4xl',
     md: 'md:text-4xl',
     lg: 'lg:text-4xl',
     xl: 'xl:text-4xl',
     '2xl': '2xl:text-4xl',
-  },
-  lg: {
-    mobile: 'text-5xl',
-    sm: 'sm:text-5xl',
-    md: 'md:text-5xl',
-    lg: 'lg:text-5xl',
-    xl: 'xl:text-5xl',
-    '2xl': '2xl:text-5xl',
   },
 } as const
 

@@ -60,7 +60,7 @@ const LOW_DATA_COOKIE_NAME = 'sovrium_low_data'
  * INVARIANT: every entry must be a live `ISLANDS` key. An entry that is not is
  * dead config that reads as coverage.
  */
-export const HEAVY_ISLANDS: readonly string[] = ['chart', 'calendar']
+export const HEAVY_ISLANDS: readonly string[] = ['chart', 'event-calendar']
 const OPT_OUT_PATH = '/__sovrium/eco/low-data-opt-out'
 
 /** Build the cookie value indexed by name from the raw request header. */

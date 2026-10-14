@@ -13,7 +13,7 @@
  *
  * Nothing on a matrix is dragged, typed into or re-fetched: it is a static
  * drawing of one read. So there is no `React.lazy` entry, no `ISLANDS`
- * registration, no `ISLAND_MOUNT_CEILINGS` baseline, no visx, and not one byte
+ * registration, no `ISLAND_MOUNT_CEILINGS` baseline, no charting library, and not one byte
  * added to the client bundle (eco R2). The grid AND its accessible twin are in
  * the FIRST response, so a reader with no scripting — and a crawler — get the
  * facts rather than a skeleton.
@@ -90,7 +90,7 @@ export const matrixComponent: ComponentRenderer = (config): ReactElement => {
       {view.kind === 'empty' ? (
         <p
           data-matrix-empty=""
-          className="text-foreground-subtle text-sm"
+          className="text-muted-foreground text-sm"
         >
           {component?.emptyMessage ?? DEFAULT_EMPTY_MESSAGE}
         </p>
@@ -104,7 +104,7 @@ export const matrixComponent: ComponentRenderer = (config): ReactElement => {
           {view.truncated ? (
             <p
               data-matrix-truncated=""
-              className="text-foreground-subtle mt-3 text-xs"
+              className="text-muted-foreground mt-3 text-xs"
             >
               This grid is larger than the renderer draws whole; some rows or columns are not shown.
             </p>

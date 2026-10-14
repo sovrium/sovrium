@@ -19,7 +19,7 @@
  * deleted — a warm tint in chrome, which A7 keeps monochrome. The achromatic
  * value is the one kept.
  *
- * The fallback only paints when `--sv-fg-muted` is absent (it is defined by the
+ * The fallback only paints when `--muted-foreground` is absent (it is defined by the
  * default theme layer), so this is a latent divergence rather than a live
  * defect — but it is one definition of one placeholder either way.
  *

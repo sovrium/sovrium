@@ -1,4 +1,4 @@
-# Environment Variables: Storage, AI, Email and Observability
+# Environment Variables: Storage, Email and Observability
 
 > Every service here is off, local or frugal by default. You opt _out_ of the default posture by setting a variable; you never have to opt in to get a working app.
 
@@ -22,39 +22,9 @@ The backend is operator-controlled, so the same config runs against a local disk
 | `STORAGE_MAX_TOTAL_SIZE`       | —                    | Total stored-bytes cap, in bytes                                                                                |
 | `STORAGE_TEMP_CLEANUP_AFTER`   | `86400000`           | Age in milliseconds at which automation temp files become sweepable; `0` disables sweeping                      |
 
-## AI
+## AI and speech
 
-AI is disabled until a provider is set, and an unrecognised value aborts the boot rather than failing silently later. Leaving it unset is not silent either when it matters: if the config actually uses AI, the startup banner warns that agents are inert and AI fields fall back to their baseline. An app with no AI surface starts without that warning.
-
-| Variable                  | Default          | Description                                                                                                                                                            |
-| ------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AI_PROVIDER`             | unset (disabled) | `anthropic`, `openai`, `mistral`, `google`, `ollama` or `openai-compatible`; `gemini` aliases `google`                                                                 |
-| `AI_API_KEY`              | —                | Provider API key; required for every provider except `ollama`                                                                                                          |
-| `AI_BASE_URL`             | `mistral` only   | Endpoint URL; required for `ollama` and `openai-compatible`, and today for `openai`, `anthropic` and `google`; optional for `mistral`, whose public API is the default |
-| `AI_MODEL`                | per provider     | Model identifier                                                                                                                                                       |
-| `AI_TEMPERATURE`          | provider default | Sampling temperature, 0 to 1 inclusive                                                                                                                                 |
-| `AI_MAX_TOKENS`           | provider default | Maximum output tokens                                                                                                                                                  |
-| `AI_EMBEDDING_MODEL`      | —                | Embedding model identifier                                                                                                                                             |
-| `AI_EMBEDDING_DIMENSIONS` | —                | Embedding vector dimensions                                                                                                                                            |
-| `AI_ANON_RATE_LIMIT`      | `10`             | Anonymous transcriptions and chat messages allowed per window, per client address, on an app without `auth`                                                            |
-| `AI_ANON_RATE_WINDOW`     | `60`             | Length of that window, in seconds                                                                                                                                      |
-
-Provider-specific aliases are read when the generic variable is absent: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `MISTRAL_API_KEY` and `GOOGLE_API_KEY` stand in for the generic key, and `OLLAMA_BASE_URL` for the generic base URL. **The generic name always wins when both are set**, which is worth knowing before debugging a key that appears to be ignored.
-
-## Speech-to-text
-
-A separate endpoint from the language model, never derived from `AI_BASE_URL`. Unset `STT_PROVIDER` keeps transcription off without stopping the app.
-
-| Variable             | Default          | Purpose                                                                      |
-| -------------------- | ---------------- | ---------------------------------------------------------------------------- |
-| `STT_PROVIDER`       | unset (disabled) | `openai-compatible`, `whisper-cpp`, `openai` or `mistral`                    |
-| `STT_BASE_URL`       | provider default | Speech server URL (`/audio/transcriptions`, or `/inference` for whisper.cpp) |
-| `STT_API_KEY`        | —                | Required for `openai` and `mistral`; startup refuses without it              |
-| `STT_MODEL`          | per provider     | Default speech model                                                         |
-| `STT_MODEL_FAST`     | `STT_MODEL`      | Model for the `fast` tier                                                    |
-| `STT_MODEL_ACCURATE` | `STT_MODEL`      | Model for the `accurate` tier                                                |
-| `STT_TIMEOUT_MS`     | `600000`         | Upper bound on one transcription request, in ms; at most 2147483647          |
-| `STT_MAX_FILE_BYTES` | `104857600`      | Largest recording sent, in bytes (chat dictation is capped at 25 MB)         |
+The AI provider, the chat's limits, conversation retention, document retrieval and speech-to-text have their own page: **Env Vars: AI**. The one AI variable kept here is the routing lever, `ECO_AI_PROVIDER_PRECEDENCE`, under **Ecoconception**.
 
 ## Email
 
@@ -97,7 +67,7 @@ Off by default. The operator mounts the route; the config decides what the tools
 | `MCP_CONFIRM_DESTRUCTIVE`   | `true`            | Mark delete tools destructive so clients confirm first                                                                               |
 | `MCP_CONFIG_WRITE`          | `false`           | `sovrium mcp` only: offer the config write tools, when the project is named explicitly. Inert on the HTTP route, which warns at boot |
 
-The reverse direction — your own agents calling tools on someone else's server — is declared with a different family (`MCP_CLIENT_SERVERS` and the positional `MCP_AUTH_TYPE_{N}` / `MCP_AUTH_TOKEN_{N}` / `MCP_AUTH_HEADER_{N}`), none of which is read here. **Client Mode** covers them.
+The reverse direction — your own agents calling tools on someone else's server — is declared with a different family (`MCP_CLIENT_SERVERS`, `MCP_CLIENT_TIMEOUT`, and the per-server `MCP_AUTH_TYPE_{NAME}` / `MCP_AUTH_TOKEN_{NAME}` / `MCP_AUTH_HEADER_{NAME}`, keyed by the server's name), none of which is read here. **Client Mode** covers them.
 
 ## Ecoconception
 

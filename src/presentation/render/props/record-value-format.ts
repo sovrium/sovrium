@@ -12,6 +12,7 @@ import {
   type CellFormatOptions,
 } from '@/domain/models/app/tables/cell-value-format'
 import { fieldLiteralOf } from '@/domain/models/app/tables/checkbox-literal-service'
+import { defaultTextFormatOfFieldType } from '@/domain/models/app/tables/field-type-presentation-service'
 import {
   formatRecordText,
   type RecordTextField,
@@ -27,30 +28,14 @@ import type { ColumnFormat } from '@/domain/models/app/pages/components/componen
 import type { Tables } from '@/domain/models/app/tables'
 
 /**
- * How a record value READS on a page — ONE table, shared by a `record-field`
- * given no `format`, a `$record.<field>` token in page text, and the templates
- * an island fills in the browser, so none of them can print one value two ways.
- *
- * Only these types are formatted, plus a rollup that is money
- * ({@link defaultFormatOf}); every other prints as stored. A `number`,
- * `integer` or `decimal` in particular stays as stored: a year, a reference or a
- * quantity printed with grouping (`2,026`) is wrong. The formatting itself is
+ * How a record value READS on a page: a `record-field` given no `format`, a
+ * `$record.<field>` token in page text, and the templates an island fills in the
+ * browser all read their field type's default from ONE table
+ * (`field-type-presentation-service.ts`), the same one the data grid's cells
+ * read, so none of them can print one value two ways. The formatting itself is
  * the domain's (`record-text-service.ts`); this module resolves, per field, what
- * only the server knows — the zone, the currency, an option's translated label.
+ * only the server knows: the zone, the currency, an option's translated label.
  */
-const FORMAT_BY_FIELD_TYPE: Readonly<Record<string, RecordTextField['format']>> = {
-  currency: 'currency',
-  date: 'short-date',
-  datetime: 'datetime',
-  'created-at': 'datetime',
-  'updated-at': 'datetime',
-  percentage: 'percent',
-  checkbox: 'yes-no',
-  'single-select': 'option',
-  status: 'option',
-  'multi-select': 'options',
-  duration: 'duration',
-}
 
 /**
  * The system timestamps, by the name the records API gives them: a record
@@ -174,7 +159,7 @@ const defaultFormatOf = (
   fieldName: string,
   context: Pick<FieldTextContext, 'tables'>
 ): RecordTextField['format'] | undefined => {
-  const byType = FORMAT_BY_FIELD_TYPE[fieldTypeOf(field, fieldName) ?? '']
+  const byType = defaultTextFormatOfFieldType(fieldTypeOf(field, fieldName))
   if (byType !== undefined || field?.type !== 'rollup' || table === undefined) return byType
   const money = resolveValueCurrency(table, fieldName, context.tables ?? [])
   return money?.currency === undefined ? undefined : 'currency'

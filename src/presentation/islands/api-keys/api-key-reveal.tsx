@@ -29,9 +29,15 @@
 import { useCallback, useState } from 'react'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
-  computeFormFieldLabelClasses,
-  computeFormHelpTextClasses,
-} from '@/presentation/design/form-layout-classes'
+  computeFieldDescriptionClasses,
+  computeFieldLabelClasses,
+} from '@/presentation/design/field-default-classes'
+import {
+  computeInputGroupActionClasses,
+  computeInputGroupAddonClasses,
+  computeInputGroupClasses,
+  computeInputGroupFieldClasses,
+} from '@/presentation/design/input-group-default-classes'
 import type { ReactElement } from 'react'
 
 interface ApiKeyRevealProps {
@@ -42,7 +48,12 @@ interface ApiKeyRevealProps {
 }
 
 const PANEL_CLASS =
-  'border-border bg-background-raised flex flex-col gap-3 rounded-md border p-4 mt-4'
+  'bg-card text-card-foreground ring-foreground/10 flex flex-col gap-3 rounded-xl p-4 text-sm ring-1'
+
+/** The value, set in the group's field: one mono line that scrolls rather than wraps. */
+const VALUE_CLASS = `${computeInputGroupFieldClasses()} flex items-center overflow-x-auto font-mono whitespace-nowrap select-all`
+
+const COPY_ADDON_CLASS = computeInputGroupAddonClasses({ align: 'inline-end' })
 
 /**
  * Copy to the clipboard, reporting the outcome inline.
@@ -79,26 +90,49 @@ export function ApiKeyReveal({ value, onDismiss }: ApiKeyRevealProps): ReactElem
       aria-label="Your new API key"
       className={PANEL_CLASS}
     >
-      <p className={computeFormFieldLabelClasses()}>
+      <p className={computeFieldLabelClasses()}>
         Copy this key now — it is shown once and cannot be recovered.
       </p>
-      <code
-        data-testid="api-key-reveal"
-        className="border-border bg-background-subtle text-foreground overflow-x-auto rounded-md border p-3 font-mono text-sm break-all"
+      <div
+        data-slot="input-group"
+        role="group"
+        aria-label="API key value"
+        className={computeInputGroupClasses()}
       >
-        {value}
-      </code>
-      {copyState !== '' && <p className={computeFormHelpTextClasses()}>{copyState}</p>}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={copy}
-          className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
+        <code
+          data-testid="api-key-reveal"
+          data-slot="input-group-control"
+          className={VALUE_CLASS}
         >
-          Copy
-        </button>
+          {value}
+        </code>
+        <div
+          data-slot="input-group-addon"
+          data-align="inline-end"
+          className={COPY_ADDON_CLASS}
+        >
+          <button
+            type="button"
+            data-slot="input-group-button"
+            onClick={copy}
+            className={computeInputGroupActionClasses()}
+          >
+            Copy
+          </button>
+        </div>
+      </div>
+      {copyState !== '' && (
+        <p
+          role="status"
+          className={computeFieldDescriptionClasses()}
+        >
+          {copyState}
+        </p>
+      )}
+      <div className="flex justify-end">
         <button
           type="button"
+          data-slot="button"
           onClick={onDismiss}
           className={computeButtonDefaultClasses({ size: 'sm' })}
         >

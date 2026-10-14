@@ -46,7 +46,7 @@ Each is then one word at the binding site, and the filter lives in one place rat
 
 ## Which components accept one
 
-Any data-bound component: `table`, `list`, `gallery`, `kanban`, `calendar`, `chart`, `kpi` and `timeline`. **Data Components** documents what each renders.
+Any data-bound component: `table`, `list`, `gallery`, `kanban`, `event-calendar`, `chart`, `kpi` and `timeline`. **Data Components** documents what each renders.
 
 ## An arbitrary row template
 

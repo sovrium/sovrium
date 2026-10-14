@@ -30,12 +30,23 @@ export const entry = defineLibraryEntry({
     DATA_NOTE,
     "The form is installed into `forms:` under the block's name and placed in the panel with `formRef`, so it adds the record through that form. Its submissions do not reach the Submissions inbox; set `submitTo.storeSubmission: true` on it to keep them there.",
     'The panel is named after the installed block, so two copies on one page open their own panels. Escape or the close control dismisses it.',
+    "The panel's title and description head it, so the form's own title is kept for screen readers only.",
     THEME_NOTE,
   ],
   params: [
     stringParam('buttonLabel', 'The text of the button that opens the panel.', '[New reminder]'),
     stringParam('title', 'The panel title.', '[New reminder]'),
-    stringParam('formTitle', 'The heading of the form inside the panel.', '[Reminder details]'),
+    stringParam(
+      'description',
+      'One sentence under the panel title.',
+      'Sent to the client when an invoice is this many days late.'
+    ),
+    stringParam(
+      'formTitle',
+      'The form title, read by screen readers; the panel title is the one shown.',
+      '[Reminder details]'
+    ),
+    stringParam('submitLabel', 'The text of the button that saves the record.', 'Create reminder'),
     stringParam('table', 'The table the form creates a record in.', 'reminders'),
     stringParam('nameField', 'A text field.', 'name'),
     stringParam('daysField', 'A whole-number field.', 'days_late'),
@@ -64,6 +75,7 @@ export const entry = defineLibraryEntry({
       {
         name,
         title: p('formTitle'),
+        display: { submitLabel: p('submitLabel') },
         submitTo: { table: p('table') },
         fields: [
           { kind: 'table-field', column: p('nameField'), label: '[Name]' },
@@ -89,11 +101,18 @@ export const entry = defineLibraryEntry({
           },
         },
         {
-          type: 'drawer',
-          props: { id: drawerId, title: p('title') },
+          type: 'sheet',
+          props: { id: drawerId, title: p('title'), description: p('description') },
           drawerSide: 'right',
           drawerSize: 'md',
-          children: [{ type: 'form', formRef: name, props: { headingLevel: 'h3' } }],
+          children: [
+            {
+              // A column, so the form stretches to the panel's width.
+              type: 'container',
+              props: { className: 'flex flex-col' },
+              children: [{ type: 'form', formRef: name, classes: { parts: { title: 'sr-only' } } }],
+            },
+          ],
         },
       ])
     )

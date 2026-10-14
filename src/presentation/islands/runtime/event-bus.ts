@@ -52,6 +52,11 @@ export interface CrudSuccessDetail {
   readonly table: string
   readonly operation: 'create' | 'update' | 'delete' | 'automation'
   readonly recordId?: string
+  /**
+   * `false` when the form asked to stay open (`onSuccess.close: false`): a
+   * drawer that closes itself on a write keeps open for this one.
+   */
+  readonly close?: boolean
 }
 
 /**
@@ -70,7 +75,7 @@ export interface NavigatedDetail {
 
 /**
  * Payload shape for `sovrium:open-drawer`. Fired by `table` body when a
- * row click resolves to an `action: 'openDrawer'` action (PG-04 quick-edit
+ * row click resolves to an `action: 'openSheet'` action (PG-04 quick-edit
  * pattern). The drawer island whose `id` matches `detail.id` opens and
  * populates its form fields from `detail.record`.
  */

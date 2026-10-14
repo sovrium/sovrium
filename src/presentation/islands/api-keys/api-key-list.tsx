@@ -6,7 +6,7 @@
  */
 
 /**
- * The operator's own keys, as a table, with a revoke gate.
+ * The operator's own keys, as shadcn/ui's `Table`, with a revoke gate.
  *
  * WHY THIS IS NOT A CONFIG `table` WITH AN `actions` COLUMN — the
  * declarative path was the first design and it does not work here, for a reason
@@ -25,9 +25,19 @@
 
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
-  computeFormFieldLabelClasses,
-  computeFormHelpTextClasses,
-} from '@/presentation/design/form-layout-classes'
+  computeEmptyDescriptionClasses,
+  computeEmptyHeaderClasses,
+  computeEmptyStateContainerClasses,
+  computeEmptyStateTitleClasses,
+} from '@/presentation/design/empty-default-classes'
+import { pendingControlProps } from '@/presentation/design/pending-state'
+import {
+  computeStaticTableBodyClasses,
+  computeStaticTableCellClasses,
+  computeStaticTableContainerClasses,
+  computeStaticTableRowClasses,
+  computeStaticTableShellClasses,
+} from '@/presentation/design/static-table-default-classes'
 import { formatCreatedAt, type ApiKeySummary } from './api-key-client'
 import type { ReactElement } from 'react'
 
@@ -35,28 +45,56 @@ interface ApiKeyListProps {
   readonly keys: readonly ApiKeySummary[]
   /** Arm the revoke gate for one key (never revokes directly). */
   readonly onRequestRevoke: (key: ApiKeySummary) => void
+  /** The key whose revoke is in flight: its Revoke is busy and asks nothing again. */
+  readonly revokingId?: string | undefined
 }
 
-const CELL = 'text-foreground px-3 py-2 text-md'
-const HEAD = 'text-foreground-subtle px-3 py-2 text-left text-sm font-medium uppercase'
+const HEAD = computeStaticTableCellClasses({ kind: 'header' })
+const CELL = computeStaticTableCellClasses({ kind: 'data' })
+const ROW = computeStaticTableRowClasses()
 
 /** One row: what the key is, how to recognise it, and how to retire it. */
 function ApiKeyRow({
   apiKey,
   onRequestRevoke,
+  revoking,
 }: {
   readonly apiKey: ApiKeySummary
   readonly onRequestRevoke: (key: ApiKeySummary) => void
+  readonly revoking: boolean
 }): ReactElement {
   return (
-    <tr className="border-border border-t">
-      <td className={CELL}>{apiKey.name ?? 'Unnamed key'}</td>
-      <td className={`${CELL} font-mono`}>{apiKey.start ? `${apiKey.start}…` : '—'}</td>
-      <td className={CELL}>{formatCreatedAt(apiKey.createdAt)}</td>
-      <td className={CELL}>
+    <tr
+      data-slot="table-row"
+      className={ROW}
+    >
+      <td
+        data-slot="table-cell"
+        className={`${CELL} font-medium`}
+      >
+        {apiKey.name ?? 'Unnamed key'}
+      </td>
+      <td
+        data-slot="table-cell"
+        className={`${CELL} text-muted-foreground font-mono`}
+      >
+        {apiKey.start ? `${apiKey.start}…` : '—'}
+      </td>
+      <td
+        data-slot="table-cell"
+        className={`${CELL} text-muted-foreground`}
+      >
+        {formatCreatedAt(apiKey.createdAt)}
+      </td>
+      <td
+        data-slot="table-cell"
+        className={`${CELL} text-right`}
+      >
         <button
           type="button"
-          onClick={() => onRequestRevoke(apiKey)}
+          data-slot="button"
+          onClick={() => (revoking ? undefined : onRequestRevoke(apiKey))}
+          {...pendingControlProps(revoking)}
           className={computeButtonDefaultClasses({ variant: 'outline', size: 'sm' })}
         >
           Revoke
@@ -66,34 +104,87 @@ function ApiKeyRow({
   )
 }
 
-/** The table, or an honest empty state — never a spinner that never resolves. */
-export function ApiKeyList({ keys, onRequestRevoke }: ApiKeyListProps): ReactElement {
-  if (keys.length === 0) {
-    return <p className={computeFormHelpTextClasses()}>You have no API keys yet.</p>
-  }
+/** The empty list, as shadcn/ui's `Empty`: what is missing, and what to do about it. */
+function NoKeys(): ReactElement {
   return (
-    <table
-      aria-label="Your API keys"
-      className="border-border w-full border-collapse rounded-md border"
+    <div
+      data-slot="empty"
+      className={`${computeEmptyStateContainerClasses()} border`}
     >
-      <thead className="bg-background-subtle">
-        <tr>
-          <th className={HEAD}>Name</th>
-          <th className={HEAD}>Prefix</th>
-          <th className={HEAD}>Created</th>
-          <th className={HEAD}>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {keys.map((apiKey) => (
-          <ApiKeyRow
-            key={apiKey.id}
-            apiKey={apiKey}
-            onRequestRevoke={onRequestRevoke}
-          />
-        ))}
-      </tbody>
-    </table>
+      <div
+        data-slot="empty-header"
+        className={computeEmptyHeaderClasses()}
+      >
+        <div
+          data-slot="empty-title"
+          className={computeEmptyStateTitleClasses()}
+        >
+          You have no API keys yet.
+        </div>
+        <div
+          data-slot="empty-description"
+          className={computeEmptyDescriptionClasses()}
+        >
+          Create one to let a script or a scheduled job call the API as you.
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** A column heading. */
+function Head({ children }: { readonly children: ReactElement | string }): ReactElement {
+  return (
+    <th
+      data-slot="table-head"
+      className={HEAD}
+    >
+      {children}
+    </th>
+  )
+}
+
+/** The table, or an honest empty state — never a spinner that never resolves. */
+export function ApiKeyList({ keys, onRequestRevoke, revokingId }: ApiKeyListProps): ReactElement {
+  if (keys.length === 0) return <NoKeys />
+  return (
+    <div
+      data-slot="table-container"
+      className={`${computeStaticTableContainerClasses()} rounded-lg border`}
+    >
+      <table
+        data-slot="table"
+        aria-label="Your API keys"
+        className={computeStaticTableShellClasses()}
+      >
+        <thead data-slot="table-header">
+          <tr
+            data-slot="table-row"
+            className={ROW}
+          >
+            <Head>Name</Head>
+            <Head>Prefix</Head>
+            <Head>Created</Head>
+            <Head>
+              <span className="sr-only">Actions</span>
+            </Head>
+          </tr>
+        </thead>
+        <tbody
+          data-slot="table-body"
+          className={computeStaticTableBodyClasses()}
+        >
+          {keys.map((apiKey) => (
+            <ApiKeyRow
+              key={apiKey.id}
+              apiKey={apiKey}
+              onRequestRevoke={onRequestRevoke}
+              revoking={revokingId === apiKey.id}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -119,15 +210,16 @@ export function RevokeGate({
       role="alertdialog"
       aria-modal="false"
       aria-label="Revoke API key"
-      className="border-border bg-background-raised mt-4 flex flex-col gap-3.5 rounded-md border p-4"
+      className="bg-card text-card-foreground ring-foreground/10 flex flex-col gap-3 rounded-xl p-4 text-sm ring-1"
     >
-      <p className={computeFormFieldLabelClasses()}>
+      <p>
         Revoke “{apiKey.name ?? 'Unnamed key'}”? Anything still presenting it stops working
         immediately, and it cannot be restored.
       </p>
       <div className="flex gap-2">
         <button
           type="button"
+          data-slot="button"
           onClick={onConfirm}
           className={computeButtonDefaultClasses({ variant: 'destructive', size: 'sm' })}
         >
@@ -135,8 +227,9 @@ export function RevokeGate({
         </button>
         <button
           type="button"
+          data-slot="button"
           onClick={onCancel}
-          className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
+          className={computeButtonDefaultClasses({ variant: 'outline', size: 'sm' })}
         >
           Cancel
         </button>

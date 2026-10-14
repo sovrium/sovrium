@@ -11,9 +11,12 @@
  * Wires the `file-upload` island's picked file(s) to its configured
  * `uploadAction`: a credentialed `multipart/form-data` POST (form part name
  * `file`, the same contract the crud-form file-field + the bucket upload
- * endpoint speak). On the 2xx response it runs the SAME shipped
- * `applyFetchSuccessEffects` mechanism a `fetch` action's `onSuccess` uses
- * (persistent `role="status"` badge + sibling `refetch`), so a config page can
+ * endpoint speak). On the 2xx response it answers as a `fetch` button does, in
+ * the one order (`action-outcome.ts`): the `onSuccess` toast, then the SAME
+ * `applyFetchSuccessEffects` a `fetch` action's `onSuccess` uses (persistent
+ * `role="status"` badge + sibling `refetch`), `close`, then `navigate` — the
+ * answer's JSON body filling `$response.<field>` in the status message and the
+ * navigate (a body that is not JSON fills them empty). So a config page can
  * compose `file-upload` + a sibling file `table` into a self-refreshing
  * browse-and-upload surface. On a non-2xx response (a rejected MIME type, an
  * oversized file, a storage failure) it dispatches the configured `onError`
@@ -23,7 +26,12 @@
  * (action-executor) and `renderToast` (the shipped island toast) are reused.
  */
 
-import { applyFetchSuccessEffects } from '../runtime/fetch-action-effects'
+import { runSuccessOutcome } from '../runtime/action-outcome'
+import {
+  applyFetchSuccessEffects,
+  fetchSuccessNavigate,
+  renderActionToast,
+} from '../runtime/fetch-action-effects'
 import { renderToast } from '../runtime/toast'
 import type {
   FetchSuccessResponse,
@@ -37,6 +45,8 @@ export interface UploadSubmitConfig {
   readonly onSuccess?: FetchSuccessResponse
   /** Failure toast dispatched on a non-2xx response or a network error. */
   readonly onError?: FetchToastResponse
+  /** The control the files were picked from: the overlay it sits in is the one `close` closes. */
+  readonly origin?: Element
 }
 
 /** Render the configured failure toast (a no-op when none is configured). */
@@ -61,7 +71,14 @@ export async function submitUpload(
   try {
     const res = await fetch(config.url, { method: 'POST', body, credentials: 'include' })
     if (res.ok) {
-      applyFetchSuccessEffects(config.onSuccess)
+      const answer: unknown = await res.json().catch(() => undefined)
+      const { onSuccess } = config
+      runSuccessOutcome(config.origin, {
+        toast: () => renderActionToast(onSuccess, { renderToast }),
+        effects: () => applyFetchSuccessEffects(onSuccess, answer),
+        close: onSuccess?.close,
+        navigate: fetchSuccessNavigate(onSuccess, answer),
+      })
       return true
     }
     // Without a configured onError this branch is otherwise invisible (no

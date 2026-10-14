@@ -11,10 +11,11 @@ import {
   groupFieldsIntoSections,
 } from '@/domain/models/app/pages/components/component-types/data/form/sections-service'
 import {
-  computeFormGroupClasses,
-  computeFormGroupLabelClasses,
-  computeFormHelpTextClasses,
-} from '../../../design/form-layout-classes'
+  computeFieldDescriptionClasses,
+  computeFieldGroupClasses,
+  computeFieldLegendClasses,
+  computeFieldSetClasses,
+} from '../../../design/field-default-classes'
 import type { ResolvedFieldDef } from './crud-form-types'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -51,23 +52,36 @@ export function renderSectionedFields(
 ): ReactElement {
   const grouped = groupFieldsIntoSections(fields, sections)
   return (
-    <>
+    <div
+      data-slot="field-group"
+      className={computeFieldGroupClasses()}
+    >
       {grouped.sections.map((section) => (
         <fieldset
           key={section.title}
-          className={computeFormGroupClasses()}
+          data-slot="field-set"
+          className={computeFieldSetClasses()}
         >
           {/* The title is the group's name AND a heading, so a reader can jump to it. */}
-          <legend>
-            <h2 className={computeFormGroupLabelClasses()}>{section.title}</h2>
+          <legend
+            data-slot="field-legend"
+            data-variant="legend"
+            className={computeFieldLegendClasses()}
+          >
+            <h2>{section.title}</h2>
           </legend>
           {section.description !== undefined && (
-            <p className={computeFormHelpTextClasses()}>{section.description}</p>
+            <p
+              data-slot="field-description"
+              className={computeFieldDescriptionClasses()}
+            >
+              {section.description}
+            </p>
           )}
           {section.fields.map(renderField)}
         </fieldset>
       ))}
       {grouped.rest.map(renderField)}
-    </>
+    </div>
   )
 }

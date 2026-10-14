@@ -26,7 +26,7 @@ const jumpLink = (label: string, href: string): Readonly<Record<string, unknown>
   type: 'link',
   props: {
     href,
-    className: 'inline-flex items-center gap-2 text-md text-foreground-muted hover:text-foreground',
+    className: 'inline-flex items-center gap-2 text-md text-muted-foreground hover:text-foreground',
   },
   children: [
     { type: 'text', element: 'span', content: label },

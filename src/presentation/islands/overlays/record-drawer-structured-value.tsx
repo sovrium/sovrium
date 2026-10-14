@@ -43,7 +43,7 @@ function PairLine({
 }): ReactElement {
   return (
     <span className="text-foreground text-sm">
-      <span className="text-foreground-muted">{name}</span>
+      <span className="text-muted-foreground">{name}</span>
       {`: ${formatScalar(value)}`}
     </span>
   )

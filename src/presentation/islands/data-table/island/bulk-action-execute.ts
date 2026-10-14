@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { renderToast } from './toast'
+import { renderToast } from '../../runtime/toast'
 import type { DataTableInstance } from './table-features'
 import type { DataTableBulkAction } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { QueryClient } from '@tanstack/react-query'
@@ -87,7 +87,7 @@ export async function executeBulkAction(
   action: DataTableBulkAction,
   { queryClient, queryKey }: BulkActionContext
 ): Promise<void> {
-  // OpenDrawerAction uses `action: openDrawer` instead of `type`; only the
+  // OpenDrawerAction uses `action: openSheet` instead of `type`; only the
   // `crud` variant supports the bulk-records workflow, so any non-typed or
   // non-crud action is a no-op.
   if (!('type' in action.action) || action.action.type !== 'crud') return

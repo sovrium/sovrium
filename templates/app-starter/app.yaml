@@ -41,7 +41,6 @@ components:
   - $ref: ./library/block/record-edit-sections.yaml
   - $ref: ./library/block/record-comments.yaml
   - $ref: ./library/block/record-history.yaml
-  - $ref: ./library/block/drawer-record.yaml
   - $ref: ./library/block/settings-account.yaml
   - $ref: ./library/block/settings-security.yaml
   - $ref: ./library/block/settings-api-keys.yaml
@@ -86,9 +85,9 @@ components:
   - $ref: ./library/block/modal-form.yaml
   - $ref: ./library/block/record-form-two-column.yaml
   - $ref: ./library/block/settings-form.yaml
-  - $ref: ./library/block/table-with-actions.yaml
-  - $ref: ./library/block/table-with-filters.yaml
   - $ref: ./library/block/timeline-activity.yaml
+  - $ref: ./library/block/data-table.yaml
+  - $ref: ./library/block/record-sheet.yaml
 
 forms:
   - $ref: ./library/form/dashboard-worklist-new.yaml

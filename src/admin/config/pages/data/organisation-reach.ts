@@ -95,6 +95,7 @@
 // legend is a second place for the vocabulary to drift.
 
 import { emptyState } from '../../components/data-page'
+import { dataTable } from '../../components/data-table-blocks'
 import { ORGANISATION_GRAPH_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -390,7 +391,7 @@ const positionPanel = (): PageComponent =>
         type: 'container',
         element: 'div',
         props: {
-          className: 'border-border bg-background-raised overflow-hidden rounded-lg border',
+          className: 'border-border bg-card overflow-hidden rounded-lg border',
           'data-testid': 'organisation-reach-position',
         },
         children: [
@@ -434,8 +435,7 @@ const positionPanel = (): PageComponent =>
  * so rather than leaving the reader to decide which it is.
  */
 const chainsTable = (): PageComponent =>
-  ({
-    type: 'table',
+  dataTable({
     props: {
       id: 'organisation-reach-chains',
       'aria-label': 'Every relationship in the access graph',

@@ -52,7 +52,7 @@ const band = (extra: Readonly<Record<string, unknown>>): PageComponent =>
     marqueeGap: '1rem',
     pauseOnHover: true,
     props: {
-      className: 'border-border bg-background-subtle w-full rounded-md border py-3',
+      className: 'border-border bg-muted w-full rounded-md border py-3',
     },
     children: CARGO.map(chip),
     ...extra,
@@ -82,8 +82,7 @@ const marquee: TypePageBody = {
               marqueeGap: '0.75rem',
               pauseOnHover: true,
               props: {
-                className:
-                  'border-border bg-background-subtle flex h-40 flex-col rounded-md border px-3 py-2',
+                className: 'border-border bg-muted flex h-40 flex-col rounded-md border px-3 py-2',
               },
               children: CARGO.slice(0, 5).map(chip),
             } as PageComponent,

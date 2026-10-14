@@ -42,6 +42,7 @@
 // now works on every page of the section rather than on the two a builder still
 // served. It writes nothing to storage: a link is not a preference.
 
+import { ledgerTable } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
 import {
   DESIGN_COVERAGE_ENDPOINT,
@@ -206,7 +207,7 @@ const contrastBadge = (input: {
     element: 'div',
     props: {
       className:
-        'bg-background-subtle text-foreground-subtle mt-0.5 self-start rounded px-1 font-mono text-[10px]',
+        'bg-muted text-foreground-subtle mt-0.5 self-start rounded px-1 font-mono text-[10px]',
       'data-design-contrast': input.token,
       'data-design-contrast-level': input.level,
       'data-design-contrast-against': input.against,
@@ -319,7 +320,7 @@ const swatch = (): PageComponent =>
       {
         type: 'container',
         element: 'div',
-        props: { className: 'bg-background-raised flex flex-col rounded px-2 py-1' },
+        props: { className: 'bg-card flex flex-col rounded px-2 py-1' },
         children: [
           mono('$record.leaf', 'text-foreground font-mono text-sm'),
           schemeBlock({
@@ -389,7 +390,7 @@ const darkContrastNote = (): PageComponent =>
 /**
  * One chip of the data series, painted from the variable the charts read.
  *
- * Drawn from `var(--sv-chart-N)` rather than from the token endpoint, because
+ * Drawn from `var(--chart-N)` rather than from the token endpoint, because
  * the series is not in the token document: it is emitted into the stylesheet and
  * has no DTCG form. Painting it here is the only way a reader learns what a
  * five-series chart will look like before drawing one — and the value on screen
@@ -406,7 +407,7 @@ const seriesChip = (index: number): PageComponent =>
         element: 'div',
         props: {
           className: 'border-border h-12 w-12 rounded-md border',
-          style: { backgroundColor: `var(--sv-chart-${index})` },
+          style: { backgroundColor: `var(--chart-${index})` },
           'data-design-series-slot': String(index),
         },
         children: [],
@@ -560,7 +561,7 @@ const densityBlock = (): readonly PageComponent[] => [
                 element: 'div',
                 props: {
                   className:
-                    'border-border bg-background-raised text-foreground-subtle flex items-center rounded-md border px-3 text-md',
+                    'border-border bg-card text-foreground-subtle flex items-center rounded-md border px-3 text-md',
                   style: { height: 'var(--sv-density-control-h)' },
                   'data-design-density-slot': 'control-h',
                 },
@@ -817,7 +818,7 @@ const typeScaleBlock = (): readonly PageComponent[] => [
                 props: {
                   href: TYPE_SCALE_DOC_HREF,
                   className:
-                    'text-foreground hover:text-foreground-muted self-start text-sm font-medium',
+                    'text-foreground hover:text-muted-foreground self-start text-sm font-medium',
                 },
                 content: 'Declare design.typeScale.steps to publish your own →',
               },
@@ -912,27 +913,26 @@ const radiusBlock = (): readonly PageComponent[] => [
   } as PageComponent,
 ]
 
-/** Breakpoints: the one family an author cannot learn from their own config. */
+/**
+ * Breakpoints: the one family an author cannot learn from their own config, and
+ * the one drawn as a table (the installed `data-table` copy): a threshold has no
+ * shape to cast. The wrapper keeps the region's landmark.
+ */
 const breakpointsBlock = (): readonly PageComponent[] => [
   {
     type: 'container',
     element: 'div',
     props: { className: 'flex flex-col', 'data-design-breakpoint-list': 'true' },
-    dataSource: tokenRows('breakpoint'),
     children: [
-      {
-        type: 'container',
-        element: 'div',
-        props: {
-          className:
-            'border-border flex items-baseline justify-between gap-4 border-b py-1.5 last:border-b-0',
-          'data-testid': 'design-system-breakpoint-$record.leaf',
-        },
-        children: [
-          mono('$record.leaf', 'text-foreground font-mono text-md'),
-          mono('$record.value', 'text-foreground-subtle font-mono text-md'),
+      ledgerTable({
+        props: { 'aria-label': 'Breakpoints' },
+        dataSource: tokenRows('breakpoint'),
+        columns: [
+          { field: 'leaf', label: 'Breakpoint' },
+          { field: 'value', label: 'Switches at' },
         ],
-      } as PageComponent,
+        emptyMessage: 'No breakpoint published.',
+      }),
     ],
   } as PageComponent,
 ]
@@ -943,7 +943,7 @@ const shadowBlock = (): readonly PageComponent[] => [
     type: 'container',
     element: 'div',
     props: {
-      className: 'bg-background-subtle border-border flex flex-wrap gap-6 rounded-lg border p-5',
+      className: 'bg-muted border-border flex flex-wrap gap-6 rounded-lg border p-5',
       'data-design-elevation-stack': 'true',
     },
     dataSource: tokenRows('shadow'),
@@ -957,7 +957,7 @@ const shadowBlock = (): readonly PageComponent[] => [
             type: 'container',
             element: 'div',
             props: {
-              className: 'bg-background-raised border-border h-16 w-32 rounded-md border',
+              className: 'bg-card border-border h-16 w-32 rounded-md border',
               'data-testid': 'design-system-shadow-$record.leaf',
               style: { boxShadow: '$record.value' },
             },
@@ -1070,8 +1070,7 @@ const surfacesBlock = (): readonly PageComponent[] => [
           type: 'container',
           element: 'article',
           props: {
-            className:
-              'border-border bg-background-raised flex flex-col gap-2 rounded-lg border p-4',
+            className: 'border-border bg-card flex flex-col gap-2 rounded-lg border p-4',
           },
           children: [
             {
@@ -1088,8 +1087,7 @@ const surfacesBlock = (): readonly PageComponent[] => [
           type: 'container',
           element: 'div',
           props: {
-            className:
-              'border-border bg-background-subtle flex flex-col gap-2 rounded-lg border p-4',
+            className: 'border-border bg-muted flex flex-col gap-2 rounded-lg border p-4',
           },
           children: [
             {
@@ -1136,7 +1134,7 @@ const emphasisBlock = (): readonly PageComponent[] => [
       ),
       emphasisRow(
         'Muted',
-        'text-foreground-muted text-md',
+        'text-muted-foreground text-md',
         'Present, readable, and clearly not the thing to click.'
       ),
       emphasisRow(

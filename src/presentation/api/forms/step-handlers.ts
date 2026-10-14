@@ -178,7 +178,13 @@ export async function handleGetStepFragment(
       })
     )
   )
-  const html = renderer.renderStepFragment(app, form, stepId, { draftValues: draft, optionSets })
+  // The step speaks the language its page was served in (the runtime forwards it).
+  const activeLang = c.req.query('lang')
+  const html = renderer.renderStepFragment(app, form, stepId, {
+    draftValues: draft,
+    optionSets,
+    ...(activeLang !== undefined && activeLang !== '' ? { activeLang } : {}),
+  })
   return c.html(html)
 }
 

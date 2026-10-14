@@ -7,6 +7,7 @@
 
 import { type ReactElement } from 'react'
 import {
+  resolveInterpreterString,
   resolveInterpreterStringOverrides,
   resolveTranslationPattern,
 } from '@/domain/models/app/languages/translation-resolver'
@@ -14,7 +15,9 @@ import {
   authFieldErrorId,
   authFormStringPrefixes,
   authPendingLabel,
+  authPendingLabelKey,
   authSubmitLabel,
+  authSubmitLabelKey,
   withAuthFieldHints,
   type AuthFormField,
 } from '@/presentation/design/auth-form-types'
@@ -50,6 +53,20 @@ export function localize(text: string, lang?: string, languages?: Languages): st
 }
 
 /**
+ * An engine word by its catalogue key, in the page language (renamed under
+ * `sovrium.<key>`); `english` when there is no key.
+ */
+function engineWord(
+  key: string | undefined,
+  english: string,
+  lang?: string,
+  languages?: Languages
+): string {
+  if (key === undefined) return english
+  return resolveInterpreterString(key, lang ?? languages?.default, languages)
+}
+
+/**
  * Apply action-level `fields[]` label/placeholder overrides onto the resolved
  * field set, then localize every label + placeholder (and the override values,
  * which may themselves be `$t:key` references) through the page language.
@@ -66,9 +83,13 @@ function applyFieldOverrides(
 ): readonly AuthFormField[] {
   const { lang, languages } = context
   const overrideByName = new Map((overrides ?? []).map((o) => [o.name, o] as const))
-  return fields.map((field) => {
+  return fields.map(({ labelKey, ...field }) => {
     const override = overrideByName.get(field.name)
-    const label = localize(override?.label ?? field.label, lang, languages)
+    // An author's label is theirs; a built-in one is an engine word.
+    const label =
+      override?.label === undefined
+        ? engineWord(labelKey, localize(field.label, lang, languages), lang, languages)
+        : localize(override.label, lang, languages)
     const rawPlaceholder = override?.placeholder ?? field.placeholder
     const placeholder =
       rawPlaceholder !== undefined ? localize(rawPlaceholder, lang, languages) : undefined
@@ -94,10 +115,10 @@ function resolveAuthLabels(
   return {
     submitLabel: action.submitLabel
       ? localize(action.submitLabel, lang, languages)
-      : authSubmitLabel(method),
+      : engineWord(authSubmitLabelKey(method), authSubmitLabel(method), lang, languages),
     pendingLabel: action.pendingLabel
       ? localize(action.pendingLabel, lang, languages)
-      : authPendingLabel(method),
+      : engineWord(authPendingLabelKey(method), authPendingLabel(method), lang, languages),
   }
 }
 
@@ -277,9 +298,9 @@ function renderAuthFormSkeleton(config: {
       className={resolveClasses(computeFormLayoutClasses(), props.className as string | undefined)}
     >
       {fields.map((field) => renderAuthFormField(field))}
+      {/* Error summary slot — role-less and empty at rest, as the island's. */}
       <div
-        data-testid="error-summary"
-        role="alert"
+        data-error-summary=""
         hidden
       />
       {/* Result slot — empty + hidden, as the island's empty state; the island

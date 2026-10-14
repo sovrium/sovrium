@@ -32,14 +32,22 @@
 import { Effect } from 'effect'
 import {
   AccountRepository,
+  type AccountAiFootprint,
   type AuthoredTableCandidate,
   type AccountDatabaseError,
   type AccountAuditEntryRow,
+  type AccountChatAttachmentRow,
   type AccountFormSubmissionRow,
   type AccountLinkedRow,
   type AccountSessionRow,
   type AccountUserRow,
 } from '@/application/ports/repositories/auth/account-repository'
+import {
+  shapeAiSections,
+  shapeAuthoredRecord,
+  shapeChatAttachment,
+  type AuthoredRecord,
+} from '@/application/use-cases/auth/account-export-shaping'
 import {
   accountDeleteCancelledResponseSchema,
   accountDeleteScheduledResponseSchema,
@@ -54,45 +62,6 @@ import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db
 export const GRACE_PERIOD_DAYS = 7
 
 // ─── Pure export-payload helpers ─────────────────────────────────────────────
-
-/**
- * The authored-record shape surfaced in the export payload. `created_at` /
- * `updated_at` / `id` are system columns — they become dedicated payload keys,
- * not part of `fields`.
- */
-interface AuthoredRecord {
-  readonly tableSlug: string
-  readonly recordId: string
-  readonly fields: Record<string, unknown>
-  readonly createdAt: string
-  readonly updatedAt: string
-}
-
-/**
- * Shape one raw authored-record row into the export contract entry. Splits the
- * system columns (`id`, `created_at`, `updated_at`) out of `fields` and coerces
- * the two timestamps to ISO 8601 — preserved verbatim from the former route.
- */
-function shapeAuthoredRecord(
-  tableName: string,
-  row: Readonly<Record<string, unknown>>
-): AuthoredRecord {
-  const recordId = row['id']
-  const createdAt = row['created_at']
-  const updatedAt = row['updated_at']
-  const fields = Object.fromEntries(
-    Object.entries(row).filter(
-      ([key]) => key !== 'id' && key !== 'created_at' && key !== 'updated_at'
-    )
-  )
-  return {
-    tableSlug: tableName,
-    recordId: String(recordId),
-    fields,
-    createdAt: new Date(String(createdAt)).toISOString(),
-    updatedAt: new Date(String(updatedAt ?? createdAt)).toISOString(),
-  }
-}
 
 /**
  * The form-submission shape surfaced in the export payload.
@@ -142,6 +111,8 @@ interface ExportSources {
   readonly authoredRecords: readonly AuthoredRecord[]
   readonly formSubmissions: readonly ExportedFormSubmission[]
   readonly auditRows: readonly AccountAuditEntryRow[]
+  readonly uploads: readonly AccountChatAttachmentRow[]
+  readonly ai: AccountAiFootprint
 }
 
 /** Assemble the export payload from the caller's rows. Pure shaping logic. */
@@ -204,6 +175,10 @@ function buildExportPayload(sources: Readonly<ExportSources>) {
       resourceId: row.resourceId,
       result: row.result,
     })),
+    aiChatAttachments: sources.uploads.map(shapeChatAttachment),
+    // Conversations, facts, the AI activity feed and tool calls, each scoped
+    // as erasure scopes it; tool payloads and store metadata stay out.
+    ...shapeAiSections(sources.ai, sources.uploads),
   }
 }
 
@@ -247,11 +222,13 @@ export const ExportAccount = (
       return { _tag: 'Unauthorized' } as const
     }
 
-    const [sessionRows, accountRows, submissionRows, auditRows] = yield* Effect.all([
+    const [sessionRows, accountRows, submissionRows, auditRows, uploads, ai] = yield* Effect.all([
       repo.loadSessions(userId),
       repo.loadAccounts(userId),
       repo.loadFormSubmissions(userId),
       repo.loadAuditTrail(userId),
+      repo.loadChatAttachments(userId),
+      repo.loadAiFootprint(userId, user.email),
     ])
 
     const recordTables = yield* repo.tablesWithCreatedBy(tables)
@@ -273,7 +250,6 @@ export const ExportAccount = (
           ),
       { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
     )
-    const authoredRecords = perTable.flat()
 
     // Validate against the contract before returning (defence-in-depth).
     const body = decodeOrThrow(accountExportResponseSchema)(
@@ -281,9 +257,11 @@ export const ExportAccount = (
         user,
         sessionRows,
         accountRows,
-        authoredRecords,
+        authoredRecords: perTable.flat(),
         formSubmissions: submissionRows.map(shapeFormSubmission),
         auditRows,
+        uploads,
+        ai,
       })
     )
     return { _tag: 'Ok', body } as const

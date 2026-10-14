@@ -29,7 +29,7 @@ Each weight is drawn by the same recipe the `button` component uses, so a submit
 
 ## Closing the dialog and clearing the form
 
-An endpoint form placed in a dialog stays open after a successful submit unless it says otherwise, because the dialog cannot tell a request that succeeded from one that did not. Two `onSuccess` keys settle it. `close: true` closes the dialog or sheet the form sits in once the request succeeds — the same thing a dialog does after a table write — and `reset: true` puts every field back to its default value, so the next person to open the dialog does not find the last submission still filled in. Neither runs when the request fails: the dialog stays open on the values that were sent, with the `onError` toast.
+An endpoint form placed in a dialog stays open after a successful submit unless it says otherwise, because the dialog cannot tell a request that succeeded from one that did not. Two `onSuccess` keys settle it. `close: true` closes the dialog, drawer or popover the form sits in once the request succeeds — the same thing a dialog does after a table write — and `reset: true` puts every field back to its default value, so the next person to open the dialog does not find the last submission still filled in. Neither runs when the request fails: the dialog stays open on the values that were sent, with the `onError` toast.
 
 ```yaml
 - type: button
@@ -56,7 +56,7 @@ An endpoint form placed in a dialog stays open after a successful submit unless 
         - { field: email, control: email, label: Email }
 ```
 
-Both are refused beside `reload`, which replaces the page the dialog is drawn on and brings the form back empty anyway. They belong to the endpoint form alone: a `fetch` button has no fields to clear and no dialog it was opened from.
+Both are refused beside `reload`, which replaces the page the dialog is drawn on and brings the form back empty anyway. `close` is not the endpoint form's alone: any action can ask to close the overlay it sits in, a `fetch` button or a file upload included, and the form also takes the `navigate` every `fetch` action takes, which may read the body the endpoint returned through `$response.<field>`. `reset` is the form's own, since nothing else has fields to clear; on a `fetch` button it is refused. See [Once the action has answered](/en/docs/interactive-components#once-the-action-has-answered) for the order the effects run in.
 
 ## An on/off switch
 

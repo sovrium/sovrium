@@ -6,7 +6,10 @@
  */
 
 import { PreviewCard } from '@base-ui/react/preview-card'
-import { computeHoverCardPopupClasses } from './overlay-default-classes'
+import {
+  computeFloatingPositionerClasses,
+  computeHoverCardContentClasses,
+} from './popover-default-classes'
 import type { ReactElement } from 'react'
 
 interface HoverCardIslandProps {
@@ -44,29 +47,6 @@ function SSRSkeletonDiv({ html }: { readonly html: string }): ReactElement {
  * or duplicate ids.
  */
 const TRIGGER_RENDER = <span />
-
-/** Extracted to keep `HoverCardIsland` under the `max-lines-per-function` cap. */
-function HoverCardPopupContents({
-  childrenHtml,
-}: {
-  readonly childrenHtml?: string
-}): ReactElement {
-  return (
-    <>
-      {childrenHtml && <SSRSkeletonDiv html={childrenHtml} />}
-      <PreviewCard.Arrow className="text-background-overlay">
-        <svg
-          width="12"
-          height="6"
-          viewBox="0 0 12 6"
-          fill="currentColor"
-        >
-          <path d="M0 6L6 0L12 6" />
-        </svg>
-      </PreviewCard.Arrow>
-    </>
-  )
-}
 
 /**
  * Hover-card island — wraps Base UI PreviewCard.
@@ -111,6 +91,7 @@ export default function HoverCardIsland({
   return (
     <PreviewCard.Root>
       <PreviewCard.Trigger
+        data-slot="hover-card-trigger"
         render={TRIGGER_RENDER}
         className={className}
         data-testid={testId}
@@ -123,10 +104,15 @@ export default function HoverCardIsland({
         <PreviewCard.Positioner
           side={floatingSide}
           align={floatingAlign}
-          sideOffset={8}
+          sideOffset={4}
+          alignOffset={4}
+          className={computeFloatingPositionerClasses()}
         >
-          <PreviewCard.Popup className={computeHoverCardPopupClasses()}>
-            <HoverCardPopupContents childrenHtml={childrenHtml} />
+          <PreviewCard.Popup
+            data-slot="hover-card-content"
+            className={computeHoverCardContentClasses()}
+          >
+            {childrenHtml && <SSRSkeletonDiv html={childrenHtml} />}
           </PreviewCard.Popup>
         </PreviewCard.Positioner>
       </PreviewCard.Portal>

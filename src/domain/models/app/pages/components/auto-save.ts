@@ -101,7 +101,7 @@ export const AutoSaveConfigSchema = Schema.Struct({
   showSaveIndicator: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        'Display a save status indicator (Saving... / Saved / Error). Default: true when saveMode is auto or onBlur.',
+        'Display a save status indicator (Saving… / Saved / Error). Default: true when saveMode is auto or onBlur.',
     })
   ),
   /** Where to display the save indicator */

@@ -14,6 +14,7 @@
 // last, where the route order needs it.
 
 import { pageHeading, toolbarRow } from '../../components/data-page'
+import { dataTable, STATUS_BADGE } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
 import { ADMIN_ROLES_ENDPOINT, USERS_ENDPOINT } from '../../system-sources'
 import { banAction, changeGroupsAction, changeRoleAction, liftBanAction } from './users-row-actions'
@@ -73,8 +74,7 @@ const ACCOUNT_GRID_ID = 'admin-user-account'
  * about being a filtered directory rather than pretending to a detail endpoint.
  */
 const accountGrid = (): PageComponent =>
-  ({
-    type: 'table',
+  dataTable({
     props: { id: ACCOUNT_GRID_ID, 'aria-label': '$t:admin.users.account.region' },
     dataSource: {
       system: {
@@ -96,11 +96,11 @@ const accountGrid = (): PageComponent =>
         cellStyle: [
           {
             when: { eq: false },
-            className: 'bg-success-bg text-success-fg rounded-full px-2 py-0.5 text-sm',
+            className: STATUS_BADGE.positive,
           },
           {
             when: { eq: true },
-            className: 'bg-error-bg text-error-fg rounded-full px-2 py-0.5 text-sm',
+            className: STATUS_BADGE.destructive,
           },
         ],
       },
@@ -201,13 +201,12 @@ const assignableRoles = (): PageComponent =>
         props: { className: 'text-foreground-subtle max-w-2xl text-sm leading-relaxed' },
         content: '$t:admin.users.account.roles.body',
       },
-      {
-        type: 'table',
+      dataTable({
         props: { 'aria-label': '$t:admin.users.account.roles.region' },
         dataSource: { system: { endpoint: ADMIN_ROLES_ENDPOINT, rowsKey: 'roles', idKey: 'name' } },
         columns: [{ field: 'name', label: 'Role' }],
         emptyMessage: 'This app declares no roles',
-      },
+      }),
     ],
   }) as PageComponent
 
@@ -221,7 +220,7 @@ const gapCard = (heading: string, body: string): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className: 'border-border bg-background-raised flex flex-col gap-1 rounded-lg border p-4',
+      className: 'border-border bg-card flex flex-col gap-1 rounded-lg border p-4',
     },
     children: [
       {
@@ -233,7 +232,7 @@ const gapCard = (heading: string, body: string): PageComponent =>
       {
         type: 'text',
         element: 'p',
-        props: { className: 'text-foreground-muted max-w-2xl text-md leading-relaxed' },
+        props: { className: 'text-muted-foreground max-w-2xl text-md leading-relaxed' },
         content: body,
       },
     ],
@@ -279,7 +278,7 @@ const backToDirectory = (): PageComponent =>
     content: '$t:admin.users.account.back',
     props: {
       href: '/users',
-      className: 'text-foreground-muted hover:text-foreground text-sm underline',
+      className: 'text-muted-foreground hover:text-foreground text-sm underline',
     },
   }) as PageComponent
 

@@ -32,3 +32,24 @@ export const ButtonVariantSchema = Schema.Literals([
   title: 'Button Variant',
   description: 'Visual style variant for button components',
 })
+
+/**
+ * The sizes of a button, shadcn/ui's Button `size` scale: four text sizes and
+ * four square icon-only sizes. An icon size draws the `icon` alone and names
+ * the button with its `label`, so it needs both (refused otherwise).
+ */
+export const ButtonSizeSchema = Schema.Literals([
+  'xs',
+  'sm',
+  'default',
+  'lg',
+  'icon',
+  'icon-xs',
+  'icon-sm',
+  'icon-lg',
+]).annotate({
+  title: 'Button Size',
+  defaultNote: 'default',
+  description:
+    "The button's size, shadcn/ui's Button sizes: 'xs', 'sm', 'default' or 'lg' for a labelled button; 'icon-xs', 'icon-sm', 'icon' or 'icon-lg' for a square icon-only one, which needs an `icon` and a `label` (its accessible name).",
+})

@@ -489,6 +489,46 @@ export const WebhookTriggerSchema = Schema.Struct({
   /** Custom response configuration */
   response: Schema.optional(WebhookResponseSchema),
 
+  /**
+   * The write-only fields a `webhook/response` answer of this trigger may
+   * carry unmasked, each as `table.field`. Every other answer of a run masks a
+   * write-only value it read; this list is the one exception, for a machine
+   * that pulls its own secrets (a node asking for its apps' environment). It
+   * sits on the trigger because the trigger owns the caller's authentication:
+   * the app validation accepts it only beside `auth.type` `session` with a
+   * `requiredRole`, `bearer` or `apiKey`, and only on the synchronous path,
+   * and requires every name to be a field declaring `writeOnly: true`. On a
+   * `session` webhook the value reaches a caller that presented an API key,
+   * never one signed in with a session cookie. Only values the run's own
+   * record steps read from the named fields are unmasked — never a called
+   * automation's, never another write-only field's — and the run history
+   * keeps `***` whatever this says.
+   */
+  revealWriteOnly: Schema.optional(
+    Schema.Array(
+      Schema.String.pipe(
+        Schema.annotate({
+          description:
+            'A write-only field the answer may carry, written `table.field` (the table name, a dot, the field name).',
+          examples: ['apps.sso_client_secret'],
+        }),
+        Schema.check(
+          Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_ -]*\.[a-z][a-z0-9_]*$/, {
+            message:
+              'Each revealWriteOnly entry names a field as table.field: a table of the app, a dot, then one of its field names',
+          })
+        )
+      )
+    ).pipe(
+      Schema.annotate({
+        description:
+          "Write-only fields this webhook's answer may carry unmasked, each written `table.field`. Every other answer masks a write-only value as `***`; this is the one exception, meant for a machine that pulls its own secrets. Accepted only on a webhook that authenticates a machine — auth type 'session' with a requiredRole other than the app's default sign-up role (auth.defaultRole, 'member' when none is declared), 'bearer' or 'apiKey' — and not with respondImmediately. Each name must be a field declaring writeOnly: true. On a 'session' webhook, only a caller presenting an API key receives the values; one signed in with a session cookie gets `***`. Only what this run's own record steps read from the named fields is revealed, in the `webhook/response` answer only: the run history, a called automation's answer and every other write-only field stay masked. An answer that can carry a value is sent with Cache-Control: no-store, replacing any cache-control the response declares.",
+        examples: [['apps.sso_client_secret']],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
+
   /** JSON Schema for request body validation */
   requestSchema: Schema.optional(
     Schema.Record(Schema.String, Schema.Unknown).pipe(

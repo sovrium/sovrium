@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// sovrium-library: block/login-03@0.37.0#599c3676dc57
+
 // Password-recovery completion.
 //
 // Reached from the emailed link, which carries `?token=…`. Public like
@@ -14,8 +16,168 @@
 // public carve-out.
 //
 // PATHS ARE MOUNT-RELATIVE (`/login`). The mount primitive prefixes them.
+//
+// INSTALLED, like `/login`, from the library's `login-03` block: the same muted
+// screen and card, with the field group bound to this step of the reset flow
+// (the form, the way back to sign in, and the one note the step needs).
+// Re-install with `sovrium library add block/login-03 --update`.
 
 import type { Page as PageConfig } from '@/domain/models/app'
+
+export const resetPasswordCopy = {
+  type: 'container',
+  element: 'section',
+  props: {
+    className:
+      'flex min-h-svh w-full flex-col items-center justify-center gap-6 p-6 md:p-10 bg-muted',
+    'data-admin-base-path': '/',
+  },
+  children: [
+    {
+      type: 'flex',
+      props: {
+        className: 'flex w-full max-w-sm flex-col gap-6',
+      },
+      children: [
+        {
+          type: 'link',
+          props: {
+            href: '/',
+            className: 'flex items-center gap-2 text-sm font-medium text-foreground self-center',
+          },
+          children: [
+            {
+              // Sovrium's own mark, served by the engine at a root path (the
+              // mount does not rewrite it), one ground per colour scheme.
+              type: 'container',
+              props: { className: 'flex size-6 items-center justify-center' },
+              children: [
+                {
+                  type: 'image',
+                  props: {
+                    src: '/assets/brand/sovrium/mark-light-outline.svg',
+                    alt: 'Sovrium',
+                    className: 'block size-6 shrink-0 dark:hidden',
+                  },
+                },
+                {
+                  type: 'image',
+                  props: {
+                    src: '/assets/brand/sovrium/mark-dark-outline.svg',
+                    alt: 'Sovrium',
+                    className: 'hidden size-6 shrink-0 dark:block',
+                  },
+                },
+              ],
+            },
+            {
+              type: 'text',
+              element: 'span',
+              content: '$app.label',
+            },
+          ],
+        },
+        {
+          type: 'card',
+          props: {
+            'data-slot': 'card',
+            className: 'flex flex-col gap-4 overflow-hidden px-0 py-4 text-sm',
+          },
+          children: [
+            {
+              type: 'container',
+              props: {
+                'data-slot': 'card-header',
+                className: 'grid auto-rows-min gap-1 px-4 text-center',
+              },
+              children: [
+                {
+                  type: 'text',
+                  element: 'h1',
+                  props: {
+                    className: 'font-medium leading-snug text-foreground text-xl',
+                    'data-slot': 'card-title',
+                  },
+                  content: '$t:admin.resetPassword.heading',
+                },
+                {
+                  type: 'text',
+                  element: 'p',
+                  props: {
+                    className: 'text-sm text-muted-foreground',
+                    'data-slot': 'card-description',
+                  },
+                  content: '$t:admin.resetPassword.blurb',
+                },
+              ],
+            },
+            {
+              type: 'container',
+              props: {
+                'data-slot': 'card-content',
+                className: 'px-4',
+              },
+              children: [
+                {
+                  type: 'flex',
+                  props: {
+                    'data-slot': 'field-group',
+                    className: 'flex w-full flex-col gap-5',
+                  },
+                  children: [
+                    {
+                      type: 'form',
+                      props: {
+                        id: 'admin-reset-password-form',
+                      },
+                      action: {
+                        type: 'auth',
+                        method: 'setNewPassword',
+                        strategy: 'email',
+                        submitLabel: '$t:admin.resetPassword.submit',
+                        pendingLabel: '$t:admin.resetPassword.pending',
+                        fields: [
+                          {
+                            name: 'password',
+                            label: '$t:admin.field.newPassword',
+                          },
+                        ],
+                        onSuccess: {
+                          navigate: '/login',
+                          toast: {
+                            message: 'Password updated. You can sign in.',
+                            variant: 'success',
+                          },
+                        },
+                      },
+                    },
+                    {
+                      type: 'link',
+                      props: {
+                        href: '/login',
+                        className: 'text-center text-sm underline-offset-4 hover:underline',
+                      },
+                      content: '$t:admin.auth.backToSignIn',
+                    },
+                    {
+                      type: 'text',
+                      element: 'p',
+                      props: {
+                        className: 'text-center text-sm text-muted-foreground',
+                        'data-slot': 'field-description',
+                      },
+                      content: '$t:admin.resetPassword.singleUse',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+} as const
 
 export default {
   id: 'dashboard-reset-password',
@@ -25,98 +187,5 @@ export default {
     title: '$t:admin.meta.resetPassword',
     noindex: true,
   },
-  components: [
-    {
-      type: 'container',
-      element: 'div',
-      props: {
-        // The console root as THIS document sees it, mount-relative like every
-        // other link on the page. The mount primitive rewrites it to the real
-        // base, which is how the client islands on an unauthenticated page —
-        // the sign-in form's password-reset callback above all — learn which
-        // mount they are being served from.
-        'data-admin-base-path': '/',
-        className:
-          'min-h-screen flex flex-col items-center justify-center gap-8 px-6 py-16 bg-background text-foreground',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'flex flex-col items-center gap-3 text-center' },
-          children: [
-            {
-              type: 'text',
-              element: 'span',
-              content: 'S',
-              props: {
-                className:
-                  'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-lg font-semibold',
-              },
-            },
-            {
-              type: 'text',
-              element: 'h1',
-              content: '$t:admin.resetPassword.heading',
-              props: {
-                className: 'text-3xl font-bold tracking-tight leading-tight text-foreground',
-              },
-            },
-            {
-              type: 'text',
-              element: 'p',
-              // No character count here on purpose: the minimum comes from the
-              // OPERATOR's password policy (`resolvePasswordPolicy`, default 8 but
-              // overridable per app), and this config ships in every binary — a
-              // hardcoded number would be wrong on any app with a stricter policy.
-              content: '$t:admin.resetPassword.blurb',
-              props: {
-                className: 'text-md leading-relaxed text-foreground-muted max-w-sm',
-              },
-            },
-          ],
-        },
-        {
-          type: 'card',
-          props: {
-            className: 'w-full max-w-sm bg-background-raised border border-border rounded-lg p-8',
-          },
-          children: [
-            {
-              type: 'form',
-              props: { id: 'admin-reset-password-form' },
-              action: {
-                type: 'auth',
-                method: 'setNewPassword',
-                strategy: 'email',
-                submitLabel: '$t:admin.resetPassword.submit',
-                pendingLabel: '$t:admin.resetPassword.pending',
-                fields: [{ name: 'password', label: '$t:admin.field.newPassword' }],
-                onSuccess: {
-                  navigate: '/login',
-                  toast: {
-                    message: 'Password updated. You can sign in.',
-                    variant: 'success',
-                  },
-                },
-              },
-            },
-            {
-              type: 'link',
-              props: {
-                href: '/login',
-                className: 'text-md text-center mt-4 text-foreground-muted',
-              },
-              content: '$t:admin.auth.backToSignIn',
-            },
-          ],
-        },
-        {
-          type: 'text',
-          element: 'p',
-          content: '$t:admin.resetPassword.singleUse',
-          props: { className: 'text-foreground-subtle font-serif text-md italic' },
-        },
-      ],
-    },
-  ],
+  components: [resetPasswordCopy],
 } satisfies PageConfig

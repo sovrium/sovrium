@@ -57,7 +57,7 @@ export function withAdornment(field: TypedInputField, input: ReactElement): Reac
   // there would be read into the control's name ("Budget €").
   const unit = (
     <span
-      className="text-foreground-muted text-sm"
+      className="text-muted-foreground text-sm"
       aria-hidden="true"
     >
       {adornment.text}

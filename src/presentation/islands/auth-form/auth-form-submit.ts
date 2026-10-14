@@ -5,12 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { flushSync } from 'react-dom'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { type AuthMethod } from '@/presentation/design/auth-form-types'
 import { resolveMountBasePath } from '@/presentation/islands/runtime/mount-base-path'
 import { showSuccessToast } from '../parts/crud-form/toast'
 import { authClient } from '../runtime/auth-client'
 import { type AuthFormField } from './auth-form-validation'
+import { successMoveAddress } from './auth-success-move'
 import { trackSignIn } from './sign-in-in-flight'
 
 // Re-exported so existing importers of `auth-form-submit` keep working.
@@ -265,6 +267,8 @@ export interface SubmitContext {
   /** `login`: the page an account still owing its code is sent to. */
   readonly twoFactorPath?: string
   readonly setState: (s: AuthState) => void
+  /** The form, whose submit takes the focus back on a refusal. */
+  readonly form?: HTMLFormElement
 }
 
 /** Fires a toast for the given config when it carries a message. */
@@ -281,8 +285,12 @@ function fireToast(toast: ToastConfig | undefined): void {
  */
 function handleAuthSuccess(ctx: SubmitContext): void {
   fireToast(ctx.successToast)
+  // A relative address resolved against this page; the toast follows a move away.
   const target = toSafeRedirectPath(
-    ctx.method === 'login' ? signInDestination(ctx.redirectUrl) : ctx.redirectUrl
+    successMoveAddress(
+      ctx.method === 'login' ? signInDestination(ctx.redirectUrl) : ctx.redirectUrl,
+      ctx.successToast
+    )
   )
   if (target !== undefined) {
     // Delay the redirect so the success toast is observable before the page
@@ -322,8 +330,11 @@ export async function submitAuthForm(ctx: SubmitContext): Promise<void> {
       return
     }
     if (result.error) {
+      // The error first, drawn now; the submit given back takes the focus;
+      // only then the onError toast.
+      flushSync(() => ctx.setState({ error: result.error, isPending: false }))
+      ctx.form?.querySelector<HTMLElement>('button[type="submit"]')?.focus()
       fireToast(ctx.errorToast)
-      ctx.setState({ error: result.error, isPending: false })
       return
     }
     if (result.success) {

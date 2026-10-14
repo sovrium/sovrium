@@ -98,27 +98,44 @@ export function AuthFieldRow({
 /**
  * Renders the form-level summary error banner listing every invalid field.
  *
- * The banner carries `data-testid="error-summary"` + `role="alert"` and is the
- * only `role="alert"` element in the form. Each invalid field produces a
- * `<li data-error-item>` entry, in field-declaration order.
+ * With no error it is an empty, role-less slot: an alert present at rest is
+ * announced by some readers, and it would hold a sentence nobody needs. A
+ * refused submit INSERTS a fresh alert, keyed apart from the slot (the result
+ * banner's pattern), so the insertion is what is announced. The alert carries
+ * `data-testid="error-summary"` + `role="alert"` and is the only `role="alert"`
+ * element in the form; each invalid field produces a `<li data-error-item>`
+ * entry, in field-declaration order.
  */
 export function AuthErrorSummary({
   fields,
   errors,
+  sentence,
 }: {
   readonly fields: readonly AuthFormField[]
   readonly errors: FieldErrors
+  /** `auth.fixErrors` in the page language; English when absent. */
+  readonly sentence?: string
 }) {
   const items = fields
     .filter((field) => errors[field.name])
     .map((field) => ({ name: field.name, message: errors[field.name]! }))
+  if (items.length === 0) {
+    return (
+      <div
+        key="summary-slot"
+        data-error-summary=""
+        hidden
+      />
+    )
+  }
   return (
     <div
+      key="summary"
+      data-error-summary=""
       data-testid="error-summary"
       role="alert"
-      hidden={items.length === 0}
     >
-      <p>Please fix the following errors:</p>
+      <p>{sentence ?? 'Please fix the following errors:'}</p>
       <ul>
         {items.map((item) => (
           <li

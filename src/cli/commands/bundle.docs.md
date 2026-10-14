@@ -34,10 +34,13 @@ The config is read and validated exactly as `sovrium validate` reads and validat
 | `project/app.json` | The config **resolved**: every `$ref` inlined, a TypeScript config evaluated — written as JSON, never as code     |
 | `public/…`         | The static files `sovrium start` would serve, when the app has a `public/` directory                              |
 | `seed/…`           | The `seed/<table>.yaml` files, when the app has a `seed/` directory                                               |
+| `project/<path>`   | Each file the config declares under `assets`, at the path it declares, beside `project/app.json`                  |
 
 `project/app.json` is the document you wrote, with its references followed — not a copy with every default filled in, so the engine that boots it applies its own defaults. `$env.NAME` references stay references: no environment value is ever written into a bundle, and the `.env` file is never included.
 
 The static files follow the same rules as `sovrium start`: `SOVRIUM_PUBLIC_DIR` points at another directory, and `SOVRIUM_PUBLIC_DIR=none` leaves them out.
+
+The private files declared under `assets` travel too, so an email template or a document model the config reads is there when the app starts: `templates/invoice.html` is written to `project/templates/invoice.html`, where the unpacked config finds it. They are checked first, exactly as `sovrium validate` checks them — a declared file that is missing, outside the project or inside `public/` stops the bundle with its name, and nothing is written. An asset declared as `app.json` is refused, since that name is the config's own entry. An engine older than 0.38 refuses a bundle that carries an asset when it reads its manifest; a bundle without one is unchanged.
 
 Unpacked, a bundle runs as it is: `sovrium start <root>/project/app.json` serves `<root>/public/` and `sovrium seed <root>/project/app.json` reads `<root>/seed/`, unless `SOVRIUM_PUBLIC_DIR` (or `none`) or `--dir` says otherwise. Sovrium recognises an unpacked bundle by its config sitting at `project/app.json` with `manifest.json` one level up.
 

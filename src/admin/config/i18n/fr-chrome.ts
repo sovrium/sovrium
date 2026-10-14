@@ -19,7 +19,8 @@ export default {
   // sibling is a string nothing can ever resolve, and it is exactly what makes
   // a parity check report a difference that is not one.
   'admin.shell.openMenu': 'Ouvrir le menu',
-  'admin.shell.openSite': 'Ouvrir le site dans un nouvel onglet',
+  'admin.shell.toggleSidebar': 'Replier la barre latérale',
+  'admin.shell.home': 'Accueil de la console',
   'admin.shell.search': 'Rechercher',
   'admin.shell.searchPlaceholder': 'Rechercher…',
   // The operator menu. `account` names the trigger, `myAccount` the row inside

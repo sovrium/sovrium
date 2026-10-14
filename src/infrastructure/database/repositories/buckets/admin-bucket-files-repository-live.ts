@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, asc, desc, eq, gt, gte, lt, or, sql, type Column, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, gte, lt, not, or, sql, type Column, type SQL } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   AdminBucketFilesDatabaseError,
@@ -14,7 +14,10 @@ import {
   type AdminBucketFilesListFilters,
   type AdminBucketFilesScope,
 } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
-import { STORAGE_KEY_UUID_PREFIX_LENGTH } from '@/domain/kernel/identity/storage-key'
+import {
+  CHAT_ATTACHMENT_KEY_PREFIX,
+  STORAGE_KEY_UUID_PREFIX_LENGTH,
+} from '@/domain/kernel/identity/storage-key'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
@@ -245,6 +248,8 @@ const listFilesImpl = async (
   // rather than offering pages a six-result search does not have.
   const conditions = [
     scopeCondition(filters.scope),
+    // A chat attachment is its uploader's alone: the file browser does not list it.
+    not(startsWithLiteral(files.key, CHAT_ATTACHMENT_KEY_PREFIX)),
     ...buildTypeConditions(filters),
     ...buildSearchConditions(filters),
     ...buildCursorConditions(filters),

@@ -8,7 +8,7 @@ props:
 children:
   - type: card
     props:
-      className: rounded-lg border border-border bg-background-raised p-0 shadow-sm transition-colors hover:border-primary
+      className: rounded-lg border border-border bg-card p-0 shadow-sm transition-colors hover:border-primary
     children:
       - type: link
         props:
@@ -19,7 +19,7 @@ children:
             props:
               name: book
               size: 20
-              className: text-foreground-muted
+              className: text-muted-foreground
           - type: text
             element: h2
             props:
@@ -28,7 +28,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-[15px] leading-normal text-foreground-muted
+              className: text-[15px] leading-normal text-muted-foreground
             content: How a file becomes a page, installation, your first page in three steps.
           - type: container
             props:
@@ -43,7 +43,7 @@ children:
                   size: 13
   - type: card
     props:
-      className: rounded-lg border border-border bg-background-raised p-0 shadow-sm transition-colors hover:border-primary
+      className: rounded-lg border border-border bg-card p-0 shadow-sm transition-colors hover:border-primary
     children:
       - type: link
         props:
@@ -54,7 +54,7 @@ children:
             props:
               name: settings
               size: 20
-              className: text-foreground-muted
+              className: text-muted-foreground
           - type: text
             element: h2
             props:
@@ -63,7 +63,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-[15px] leading-normal text-foreground-muted
+              className: text-[15px] leading-normal text-muted-foreground
             content: Design tokens, code highlighting and the collection options.
           - type: container
             props:
@@ -78,7 +78,7 @@ children:
                   size: 13
   - type: card
     props:
-      className: rounded-lg border border-border bg-background-raised p-0 shadow-sm transition-colors hover:border-primary
+      className: rounded-lg border border-border bg-card p-0 shadow-sm transition-colors hover:border-primary
     children:
       - type: link
         props:
@@ -89,7 +89,7 @@ children:
             props:
               name: upload
               size: 20
-              className: text-foreground-muted
+              className: text-muted-foreground
           - type: text
             element: h2
             props:
@@ -98,7 +98,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-[15px] leading-normal text-foreground-muted
+              className: text-[15px] leading-normal text-muted-foreground
             content: A static build, the server, or a container.
           - type: container
             props:

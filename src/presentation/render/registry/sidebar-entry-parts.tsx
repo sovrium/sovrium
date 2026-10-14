@@ -82,6 +82,7 @@ export function renderBadge(
     return (
       <span
         aria-hidden="true"
+        data-slot="sidebar-menu-badge"
         data-component-type="badge"
         className={className}
       >
@@ -92,6 +93,7 @@ export function renderBadge(
   return (
     <span
       aria-hidden="true"
+      data-slot="sidebar-menu-badge"
       data-component-type="badge"
       className={className}
       data-island="sidebar-badge"
@@ -139,6 +141,7 @@ export function renderChevronToggle(state: DisclosureState): ReactElement {
         state.label
       )}
       className={computeSidebarDisclosureToggleClasses()}
+      data-slot="sidebar-menu-action"
       type="button"
     >
       {renderChevron(state.expanded)}
@@ -179,6 +182,8 @@ export function renderToggleRow(item: SidebarNavItem, state: DisclosureState): R
       aria-controls={state.listId}
       aria-expanded={state.expanded}
       className={computeSidebarToggleRowClasses()}
+      data-slot="sidebar-menu-button"
+      data-size="default"
       type="button"
       {...railTitle(state.rail, state.label, authoredTitle)}
     >
@@ -220,6 +225,20 @@ export const toggleRowPayload = (item: SidebarNavItem): Record<string, unknown> 
  * author's `link` part (`design.components.sidebar` under the instance's own
  * `classes`, whose `current` state is already prefixed `aria-[current=page]:`).
  */
+/**
+ * A row's shadcn part name and size — `sidebar-menu-button` at the top level,
+ * `sidebar-menu-sub-button` nested — plus `aria-current` and `data-active` on
+ * the row for the page being viewed.
+ */
+export const entrySlotAttributes = (
+  isNested: boolean,
+  isCurrent: boolean
+): Readonly<Record<string, string>> => ({
+  'data-slot': isNested ? 'sidebar-menu-sub-button' : 'sidebar-menu-button',
+  'data-size': isNested ? 'md' : 'default',
+  ...(isCurrent ? { 'aria-current': 'page', 'data-active': '' } : {}),
+})
+
 export const sidebarEntryClasses = (
   isNested: boolean,
   isCurrent: boolean,

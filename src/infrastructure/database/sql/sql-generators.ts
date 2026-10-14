@@ -58,6 +58,9 @@ export {
   generateForeignKeyConstraints,
   generateUniqueConstraints,
   isBtreeUniqueField,
+  isLiveUniqueField,
+  LIVE_ROWS_PREDICATE,
+  liveUniqueIndexName,
 } from './sql-key-constraints'
 
 // Re-export from sql-junction-tables
@@ -88,7 +91,7 @@ export const generateTableConstraints = (
   ...generateColorConstraints(table.fields),
   ...generateCustomCheckConstraints(table.constraints),
   ...generatePrimaryKeyConstraint(table),
-  ...generateUniqueConstraints(table.name, table.fields),
+  ...generateUniqueConstraints(table),
   ...(skipForeignKeys
     ? []
     : generateForeignKeyConstraints(table.name, table.fields, tableUsesView, table.foreignKeys)),

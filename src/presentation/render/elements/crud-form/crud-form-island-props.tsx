@@ -59,6 +59,12 @@ function regionLayoutProps(component?: Component): {
   return { layout, aside: { fields, ...(width === undefined ? {} : { width }) } }
 }
 
+/** A refused save's toast, and whether a save closes the dialog the form sits in. */
+const answerExtras = (action: CrudFormAction) => ({
+  errorToast: action.onError?.toast,
+  close: action.onSuccess?.close,
+})
+
 export function buildCrudIslandProps(ctx: {
   readonly operation: string
   readonly action: CrudFormAction
@@ -82,6 +88,8 @@ export function buildCrudIslandProps(ctx: {
   readonly stickyActions?: unknown
   /** The form's interface strings that differ from English (`form.*`), if any. */
   readonly uiStrings?: Readonly<Record<string, string>>
+  /** The delete button's in-flight word, resolved in the page language. */
+  readonly pendingLabel?: string
 }): string {
   const { onSuccess } = ctx.action
   const successPage =
@@ -102,6 +110,7 @@ export function buildCrudIslandProps(ctx: {
     recordId: ctx.recordId,
     redirectUrl: onSuccess?.navigate,
     successToast: onSuccess?.toast,
+    ...answerExtras(ctx.action),
     resetOnSuccess: onSuccess?.type === 'reset',
     preserveFields: onSuccess?.preserveFields,
     successPage,
@@ -116,6 +125,7 @@ export function buildCrudIslandProps(ctx: {
     labelPlacement: ctx.labelPlacement,
     stickyActions: ctx.stickyActions,
     uiStrings: ctx.uiStrings,
+    pendingLabel: ctx.pendingLabel,
     'data-testid': ctx.testId,
     id: ctx.id,
     className: ctx.className,

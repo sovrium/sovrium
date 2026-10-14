@@ -13,25 +13,12 @@
  * its own default policy for an absent temperature (see
  * {@link resolveAgentTemperature}).
  *
- * They no longer share the MODEL resolver. `resolveAgentModel` ends in a
- * hard-coded `'mock-model'`, which the raw-fetch execution path needs because
- * it must always put some model on the wire. The chat path goes through the
+ * There is no shared MODEL resolver: every agent call goes through the
  * `AiService` port, where an absent model means "use the provider's own
- * default" (`llama3.1` on Ollama) — strictly better than shipping a model name
- * no real provider serves. It therefore resolves `agent.model ?? AI_MODEL`
- * itself and deliberately does NOT call {@link resolveAgentModel}.
+ * default" (`AI_MODEL`, else `llama3.1` on Ollama).
  */
 
 import type { Agent } from '@/domain/models/app/agents/agent'
-
-/**
- * Resolve the effective request `model`:
- *  1. the agent's `model` override;
- *  2. the `AI_MODEL` env var;
- *  3. `'mock-model'` — so a model always reaches the wire.
- */
-export const resolveAgentModel = (agent: Agent): string =>
-  agent.model ?? process.env.AI_MODEL ?? 'mock-model'
 
 /**
  * Resolve the effective request temperature using the shared precedence:

@@ -30,7 +30,6 @@ import type {
   CrudFormRenderContext,
   ResolvedFieldDef,
 } from './crud-form-types'
-import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { Buckets } from '@/domain/models/app/buckets'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
@@ -62,7 +61,11 @@ function formUiStrings(
   context: CrudFormRenderContext
 ): Readonly<Record<string, string>> | undefined {
   const { lang, languages } = context
-  return resolveInterpreterStringOverrides(['form.'], lang ?? languages?.default, languages)
+  return resolveInterpreterStringOverrides(
+    ['form.', 'action.running'],
+    lang ?? languages?.default,
+    languages
+  )
 }
 
 /**
@@ -318,65 +321,6 @@ export function renderAutomationForm(
           {submitBtn.label ?? formString('form.submit', context)}
         </button>
       </form>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Delete button
-// ---------------------------------------------------------------------------
-
-type DeleteButtonConfig = {
-  readonly props: ElementProps
-  readonly content: string | undefined
-  readonly action: CrudFormAction
-  readonly tables?: Tables
-  readonly routeParams?: RouteParams
-}
-
-function isDeleteRestricted(action: CrudFormAction, tables?: Tables): boolean {
-  const tableSchema = tables?.find((t) => t.name === action.table)
-  const tableRecord = tableSchema as Record<string, unknown> | undefined
-  const permissions = tableRecord?.['permissions'] as Record<string, unknown> | undefined
-  const deleteRoles = permissions?.['delete'] as readonly string[] | undefined
-  return deleteRoles !== undefined && deleteRoles.length > 0
-}
-
-function buildDeleteButtonAttrs(action: CrudFormAction): Record<string, unknown> {
-  return {
-    'data-action-type': 'crud',
-    'data-action-method': 'delete',
-    'data-action-table': action.table,
-    ...(action.onSuccess?.navigate && { 'data-on-success-redirect': action.onSuccess.navigate }),
-    ...(action.confirm && { 'data-confirm': 'true' }),
-    ...(action.confirmMessage && { 'data-confirm-message': action.confirmMessage }),
-  }
-}
-
-export function renderCrudDeleteButton(config: DeleteButtonConfig): ReactElement {
-  const { props, content, action, tables, routeParams } = config
-  const record = (props._record ?? {}) as Record<string, unknown>
-  const restProps = omitInternalMarkers(props) as Record<string, unknown>
-  const recordId = String(record['id'] ?? routeParams?.['id'] ?? '')
-  const islandProps = buildCrudIslandProps({
-    operation: 'delete',
-    action,
-    fields: [],
-    recordId,
-    testId: restProps['data-testid'],
-    id: restProps['id'],
-    buttonLabel: content,
-  })
-  const buttonAttrs = buildDeleteButtonAttrs(action)
-
-  return (
-    <div
-      {...(restProps as ElementProps)}
-      data-island="crud-form"
-      data-island-props={islandProps}
-      {...(isDeleteRestricted(action, tables) && { hidden: true })}
-    >
-      <button {...buttonAttrs}>{content ?? 'Delete'}</button>
     </div>
   )
 }

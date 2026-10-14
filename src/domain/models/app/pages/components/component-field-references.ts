@@ -150,7 +150,7 @@ export const COMPONENT_FIELD_REFERENCE_PATHS: Readonly<Record<string, readonly s
     'card.colorField',
     'card.footer[].field',
   ],
-  calendar: ['dateField', 'endDateField', 'labelField', 'colorField'],
+  'event-calendar': ['dateField', 'endDateField', 'labelField', 'colorField'],
   timeline: [
     'props.startField',
     'props.endField',
@@ -159,7 +159,7 @@ export const COMPONENT_FIELD_REFERENCE_PATHS: Readonly<Record<string, readonly s
     'props.colorField',
   ],
   form: ['fields[].field', 'fieldGroups[].fields[]'],
-  drawer: ['recordFields[].name'],
+  sheet: ['recordFields[].name'],
   chart: ['series[].field', 'chartAggregate.field', 'chartAggregate.groupBy'],
   kpi: ['kpiAggregate.field'],
 }

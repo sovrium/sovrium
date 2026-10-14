@@ -15,7 +15,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -49,7 +49,7 @@ components:
                 children:
                   # A task has a deadline, not a span, so it sits on the day it
                   # is due. Blocked and Done read in their status colours.
-                  - type: calendar
+                  - type: event-calendar
                     dataSource:
                       table: tasks
                     dateField: due_date

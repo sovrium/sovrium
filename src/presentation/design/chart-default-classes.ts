@@ -9,11 +9,9 @@
  * Prestyled-by-default paint declarations for the `chart` data view (wave R-D).
  *
  * The chart view was already the most token-clean of the seven data views; its
- * debt was GEOMETRY, DUPLICATION, and one inverted tooltip. This module is the
- * single place the chart's paint is declared, so the five canvases
- * (`bar-chart`, `line-chart`, `multi-bar-chart`, `multi-line-chart`,
- * `multi-area-chart`), the shared axis primitives, the legend, the tooltip, the
- * loading state and the SSR twin all spend the same values.
+ * debt was GEOMETRY and DUPLICATION. This module is the single place the
+ * chart's own paint is declared, so the recharts canvases, the axes, the
+ * legend, the loading state and the SSR twin all spend the same values.
  *
  * ## Why this file lives in `presentation/utils/recipes/`
  *
@@ -28,12 +26,14 @@
  *
  * A chart is mostly SVG, and `stroke` / `fill` / `font-size` / `rx` on an SVG
  * node are PRESENTATION ATTRIBUTES, not classes. Routing them through Tailwind
- * (`stroke-[var(--sv-border,…)]`) would buy nothing and cost something: the
+ * (`stroke-[var(--border,…)]`) would buy nothing and cost something: the
  * safelist generator's `CLASS_USE_PATTERN` only recognises a withVarFallback
  * call inside an arbitrary-value bracket in a class position, so every such
  * class would need to survive a corpus regeneration to paint at all. A raw
- * `var(--sv-border,oklch(...))` string handed to an SVG attribute is resolved
- * by the browser directly and needs no safelisting whatsoever.
+ * `var(--border, oklch(...))` string handed to an SVG attribute is resolved
+ * by the browser directly and needs no safelisting whatsoever. Its fallback
+ * keeps its spaces: the underscore escape a Tailwind bracket needs is not CSS,
+ * so an attribute carrying it would fall back to nothing.
  *
  * That sentence DESCRIBES the call shape rather than spelling it, deliberately.
  * `Design Token Drift` extracts token names by scanning source text for that
@@ -59,29 +59,29 @@
  *                   body. It exists because `legend.position` is a placement:
  *                   its direction and gap ARE the declared value.
  *   - AXIS        — the X/Y baselines and the optional axis TITLE
- *   - TICK        — the X/Y tick labels and their offsets from the baselines
- *   - GRIDLINE    — the horizontal rules drawn when an axis declares `gridLines`
  *   - SERIES MARK — bar radius, line width, line-point ring, area opacity.
  *                   Beyond the seven-part vocabulary, but the CHART target
  *                   table has a row for each and they are paint like the rest;
  *                   leaving them inline would defeat the whole exercise.
  *   - LEGEND      — the `<ul>` strip, on either of its two axes
  *   - LEGENDCHIP  — one clickable series entry, plus its colour swatch
- *   - TOOLTIP     — the in-SVG hover callout
+ *
+ * The tick labels, the grid rules and the hover callout are painted by shadcn's
+ * chart container and its tooltip (`islands/parts/chart-primitives.tsx`), not
+ * here.
  *
  * ## Type ladder
  *
- * The canvas draws its axis and tick text at **9px**, which has no rung on
- * `PLATFORM_TYPE_LADDER`. Every 9px figure here is therefore taken to the
- * nearest rung, `text-2xs` (10/14) — a deliberate, named +1px divergence,
- * applied uniformly so the chart never mixes two off-ladder sizes. The tooltip's
- * 10px and the legend chip's 11px are exact rungs (`text-2xs`, `text-xs`).
+ * The canvas draws its axis titles at **9px**, which has no rung on
+ * `PLATFORM_TYPE_LADDER`, so they are taken to the nearest rung, `text-2xs`
+ * (10/14) — a deliberate, named +1px divergence. The legend chip's 11px is an
+ * exact rung (`text-xs`).
  *
  * ## Colour mapping (wave-level, see the R-D target table §0)
  *
- * canvas `hair` → `sv-border` · `inset` → `sv-bg-inset` · `raised` →
- * `sv-bg-raised` · `ink` → `sv-fg` · `subtle` → `sv-fg-subtle` · `muted` and
- * `prose` → `sv-fg-muted`. The last is the accepted role-over-value divergence
+ * canvas `hair` → `border` · `inset` → `sv-bg-inset` · `raised` →
+ * `card` · `ink` → `foreground` · `subtle` → `sv-fg-subtle` · `muted` and
+ * `prose` → `muted-foreground`. The last is the accepted role-over-value divergence
  * R-B already took for the table header; captions render ~0.10 L darker than
  * the drawing, which is named rather than silent.
  *
@@ -121,9 +121,9 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 const CHART_SHELL = [
   'relative w-full',
   'border',
-  `border-[${v('sv-border', T.border)}]`,
+  'border-border',
   `rounded-[${v('radius-md', T.radiusMd)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
+  'bg-card',
   // canvas `padding:10px 12px` — vertical first
   'px-3 py-2.5',
 ].join(' ')
@@ -234,7 +234,7 @@ export const computeChartLayoutClasses = ({
  * Y baseline is kept — it is structure, not paint, and the table's action for
  * this row is "keep; route through the recipe".
  */
-export const CHART_AXIS_STROKE = v('sv-border', T.border)
+export const CHART_AXIS_STROKE = `var(--border, ${T.border})`
 
 /**
  * Fill for an axis TITLE (`data-chart-axis-title`), the operator-set `xAxis
@@ -242,7 +242,7 @@ export const CHART_AXIS_STROKE = v('sv-border', T.border)
  * stronger than a tick, because it names the dimension rather than repeating a
  * value.
  */
-export const CHART_AXIS_LABEL_FILL = v('sv-fg-muted', T.fgMuted)
+export const CHART_AXIS_LABEL_FILL = `var(--muted-foreground, ${T.mutedForeground})`
 
 /** Axis-title size. Canvas 9px → the `text-2xs` rung (10/14). */
 export const CHART_AXIS_LABEL_FONT_SIZE = 10
@@ -257,46 +257,6 @@ export const CHART_AXIS_LABEL_FONT_SIZE = 10
  * the constant is that flipping it later is a one-line edit in one file.
  */
 export const CHART_AXIS_LABEL_FONT_WEIGHT = 600
-
-// ──────────────────────────────────────────────────────────────────────────────
-// TICK (X/Y tick labels and their offsets)
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Fill for X and Y tick labels. Canvas `#a1a1a1` — `subtle`, the faintest
- * live-text tone, because a tick is a reading aid rather than content. This
- * replaces `--color-foreground-muted`, which painted ticks at the same weight
- * as the axis title and flattened the two levels into one.
- */
-export const CHART_TICK_FILL = v('sv-fg-subtle', T.fgSubtle)
-
-/** Tick-label size. Canvas 9px → the `text-2xs` rung (10/14); was 11. */
-export const CHART_TICK_FONT_SIZE = 10
-
-/**
- * Horizontal gap between a Y tick label's end anchor and the Y baseline.
- * Canvas draws the label at `x = L - 6`; the shipped charts used 8.
- */
-export const CHART_Y_TICK_GAP = 6
-
-/**
- * Vertical drop from the X baseline to an X tick label's baseline. Canvas draws
- * it at `y = B + 14`; the shipped charts used 18.
- */
-export const CHART_X_TICK_BASELINE_OFFSET = 14
-
-// ──────────────────────────────────────────────────────────────────────────────
-// GRIDLINE (horizontal rules, drawn only when an axis declares `gridLines`)
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Stroke for the Y-tick-aligned horizontal grid rules. Canvas `#efefef` —
- * `inset`, which is FAINTER than the axis baseline on purpose: a grid that
- * matches the axis weight competes with the data it exists to help read. The
- * shipped charts drew grid lines at `--color-border`, the same weight as the
- * baseline.
- */
-export const CHART_GRID_LINE_STROKE = v('sv-bg-inset', T.bgInset)
 
 // ──────────────────────────────────────────────────────────────────────────────
 // SERIES MARKS (bar / line / line point / area)
@@ -318,7 +278,7 @@ export const CHART_POINT_RADIUS = 3
  * stays legible where two series cross. The shipped points were solid fills in
  * the series colour.
  */
-export const CHART_POINT_FILL = v('sv-bg-raised', T.bgRaised)
+export const CHART_POINT_FILL = `var(--card, ${T.card})`
 
 /** Line-point ring width. Canvas `stroke-width="2"`. */
 export const CHART_POINT_STROKE_WIDTH = 2
@@ -371,8 +331,8 @@ const CHART_LEGEND_CHIP = [
   'inline-flex items-center gap-1.5',
   // canvas 11px → the `text-xs` rung (11/16), exact. Was `text-md` (14).
   'text-xs',
-  // canvas `#565656` (`prose`) → `sv-fg-muted` per the R-D colour mapping
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
+  // canvas `#565656` (`prose`) → `muted-foreground` per the R-D colour mapping
+  'text-muted-foreground',
 ].join(' ')
 
 const CHART_LEGEND_CHIP_HIDDEN = 'opacity-40'
@@ -401,72 +361,3 @@ const CHART_LEGEND_CHIP_SWATCH = [
  * as an inline `backgroundColor`.
  */
 export const computeChartLegendChipSwatchClasses = (): string => CHART_LEGEND_CHIP_SWATCH
-
-// ──────────────────────────────────────────────────────────────────────────────
-// TOOLTIP (in-SVG hover callout)
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * The tooltip is the single most visible change in this view, and it is an
- * INVERSION rather than a retune.
- *
- * The shipped tooltip was DARK: `<rect fill="var(--color-foreground)">` with
- * `<text fill="var(--color-background)">`. The canvas
- * (`spec-data.mjs`, `chartSvg`'s `tooltip` branch) draws a LIGHT one —
- * `rect rx="4" height="24" fill="#fefefe" stroke="#e3e3e3"`, text at
- * `font-size="10" fill="#131313"` — i.e. the same `raised` surface and `hair`
- * hairline as the card itself, so the callout reads as a small piece of the
- * chart's own chrome lifted off the canvas, not as a foreign dark chip.
- */
-
-/** Callout height. Canvas `height="24"`; was 22. */
-export const CHART_TOOLTIP_HEIGHT = 24
-
-/** Callout corner radius. Canvas `rx="4"` — the `radius-base` step; was 3. */
-export const CHART_TOOLTIP_RADIUS = 4
-
-/** Callout surface. Canvas `#fefefe` (`raised`) — the inversion. */
-export const CHART_TOOLTIP_FILL = v('sv-bg-raised', T.bgRaised)
-
-/** Callout hairline. Canvas `stroke="#e3e3e3"` (`hair`); the shipped rect had none. */
-export const CHART_TOOLTIP_STROKE = v('sv-border', T.border)
-
-/** Callout text. Canvas `#131313` (`ink`) — the other half of the inversion. */
-export const CHART_TOOLTIP_TEXT_FILL = v('sv-fg', T.fg)
-
-/** Callout text size. Canvas `font-size="10"` — the `text-2xs` rung, exact; was 11. */
-export const CHART_TOOLTIP_FONT_SIZE = 10
-
-/**
- * Left inset of the callout text from the rect's own x. Canvas draws the text
- * at `x = tx + 8` with the DEFAULT (start) anchor, where the shipped tooltip
- * centred its text on the hovered point. Start-anchored text keeps the left
- * edge steady as the value's digit count changes.
- */
-export const CHART_TOOLTIP_TEXT_INSET_X = 8
-
-/**
- * Baseline of the callout text measured from the rect's own y. Canvas
- * `y = ty + 15` against a 24px box, with the default (alphabetic) baseline.
- */
-export const CHART_TOOLTIP_TEXT_BASELINE_Y = 15
-
-/**
- * Vertical clearance between the hovered point and the bottom of the callout.
- * Canvas puts the rect top at `sy(v) - 34` for a 24px box, so 10px of air.
- */
-export const CHART_TOOLTIP_POINT_GAP = 10
-
-/**
- * Per-character width estimate used to size the callout, at
- * {@link CHART_TOOLTIP_FONT_SIZE}. The canvas uses the same 5.4 figure; it is
- * calibrated for 10px text, which is why it moves with the font size rather
- * than staying at the 6.5 that the shipped 11px tooltip used.
- */
-export const CHART_TOOLTIP_CHAR_WIDTH = 5.4
-
-/**
- * Floor for the callout width, so a one- or two-character value still gets a
- * box wide enough to read as a callout rather than as a stray rectangle.
- */
-export const CHART_TOOLTIP_MIN_WIDTH = 40

@@ -1,4 +1,5 @@
-# sovrium-library: block/pricing-comparison@0.30.0
+# sovrium-library: block/pricing-comparison@0.37.0
+# sovrium-library-params: headline=Compare%20plans
 name: pricing-comparison
 type: container
 element: section
@@ -16,7 +17,7 @@ children:
         content: Compare plans
       - type: container
         props:
-          className: mt-8 overflow-x-auto rounded-lg border border-border bg-background-raised
+          className: mt-8 overflow-hidden rounded-lg border border-border bg-card
         children:
           - type: table
             tableHeaders:
@@ -55,9 +56,8 @@ children:
               - {}
               - {}
             props:
-              className: '!table !w-full !rounded-none !border-0 !bg-transparent min-w-[36rem] text-left text-md text-foreground'
+              className: 'table min-w-[36rem] text-md'
             classes:
               parts:
-                header: border-b border-border px-4 py-3 text-sm font-medium text-foreground-subtle
-                row: '*:border-b *:border-border last:*:border-b-0'
+                header: px-4 py-3 text-sm text-muted-foreground
                 cell: px-4 py-3

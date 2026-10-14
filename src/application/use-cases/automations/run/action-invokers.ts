@@ -292,6 +292,7 @@ export const buildNestedStepInvoker = (
     previousSteps,
     refusal,
     authored,
+    handlerFills,
     templateVars,
     resume,
     loopScopes,
@@ -318,6 +319,8 @@ export const buildNestedStepInvoker = (
       // A loop or a path nested in a loop or a path gets its configuration as
       // written and fills in its own body; every other nested action's props are final.
       ...(authored === true ? {} : { propsFinal: true as const }),
+      // Its `steps` / `credentials` were kept as written: the browser handler fills them when reached.
+      ...(handlerFills === true ? { handlerFills: true as const } : {}),
       // A named template called from the path or the loop: its inline text reads these.
       ...(templateVars === undefined ? {} : { templateVars }),
       // A loop or a path the run resumes inside re-enters where it parked.

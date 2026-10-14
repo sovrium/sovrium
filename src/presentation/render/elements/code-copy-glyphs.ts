@@ -41,6 +41,8 @@
  * stops being painted.
  */
 
+import { computeCodeBlockCopyClasses } from '@/presentation/design/code-block-default-classes'
+
 /** Two overlapping sheets — the conventional "copy to clipboard" mark. */
 export const COPY_SHEET_RECT = { x: '9', y: '9', width: '11', height: '11', rx: '2' } as const
 export const COPY_SHEET_PATH = 'M5 15V5a2 2 0 0 1 2-2h8'
@@ -55,16 +57,14 @@ export const GLYPH_SVG_ATTRS = {
   viewBox: '0 0 24 24',
   fill: 'none',
   stroke: 'currentColor',
-  // 1.5, the one stroke weight in the product — not lucide's own default of 2,
-  // which no icon renderer here uses.
-  strokeWidth: '1.5',
+  // lucide's own 2, the stroke every icon in the product draws at.
+  strokeWidth: '2',
   strokeLinecap: 'round',
   strokeLinejoin: 'round',
 } as const
 
-/** Utility classes for the button itself — icon-only, right-aligned in its header. */
-export const CODE_COPY_BUTTON_CLASSES =
-  'ml-auto inline-flex cursor-pointer items-center justify-center rounded p-1'
+/** The button itself: shadcn/ui's ghost icon button, at the trailing edge of its header. */
+export const CODE_COPY_BUTTON_CLASSES = computeCodeBlockCopyClasses()
 
 /** Utility classes for the announcement region: announced, never painted. */
 export const CODE_COPY_STATUS_CLASSES = 'sr-only'
@@ -90,9 +90,12 @@ const escapeAttr = (value: string): string =>
  * Attribute-for-attribute identical to the React `CodeCopyButton` /
  * `CodeCopyStatus` in `code-copy-controls.tsx`.
  */
-export const renderCodeCopyControlHtml = (copyLabel: string, copiedLabel: string): string =>
-  `<button type="button" aria-label="${escapeAttr(copyLabel)}" title="${escapeAttr(
+export const renderCodeCopyButtonHtml = (copyLabel: string, copiedLabel: string): string =>
+  `<button type="button" data-slot="button" data-variant="ghost" data-size="icon-xs" aria-label="${escapeAttr(copyLabel)}" title="${escapeAttr(
     copyLabel
   )}" data-copy-code="true" data-copied-label="${escapeAttr(
     copiedLabel
-  )}" class="${CODE_COPY_BUTTON_CLASSES}">${CODE_COPY_GLYPHS_HTML}</button><span role="status" aria-live="polite" data-copy-status="true" class="${CODE_COPY_STATUS_CLASSES}"></span>`
+  )}" class="${CODE_COPY_BUTTON_CLASSES}">${CODE_COPY_GLYPHS_HTML}</button>`
+
+/** The announcement region beside the button, as raw HTML. */
+export const CODE_COPY_STATUS_HTML = `<span role="status" aria-live="polite" data-copy-status="true" class="${CODE_COPY_STATUS_CLASSES}"></span>`

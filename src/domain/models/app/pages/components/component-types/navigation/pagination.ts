@@ -36,4 +36,23 @@ export const paginationFields = {
       Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
     )
   ),
+  paginationVariant: Schema.optional(
+    Schema.Literals(['default', 'simple', 'icons']).annotate({
+      description:
+        "The pager's shape: 'default' draws the page numbers between Previous and Next; 'simple' draws only Previous and Next; 'icons' draws the page numbers between two icon-only controls that keep their names. shadcn/ui's Pagination examples.",
+    })
+  ),
+  previousLabel: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Name of the control to the previous page (default: "Previous"); accepts a $t: key',
+      examples: ['Newer articles'],
+    })
+  ),
+  nextLabel: Schema.optional(
+    Schema.String.annotate({
+      description: 'Name of the control to the next page (default: "Next"); accepts a $t: key',
+      examples: ['Older articles'],
+    })
+  ),
 } as const

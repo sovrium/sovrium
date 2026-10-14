@@ -8,24 +8,24 @@
 /**
  * The console's inherited-token projection — what an app SHIPS when it declares nothing.
  *
- * AUTO-GENERATED from `src/admin/config/design.ts` — DO NOT EDIT.
+ * AUTO-GENERATED from `[internal ref]` — DO NOT EDIT.
  *
  * Regenerate: `bun run build:default-design`
  */
 
 export const INHERITED_COLOR_TOKENS: Readonly<Record<string, string>> = {
-  background: 'oklch(0.985 0 0)',
-  'background-subtle': 'oklch(0.965 0 0)',
-  'background-raised': 'oklch(0.995 0 0)',
-  'background-overlay': 'oklch(0.995 0 0)',
+  background: 'oklch(1 0 0)',
+  'background-subtle': 'oklch(0.97 0 0)',
+  'background-raised': 'oklch(1 0 0)',
+  'background-overlay': 'oklch(1 0 0)',
   'background-inset': 'oklch(0.952 0 0)',
-  foreground: 'oklch(0.14 0 0)',
-  'foreground-muted': 'oklch(0.445 0 0)',
+  foreground: 'oklch(0.145 0 0)',
+  'foreground-muted': 'oklch(0.556 0 0)',
   'foreground-subtle': 'oklch(0.54 0 0)',
   'foreground-disabled': 'oklch(0.71 0 0)',
   'foreground-inverse': 'oklch(0.985 0 0)',
-  border: 'oklch(0.92 0 0)',
-  ring: 'oklch(0.205 0 0)',
+  border: 'oklch(0.922 0 0)',
+  ring: 'oklch(0.708 0 0)',
   primary: 'oklch(0.205 0 0)',
   'primary-hover': 'oklch(0.272 0 0)',
   'primary-active': 'oklch(0.14 0 0)',
@@ -34,17 +34,20 @@ export const INHERITED_COLOR_TOKENS: Readonly<Record<string, string>> = {
   'primary-subtle-foreground': 'oklch(0.205 0 0)',
   success: 'oklch(0.45 0 0)',
   warning: 'oklch(0.72 0 0)',
-  error: '#c13520',
+  error: 'oklch(0.577 0.245 27.325)',
   info: '#398ad6',
 }
 
 export const INHERITED_RADIUS_TOKENS: Readonly<Record<string, string>> = {
   none: '0px',
-  sm: '2px',
+  sm: '0.375rem',
   base: '4px',
-  md: '6px',
-  lg: '8px',
-  xl: '12px',
+  md: '0.5rem',
+  lg: '0.625rem',
+  xl: '0.875rem',
+  '2xl': '1.125rem',
+  '3xl': '1.375rem',
+  '4xl': '1.625rem',
   full: '9999px',
 }
 
@@ -67,24 +70,8 @@ export const INHERITED_EASING_TOKENS: Readonly<Record<string, string>> = {
 }
 
 export const INHERITED_FONT_TOKENS: Readonly<Record<string, readonly string[]>> = {
-  sans: [
-    'IBM Plex Sans Variable',
-    'IBM Plex Sans',
-    '-apple-system',
-    'BlinkMacSystemFont',
-    'Segoe UI',
-    'system-ui',
-    'sans-serif',
-  ],
-  mono: [
-    'JetBrains Mono Variable',
-    'JetBrains Mono',
-    'ui-monospace',
-    'SF Mono',
-    'Menlo',
-    'Consolas',
-    'monospace',
-  ],
+  sans: ['Geist Variable', 'sans-serif'],
+  mono: ['Geist Mono Variable', 'monospace'],
 }
 
 export const PLATFORM_TYPE_LADDER: readonly (readonly [string, number, number])[] = [

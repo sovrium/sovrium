@@ -11,7 +11,8 @@ import {
 } from '@/presentation/design/table-default-classes'
 import { usePhoneViewport } from '../../../hooks/use-phone-viewport'
 import { LoadMoreButton } from '../../../parts/load-more-button'
-import { PaginationControls } from '../pagination'
+import { GridInfiniteFooter } from '../../pagination/grid-infinite-footer'
+import { PaginationControls } from '../../pagination/pagination-controls'
 import { TableContent } from '../table-content'
 import { PhoneRows } from './phone-rows'
 import type { GridBodyProps } from '../view-props'
@@ -34,7 +35,8 @@ function showsPagerAt(props: GridBodyProps, edge: 'top' | 'bottom'): boolean {
   if (!props.paginationConfig || props.cursorPaged) return false
   // A load-more grid is one list, so it has no page to number and no page size
   // for the reader to pick — the size is the author's.
-  if (props.paginationConfig.style === 'loadMore') return false
+  if (props.paginationConfig.style === 'loadMore' || props.paginationConfig.style === 'infinite')
+    return false
   const position = props.paginationConfig.position ?? 'bottom'
   return position === edge || position === 'both'
 }
@@ -112,7 +114,18 @@ function GridFooter(props: GridBodyProps) {
           edge="bottom"
         />
       )}
-      {props.onLoadMore && props.hasMore && (
+      {props.onLoadMore && props.paginationConfig?.style === 'infinite' && (
+        <GridInfiniteFooter
+          loaded={props.table.getRowModel().rows.length}
+          total={props.totalRecords}
+          hasMore={props.hasMore}
+          isLoading={props.isLoadingMore}
+          onLoadMore={props.onLoadMore}
+          footerClassName={LOAD_MORE_FOOTER_CLASSES}
+          buttonClassName={computeTableToolbarButtonClasses({ disabled: props.isLoadingMore })}
+        />
+      )}
+      {props.onLoadMore && props.hasMore && props.paginationConfig?.style !== 'infinite' && (
         <LoadMoreButton
           onClick={props.onLoadMore}
           isLoading={props.isLoadingMore}

@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { BarChartCanvas } from './bar-chart'
+import { ArcChart } from './arc-chart'
+import { CategoryBarChart, CategoryLineChart } from './category-charts'
 import { decorateCategories, orderCategories } from './chart-aggregate'
 import { buildCategoryData } from './chart-series-shared'
-import { LineChartCanvas } from './line-chart'
-import { PieChartCanvas } from './pie-chart'
+import { RadarCategoryChart, RadialCategoryChart } from './polar-charts'
 import type {
   ChartAxisConfig,
   ChartFieldContext,
@@ -35,6 +35,40 @@ export const PIE_DEFAULT_ORDER = 'value-desc'
  */
 export function isArcChart(chartType: ChartType | undefined): boolean {
   return chartType === 'pie' || chartType === 'donut'
+}
+
+/**
+ * Each category named from `nameKey`, a field of the first record in it, when
+ * the legend or the tooltip names one: a plan's display name beside its code.
+ */
+function nameCategories(
+  data: readonly CategoryDatum[],
+  records: readonly TableRecord[],
+  xField: string,
+  nameKey: string | undefined
+): readonly CategoryDatum[] {
+  if (nameKey === undefined) return data
+  return data.map((datum) => {
+    const name = records.find((record) => String(record[xField]) === datum.key)?.[nameKey]
+    return name == null ? datum : { ...datum, label: String(name) }
+  })
+}
+
+/** A radar or a radial chart, or nothing for any other type. */
+function renderPolarChart(
+  chartType: ChartType | undefined,
+  data: readonly CategoryDatum[],
+  args: Pick<CategoryChartArgs, 'accessibleName' | 'tooltip'>
+): ReactElement | undefined {
+  if (chartType !== 'radar' && chartType !== 'radial') return undefined
+  const Polar = chartType === 'radar' ? RadarCategoryChart : RadialCategoryChart
+  return (
+    <Polar
+      data={data}
+      accessibleName={args.accessibleName}
+      tooltip={args.tooltip}
+    />
+  )
 }
 
 interface CategoryChartArgs {
@@ -88,12 +122,16 @@ interface CategoryChartArgs {
  * performed here when the binding did not arrive with one.
  */
 export function renderCategoryChart(args: CategoryChartArgs): ReactElement {
-  const { records, chartType, xField, yField, xAxis, yAxis, tooltip, legend, fields } = args
-  const { accessibleName } = args
+  const { records, chartType, xField, yField, legend, fields } = args
   // Every category takes its option's label and colour, whichever binding fed it.
-  const data = decorateCategories(
-    args.data ?? buildCategoryData(records, xField, yField),
-    fields.categoryOptions
+  const data = nameCategories(
+    decorateCategories(
+      args.data ?? buildCategoryData(records, xField, yField),
+      fields.categoryOptions
+    ),
+    records,
+    xField,
+    legend?.nameKey ?? args.tooltip?.nameKey
   )
   if (isArcChart(chartType)) {
     // A raw axis pair is unordered: option order, else largest first.
@@ -102,38 +140,27 @@ export function renderCategoryChart(args: CategoryChartArgs): ReactElement {
         ? orderCategories(data, undefined, fields.categoryOptions, PIE_DEFAULT_ORDER)
         : data
     return (
-      <PieChartCanvas
-        records={records}
-        xField={xField}
-        yField={yField}
+      <ArcChart
         data={slices}
         donut={chartType === 'donut'}
         legend={legend}
-        accessibleName={accessibleName}
+        tooltip={args.tooltip}
+        accessibleName={args.accessibleName}
         dataLabels={fields.dataLabels}
       />
     )
   }
-  if (chartType === 'line') {
-    return (
-      <LineChartCanvas
-        data={data}
-        xFormat={xAxis?.format}
-        accessibleName={accessibleName}
-      />
-    )
-  }
+  const polar = renderPolarChart(chartType, data, args)
+  if (polar !== undefined) return polar
+  const Chart = chartType === 'line' ? CategoryLineChart : CategoryBarChart
   return (
-    <BarChartCanvas
-      records={records}
-      xField={xField}
-      yField={yField}
+    <Chart
       data={data}
-      xAxis={xAxis}
-      yAxis={yAxis}
-      tooltip={tooltip}
-      accessibleName={accessibleName}
-      valueCurrency={fields.valueCurrency}
+      xAxis={args.xAxis}
+      yAxis={args.yAxis}
+      tooltip={args.tooltip}
+      fields={fields}
+      accessibleName={args.accessibleName}
     />
   )
 }

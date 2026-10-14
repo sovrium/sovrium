@@ -1,6 +1,6 @@
 # Text & Choice Controls
 
-> The eleven text and choice inputs — input, input-group, textarea, rich-text-editor, code-editor, select, checkbox, radio-group, switch, toggle and toggle-group — plus the field wrapper that labels any of them.
+> The fourteen text and choice inputs — input, input-otp, input-group, textarea, rich-text-editor, code-editor, select, combobox, native-select, checkbox, radio-group, switch, toggle and toggle-group — plus the field wrapper that labels any of them.
 
 Form controls are the individual inputs a form is built from. They sit inside a `form`, or stand alone inside any container.
 
@@ -22,17 +22,19 @@ Four controls do declare it — `input-group`, `rich-text-editor`, `code-editor`
 
 ## `input`
 
-A single-line text input. The HTML input type is the schema-level `inputType` property, not `props.type`.
+A single-line text input. Reference: shadcn/ui Input. The HTML input type is the schema-level `inputType` property, not `props.type`.
 
 <!-- sovrium:options type:input -->
 
-`inputType` is `text` by default, or `email`, `password`, `number`, `tel`, `url`, `search`, or `one-time-code`. Placeholder, default value, disabled and required all travel through `props`.
+`inputType` is `text` by default, or `email`, `password`, `number`, `tel`, `url` or `search`. A one-time code is its own type, [`input-otp`](#input-otp); `inputType: one-time-code` is refused with a message naming it. Placeholder, default value, disabled and required all travel through `props`.
 
-`inputType: one-time-code` renders the box a mailed verification code is typed back into. It carries `autocomplete="one-time-code"` and a numeric keyboard, which is what lets a phone offer the code it just received — the whole difference between it and a plain text box.
+## `input-otp`
+
+The box a mailed verification code is typed back into. Reference: shadcn/ui Input OTP. It takes only the shared `props`, `classes`, `visibility` and `i18n` keys, and carries `autocomplete="one-time-code"` and a numeric keyboard, which is what lets a phone offer the code it just received. `inputType` is refused: an `input-otp` is always a one-time code.
 
 ## `input-group`
 
-One input with a fixed prefix, suffix, or action fused to its edge.
+One input with a fixed prefix, suffix, or action fused to its edge. Reference: shadcn/ui Input Group. The field and its addons share one box: the border, the corners and the focus ring belong to the group, not to the input inside it. `prefix` and `suffix` are the inline text shorthand; `addons` places icons (`icon`), key hints (`kbd`) or text before or after the control (`align: inline-start`, the default, or `inline-end`), or above or below it (`block-start`, `block-end`), and none of them is ever part of the value. `control: textarea` holds a multi-line control instead of an input. The `action` link takes a button `variant` (`ghost` by default) and `size` (`xs` by default, `sm`, `icon-xs` or `icon-sm`).
 
 <!-- sovrium:options type:input-group -->
 
@@ -58,13 +60,13 @@ The label is bound to the input, not to an addon — an addon is not a control, 
 
 ## `textarea`
 
-A multi-line text input.
+A multi-line text input. Reference: shadcn/ui Textarea. It grows with what is written.
 
 <!-- sovrium:options type:textarea -->
 
 ## `rich-text-editor`
 
-Formatted prose, written in place, with only the marks you allow.
+Formatted prose, written in place, with only the marks you allow. Reference: shadcn/ui Input Group. The editor and its toolbar share one frame, ringed while the text has focus; each action is a ghost toggle showing its glyph, named for assistive technology and shown on the muted surface while it is on, with a rule between groups of actions.
 
 <!-- sovrium:options type:rich-text-editor -->
 
@@ -76,7 +78,7 @@ Omitting `toolbar` gives the default six: bold, italic, heading, list, link, cod
 
 ## `code-editor`
 
-Source text the reader edits, highlighted by language and indented to your width.
+Source text the reader edits, highlighted by language and indented to your width. Reference: shadcn/ui Input Group. The editor sits in one frame, set in the monospace face with its line numbers in the muted foreground, and the frame is ringed while the source has focus.
 
 <!-- sovrium:options type:code-editor -->
 
@@ -88,23 +90,13 @@ The eleven grammars are `javascript`, `typescript`, `jsx`, `tsx`, `json`, `html`
 
 ## `select`
 
-A dropdown showing the selected value and opening an option list on click.
+A dropdown showing the selected value and opening an option list on click. Reference: shadcn/ui Select. The list opens below the trigger, aligned to its left edge, and the page behind it stays scrollable.
 
 <!-- sovrium:options type:select depth=3 -->
 
-An option is `{ label, value, disabled, icon }`; `label` and `value` are required.
+An option is `{ label, value, disabled, icon, group }`; `label` and `value` are required. Consecutive options sharing a `group` are listed under that group's label, which is no option; an interrupted group is drawn again where it resumes, so the written order is kept. `clearable: true` draws a clear control beside a chosen value, which returns the select to its placeholder.
 
-### The browser's own control
-
-By default a `select` is a styled control: it matches your design, it can paint a per-option `icon`, and it can grow a type-ahead field. `native: true` gets the browser's own `<select>` instead. Reach for it on dense, data-heavy screens — a filter bar that offers a list and reads a value back:
-
-- **It ships no JavaScript.** The styled control is drawn in the browser; the native one is in the first response and is usable immediately, including with scripting turned off.
-- **It is the platform's own accessible control.** A phone draws its own picker, and the browser's type-ahead works with nothing of ours in the way.
-- **The whole ecosystem addresses it** — password managers, translation extensions, form autofill and browser testing tools all key off the element.
-
-Keep the default everywhere else. It is the control your visitors see on a marketing page or a public form, and it is the one that carries your design.
-
-`native` refuses three combinations when your config is read, rather than dropping them in silence: `searchable` names a different control — the type-ahead combobox; `allowCustomValue`, because the native control offers only its declared options; and an option `icon`, because an `<option>` element cannot paint a glyph. `multiple` **is** allowed: a multi-select is a real browser control.
+A `select` is the styled control: it matches your design and can paint a per-option `icon`. For type-ahead, use [`combobox`](#combobox); for the browser's own `<select>`, use [`native-select`](#native-select). `searchable`, `searchPlaceholder` and `allowCustomValue` are refused on a `select`, each with a message naming `combobox`, and `native` with one naming `native-select`.
 
 ### Options from a table
 
@@ -153,11 +145,25 @@ You need the key most when the choices come from a `dataSource`, because a bindi
 
 Two combinations are refused at startup because each would fail silently: `multiple: true`, since a multi-select says "none" by selecting nothing and an empty-valued option would join the selection instead; and an option that already submits `''`, since two choices with one value cannot be told apart when the selection is read back.
 
-### There is no `combobox` type
+## `combobox`
 
-A searchable dropdown is `select` with `searchable: true`, which also accepts `searchPlaceholder` and `allowCustomValue`. That is a decision rather than a gap: a combobox and a select differ by whether you can type into them, which is one boolean — and splitting them would give two components sharing every option, every keyboard behaviour and every listbox token, while forcing an author who adds search to an existing dropdown to change its type rather than set a flag.
+One choice, or with `multiple: true` several, found by typing from a list that narrows with each keystroke. Reference: shadcn/ui Combobox.
+
+<!-- sovrium:options type:combobox -->
+
+It takes `select`'s options and data sources, and is always searchable: `searchPlaceholder` labels the search field and `allowCustomValue` accepts a typed value that matches no option. With `multiple: true` the field submits every chosen value under its `props.name`, one per value, and a pick made while filtering closes the list; `allowCustomValue` then does not apply. `chips: true` draws each chosen value as a chip inside the field, with a button that removes it; Backspace in the empty input removes the last one. `chips` requires `multiple: true` and is refused without it, and on a `select`. `searchable` and `native` are refused (the browser's own control is `native-select`).
+
+## `native-select`
+
+The browser's own `<select>`. Reference: shadcn/ui Native Select.
+
+<!-- sovrium:options type:native-select -->
+
+It takes the same `options`, `dataSource`, `emptyOption`, `defaultValue`, `multiple` and `publishes` as `select`, and suits dense, data-heavy screens such as a filter bar: it ships no JavaScript and is usable in the first response, even with scripting off; it is the platform's own accessible control, so a phone draws its own picker, and password managers, translation extensions, autofill and testing tools all key off the element. Keep `select` on a marketing page or a public form, where the control carries your design. `searchable`, `searchPlaceholder` and `allowCustomValue` are refused (type-ahead is [`combobox`](#combobox)), and so is an option `icon`, which an `<option>` element cannot paint.
 
 ## `checkbox`, `radio-group` and `switch`
+
+A checkbox is a box the reader ticks, a radio group one choice among a few, all visible, and a switch a setting that applies as it flips. Reference: shadcn/ui Checkbox. Reference: shadcn/ui Radio Group. Reference: shadcn/ui Switch. Unchecked, each is outlined in the muted foreground, so it holds a 3:1 contrast against the page.
 
 <!-- sovrium:options type:checkbox -->
 
@@ -171,7 +177,7 @@ Use `switch` when the change takes effect immediately, and `checkbox` when it ta
 
 ## `toggle` and `toggle-group`
 
-`toggle` is a single pressable button that stays pressed; `toggle-group` groups several.
+`toggle` is a single pressable button that stays pressed; `toggle-group` groups several. Reference: shadcn/ui Toggle. Reference: shadcn/ui Toggle Group. A group draws its items apart, each a toggle of its own, `spacing` steps apart (2 by default; `spacing: 0` joins them into one control), and `orientation` sets the axis they flow on and the arrow keys that move between them. `toggleVariant: outline` draws a toggle, or every item of a group, with a border; `default` is borderless.
 
 <!-- sovrium:options type:toggle -->
 
@@ -179,7 +185,7 @@ Use `switch` when the change takes effect immediately, and `checkbox` when it ta
 
 ## `field`
 
-A wrapper that renders a label, a control, a description and an error message as one accessible unit. It is the only form control that takes `children`.
+A wrapper that renders a label, a control, a description and an error message as one accessible unit. Reference: shadcn/ui Field. It is the only form control that takes `children`, and it is announced as a group; while `fieldError` or `errors` is set, the field's text, label and message included, is drawn in the destructive colour and its control is marked invalid. `errors` draws several messages as one list. `orientation` places the label above the control (`vertical`, the default), beside it (`horizontal`), or beside it on a wide screen and above it on a narrow one (`responsive`). `legend` makes the field a fieldset named by its legend, grouping the controls inside it. `fieldTitle` titles a choice control, such as a switch, beside it and above `fieldDescription`, and names it.
 
 <!-- sovrium:options type:field -->
 

@@ -6,205 +6,108 @@
  */
 
 /**
- * Prestyled-by-default class computers for `comments` (wave R-E).
- *
- * ## Why it moved here
- * These lived in `islands/recipes/specialty-islands-default-classes.ts`, which
- * `ui/sections/rendering/component-registry/social-components.tsx` cannot
- * import across the `presentation-component` ↔ `presentation-island` boundary.
- * So the guest form the server renders and the form the island hydrates were
- * styled from two different sources, and had already drifted: the server drew
- * its textarea `min-h-[100px]`, the island drew the same control
- * `min-h-[80px]`. A 20px jump on mount, from two literals nothing compared.
- *
- * ## The shape change, and why it is the point
- * A thread was a bordered card holding bordered cards. The canvas
- * (`variants.mjs:174`) draws it as ONE frame whose rows are separated by
- * rules — the same structure as a table, which is what a thread is. Two
- * reasons this is not a preference:
- *
- *  - Card-in-card is out of contract. R-B removed it everywhere else; a
- *    comment thread was the last place it survived, and it made a five-comment
- *    thread read as five documents rather than one conversation.
- *  - The rules do the separating for free, so every comment gets back the
- *    16px of padding the nested borders were spending.
- *
- * The row rule is `bg-subtle`, one step lighter than the frame's own `border`.
- * That is deliberate in the drawing: an internal division should be quieter
- * than the boundary of the thing it divides.
- *
- * ## Target
- * Canvas oracle: `variants.mjs:174` (`commentThread` with its sort bar,
- * items, replies, pager, composer, empty and signed-out states),
- * `kit.mjs:94` (the specimen), `spec-fields.mjs:77-110` (the option rows).
- *
- * | part      | property                | value                          |
- * |-----------|-------------------------|--------------------------------|
- * | frame     | border / radius         | 1px border · r6                |
- * | sort bar  | padding / size / rule   | 8px 12px · 11px muted · bottom |
- * | item      | padding / gap / rule    | 10px 12px · 10px · bottom, subtle |
- * | avatar    | size                    | 24px                           |
- * | author    | size / weight           | 12px · 500                     |
- * | time      | size / tone             | 11px · fg-disabled             |
- * | body      | size / leading          | 13px · 1.5                     |
- * | actions   | size / tone / decoration| 11px · muted · underline       |
- * | reply     | indent / rule           | 34px · 2px left, border        |
- * | composer  | padding / ground / rule | 10px 12px · page ground · top  |
+ * Adapted from shadcn/ui item, avatar and textarea (https://ui.shadcn.com), registry commit 3464245c4513b7998b1d11fa9c67b71cc1534dc7.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
  */
-
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// FRAME
-// ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * The thread frame.
+ * The `comments` thread, drawn on shadcn/ui's anatomy (base-nova).
  *
- * No padding and no gap: every row inside pads itself, so a row's rule can run
- * the full width of the frame the way a table's does. The old recipe's `p-4
- * gap-3` is what forced each comment to carry its own border to look separated.
+ * The server-rendered section and the hydrated thread both read this module,
+ * so the frame, the empty line and the composer cannot jump on mount.
+ *
+ * - The thread is ONE outlined frame whose rows are separated by rules.
+ * - Each comment is an `item` aligned to the start: an `item-media` holding the
+ *   author's `avatar`, then an `item-content` whose `item-title` carries the
+ *   author and a muted time, the text under it at reading size and unclamped.
+ *   A reply is indented under a left rule and draws a smaller avatar.
+ * - The composer is an `input-group` around its textarea, with the submit in a
+ *   `block-end` addon (`input-group-default-classes.ts`).
+ *
+ * The item strings are base-nova's `itemVariants` at its default variant with
+ * `items-start` in place of `items-center`: the merged item recipe carries no
+ * alignment axis, and an island cannot resolve a class conflict at runtime.
  */
+
+/** The thread frame: one outlined panel, its rows pad themselves. */
 export const computeCommentThreadClasses = (): string =>
-  [
-    'my-6 flex flex-col overflow-hidden',
-    'border',
-    `border-[${v('sv-border', T.border)}]`,
-    `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-    `rounded-[${v('radius-md', T.radiusMd)}]`,
-    `text-[${v('sv-fg', T.fg)}]`,
-  ].join(' ')
+  'my-6 flex flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground'
 
 /** The sort control's row, right-aligned above the first comment. */
 export const computeCommentSortBarClasses = (): string =>
-  [
-    'flex items-center justify-end gap-1.5 px-3 py-2 text-xs',
-    'border-b',
-    `border-[${v('sv-border', T.border)}]`,
-    `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  ].join(' ')
+  'flex items-center justify-end gap-1.5 border-b border-border px-3 py-2 text-xs text-muted-foreground'
 
-/**
- * The sort `<select>` itself — a 24px field, not a 36px one.
- *
- * `variants.mjs:174` shrinks it because it labels the list rather than
- * collecting input: at full field height it would out-weigh the first comment
- * underneath it. `select-compact` shrinks its chevron and end inset to match.
- *
- * `py-0.5` replaces the base select's 8px block padding, which leaves a 24px
- * box a 6px content row: the 14px line was clipped through its middle.
- */
+/** The sort `<select>`: a 24px field, it labels the list rather than collecting input. */
 export const computeCommentSortSelectClasses = (): string =>
-  [
-    'select-compact inline-flex h-6 w-auto items-center px-2 py-0.5 text-xs',
-    'border',
-    `border-[${v('sv-border-strong', T.borderStrong)}]`,
-    `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-    `text-[${v('sv-fg', T.fg)}]`,
-    `rounded-[${v('radius-base', T.radiusBase)}]`,
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset',
-    `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-  ].join(' ')
+  'select-compact inline-flex h-6 w-auto items-center rounded-md border border-input bg-transparent px-2 py-0.5 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ITEMS
 // ──────────────────────────────────────────────────────────────────────────────
 
+/** A comment's depth: 0 on the thread, 1 for a reply. */
+type Depth = { readonly depth?: number }
+
 /**
- * One comment — a rule-separated row, not a card.
- *
- * The `depth` axis indents a reply by 34px and hangs a 2px rule down its left
- * edge. 34px is not arbitrary: it is the 24px avatar plus the 10px gap after
- * it, so a reply's text starts exactly where its parent's text starts and the
- * thread reads as a single left-hand column with one step in it.
+ * One comment — base-nova's `Item`, aligned to the start, as a rule-separated
+ * row of the frame. A reply is indented by its parent's avatar and gap and
+ * hangs a rule down its left edge.
  */
-export const computeCommentItemClasses = ({
-  depth = 0,
-}: { readonly depth?: number } = {}): string =>
+export const computeCommentItemClasses = ({ depth = 0 }: Depth = {}): string =>
   [
-    'flex items-start gap-2.5 px-3 py-2.5',
-    'border-b',
-    // One step lighter than the frame's own border: an internal division
-    // should be quieter than the boundary of the thing it divides.
-    `border-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-    depth >= 1 ? `ml-[34px] border-l-2 border-l-[${v('sv-border', T.border)}] pl-3` : '',
+    'group/item flex w-full items-start gap-2.5 border-b border-border px-3 py-2.5 text-sm outline-none',
+    depth >= 1 ? 'ml-[42px] border-l-2 border-l-border pl-3' : '',
   ]
     .filter(Boolean)
     .join(' ')
 
-/** The circle carrying an author's initial. */
-export const computeCommentAvatarClasses = (): string =>
-  [
-    'inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium',
-    `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-    `text-[${v('sv-fg-subtle', T.fgSubtle)}]`,
-  ].join(' ')
+/** base-nova's `ItemMedia` (default variant). */
+export const computeCommentMediaClasses = (): string =>
+  'flex shrink-0 items-center justify-center gap-2'
 
-/** The column beside the avatar: meta, body, actions. */
+/** base-nova's `Avatar` root: 32px, 24px for a reply. */
+export const computeCommentAvatarClasses = ({ depth = 0 }: Depth = {}): string =>
+  `group/avatar relative flex shrink-0 rounded-full select-none after:absolute after:inset-0 after:rounded-full after:border after:border-border after:mix-blend-darken dark:after:mix-blend-lighten ${depth >= 1 ? 'size-6' : 'size-8'}`
+
+/** base-nova's `AvatarFallback`: the author's initial. */
+export const computeCommentAvatarFallbackClasses = ({ depth = 0 }: Depth = {}): string =>
+  `flex size-full items-center justify-center rounded-full bg-muted text-muted-foreground ${depth >= 1 ? 'text-xs' : 'text-sm'}`
+
+/** base-nova's `ItemContent`: the title, the text, the actions. */
 export const computeCommentBodyColumnClasses = (): string => 'flex min-w-0 flex-1 flex-col gap-1'
 
 /**
- * The author + time + moderation row — the row's FIRST LINE, set on the
- * avatar's own step so the two read as one line.
+ * base-nova's `ItemTitle`, one avatar tall.
  *
- * `leading-6` is the whole of it, and it is not a spacing tweak: the row aligns
- * the avatar and the body column at their TOP edges, which is right for a
- * comment that runs to three lines and wrong for the first line of one. At the
- * inherited step the author's line box came out 18px against a 24px circle, so
- * the name sat 3px high of the avatar's centre and the pair read as two lines.
- *
- * Giving this line the avatar's height centres the name in it, and centred in
- * a box the same height, starting at the same y, IS centred on the avatar. The
- * `6` is the avatar's own `size-6` deliberately — both resolve through
- * `--spacing`, so an authored density moves the circle and the line it is
- * aligned to together rather than pulling them apart.
- *
- * `items-baseline` stays: the 11px timestamp beside a 14px name should sit on
- * the name's baseline, not on its centre.
+ * The item aligns its media and content to the TOP, which is right for a
+ * comment of three lines and wrong for its first one: a title line set at its
+ * own height sits above the avatar's centre. Giving it the avatar's height and
+ * centring its content puts the author's name on the avatar's centre line.
  */
-export const computeCommentMetaClasses = (): string =>
-  ['flex items-baseline gap-2 text-sm leading-6', `text-[${v('sv-fg', T.fg)}]`].join(' ')
+export const computeCommentMetaClasses = ({ depth = 0 }: Depth = {}): string =>
+  `flex w-fit items-center gap-2 text-sm leading-snug font-medium ${depth >= 1 ? 'min-h-6' : 'min-h-8'}`
 
-/** The author's name — the only part of the meta row at full strength. */
-export const computeCommentAuthorClasses = (): string => 'font-medium'
+/** The author's name. */
+export const computeCommentAuthorClasses = (): string => 'font-medium text-foreground'
 
-/**
- * The timestamp.
- *
- * 11px on the disabled foreground: it is the least important thing in the row
- * and should be legible without ever being read first.
- */
+/** The time, and the reply count: muted, the least important text in the row. */
 export const computeCommentTimestampClasses = (): string =>
-  ['text-xs', `text-[${v('sv-fg-disabled', T.fgDisabled)}]`].join(' ')
+  'text-xs font-normal text-muted-foreground'
 
-/** The comment itself — the one part of the row at reading size. */
+/** The comment itself, whole and at reading size. */
 export const computeCommentTextClasses = (): string =>
-  ['text-base leading-relaxed', `text-[${v('sv-fg', T.fg)}]`].join(' ')
+  'text-sm leading-relaxed break-words text-foreground'
 
-/**
- * The reply / edit / delete row.
- *
- * Underlined text rather than buttons. Three buttons under every comment
- * would out-weigh the comment; underlined words say "these are actions" at a
- * quarter of the visual cost, which is the trade [internal ref] D2 asks for on a
- * surface this repetitive.
- */
+/** The reply / edit / delete row, as underlined words. */
 export const computeCommentActionsClasses = (): string =>
-  ['flex gap-2.5 text-xs', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
+  'flex gap-2.5 text-xs text-muted-foreground'
 
 /** One action inside that row. */
 export const computeCommentActionClasses = (): string =>
-  [
-    'underline underline-offset-2',
-    `hover:text-[${v('sv-fg', T.fg)}]`,
-    'focus-visible:outline-none focus-visible:ring-2',
-    `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-    `rounded-[${v('radius-sm', T.radiusSm)}]`,
-  ].join(' ')
+  'rounded-sm underline underline-offset-2 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50'
 
-/** "No comments yet" — what this is, said once, quietly. */
-export const computeCommentEmptyClasses = (): string =>
-  ['px-3 py-4.5 text-sm', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
+/** "No comments yet", said once, quietly. */
+export const computeCommentEmptyClasses = (): string => 'px-3 py-4 text-sm text-muted-foreground'
 
 /** The row holding "Load more" or the page numbers. */
 export const computeCommentPagerClasses = (): string => 'flex items-center gap-1 px-3 py-2'
@@ -213,82 +116,40 @@ export const computeCommentPagerClasses = (): string => 'flex items-center gap-1
 // COMPOSER
 // ──────────────────────────────────────────────────────────────────────────────
 
-/**
- * The write-a-comment block at the foot of the thread.
- *
- * On the PAGE ground rather than the raised one — the inverse of the rows
- * above it, which is what makes it read as a well you write into rather than
- * as one more comment. Its top rule is the frame's `border`, not the rows'
- * lighter one, because it ends the list rather than dividing it.
- */
+/** The write-a-comment block at the foot of the thread. */
 export const computeCommentFormClasses = (): string =>
-  [
-    'flex flex-col gap-2 px-3 py-2.5',
-    'border-t',
-    `border-[${v('sv-border', T.border)}]`,
-    `bg-[${v('sv-bg', T.bg)}]`,
-  ].join(' ')
+  'flex flex-col gap-2 border-t border-border px-3 py-2.5'
 
 /**
- * The composer's textarea.
- *
- * 64px tall on both surfaces. Before R-E the server drew 100px and the island
- * drew 80px from two unrelated literals, so the box shrank by a fifth the
- * moment the page finished loading.
+ * base-nova's `Textarea`, the guest form's comment field, drawn by the server
+ * beside its name and email inputs.
  */
 export const computeCommentComposerFieldClasses = (): string =>
-  [
-    'block h-16 w-full resize-y px-3 py-2 text-base',
-    'border',
-    `border-[${v('sv-border-strong', T.borderStrong)}]`,
-    `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-    `text-[${v('sv-fg', T.fg)}]`,
-    `placeholder:text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-    `rounded-[${v('radius-base', T.radiusBase)}]`,
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-    `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-    `focus-visible:ring-offset-[${v('sv-bg', T.bg)}]`,
-  ].join(' ')
+  'flex field-sizing-content min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 md:text-sm dark:bg-input/30'
+
+/** base-nova's `InputGroupTextarea`: the textarea, its own frame handed to the group. */
+export const computeCommentComposerTextareaClasses = (): string =>
+  'flex field-sizing-content min-h-16 w-full flex-1 resize-none rounded-none border-0 bg-transparent px-2.5 py-2 text-base shadow-none ring-0 outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-transparent'
 
 /**
- * The composer's `@` picker: a listbox on the cell editor's raised surface, but
- * IN FLOW under the textarea rather than floating over it. The thread frame
- * clips its overflow (it owns the rounded corners), and the composer sits at
- * its foot, so an absolutely positioned list there would be cut off at the
- * frame's edge. Its rows and caption take the same paint as a cell editor's
- * candidate list (`table-overlay-default-classes.ts`), spelled here rather than
- * imported: the thread island mounts on pages with no data table, and reaching
- * into the grid's recipe module would ship its shared chunk to all of them.
+ * The `@` picker: a popover surface IN FLOW under the composer, since the
+ * thread frame clips its overflow at its rounded corners.
  */
 export const computeCommentMentionPickerClasses = (): string =>
-  [
-    'flex max-h-56 min-w-40 flex-col overflow-auto border text-sm',
-    `rounded-[${v('radius-md', T.radiusMd)}]`,
-    `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-    `border-[${v('sv-border', T.border)}]`,
-  ].join(' ')
+  'flex max-h-56 min-w-40 flex-col overflow-auto rounded-lg bg-popover p-1 text-sm text-popover-foreground ring-1 ring-foreground/10'
 
+/** One person in it; the active one on the accent surface. */
 export const computeCommentMentionOptionClasses = ({
   active,
 }: {
   readonly active: boolean
 }): string =>
-  [
-    'flex w-full cursor-pointer items-center gap-2 px-2 py-1 text-left text-sm',
-    `rounded-[${v('radius-base', T.radiusBase)}]`,
-    active
-      ? `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`
-      : `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  ].join(' ')
+  `flex w-full cursor-default items-center gap-2 rounded-md px-2 py-1 text-left text-sm ${active ? 'bg-accent text-accent-foreground' : 'hover:bg-accent hover:text-accent-foreground'}`
 
+/** "No matches" inside it. */
 export const computeCommentMentionCaptionClasses = (): string =>
-  `px-2 py-1 text-xs font-medium text-[${v('sv-fg-muted', T.fgMuted)}]`
+  'px-2 py-1 text-xs font-medium text-muted-foreground'
 
-/** "Sign in to comment" — the same block, holding a link instead of a form. */
+/** "Sign in to comment" — the composer's block, holding a link instead of a form. */
 export const computeCommentSignedOutClasses = (): string =>
-  [
-    'px-3 py-2.5 text-sm',
-    'border-t',
-    `border-[${v('sv-border', T.border)}]`,
-    `text-[${v('sv-fg', T.fg)}]`,
-  ].join(' ')
+  'border-t border-border px-3 py-2.5 text-sm text-foreground'

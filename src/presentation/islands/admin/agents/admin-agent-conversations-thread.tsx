@@ -51,10 +51,10 @@ function MessageTurn({ message }: { readonly message: ThreadMessage }): ReactEle
   const isTool = message.role === 'tool'
   const align = isUser ? 'items-end' : 'items-start'
   const bubble = isUser
-    ? 'bg-background-subtle text-foreground-muted'
+    ? 'bg-muted text-muted-foreground'
     : isTool
-      ? 'bg-background-subtle text-foreground-muted border-border border font-mono'
-      : 'bg-background-raised text-foreground border-border border'
+      ? 'bg-muted text-muted-foreground border-border border font-mono'
+      : 'bg-card text-foreground border-border border'
 
   return (
     <div className={`flex flex-col gap-1 ${align}`}>
@@ -93,7 +93,7 @@ function MessageFootnote({
     <div className="text-foreground-subtle flex items-center gap-2 px-1 text-sm">
       {parts.length > 0 ? <span className="font-mono">{parts.join(' · ')}</span> : undefined}
       {interrupted ? (
-        <span className="text-foreground-muted inline-flex items-center gap-1 font-medium">
+        <span className="text-muted-foreground inline-flex items-center gap-1 font-medium">
           <span aria-hidden="true">•</span> reply interrupted
         </span>
       ) : undefined}
@@ -130,10 +130,10 @@ function ThreadStateCard({
   return (
     <section
       aria-label={label}
-      className="border-border bg-background-raised flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-10 text-center"
+      className="border-border bg-card flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-10 text-center"
     >
       <p className="text-foreground text-md font-medium">{title}</p>
-      <p className="text-foreground-muted text-md max-w-sm leading-relaxed">{body}</p>
+      <p className="text-muted-foreground text-md max-w-sm leading-relaxed">{body}</p>
       {children}
     </section>
   )
@@ -151,7 +151,7 @@ function ThreadLoading(): ReactElement {
         <div
           key={row}
           className={[
-            'bg-background-subtle border-border h-16 animate-pulse rounded-lg border',
+            'bg-muted border-border h-16 animate-pulse rounded-lg border',
             row % 2 === 0 ? 'mr-16' : 'ml-16',
           ].join(' ')}
         />
@@ -188,7 +188,7 @@ export function ConversationThread({
         <button
           type="button"
           onClick={onRetry}
-          className="text-foreground-muted hover:text-foreground-muted/80 text-md mt-1 font-medium"
+          className="text-muted-foreground hover:text-muted-foreground/80 text-md mt-1 font-medium"
         >
           Retry
         </button>

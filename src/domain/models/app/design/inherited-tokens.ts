@@ -34,7 +34,7 @@
  *    the theme layer is CSS TEXT, so reading it would mean parsing stylesheets
  *    at request time to answer a question about the config.
  *  - **Naming.** Neither existing surface is in the vocabulary this export
- *    needs. Both speak `--sv-bg` / `bgRaised`; an author writes `background`
+ *    needs. Both speak `--card` / `bgRaised`; an author writes `background`
  *    and `background-raised`. Publishing the internal spelling would hand an
  *    agent token names that cannot be written back into `design.colors`.
  *
@@ -64,8 +64,8 @@ import {
  * The v1 colour roles, keyed by the name an author writes in
  * `design.colors` and valued as the light cascade resolves them.
  *
- * Only CANONICAL spellings appear. `COLOR_TO_SV_TOKEN` also accepts aliases
- * that collapse onto the same `--sv-*` slot — `muted` for `background-subtle`,
+ * Only CANONICAL spellings appear. `DESIGN_COLOR_VARS` also accepts author keys
+ * that collapse onto the same shadcn variable — `muted` for `background-subtle`,
  * `card` for `background-raised`, `destructive` for `error` — and publishing
  * both spellings of one token would read as two different colours.
  */
@@ -126,12 +126,13 @@ export const INHERITED_SHADOW_TOKENS = GENERATED_INHERITED_SHADOW_TOKENS
  * ─── WHY THIS TABLE EXISTS ──────────────────────────────────────────────────
  *
  * It is tempting to say these curves "are not published as tokens, so there is
- * nothing here to override". Both halves are false: `default-theme-layer.ts`
- * declares all three `--ease-*`, and recipes animate with them — e.g.
- * `ease-[var(--sv-ease-default, …)]` on a real transition (recount rather than
- * trusting any number: `grep -rn "sv-ease-default" src/presentation
- * --include="*-default-classes.ts"`). Without this table every Sovrium surface
- * would move on a curve its operator could not see.
+ * nothing here to override". That is false: `default-theme-layer.ts` declares
+ * all three `--ease-*`, so `ease-default` / `ease-enter` / `ease-exit` are real
+ * utilities in every app and an author's own classes can move on them. No
+ * built-in recipe reads them any more — the shadcn anatomy animates with
+ * Tailwind's own curves — so the table describes what an app INHERITS, not
+ * what the engine's components use. Without it an operator could not see the
+ * curves their app ships.
  *
  * ─── SAME SHAPE AS THE ELEVATION RAMP, AND NOT THE SAME BOUND ──────────────
  *
@@ -218,7 +219,7 @@ export const PLATFORM_TYPE_LADDER = GENERATED_PLATFORM_TYPE_LADDER
  * There is deliberately NO inherited spacing scale.
  *
  * Sovrium's components take spacing from raw Tailwind utilities rather than
- * from `--sv-*` variables, so there is no platform spacing token an author
+ * from design-token variables, so there is no platform spacing token an author
  * could override — and inventing one here would publish a token that overriding
  * changes nothing about. An app's spacing group is exactly what it declared.
  */

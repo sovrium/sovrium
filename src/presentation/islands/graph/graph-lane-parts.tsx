@@ -8,7 +8,11 @@
 import { COLUMN_WIDTH, NODE_HEIGHT } from '@/presentation/islands/graph/graph-layout'
 import {
   DIMMED_OPACITY,
+  GRAPH_EDGE_CLASS,
+  edgeWidthOf,
+  nodeBoxClassOf,
   nodeClassOf,
+  nodeOpacityOf,
   stateMark,
   useNodeInteraction,
 } from '@/presentation/islands/graph/graph-node-interaction'
@@ -115,8 +119,7 @@ function LaneCaption({
           x={GUTTER_TEXT_X}
           y={top + DETAIL_DY}
           clipPath={`url(#${clipId})`}
-          className="text-foreground-subtle text-[10px]"
-          fill="currentColor"
+          className="fill-muted-foreground text-xs"
         >
           {node.detail}
         </text>
@@ -150,13 +153,14 @@ export function LaneIdentity({
   const interaction = useNodeInteraction(node.id, selectable, onSelect)
   return (
     <g
+      data-slot="graph-node"
       data-graph-node={node.id}
       data-graph-node-kind={node.kind}
       {...stateMark(node.state)}
       {...marks}
       {...interaction}
-      className={nodeClassOf(weight.muted, selectable)}
-      opacity={marks['data-graph-dimmed'] === undefined ? 1 : DIMMED_OPACITY}
+      className={nodeClassOf(selectable)}
+      opacity={nodeOpacityOf(weight.muted, marks['data-graph-dimmed'] !== undefined)}
     >
       <LaneCaption
         node={node}
@@ -225,28 +229,26 @@ export function LaneStation({
   const interaction = useNodeInteraction(station.id, selectable, onSelect)
   return (
     <g
+      data-slot="graph-node"
       data-graph-node={station.id}
       data-graph-node-kind={station.kind}
       data-graph-station={station.index}
       {...stateMark(station.state)}
       {...marks}
       {...interaction}
-      className={nodeClassOf(muted, selectable)}
-      opacity={marks['data-graph-dimmed'] === undefined ? 1 : DIMMED_OPACITY}
+      className={nodeClassOf(selectable)}
+      opacity={nodeOpacityOf(muted, marks['data-graph-dimmed'] !== undefined)}
     >
-      {/* `fill="transparent"`, NEVER `fill="none"` — the difference is the whole
-       * click target. SVG's default `pointer-events: visiblePainted` hit-tests
-       * the PAINTED area only, and `none` paints no interior, so a pointer over
-       * the middle of the box falls through to the canvas and the station is
-       * clickable on its one-pixel stroke and nowhere else. */}
+      {/* A painted fill (the card ground) makes the whole box the click target;
+       * `fill="none"` would hit-test the one-pixel edge only. */}
       <rect
+        data-slot="graph-node-box"
         x={station.x}
         y={station.y}
         width={COLUMN_WIDTH}
         height={NODE_HEIGHT}
-        rx={4}
-        fill="transparent"
-        stroke="currentColor"
+        rx={8}
+        className={nodeBoxClassOf(marks['data-graph-selected'] !== undefined)}
         strokeWidth={marks['data-graph-selected'] === undefined ? 1 : 2}
         {...(dash === undefined ? {} : { strokeDasharray: dash })}
       />
@@ -293,7 +295,7 @@ export function LaneConnectors({
   return (
     <g
       fill="none"
-      stroke="currentColor"
+      className={GRAPH_EDGE_CLASS}
     >
       {lane.connectors.map((connector) => {
         const marks = selectionMarks(connector.id, state, state.reachedEdges)
@@ -303,7 +305,7 @@ export function LaneConnectors({
             data-graph-edge={connector.id}
             {...marks}
             d={`M${String(connector.x)} ${String(connector.y)}h${String(CONNECTOR_LENGTH)}m-4 -4l4 4-4 4`}
-            strokeWidth={marks['data-graph-reached'] === undefined ? 1 : 2}
+            strokeWidth={edgeWidthOf(marks['data-graph-reached'] !== undefined)}
             opacity={marks['data-graph-dimmed'] === undefined ? EDGE_OPACITY : DIMMED_OPACITY}
             {...(dash === undefined ? {} : { strokeDasharray: dash })}
           />

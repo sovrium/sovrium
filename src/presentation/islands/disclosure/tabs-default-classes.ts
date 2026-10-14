@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 import { FOCUS_VISIBLE_RING } from '@/presentation/design/shared-tokens-default-classes'
 import { DISABLED_INLINE } from './disclosure-default-classes'
 
@@ -78,11 +77,7 @@ const TABS_LIST_LAYOUT = 'relative flex'
 // viewport reflows the tab bar instead of truncating tabs.
 // `overflow-x-auto` is inert at desktop
 // width (no overflow → no scrollbar), so the desktop layout is unchanged.
-const TABS_LIST_BORDER_HORIZONTAL = [
-  'overflow-x-auto',
-  'border-b',
-  `border-[${v('sv-border', T.border)}]`,
-].join(' ')
+const TABS_LIST_BORDER_HORIZONTAL = ['overflow-x-auto', 'border-b', 'border-border'].join(' ')
 
 // The separator follows the responsive layout rather than fighting it: below
 // `md` the column sits ABOVE the panel, so the separator is its bottom edge;
@@ -97,7 +92,7 @@ const TABS_LIST_BORDER_HORIZONTAL = [
 const TABS_LIST_BORDER_VERTICAL = [
   'flex-col',
   'border-b md:border-b-0 md:border-r',
-  `border-[${v('sv-border', T.border)}]`,
+  'border-border',
 ].join(' ')
 
 /**
@@ -106,7 +101,7 @@ const TABS_LIST_BORDER_VERTICAL = [
  * `border-b` (horizontal: trigger strip sits above the panel) and a
  * responsive `border-b` → `md:border-r` + `flex-col` (vertical: trigger strip
  * stacks above the panel on a phone, then moves to its left from `md` up).
- * The border tone resolves to the standard `sv-border` so it reads as a faint
+ * The border tone resolves to the standard `border` so it reads as a faint
  * chrome line, not as a focal accent.
  */
 export const computeTabsListClasses = ({
@@ -152,10 +147,7 @@ const TAB_LAYOUT_FLUSH_HORIZONTAL = 'first:pl-0'
 // fixed-width rail leaves both lines floating.
 const TAB_LAYOUT_VERTICAL = 'text-left'
 
-const TAB_DEFAULT_SURFACE = [
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  `hover:text-[${v('sv-fg', T.fg)}]`,
-].join(' ')
+const TAB_DEFAULT_SURFACE = ['text-muted-foreground', 'hover:text-foreground'].join(' ')
 
 // The accent edge is reserved on EVERY trigger and merely recoloured on the
 // active one. Painting the 2px border only when active would make each trigger
@@ -174,7 +166,7 @@ const TAB_ACCENT_RESERVED_VERTICAL = 'border-l-2 border-transparent'
 //
 // The accent edge follows the layout: an underline beneath a horizontal strip,
 // a rail down the leading edge of a vertical column. The colours are canonical
-// role utilities, NOT `var(--sv-…)` arbitrary values — see the note at the top
+// role utilities, NOT `var(--…)` arbitrary values — see the note at the top
 // of this file for why a bracketed variant cannot carry one.
 //
 // The active LABEL is the foreground, not the primary: the accent edge carries
@@ -188,7 +180,7 @@ const TAB_ACTIVE_SURFACE_HORIZONTAL = [
 
 const TAB_ACTIVE_SURFACE_VERTICAL = [
   'data-[active]:border-primary',
-  'data-[active]:bg-background-subtle',
+  'data-[active]:bg-muted',
   'data-[active]:text-foreground',
 ].join(' ')
 
@@ -233,7 +225,7 @@ const TAB_LABEL_LAYOUT = 'block'
 
 const TAB_DESCRIPTION_LAYOUT = 'mt-0.5 block text-sm font-normal'
 
-const TAB_DESCRIPTION_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
+const TAB_DESCRIPTION_SURFACE = 'text-muted-foreground'
 
 /**
  * Compute the default className for the caption line of a trigger that also
@@ -302,12 +294,12 @@ const TAB_PANEL_LAYOUT = 'py-4 text-md'
 // its track instead of scrolling within it.
 const TAB_PANEL_LAYOUT_VERTICAL = 'min-w-0'
 
-const TAB_PANEL_SURFACE = `text-[${v('sv-fg', T.fg)}]`
+const TAB_PANEL_SURFACE = 'text-foreground'
 
 /**
  * Compute the default className for the `<Tabs.Panel>` content region that
  * Base UI shows when its associated tab is selected. Uses the strong
- * foreground tone (full `sv-fg`, not muted) since this is the focal content
+ * foreground tone (full `foreground`, not muted) since this is the focal content
  * after the user picks a tab; `py-4` holds the panel off the strip without
  * reserving a horizontal gutter, so the body starts at the same edge as the
  * first caption above it. In a vertical tab set the panel fills the second grid

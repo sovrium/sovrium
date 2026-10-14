@@ -150,13 +150,13 @@ export const easingCurveComponent: ComponentRenderer = ({
             y1={size}
             x2={size}
             y2={0}
-            stroke="var(--sv-border, #e5e5e5)"
+            stroke="var(--border, #e5e5e5)"
             strokeDasharray="4 4"
           />
           <path
             d={curvePath(points, size)}
             fill="none"
-            stroke="var(--sv-primary, currentColor)"
+            stroke="var(--primary, currentColor)"
             strokeWidth={2}
           />
         </svg>

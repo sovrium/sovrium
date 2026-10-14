@@ -9,6 +9,7 @@ import { dirname, relative, resolve } from 'node:path'
 import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
 import { printJournal, printJournalWarning } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
+import { onReloadRequest } from '@/infrastructure/server/lock-file-cleanup'
 import { createConfigGraphWatcher } from './config-graph-watcher'
 import { snapshotConfigGraph } from './config-snapshot-history'
 import { createReloadScheduler } from './reload-scheduler'
@@ -18,10 +19,9 @@ import type { ReloadFailure, ReloadServerParams } from './utils'
 import type { WatchContext, WatchState } from './watch-reload-outcome'
 import type { ConfigChangeVerdict } from '@/application/use-cases/config/classify-config-change'
 import type { StartOptions } from '@/application/use-cases/server/start-server-options'
-import type { ReloadKind } from '@/infrastructure/server/status-file'
 
-/** What `sovrium start --watch` hands the watcher once the server is up. */
-export interface WatchSession {
+/** What `sovrium start` hands the reload path once the server is up. */
+export interface ReloadSession {
   /** Path of the config graph's root file. */
   readonly configFile: string
   /** The server the boot started. */
@@ -31,7 +31,12 @@ export interface WatchSession {
   readonly configHash: string
   readonly configPath: string
   readonly options: StartOptions
+  /** `--watch`: a save reloads too, not only `sovrium reload`. */
+  readonly watch: boolean
 }
+
+/** The graph watcher of a start WITHOUT `--watch`: it follows no file. */
+const NO_FILE_WATCHER: WatchContext['graphWatcher'] = { sync: () => undefined, size: () => 0 }
 
 /**
  * Debounce reloads: `fs.watch` emits `change` potentially BEFORE a write is
@@ -48,8 +53,37 @@ export interface WatchSession {
  */
 const RELOAD_DEBOUNCE_MS = 300
 
-/** One debounced save, from fingerprint to verdict. */
-const runReload = async (ctx: WatchContext, changedPath: string): Promise<void> => {
+/**
+ * A throw that escaped `reloadServer`, which returns its failures. Nothing
+ * before it touches the listener, so it can only come from a fault the reload
+ * never expected. `kept` is the true reading of it AND the conservative one:
+ * the server object is unchanged, so the next save still has something to stop.
+ */
+const unexpectedFailure = (
+  server: ReloadServerParams['currentServer'],
+  error: unknown
+): ReloadFailure => ({
+  ok: false,
+  files: [],
+  phase: 'load',
+  serverState: 'kept',
+  refusals: [],
+  findings: [messageAsConfigFinding(formatRuntimeError(error))],
+  error,
+  rollbackError: undefined,
+  server,
+})
+
+/**
+ * One debounced save or `sovrium reload`, from fingerprint to verdict.
+ * `requested` marks a reload the operator asked for: it runs even when no
+ * file changed, because the command waits for its verdict.
+ */
+const runReload = async (
+  ctx: WatchContext,
+  changedPath: string,
+  requested: boolean
+): Promise<void> => {
   const { state } = ctx
   const startedAt = Date.now()
 
@@ -59,7 +93,7 @@ const runReload = async (ctx: WatchContext, changedPath: string): Promise<void> 
   // and the catch-up run would then skip it as unchanged, silently
   // losing a save. Erring the other way costs at most one extra reload.
   const signature = await readGraphSignature(state.watchedFiles)
-  if (state.lastAttemptSucceeded && signature === state.lastSignature) return
+  if (!requested && state.lastAttemptSucceeded && signature === state.lastSignature) return
 
   // ONE announcement per save, printed as late as the reload can tell us
   // what it is about to do and no later. A hot swap and a full restart
@@ -78,13 +112,13 @@ const runReload = async (ctx: WatchContext, changedPath: string): Promise<void> 
   // classified — an unparsable file has no verdict, and publishing a
   // guessed one would tell a supervisor holding an open connection that
   // it must reconnect when nothing was ever torn down.
-  let announcedKind: ReloadKind | undefined
+  let announcedVerdict: ConfigChangeVerdict | undefined
   const announce = (verdict?: ConfigChangeVerdict): void => {
     announced = true
-    announcedKind = verdict?.kind
-    const where = ctx.describeChangedFile(changedPath)
+    announcedVerdict = verdict
+    const where = requested ? 'sovrium reload' : ctx.describeChangedFile(changedPath)
     printJournal(
-      'watch',
+      ctx.tag,
       verdict?.kind === 'restart'
         ? `Config changed (${verdict.reason}) — full restart… (${where})`
         : `Config changed — reloading… (${where})`
@@ -99,33 +133,23 @@ const runReload = async (ctx: WatchContext, changedPath: string): Promise<void> 
     currentAnchor: state.currentAnchor,
     options: ctx.options,
     announce,
-  }).catch((error: unknown): ReloadFailure => ({
-    // Nothing above this line touches the listener, so a throw that
-    // escapes `reloadServer` — which returns its failures — can only
-    // come from a fault the reload never expected. `kept` is the true
-    // reading of it AND the conservative one: the server object is
-    // unchanged, so the next save still has something to stop.
-    ok: false,
-    files: [],
-    phase: 'load',
-    serverState: 'kept',
-    refusals: [],
-    findings: [messageAsConfigFinding(formatRuntimeError(error))],
-    error,
-    rollbackError: undefined,
-    server: state.currentServer,
-  }))
+  }).catch((error: unknown) => unexpectedFailure(state.currentServer, error))
 
   const durationMs = Date.now() - startedAt
   if (!outcome.ok) {
     await reportFailedReload(ctx, outcome, announced ? undefined : announce, {
-      kind: announcedKind,
+      kind: announcedVerdict?.kind,
       durationMs,
     })
     return
   }
 
-  await commitReload(ctx, outcome, { signature, durationMs, kind: announcedKind })
+  await commitReload(ctx, outcome, {
+    signature,
+    durationMs,
+    kind: announcedVerdict?.kind,
+    reason: announcedVerdict?.kind === 'restart' ? announcedVerdict.reason : undefined,
+  })
 }
 
 /**
@@ -152,10 +176,48 @@ const collectInitialFiles = async (configFile: string): Promise<ReadonlyArray<st
 }
 
 /**
- * Watch the whole config graph of a running server and reload it on every
- * logical save, for as long as the process lives.
+ * The fixed parts of one session around the state it mutates.
+ *
+ * The watched set is DERIVED from the loaded config, never declared: the root,
+ * every TypeScript module it imports and every file it reaches through `$ref`,
+ * at any depth. It is re-derived after every successful reload, because a
+ * reload can add or drop an import or a `$ref` — a newly referenced file must
+ * become watched, a dropped one must stop triggering.
  */
-export const watchConfigGraph = async (session: WatchSession): Promise<void> => {
+const createWatchContext = (
+  session: ReloadSession,
+  state: WatchState,
+  schedule: (changedPath: string) => void
+): WatchContext => {
+  const rootDir = dirname(resolve(session.configFile))
+  return {
+    configFile: session.configFile,
+    options: session.options,
+    state,
+    tag: session.watch ? 'watch' : 'reload',
+    history: session.watch,
+    graphWatcher: session.watch ? createConfigGraphWatcher(schedule) : NO_FILE_WATCHER,
+    describeChangedFile: (changedPath) => {
+      const fromRoot = relative(rootDir, changedPath)
+      return fromRoot.startsWith('..') ? changedPath : fromRoot
+    },
+  }
+}
+
+/**
+ * Hold the reload path of a running server for as long as the process lives:
+ * `sovrium reload` (SIGUSR1) runs it on every start, and under `--watch` every
+ * logical save of the config graph runs it too, through the same scheduler,
+ * so a signal and a save never overlap.
+ *
+ * A pending `sovrium reload` is held beside the scheduler rather than in the
+ * path it schedules, so a save landing in the same debounce window cannot turn
+ * it into a skipped no-op; it is taken before anything is awaited, so a signal
+ * sent the moment the lock file exists finds someone listening. Without
+ * `--watch` nothing is followed and every reload is one the operator asked
+ * for, so the graph is not walked at boot: the reload reads it.
+ */
+export const holdReloadPath = async (session: ReloadSession): Promise<void> => {
   const { configFile, server } = session
   const state: WatchState = {
     currentServer: server,
@@ -167,31 +229,22 @@ export const watchConfigGraph = async (session: WatchSession): Promise<void> => 
     lastAttemptSucceeded: true,
   }
 
-  const rootDir = dirname(resolve(configFile))
+  const requests = new Set<'reload'>()
   const reloadScheduler = createReloadScheduler({
     debounceMs: RELOAD_DEBOUNCE_MS,
-    run: (changedPath) => runReload(ctx, changedPath),
+    run: (changedPath) => runReload(ctx, changedPath, requests.delete('reload')),
   })
 
-  // The watched set is DERIVED from the loaded config, never declared: the
-  // root, every TypeScript module it imports and every file it reaches
-  // through `$ref`, at any depth. It is re-derived after every successful
-  // reload, because a reload can add or drop an import or a `$ref` — a newly
-  // referenced file must become watched, a dropped one must stop triggering.
-  const ctx: WatchContext = {
-    configFile,
-    options: session.options,
-    state,
-    graphWatcher: createConfigGraphWatcher((changedPath) => {
-      reloadScheduler.schedule(changedPath)
-    }),
-    describeChangedFile: (changedPath) => {
-      const fromRoot = relative(rootDir, changedPath)
-      return fromRoot.startsWith('..') ? changedPath : fromRoot
-    },
-  }
+  const ctx = createWatchContext(session, state, (changedPath) => {
+    reloadScheduler.schedule(changedPath)
+  })
 
-  const initialFiles = await collectInitialFiles(configFile)
+  onReloadRequest(() => {
+    requests.add('reload')
+    reloadScheduler.schedule(resolve(configFile))
+  })
+
+  const initialFiles = session.watch ? await collectInitialFiles(configFile) : [resolve(configFile)]
   ctx.graphWatcher.sync(initialFiles)
 
   // The boot is an accepted config, so it is snapshotted. Undo after the very
@@ -199,7 +252,9 @@ export const watchConfigGraph = async (session: WatchSession): Promise<void> => 
   // change holds only the state the user is trying to leave.
   //
   // The name it answers is discarded — see the reload-path call above.
-  await snapshotConfigGraph(configFile, initialFiles, state.currentAnchor.configHash)
+  if (session.watch) {
+    await snapshotConfigGraph(configFile, initialFiles, state.currentAnchor.configHash)
+  }
 
   // Seed the change detector with what the RUNNING server was built from, so
   // the first `change` event is compared against reality rather than against
@@ -207,6 +262,8 @@ export const watchConfigGraph = async (session: WatchSession): Promise<void> => 
   // a touch that changed nothing).
   state.watchedFiles = initialFiles
   state.lastSignature = await readGraphSignature(initialFiles)
+
+  if (!session.watch) return
 
   // The root is always part of the set (a graph is never empty), so every
   // other watched file is a linked one.

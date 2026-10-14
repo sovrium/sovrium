@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Adapted from shadcn/ui checkbox (https://ui.shadcn.com), registry commit 30a58d4498f270af1c1e981a7d78a15cf5740841.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
+ */
+
 import { Checkbox } from '@base-ui/react/checkbox'
 import { cn } from '@/presentation/design/class-merge'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
@@ -22,48 +27,65 @@ interface CheckboxIslandProps {
   readonly 'data-testid'?: string
 }
 
+/** lucide's `minus`, the mark of an indeterminate box. */
 function IndeterminateIcon(): ReactElement {
   return (
     <svg
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
       fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
     >
-      <path
-        d="M2 5H8"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
+      <path d="M5 12h14" />
     </svg>
   )
 }
 
+/** lucide's `check`, the mark shadcn/ui's `Checkbox` draws. */
 function CheckIcon(): ReactElement {
   return (
     <svg
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
       fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
     >
-      <path
-        d="M2 5L4 7L8 3"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M20 6 9 17l-5-5" />
     </svg>
   )
 }
 
 /**
- * Checkbox island — wraps Base UI Checkbox for custom-styled checkboxes.
+ * shadcn/ui `Checkbox` root, base-nova. One addition: an unchecked box is
+ * outlined in the muted foreground rather than the input colour, the edge that
+ * holds 3:1 against the page (WCAG 1.4.11) where an unfilled control has no
+ * other.
+ */
+const CHECKBOX_ROOT =
+  'peer relative flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-input transition-colors outline-none group-has-disabled/field:opacity-50 group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary data-indeterminate:border-primary data-indeterminate:bg-primary data-indeterminate:text-primary-foreground data-unchecked:border-muted-foreground'
+
+/** shadcn/ui `Checkbox` indicator; `data-unchecked:invisible` keeps its box (see below). */
+const CHECKBOX_INDICATOR =
+  'grid place-content-center text-current transition-none [&>svg]:size-3.5 data-unchecked:invisible'
+
+/** shadcn/ui `Label`, beside the box. */
+const CHECKBOX_LABEL = 'inline-flex items-center gap-2 text-sm leading-none font-medium select-none'
+
+/**
+ * Checkbox island — Base UI `Checkbox`, drawn on shadcn/ui's `Checkbox` anatomy:
+ * `data-slot="checkbox"` on the box, `data-slot="checkbox-indicator"` on its mark.
  *
  * Supports checked, unchecked, and indeterminate states with
- * keyboard interaction and ARIA attributes built-in.
+ * keyboard interaction and ARIA attributes built-in. An indeterminate box is
+ * filled like a checked one and draws lucide's minus rather than its check.
  *
  * ─── THE MARK KEEPS ITS BOX EVEN WHEN THERE IS NO MARK ─────────────────────
  *
@@ -101,14 +123,12 @@ export default function CheckboxIsland({
   return (
     <label
       className={resolveClasses(
-        cn(
-          'inline-flex items-center gap-2',
-          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-        ),
+        cn(CHECKBOX_LABEL, disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'),
         className
       )}
       id={id}
       data-testid={testId}
+      data-slot="label"
     >
       <Checkbox.Root
         defaultChecked={checked}
@@ -116,16 +136,18 @@ export default function CheckboxIsland({
         disabled={disabled}
         name={name}
         value={value}
-        className="bg-background-raised data-[checked]:border-primary data-[checked]:bg-primary data-[indeterminate]:border-primary data-[indeterminate]:bg-primary flex h-4 w-4 items-center justify-center rounded border border-[var(--sv-border-control,oklch(0.62_0_0))] transition-colors"
+        className={CHECKBOX_ROOT}
+        data-slot="checkbox"
       >
         <Checkbox.Indicator
           keepMounted
-          className="text-primary-fg data-[unchecked]:invisible"
+          className={CHECKBOX_INDICATOR}
+          data-slot="checkbox-indicator"
         >
           {indeterminate ? <IndeterminateIcon /> : <CheckIcon />}
         </Checkbox.Indicator>
       </Checkbox.Root>
-      {label && <span className="text-foreground text-md">{label}</span>}
+      {label && <span>{label}</span>}
     </label>
   )
 }

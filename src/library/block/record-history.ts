@@ -86,7 +86,7 @@ const changeList = (table: string): Node => ({
         sentence(),
         {
           type: 'record-field',
-          props: { field: 'createdAt', className: 'shrink-0 text-sm text-foreground-muted' },
+          props: { field: 'createdAt', className: 'shrink-0 text-sm text-muted-foreground' },
           format: 'relative-date',
         },
       ],

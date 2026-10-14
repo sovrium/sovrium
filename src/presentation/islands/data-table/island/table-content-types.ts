@@ -6,7 +6,7 @@
  */
 
 import type { EditingCell, FieldMetaMap, SaveStatus } from '../../hooks/use-inline-editing'
-import type { CellCommit, DataTableRowClickAction, InlineAutoSave } from '../body'
+import type { CellCommit, DataTableRowClickAction, InlineAutoSave } from '../data-row-types'
 import type { SummaryAggregations } from '../summary-aggregate'
 import type { DataTableColumnDef, DataTableInstance } from './table-features'
 import type {
@@ -31,6 +31,8 @@ export interface TableContentProps {
   readonly useGridRole?: boolean
   readonly allColumns: readonly DataTableColumnDef[]
   readonly isLoading: boolean
+  /** The next page of an appending grid is on its way. */
+  readonly loadingMore?: boolean
   readonly striped: boolean
   /**
    * Field whose declared option colours fill each row, plus the resolved

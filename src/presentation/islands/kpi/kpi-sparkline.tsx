@@ -6,9 +6,10 @@
  */
 
 import {
+  KPI_CONTENT_CLASSES,
   KPI_SPARKLINE_STROKE,
   KPI_SPARKLINE_STROKE_WIDTH,
-  computeKpiSparklineClasses,
+  KPI_SPARKLINE_SVG_CLASSES,
 } from '@/presentation/design/kpi-default-classes'
 import type { ReactElement } from 'react'
 
@@ -66,7 +67,8 @@ function buildPoints(series: readonly number[]): string {
 }
 
 /**
- * Renders the KPI sparkline as an inline SVG mini line chart.
+ * Renders the KPI sparkline as an inline SVG mini line chart, in the card
+ * content (`data-slot="card-content"`).
  *
  * Carries `data-role="sparkline"` so spec assertions resolve, and emits a
  * single `<polyline>` for the trend line.
@@ -76,30 +78,35 @@ export function KpiSparkline({ series }: KpiSparklineProps): ReactElement {
 
   return (
     <div
-      data-role="sparkline"
-      className={computeKpiSparklineClasses()}
+      data-slot="card-content"
+      className={KPI_CONTENT_CLASSES}
     >
-      <svg
-        viewBox={`0 0 ${String(VIEWBOX_WIDTH)} ${String(VIEWBOX_HEIGHT)}`}
-        preserveAspectRatio="none"
-        className={computeKpiSparklineClasses({ part: 'svg' })}
-        aria-hidden="true"
+      <div
+        data-slot="kpi-sparkline"
+        data-role="sparkline"
       >
-        {/* The box is painted ~541px wide from 100 user units against a 1x
+        <svg
+          viewBox={`0 0 ${String(VIEWBOX_WIDTH)} ${String(VIEWBOX_HEIGHT)}`}
+          preserveAspectRatio="none"
+          className={KPI_SPARKLINE_SVG_CLASSES}
+          aria-hidden="true"
+        >
+          {/* The box is painted ~541px wide from 100 user units against a 1x
             vertical scale, so a stroke that scales with the geometry paints
             ~8px thick on a horizontal run and 1.5px on a vertical one — the
             weight of the line changes with its own slope. `non-scaling-stroke`
             keeps the path stretching and stops the stroke. */}
-        <polyline
-          points={points}
-          fill="none"
-          stroke={KPI_SPARKLINE_STROKE}
-          strokeWidth={KPI_SPARKLINE_STROKE_WIDTH}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
+          <polyline
+            points={points}
+            fill="none"
+            stroke={KPI_SPARKLINE_STROKE}
+            strokeWidth={KPI_SPARKLINE_STROKE_WIDTH}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      </div>
     </div>
   )
 }

@@ -36,9 +36,9 @@ export function buildRecordClickHandler(
   const action = calendarEvent?.onEventClick
   if (!action) return undefined
   return (record: TableRecord) => {
-    // `openDrawer` opens the named drawer on the clicked record, as a grid
+    // `openSheet` opens the named drawer on the clicked record, as a grid
     // row click does.
-    if ('action' in action && action.action === 'openDrawer') {
+    if ('action' in action && action.action === 'openSheet') {
       openCardDrawer(action.component, record)
       return
     }

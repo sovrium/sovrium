@@ -1,0 +1,1 @@
+ALTER TABLE `system_ai_activity_logs` ADD `surface` text;

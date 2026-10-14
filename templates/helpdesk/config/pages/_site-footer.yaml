@@ -6,10 +6,10 @@ props:
 children:
   - type: container
     props:
-      className: mx-auto flex max-w-[1100px] items-center px-6 py-4 text-xs text-foreground-muted
+      className: mx-auto flex max-w-[1100px] items-center px-6 py-4 text-xs text-muted-foreground
     children:
       - type: text
         element: p
         props:
-          className: text-xs text-foreground-muted
+          className: text-xs text-muted-foreground
         content: Tallyline · support answers from Lyon, Monday to Friday

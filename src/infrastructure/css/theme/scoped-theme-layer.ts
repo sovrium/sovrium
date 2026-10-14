@@ -16,28 +16,30 @@
  * reason about), so the boundary has to be expressed inside one document —
  * which is what this module is.
  *
- * ─── WHY RE-DECLARING `--sv-*` IS NOT ENOUGH (MEASURED, TWICE) ──────────────
+ * ─── WHY RE-DECLARING THE ROLE VARIABLES IS NOT ENOUGH (MEASURED, TWICE) ───
  *
  * The obvious implementation wraps the subtree and re-declares the role tokens.
  * It reads back perfectly and paints nothing. Measured in a real browser on
  * `/_admin`, by wrapping an element classed `bg-background`:
  *
- *   --sv-bg              read on the wrapper → "#ff0000"        (looks correct)
+ *   --background         read on the wrapper → "#ff0000"        (looks correct)
  *   class="bg-background" painted            → oklch(0.985 0 0) (STALE)
  *   --color-background   at :root            → oklch(0.985 0 0)
  *   --color-background   on the wrapper      → oklch(0.985 0 0) (BYTE-IDENTICAL)
  *
- * `default-theme-layer.ts` declares `--color-<role>: var(--sv-<role>)` ONCE, in
- * a `@theme` block that Tailwind hoists to `:root`. The alias therefore RESOLVES
- * at `:root` and inherits into the wrapper as a literal — every Tailwind utility
- * reads the alias, so every utility inside an `--sv-*`-only wrapper paints the
- * chrome's colours under a correct-looking token readback.
+ * `default-theme-layer.ts` declares `--color-<role>: var(--<role>)` ONCE, in a
+ * `@theme` block that Tailwind hoists to `:root`. The registration therefore
+ * RESOLVES at `:root` and inherits into the wrapper as a literal — every
+ * Tailwind utility reads it, so every utility inside a wrapper that re-declares
+ * only the role variables paints the chrome's colours under a correct-looking
+ * token readback. (Measured when the role variables were still spelled
+ * `--sv-*`; the cascade is the same under shadcn's names.)
  *
  * A scope is correct only when `--color-*` read ON it DIFFERS from `--color-*`
  * at `:root`. That is why this module emits all THREE tiers and not one:
  *
  *   1. the ramps           (`--sv-neutral-*`, `--sv-success-*`, …)
- *   2. the role vars       (`--sv-bg`, `--sv-fg`, `--sv-primary`, …)
+ *   2. the role vars       (`--background`, `--foreground`, `--primary`, …)
  *   3. the `--color-*` ALIASES, as plain declarations on the scope
  *
  * ─── AND `color-scheme`, WHICH IS TIER FOUR ────────────────────────────────

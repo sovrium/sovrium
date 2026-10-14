@@ -9,7 +9,9 @@ import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import {
   computeCommentAuthorClasses,
   computeCommentAvatarClasses,
+  computeCommentAvatarFallbackClasses,
   computeCommentBodyColumnClasses,
+  computeCommentMediaClasses,
   computeCommentMetaClasses,
   computeCommentTextClasses,
   computeCommentTimestampClasses,
@@ -19,6 +21,7 @@ import { PRIMARY_BUTTON, SECONDARY_BUTTON, DESTRUCTIVE_BUTTON } from './comment-
 import { decodeForEdit } from './comment-mention-source'
 import { useMentionString } from './comment-mention-strings'
 import { CommentBodyText } from './comment-mention-text'
+import { useCommentString } from './comment-strings'
 import { MentionTextarea } from './comment-thread-form'
 import { resolveCommentAuthorName, type CommentRecord } from './comment-thread-types'
 import { useMentionComposer } from './use-mention-composer'
@@ -38,10 +41,13 @@ function authorInitial(comment: CommentRecord): string {
   return resolveCommentAuthorName(comment, 'Anonymous').trim().charAt(0).toUpperCase()
 }
 
+/** 1 for a reply, 0 for a comment on the thread. */
+const depthOf = (comment: CommentRecord): number => (comment.parentCommentId === null ? 0 : 1)
+
 /**
- * The shared row shell: the avatar, then the body column every mode fills.
- * The circle is `aria-hidden` because its initial only repeats the author name
- * the meta row states in full a few pixels away.
+ * The shared row shell, an `item`: the avatar as its media, then the content
+ * column every mode fills. The avatar is `aria-hidden` because its initial only
+ * repeats the author name the title states in full beside it.
  */
 export function CommentRow({
   comment,
@@ -54,19 +60,40 @@ export function CommentRow({
   readonly className: string
   readonly children: ReactNode
 }): ReactElement {
+  const depth = depthOf(comment)
   return (
     <li
       data-testid={testId}
       data-comment-id={comment.id}
+      data-slot="item"
+      data-variant="default"
+      data-size="sm"
       className={className}
     >
-      <span
-        aria-hidden="true"
-        className={computeCommentAvatarClasses()}
+      <div
+        data-slot="item-media"
+        className={computeCommentMediaClasses()}
       >
-        {authorInitial(comment)}
-      </span>
-      <div className={computeCommentBodyColumnClasses()}>{children}</div>
+        <span
+          aria-hidden="true"
+          data-slot="avatar"
+          data-size={depth === 0 ? 'default' : 'sm'}
+          className={computeCommentAvatarClasses({ depth })}
+        >
+          <span
+            data-slot="avatar-fallback"
+            className={computeCommentAvatarFallbackClasses({ depth })}
+          >
+            {authorInitial(comment)}
+          </span>
+        </span>
+      </div>
+      <div
+        data-slot="item-content"
+        className={computeCommentBodyColumnClasses()}
+      >
+        {children}
+      </div>
     </li>
   )
 }
@@ -79,7 +106,10 @@ export function CommentMeta({ comment }: { readonly comment: CommentRecord }): R
   const authorName = resolveCommentAuthorName(comment, 'Anonymous')
   const created = new Date(comment.createdAt)
   return (
-    <header className={computeCommentMetaClasses()}>
+    <header
+      data-slot="item-title"
+      className={computeCommentMetaClasses({ depth: depthOf(comment) })}
+    >
       <span className={`comments-author ${computeCommentAuthorClasses()}`}>{authorName}</span>
       <time
         dateTime={comment.createdAt}
@@ -108,31 +138,31 @@ function EditForm({
   readonly isSaving: boolean
 }): ReactElement {
   const composer = useMentionComposer(decodeForEdit(comment, useMentionString('unknownUser')))
+  const saving = useCommentString('form.saving', 'Saving…')
   const { value } = composer
   return (
-    <div className="grid gap-2">
-      <MentionTextarea
-        composer={composer}
-        label="Edit comment"
-      />
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => onSave(composer.encode())}
-          disabled={isSaving || value.trim().length === 0}
-          className={PRIMARY_BUTTON}
-        >
-          {isSaving ? 'Saving…' : 'Save'}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className={SECONDARY_BUTTON}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
+    <MentionTextarea
+      composer={composer}
+      label="Edit comment"
+    >
+      <button
+        type="button"
+        data-slot="button"
+        onClick={() => onSave(composer.encode())}
+        disabled={isSaving || value.trim().length === 0}
+        className={PRIMARY_BUTTON}
+      >
+        {isSaving ? saving : 'Save'}
+      </button>
+      <button
+        type="button"
+        data-slot="button"
+        onClick={onCancel}
+        className={SECONDARY_BUTTON}
+      >
+        Cancel
+      </button>
+    </MentionTextarea>
   )
 }
 
@@ -147,24 +177,27 @@ function DeleteConfirm({
   readonly onCancel: () => void
   readonly isDeleting: boolean
 }): ReactElement {
+  const deleting = useCommentString('form.deleting', 'Deleting…')
   return (
     <div
       role="alertdialog"
       aria-label="Delete comment"
-      className="bg-background-subtle grid gap-2 rounded-[var(--radius-base,4px)] p-2 text-sm"
+      className="bg-muted grid gap-2 rounded-md p-2 text-sm"
     >
       <p>Are you sure you want to delete this comment by {authorName}?</p>
       <div className="flex gap-2">
         <button
           type="button"
+          data-slot="button"
           onClick={onConfirm}
           disabled={isDeleting}
           className={DESTRUCTIVE_BUTTON}
         >
-          {isDeleting ? 'Deleting…' : 'Confirm'}
+          {isDeleting ? deleting : 'Confirm'}
         </button>
         <button
           type="button"
+          data-slot="button"
           onClick={onCancel}
           className={SECONDARY_BUTTON}
         >

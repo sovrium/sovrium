@@ -38,7 +38,12 @@ import { useGraphClipIds } from '@/presentation/islands/graph/graph-clip-ids'
 import { COLUMN_WIDTH, HEADER_HEIGHT, NODE_HEIGHT } from '@/presentation/islands/graph/graph-layout'
 import {
   DIMMED_OPACITY,
+  GRAPH_EDGE_CLASS,
+  GRAPH_LABEL_CLASS,
+  edgeWidthOf,
+  nodeBoxClassOf,
   nodeClassOf,
+  nodeOpacityOf,
   stateMark,
   useNodeInteraction,
 } from '@/presentation/islands/graph/graph-node-interaction'
@@ -92,25 +97,23 @@ function NodeBody({
 }): ReactElement {
   return (
     <>
-      {/* `fill="transparent"`, NEVER `fill="none"` — the difference is the
-       * whole click target. SVG's default `pointer-events: visiblePainted`
-       * only hit-tests the PAINTED area, and `none` paints no interior: a
-       * pointer over the middle of the box falls straight through to the
-       * canvas, so the node is clickable on its one-pixel stroke and nowhere
-       * else. `transparent` is a painted fill with zero alpha — visually
-       * identical, and the whole box becomes the target. */}
+      {/* The card ground is a PAINTED fill, which is also what makes the whole
+       * box the click target: SVG's default `pointer-events: visiblePainted`
+       * hit-tests the painted area only, so `fill="none"` would leave the node
+       * clickable on its one-pixel edge and nowhere else. */}
       <rect
+        data-slot="graph-node-box"
         x={node.x}
         y={node.y}
         width={COLUMN_WIDTH}
         height={NODE_HEIGHT}
-        rx={4}
-        fill="transparent"
-        stroke="currentColor"
+        rx={8}
+        className={nodeBoxClassOf(selected)}
         strokeWidth={selected ? 2 : 1}
         {...(dash === undefined ? {} : { strokeDasharray: dash })}
       />
       <polygon
+        data-slot="graph-node-media"
         points={polygonPoints(shape, GLYPH_RADIUS)}
         transform={`translate(${String(node.x + GLYPH_X)},${String(node.y + NODE_HEIGHT / 2)})`}
         fill="currentColor"
@@ -124,7 +127,8 @@ function NodeBody({
         x={LABEL_X}
         y={NODE_HEIGHT / 2 + 4}
         clipPath={`url(#${clipId})`}
-        className="text-[11px]"
+        data-slot="graph-node-title"
+        className="text-xs font-medium"
         fill="currentColor"
       >
         {node.label}
@@ -155,13 +159,14 @@ function GraphNode({
   const interaction = useNodeInteraction(node.id, selectable, onSelect)
   return (
     <g
+      data-slot="graph-node"
       data-graph-node={node.id}
       data-graph-node-kind={node.kind}
       {...stateMark(node.state)}
       {...marks}
       {...interaction}
-      className={nodeClassOf(weight.muted, selectable)}
-      opacity={marks['data-graph-dimmed'] === undefined ? 1 : DIMMED_OPACITY}
+      className={nodeClassOf(selectable)}
+      opacity={nodeOpacityOf(weight.muted, marks['data-graph-dimmed'] !== undefined)}
     >
       <NodeBody
         node={node}
@@ -199,14 +204,15 @@ function GraphColumn({
 }): ReactElement {
   return (
     <g
+      data-slot="graph-column"
       data-graph-column={column.index}
       data-graph-column-label={column.label}
     >
       <text
+        data-slot="graph-column-label"
         x={column.x}
         y={HEADER_HEIGHT - 10}
-        className="text-foreground-subtle text-[11px]"
-        fill="currentColor"
+        className={GRAPH_LABEL_CLASS}
       >
         {column.label}
       </text>
@@ -217,10 +223,10 @@ function GraphColumn({
         >
           {band.value === undefined || band.captionY === undefined ? undefined : (
             <text
+              data-slot="graph-band-label"
               x={column.x}
               y={band.captionY}
-              className="text-foreground-subtle text-[10px]"
-              fill="currentColor"
+              className={GRAPH_LABEL_CLASS}
             >
               {band.value}
             </text>
@@ -267,7 +273,7 @@ export function GraphDrawing({
       <LayeredTextClips ids={clips} />
       <g
         fill="none"
-        stroke="currentColor"
+        className={GRAPH_EDGE_CLASS}
       >
         {geometry.edges.map((edge) => {
           const marks = selectionMarks(edge.id, state, state.reachedEdges)
@@ -276,8 +282,9 @@ export function GraphDrawing({
               key={edge.id}
               data-graph-edge={edge.id}
               {...marks}
+              data-slot="graph-edge"
               d={edge.path}
-              strokeWidth={marks['data-graph-reached'] === undefined ? 1 : 2}
+              strokeWidth={edgeWidthOf(marks['data-graph-reached'] !== undefined)}
               opacity={marks['data-graph-dimmed'] === undefined ? EDGE_OPACITY : DIMMED_OPACITY}
             />
           )

@@ -27,7 +27,9 @@
 // a shorter rail on a bare app for the property the rail specs actually assert,
 // which is that no entry is a dead link.
 
+import { designPageHeader } from '../../components/page-header'
 import { CHROME_BAR_OFFSET_CLASS } from '../../components/shell'
+import { labelledSpecimenFrame, specimenFrame } from './specimen-frame'
 import type { Page as PageConfig } from '@/domain/models/app'
 
 /** One node of a page's component tree, as the config type expresses it. */
@@ -49,7 +51,7 @@ export interface RailSection {
  * 48px, so the cap is what keeps the extra width as margin rather than measure.
  *
  * The cap is per SIZE because the measure is in characters and the utility is
- * in pixels. Measured on IBM Plex Sans at this console's ladder, one character
+ * in pixels. Measured on this console's ladder, one character
  * averages half the type size, so:
  *
  *   `text-[11px]`  → `max-w-sm`  384px → 70ch
@@ -168,7 +170,7 @@ export const notConfiguredCard = (input: {
         props: {
           href: input.href,
           className:
-            'border-border text-foreground hover:bg-background-subtle rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline',
+            'border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline',
           ...kitType('link'),
         },
         content: `Declare ${input.configKey} \u2192`,
@@ -308,12 +310,12 @@ export const railFrame = (input: {
  * the one the pointer is most often over.
  *
  * So the band is what every entry answers with, and the ink change rides on top
- * for the entries that have somewhere to go. `hover:bg-background-subtle` is
+ * for the entries that have somewhere to go. `hover:bg-muted` is
  * not a new affordance: it is what the kit's own navigation column already uses
  * (`kit-nav.ts`), so the two navigations of one console now react alike.
  */
 export const RAIL_ENTRY_CLASS =
-  'text-foreground-subtle hover:text-foreground hover:bg-background-subtle transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium'
+  'text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium'
 
 /** One rail entry for a section this page declared by hand. */
 export const railEntry = (section: RailSection): PageComponent =>
@@ -409,8 +411,9 @@ export const withTailRoom = (children: readonly PageComponent[]): readonly PageC
  * text entry OUTSIDE it.
  *
  * `preview-surface` carries `bg-background text-foreground` as UTILITY classes
- * rather than `var(--sv-*)` reads, which is what makes it prove the operator's
- * palette is actually USED here: a wrapper re-declaring only the `--sv-*` names
+ * rather than `var(--background)` / `var(--foreground)` reads, which is what
+ * makes it prove the operator's palette is actually USED here: a wrapper
+ * re-declaring only the shadcn variable names
  * reads back perfectly on every variable probe and paints every utility stale.
  *
  * ─── AND `list-none`, WHICH IS NOT COSMETIC ────────────────────────────────
@@ -443,19 +446,7 @@ export const railedConsoleBody = (input: {
   readonly sections: readonly RailSection[]
   readonly children: readonly PageComponent[]
 }): readonly PageComponent[] => [
-  {
-    type: 'container',
-    element: 'div',
-    props: { className: 'flex flex-col gap-2', ...kitType('container') },
-    children: [
-      {
-        type: 'text',
-        element: 'h1',
-        props: { className: 'text-3xl font-semibold tracking-tight', ...kitType('text') },
-        content: input.title,
-      },
-    ],
-  } as PageComponent,
+  designPageHeader(input.title),
   {
     type: 'container',
     element: 'div',
@@ -494,35 +485,12 @@ export const railedConsoleBody = (input: {
 // ---------------------------------------------------------------------------
 
 /**
- * One drawing in its own frame.
- *
- * Centred, generously padded, bordered: the example panel a component library
- * puts one rendering in. The drawing is given the width of the column rather
- * than a thumbnail's, which is the whole difference between a page that shows a
- * component and one that shows a grid of stamps.
- *
- * ─── WHY THE FRAME CARRIES A TYPE STEP ─────────────────────────────────────
- *
- * `text-base` is the console's own body step (13px), and it sits here rather
- * than on each drawing because font-size INHERITS. A component that rules its
- * own step keeps it; one that rules none — an authored `text` span, a `swatch`
- * label, a renderer that paints no typography class — otherwise falls through
- * to the document root at 16px and draws BIGGER than the page around it. That
- * is the "lead" the 2026-09-16 review reported: not a step anybody chose, an
- * inheritance gap. One class on the frame every drawing sits in closes it for
- * the whole catalogue.
+ * One drawing in its own frame: the installed `kit-specimen-frame`, label left
+ * out (see `specimen-frame.ts`). Centred, generously padded, bordered — the
+ * drawing is given the width of the column rather than a thumbnail's.
  */
 export const previewCard = (children: readonly PageComponent[]): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className:
-        'border-border flex flex-wrap items-start justify-center gap-4 rounded-lg border px-6 py-10 text-base',
-      'data-design-preview-card': 'true',
-    },
-    children: [...children],
-  }) as PageComponent
+  specimenFrame(children)
 
 /**
  * One value of one option: the config line, the drawing, and what it costs.
@@ -548,52 +516,33 @@ export const drawingBlock = (input: {
    */
   readonly specimenType?: string
 }): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: { className: 'flex flex-col gap-2', 'data-design-option': input.label },
-    children: [
+  // A BLOCK wrapper inside the frame, and the block is the load-bearing half.
+  //
+  // The frame is a centring flex row, so a drawing that declares `w-full`
+  // inside it is a flex ITEM sizing to its content: a chart laid out 26px wide
+  // with no canvas to draw on, mounted, ready, and blank. A flex wrapper
+  // reproduces it one level down — the fix is a plain block.
+  //
+  // The drawing's `note` is deliberately NOT drawn: the mono label already
+  // says which config line the drawing is OF, and the drawing is the
+  // demonstration; a sentence saying what the value does is documentation.
+  labelledSpecimenFrame(
+    input.label,
+    [
       {
         type: 'container',
         element: 'div',
-        props: { className: 'flex flex-wrap items-baseline gap-x-2' },
-        children: [
-          {
-            type: 'text',
-            element: 'span',
-            props: { className: 'text-foreground font-mono text-[11px]' },
-            content: input.label,
-          },
-          // The drawing's `note` is deliberately NOT drawn. The mono label
-          // beside it already says which config line this drawing is OF, and
-          // that line is what an author writes; a sentence saying what the
-          // value does is documentation, and the drawing under it is the
-          // demonstration this console exists to give.
-        ],
+        props: {
+          className: 'w-full',
+          ...(input.specimenType === undefined
+            ? {}
+            : { 'data-design-specimen': input.specimenType }),
+        },
+        children: [...input.children],
       } as PageComponent,
-      // A BLOCK wrapper, and the block is the load-bearing half.
-      //
-      // The preview frame is a centring flex row, so a drawing that declares
-      // `w-full` inside it is a flex ITEM sizing to its content: a chart laid
-      // out 26px wide with no canvas to draw on, mounted, ready, and blank.
-      // Measured on this page. A flex wrapper reproduces it one level down —
-      // the fix is a plain block, which is what the variant sections already
-      // wrap their drawings in.
-      previewCard([
-        {
-          type: 'container',
-          element: 'div',
-          props: {
-            className: 'w-full',
-            ...(input.specimenType === undefined
-              ? {}
-              : { 'data-design-specimen': input.specimenType }),
-          },
-          children: [...input.children],
-        } as PageComponent,
-      ]),
     ],
-  }) as PageComponent
+    { 'data-design-option': input.label }
+  )
 
 /** The anchor one option showcase answers to, on one type's page. */
 export const optionAnchor = (type: string, id: string): string =>

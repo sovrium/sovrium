@@ -5,210 +5,75 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// `calendar` — records placed on dates rather than listed.
+// `calendar` — a month of days a reader picks from.
 //
-// `dateField` is what makes it a calendar, and `endDateField` is what makes an
-// entry a span rather than a point. Declare only the first and every record is a
-// single day, whatever its data says. `labelField` is what each entry is called;
-// without it a reader sees a coloured block and has to open it to learn what it
-// is.
-//
-// ─── `defaultView` DECIDES WHERE A READER LANDS, NOT WHAT THEY CAN REACH ───
-//
-// It names three: `month`, `week`, `day`. Month is what a reader planning needs
-// — the shape of a period, at the cost of the hours. Week and day trade that the
-// other way, and are the right landing view only for a surface about one week or
-// one day at a time. The reader switches between them with the control in the
-// calendar's own header whichever one is declared.
-//
-// Both drawings declare `calendarInteraction.timeSlotInterval`. The hour-grid
-// views read it while building their rows and month never does, which is why
-// leaving it out looks harmless right up until a reader switches view.
+// The calendar that places RECORDS on dates is `event-calendar`
+// (`event-calendar.ts`); this one holds no data and picks a date, a range or a
+// set of dates. `mode` decides which, and `defaultValue` takes the matching
+// shape — one ISO date, `{ from, to }`, or a list. Every drawing names its
+// `defaultValue` so the month shown is the same however the page is opened.
 
-import { SPECIMEN_ROWS_ENDPOINT } from '../../../system-sources'
 import type { PageComponent, TypePageBody } from './body-shape'
 
-const BOUND = {
-  system: {
-    endpoint: SPECIMEN_ROWS_ENDPOINT,
-    rowsKey: 'items',
-    idKey: 'id',
-    totalKey: 'total',
-    query: { rows: '3' },
-  },
-}
-
-/** The same calendar every time, with one key changed. */
-const cal = (id: string, extra: Record<string, unknown> = {}) =>
-  ({
-    type: 'calendar' as const,
-    props: { id },
-    dataSource: BOUND,
-    dateField: 'startsAt',
-    endDateField: 'endsAt',
-    labelField: 'name',
-    defaultView: 'month' as const,
-    calendarInteraction: { timeSlotInterval: 60 },
-    ...extra,
-  }) as PageComponent
+const day = (extra: Readonly<Record<string, unknown>>): PageComponent =>
+  ({ type: 'calendar', defaultValue: '2026-10-14', ...extra }) as PageComponent
 
 const calendar: TypePageBody = {
-  drawings: [
-    {
-      label: 'month',
-      children: [
-        {
-          type: 'calendar',
-          props: { id: 'design-system-calendar-month' },
-          dataSource: {
-            system: {
-              endpoint: SPECIMEN_ROWS_ENDPOINT,
-              rowsKey: 'items',
-              idKey: 'id',
-              totalKey: 'total',
-            },
-          },
-          dateField: 'startsAt',
-          endDateField: 'endsAt',
-          labelField: 'name',
-          defaultView: 'month',
-          calendarInteraction: { timeSlotInterval: 60 },
-        },
-      ],
-    },
-    {
-      label: 'week',
-      children: [
-        {
-          type: 'calendar',
-          props: { id: 'design-system-calendar-week' },
-          dataSource: {
-            system: {
-              endpoint: SPECIMEN_ROWS_ENDPOINT,
-              rowsKey: 'items',
-              idKey: 'id',
-              totalKey: 'total',
-            },
-          },
-          dateField: 'startsAt',
-          endDateField: 'endsAt',
-          labelField: 'name',
-          defaultView: 'week',
-          calendarInteraction: { timeSlotInterval: 60 },
-        },
-      ],
-    },
-  ],
+  drawings: [{ label: 'single', children: [day({})] }],
   options: [
     {
-      id: 'default-view',
-      title: 'Default view',
-      configKey: 'calendar.defaultView',
+      id: 'mode',
+      title: 'Mode',
+      configKey: 'calendar.mode',
       drawings: [
         {
-          label: "defaultView: 'month'",
-          children: [cal('cal-view-month', { defaultView: 'month' })],
-        },
-        {
-          label: "defaultView: 'week'",
-          children: [cal('cal-view-week', { defaultView: 'week' })],
-        },
-        {
-          label: "defaultView: 'day'",
-          children: [cal('cal-view-day', { defaultView: 'day' })],
-        },
-      ],
-    },
-    {
-      id: 'dates',
-      title: 'Dates',
-      configKey: 'calendar.dateField | endDateField',
-      drawings: [
-        {
-          label: 'dateField only',
-          children: [cal('cal-start', { endDateField: undefined })],
-        },
-        {
-          label: 'dateField + endDateField',
-          children: [cal('cal-span')],
-        },
-      ],
-    },
-    {
-      id: 'label',
-      title: 'Label',
-      configKey: 'calendar.labelField',
-      drawings: [
-        { label: "labelField: 'name'", children: [cal('cal-label-name')] },
-        {
-          label: "labelField: 'role'",
-          children: [cal('cal-label-role', { labelField: 'role' })],
-        },
-      ],
-    },
-    {
-      id: 'colour',
-      title: 'Colour',
-      configKey: 'calendar.colorField',
-      drawings: [
-        {
-          label: "colorField: 'priority'",
-          children: [cal('cal-colour', { colorField: 'priority' })],
-        },
-      ],
-    },
-    {
-      id: 'density',
-      title: 'Density',
-      configKey: 'calendar.maxEventsPerDay',
-      drawings: [
-        {
-          label: 'maxEventsPerDay: 1',
-          children: [cal('cal-density', { maxEventsPerDay: 1 })],
-        },
-      ],
-    },
-    {
-      id: 'hour-grid',
-      title: 'The hour grid',
-      configKey: 'calendarInteraction.timeSlotInterval | showCurrentTimeIndicator',
-      drawings: [
-        {
-          label: 'timeSlotInterval: 60 · showCurrentTimeIndicator: true',
+          label: "mode: 'range'",
           children: [
-            cal('cal-hour-grid', {
-              defaultView: 'week',
-              calendarInteraction: { timeSlotInterval: 60, showCurrentTimeIndicator: true },
+            day({ mode: 'range', defaultValue: { from: '2026-10-19', to: '2026-10-23' } }),
+          ],
+        },
+        {
+          label: "mode: 'multiple'",
+          children: [
+            day({ mode: 'multiple', defaultValue: ['2026-10-06', '2026-10-14', '2026-10-27'] }),
+          ],
+        },
+      ],
+    },
+    {
+      id: 'months',
+      title: 'Months',
+      configKey: 'calendar.months',
+      drawings: [
+        {
+          label: 'months: 2',
+          children: [
+            day({
+              mode: 'range',
+              months: 2,
+              defaultValue: { from: '2026-10-26', to: '2026-11-06' },
             }),
           ],
         },
       ],
     },
     {
-      id: 'interaction',
-      title: 'Clicks',
-      configKey: 'calendarInteraction.onDateClick | calendarEvent.onEventClick',
+      id: 'caption-layout',
+      title: 'Caption layout',
+      configKey: 'calendar.captionLayout',
+      drawings: [
+        { label: "captionLayout: 'label'", children: [day({ captionLayout: 'label' })] },
+        { label: "captionLayout: 'dropdown'", children: [day({ captionLayout: 'dropdown' })] },
+      ],
+    },
+    {
+      id: 'disabled',
+      title: 'Disabled days',
+      configKey: 'calendar.disabled',
       drawings: [
         {
-          label: 'onDateClick: create',
-          children: [
-            {
-              type: 'code',
-              props: { language: 'yaml' },
-              content:
-                'calendarInteraction:\n  onDateClick:\n    type: crud\n    operation: create\n    table: events',
-            } as PageComponent,
-          ],
-        },
-        {
-          label: 'onEventClick: open the record',
-          children: [
-            {
-              type: 'code',
-              props: { language: 'yaml' },
-              content: 'calendarEvent:\n  onEventClick:\n    type: navigate\n    url: /events/{id}',
-            } as PageComponent,
-          ],
+          label: 'disabled: { daysOfWeek: [0, 6] }',
+          children: [day({ disabled: { daysOfWeek: [0, 6] } })],
         },
       ],
     },

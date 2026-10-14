@@ -17,53 +17,61 @@ import type { ReactElement } from 'react'
 interface SwitchIslandProps {
   readonly checked?: boolean
   readonly disabled?: boolean
-  readonly size?: 'sm' | 'md' | 'lg'
+  readonly size?: 'sm' | 'default' | 'lg'
   readonly label?: string
   readonly name?: string
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+  /** The id of an element naming the switch, such as a field's title. */
+  readonly ariaLabelledBy?: string
 }
 
+/** shadcn/ui `Label`, beside the switch. */
+const SWITCH_LABEL = 'inline-flex items-center gap-2 text-sm leading-none font-medium select-none'
+
 /**
- * Switch island — wraps Base UI Switch for toggle controls.
- *
- * Renders a custom-styled toggle switch with smooth thumb animation, keyboard
- * support (Space to toggle), and ARIA switch role. Default track + thumb
- * styling lives in `toggle-default-classes.ts` (prestyled-by-default per
- * [internal ref]); the outer label wrapper handles layout-only utility classes.
+ * Switch island — Base UI `Switch`, drawn on shadcn/ui's `Switch` anatomy:
+ * `data-slot="switch"` with its `data-size` on the root, `data-slot="switch-thumb"`
+ * on the thumb. Keyboard support (Space to toggle) and the ARIA switch role are
+ * Base UI's. Track and thumb recipes live in `toggle-default-classes.ts`.
  */
 export default function SwitchIsland({
   checked,
   disabled = false,
-  size = 'md',
+  size = 'default',
   label,
   name,
   className,
   id,
   'data-testid': testId,
+  ariaLabelledBy,
 }: SwitchIslandProps): ReactElement {
   return (
     <label
       className={resolveClasses(
-        cn(
-          'inline-flex items-center gap-2',
-          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-        ),
+        cn(SWITCH_LABEL, disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'),
         className
       )}
       id={id}
       data-testid={testId}
+      data-slot="label"
     >
       <Switch.Root
+        aria-labelledby={ariaLabelledBy}
         defaultChecked={checked}
         disabled={disabled}
         name={name}
-        className={computeSwitchTrackClasses({ size })}
+        className={computeSwitchTrackClasses()}
+        data-slot="switch"
+        data-size={size}
       >
-        <Switch.Thumb className={computeSwitchThumbClasses({ size })} />
+        <Switch.Thumb
+          className={computeSwitchThumbClasses()}
+          data-slot="switch-thumb"
+        />
       </Switch.Root>
-      {label && <span className="text-foreground text-md">{label}</span>}
+      {label && <span>{label}</span>}
     </label>
   )
 }

@@ -11,11 +11,22 @@
  * hairline guide down the open branch.
  */
 
-import { useMemo, type ReactElement, type ReactNode } from 'react'
+import { type ReactElement, type ReactNode } from 'react'
+import {
+  computeTreeChevronClasses,
+  computeTreeCountClasses,
+  computeTreeItemButtonClasses,
+  computeTreeItemClasses,
+  computeTreeSubClasses,
+} from '@/presentation/design/tree-default-classes'
 import type { TreeNode } from './tree-model'
 
-const CHEVRON_OPEN = 'M4 6l4 4 4-4'
-const CHEVRON_CLOSED = 'M6 4l4 4-4 4'
+/** `ChevronRight`, as lucide draws it; the open turn is a class, not a second path. */
+const CHEVRON_RIGHT = 'm9 18 6-6-6-6'
+const ITEM = computeTreeItemClasses()
+const ROW = computeTreeItemButtonClasses()
+const SUB = computeTreeSubClasses()
+const COUNT = computeTreeCountClasses()
 
 /** The disclosure chevron of a branch; a leaf keeps the space empty. */
 function Chevron({
@@ -28,7 +39,7 @@ function Chevron({
   return (
     <span
       aria-hidden="true"
-      className="text-muted-foreground flex size-4 shrink-0 items-center justify-center"
+      className="flex size-4 shrink-0 items-center justify-center"
       onClick={(event) => {
         event.stopPropagation()
         onToggle()
@@ -36,34 +47,36 @@ function Chevron({
     >
       {expanded !== undefined && (
         <svg
-          viewBox="0 0 16 16"
-          className="size-3.5"
+          viewBox="0 0 24 24"
+          className={computeTreeChevronClasses(expanded)}
           fill="none"
           stroke="currentColor"
-          strokeWidth={1.5}
+          strokeWidth={2}
         >
-          <path d={expanded ? CHEVRON_OPEN : CHEVRON_CLOSED} />
+          <path d={CHEVRON_RIGHT} />
         </svg>
       )}
     </span>
   )
 }
 
-/** The node's own row: chevron, label, count, indented 20 px a level. */
+/** The node's own row: chevron, label, count. Nesting indents it, not padding. */
 function TreeRow({
   node,
   expanded,
+  selected,
   onToggle,
 }: {
   readonly node: TreeNode
   readonly expanded: boolean | undefined
+  readonly selected: boolean
   readonly onToggle: () => void
 }): ReactElement {
-  const indent = useMemo(() => ({ paddingLeft: (node.level - 1) * 20 }), [node.level])
   return (
     <div
-      className="hover:bg-muted flex h-8 cursor-pointer items-center gap-1 rounded-sm pr-2 text-sm"
-      style={indent}
+      data-slot="tree-item-button"
+      data-active={selected}
+      className={ROW}
     >
       <Chevron
         expanded={expanded}
@@ -71,7 +84,46 @@ function TreeRow({
       />
       <span className="min-w-0 flex-1 truncate">{node.label}</span>
       {node.count !== undefined && (
-        <span className="text-muted-foreground font-mono text-xs">{node.count}</span>
+        <span
+          data-slot="tree-item-count"
+          className={COUNT}
+        >
+          {node.count}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/**
+ * A branch: a collapsible holding its row and, while open, its children in a
+ * ruled sub-menu. `data-open` / `data-closed` are Base UI's own state marks.
+ */
+function Branch({
+  open,
+  row,
+  children,
+}: {
+  readonly open: boolean
+  readonly row: ReactElement
+  readonly children: ReactNode
+}): ReactElement {
+  return (
+    <div
+      data-slot="collapsible"
+      {...(open ? { 'data-open': '' } : { 'data-closed': '' })}
+    >
+      {row}
+      {open && (
+        <div data-slot="collapsible-content">
+          <ul
+            role="group"
+            data-slot="tree-sub"
+            className={SUB}
+          >
+            {children}
+          </ul>
+        </div>
       )}
     </div>
   )
@@ -96,9 +148,18 @@ export function TreeItem({
   readonly onSelect: () => void
   readonly children: ReactNode
 }): ReactElement {
+  const row = (
+    <TreeRow
+      node={node}
+      expanded={expanded}
+      selected={selected}
+      onToggle={onToggle}
+    />
+  )
   return (
     <li
       role="treeitem"
+      data-slot="tree-item"
       data-tree-node={node.id}
       aria-level={node.level}
       aria-expanded={expanded}
@@ -111,20 +172,17 @@ export function TreeItem({
         event.stopPropagation()
         onSelect()
       }}
-      className="focus-visible:ring-ring aria-selected:[&>div]:bg-muted rounded-sm outline-none focus-visible:ring-2"
+      className={ITEM}
     >
-      <TreeRow
-        node={node}
-        expanded={expanded}
-        onToggle={onToggle}
-      />
-      {expanded === true && (
-        <ul
-          role="group"
-          className="border-border ml-2 border-l"
+      {expanded === undefined ? (
+        row
+      ) : (
+        <Branch
+          open={expanded}
+          row={row}
         >
           {children}
-        </ul>
+        </Branch>
       )}
     </li>
   )

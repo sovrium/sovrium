@@ -21,8 +21,8 @@ import { defineLibraryEntry } from '@/library/manifest/define'
 const meta = (iconName: string, label: string): Readonly<Record<string, unknown>> =>
   flex(
     [
-      { type: 'icon', props: { name: iconName, size: 14, className: 'text-foreground-subtle' } },
-      span(label, 'text-sm text-foreground-subtle'),
+      { type: 'icon', props: { name: iconName, size: 14, className: 'text-muted-foreground' } },
+      span(label, 'text-sm text-muted-foreground'),
     ],
     'items-center gap-1.5'
   )

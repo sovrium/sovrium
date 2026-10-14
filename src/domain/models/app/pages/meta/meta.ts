@@ -39,6 +39,23 @@ export const LanguageCodeSchema = Schema.String.pipe(
 })
 
 /**
+ * Whether a robots directive string asks crawlers to index the page: it holds
+ * the `index` directive, or `all` (index and follow). Directives are
+ * comma-separated and case-insensitive; `noindex` is not `index`.
+ */
+const robotsAsksForIndexing = (robots: string | undefined): boolean =>
+  (robots ?? '')
+    .split(',')
+    .map((directive) => directive.trim().toLowerCase())
+    .some((directive) => directive === 'index' || directive === 'all')
+
+const META_ANNOTATIONS = {
+  title: 'Page Metadata',
+  description:
+    'Comprehensive page metadata including SEO, social media, structured data, performance, and analytics',
+} as const
+
+/**
  * Comprehensive page metadata
  *
  * Master orchestrator schema that combines all meta categories into a single configuration.
@@ -77,12 +94,14 @@ export const MetaSchema = Schema.Struct({
   ),
   robots: Schema.optional(
     Schema.String.annotate({
-      description: 'Robot directives (e.g., noindex, nofollow, noindex, nofollow)',
+      description:
+        "Directives for search-engine crawlers, as the content of the page's robots meta tag (for example `noindex, nofollow`, or `follow`). A page that sets neither this nor `noindex` gets no robots tag and stays indexable.",
     })
   ),
   noindex: Schema.optional(
     Schema.Boolean.annotate({
-      description: 'Prevent indexing by search engines (shorthand for robots: noindex)',
+      description:
+        'Keep this page out of search results and out of the sitemap (the shorthand for `robots: noindex`). When `robots` is also set, `noindex` is added to its directives: `robots: follow` renders `noindex, follow`. A `robots` string that asks for indexing (`index` or `all`) beside `noindex: true` is refused.',
     })
   ),
   favicon: Schema.optional(FaviconSchema),
@@ -165,11 +184,21 @@ export const MetaSchema = Schema.Struct({
       )
     )
   ),
-}).annotate({
-  title: 'Page Metadata',
-  description:
-    'Comprehensive page metadata including SEO, social media, structured data, performance, and analytics',
 })
+  // Annotated on BOTH sides of the check: the title and description reach the
+  // published JSON Schema only from before it, and the docs walk reads the
+  // node's own annotations only from after it.
+  .annotate(META_ANNOTATIONS)
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((meta) =>
+        meta.noindex === true && robotsAsksForIndexing(meta.robots)
+          ? `\`noindex: true\` and \`robots: ${meta.robots}\` disagree: \`robots\` asks search engines to index this page, \`noindex\` asks them not to. Remove \`index\` from \`robots\` (for example \`robots: follow\`), or drop \`noindex\`.`
+          : undefined
+      )
+    ),
+    Schema.annotate(META_ANNOTATIONS)
+  )
 
 /** @public */
 export type LanguageCode = Schema.Schema.Type<typeof LanguageCodeSchema>

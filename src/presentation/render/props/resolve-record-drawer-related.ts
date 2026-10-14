@@ -21,17 +21,19 @@ import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 
 /**
- * The render-time-only marker saying the caller is ANONYMOUS in an app that
- * has `auth` configured.
+ * The render-time-only marker saying who a drawer's related sections answer
+ * when the role evaluators alone cannot: `'guest'` for an ANONYMOUS caller in
+ * an app that has `auth` configured, `'open'` for any caller in an app that
+ * has none.
  *
  * Private to the renderer, like `_openDrawerDispatchedById`. It exists because
- * the component renderer holds the session but not `app.auth`, and the two
- * cases a missing session can mean are opposite: in an app without auth every
- * records route is open, while in an app WITH auth the records API admits an
- * anonymous caller only to a table whose `permissions.read` is the `'all'`
- * literal, and never to a write. Stamped by {@link markRelatedGuestCaller} in
- * the page pipeline, which holds both. An author who writes it themselves can
- * only make the sections stricter, never looser.
+ * the component renderer holds the session but not `app.auth`, and the cases a
+ * missing session can mean are opposite: in an app without auth every caller
+ * is the records API's `'guest'` role, while in an app WITH auth the records
+ * API admits an anonymous caller only to a table whose `permissions.read` is
+ * the `'all'` literal, and never to a write. Stamped by
+ * {@link markRelatedGuestCaller} in the page pipeline, which holds both and
+ * overwrites whatever an author wrote under this key.
  */
 export const RELATED_GUEST_CALLER_KEY = '_relatedGuestCaller'
 
@@ -71,10 +73,19 @@ export interface RelatedSection {
 type Table = NonNullable<Tables>[number]
 type RawEntry = Readonly<Record<string, unknown>>
 
+/** Who the page pass says the caller is, beyond her session — see {@link RELATED_GUEST_CALLER_KEY}. */
+export type RelatedCallerMode = 'guest' | 'open'
+
 /** The caller a section is resolved for: the session, and whether it is an auth-app guest. */
 export interface RelatedCaller {
   readonly session: SessionInfo | undefined
   readonly guest: boolean
+  /**
+   * The app declares no `auth`: every caller is the records API's `'guest'`
+   * role (its `guestContextHandler`). Keyed on the app, never on a missing
+   * session, which in an auth app means something else entirely.
+   */
+  readonly openApp?: boolean
   /**
    * Each related table as the caller may see it, stamped by the page pass
    * (`caller-table-stamp.ts`): a section with no `columns` heads only the
@@ -85,15 +96,14 @@ export interface RelatedCaller {
 }
 
 /**
- * Stamp {@link RELATED_GUEST_CALLER_KEY} on every drawer declaring `related`
- * when the caller is anonymous in an app with auth. Returns the tree untouched
- * otherwise, so no other page pays for the walk.
+ * Stamp {@link RELATED_GUEST_CALLER_KEY} on every drawer declaring `related`:
+ * the caller mode when there is one, and the key removed otherwise, so an
+ * author-written value never reaches the resolver.
  */
 export function markRelatedGuestCaller(
   components: readonly Component[],
-  guest: boolean
+  mode: RelatedCallerMode | undefined
 ): readonly Component[] {
-  if (!guest) return components
   const mark = (component: Component): Component => {
     const record = component as Readonly<Record<string, unknown>>
     const { children } = record
@@ -105,16 +115,25 @@ export function markRelatedGuestCaller(
           ),
         }
       : record
-    if (record['type'] !== 'drawer' || !Array.isArray(record['related'])) {
+    if (record['type'] !== 'sheet' || !Array.isArray(record['related'])) {
       return withChildren as Component
     }
-    const props = (record['props'] as Readonly<Record<string, unknown>> | undefined) ?? {}
+    const { [RELATED_GUEST_CALLER_KEY]: _authored, ...props } =
+      (record['props'] as Readonly<Record<string, unknown>> | undefined) ?? {}
     return {
       ...withChildren,
-      props: { ...props, [RELATED_GUEST_CALLER_KEY]: true },
+      props: mode === undefined ? props : { ...props, [RELATED_GUEST_CALLER_KEY]: mode },
     } as Component
   }
   return components.map(mark)
+}
+
+/** The mode a drawer's props carry, as {@link markRelatedGuestCaller} stamped it. */
+export function relatedCallerModeOf(
+  props: Readonly<Record<string, unknown>> | undefined
+): RelatedCallerMode | undefined {
+  const mode = props?.[RELATED_GUEST_CALLER_KEY]
+  return mode === 'guest' || mode === 'open' ? mode : undefined
 }
 
 /**
@@ -130,6 +149,13 @@ function callerAccess(
   caller: RelatedCaller
 ): { readonly read: boolean; readonly create: boolean } {
   if (caller.guest) return { read: readOpensToEveryone(table, tables), create: false }
+  // An app with no `auth`: the records API serves every caller as `'guest'`.
+  if (caller.openApp === true) {
+    return {
+      read: hasReadPermission(table, 'guest', tables, []),
+      create: hasCreatePermissionForRoles(table, ['guest'], tables),
+    }
+  }
   // An admin-equivalent caller — the built-in `admin` or the app's top role,
   // which the auth context stamps as `isUnrestricted` — outranks every grant,
   // exactly as the records API's admin override answers her.

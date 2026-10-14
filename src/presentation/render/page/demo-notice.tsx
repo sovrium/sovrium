@@ -78,7 +78,7 @@ function DemoNoticeSummary({ label }: { readonly label: string }): Readonly<Reac
       (the chevron below is the affordance); the webkit variant covers Safari,
       which still paints its own marker pseudo-element.
     */
-    <summary className="border-border bg-background-raised text-foreground-muted hover:text-foreground inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors [&::-webkit-details-marker]:hidden">
+    <summary className="border-border bg-card text-muted-foreground hover:text-foreground inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors [&::-webkit-details-marker]:hidden">
       {label}
       {/*
         Rotating chevron: without it the pill reads as a static label rather
@@ -141,10 +141,10 @@ function DemoNoticeCredentials({
           a sign-in form, so they get a scannable treatment that makes the
           exact character run unambiguous (l vs 1, O vs 0).
         */}
-        <code className="bg-background-subtle text-foreground rounded-sm px-1.5 py-0.5 font-mono">
+        <code className="bg-muted text-foreground rounded-sm px-1.5 py-0.5 font-mono">
           {credentials.email}
         </code>
-        <code className="bg-background-subtle text-foreground rounded-sm px-1.5 py-0.5 font-mono">
+        <code className="bg-muted text-foreground rounded-sm px-1.5 py-0.5 font-mono">
           {credentials.password}
         </code>
       </div>
@@ -167,7 +167,7 @@ function DemoNoticeCredentials({
         data-testid="demo-notice-prefill"
         data-demo-email={credentials.email}
         data-demo-password={credentials.password}
-        className="border-border text-foreground-muted hover:text-foreground mt-1.5 rounded-[4px] border px-2 py-1 text-sm font-medium transition-colors"
+        className="border-border text-muted-foreground hover:text-foreground mt-1.5 rounded-[4px] border px-2 py-1 text-sm font-medium transition-colors"
       >
         {labels.prefill}
       </button>
@@ -186,7 +186,7 @@ function DemoNoticePanel({
   // width it wraps BEFORE "04:00 UTC" — keeping the time and its unit on one
   // line instead of orphaning "UTC." on its own line.
   return (
-    <div className="border-border bg-background-raised text-foreground-muted mb-2 hidden w-72 max-w-full rounded-md border p-3 text-sm shadow-md group-open:block">
+    <div className="border-border bg-card text-muted-foreground mb-2 hidden w-72 max-w-full rounded-md border p-3 text-sm shadow-md group-open:block">
       {/*
         Both paragraphs pin `text-sm` on the element itself. The CSS compiler's
         base layer emits `p { … text-lg }`, which — although the panel wrapper
@@ -216,7 +216,7 @@ function DemoNoticePanel({
           target="_blank"
           rel="noopener"
           data-testid="demo-notice-cta"
-          className="text-foreground-muted hover:text-foreground mt-1 -mb-1 inline-block py-1 font-medium underline underline-offset-2 transition-colors"
+          className="text-muted-foreground hover:text-foreground mt-1 -mb-1 inline-block py-1 font-medium underline underline-offset-2 transition-colors"
         >
           {labels.cta}
         </a>

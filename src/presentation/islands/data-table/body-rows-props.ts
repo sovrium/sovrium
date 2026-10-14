@@ -23,6 +23,8 @@ export interface TableBodyRowsProps {
   readonly rows: readonly DataTableRow[]
   readonly allColumns: readonly DataTableColumnDef[]
   readonly isLoading: boolean
+  /** The next page of an appending grid is on its way: the rows are marked busy. */
+  readonly loadingMore?: boolean
   readonly cellClass: string
   readonly borderClass: string
   readonly striped: boolean

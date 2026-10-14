@@ -8,16 +8,15 @@
 import { resolveRecordColor } from '@/domain/kernel/color/record-color'
 import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import {
-  TIMELINE_MARKER_WRAPPER_CLASSES,
-  computeTimelineBarClasses,
-  computeTimelineBarLabelClasses,
-  computeTimelineLaneClasses,
-  computeTimelineLaneTitleClasses,
-  computeTimelineMarkerClasses,
-  computeTimelineMarkerLabelClasses,
-  computeTimelineRowClasses,
-  computeTimelineScaleAxisClasses,
-} from '@/presentation/design/timeline-default-classes'
+  TIMELINE_AXIS_CLASSES,
+  TIMELINE_BAR_CLASSES,
+  TIMELINE_BAR_LABEL_CLASSES,
+  TIMELINE_LANE_TITLE_CLASSES,
+  TIMELINE_POINT_CLASSES,
+  TIMELINE_POINT_LABEL_CLASSES,
+  TIMELINE_POINT_MARKER_CLASSES,
+  TIMELINE_ROW_CLASSES,
+} from '@/presentation/design/timeline-anatomy-classes'
 import { resolvePageLocale } from '../runtime/page-locale'
 import {
   DEFAULT_TIMELINE_ZOOM,
@@ -34,6 +33,7 @@ import {
 } from './timeline-compute'
 import { TimelineDependencyLinks, TimelineTodayMarker } from './timeline-overlays'
 import { TimelineResizeHandles } from './timeline-resize'
+import { useTodayAxisClearance } from './use-today-axis-clearance'
 import type { OptionChipColors } from '@/domain/kernel/color/option-chip-color'
 import type { ReactElement } from 'react'
 
@@ -45,23 +45,14 @@ const NO_DEPENDENCY_LINKS: ReadonlyMap<string, readonly TimelineLink[]> = new Ma
  * own — the platform chart series, so a timeline and a chart of the same data
  * categorise it in the same hues instead of two unrelated sets.
  *
- * These are LITERAL hexes rather than `var(--sv-chart-N)`, and that is forced
+ * These are LITERAL hexes rather than `var(--chart-N)`, and that is forced
  * rather than chosen: every entry is fed to `deriveOptionChipColors`, which
  * computes a WCAG-AA foreground and a border by parsing the value as
  * `#RRGGBB`. It returns `undefined` for anything it cannot parse, so a `var()`
  * here would not fall back to the token — it would silently drop the colour
- * from every bar. Keep these in step with `--sv-chart-1..5`.
+ * from every bar. Keep these in step with `--chart-1..5`.
  */
-const COLOR_PALETTE = ['#398ad6', '#cd5f62', '#479c4d', '#b67700', '#9470cd'] as const
-
-/**
- * The fill every bar paints when no `colorField` is declared. Unlike the
- * palette above this one never reaches the contrast derivation — it goes
- * straight to an inline `background-color` — so it can name the token and
- * follow an app's theme. The literal is the var's fallback, for the case where
- * the design layer is switched off.
- */
-const DEFAULT_BAR_FILL = 'var(--sv-chart-1, #398ad6)'
+const COLOR_PALETTE = ['#d4d4d4', '#737373', '#525252', '#404040', '#262626'] as const
 
 /**
  * Resolve each distinct `colorField` value to its painted fill/foreground/border.
@@ -104,20 +95,22 @@ function TimelineBar({
 
   return (
     <div
+      data-slot="timeline-bar"
       data-testid="timeline-bar"
       data-timeline-item={item.id}
       {...(item.colorValue !== undefined ? { 'data-color-status': item.colorValue } : {})}
-      className={computeTimelineBarClasses()}
+      className={TIMELINE_BAR_CLASSES}
+      // A coloured bar overrides the primary fill and its foreground inline, with
+      // the label colour derived to read against the record colour.
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-bar time-axis position + color are genuinely dynamic; React Compiler not yet enabled in Bun
       style={{
         left: `${String(left)}%`,
         width: `${String(width)}%`,
-        backgroundColor: colors?.fill ?? DEFAULT_BAR_FILL,
-        ...(colors ? { color: colors.foreground } : {}),
+        ...(colors ? { backgroundColor: colors.fill, color: colors.foreground } : {}),
       }}
       title={item.label}
     >
-      <span className={computeTimelineBarLabelClasses()}>{item.label}</span>
+      <span className={TIMELINE_BAR_LABEL_CLASSES}>{item.label}</span>
       <TimelineResizeHandles
         item={item}
         bounds={bounds}
@@ -143,18 +136,18 @@ function TimelinePoint({
       data-testid="timeline-point"
       data-timeline-item={item.id}
       {...(item.colorValue !== undefined ? { 'data-color-status': item.colorValue } : {})}
-      className={TIMELINE_MARKER_WRAPPER_CLASSES}
+      className={TIMELINE_POINT_CLASSES}
       // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-point time-axis position is genuinely dynamic; React Compiler not yet enabled in Bun
       style={{ left: `${String(left)}%` }}
       title={item.label}
     >
       <span
-        className={computeTimelineMarkerClasses()}
+        className={TIMELINE_POINT_MARKER_CLASSES}
         // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop -- per-point diamond colour is genuinely dynamic; React Compiler not yet enabled in Bun
-        style={{ backgroundColor: colors?.fill ?? DEFAULT_BAR_FILL }}
+        style={colors ? { backgroundColor: colors.fill } : undefined}
         aria-hidden="true"
       />
-      <span className={computeTimelineMarkerLabelClasses()}>{item.label}</span>
+      <span className={TIMELINE_POINT_LABEL_CLASSES}>{item.label}</span>
     </div>
   )
 }
@@ -180,7 +173,7 @@ function TimelineRows({
   readonly dependencyLinks: ReadonlyMap<string, readonly TimelineLink[]>
 }): ReactElement {
   // No `space-y-*`: the rows are contiguous and separated by the hairline each
-  // one draws under itself (`computeTimelineRowClasses`). Air between floating
+  // one draws under itself (`TIMELINE_ROW_CLASSES`). Air between floating
   // bars is what stopped the view scanning horizontally as a Gantt.
   return (
     <div>
@@ -190,7 +183,8 @@ function TimelineRows({
         return (
           <div
             key={item.id}
-            className={computeTimelineRowClasses()}
+            data-slot="timeline-row"
+            className={TIMELINE_ROW_CLASSES}
           >
             {links ? <TimelineDependencyLinks links={links} /> : undefined}
             {item.kind === 'point' ? (
@@ -259,9 +253,10 @@ function TimeAxis({
 
   return (
     <div
+      data-slot="timeline-axis"
       data-testid="time-axis"
       data-timeline-zoom={zoom ?? DEFAULT_TIMELINE_ZOOM}
-      className={computeTimelineScaleAxisClasses()}
+      className={TIMELINE_AXIS_CLASSES}
     >
       {ticks.map((tick) => (
         <span
@@ -310,9 +305,8 @@ function TimelineLanes({
             key={`lane-${lane.key}`}
             data-testid="timeline-swimlane"
             data-timeline-lane={lane.key}
-            className={computeTimelineLaneClasses()}
           >
-            <div className={computeTimelineLaneTitleClasses()}>{lane.label}</div>
+            <div className={TIMELINE_LANE_TITLE_CLASSES}>{lane.label}</div>
             {rows}
           </div>
         ) : (
@@ -354,13 +348,18 @@ export function TimelineView({
     ? buildDependencyLinks(items, bounds)
     : NO_DEPENDENCY_LINKS
 
+  const plot = useTodayAxisClearance()
+
   return (
     <div>
       {/* The positioning context for the today rule. It spans the rows AND the
        * axis, so the marker runs the full height of the plot and meets the
        * ruler it is a position on — which is why the wrapper is here rather
        * than around the rows alone. */}
-      <div className="relative">
+      <div
+        ref={plot}
+        className="relative"
+      >
         <TimelineLanes
           lanes={lanes}
           bounds={bounds}

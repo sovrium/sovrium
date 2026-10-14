@@ -11,6 +11,11 @@ import { SystemSourceSchema } from '../../system-source'
 import { coreFields } from '../modules/core'
 import { responsiveFields } from '../modules/responsive'
 import { visibilityFields } from '../modules/visibility'
+import {
+  SidebarActionSchema,
+  SidebarSourceLoadingSchema,
+  sidebarShellFields,
+} from './sidebar-shell'
 
 export const SidebarTypeLiteral = Schema.Literal('sidebar')
 
@@ -26,11 +31,8 @@ export const SidebarTypeLiteral = Schema.Literal('sidebar')
  * `table` already binds to can also feed the badge beside its own nav
  * entry — one endpoint, not two.
  *
- * Both fields' `examples` name REAL routes and REAL envelope keys, because an
- * example is the first thing an author copies: `/api/admin/tables` was listed
- * here and does not exist (the aggregate lives at `/api/admin/tables/overview`,
- * whose count is at `totals.tables`, not at the default `total`), so the copied
- * pair fetched a 404 and the badge silently rendered nothing.
+ * Both fields' `examples` name REAL routes and envelope keys: an example is
+ * the first thing an author copies.
  */
 export const SidebarBadgeSourceSchema = Schema.Struct({
   /** Read endpoint whose response carries the count */
@@ -470,6 +472,7 @@ export const SidebarItemSourceSchema = Schema.Struct({
       Schema.check(Schema.isMinLength(1))
     )
   ),
+  loading: Schema.optional(SidebarSourceLoadingSchema),
   /** Line shown when the endpoint returned no rows (default: `No items.`) */
   emptyLabel: Schema.optional(
     Schema.String.pipe(
@@ -579,18 +582,13 @@ export const SidebarNavItemSchema = Schema.Struct({
     )
   ),
   /**
-   * Fetched sub-entries: one per row, loaded on FIRST expand rather than at
-   * render, so a sidebar of ten disclosures costs ten requests only if the
-   * reader opens all ten.
+   * Fetched sub-entries: one per row, loaded on FIRST expand, so ten
+   * disclosures cost ten requests only if the reader opens all ten.
    */
   source: Schema.optional(SidebarItemSourceSchema),
-  /**
-   * Whether the disclosure starts open.
-   *
-   * Independent of the auto-expand that fires when the entry (or one of its
-   * sub-entries) is the current page: that one is not a default but the
-   * navigation answering "where am I", and it happens whatever this says.
-   */
+  /** A small icon control on the entry's row (shadcn/ui's SidebarMenuAction). */
+  menuAction: Schema.optional(SidebarActionSchema),
+  /** Whether the disclosure starts open; the current page's entry opens whatever this says. */
   defaultExpanded: Schema.optional(
     Schema.Boolean.annotate({
       description: 'Whether the disclosure starts open (default: false)',
@@ -747,6 +745,8 @@ export const SidebarGroupSchema = Schema.Struct({
   ),
   /** Fetched entries: one per row of a system read endpoint */
   source: Schema.optional(SidebarGroupSourceSchema),
+  /** A small icon control in the heading row (shadcn/ui's SidebarGroupAction). */
+  action: Schema.optional(SidebarActionSchema),
 }).annotate({
   identifier: 'SidebarGroup',
   title: 'Sidebar Group',
@@ -871,7 +871,7 @@ export const SidebarDrawerSchema = Schema.Struct({
    */
   below: Schema.Literals(['sm', 'md', 'lg', 'xl', '2xl']).annotate({
     description:
-      'Breakpoint at and above which the sidebar renders inline; below it the sidebar folds into a drawer behind a menu button',
+      'Breakpoint at and above which the sidebar renders inline; below it the sidebar folds into a sheet behind a menu button',
     examples: ['md', 'lg'],
   }),
   /** Accessible name of the menu button, or a `$t:` translation key */
@@ -879,7 +879,7 @@ export const SidebarDrawerSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         description:
-          'Accessible name of the button that opens the drawer; accepts a $t: translation key (default: "Menu")',
+          'Accessible name of the button that opens the sheet; accepts a $t: translation key (default: "Menu")',
         examples: ['Menu', '$t:nav.menu'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -888,7 +888,7 @@ export const SidebarDrawerSchema = Schema.Struct({
 }).annotate({
   identifier: 'SidebarDrawer',
   title: 'Sidebar Drawer',
-  description: 'Folds the sidebar into a drawer opened by a menu button below the named breakpoint',
+  description: 'Folds the sidebar into a sheet opened by a menu button below the named breakpoint',
 })
 
 /** @public */
@@ -898,14 +898,12 @@ export const sidebarFields = {
   ...coreFields,
   ...responsiveFields,
   ...visibilityFields,
+  ...sidebarShellFields,
   /**
    * Navigation groups rendered inside the sidebar.
    *
-   * Without this a `sidebar` is a bare layout box, and every app wanting
-   * navigation inside it hand-writes a tree of containers and links — which is
-   * how Sovrium's own admin sidebar came to be TypeScript rather than config.
-   * `groups` makes the common shape declarative: labelled blocks of entries,
-   * each entry authored or fetched.
+   * Without this a `sidebar` is a bare layout box. `groups` makes the common
+   * shape declarative: labelled blocks of entries, each authored or fetched.
    *
    * @example
    * ```yaml
@@ -981,7 +979,7 @@ export const sidebarFields = {
   drawer: Schema.optional(
     SidebarDrawerSchema.annotate({
       description:
-        'Fold the sidebar into a drawer opened by a menu button below the named breakpoint; omitted, it stays in the layout at every width',
+        'Fold the sidebar into a sheet opened by a menu button below the named breakpoint; omitted, it stays in the layout at every width',
     })
   ),
   /**

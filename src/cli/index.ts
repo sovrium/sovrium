@@ -108,7 +108,7 @@ const HELP_TEXT = [
   '  sovrium start [config]        Start the server (default command)',
   '  sovrium stop                  Stop the running server',
   '  sovrium restart [config]      Restart the running server',
-  '  sovrium reload                Hot-reload config without downtime',
+  '  sovrium reload                Apply the edited config to the running server',
   '  sovrium build [config]        Build static site files',
   '',
   'Project:',
@@ -232,7 +232,7 @@ const showHelp = (): void => {
 const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
   stop: async () => handleStopCommand(),
   restart: async () => handleRestartCommand(parsed.configFile),
-  reload: async () => handleReloadCommand(rawArgs),
+  reload: async () => handleReloadCommand(),
   init: async () =>
     handleInitCommand({
       templateName: parsed.templateName,
@@ -357,6 +357,7 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
       limit: parsed.libraryLimit,
       all: parsed.libraryAll ?? false,
       yes: parsed.libraryYes ?? false,
+      update: parsed.libraryUpdate ?? false,
     }),
   seed: async () =>
     handleSeedCommand({

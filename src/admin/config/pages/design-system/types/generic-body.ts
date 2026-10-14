@@ -35,6 +35,29 @@
 
 import type { PageComponent, TypePageBody } from './body-shape'
 
+/** The refusal card: the catalogue's own reason, where the drawing would sit. */
+const refusal = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    props: {
+      className: 'border-border bg-muted flex flex-col gap-2 rounded-md border border-dashed p-4',
+      'data-design-specimen-state': '$record.refusalState',
+    },
+    visibility: { record: { field: 'drawable', eq: false } },
+    children: [
+      {
+        type: 'text',
+        element: 'p',
+        props: {
+          className: 'text-foreground-subtle max-w-2xl text-[11px] leading-relaxed',
+          'data-design-refusal': 'true',
+        },
+        content: '$record.refusalReason',
+      },
+    ],
+  }) as PageComponent
+
 /** One `default` section: the type drawn as itself, or its refusal. */
 export const genericBody = (type: string): TypePageBody => ({
   drawings: [
@@ -54,28 +77,21 @@ export const genericBody = (type: string): TypePageBody => ({
             },
           ],
         } as PageComponent,
-        {
-          type: 'container',
-          element: 'div',
-          props: {
-            className:
-              'border-border bg-background-subtle flex flex-col gap-2 rounded-md border border-dashed p-4',
-            'data-design-specimen-state': '$record.refusalState',
-          },
-          visibility: { record: { field: 'drawable', eq: false } },
-          children: [
-            {
-              type: 'text',
-              element: 'p',
-              props: {
-                className: 'text-foreground-subtle max-w-2xl text-[11px] leading-relaxed',
-                'data-design-refusal': 'true',
-              },
-              content: '$record.refusalReason',
-            },
-          ],
-        } as PageComponent,
+        refusal(),
       ],
     },
   ],
 })
+
+/**
+ * The refusal alone, for a type the config may not even NAME in a specimen.
+ *
+ * `form` and `questionnaire` are excluded by the schema itself ([internal ref] A3
+ * clause 2): a `specimen` whose subject names either is refused at decode,
+ * gated or not, because the refusal is about the preview frame rather than
+ * about how the type was reached. So their page carries no specimen node at all
+ * — only the card stating why.
+ */
+export const refusedBody: TypePageBody = {
+  drawings: [{ label: 'default', children: [refusal()] }],
+}

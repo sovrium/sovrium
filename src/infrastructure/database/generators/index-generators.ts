@@ -14,8 +14,11 @@ import {
 } from '@/infrastructure/database/schema/word-search-ddl'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
+  isLiveUniqueField,
   isRelationshipField,
   isUserField,
+  LIVE_ROWS_PREDICATE,
+  liveUniqueIndexName,
   relationshipFieldCreatesForeignKey,
 } from '../sql/sql-generators'
 import type { Table } from '@/domain/models/app/tables'
@@ -105,6 +108,23 @@ const generateAutonumberIndexes = (table: Table): readonly string[] => {
       const indexName = `idx_${sanitized}_${field.name}_unique`
       return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON ${tableRef} (${quoteSqlIdentifier(field.name)})`
     })
+}
+
+/**
+ * The live-rows unique index of each `unique` field (but the single-field primary
+ * key): `<table>_<field>_key … WHERE deleted_at IS NULL`, on both engines, so a
+ * value held only by a record in the trash can be used again.
+ *
+ * @public
+ */
+export const generateLiveUniqueIndexes = (table: Table): readonly string[] => {
+  const tableRef = indexTableRef(sanitizeTableName(table.name))
+  return table.fields
+    .filter(isLiveUniqueField(table))
+    .map(
+      (field) =>
+        `CREATE UNIQUE INDEX IF NOT EXISTS ${liveUniqueIndexName(table.name, field.name)} ON ${tableRef} (${quoteSqlIdentifier(field.name)}) WHERE ${LIVE_ROWS_PREDICATE}`
+    )
 }
 
 /**
@@ -244,6 +264,7 @@ const generateForeignKeyIndexes = (table: Table): readonly string[] => {
 export const generateIndexStatements = (table: Table): readonly string[] => [
   ...generateStandardIndexes(table),
   ...generateAutonumberIndexes(table),
+  ...generateLiveUniqueIndexes(table),
   ...generateGeolocationConstraints(table),
   ...generateFullTextSearchIndexes(table),
   ...generateWordSearchIndexes(table),

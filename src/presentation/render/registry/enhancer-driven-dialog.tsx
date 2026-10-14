@@ -5,17 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  computeDialogCloseClasses,
+  computeDialogFooterClasses,
+  computeDialogDescriptionClasses,
+  computeDialogHeaderClasses,
+  computeDialogTitleClasses,
+  computeStaticDialogContentClasses,
+  computeStaticDialogOverlayClasses,
+} from '@/presentation/design/dialog-default-classes'
+import { OverlayCloseGlyph } from '@/presentation/design/overlay-close-glyph'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { splitSlots } from '../elements/slot-children'
+import { overlayCloseLabel, overlayUntitledLabel } from './island-overlay-props-builders'
+import type { ComponentDispatchConfig } from './component-dispatch-config'
 import type { ReactElement, ReactNode } from 'react'
 
 /** Stable identity for the closed-on-load placeholder container. */
 const HIDDEN_STYLE = { display: 'none' } as const
-
-const PANEL_DEFAULTS =
-  // `shadow-lg`, not `shadow-xl`: the scale has no `xl` step, so the utility
-  // would fall through to Tailwind's own stock elevation, putting a shadow from
-  // outside the design system on a modal.
-  'bg-background-overlay text-foreground relative max-h-full w-full max-w-md overflow-y-auto rounded-md p-6 shadow-lg'
 
 /**
  * Accessible name / description wiring for the zero-JS dialog panel.
@@ -27,7 +34,8 @@ const PANEL_DEFAULTS =
 function dialogLabelling(
   id: string | undefined,
   title: string | undefined,
-  description: string | undefined
+  description: string | undefined,
+  untitledLabel: string
 ): {
   readonly titleId: string | undefined
   readonly descriptionId: string | undefined
@@ -36,7 +44,7 @@ function dialogLabelling(
   const titleId = id === undefined || title === undefined ? undefined : `dialog-title-${id}`
   const descriptionId =
     id === undefined || description === undefined ? undefined : `dialog-description-${id}`
-  return { titleId, descriptionId, ariaLabel: title === undefined ? 'Dialog' : undefined }
+  return { titleId, descriptionId, ariaLabel: title === undefined ? untitledLabel : undefined }
 }
 
 /**
@@ -52,12 +60,17 @@ function renderDialogPanelHeader(props: {
   readonly descriptionId: string | undefined
   readonly description: string | undefined
 }): ReactNode {
+  if (props.title === undefined && props.description === undefined) return undefined
   return (
-    <>
+    <div
+      data-slot="dialog-header"
+      className={computeDialogHeaderClasses()}
+    >
       {props.title !== undefined && (
         <h2
           id={props.titleId}
-          className="text-foreground mb-4 text-2xl font-semibold"
+          data-slot="dialog-title"
+          className={computeDialogTitleClasses()}
         >
           {props.title}
         </h2>
@@ -65,12 +78,13 @@ function renderDialogPanelHeader(props: {
       {props.description !== undefined && (
         <p
           id={props.descriptionId}
-          className="text-foreground-muted text-md mb-4"
+          data-slot="dialog-description"
+          className={computeDialogDescriptionClasses()}
         >
           {props.description}
         </p>
       )}
-    </>
+    </div>
   )
 }
 
@@ -91,6 +105,31 @@ function renderDialogPanelBody(
   }
   return renderedChildren
 }
+
+/** The corner close control the click enhancer closes the dialog with. */
+const renderCloseButton = (label: string): ReactElement => (
+  <button
+    type="button"
+    aria-label={label}
+    data-component-type="button"
+    data-modal-close
+    data-slot="dialog-close"
+    className={computeDialogCloseClasses()}
+  >
+    <OverlayCloseGlyph />
+  </button>
+)
+
+/** The `footer` slot, in the band at the panel's foot; nothing when it is empty. */
+const renderFooter = (footer: readonly ReactElement[]): ReactElement | undefined =>
+  footer.length === 0 ? undefined : (
+    <div
+      data-slot="dialog-footer"
+      className={computeDialogFooterClasses()}
+    >
+      {footer}
+    </div>
+  )
 
 /**
  * SSR markup for a `hydrate: false` dialog — the zero-JavaScript overlay form
@@ -117,15 +156,23 @@ function renderDialogPanelBody(
  * makes the two modes agree rather than diverge on the accessibility contract.
  */
 export function renderEnhancerDrivenDialog(
-  rawProps: Record<string, unknown> | undefined,
-  elementProps: Record<string, unknown>,
-  renderedChildren: readonly ReactElement[],
+  context: Pick<
+    ComponentDispatchConfig,
+    'rawProps' | 'elementProps' | 'renderedChildren' | 'currentLang' | 'languages' | 'component'
+  >,
   formRefHtml: unknown
 ): ReactElement {
+  const { rawProps, elementProps, component } = context
+  const slots = splitSlots('dialog', component, context.renderedChildren)
+  const renderedChildren = slots['$children'] ?? []
+  const footer = slots['footer'] ?? []
+  const showClose =
+    (component as { readonly showCloseButton?: unknown } | undefined)?.showCloseButton !== false
   const id = (rawProps?.['id'] ?? elementProps['id']) as string | undefined
   const title = rawProps?.['title'] as string | undefined
   const description = rawProps?.['description'] as string | undefined
-  const labels = dialogLabelling(id, title, description)
+  // The page language's words: the close control's name, and an untitled dialog's.
+  const labels = dialogLabelling(id, title, description, overlayUntitledLabel(context))
 
   return (
     <div
@@ -137,7 +184,8 @@ export function renderEnhancerDrivenDialog(
     >
       <div
         data-backdrop
-        className="bg-foreground/50 absolute inset-0"
+        data-slot="dialog-overlay"
+        className={computeStaticDialogOverlayClasses()}
       />
       <div
         role="dialog"
@@ -145,21 +193,14 @@ export function renderEnhancerDrivenDialog(
         aria-describedby={labels.descriptionId}
         aria-label={labels.ariaLabel}
         tabIndex={-1}
+        data-slot="dialog-content"
         className={resolveClasses(
-          PANEL_DEFAULTS,
+          computeStaticDialogContentClasses(),
           undefined,
           elementProps['className'] as string | undefined
         )}
       >
-        <button
-          type="button"
-          aria-label="Close dialog"
-          data-component-type="button"
-          data-modal-close
-          className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4"
-        >
-          &#10005;
-        </button>
+        {showClose ? renderCloseButton(overlayCloseLabel(context)) : undefined}
         {renderDialogPanelHeader({
           titleId: labels.titleId,
           title,
@@ -167,6 +208,7 @@ export function renderEnhancerDrivenDialog(
           description,
         })}
         {renderDialogPanelBody(formRefHtml, renderedChildren)}
+        {renderFooter(footer)}
       </div>
     </div>
   )

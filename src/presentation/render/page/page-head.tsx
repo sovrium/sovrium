@@ -12,6 +12,7 @@ import {
   type ContentDirSeoMeta,
 } from '@/domain/models/app/pages/content-dir-seo-meta'
 import { normalizeFavicons } from '@/domain/models/app/pages/meta/favicon-transformer'
+import { robotsDirectiveOf } from '@/domain/models/app/pages/sitemap-builder'
 import {
   AnalyticsHead,
   CustomElementsHead,
@@ -30,7 +31,6 @@ import {
 import { HeadAlternateLinks } from './page-head-seo'
 import { ThemeColorSchemeScript } from './theme-color-scheme-script'
 import type { GroupedScripts } from './page-scripts'
-import type { Components } from '@/domain/models/app/components'
 import type { Design } from '@/domain/models/app/design'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
@@ -41,9 +41,6 @@ import type { CustomElement, OpenGraph } from '@/domain/models/app/pages/meta'
  */
 type PageHeadProps = {
   readonly page: Page
-  /** `app.components` templates — forwarded to the no-FOUC color-scheme
-   * detection so a template-hosted `theme-toggle` emits the boot script. */
-  readonly components?: Components
   readonly design: Design | undefined
   readonly directionStyles: string
   /**
@@ -112,24 +109,6 @@ function extractOpenGraphData(
 
   // Only return if there's at least one property
   return Object.keys(merged).length > 0 ? merged : undefined
-}
-
-/**
- * Resolve the `<meta name="robots">` directive for a page.
- *
- * Reads `meta.robots` (free-form directive string, e.g. `'noindex, nofollow'`)
- * with `meta.noindex: true` as a shorthand for `'noindex'`. When both are set,
- * the explicit `robots` string wins. Returns `undefined` when neither is set so
- * pages stay indexable by default (no tag emitted).
- *
- * This is what marks the built-in 404 / not-found pages as `noindex`
- * and lets any page opt out of indexing via the
- * existing schema fields.
- */
-function resolveRobotsDirective(page: Page): string | undefined {
-  const robots = page.meta?.robots
-  if (typeof robots === 'string' && robots.length > 0) return robots
-  return page.meta?.noindex === true ? 'noindex' : undefined
 }
 
 /**
@@ -369,7 +348,6 @@ function computeHeadMeta(props: PageHeadProps): {
 export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
   const { page, design, directionStyles, title, description, keywords, lang, languages, scripts } =
     props
-  const { components } = props
   const hasCustomViewport = hasCustomViewportMeta(page.meta?.customElements)
   const normalizedFavicons = normalizeFavicons(page.meta?.favicons)
   const { openGraphData, effectiveCanonical, synthesizedJsonLd } = computeHeadMeta(props)
@@ -381,17 +359,12 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
         description={description}
         keywords={keywords}
         canonical={effectiveCanonical}
-        robots={resolveRobotsDirective(page)}
+        robots={robotsDirectiveOf(page)}
         hasCustomViewport={hasCustomViewport}
       />
       {/* No-FOUC color-scheme bootstrap — emitted before the stylesheet so the
-          `dark` class lands on <html> ahead of first paint (only when a
-          theme-toggle or design.colorScheme is in play). */}
-      <ThemeColorSchemeScript
-        page={page}
-        components={components}
-        design={design}
-      />
+          `dark` class lands on <html> ahead of first paint, on every page. */}
+      <ThemeColorSchemeScript design={design} />
       <OpenGraphMeta
         openGraph={openGraphData}
         lang={lang}

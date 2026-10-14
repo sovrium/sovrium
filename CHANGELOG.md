@@ -1,3 +1,300 @@
+## [0.38.0](https://github.com/sovrium/sovrium/compare/v0.37.0...v0.38.0) (2026-10-14)
+
+### BREAKING CHANGES
+
+- **components**: shadcn names are canonical
+- **design**: shadcn/ui's registry is the default theme; the engine speaks shadcn's variable names
+
+### Features
+
+- **library**: add the sidebar-09 block
+- **cli**: warn when a translation override names a retired engine key
+- **ai**: switch, edit and regenerate chat conversations from the chat window
+- **ai**: a streamed answer cites its knowledge sources
+- **ai**: files and images picked in a chat reach the agent
+- **mcp**: an MCP server can ask the person chatting a question through the agent
+- **library**: add a questionnaire block
+- **ai**: an agent can ask the person chatting a short set of questions and wait for the answer
+- **ai**: a replayed chat answer carries its rendered Markdown
+- **ai**: edit, regenerate and branch a chat conversation
+- **ai**: the agent cites the knowledge passages it used
+- **pages**: resolve repeat tokens in a copy's title, description and link and media props
+- **pages**: let two sidebars on one page fold into phone drawers side by side
+- **design-system**: name a button's part as base-nova does
+- **agents**: an agent reads its skills when it needs them
+- **cli**: validate refuses an agent skill the server would refuse to load
+- **ai**: the chat streams its answer, can be stopped, and asks before an agent acts
+- **ai**: a chat turn paused for approval can be approved or denied from the chat
+- **admin**: the run page states its facts in a card
+- **admin**: the foundations page lists its breakpoints as a data table
+- **mcp**: agents call the tools of the MCP servers they name
+- **admin**: the voice page lists its zones as a data table
+- **admin**: the brand page lists its zones as a data table
+- **account**: include AI conversations, facts, activity and tool calls in the data export
+- **display**: resolve shadcn custom-property names on swatch and contrast badge
+- **agents**: declare skills for an agent and refuse a missing skill at boot
+- **admin**: put the changelog's raw configuration in a facts card
+- **admin**: draw the table page's rating cells with the rating glyphs
+- **admin**: draw the data pages' figures as dashboard-01 section cards
+- **admin**: install the page header, line tabs and specimen frame blocks
+- **library**: add page-header, tabs-line and kit-specimen-frame blocks
+- **library**: add a static table block
+- **library**: label the data-table, row-actions and record-sheet columns from parameters
+- **ai**: declare chat attachments on the ai-chat component
+- **ai**: stream typed chat events and let the user stop a turn
+- **ai**: upload files picked in a chat and send them with the question
+- **ai**: store chat attachments in an operator-named bucket
+- **admin**: sign in under Sovrium's own mark on the login-03 card
+- **chart**: draw the declared tooltip on radar and radial charts, and read pie slices through its format
+- **mcp**: declare external MCP servers by name and choose them per agent
+- **admin**: set the API and MCP pages' sections in the dl-rows block's card
+- **admin**: show the environment's variables in the dl-rows block's card
+- **admin**: open console records in the record-sheet block's drawer
+- **admin**: rebuild the console's data grids on the row-actions block
+- **admin**: rebuild the Welcome page from dashboard-01's section cards
+- **library**: data blocks on the shadcn anatomy, and sidebar-11's file tree
+- **ai-chat**: recompose the chat on the message, scroller and attachment types
+- **admin**: rebuild sign-in and password reset from the login-03 block
+- **library**: add --update re-installs a block copy in place
+- **admin**: rebuild the console shell from the console-shell block
+- **library**: add the console-shell block
+- **admin**: the data and editor type pages draw on shadcn's role utilities
+- **table**: close a finished CSV import with Done, and name the import dialog's content and title
+- **table**: name fields in the filter and sort builders and the row panel as the column header does
+- **table**: draw the grid's checkboxes as shadcn's Checkbox, the select-all box partly ticked when some rows are
+- **table**: send the reader's filters and facets with every table request, so the pager and summary count the narrowed set
+- **file-upload**: redesign file-upload to the shadcn anatomy
+- **record-field**: write an empty value as a muted em dash
+- **forms**: draw the table-bound form on the shadcn field anatomy
+- **api-keys**: redesign the API key manager on the shadcn anatomy
+- **form-controls**: redesign the rich-text and code editors to the shadcn anatomy
+- **map**: place the list twin by the map's own width
+- **calendar**: mark today by its number alone, with no wash on the day
+- **comments**: redesign comments to the shadcn anatomy
+- **alert**: port alert to the shadcn anatomy
+- **map**: redesign map to the shadcn anatomy
+- **tree**: redesign tree to the shadcn anatomy
+- **matrix**: redesign matrix to the shadcn anatomy
+- **graph**: redesign graph to the shadcn anatomy
+- **admin**: the rating type page draws the real component
+- **kanban**: redesign kanban to the shadcn anatomy
+- **table**: the faceted filter's own words in the page language
+- **admin**: the map type page pins every specimen row in its resting drawing
+- **library**: add resolves a bare shadcn block id
+- **gallery**: redesign gallery to the shadcn anatomy
+- **admin**: graph, matrix, map and tree type pages draw the real component
+- **filter-bar**: redesign filter-bar to the shadcn anatomy
+- **calendar**: redesign event-calendar to the shadcn anatomy
+- **design-system**: the design system serves a specimen graph, and specimen rows carry a place and a parent
+- **library**: command, sheet-form, item and empty blocks; sidebar-02/04/05/07/08/12/14/15; dashboard-01; the calendar subset (calendar-01/03/04/13)
+- **list**: redesign list to the shadcn anatomy
+- **kpi**: redesign kpi to the shadcn anatomy
+- **table**: draw the loading grid on the table anatomy instead of fixed bars
+- **table**: open the inline text editor over its cell, so the row and column keep their size
+- **table**: name the selection bar, group rows and state rows on the shadcn table anatomy
+- **sheet**: a heading, a footer, an optional close button, and buttons that open it
+- **pages**: open the record drawer as a shadcn sheet
+- **table**: draw the grid's import, paste and create dialogs on the shadcn dialog anatomy
+- **command**: authored groups of commands with icons, shortcuts, links and actions
+- **pagination**: simple and icon pagers, and labels for previous and next
+- **breadcrumb**: collapse a long trail behind an ellipsis or a menu
+- **table**: faceted filters in the table toolbar
+- **sidebar**: fold, place and frame the sidebar, with header, footer, actions and a loading skeleton
+- **table**: draw the table toolbar on the shadcn anatomy
+- **input-group**: addons on every side, a textarea control and a styled action
+- **library**: content and description blocks on the shadcn anatomy
+- **combobox**: several choices found by typing, drawn as removable chips
+- **card**: a header with a title, a description and an action, a footer, and a small size
+- **select**: option groups and a clear control
+- **chart**: radar and radial charts, series icons and per-scheme colours, and shadcn's tooltip options
+- **rating**: unearned stars read in the muted foreground
+- **number-input**: the stepper group keeps to its value
+- **toggle**: the outline variant, and spacing for toggle groups
+- **admin**: audio and icon type pages draw the real component
+- **toast**: loading toasts that turn into their outcome, and placed toasts with a tone, a duration and an action
+- **button-group**: vertical button groups
+- **timeline**: the today badge no longer covers an axis date
+- **media**: the QR code keeps to its symbol inside a column
+- **separator**: vertical separators and a label option
+- **language-switcher**: redesign language-switcher to the shadcn anatomy
+- **field**: orientation, error lists, legends and titled choice controls
+- **description-list**: redesign description-list to the shadcn anatomy
+- **search-input**: redesign search-input to the shadcn anatomy
+- **spacer**: name the spacer on the shadcn anatomy
+- **pages**: keep the neutral outline of an uncoloured option under the outline-and-dot badge form on every surface
+- **toc**: redesign the table of contents to the shadcn anatomy
+- **item**: media, title, description, actions, header and footer slots
+- **reorderable-list**: redesign reorderable-list to the shadcn anatomy
+- **signature-pad**: redesign signature-pad to the shadcn anatomy
+- **rating**: redesign rating to the shadcn anatomy
+- **empty**: the icon above the title, framed in a tile or bare
+- **code-block**: redesign the framed code block to the shadcn anatomy
+- **presence**: draw the presence indicator as an avatar group
+- **menus**: radio rows and group headings in every menu
+- **timeline**: redesign timeline to the shadcn anatomy
+- **file-preview**: redesign file-preview to the shadcn anatomy
+- **table**: set a row's destructive action apart in its actions menu
+- **tabs**: the line variant of the tab list
+- **alert-dialog**: a small size and an icon tile above the title
+- **number-input**: redesign number-input to the shadcn anatomy
+- **media**: redesign image, video, audio, iframe, qr-code and icon to the shadcn anatomy
+- **dialog**: a footer for the dialog's actions, and an optional close button
+- **time-picker**: redesign time-picker to the shadcn anatomy
+- **stepper**: redesign stepper to the shadcn anatomy
+- **button**: shadcn's size scale, square icon-only buttons and an icon key
+- **badge**: ghost and link tones, and a badge that is a link
+- **library**: data-table, row-actions and record-sheet blocks
+- **table**: step a numbered table pager to its first and last page
+- **pages**: draw the badges of lists, galleries and boards as the table draws its chips
+- **calendar**: a month of days to pick a date, a range or several
+- **drawer**: a panel that rises from the bottom edge and is swiped away
+- **questionnaire**: one question per screen, submitted once through a form
+- **kanban**: draw a footer option badge as the table draws the same value
+- **pages**: load galleries, lists and boards as the reader scrolls
+- **table**: row actions in a per-row menu, confirmations in a dialog, and infinite scroll
+- **message-scroller**: the scroll frame of a conversation
+- **admin**: navigation type pages on the shadcn anatomy
+- **library**: navigation blocks on the shadcn anatomy
+- **message**: one turn of a conversation, by speaker, side and time
+- **input-otp**: draw one box per character
+- **carousel**: walk the carousel track through Embla
+- **resizable**: resize panels through react-resizable-panels
+- **command**: render the command palette through cmdk
+- **attachment**: a file shown as a chip with its icon, name and size
+- **marker**: an inline note inside a thread or a list
+- **collapsible**: one region behind one trigger, with or without a script
+- **table**: read table values by field type and draw the grid on the shadcn table anatomy
+- **label**: name one form control and focus it on a click
+- **aspect-ratio**: hold one medium at a fixed width-to-height ratio
+- **date-picker**: draw the day grid through react-day-picker
+- **navigation**: open the navigation menu panel and draw its badges as shadcn/ui does
+- **card**: draw the card on the shadcn/ui anatomy
+- **navigation**: draw the sidebar on the shadcn/ui anatomy
+- **navigation**: draw the navigation menu on the shadcn/ui anatomy
+- **navigation**: draw the breadcrumb and the pagination on the shadcn/ui anatomy
+- **form-controls**: a native select draws one chevron
+- **admin**: form-controls type pages on the shadcn anatomy
+- **admin**: overlays type pages on the shadcn anatomy
+- **form-controls**: ported controls keep their light colours when the design layer is off
+- **library**: overlays blocks on the shadcn anatomy
+- **library**: form-controls blocks on the shadcn anatomy
+- **library**: display blocks on the shadcn anatomy
+- **library**: the chart subset blocks
+- **form-controls**: draw the form controls on the shadcn/ui anatomy
+- **overlays**: port dialogs, sheets, popovers and menus to the shadcn anatomy
+- **chart**: render through recharts and ChartConfig
+- **display**: port avatar, badge, empty, item, kbd, progress, skeleton, spinner, separator and the static table to the shadcn/ui anatomy
+- **components**: `bubble`, the surface of one chat turn, as its own type
+- **components**: `carousel`, a track of records, as its own type
+- **desktop**: the desktop window ships the Geist typefaces
+- **components**: `input-otp`, the one-time-code box, as its own type
+- **components**: `combobox`, one choice found by typing, as its own type
+- **components**: `native-select`, the browser's own select, as its own type
+- **desktop**: the desktop window draws in shadcn/ui's neutral look
+- **design**: emit the theme roles under shadcn/ui's variable names
+- **forms**: a form's onSuccess can add a toast and close its dialog beside its redirect, reset or message
+- **pages**: an action's onSuccess can close the dialog, drawer or popover it sits in, and a fetch action can navigate after it succeeds
+- **pages**: show a pending state on action buttons, record forms and row actions; fire-and-forget automations toast once the start is accepted
+- **forms**: show a pending state while a form submits and accept a pendingLabel
+- **automations**: let a machine-authenticated webhook answer named write-only fields
+
+### Bug Fixes
+
+- **pages**: keep the date control's size when it becomes interactive
+- **ai**: chat decisions settle when the server no longer waits, and the window speaks the page language
+- **ai**: a knowledge passage cannot close its own quotation
+- **ai**: the streamed chat counts against the same per-person rate limit
+- **pages**: move between a menubar's menus with the arrow keys
+- **pages**: draw the navigation menu as a disclosure of links
+- **pages**: open the context menu on a right click over its children
+- **pages**: close an alert dialog on Escape
+- **tables**: let a link inside a clickable row follow the link alone
+- **pages**: show a record drawer's related sections in an app without auth
+- **pages**: stop the field component's parts triggering React key warnings
+- **ai**: a streamed chat turn runs the conversation retention sweep
+- **ai**: bound the file text a chat quotes, and answer edits and regenerations with their files
+- **buttons**: name the variant and size on the grid toolbar and code copy buttons
+- **config**: name the value when it fits no member of a value union
+- **ai**: quote retrieved knowledge to the model as data, not instructions
+- **ai**: an edited question honours the chat's message length cap
+- **ai**: keep an upgraded conversation's questions before their answers
+- **overlays**: stop a tooltip from nesting its trigger button around the wrapped control
+- **ai**: bound an agent's question and its answer, and check only the question's own fields
+- **admin**: summarise the running configuration instead of printing it whole
+- **account**: erasure deletes the agent activity that names the user
+- **ai**: a refused agent action is not reported as executed
+- **agents**: count a manually triggered scheduled run's actions once
+- **ai**: stop retrying a chat call twice and log a failed later step
+- **agents**: an agent in a chat acts within the permissions of the person chatting
+- **cli**: write library fragments that Prettier leaves unchanged
+- **buckets**: never serve a chat upload through the bucket file routes
+- **pages**: colour a KPI read from a system endpoint by its thresholds
+- **pages**: load the client script for a console surface reached by in-page navigation
+- **agents**: run the tools an agent calls instead of acknowledging them
+- **mcp**: only an admin can read the external MCP status and tool catalogue
+- **pages**: a rating input repaints its stars as the reader picks, drawn as star icons
+- **mcp**: connect to external MCP servers and list the tools they really offer
+- **config**: refuse a deeply nested invalid config in bounded time
+- **pages**: resolve page record and session values inside component slots
+- **table**: write summary figures in their column's format and under their column's alignment
+- **admin**: the alert type page reads true under every tone
+- **gallery**: fill the carousel slide with its card
+- **kanban**: draw a board's cards from the first frame its read lands, with no empty columns in between
+- **overlays**: a highlighted menu row shows its accent fill without the page focus ring
+- **display**: a written table fills its container
+- **interactions**: play entrance and scroll animations
+- **pages**: apply per-breakpoint grid column counts
+- **components**: combobox, native-select and carousel follow the rules of the controls they came from
+- **forms**: the badge on a hosted form page follows the app's language
+- **forms**: later steps of a multi-step form keep the reader's language
+- **pages**: file-preview plays a file that a form stored without a storage key
+- **forms**: a form submission or automation press sent twice is stored and run once
+- **pages**: focus returns to the row action after its table refetches
+- **pages**: revoking an API key and creating a related record from the drawer show their pending state
+- **pages**: the record drawer, button fields and endpoint forms show their pending word in the page language
+- **pages**: an attachment on a one-record page feeds src, href and text, and file-preview plays sound and video
+- **pages**: built-in words and default emails follow the app's language
+- **pages**: the toast region sits above the Built with Sovrium badge
+- **pages**: a popover's trigger renders as the button it was declared as
+- **pages**: a busy control shows a progress cursor and every overlay closes with the same control
+- **auth**: the sign-in form announces errors only when there are some
+- **forms**: an embedded form's title is a second-level heading
+- **forms**: the multi-step form's Previous and Next sit on one row and speak the page language
+- **cli**: library add no longer reads a fragment an older version installed as edited
+- **forms**: a hosted form's field error reads in the error style
+- **forms**: a submission whose automations stop early no longer stays processing
+- **automations**: an AI step whose provider call times out is retried under a retry policy
+- **cli**: sovrium reload applies the edit like watch mode and reports what the server did
+- **cli**: library add keeps a block's parameters, passes shared ones to its requirements and follows auth.loginPage
+- **cli**: a bundle carries the files declared under assets
+- **automations**: a record write answers once the row is committed and its automations run in the background
+- **pages**: refuse a protocol-relative address after an action as well
+- **pages**: show a carried success toast on every page, palette or not
+- **automations**: an AI action error fails its step so retry and continueOnError apply
+- **ai**: whisper.cpp transcripts no longer break words across lines
+- **tables**: restoring or upserting over a live duplicate is refused or ignored
+- **tables**: a unique field ignores records in the trash and converts existing constraints on boot
+- **automations**: run history still masks a value that is exactly a short secret
+- **auth**: an expired two-factor page drops the recovery section and its toggle whatever else the section holds
+- **pages**: noindex wins over the robots string in the robots tag
+- **pages**: a file upload backed by a fetch action shows its toast and fills $response
+- **pages**: an edit form in a dialog closes it after a script save
+- **pages**: a crud form's redirect resolves a relative address like every other navigate
+- **pages**: a crud row action follows its onSuccess navigate
+- **pages**: a row action confirmed through a form closes the overlay around its table
+- **pages**: a delete button is shown to the readers the table's permissions allow
+- **pages**: a success toast follows its navigate to the landing page
+- **automations**: run history keeps secret: false values readable and masks whole secrets only
+- **automations**: hold an idempotency key only once the irreversible click's element is found
+- **automations**: render browser step values inside a path branch or a loop
+- **automations**: fill a date or time field by value and fail a fill the site does not keep
+- **automations**: render the key of a press step when it is reached
+- **pages**: refuse an action's onSuccess.navigate to another site when the config is validated
+- **pages**: row actions, menu items and edit forms close the overlay around them, and a fetch success runs its effects in the documented order
+- **pages**: automation buttons, row actions and menu items follow their onSuccess navigate, and CRUD forms show their onError toast
+- **pages**: an overlay waits for its pending action before Escape or a backdrop click closes it
+- **forms**: keep a form's submit busy until its redirect leaves the page
+
 ## [0.37.0](https://github.com/sovrium/sovrium/compare/v0.36.0...v0.37.0) (2026-10-11)
 
 ### Features

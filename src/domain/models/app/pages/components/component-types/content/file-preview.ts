@@ -7,7 +7,8 @@
 
 /**
  * `file-preview` — a stored file drawn inline: a PDF in the browser's own
- * viewer, an image with zoom, anything else as a card with Download.
+ * viewer, an image with zoom, a sound or a video in the browser's own player,
+ * anything else as a card with Download.
  *
  * ─── TWO ADDRESSES, NEVER BOTH ────────────────────────────────────────────
  *

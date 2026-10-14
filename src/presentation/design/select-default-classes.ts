@@ -6,289 +6,138 @@
  */
 
 /**
- * Prestyled-by-default class computer for the `select` component.
- *
- * Schema authors who write the bare `{ type: 'select', options: [...] }` get a
- * complete, opinionated dropdown — rounded surface trigger, focus ring, popup
- * with elevation, highlighted/selected item styling — with zero theme-layer
- * dependency.
- *
- * The recipe mirrors the buttons + inputs slices (commits 02b2f35f3 + 571ae53ce):
- * layout / spacing classes stay as raw Tailwind utilities; only color / radius /
- * shadow / motion / focus classes go through {@link withVarFallback} so
- * `app.design.*` overrides still win at the CSS cascade layer (var lookups
- * resolve `--sv-*` first, fall back to the inline OKLCH literal).
- *
- * Base UI exposes interactive state via data attributes (`data-[open]`,
- * `data-[disabled]`, `data-[highlighted]`, `data-[selected]`). Rather than
- * branching on a `state` enum at call time, the recipe bakes the data-attr
- * Tailwind variants directly into the returned class string so a single
- * className covers every interactive state the primitive can enter.
- *
- * Helper file lives in `src/presentation/islands/` (alongside the islands that
- * consume it) because the select wiring runs inside the client island, not in
- * the server-side dispatcher — see the `plain-select.tsx` / `searchable-select.tsx`
- * call sites. Buttons + inputs put the helper in
- * `src/presentation/ui/sections/renderers/element-renderers/` because their
- * recipe is composed by the server dispatcher.
+ * Adapted from shadcn/ui select, combobox, input-group and native-select (https://ui.shadcn.com), registry commit 30a58d4498f270af1c1e981a7d78a15cf5740841.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
  */
-
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// TRIGGER
-// ──────────────────────────────────────────────────────────────────────────────
-
-const TRIGGER_LAYOUT = 'flex h-9 w-full items-center justify-between px-3 py-2 text-base'
-
-const TRIGGER_RADIUS = `rounded-[${v('radius-base', T.radiusBase)}]`
-
-const TRIGGER_BORDER_BASE = 'border'
-
-// The trigger is a FIELD, so it takes the field's border weight rather than a
-// hairline: it stands in for an `<input>` and has to read as one place to act,
-// not as a panel edge.
-const TRIGGER_SURFACE = [
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-].join(' ')
-
-const TRIGGER_OPEN = [
-  `data-[open]:border-[${v('sv-focus-ring', T.focusRing)}]`,
-  `data-[open]:ring-1`,
-  `data-[open]:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-].join(' ')
-
-const TRIGGER_DISABLED = 'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-60'
-
-const TRIGGER_FOCUS = [
-  'focus-visible:outline-none',
-  'focus-visible:ring-2',
-  'focus-visible:ring-offset-2',
-  `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-  `focus-visible:ring-offset-[${v('sv-bg', T.bg)}]`,
-].join(' ')
-
-const TRIGGER_MOTION = 'transition-[box-shadow,border-color] duration-150'
 
 /**
- * Compute the default className for a Select/Combobox trigger (the closed-state
- * "input-like" button that opens the popup). Composes layout → radius → border
- * → surface → motion → focus → data-state variants.
+ * Prestyled-by-default class computer for the `select`, `combobox` and
+ * `native-select` components, drawn on shadcn/ui's anatomy (base-nova): the
+ * `Select`, `Combobox` and `NativeSelect` class recipes, verbatim.
  *
- * The trigger casts NO shadow: its border already separates it from the page,
- * and stacking an elevation on a bordered edge reads as two signals for one
- * boundary.
+ * Base UI exposes interactive state as data attributes (open, highlighted,
+ * selected, disabled, placeholder), so one class list per part covers every
+ * state its primitive can enter.
+ *
+ * Two departures, both because the schema has no key for what shadcn composes:
+ * - an ungrouped option list carries the group's own padding (`SelectGroup`'s),
+ *   since shadcn's popup draws its items inside a group;
+ * - the visible caption above a control is shadcn's `Label`, since Base UI's
+ *   `Select.Label` and `Combobox.Label` name the control the way `FieldLabel`
+ *   would.
+ *
+ * The part names an author restyles through `design.components.select.parts`
+ * are unchanged: `label`, `trigger`, `icon`, `list`.
  */
+
+/** shadcn/ui `SelectTrigger`, default size. */
 export const computeSelectTriggerClasses = (): string =>
-  [
-    TRIGGER_LAYOUT,
-    TRIGGER_RADIUS,
-    TRIGGER_BORDER_BASE,
-    TRIGGER_SURFACE,
-    TRIGGER_MOTION,
-    TRIGGER_FOCUS,
-    TRIGGER_OPEN,
-    TRIGGER_DISABLED,
-  ].join(' ')
+  "flex w-fit items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-disabled:cursor-not-allowed data-disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
 
-// ──────────────────────────────────────────────────────────────────────────────
-// POPUP (dropdown panel)
-// ──────────────────────────────────────────────────────────────────────────────
+/** shadcn/ui `SelectValue`. */
+export const computeSelectValueClasses = (): string => 'flex flex-1 text-left'
 
-/**
- * The popup's box.
- *
- * `min-w-[var(--anchor-width)]` is what makes the list as wide as the field it
- * hangs off. Base UI publishes the anchor's width on the positioner as
- * `--anchor-width`, and a custom property inherits, so the popup reads its own
- * trigger's width without measuring anything. A MINIMUM rather than a width:
- * a label longer than the field still gets the room it needs.
- */
-const POPUP_SCROLL_BOX = 'max-h-60 min-w-[var(--anchor-width)] overflow-auto'
+/** shadcn/ui `SelectContent`'s positioner. */
+export const computeSelectPositionerClasses = (): string => 'isolate z-50'
 
-/**
- * The gutter around the option rows.
- *
- * It belongs to whichever element holds the rows, and that is NOT always the
- * painted panel: the plain select paints its own listbox, while the searchable
- * one paints a panel around a listbox AND an empty-state message. Keeping the
- * gutter with the rows is what leaves the listbox flush inside the panel — a
- * popup that padded its own listbox opened its options visibly inboard of the
- * field, which is the defect row 26 reports on the searchable half.
- */
-const POPUP_ROW_GUTTER = 'p-1'
-
-const POPUP_RADIUS = `rounded-[${v('radius-md', T.radiusMd)}]`
-
-const POPUP_SURFACE = [
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-overlay', T.bgOverlay)}]`,
-].join(' ')
-
-// A dropdown is a MENU, not a dialog: it is anchored to the control that
-// opened it and sits a short distance off the page. The drawings give menus
-// and popovers the `md` step and reserve `lg` for a dialog or a drawer, which
-// is detached from everything.
-const POPUP_SHADOW = `shadow-[${v('shadow-md', T.shadowMd)}]`
-
-/**
- * Compute the default className for the floating popup panel (Select.Popup /
- * Combobox.Popup). Bakes elevation-lg + overlay surface + border so the popup
- * reads as a clearly-detached floating layer above whatever content sits below.
- */
+/** shadcn/ui `SelectContent`: the popup surface and its open/close motion. */
 export const computeSelectPopupClasses = (): string =>
-  [POPUP_SCROLL_BOX, POPUP_RADIUS, POPUP_SURFACE, POPUP_SHADOW].join(' ')
+  'relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95'
 
-/**
- * Compute the default className for the option list NESTED inside a painted
- * popup — the searchable half, where `Combobox.Popup` is the panel and
- * `Combobox.List` is the `role="listbox"` element inside it.
- *
- * It carries the gutter and nothing else: the panel around it already draws
- * the edge, the fill and the elevation, and drawing them twice would put a
- * frame inside a frame — the same defect the combobox input had.
- */
-export const computeComboboxListClasses = (): string => POPUP_ROW_GUTTER
+/** The option list inside the popup: shadcn/ui `SelectGroup`'s padding (see above). */
+export const computeSelectListClasses = (): string => 'scroll-my-1 p-1'
 
-/**
- * Compute the default className for the option-list element (Select.List).
- *
- * Base UI assigns `role="listbox"` to `Select.List` when it is present and
- * demotes the wrapping `Select.Popup` to `role="presentation"`. The styled
- * overlay surface therefore has to live on `Select.List` so the element that
- * actually carries the listbox role is the real, non-transparent themed paint
- * (a bare `Select.Popup` would leave the listbox transparent). Same recipe as
- * {@link computeSelectPopupClasses}: elevation-lg + overlay surface + border +
- * radius + scroll layout, so the open dropdown reads as a detached floating
- * layer regardless of which element the primitive tags as the listbox.
- */
-export const computeSelectListClasses = (): string =>
-  [POPUP_SCROLL_BOX, POPUP_ROW_GUTTER, POPUP_RADIUS, POPUP_SURFACE, POPUP_SHADOW].join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// ITEM (option row inside the popup)
-// ──────────────────────────────────────────────────────────────────────────────
-
-const ITEM_RADIUS = `rounded-[${v('radius-base', T.radiusBase)}]`
-
-// An option row stands on the kit's own control-height ladder — 28, 32 and 40 px
-// — at the 32 px rung. Its padding alone drew 28, the smallest rung, under a
-// 36 px field: the row a reader aims at was the least comfortable target in the
-// kit. `min-h-8` is a floor rather than a height, so a label that wraps still
-// gets the room it needs.
-const ITEM_LAYOUT = `flex min-h-8 cursor-pointer items-center px-2 py-[5px] text-sm outline-none ${ITEM_RADIUS}`
-
-const ITEM_BASE = `text-[${v('sv-fg', T.fg)}]`
-
-const ITEM_HIGHLIGHTED = [
-  `data-[highlighted]:bg-[${v('sv-primary-subtle', T.primarySubtle)}]`,
-  `data-[highlighted]:text-[${v('sv-primary-subtle-fg', T.primarySubtleFg)}]`,
-].join(' ')
-
-const ITEM_SELECTED = 'data-[selected]:font-medium'
-
-const ITEM_DISABLED = [
-  'data-[disabled]:cursor-not-allowed',
-  `data-[disabled]:text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-].join(' ')
-
-/**
- * Compute the default className for an option row (Select.Item / Combobox.Item).
- * Uses Base UI's `data-[highlighted]` (focus/hover) and `data-[selected]`
- * (currently-selected) attributes to drive visual emphasis without JS.
- */
+/** shadcn/ui `SelectItem`. */
 export const computeSelectItemClasses = (): string =>
-  [ITEM_LAYOUT, ITEM_BASE, ITEM_HIGHLIGHTED, ITEM_SELECTED, ITEM_DISABLED].join(' ')
+  "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-highlighted:bg-accent data-highlighted:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2"
 
-// ──────────────────────────────────────────────────────────────────────────────
-// ICON (chevron + indicator)
-// ──────────────────────────────────────────────────────────────────────────────
+/** shadcn/ui `SelectItem`'s text. */
+export const computeSelectItemTextClasses = (): string =>
+  'flex flex-1 shrink-0 gap-2 whitespace-nowrap'
 
-/**
- * Compute the default className for the trigger's chevron icon. Muted
- * foreground tone so the icon recedes versus the value text. The chevron turns
- * while the popup is open — keyed on the trigger's `data-popup-open`, the same
- * attribute a nav menu's chevron turns on — so it carries the state rather
- * than decorating it. The turn lands on the `svg` itself, which is what a
- * reader of its computed `rotate` sees.
- */
+/** shadcn/ui `SelectItem`'s check, pinned to the row's end. */
+export const computeSelectItemIndicatorClasses = (): string =>
+  'pointer-events-none absolute right-2 flex size-4 items-center justify-center'
+
+/** shadcn/ui `SelectScrollUpButton` / `SelectScrollDownButton`. */
+export const computeSelectScrollArrowClasses = (edge: 'top' | 'bottom'): string =>
+  `${edge === 'top' ? 'top-0' : 'bottom-0'} z-10 flex w-full cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4`
+
+/** The trigger's chevron, shadcn/ui's `Select.Icon` glyph. */
 export const computeSelectIconClasses = (): string =>
-  [
-    'ml-2',
-    `text-[${v('sv-fg-subtle', T.fgSubtle)}]`,
-    '[&>svg]:transition-transform',
-    '[[data-popup-open]_&>svg]:rotate-180',
-  ].join(' ')
+  'pointer-events-none size-4 text-muted-foreground'
 
-/**
- * Compute the default className for the selected-item indicator (checkmark).
- * Uses the canonical `text-primary` role utility so the selection cue is
- * unmistakable. The default theme layer always mints `.text-primary` (resolving
- * `--color-primary`, which the author `theme.colors.primary` bridge recolors),
- * so the indicator picks up tenant overrides without a separate var-fallback
- * arbitrary value — and the role class stays addressable as `.text-primary`.
- */
-export const computeSelectItemIndicatorClasses = (): string => ['ml-auto', 'text-primary'].join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// LABEL
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Compute the default className for an associated field Label rendered above
- * the trigger (Select.Label / Combobox.Label). Plain Tailwind layout + body
- * foreground via var-fallback — no state variants needed.
- */
+/** shadcn/ui `Label`, as the caption above a select or a combobox. */
 export const computeSelectLabelClasses = (): string =>
-  ['mb-1 block text-sm font-medium', `text-[${v('sv-fg', T.fg)}]`].join(' ')
+  'mb-2 flex w-fit items-center gap-2 text-sm leading-snug font-medium select-none'
 
-// ──────────────────────────────────────────────────────────────────────────────
-// COMBOBOX (searchable) — input group + input + popup empty-state
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Compute the default className for the combobox InputGroup (the rounded
- * container that wraps the search input + chevron trigger). Mirrors the
- * trigger surface for visual continuity but uses `focus-within:` instead of
- * `data-[open]:` because Combobox.InputGroup is a textbox container, not a
- * pressable trigger.
- */
+/** shadcn/ui `InputGroup`, the box a combobox's input and trigger share (`w-auto` as `ComboboxInput` sets it). */
 export const computeComboboxInputGroupClasses = (): string =>
-  [
-    'flex w-full items-center',
-    TRIGGER_RADIUS,
-    TRIGGER_BORDER_BASE,
-    TRIGGER_SURFACE,
-    TRIGGER_MOTION,
-    `focus-within:border-[${v('sv-focus-ring', T.focusRing)}]`,
-    `focus-within:ring-1`,
-    `focus-within:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-    TRIGGER_DISABLED,
-  ].join(' ')
+  'group/input-group relative flex h-8 w-auto min-w-0 items-center rounded-lg border border-input transition-colors outline-none in-data-[slot=combobox-content]:focus-within:border-inherit in-data-[slot=combobox-content]:focus-within:ring-0 has-disabled:bg-input/50 has-disabled:opacity-50 has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-3 has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50 has-[[data-slot][aria-invalid=true]]:border-destructive has-[[data-slot][aria-invalid=true]]:ring-3 has-[[data-slot][aria-invalid=true]]:ring-destructive/20 dark:bg-input/30 dark:has-disabled:bg-input/80 dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40 has-[>[data-align=inline-end]]:[&>input]:pr-1.5'
 
-/**
- * Compute the default className for the combobox text input. Transparent
- * background lets the surrounding InputGroup's surface show through; the
- * inherited font color comes from the group.
- *
- * `border-0` is load-bearing, not defensive. The InputGroup around this input
- * owns the control's edge — it is the element carrying the border and the
- * `focus-within` ring — while a base rule paints an edge on the `<input>` that
- * the recipe never asked for. Left alone the two draw a frame inside a frame.
- */
+/** shadcn/ui `InputGroupInput`: the `Input` recipe with its own border and ring taken off. */
 export const computeComboboxInputClasses = (): string =>
-  [
-    'flex-1 border-0 bg-transparent px-3 py-2 text-base outline-none',
-    `text-[${v('sv-fg', T.fg)}]`,
-  ].join(' ')
+  'h-8 w-full min-w-0 flex-1 rounded-none border-0 bg-transparent px-2.5 py-1 text-base shadow-none ring-0 transition-colors outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-transparent aria-invalid:ring-0 md:text-sm dark:bg-transparent dark:disabled:bg-transparent'
 
-/**
- * Compute the default className for the combobox empty-state message ("No
- * results"). Muted body tone so the empty state reads as informational, not
- * as an option.
- */
+/** shadcn/ui `InputGroupAddon`, inline-end: where the combobox trigger sits. */
+export const computeComboboxAddonClasses = (): string =>
+  "flex h-auto cursor-text items-center justify-center gap-2 py-1.5 text-sm font-medium text-muted-foreground select-none group-data-[disabled=true]/input-group:opacity-50 [&>kbd]:rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-4 order-last pr-2 has-[>button]:mr-[-0.3rem] has-[>kbd]:mr-[-0.15rem]"
+
+/** shadcn/ui `ComboboxTrigger` rendered as an `InputGroupButton` (ghost, `icon-xs`). */
+export const computeComboboxTriggerClasses = (): string =>
+  "group/button inline-flex size-6 shrink-0 items-center justify-center gap-2 rounded-[calc(var(--radius)-3px)] border border-transparent bg-clip-padding p-0 text-sm font-medium whitespace-nowrap shadow-none transition-all outline-none select-none hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-expanded:bg-muted aria-expanded:text-foreground data-pressed:bg-transparent dark:hover:bg-muted/50 has-[>svg]:p-0 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+
+/** shadcn/ui `ComboboxContent`. */
+export const computeComboboxPopupClasses = (): string =>
+  'group/combobox-content relative max-h-(--available-height) w-(--anchor-width) max-w-(--available-width) min-w-[calc(var(--anchor-width)+--spacing(7))] origin-(--transform-origin) overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95'
+
+/** shadcn/ui `ComboboxList`. */
+export const computeComboboxListClasses = (): string =>
+  'no-scrollbar max-h-[min(calc(--spacing(72)---spacing(9)),calc(var(--available-height)---spacing(9)))] scroll-py-1 overflow-y-auto overscroll-contain p-1 data-empty:p-0'
+
+/** shadcn/ui `ComboboxItem`. */
+export const computeComboboxItemClasses = (): string =>
+  "relative flex w-full cursor-default items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground not-data-[variant=destructive]:data-highlighted:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+
+/** shadcn/ui `ComboboxEmpty`: shown only while the list has no match. */
 export const computeComboboxEmptyClasses = (): string =>
-  ['px-3 py-2 text-sm', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
+  'hidden w-full justify-center py-2 text-center text-sm text-muted-foreground group-data-empty/combobox-content:flex'
+
+/** shadcn/ui `NativeSelect` wrapper (default size). */
+export const computeNativeSelectWrapperClasses = (): string =>
+  'group/native-select relative w-fit has-[select:disabled]:opacity-50'
+
+/** shadcn/ui `NativeSelect`'s `<select>`. */
+export const computeNativeSelectClasses = (): string =>
+  'h-8 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent py-1 pr-8 pl-2.5 text-sm transition-colors outline-none select-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] data-[size=sm]:py-0.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40'
+
+/** shadcn/ui `NativeSelect`'s chevron. */
+export const computeNativeSelectIconClasses = (): string =>
+  'pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground select-none'
+
+/** shadcn/ui `NativeSelectOption`. */
+export const computeNativeSelectOptionClasses = (): string => 'bg-[Canvas] text-[CanvasText]'
+
+/** shadcn/ui `SelectLabel`: the muted heading of a `SelectGroup`, which is no option. */
+export const computeSelectGroupLabelClasses = (): string =>
+  'px-1.5 py-1 text-xs text-muted-foreground'
+
+/** The clear control of a `clearable` select, drawn over the trigger's end before its chevron. */
+export const computeSelectClearClasses = (): string =>
+  'absolute top-1/2 right-8 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 [&_svg]:size-3.5'
+
+/** shadcn/ui `ComboboxChips`: the field holding the chosen chips and the text input. */
+export const computeComboboxChipsClasses = (): string =>
+  'flex min-h-8 flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent bg-clip-padding px-2.5 py-1 text-sm transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 has-aria-invalid:border-destructive has-aria-invalid:ring-3 has-aria-invalid:ring-destructive/20 has-data-[slot=combobox-chip]:px-1 dark:bg-input/30 dark:has-aria-invalid:border-destructive/50 dark:has-aria-invalid:ring-destructive/40'
+
+/** shadcn/ui `ComboboxChip`: one chosen value. */
+export const computeComboboxChipClasses = (): string =>
+  'flex h-[calc(--spacing(5.25))] w-fit items-center justify-center gap-1 rounded-sm bg-muted px-1.5 text-xs font-medium whitespace-nowrap text-foreground has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-disabled:opacity-50 has-data-[slot=combobox-chip-remove]:pr-0'
+
+/** shadcn/ui `ComboboxChip` remove control: a ghost `icon-xs` button. */
+export const computeComboboxChipRemoveClasses = (): string =>
+  '-ml-1 inline-flex size-6 items-center justify-center rounded-sm opacity-50 outline-none hover:bg-muted hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50'
+
+/** shadcn/ui `ComboboxChipsInput`. */
+export const computeComboboxChipInputClasses = (): string =>
+  'min-w-16 flex-1 bg-transparent outline-none'

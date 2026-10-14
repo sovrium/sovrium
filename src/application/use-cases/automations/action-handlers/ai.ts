@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { AiService, AiProviderError } from '@/application/ports/services/ai-service'
+import { AiService, AiProviderError, AiTimeoutError } from '@/application/ports/services/ai-service'
 import { actionAttributes, numberProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type {
@@ -22,7 +22,7 @@ import type {
 // `ai/generate` is the first of three AI action handlers (`ai/classify` and
 // `ai/extract` follow the same pattern). The helpers below own the parts that
 // every AI handler needs identically — message-list construction, per-action
-// model/sampling overrides, and the `AiError` → graceful-failure mapping — so
+// model/sampling overrides, and the `AiError` → failed-step mapping — so
 // the later handlers compose them rather than copy-pasting the orchestration.
 // Each handler keeps only its operator-specific bits: which user content it
 // sends, and how it shapes `output` from the reply.
@@ -105,17 +105,15 @@ export const buildChatInput = (
 // Structured AI-error envelope
 //
 // Every `ai:*` runtime failure (provider HTTP error, "AI not configured",
-// malformed-JSON in `ai:extract`) is surfaced to the automation caller as a
-// graceful `ActionOutcome` whose `output.error` carries a `{ code, message,
-// retryable }` triple. The action's run-level `status` stays `'success'` so
-// the synchronous webhook dispatcher returns HTTP 200 with the structured
-// error in `output` — the run did not transport-fail, it produced an error
-// result. Retryable failures (429 rate-limit, 5xx gateway) are flagged so
-// callers (and a future automation-level retry that inspects `output.error`)
-// can distinguish "try again" from "fix the config".
+// malformed-JSON in `ai:extract`, an agent tool call outside its allowlist) is
+// classified into a `{ code, message, retryable }` triple and FAILS its step:
+// the run stops there unless the step sets `continueOnError`, a `retry` policy
+// attempts it again when `retryable`, and a synchronous webhook caller gets
+// the failed-run answer. The triple is not left in `output`: an `error` key
+// there would shadow the step's own `error.message` for later steps.
 // ---------------------------------------------------------------------------
 
-/** Shape surfaced as `output.error` for every graceful `ai:*` failure. */
+/** The classification of every `ai:*` failure, folded into its failed step. */
 export interface AiErrorEnvelope {
   /** Machine-readable error class (e.g. `rate_limit_exceeded`, `parse_error`). */
   readonly code: string
@@ -130,14 +128,18 @@ export interface AiErrorEnvelope {
  * {@link AiErrorEnvelope} the automation runtime exposes. HTTP status codes
  * drive the mapping: 429 → rate-limit (retryable), 401/403 → authentication
  * (non-retryable), 408/504 → gateway timeout (retryable), other 5xx →
- * provider-unavailable (retryable). `AiConfigError` (no provider configured /
- * missing credentials) is non-retryable. Messages never include the
+ * provider-unavailable (retryable). An `AiTimeoutError` (the call's own deadline
+ * passed with no answer) is a gateway timeout too, retryable. `AiConfigError`
+ * (no provider configured / missing credentials) is non-retryable. Messages never include the
  * `Authorization` header or API key — the live adapter only ever folds the
  * provider's own response body into the message, and the run loop redacts
  * connection literals on top.
  */
 // eslint-disable-next-line functional/prefer-immutable-types -- AiError tagged classes are mutable by Data.TaggedError design
-const classifyAiError = (err: AiError): AiErrorEnvelope => {
+export const classifyAiError = (err: AiError): AiErrorEnvelope => {
+  if (err instanceof AiTimeoutError) {
+    return { code: 'gateway_timeout', message: err.message, retryable: true }
+  }
   if (!(err instanceof AiProviderError)) {
     return { code: 'ai_not_configured', message: err.message, retryable: false }
   }
@@ -162,27 +164,22 @@ const classifyAiError = (err: AiError): AiErrorEnvelope => {
 }
 
 /**
- * Build the graceful `ActionOutcome` for an `ai:*` runtime failure: a
- * `status: 'success'` step whose `output.error` is the structured
- * {@link AiErrorEnvelope}. Keeping `status: 'success'` means a provider
- * failure inside an automation surfaces as HTTP 200 with the error in
- * `output` (per the AI runtime-error contract) rather than escalating the
- * whole run to 500. The `error` string is still set so the failed step is
- * visible in run-history / the runs API.
+ * Build the FAILED `ActionOutcome` for an `ai:*` runtime failure. The error
+ * reads `<code>: <message>`, so `{{steps.<name>.error.message}}` names the
+ * code; `retryable` is what the retry loop reads first; no `output` is set, so
+ * no generated or extracted field reaches a later step.
  */
 export const aiErrorOutcome = (envelope: AiErrorEnvelope): ActionOutcome => ({
-  status: 'success',
+  status: 'failure',
   error: `${envelope.code}: ${envelope.message}`,
-  output: { error: envelope },
+  retryable: envelope.retryable,
 })
 
 /**
  * Run an `AiService.chat` call and reduce the result to either the reply
- * (on success) or a graceful {@link ActionOutcome} carrying a structured
- * {@link AiErrorEnvelope} in `output.error`. Provider failures and the
- * "AI not configured" case (`AiProviderError` / `AiConfigError`) are
- * classified and surfaced as `status: 'success'` so the run does not 500;
- * the caller decides whether to short-circuit on `'error' in output`.
+ * (on success) or the failed {@link ActionOutcome} of its classified
+ * {@link AiErrorEnvelope}. Provider failures and the "AI not configured" case
+ * (`AiProviderError` / `AiConfigError`) both fail the step.
  *
  * The success branch returns the raw {@link ChatReply}; the caller decides
  * how to shape `output` (`ai/generate` → `{ text }`, `ai/classify` →
@@ -388,9 +385,8 @@ const parseJsonReply = (text: string): unknown => {
  * as the OpenAI `response_format` structured-output constraint) and surfaces
  * the parsed JSON object as the step `output`.
  *
- * A reply that isn't valid JSON is reported as a graceful failure rather than
- * passed through; the run loop records the failed step in run-history without
- * crashing the surrounding `Effect.gen`.
+ * A reply that isn't valid JSON fails the step with a retryable
+ * `parse_error` rather than being passed through.
  */
 export const handleAiExtract: ActionHandler = (action, _app, _automation) =>
   Effect.gen(function* () {
@@ -416,13 +412,12 @@ export const handleAiExtract: ActionHandler = (action, _app, _automation) =>
 
     const parsed = parseJsonReply(outcome.reply.content)
     if (parsed === undefined || typeof parsed !== 'object' || parsed === null) {
-      // Malformed-JSON reply: surface a structured `parse_error` rather than
-      // a raw failure so the automation caller sees `output.error.code` and
-      // no half-extracted fields leak into `output` (the run stays HTTP 200).
+      // Malformed-JSON reply: a `parse_error` failure, with no half-extracted
+      // field. Retryable: a model asked again may well answer valid JSON.
       return aiErrorOutcome({
         code: 'parse_error',
         message: `ai.extract: response was not a valid JSON object (got "${outcome.reply.content.trim().slice(0, 200)}")`,
-        retryable: false,
+        retryable: true,
       })
     }
 

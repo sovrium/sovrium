@@ -136,6 +136,8 @@ interface FetchQuery {
   readonly labelsParam?: string
   /** Report whether a further page exists, as a `nextCursor` (load-more grids). */
   readonly loadMore?: boolean
+  /** The first row of the page, for a load-more grid's continuation (`?offset=`). */
+  readonly offset?: number
   /** Raw cross-component shared-filter params appended to the records URL. */
   readonly sharedFilterParams?: Record<string, string>
 }
@@ -151,7 +153,9 @@ function buildRecordsQuery(q: FetchQuery): Record<string, string> {
   const shared = withSharedFilter(q.filterParam, q.sharedFilterParams ?? {})
   return {
     ...shared.extraParams,
-    page: String(q.pagination.pageIndex + 1),
+    ...(q.offset === undefined
+      ? { page: String(q.pagination.pageIndex + 1) }
+      : { offset: String(q.offset) }),
     ...(q.pagination.pageSize && { limit: String(q.pagination.pageSize) }),
     ...(q.sortParam && { sort: q.sortParam }),
     ...(q.globalFilter && { q: q.globalFilter }),
@@ -176,6 +180,9 @@ function buildRecordsQuery(q: FetchQuery): Record<string, string> {
  */
 function nextPageCursor(q: FetchQuery, pageLength: number, total: number): string | undefined {
   if (q.loadMore !== true || pageLength === 0) return undefined
+  if (q.offset !== undefined) {
+    return q.offset + pageLength < total ? String(q.offset + pageLength) : undefined
+  }
   const { pageIndex, pageSize } = q.pagination
   return pageIndex * pageSize + pageLength < total ? String(pageIndex + 1) : undefined
 }
@@ -262,6 +269,8 @@ export interface ResolvedQuery {
   readonly groupByParam?: string
   readonly labelsParam?: string
   readonly loadMore?: boolean
+  /** The first row of a load-more grid's next page (`?offset=`). */
+  readonly offset?: number
 }
 
 /**
@@ -377,6 +386,7 @@ export function runDataTableFetch(q: ResolvedQuery): Promise<DataTableFetchResul
         groupByParam: q.groupByParam,
         labelsParam: q.labelsParam,
         loadMore: q.loadMore,
+        ...(q.offset !== undefined && { offset: q.offset }),
         sharedFilterParams: q.sharedFilterParams,
       })
 }

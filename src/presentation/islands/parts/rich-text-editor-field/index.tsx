@@ -15,6 +15,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { useCallback, useEffect, useRef } from 'react'
 import { computeFormFieldLabelClasses } from '@/presentation/design/form-layout-classes'
 import {
+  computeRichTextBodyBoxClasses,
   computeRichTextBodyClasses,
   computeRichTextCounterClasses,
   computeRichTextFrameClasses,
@@ -35,6 +36,13 @@ import type { RichTextEditorFieldProps } from './props'
  * `RICH_TEXT_EMPTY_DOC_LENGTH` in `crud-form-island.tsx`.
  */
 const RICH_TEXT_EMPTY_DOC_LENGTH = '<p></p>'.length // 7
+
+/**
+ * The contenteditable is the element that takes the text, so it carries the
+ * input group's `input-group-control` slot: the frame rings while the body has
+ * focus, not while a toolbar button does.
+ */
+const BODY_EDITOR_PROPS = { attributes: { 'data-slot': 'input-group-control' } }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @tiptap/core version mismatch between starter-kit (3.22.2) and root (3.22.3)
 function buildExtensions(placeholder?: string, maxLength?: number): any[] {
@@ -78,6 +86,7 @@ export function RichTextEditorField({
   const extensions = buildExtensions(placeholder, maxLength)
   const editor = useEditor({
     extensions,
+    editorProps: BODY_EDITOR_PROPS,
     content: value,
     onUpdate: ({ editor: ed }) => {
       onChange(name, ed.getHTML())
@@ -162,7 +171,11 @@ export function RichTextEditorField({
       >
         {accessibleLabel}
       </label>
-      <div className={computeRichTextFrameClasses({ state: overLimit ? 'invalid' : 'default' })}>
+      <div
+        role="group"
+        data-slot="input-group"
+        className={computeRichTextFrameClasses()}
+      >
         <Toolbar
           editor={editor}
           items={toolbarItems}
@@ -181,7 +194,7 @@ export function RichTextEditorField({
           the frame, which is what puts it over the editor rather than inside
           the scroll of the text it is being typed into.
         */}
-        <div className="relative">
+        <div className={computeRichTextBodyBoxClasses()}>
           <EditorContent
             editor={editor}
             id={editorId}
@@ -194,6 +207,9 @@ export function RichTextEditorField({
             aria-label={accessibleLabel}
             role="textbox"
             aria-multiline="true"
+            // Over the limit, the group's own invalid rule edges the frame.
+            aria-invalid={overLimit || undefined}
+            data-slot="rich-text-editor-body"
             // `rte` is the content stylesheet
             // (`infrastructure/css/theme/rich-text-styles.ts`), which replaced
             // Tailwind Typography here in wave R-E. Typography is a good

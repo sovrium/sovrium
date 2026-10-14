@@ -24,10 +24,10 @@
  */
 
 import { Effect } from 'effect'
-import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
 import { restoreRecordProgram } from './record-lifecycle-programs'
 import { storedRowOf } from './record-stored-row'
 import { deliverRecordWebhooks, withRecordWebhooks } from './record-webhook-outbox'
+import { dispatchRecordEventInBackground } from './record-write-roads'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { OutboxedWrite } from '@/application/ports/services/record-webhook-dispatcher'
 import type { TriggerRequester } from '@/application/use-cases/automations/resolve-trigger-data'
@@ -100,7 +100,7 @@ export function restoreRecordWithSideEffects(input: RecordRestoreInput) {
         ...(input.userRole === undefined ? {} : { userRole: input.userRole }),
         ...(input.userGroups === undefined ? {} : { userGroups: input.userGroups }),
       }).pipe(withRecordWebhooks(app, tableName, 'restore')),
-      dispatchAutomations: triggerRecordEventAutomations,
+      dispatchAutomations: dispatchRecordEventInBackground,
       deliverWebhooks: (deliveryIds) => deliverRecordWebhooks(app, deliveryIds, 'await'),
     }
   ).pipe(Effect.withSpan('tables.restore-record-with-side-effects', { attributes: { tableName } }))

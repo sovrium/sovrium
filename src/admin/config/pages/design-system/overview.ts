@@ -62,6 +62,7 @@
 // nobody opens, it is an unaudited one still serving a second copy of the
 // affordances to whoever bookmarked it.
 
+import { designPageHeader } from '../../components/page-header'
 import { withShell } from '../../components/shell'
 import { DESIGN_COVERAGE_ENDPOINT, SHARES_ENDPOINT } from '../../system-sources'
 import { designSystemBreadcrumb } from './chrome'
@@ -141,7 +142,7 @@ const previewSlot = (children: readonly PageComponent[]): PageComponent =>
     element: 'div',
     props: {
       className:
-        'border-border bg-background-subtle hidden min-h-[4.5rem] flex-1 items-center justify-center gap-3 rounded-md border px-4 text-base md:flex',
+        'border-border bg-muted hidden min-h-[4.5rem] flex-1 items-center justify-center gap-3 rounded-md border px-4 text-base md:flex',
     },
     children: [...children],
   }) as PageComponent
@@ -195,13 +196,13 @@ const componentsPreview = (): PageComponent =>
         {
           type: 'text',
           element: 'span',
-          props: { className: 'text-foreground-muted text-[10px]' },
+          props: { className: 'text-muted-foreground text-[10px]' },
           content: 'Records',
         },
         {
           type: 'text',
           element: 'span',
-          props: { className: 'text-foreground-muted text-[10px]' },
+          props: { className: 'text-muted-foreground text-[10px]' },
           content: '/',
         },
         {
@@ -215,13 +216,13 @@ const componentsPreview = (): PageComponent =>
           props: {
             name: 'search',
             size: 12,
-            className: 'text-foreground-muted ml-auto',
+            className: 'text-muted-foreground ml-auto',
             ...kitType('icon'),
           },
         } as PageComponent,
         {
           type: 'icon',
-          props: { name: 'moon', size: 12, className: 'text-foreground-muted' },
+          props: { name: 'moon', size: 12, className: 'text-muted-foreground' },
         } as PageComponent,
       ],
     } as PageComponent,
@@ -296,7 +297,7 @@ const sectionRow = (slug: string, title: string, blurb: string): PageComponent =
         props: {
           href: `/design-system/${slug}`,
           className:
-            'hover:bg-background-subtle group flex flex-col items-start gap-1.5 px-4 py-3.5 no-underline md:flex-row md:items-center md:gap-4',
+            'hover:bg-muted group flex flex-col items-start gap-1.5 px-4 py-3.5 no-underline md:flex-row md:items-center md:gap-4',
           ...kitType('link'),
         },
         children: [
@@ -320,7 +321,7 @@ const sectionRow = (slug: string, title: string, blurb: string): PageComponent =
           {
             type: 'text',
             element: 'span',
-            props: { className: 'text-foreground-muted hidden shrink-0 text-md md:inline' },
+            props: { className: 'text-muted-foreground hidden shrink-0 text-md md:inline' },
             content: '›',
           },
         ],
@@ -444,7 +445,7 @@ const coverageLedger = (): PageComponent =>
                   {
                     type: 'text',
                     element: 'span',
-                    props: { className: 'text-foreground-muted text-sm tabular-nums' },
+                    props: { className: 'text-muted-foreground text-sm tabular-nums' },
                     content: '$record.count',
                   },
                   // The human reading of the layer, where the payload carries
@@ -542,7 +543,7 @@ const exportRow = (input: {
         element: 'div',
         props: {
           className:
-            'border-border bg-background-subtle flex min-w-0 flex-1 items-center gap-2 rounded-md border px-3 py-1.5',
+            'border-border bg-muted flex min-w-0 flex-1 items-center gap-2 rounded-md border px-3 py-1.5',
           'data-code-copy-scope': 'true',
         },
         children: [
@@ -551,7 +552,7 @@ const exportRow = (input: {
             element: 'span',
             props: {
               className:
-                'bg-border text-foreground-muted shrink-0 rounded-[2px] px-[7px] font-mono text-[10px]',
+                'bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-[10px]',
             },
             content: 'GET',
           },
@@ -605,7 +606,7 @@ const terminalBlock = (): PageComponent =>
         element: 'div',
         props: {
           className:
-            'border-border bg-background-subtle flex items-center justify-between gap-3 rounded-md border px-3 py-2',
+            'border-border bg-muted flex items-center justify-between gap-3 rounded-md border px-3 py-2',
           'data-code-copy-scope': 'true',
         },
         children: [
@@ -844,7 +845,7 @@ const sharePanel = (): PageComponent =>
                       {
                         type: 'text',
                         element: 'span',
-                        props: { className: 'text-foreground-muted text-sm' },
+                        props: { className: 'text-muted-foreground text-sm' },
                         content: 'created',
                       },
                       {
@@ -1049,19 +1050,7 @@ export default withShell(
     // lets one page carry a record AND two rows bindings.
     dataSource: { system: { endpoint: SHARES_ENDPOINT, idKey: 'total' } },
     components: [
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-col gap-2' },
-        children: [
-          {
-            type: 'text',
-            element: 'h1',
-            props: { className: 'text-3xl font-semibold tracking-tight', ...kitType('text') },
-            content: 'Design system',
-          },
-        ],
-      },
+      designPageHeader('Design system'),
       pagesList(),
       coverageLedger(),
       shareAndExport(),

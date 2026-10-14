@@ -25,7 +25,14 @@ export const entry = defineLibraryEntry({
   ],
   params: [
     stringParam('iconName', 'The icon drawn as the app mark.', 'box'),
-    stringParam('successPath', 'Where the reader lands once the password is set.', '/sign-in'),
+    {
+      ...stringParam(
+        'successPath',
+        'Where the reader lands once the password is set. Defaults to the app’s `auth.loginPage` when it sets one.',
+        '/sign-in'
+      ),
+      defaultFromConfig: 'auth.loginPage',
+    },
   ],
   env: [],
   requires: [],

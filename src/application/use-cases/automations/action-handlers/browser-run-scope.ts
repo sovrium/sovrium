@@ -111,7 +111,7 @@ export interface BrowserRunScope {
     bytes: Uint8Array,
     name: string
   ) => Effect.Effect<ScreenshotRef | undefined, never, StepRequirements>
-  /** Runs just before the irreversible click: the idempotency key turns `pending`. */
+  /** Runs once the irreversible click's element is found: the idempotency key turns `pending`. */
   readonly beforeSubmit: Effect.Effect<void, never, StepRequirements>
   /** The step whose confirmation a person approved: it clicks without asking again. */
   readonly confirmedIndex?: number

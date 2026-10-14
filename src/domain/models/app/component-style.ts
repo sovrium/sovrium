@@ -324,7 +324,7 @@ export const ComponentClassesSchema = ComponentStyleSchema.annotate({
     "Classes for this one component, keyed by the part they land on (`root`, and the type's own parts such as a sidebar's `link`), per variant and per state (`current`, `hover`, …). Layered over `design.components` for this type and under `props.className`; the accessibility floor still applies.",
   examples: [
     {
-      parts: { link: 'h-8 rounded-md px-2.5 text-foreground-muted' },
+      parts: { link: 'h-8 rounded-md px-2.5 text-muted-foreground' },
       states: { current: { link: 'bg-primary-subtle font-medium' } },
     },
   ],

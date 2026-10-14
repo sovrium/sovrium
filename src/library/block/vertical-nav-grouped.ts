@@ -32,7 +32,7 @@ export const entry = defineLibraryEntry({
       appRegion([
         {
           type: 'sidebar',
-          props: { className: 'w-64 rounded-lg border border-border bg-background-raised' },
+          props: { className: 'w-64 rounded-xl border border-sidebar-border' },
           groups: [
             {
               label: 'Workspace',

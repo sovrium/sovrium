@@ -13,7 +13,7 @@
  * route handlers so the route module stays focused on request orchestration.
  */
 
-import { resolveAgentLimits } from './agent-limits'
+import { resolveAgentLimits } from '@/domain/models/app/agents/agent-gate-validation'
 import type { Agent } from '@/domain/models/app/agents/agent'
 
 /** Serialize an agent's configuration for API readback. */

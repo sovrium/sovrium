@@ -34,12 +34,11 @@
  */
 
 import { Effect } from 'effect'
-import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import {
   markUserAuthoredAiFieldsForRecords,
   type AiComputeBatchWrite,
 } from '@/application/use-cases/ai-compute/enqueue-refinement'
-import { triggerRecordEventAutomations } from '@/application/use-cases/automations/trigger-record-event'
+import { startRecordEventAutomationsInBackground } from '@/application/use-cases/automations/record-event-background'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
 import {
   batchCreateProgram,
@@ -194,15 +193,7 @@ export function orchestrateBulkWrite<A, E, RW, RA = never, RE = never, RD = neve
  */
 const dispatchRowEventsFor = (scope: BatchScope) => (events: readonly RowEvent[]) => {
   const inputs = events.map((event) => ({ ...event, processEnv: scope.processEnv }))
-  return AutomationFiberBridge.use((bridge) =>
-    Effect.asVoid(
-      Effect.forkDetach(
-        bridge.trackBackground(
-          Effect.forEach(inputs, triggerRecordEventAutomations, { discard: true })
-        )
-      )
-    )
-  )
+  return startRecordEventAutomationsInBackground(inputs)
 }
 
 /** One line per bulk write: what it wrote and what it queued. */

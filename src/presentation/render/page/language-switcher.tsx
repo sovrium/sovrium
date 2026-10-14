@@ -6,16 +6,38 @@
  */
 
 import { type HTMLAttributes, type ReactElement } from 'react'
-import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
+import { cn } from '@/presentation/design/class-merge'
+import { CheckGlyph, ChevronDownGlyph, GlobeGlyph } from '@/presentation/design/control-glyphs'
 import {
-  computeLanguageSwitcherDropdownClasses,
-  computeLanguageSwitcherOptionClasses,
-  computeLanguageSwitcherTriggerClasses,
-} from '@/presentation/design/specialty-ssr-default-classes'
+  computeDropdownMenuContentClasses,
+  computeDropdownMenuRadioIndicatorClasses,
+  computeDropdownMenuRadioItemClasses,
+} from '@/presentation/design/dropdown-menu-default-classes'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import type { Languages } from '@/domain/models/app/languages'
 
 /** Stable identity for `style={{ display: 'none' }}` reuse to satisfy react-perf. */
 const HIDDEN_STYLE = { display: 'none' } as const
+
+/**
+ * The menu panel, anchored under its trigger. base-nova's dropdown-menu
+ * content, with no side padding so every language row spans the panel's full
+ * width — the row is the click target, edge to edge.
+ */
+const MENU_CONTENT_CLASS = cn(
+  computeDropdownMenuContentClasses(),
+  'absolute top-full left-0 mt-1 w-max px-0'
+)
+
+/**
+ * A language row: base-nova's radio item, square so it meets the panel's edges,
+ * and at least a 28px target whatever the theme's small type step measures.
+ */
+const MENU_ROW_CLASS = cn(
+  computeDropdownMenuRadioItemClasses(),
+  'min-h-7 w-full rounded-none text-left'
+)
 
 /**
  * The HTML attributes an author gave the switcher in `props` — its
@@ -47,6 +69,7 @@ function wrapperAttributes(
   return {
     ...attributes,
     'data-testid': 'language-switcher',
+    'data-slot': 'language-switcher',
     className: ['relative', authorClass].filter((part) => part !== '').join(' '),
     'data-variant': own.variant,
     'data-fallback-language': own.fallbackLanguage,
@@ -85,9 +108,13 @@ function LanguageSwitcherButton({
   return (
     <button
       data-testid="language-switcher-button"
+      data-slot="dropdown-menu-trigger"
       type="button"
-      className={computeLanguageSwitcherTriggerClasses()}
+      aria-haspopup="menu"
+      aria-expanded="false"
+      className={computePartButtonClasses({ variant: 'outline', size: 'sm' })}
     >
+      <GlobeGlyph />
       {shouldShowFlag(activeLanguage?.flag) && (
         <span data-testid="language-flag">{activeLanguage!.flag} </span>
       )}
@@ -102,6 +129,7 @@ function LanguageSwitcherButton({
       >
         {activeLanguage?.label || activeCode}
       </span>
+      <ChevronDownGlyph />
     </button>
   )
 }
@@ -133,8 +161,9 @@ function LanguageToggle({
         lang={other.locale ?? other.code}
         aria-label={other.label}
         data-language-toggle
+        data-slot="button"
         className={resolveClasses(
-          computeLanguageSwitcherTriggerClasses(),
+          computePartButtonClasses({ variant: 'ghost', size: 'sm' }),
           linkPart?.className,
           undefined,
           linkPart?.floor
@@ -214,16 +243,24 @@ export function LanguageSwitcher({
         activeCode={activeLanguage?.code ?? languages.default}
       />
 
-      {/* Dropdown menu - vanilla JS will handle show/hide */}
+      {/* The dropdown menu — the client script fills it with radio rows and opens it */}
       <div
         data-language-dropdown
-        className={computeLanguageSwitcherDropdownClasses()}
+        data-slot="dropdown-menu-content"
+        role="menu"
+        className={MENU_CONTENT_CLASS}
         aria-hidden="true"
         style={HIDDEN_STYLE}
         data-supported-languages={JSON.stringify(languages.supported)}
         data-show-flags={showFlags}
-        data-option-class={computeLanguageSwitcherOptionClasses()}
-      />
+        data-option-class={MENU_ROW_CLASS}
+        data-indicator-class={computeDropdownMenuRadioIndicatorClasses()}
+      >
+        {/* The check the client script clones into the picked language's row. */}
+        <template data-language-check="">
+          <CheckGlyph />
+        </template>
+      </div>
     </div>
   )
 }

@@ -20,21 +20,17 @@
  * 0de6ded2a + 1b3f551a7 + e7e4e4421 + dd831e792). Layout / spacing classes
  * (`flex items-center`, `gap-2`, `p-4`), structural classes (`flex-1`,
  * `select-none`), and `aria-*` attributes stay raw — they encode behavior,
- * not color — while every color / border / radius / shadow class goes
- * through {@link withVarFallback} so `app.design.*` overrides still win at
- * the CSS cascade layer (`var(--sv-X)` resolves the override first, falling
- * back to the inline OKLCH literal).
+ * not color — while every colour is a shadcn role utility and every radius
+ * or shadow class goes through {@link withVarFallback}, so `app.design.*`
+ * overrides still win at the CSS cascade layer (the variable first, the
+ * inline literal as its fallback).
  *
  * Subparts covered:
  *
- *   - CARD                   — base surface chip used both as a top-level
- *                              "panel" and as a grid cell; bg + border +
- *                              radius + padding + sm shadow give it the
- *                              standalone-content look without requiring
- *                              the fixture author to spell out every chrome
- *                              property in `props.className`
+ *   - CARD                   — moved onto shadcn/ui's anatomy in
+ *                              `card-default-classes.ts`
  *   - DIVIDER (rule)         — the bare `<hr>` rendering; border color
- *                              tracks `sv-border` so it reads as passive
+ *                              tracks `border` so it reads as passive
  *                              chrome regardless of light / dark mode
  *   - DIVIDER (label wrapper)— labeled-separator's `<div role="separator">`
  *                              wrapper — flex layout + small muted-fg text;
@@ -75,8 +71,6 @@
  * `feedback-default-classes.ts`, and `navigation-default-classes.ts`.
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
-
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared building blocks
 // ──────────────────────────────────────────────────────────────────────────────
@@ -90,98 +84,34 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 export type DividerStyle = 'solid' | 'dashed' | 'dotted'
 
 // ──────────────────────────────────────────────────────────────────────────────
-// CARD — base surface chip
+// SEPARATOR — the rule, and the labelled form around it
 // ──────────────────────────────────────────────────────────────────────────────
 
-const CARD_LAYOUT = 'p-5 flex flex-col gap-2'
-
-const CARD_SURFACE = [
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `rounded-[${v('radius-md', T.radiusMd)}]`,
-  // `shadow-none`, not the `shadow-[var(--shadow-none,none)]` that stood
-  // here. Both suppress the legacy `.card` rule's elevation, which is what this
-  // recipe means by a flat surface — but the old one did it by ACCIDENT: it set
-  // `--tw-shadow: none`, which is valid as a custom property and invalid inside
-  // the composed `box-shadow` list, so the property went invalid-at-
-  // computed-value-time and fell to its initial value. `shadow-none` suppresses
-  // it on purpose (`box-shadow: none !important`, from the utilities layer in
-  // `css/styles/component-layer-generators.ts`) and renders identically.
-  //
-  // A BUTTON must not use this class — see the `SHADOW_FLAT` note in
-  // `button-default-classes.ts`. A card is not focusable and has no ring to
-  // lose; a button does, and `!important` would swallow it.
-  'shadow-none',
-].join(' ')
-
 /**
- * Compute the default className for a `<div>`-rendered `card`. Paints a
- * RAISED surface (`sv-bg-raised`) bounded by a border, with `radius-md`
- * rounded corners — the canonical Sovrium content panel.
+ * Compute the className for the `<hr>` of a `separator` (`data-slot="separator"`).
  *
- * Deliberately shadowless: the card lifts off the page by being lighter than
- * it and by its border, not by a drop shadow. Elevation is reserved for
- * surfaces that genuinely float ABOVE the page (dialog, modal, popover), so
- * spending a shadow on an inline panel would spend the system's strongest
- * depth signal on its least significant use ([internal ref] restraint).
- *
- * Layout (`p-5 flex flex-col gap-2`) gives the card a sensible inner rhythm
- * for the typical "heading + body + actions" composition without forcing
- * the fixture author to spell it out. Author-supplied `props.className` is
- * merged in by the consuming renderer via `resolveClasses` so it overrides whatever the
- * default paints (e.g. a grid cell that swaps `p-5` for `p-3` to read as
- * denser).
+ * shadcn/ui's separator paints a 1px `bg-border` box. Sovrium's draws the
+ * `<hr>`'s own top border in shadcn's `border-border` instead, because the
+ * schema's `style: dashed | dotted` is an inline `border-style`, and a filled
+ * box has no border to dash. The colour is shadcn's; the line is a border.
  */
-export const computeCardClasses = (): string => [CARD_LAYOUT, CARD_SURFACE].join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// DIVIDER — bare rule + labeled wrapper + label text
-// ──────────────────────────────────────────────────────────────────────────────
-
-const DIVIDER_RULE_BORDER = `border-[${v('sv-border', T.border)}]`
+export const computeDividerRuleClasses = (): string => 'shrink-0 border-border'
 
 /**
- * Compute the default className for an `<hr>` rendered by the bare
- * `{ type: 'divider' }` schema. Resolves to a single border-color class
- * driving `sv-border` — the same passive-chrome tone the rest of the design
- * system uses for separators. CSS `border-style` is still applied via the
- * inline `style={{ borderStyle }}` prop by the renderer (mapped from the
- * schema's `style` axis: `'solid' | 'dashed' | 'dotted'`).
- *
- * Note: this helper does NOT take `style` as an argument — the renderer
- * keeps full ownership of inline `style.borderStyle` because the value
- * comes straight from a schema literal and shouldn't go through a token
- * cascade. The helper's job is the COLOR, which IS token-cascadable.
+ * Compute the className for a vertical `separator`: its left border is the
+ * rule, stretched to the height of the row it stands in, as shadcn/ui's
+ * vertical Separator is `self-stretch`.
  */
-export const computeDividerRuleClasses = (): string => DIVIDER_RULE_BORDER
-
-const DIVIDER_LABEL_WRAPPER_LAYOUT = 'flex items-center gap-2 text-xs'
-
-const DIVIDER_LABEL_WRAPPER_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
+export const computeVerticalDividerRuleClasses = (): string =>
+  'shrink-0 self-stretch border-0 border-l border-border'
 
 /**
- * Compute the default className for the `<div role="separator">` wrapper of
- * a labeled divider (when the schema's `label` prop is set). The wrapper
- * itself is a flex row holding `<hr>` + `<span>` + `<hr>`, where the
- * `<hr>`s shrink (`flex-1`) to fill the remaining space on either side of
- * the centered label. Layout (`gap-2 text-xs`) keeps the label visually
- * tied to the rules without crowding them; surface tone (`sv-fg-muted`)
- * makes the whole composition read as passive chrome — labelled separators
- * are wayfinding aids, not focal content.
+ * Compute the className for the `role="separator"` wrapper of a labelled
+ * separator: a row of rule, label, rule, in the muted ink, so it reads as
+ * wayfinding rather than as a heading.
  */
 export const computeDividerLabelWrapperClasses = (): string =>
-  [DIVIDER_LABEL_WRAPPER_LAYOUT, DIVIDER_LABEL_WRAPPER_SURFACE].join(' ')
+  'flex items-center gap-2 text-xs text-muted-foreground'
 
-const DIVIDER_LABEL_TEXT = [`text-[${v('sv-fg-subtle', T.fgSubtle)}]`, 'select-none'].join(' ')
-
-/**
- * Compute the default className for the `<span>` between the two `<hr>`
- * halves of a labeled divider. Subtle foreground tone so the label drops
- * back even further than the wrapper's muted tone (creates a slight
- * hierarchy: rule reads stronger than label, both read weaker than body
- * content); `select-none` prevents the label from being captured in a
- * click-drag selection that's actually targeting the body content above
- * or below the divider.
- */
-export const computeDividerLabelTextClasses = (): string => DIVIDER_LABEL_TEXT
+/** Compute the className for the label between the two rules. */
+export const computeDividerLabelTextClasses = (): string => 'text-muted-foreground select-none'

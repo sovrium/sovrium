@@ -29,7 +29,7 @@ components:
           - type: text
             element: p
             props:
-              className: text-foreground-muted
+              className: text-muted-foreground
             content: The answer comes from the handbook, with the article it is taken from.
       - type: ai-chat
         agent: handbook-assistant

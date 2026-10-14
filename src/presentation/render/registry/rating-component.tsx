@@ -15,19 +15,22 @@
  *
  * With `readOnly: false` it is an input — one native radio per rank under
  * `field`, so it submits a whole number with any form around it and the
- * browser's own radio-group keyboard (the arrows) moves the pick. A radio
+ * browser's own radio-group keyboard (the arrows) moves the pick. No script
+ * repaints it: a rank reads as earned off the checked radio, by CSS
+ * (`computeRatingRankClasses`), so the fill follows every pick. A radio
  * group rather than a slider because each rank is a discrete, named choice and
  * "no rating yet" is a real state: a slider always holds a value.
  */
 
-import {
-  computeRatingGlyphClasses,
-  computeRatingRankClasses,
-  computeRatingRowClasses,
-  DEFAULT_RATING_MAX,
-  ratingGlyphsFor,
-} from '@/presentation/design/cell-affordances-default-classes'
+import { DEFAULT_RATING_MAX } from '@/presentation/design/cell-affordances-default-classes'
 import { cn } from '@/presentation/design/class-merge'
+import {
+  computeRatingClasses,
+  computeRatingHalfClasses,
+  computeRatingItemClasses,
+  computeRatingRankClasses,
+} from '@/presentation/design/rating-default-classes'
+import { RatingGlyph } from '@/presentation/design/rating-glyph'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Tables } from '@/domain/models/app/tables'
 import type { ReactElement } from 'react'
@@ -64,27 +67,33 @@ function readingOf(value: unknown, allowHalf: boolean): number | undefined {
   return allowHalf ? Math.round(score * 2) / 2 : Math.round(score)
 }
 
-/** One glyph of the reading: filled, hollow, or a hollow one half covered. */
-function glyph(rank: number, score: number, glyphs: readonly [string, string]): ReactElement {
-  const filled = rank <= score
-  const half = !filled && rank - 0.5 === score
+/** A star's state: earned, unearned, or half earned. */
+const starState = (rank: number, score: number): 'on' | 'off' | 'half' =>
+  rank <= score ? 'on' : rank - 0.5 === score ? 'half' : 'off'
+
+/** One star of the reading: earned, unearned, or an unearned one half covered. */
+function glyph(rank: number, score: number, style: string | undefined): ReactElement {
+  const state = starState(rank, score)
   return (
     <span
       key={rank}
       aria-hidden="true"
+      data-slot="rating-item"
+      data-state={state}
       data-rating-glyph=""
-      data-filled={String(filled)}
-      className={cn('relative inline-block', computeRatingGlyphClasses({ filled }))}
+      data-filled={String(state === 'on')}
+      className={computeRatingItemClasses()}
     >
-      {filled ? glyphs[0] : glyphs[1]}
-      {half && (
-        <span
-          className={cn(
-            'absolute inset-y-0 left-0 w-1/2 overflow-hidden',
-            computeRatingGlyphClasses({ filled: true })
-          )}
-        >
-          {glyphs[0]}
+      <RatingGlyph
+        style={style}
+        filled={state === 'on'}
+      />
+      {state === 'half' && (
+        <span className={computeRatingHalfClasses()}>
+          <RatingGlyph
+            style={style}
+            filled
+          />
         </span>
       )}
     </span>
@@ -97,23 +106,24 @@ function ratingInput(ctx: {
   readonly max: number
   readonly current: number
   readonly label: string
-  readonly glyphs: readonly [string, string]
+  readonly style: string | undefined
   readonly className: string
 }): ReactElement {
-  const { field, max, current, label, glyphs, className } = ctx
+  const { field, max, current, label, style, className } = ctx
   return (
     <span
       role="radiogroup"
       aria-label={label}
       data-component-type="rating"
-      className={cn(computeRatingRowClasses(), 'w-fit', className)}
+      data-slot="rating"
+      className={cn(computeRatingClasses(), className)}
     >
       {Array.from({ length: max }, (_unused, index) => {
         const rank = index + 1
-        const filled = rank <= current
         return (
           <label
             key={rank}
+            data-slot="rating-item"
             className={computeRatingRankClasses()}
           >
             <input
@@ -127,10 +137,9 @@ function ratingInput(ctx: {
             <span
               aria-hidden="true"
               data-rating-glyph=""
-              data-filled={String(filled)}
-              className={computeRatingGlyphClasses({ filled })}
+              className="inline-flex"
             >
-              {filled ? glyphs[0] : glyphs[1]}
+              <RatingGlyph style={style} />
             </span>
           </label>
         )
@@ -156,7 +165,6 @@ export const ratingComponent: ComponentRenderer = ({
   const root = (component ?? {}) as RatingRoot
   const column = columnOf(tables, rawProps?.['_recordTable'], root.field)
   const max = root.max ?? column.max ?? DEFAULT_RATING_MAX
-  const glyphs = ratingGlyphsFor(column.style)
   const value = rawProps?.['_recordValue']
   const className = cn(
     SIZE_CLASS[root.size ?? 'md'],
@@ -168,7 +176,7 @@ export const ratingComponent: ComponentRenderer = ({
       max,
       current: readingOf(value, false) ?? 0,
       label: groupLabel(elementProps['aria-label'], root.field),
-      glyphs,
+      style: column.style,
       className,
     })
   }
@@ -178,10 +186,11 @@ export const ratingComponent: ComponentRenderer = ({
       role="img"
       aria-label={readingLabel(score, max)}
       data-component-type="rating"
+      data-slot="rating"
       data-testid={elementProps['data-testid'] as string | undefined}
-      className={cn(computeRatingRowClasses(), 'w-fit', className)}
+      className={cn(computeRatingClasses(), className)}
     >
-      {Array.from({ length: max }, (_unused, index) => glyph(index + 1, score ?? 0, glyphs))}
+      {Array.from({ length: max }, (_unused, index) => glyph(index + 1, score ?? 0, column.style))}
     </span>
   )
 }

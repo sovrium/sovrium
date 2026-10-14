@@ -45,7 +45,7 @@ import { Schema } from 'effect'
  * the types it declines to DRAW; this list decides what may be DECLARED. Where
  * the two disagree, the stricter wins.
  */
-export const SPECIMEN_REFUSED_TYPES: readonly string[] = ['form', 'specimen']
+export const SPECIMEN_REFUSED_TYPES: readonly string[] = ['form', 'questionnaire', 'specimen']
 
 /** The type literal of a declared component, when it declares one readably. */
 const declaredTypeOf = (component: unknown): string | undefined => {
@@ -68,5 +68,5 @@ export const refusesUndrawableType = Schema.makeFilter((component: unknown) => {
   if (type === undefined || !SPECIMEN_REFUSED_TYPES.includes(type)) return true
   return type === 'specimen'
     ? 'A `specimen` cannot draw another `specimen`: each level projects its snippet from the literal below it, so the nesting has no bound. Draw the inner component directly.'
-    : `A \`specimen\` cannot draw \`${type}\`: it renders a live submit control, and a preview frame may carry no write path (ADR-022 A3 clause 2). Show the form on a page of its own, or draw its individual controls.`
+    : `A \`specimen\` cannot draw \`${type}\`: it renders a live submit control (a questionnaire submits through the form it names), and a preview frame may carry no write path (ADR-022 A3 clause 2). Show the form on a page of its own, or draw its individual controls.`
 })

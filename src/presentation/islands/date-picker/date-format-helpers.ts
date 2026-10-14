@@ -40,39 +40,22 @@ export function parseIso(d: string | undefined): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed
 }
 
-export function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}
-
-export function isInRange(day: Date, range: DateRange): boolean {
-  if (!range.from) return false
-  if (!range.to) return isSameDay(day, range.from)
-  return day >= range.from && day <= range.to
-}
-
 export function isOutOfBounds(day: Date, min: Date | undefined, max: Date | undefined): boolean {
   if (min && day < min) return true
   if (max && day > max) return true
   return false
 }
 
-export const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-] as const
-
-export const WEEKDAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] as const
+/**
+ * The bounds as react-day-picker's `disabled` matchers: every day before the
+ * minimum and every day after the maximum. Same reading as {@link isOutOfBounds}.
+ */
+export function calendarBounds(
+  min: Date | undefined,
+  max: Date | undefined
+): Array<{ readonly before: Date } | { readonly after: Date }> {
+  return [
+    ...(min === undefined ? [] : [{ before: min }]),
+    ...(max === undefined ? [] : [{ after: max }]),
+  ]
+}

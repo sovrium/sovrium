@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { conflict } from '@/presentation/api/runtime/auth-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/runtime/error-sanitizer'
 import type { Context } from 'hono'
 
@@ -45,15 +46,31 @@ export function handleRouteError(c: Context, error: unknown): Response {
 }
 
 /**
+ * The `409` of a restore that would leave two live records sharing the value of
+ * a unique field, or `undefined` for any other failure. The message names the
+ * field — a column of the caller's own config — and never the value nor the
+ * database's wording (S4); the record stays in the trash.
+ */
+export function restoreUniqueConflict(c: Context, error: unknown): Response | undefined {
+  if (!(error instanceof Error) || error.name !== 'UniqueConstraintViolationError') return undefined
+  const { fieldName } = error as { readonly fieldName?: unknown }
+  if (typeof fieldName !== 'string' || fieldName.length === 0) return undefined
+  return conflict(
+    c,
+    `Cannot restore: a live record already holds the same value for "${fieldName}". Change one of the two values, then restore.`
+  )
+}
+
+/**
  * Handle errors from record restore operations.
  *
- * No restore-specific branch is needed (no matching on an error message such
- * as 'Record is not deleted'): `restoreRecordProgram` fails with a typed
- * `ValidationError`, which `sanitizeError` maps to `VALIDATION_ERROR` / 400
+ * `restoreRecordProgram` fails with a typed `ValidationError` for a record that
+ * is not in the trash, which `sanitizeError` maps to `VALIDATION_ERROR` / 400
  * while echoing the error's own message (an API tables records restore spec
- * pins all three of status, `message` and `code`). This handler is a
- * pass-through kept for call-site clarity at the restore route.
+ * pins all three of status, `message` and `code`), and with a
+ * `UniqueConstraintViolationError` naming the field when the restore would
+ * duplicate a unique value — answered by {@link restoreUniqueConflict}.
  */
 export function handleRestoreRecordError(c: Context, error: unknown): Response {
-  return handleRouteError(c, error)
+  return restoreUniqueConflict(c, error) ?? handleRouteError(c, error)
 }

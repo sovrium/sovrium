@@ -53,7 +53,7 @@ const BADGE_BASE =
 
 /** Monochrome for in-flight work; `error` tone for a refinement that failed. */
 const badgeToneClass = (status: string): string =>
-  status === 'failed' ? 'text-error-fg' : 'text-foreground-muted'
+  status === 'failed' ? 'text-error-fg' : 'text-muted-foreground'
 
 /**
  * The badge itself — the ONE piece both placements share, so a grid marker and
@@ -138,7 +138,7 @@ function InlineMarker({
         label={label}
       />
       {explanation !== undefined && (
-        <span className="text-foreground-muted text-sm leading-snug font-normal">
+        <span className="text-muted-foreground text-sm leading-snug font-normal">
           {explanation}
         </span>
       )}

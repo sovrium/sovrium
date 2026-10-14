@@ -24,6 +24,8 @@ There is **one upsert endpoint and it is inherently multi-record** — the body 
 { "records": [], "created": 1, "updated": 0 }
 ```
 
+A record in the trash is never a match: when the only record holding the merge value is deleted, the upsert creates a new record and leaves the deleted one where it is.
+
 `records` is populated only when `returnRecords` is true. A body shaped as a single `{ "fields": … }` with no `records` array is refused with `400`.
 
 A `default: $currentUser` fills the rows an upsert creates, never the rows it updates.

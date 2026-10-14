@@ -37,24 +37,21 @@ function useEscapeToClose(open: boolean, setOpen: (next: boolean) => void): void
 }
 
 /**
- * Which months the panel is showing, and the two ways they move.
+ * Which months the panel is showing.
  *
  * The view is anchored ONCE, on the period the picker opened with, so a panel
  * over a declared period opens on that period rather than on today. It then
- * moves only by a reader's own actions: a step from the arrows, or a jump when
- * a preset lands the period in another month.
+ * moves only by a reader's own actions: a step from the calendar's arrows, or a
+ * jump when a preset lands the period in another month. Both arrive as the
+ * month to show.
  */
 function useMonthView(anchor: Date | undefined): {
   readonly viewMonth: Date
-  readonly shiftMonths: (delta: number) => void
   readonly jumpTo: (date: Date) => void
 } {
   const [viewMonth, setViewMonth] = useState(() => startOfMonth(anchor ?? new Date()))
-  const shiftMonths = useCallback((delta: number) => {
-    setViewMonth((previous) => new Date(previous.getFullYear(), previous.getMonth() + delta, 1))
-  }, [])
   const jumpTo = useCallback((date: Date) => setViewMonth(startOfMonth(date)), [])
-  return { viewMonth, shiftMonths, jumpTo }
+  return { viewMonth, jumpTo }
 }
 
 /**
@@ -128,7 +125,7 @@ export function useDateRangeState({
 }) {
   const initial = useMemo(() => parseInterval(value), [value])
   const [open, setOpen] = useState(false)
-  const { viewMonth, shiftMonths, jumpTo } = useMonthView(initial?.from)
+  const { viewMonth, jumpTo } = useMonthView(initial?.from)
   const { range, pendingStart, handleDayClick, handlePresetClick } = usePeriodSelection(
     initial,
     jumpTo
@@ -157,7 +154,7 @@ export function useDateRangeState({
     minDateObj,
     maxDateObj,
     toggleOpen,
-    shiftMonths,
+    handleMonthChange: jumpTo,
     handleDayClick,
     handlePresetClick,
   }

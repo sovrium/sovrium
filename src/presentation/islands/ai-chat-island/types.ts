@@ -33,8 +33,16 @@ export interface AiChatIslandProps {
   readonly chatHeight?: number
   /** When true, prior conversation turns are replayed on mount. */
   readonly showHistory?: boolean
+  /** When true, the header lists the reader's conversations with the agent. */
+  readonly conversations?: boolean
   /** When true, a file-attachment button is shown in the input row. */
   readonly allowAttachments?: boolean
+  /**
+   * Present when the chat declares an `attachments` block: picked files are
+   * uploaded at once to `POST /api/ai/chat/attachments?chat=<chatId>` and sent
+   * with the turn as `file` / `image` parts.
+   */
+  readonly uploads?: { readonly chatId: string }
   /** Table scope narrowing forwarded to the chat backend as `pageContext`. */
   readonly allowedTables?: ReadonlyArray<string>
   /**
@@ -51,14 +59,11 @@ export interface AiChatIslandProps {
    */
   readonly voiceInput?: ChatVoiceInput
   /**
-   * The engine-written failure notice and its Retry button, already resolved
-   * to the page's language server-side. Absent on a payload built before the
-   * notices followed the language, in which case the island reads English.
+   * The engine-written words of the panel, already resolved to the page's
+   * language server-side. The renderer always sends them, so the island ships
+   * no second copy in English.
    */
-  readonly labels?: {
-    readonly failure: string
-    readonly retry: string
-  }
+  readonly labels: ChatLabels
   /** Optional test id propagated from the component schema. */
   readonly 'data-testid'?: string
   /**
@@ -70,21 +75,222 @@ export interface AiChatIslandProps {
   readonly initialValues?: Readonly<Record<string, string>>
 }
 
+/** Every engine-written word of the panel, in the page language. */
+export interface ChatLabels {
+  /** A failed turn's line and its Retry. */
+  readonly failure: string
+  readonly retry: string
+  /** The separator closing replayed history. */
+  readonly history: string
+  /** The line on an attached file's chip saying it does not reach the agent. */
+  readonly notSent: string
+  /** The control that stops a reply while it streams, and the marker it leaves. */
+  readonly stop: string
+  readonly stopped: string
+  /** The collapsed marker holding the model's reasoning. */
+  readonly reasoning: string
+  /** The decisions on a held call, and the words after a tool's name, by its state. */
+  readonly approve: string
+  readonly deny: string
+  readonly awaitingApproval: string
+  readonly denied: string
+  readonly failed: string
+  readonly running: string
+  readonly closed: string
+  /** The words of a question the agent asks, drawn as a questionnaire. */
+  readonly question: QuestionLabels
+  /** The group of sources an answer cites. */
+  readonly sources: string
+  /** The conversation list and a turn's Edit, Regenerate and pager. */
+  readonly branch: BranchLabels
+  readonly composer: ComposerLabels
+  /** The transcript's name, and the live marker while a reply is awaited. */
+  readonly log: string
+  readonly responding: string
+  /** The name of the strip of suggested questions. */
+  readonly suggestions: string
+}
+
+/** The composer's words, and push-to-talk's. */
+export interface ComposerLabels {
+  readonly send: string
+  readonly attach: string
+  readonly attachFile: string
+  readonly attachedFiles: string
+  readonly message: string
+  readonly talk: string
+  readonly listening: string
+  readonly voiceError: string
+}
+
 /** A single chat message displayed in the message log. */
 export interface ChatMessage {
   /** Stable identity used to update / remove a specific message. */
   readonly id: string
   readonly role: 'user' | 'assistant'
   readonly content: string
+  /** Files the reader attached to this turn, drawn as `attachment` chips. */
+  readonly attachments?: readonly ChatAttachment[]
+  /**
+   * An answer's Markdown as the server rendered and sanitized it, and how much
+   * of `content` it covers: the text that arrived after the last rendering is
+   * drawn as plain text after it until the next one lands.
+   */
+  readonly html?: string
+  readonly htmlCovers?: number
+  /** The model's reasoning, drawn apart from the answer. */
+  readonly reasoning?: string
+  /** The tools the agent called while answering, in order. */
+  readonly tools?: readonly ChatToolLine[]
+  /** True while the answer is still arriving. */
+  readonly streaming?: boolean
+  /** Why the answer ended, when it did not simply end: `stopped`, `awaiting_input`, … */
+  readonly stopReason?: string
+  /** A question the agent asked in this turn (`elicit`), and where its answer stands. */
+  readonly elicitation?: ChatElicitation
+  /** The id the turn is saved under, once known: what Edit, Regenerate and the next turn name. */
+  readonly serverId?: string
+  /** The ids of every message written in this one's place, itself included, oldest first. */
+  readonly siblings?: readonly string[]
+  /** The knowledge passages the answer cites, drawn under its bubble. */
+  readonly citations?: readonly ChatCitation[]
 }
 
-/** Possible runtime states of the chat surface. */
-export type ChatStatus = 'idle' | 'sending' | 'error'
+/** One knowledge passage an answer cites, by the number the answer marks it with. */
+export interface ChatCitation {
+  readonly index: number
+  readonly label: string
+  readonly excerpt: string
+}
+
+/** The conversation list and a turn's actions, in the page language. */
+export interface BranchLabels {
+  readonly conversations: string
+  readonly newConversation: string
+  readonly edit: string
+  readonly editMessage: string
+  readonly saveAndSend: string
+  readonly cancel: string
+  readonly regenerate: string
+  readonly previousAnswer: string
+  readonly nextAnswer: string
+  readonly previousVersion: string
+  readonly nextVersion: string
+  /** The open list while read, empty, or failed, its Retry, and an untitled entry. */
+  readonly loading: string
+  readonly empty: string
+  readonly failed: string
+  readonly retry: string
+  readonly untitled: string
+}
+
+/** One field of a question the agent asks: flat, as `ask_user` allows. */
+export interface ChatElicitationField {
+  readonly type: 'string' | 'number' | 'integer' | 'boolean'
+  readonly title: string
+  readonly description?: string
+  readonly enum?: readonly string[]
+  readonly format?: string
+}
+
+/**
+ * A question the agent asked, drawn as a questionnaire in agent mode until it
+ * is answered, then as the line saying how. `error` is the server's refusal of
+ * an answer, on the field it names.
+ */
+export interface ChatElicitation {
+  readonly id: string
+  readonly message: string
+  /** The external MCP server asking, by its declared name; absent for the agent's own question. */
+  readonly server?: string
+  readonly requestedSchema: {
+    readonly properties: Readonly<Record<string, ChatElicitationField>>
+    readonly required?: readonly string[]
+  }
+  /** `closed`: the server no longer holds it — it was answered or dismissed elsewhere. */
+  readonly state: 'open' | 'sending' | 'answered' | 'declined' | 'cancelled' | 'closed'
+  /** The answer's values, in the question's order, once answered. */
+  readonly summary?: readonly string[]
+  readonly error?: { readonly field: string; readonly message: string }
+}
+
+/** How the person answers a question: the form's values, or by declining or dismissing it. */
+export type ChatElicitationAnswer =
+  | {
+      readonly action: 'accept'
+      readonly content: Readonly<Record<string, string | number | boolean>>
+    }
+  | { readonly action: 'decline' | 'cancel' }
+
+/** The words of a question the agent asks, in the page language. */
+export interface QuestionLabels {
+  readonly send: string
+  readonly decline: string
+  readonly next: string
+  readonly previous: string
+  readonly skip: string
+  readonly yes: string
+  readonly no: string
+  /** Before the answer's values, on the line an answered question leaves. */
+  readonly answered: string
+  readonly declined: string
+  /** Before the name of the MCP server asking, above its question. */
+  readonly askedBy: string
+  /** The line a question the server no longer holds gives way to. */
+  readonly closed: string
+}
+
+/**
+ * Where a tool the agent called stands. `closed`: it was held for a decision
+ * the server no longer waits for — decided elsewhere, or expired.
+ */
+export type ChatToolState = 'running' | 'done' | 'failed' | 'denied' | 'pending-approval' | 'closed'
+
+/** One tool call, drawn as a line in the answer. */
+export interface ChatToolLine {
+  readonly id: string
+  readonly name: string
+  readonly state: ChatToolState
+  /** Set while the call waits for the reader to approve or deny it. */
+  readonly approvalId?: string
+}
+
+/**
+ * A file picked in the composer, drawn as an `attachment` chip in its state.
+ *
+ * Without an `attachments` block the chip stays `idle`: the file is shown with
+ * the turn and never leaves the browser. With one, the file is uploaded as soon
+ * as it is picked (`uploading`), then `done` with the id the server gave it, or
+ * `error` with the reason it was refused; only a `done` file is sent.
+ */
+export interface ChatAttachment {
+  readonly name: string
+  readonly size: number
+  /** Identity in the composer, while the upload is in flight. */
+  readonly localId?: string
+  readonly state?: 'idle' | 'uploading' | 'done' | 'error'
+  /** The stored file's id, once `done`. */
+  readonly attachmentId?: string
+  /** The type the server read from the content, once `done`. */
+  readonly mimeType?: string
+  /** Why the upload was refused, once `error`. */
+  readonly error?: string
+}
+
+/**
+ * Possible runtime states of the chat surface: `sending` until the server
+ * answers, `streaming` while the answer arrives (Stop replaces Send).
+ */
+export type ChatStatus = 'idle' | 'sending' | 'streaming' | 'error'
 
 /** A persisted conversation turn returned by `GET /api/ai/conversations/:id`. */
 export interface ConversationMessageDto {
+  readonly id?: string
   readonly role: string
   readonly content: string
+  readonly html?: string
+  readonly siblings?: readonly string[]
+  readonly elicitation?: { readonly message: string; readonly server?: string }
 }
 
 /** The `voiceInput` settings forwarded by the renderer. */

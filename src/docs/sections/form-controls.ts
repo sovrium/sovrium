@@ -35,7 +35,7 @@ export const section = defineSection({
       slug: 'form-controls',
       title: 'Text & Choice Controls',
       description:
-        'The eleven text and choice inputs — input, input-group, textarea, rich-text-editor, code-editor, select, checkbox, radio-group, switch, toggle and toggle-group — plus the field wrapper that labels any of them.',
+        'The fourteen text and choice inputs — input, input-otp, input-group, textarea, rich-text-editor, code-editor, select, combobox, native-select, checkbox, radio-group, switch, toggle and toggle-group — plus the field wrapper that labels any of them.',
       keywords: ['sovrium', 'form controls', 'input', 'inputType', 'input-group', 'prefix'],
       order: 3420,
       sidebarLabel: 'Text & Choice Controls',
@@ -47,6 +47,8 @@ export const section = defineSection({
         componentType('rich-text-editor'),
         componentType('code-editor'),
         componentType('select'),
+        componentType('combobox'),
+        componentType('native-select'),
         componentType('checkbox'),
         componentType('radio-group'),
         componentType('switch'),

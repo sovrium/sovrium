@@ -28,16 +28,29 @@ type SsrSelectOption = { readonly value: string; readonly label: string }
  */
 export function renderSsrSelectOptions(
   options: unknown,
-  placeholder: string | undefined
+  placeholder: string | undefined,
+  optionClassName?: string
 ): ReactElement[] {
   const items = Array.isArray(options) ? (options as readonly SsrSelectOption[]) : []
+  // shadcn/ui's `NativeSelectOption` names its slot; the class is the caller's.
+  const slot = optionClassName === undefined ? {} : { 'data-slot': 'native-select-option' }
   if (items.length === 0) {
-    return [<option key="placeholder">{placeholder ?? 'Loading...'}</option>]
+    return [
+      <option
+        key="placeholder"
+        className={optionClassName}
+        {...slot}
+      >
+        {placeholder ?? 'Loading...'}
+      </option>,
+    ]
   }
   return items.map((option) => (
     <option
       key={option.value}
       value={option.value}
+      className={optionClassName}
+      {...slot}
     >
       {option.label}
     </option>

@@ -38,6 +38,7 @@
 // also refuses one the operator does not declare, with a 404 rather than an
 // empty card.
 
+import { designPageHeader } from '../../components/page-header'
 import { withShell } from '../../components/shell'
 import { DESIGN_GUIDANCE_ENDPOINT, DESIGN_USAGE_ENDPOINT } from '../../system-sources'
 import { SCHEME_DEEP_LINK_SCRIPT, designSystemBreadcrumb } from './chrome'
@@ -287,7 +288,7 @@ const routeChips = (): PageComponent =>
             element: 'span',
             props: {
               className:
-                'border-border bg-background-subtle text-foreground-muted rounded border px-1.5 py-0.5 font-mono text-[11px]',
+                'border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]',
               'data-design-usage-route': '$record.route',
             },
             content: '$record.route',
@@ -419,7 +420,7 @@ const stackedFrame = (label: string, width: number): PageComponent =>
           {
             type: 'text',
             element: 'span',
-            props: { className: 'text-foreground-muted font-mono text-[11px]' },
+            props: { className: 'text-muted-foreground font-mono text-[11px]' },
             content: String(width),
           },
         ],
@@ -625,8 +626,7 @@ const drawnCard = (): PageComponent =>
     element: 'article',
     props: {
       ...cardRootProps,
-      className:
-        'border-border bg-background-raised flex flex-col overflow-hidden rounded-lg border',
+      className: 'border-border bg-card flex flex-col overflow-hidden rounded-lg border',
     },
     visibility: { record: { field: 'heavy', eq: false } },
     children: [
@@ -658,7 +658,7 @@ const collapsedCard = (): PageComponent =>
     props: {
       ...cardRootProps,
       className:
-        'border-border bg-background-raised flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-lg border px-4 py-3',
+        'border-border bg-card flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-lg border px-4 py-3',
     },
     visibility: { record: { field: 'heavy', eq: true } },
     children: [
@@ -693,7 +693,7 @@ const collapsedCard = (): PageComponent =>
         type: 'link',
         props: {
           href: `/design-system/${SLUG}/$record.name`,
-          className: 'text-foreground hover:text-foreground-muted ml-auto text-[11px] font-medium',
+          className: 'text-foreground hover:text-muted-foreground ml-auto text-[11px] font-medium',
         },
         content: 'Expand →',
       },
@@ -771,20 +771,7 @@ const scoped = (children: readonly PageComponent[]): PageComponent =>
  * `meta.description` word for word, on a page whose first card already shows
  * what a reusable template is.
  */
-const heading = (title: string): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: { className: 'flex flex-col gap-2' },
-    children: [
-      {
-        type: 'text',
-        element: 'h1',
-        props: { className: 'text-3xl font-semibold tracking-tight', ...kitType('text') },
-        content: title,
-      },
-    ],
-  }) as PageComponent
+const heading = (title: string): PageComponent => designPageHeader(title)
 
 // ---------------------------------------------------------------------------
 // The index

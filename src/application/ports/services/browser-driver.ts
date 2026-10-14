@@ -127,7 +127,15 @@ export interface BrowserSession {
   /** `full` on Chrome (every request guarded); `navigation-only` on WebKit. */
   readonly guard: 'full' | 'navigation-only'
   readonly goto: (url: string, timeoutMs: number) => Effect.Effect<void, BrowserFailure>
-  readonly click: (target: BrowserLocator, timeoutMs: number) => Effect.Effect<void, BrowserFailure>
+  /**
+   * Click the element. `onFound` runs once the element is located, just before
+   * the click is dispatched: an element that never appears never runs it.
+   */
+  readonly click: <R = never>(
+    target: BrowserLocator,
+    timeoutMs: number,
+    onFound?: Effect.Effect<void, never, R>
+  ) => Effect.Effect<void, BrowserFailure, R>
   /** Click into the field, clear it, type `text`. `sensitive` masks the field in later screenshots. */
   readonly fill: (input: {
     readonly target: BrowserLocator

@@ -17,7 +17,7 @@ import { FormFieldGroupSchema } from './field-groups'
 import { FormFieldSchema } from './fields'
 import { FormNameSchema } from './name'
 import { FormOnErrorSchema } from './on-error'
-import { FormOnSuccessSchema } from './on-success'
+import { FormOnSuccessSchema, formOnSuccessConflict } from './on-success'
 import { FormPathSchema } from './path'
 import { PrefillSchema } from './prefill'
 import { FormSaveAndResumeSchema } from './save-and-resume'
@@ -176,6 +176,12 @@ export const FormSchema = Schema.Struct({
         return `Form "${form.name}" is public but references $user.* values (${violations.join(', ')}). $user references require access.require to be "authenticated" or a role list.`
       }
       return true
+    })
+  ),
+  Schema.check(
+    Schema.makeFilter((form) => {
+      const conflict = form.onSuccess === undefined ? true : formOnSuccessConflict(form.onSuccess)
+      return conflict === true ? true : `Form "${form.name}": ${conflict}`
     })
   ),
   Schema.annotate({

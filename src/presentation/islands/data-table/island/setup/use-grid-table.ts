@@ -8,9 +8,11 @@
 import { useMemo } from 'react'
 import { useRealtimeReconciliation } from '../../../hooks/use-realtime-reconciliation'
 import { useCursorFeedView } from '../../../hooks/use-system-cursor-pages'
+import { applyFacetFilters } from '../../faceted-filter/facet-filters'
+import { useContinuationOverlap } from '../../pagination/use-continuation-overlap'
+import { createRowActionHandler } from '../../row-actions/row-action-handler'
 import { buildColumns } from '../columns'
 import { applyClientFilters, resolveClientSorted } from '../island-setup-helpers'
-import { createRowActionHandler } from '../row-actions'
 import { useDataTableInstance } from '../use-table'
 import { cappedRows, cappedTotal } from './row-cap'
 import type { SetupContext } from './setup-params'
@@ -36,13 +38,15 @@ export type GridInstance = ReturnType<typeof useGridInstance>
  * server pages in whole page sizes, so the last page under the cap is cut here.
  */
 export function useGridRecords(ctx: SetupContext, layout: EffectiveLayout, records: RecordsQuery) {
-  const cursorFeed = useCursorFeedView(
+  const page = useContinuationOverlap(
     records.cursorPages,
     records.query.data,
-    records.query.isPlaceholderData
+    records.query.isPlaceholderData,
+    records.loadMore
   )
+  const cursorFeed = useCursorFeedView(records.cursorPages, page, records.query.isPlaceholderData)
   const { activeFilters } = ctx.ui
-  const { filterConjunction } = ctx.ui
+  const { filterConjunction, facetSelections } = ctx.ui
   // `fieldMeta` decides how an `equals` predicate compares — numerically on a
   // number column, as a string everywhere else. Without it a filter saved on a
   // text column coerces its value to `NaN` and matches nothing.
@@ -59,9 +63,10 @@ export function useGridRecords(ctx: SetupContext, layout: EffectiveLayout, recor
   const offset = records.loadMore || cursorFeed.cursorPaged ? 0 : pageIndex * pageSize
   const rows = useMemo(() => {
     const held = cappedRows(cursorFeed.records, limit, offset)
-    return filteredOnServer
+    const built = filteredOnServer
       ? held
       : applyClientFilters(held, activeFilters, filterConjunction, fieldMeta)
+    return applyFacetFilters(built, facetSelections)
   }, [
     cursorFeed.records,
     limit,
@@ -70,9 +75,13 @@ export function useGridRecords(ctx: SetupContext, layout: EffectiveLayout, recor
     filterConjunction,
     fieldMeta,
     filteredOnServer,
+    facetSelections,
   ])
 
-  return { cursorFeed, rows, totalRecords: cappedTotal(cursorFeed.total, limit) }
+  // A load-more or infinite grid holds an accumulation, but its server still
+  // counts the whole view: that count is the total its status announces.
+  const total = records.loadMore ? (page?.total ?? cursorFeed.total) : cursorFeed.total
+  return { cursorFeed, rows, totalRecords: cappedTotal(total, limit) }
 }
 
 /**
@@ -102,6 +111,7 @@ export function buildGridColumns(
     tableFields: params.tableFields,
     saveLabel: params.saveLabel,
     cancelLabel: params.cancelLabel,
+    rowActionsDisplay: params.rowActionsDisplay,
     onActionClick: executeRowAction,
     fieldMeta: params.fieldMeta,
     showRowNumbers: params.showRowNumbers === true,

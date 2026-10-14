@@ -166,13 +166,13 @@ function GroupHeaderRow({
   const handleToggle = onToggle ? () => onToggle(pathKey) : undefined
   return (
     <tr
+      data-slot="table-row"
       data-testid="group-header"
       data-group-header="true"
       data-group={node.value}
       data-group-value={node.rawValue}
-      // A group's value stops being a key at depth 2 — two regions can each hold
-      // a `Prospect`. The path is what makes every group addressable; `data-group`
-      // stays as it is so every one-level selector keeps working.
+      // At depth 2 a value is no longer a key (two regions can each hold a `Prospect`):
+      // the path addresses every group, and `data-group` keeps one-level selectors.
       data-group-path={pathKey}
       data-group-level={String(node.level)}
       role="row"
@@ -180,6 +180,7 @@ function GroupHeaderRow({
       className={`group-header ${computeTableGroupRowClasses()}`}
     >
       <td
+        data-slot="table-cell"
         colSpan={summary ? summary.layout.leadSpan : shared.allColumns.length}
         className={`${computeTableGroupCellClasses()} ${borderClass}`}
         {...(handleToggle && { onClick: handleToggle })}
@@ -240,6 +241,7 @@ function GroupNodes({
         return (
           <Fragment key={pathKey}>
             <tbody
+              data-slot="table-body"
               data-group={node.value}
               data-group-path={pathKey}
               data-group-level={String(node.level)}

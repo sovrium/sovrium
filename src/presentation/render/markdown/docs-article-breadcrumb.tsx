@@ -96,7 +96,7 @@ const buildLeadingCrumbs = (
 
   const sectionEntry =
     sectionLabel !== undefined && !sectionRedundant
-      ? [{ key: 'section', node: <span className="text-foreground-muted">{sectionLabel}</span> }]
+      ? [{ key: 'section', node: <span className="text-muted-foreground">{sectionLabel}</span> }]
       : []
 
   return [...rootCrumbEntry, ...sectionEntry]

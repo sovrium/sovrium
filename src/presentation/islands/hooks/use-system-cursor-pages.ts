@@ -78,6 +78,12 @@ export interface SystemCursorPages {
    * grid can never continue from a cursor the server did not hand it.
    */
   readonly loadMore: (nextCursor: string, pageRecords: readonly TableRecord[]) => void
+  /**
+   * Ask for the current page again, `by` rows further on, keeping every page
+   * already carried. Only an OFFSET cursor can step: a load-more grid uses it
+   * when the page it asked for opens on rows it already holds.
+   */
+  readonly shift: (by: number) => void
 }
 
 /**
@@ -89,6 +95,10 @@ export interface SystemCursorPages {
 export function useSystemCursorPages(feedIdentity: unknown): SystemCursorPages {
   const feedKey = feedIdentity ? JSON.stringify(feedIdentity) : ''
   const [state, setState] = useState<CursorPageState>(NO_PAGES)
+  // A feed that changes forgets its pages for good, so returning to an earlier
+  // question (a search cleared) starts that feed again from its first page
+  // rather than resurrecting the pages it held before.
+  if (state.feedKey !== '' && state.feedKey !== feedKey) setState(NO_PAGES)
   const active = state.feedKey === feedKey ? state : NO_PAGES
 
   const loadMore = useCallback(
@@ -105,7 +115,16 @@ export function useSystemCursorPages(feedIdentity: unknown): SystemCursorPages {
     [feedKey]
   )
 
-  return { cursor: active.cursor, carried: active.carried, loadMore }
+  const shift = useCallback(
+    (by: number) => {
+      setState((prev) =>
+        prev.feedKey === feedKey ? { ...prev, cursor: String(Number(prev.cursor ?? 0) + by) } : prev
+      )
+    },
+    [feedKey]
+  )
+
+  return { cursor: active.cursor, carried: active.carried, loadMore, shift }
 }
 
 /**

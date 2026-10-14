@@ -7,35 +7,38 @@
 
 /**
  * Single-field uniqueness on a table that already exists, read from the LIVE
- * catalog rather than from the previous config.
+ * catalog rather than from the previous config (see `live-unique-shape.ts`).
  *
  * Three consumers, one reading:
  *
- * - **The SQLite rebuild.** A single-field `UNIQUE` lives in the stored
- *   `CREATE TABLE` text, which `ALTER TABLE … ADD COLUMN` never rewrites. A
- *   unique field added to a populated table, or `unique` turned on or off in an
- *   edit that also adds a field, therefore left the table as it was. The table
- *   is rebuilt whenever the stored set of single-field unique columns is not the
- *   declared one, which also repairs a database an earlier version left without
- *   the constraint.
+ * - **The SQLite rebuild.** A table-level `UNIQUE` lives in the stored
+ *   `CREATE TABLE` text, which no `ALTER TABLE` rewrites. A table still holding
+ *   one over a field a live-rows index now holds — a database an earlier version
+ *   created — is rebuilt without it, as is a table whose unique primary key is
+ *   not enforced.
  * - **The duplicate pre-flight**, on both engines, before any DDL: a field
- *   becoming unique over rows that share a value is refused with the value
+ *   becoming unique over LIVE rows that share a value is refused with the value
  *   named, instead of failing on the driver's own message, which names none.
- * - **The dry run**, which names each constraint a field would gain and
- *   reports the same refusal.
+ *   Duplicates sitting in the trash do not count: the index ignores them.
+ * - **The dry run**, which names each index a field would gain and reports the
+ *   same refusal.
  *
- * "Becoming unique" means declared unique and not unique in the live catalog,
- * so an applied change plans nothing and probes nothing.
+ * "Becoming unique" means declared unique and not held in the declared shape by
+ * the live catalog, so an applied change plans nothing and probes nothing.
  */
 
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { logDebug } from '@/infrastructure/logging/logger'
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
-import { isBtreeUniqueField, tableConstraintPrefix } from '../sql/sql-key-constraints'
-import { sqliteCheckClausesCurrent, sqliteCheckClausesStale } from './sqlite-check-drift'
+import {
+  isBtreeUniqueField,
+  LIVE_ROWS_PREDICATE,
+  liveUniqueIndexName,
+} from '../sql/sql-key-constraints'
+import { readUniqueShapeDrift } from './live-unique-shape'
+import { sqliteCheckClausesStale } from './sqlite-check-drift'
 import type { Table } from '@/domain/models/app/tables'
 
 type Field = Table['fields'][number]
@@ -45,87 +48,6 @@ const MAX_LISTED = 3
 
 /** How many characters of one duplicated value a refusal shows. */
 const MAX_VALUE_LENGTH = 80
-
-/**
- * The single-column unique indexes of a SQLite table, from the `pragma_index_list`
- * row `il` of the table `il` was listed for: `origin = 'u'` is a `UNIQUE`
- * constraint (never a `CREATE INDEX`), `'pk'` the primary key, and the column
- * count keeps composite ones out.
- *
- * The primary key is read because SQLite FOLDS a `UNIQUE` constraint over the
- * primary-key column into the primary key's own index: a field that is both the
- * single-field key and declared unique never shows a `'u'` index, and without
- * the `'pk'` row it read as unenforced, so the table was rebuilt on every boot.
- */
-const SQLITE_SINGLE_COLUMN_INDEX = `il.origin IN ('u', 'pk') AND (SELECT COUNT(*) FROM pragma_index_info(il.name)) = 1`
-
-/** The single-column unique indexes of one SQLite table. */
-const SQLITE_UNIQUE_COLUMNS = `SELECT ii.name AS col, il.origin AS origin FROM pragma_index_list($1) AS il JOIN pragma_index_info(il.name) AS ii WHERE ${SQLITE_SINGLE_COLUMN_INDEX}`
-
-/** The single-field UNIQUE constraints of one PostgreSQL table in the current schema. */
-const POSTGRES_UNIQUE_COLUMNS = `SELECT a.attname AS col FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid JOIN pg_namespace n ON n.oid = t.relnamespace JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = c.conkey[1] WHERE c.contype = 'u' AND array_length(c.conkey, 1) = 1 AND t.relname = $1 AND n.nspname = current_schema()`
-
-/** One single-column unique index, as the catalog lists it. */
-interface LiveUniqueIndex {
-  readonly col: unknown
-  /** SQLite's `pragma_index_list.origin`; absent on PostgreSQL, which reads constraints only. */
-  readonly origin?: unknown
-}
-
-/**
- * The columns whose values the live table already holds unique, in the terms
- * the declared set is compared in: a UNIQUE constraint, or the single-column
- * primary key of a field also declared unique (see
- * {@link SQLITE_SINGLE_COLUMN_INDEX}). A primary key the config does not
- * declare unique is left out, or every keyed table would read as drifted.
- *
- * @public
- */
-export const liveUniqueColumnsOf = (
-  table: Table,
-  indexes: readonly LiveUniqueIndex[]
-): ReadonlySet<string> => {
-  const declared = new Set(table.fields.filter(isBtreeUniqueField).map((field) => field.name))
-  return new Set(
-    indexes
-      .map((index) => ({ col: String(index.col), primaryKey: index.origin === 'pk' }))
-      .filter((index) => !index.primaryKey || declared.has(index.col))
-      .map((index) => index.col)
-  )
-}
-
-/** The columns of `physicalTableName` that `table`'s live catalog holds unique today. */
-const readLiveUniqueColumns = (
-  tx: TransactionLike,
-  table: Table,
-  physicalTableName: string
-): Effect.Effect<ReadonlySet<string>, SQLExecutionError> =>
-  executeSQL(tx, isSqliteRuntime() ? SQLITE_UNIQUE_COLUMNS : POSTGRES_UNIQUE_COLUMNS, [
-    physicalTableName,
-  ]).pipe(Effect.map((rows) => liveUniqueColumnsOf(table, rows as readonly LiveUniqueIndex[])))
-
-/**
- * The fields declared unique that the live table does not enforce yet — the
- * same rule (`isBtreeUniqueField`) the CREATE and the PostgreSQL sync apply.
- *
- * @public
- */
-export const fieldsBecomingUnique = (
-  table: Table,
-  liveUnique: ReadonlySet<string>
-): readonly Field[] =>
-  table.fields.filter((field) => isBtreeUniqueField(field) && !liveUnique.has(field.name))
-
-/**
- * Whether the live single-field unique columns are other than the declared
- * ones, in either direction.
- *
- * @public
- */
-export const uniqueColumnsDiffer = (table: Table, liveUnique: ReadonlySet<string>): boolean => {
-  const declared = new Set(table.fields.filter(isBtreeUniqueField).map((field) => field.name))
-  return declared.size !== liveUnique.size || [...declared].some((name) => !liveUnique.has(name))
-}
 
 /**
  * The value an ADDED field's default gives every existing row, or `undefined`
@@ -196,7 +118,7 @@ export const formatSharedDefaultRefusal = (params: {
     'Nothing has been changed.',
   ].join('\n')
 
-/** One `GROUP BY` probe over the non-NULL values of `column`. */
+/** One `GROUP BY` probe over the non-NULL values of `column` among live rows. */
 const probeDuplicates = (
   query: (sql: string) => Effect.Effect<readonly unknown[], SQLExecutionError>,
   tableName: string,
@@ -205,7 +127,7 @@ const probeDuplicates = (
 ): Effect.Effect<readonly string[], SQLExecutionError> => {
   const quoted = quoteSqlIdentifier(column)
   return query(
-    `SELECT ${quoted} AS dup_value, COUNT(*) AS dup_rows, SUM(COUNT(*)) OVER () AS dup_total, COUNT(*) OVER () AS dup_values FROM ${quoteSqlIdentifier(physicalTableName)} WHERE ${quoted} IS NOT NULL GROUP BY ${quoted} HAVING COUNT(*) > 1 ORDER BY COUNT(*) DESC LIMIT ${MAX_LISTED}`
+    `SELECT ${quoted} AS dup_value, COUNT(*) AS dup_rows, SUM(COUNT(*)) OVER () AS dup_total, COUNT(*) OVER () AS dup_values FROM ${quoteSqlIdentifier(physicalTableName)} WHERE ${quoted} IS NOT NULL AND ${LIVE_ROWS_PREDICATE} GROUP BY ${quoted} HAVING COUNT(*) > 1 ORDER BY COUNT(*) DESC LIMIT ${MAX_LISTED}`
   ).pipe(
     Effect.map((raw) => {
       const rows = raw as readonly Record<string, unknown>[]
@@ -237,7 +159,9 @@ const probeSharedDefaults = (
 ): Effect.Effect<readonly string[], SQLExecutionError> =>
   added.length === 0
     ? Effect.succeed([])
-    : query(`SELECT COUNT(*) AS n FROM ${quoteSqlIdentifier(physicalTableName)}`).pipe(
+    : query(
+        `SELECT COUNT(*) AS n FROM ${quoteSqlIdentifier(physicalTableName)} WHERE ${LIVE_ROWS_PREDICATE}`
+      ).pipe(
         Effect.map((rows) => {
           const rowCount = Number((rows[0] as { readonly n?: unknown } | undefined)?.n ?? 0)
           return rowCount < 2
@@ -268,7 +192,9 @@ export const planUniqueChanges = (params: {
   Effect.gen(function* () {
     const { tx, table, source, existingColumns } = params
     if (!table.fields.some(isBtreeUniqueField)) return { columns: [], refusals: [] }
-    const becoming = fieldsBecomingUnique(table, yield* readLiveUniqueColumns(tx, table, source))
+    const drift = yield* readUniqueShapeDrift(tx, table, source)
+    const missing = new Set([...drift.missing, ...drift.missingKeyed])
+    const becoming = table.fields.filter((field) => missing.has(field.name))
     const query = (sql: string) => executeSQL(tx, sql)
     const existing = becoming.filter((field) => existingColumns.has(field.name))
     const duplicates = yield* Effect.forEach(existing, (field) =>
@@ -304,28 +230,25 @@ export const guardUniqueDuplicates = (params: {
   })
 
 /**
- * The plan lines for the columns becoming unique: the statement PostgreSQL's
- * constraint sync runs, or, on SQLite, the rebuild that writes the constraint
- * into the table definition.
+ * The plan lines for the columns becoming unique: the live-rows index the index
+ * sync creates, on both engines.
  *
  * @public
  */
 export const uniquePlanLines = (params: {
-  readonly sqlite: boolean
-  readonly tableName: string
   readonly physicalTableName: string
   readonly columns: readonly string[]
 }): readonly string[] =>
-  params.columns.map((column) =>
-    params.sqlite
-      ? `rebuild table ${params.physicalTableName} to enforce UNIQUE (${quoteSqlIdentifier(column)})`
-      : `ALTER TABLE ${params.physicalTableName} ADD CONSTRAINT ${tableConstraintPrefix(params.tableName)}_${column}_key UNIQUE (${quoteSqlIdentifier(column)})`
+  params.columns.map(
+    (column) =>
+      `CREATE UNIQUE INDEX ${liveUniqueIndexName(params.physicalTableName, column)} ON ${params.physicalTableName} (${quoteSqlIdentifier(column)}) WHERE ${LIVE_ROWS_PREDICATE}`
   )
 
 /**
  * Whether an existing SQLite table must be rebuilt for its definition to hold:
- * its CHECK clauses or its single-field unique columns differ from the
- * declared ones. Always `false` on PostgreSQL, which syncs both in place.
+ * its CHECK clauses differ from the declared ones, it still holds a table-level
+ * `UNIQUE` a live-rows index replaces, or its unique primary key is not
+ * enforced. Always `false` on PostgreSQL, which syncs both in place.
  */
 export const sqliteConstraintsStale = (
   tx: TransactionLike,
@@ -334,41 +257,6 @@ export const sqliteConstraintsStale = (
   Effect.gen(function* () {
     if (!isSqliteRuntime()) return false
     if (yield* sqliteCheckClausesStale(tx, table)) return true
-    const live = yield* readLiveUniqueColumns(tx, table, getPhysicalTableName(table))
-    return uniqueColumnsDiffer(table, live)
+    const drift = yield* readUniqueShapeDrift(tx, table)
+    return drift.legacy.length > 0 || drift.missingKeyed.length > 0
   })
-
-/**
- * The boot fast path's probe: whether every SQLite table enforces the CHECK
- * clauses and the single-field unique columns its definition declares. A table
- * the database does not hold yet is not stale.
- *
- * Every boot of a checksum-matched SQLite app runs it, so it costs one catalog
- * query for the whole database, whatever the table count (about 4 µs per
- * table, measured at 1,000 tables), grouped once rather than filtered per table.
- */
-export const sqliteConstraintsCurrent = async (
-  tx: TransactionLike,
-  tables: readonly Table[]
-): Promise<boolean> => {
-  if (!(await sqliteCheckClausesCurrent((sql) => tx.unsafe(sql), tables))) return false
-  const rows = (await tx.unsafe(
-    `SELECT m.name AS tbl, ii.name AS col, il.origin AS origin FROM sqlite_master AS m JOIN pragma_index_list(m.name) AS il JOIN pragma_index_info(il.name) AS ii WHERE m.type = 'table' AND ${SQLITE_SINGLE_COLUMN_INDEX}`
-  )) as readonly (LiveUniqueIndex & { readonly tbl: string })[]
-  const present = (await tx.unsafe(
-    `SELECT name FROM sqlite_master WHERE type = 'table'`
-  )) as readonly { readonly name: string }[]
-  const tablesPresent = new Set(present.map((row) => row.name))
-  const byTable = Map.groupBy(rows, (row) => row.tbl)
-  const stale = tables.find((table) => {
-    const physical = getPhysicalTableName(table)
-    if (!tablesPresent.has(physical)) return false
-    return uniqueColumnsDiffer(table, liveUniqueColumnsOf(table, byTable.get(physical) ?? []))
-  })
-  if (stale === undefined) return true
-  logDebug(
-    '[schema] checksum matches but a table does not enforce the unique fields it declares — full migration',
-    { table: stale.name }
-  )
-  return false
-}

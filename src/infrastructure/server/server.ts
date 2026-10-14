@@ -343,7 +343,7 @@ export const createServer = (
 
     if (!config.silent) {
       yield* writeSidecarFiles({ port: server.port, socketPath }, configHash, configPath)
-      registerLockFileCleanup(domain.honoApp, configPath)
+      registerLockFileCleanup()
       // A `--watch` reload skips the banner and nothing else. Reprinting the
       // version header, the phase list and `Server ready in …` on every save
       // buries the one fact the operator is waiting for — that the edit

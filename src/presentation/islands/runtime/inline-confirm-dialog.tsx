@@ -19,23 +19,15 @@
  * markup for non-React buttons.
  */
 
-import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState, type ReactElement } from 'react'
-import {
-  substituteRecordVars,
-  withRecordText,
-} from '@/domain/models/app/pages/substitute-record-vars'
-import { restoreInertTemplateValue } from '@/presentation/design/session-template'
-import { nullable, READ_ONCE_QUERY_OPTIONS } from './query-client'
-import { fetchSessionUser, resolveSessionTemplate } from './session-resolver'
+import { useState, type ReactElement } from 'react'
+import { gateTexts, useResolvedMatchValue } from './confirm-gate-texts'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
-const CONTAINER_CLASS =
-  'border-border bg-background-raised flex items-center gap-2 rounded-md border p-2'
+const CONTAINER_CLASS = 'border-border bg-card flex items-center gap-2 rounded-md border p-2'
 const CONFIRM_BUTTON_CLASS =
   'bg-error-bg text-error-fg rounded-md px-2 py-1 text-sm font-medium transition-opacity hover:opacity-90'
 const CANCEL_BUTTON_CLASS =
-  'border-border text-foreground-subtle hover:bg-background-subtle rounded-md border px-2 py-1 text-sm transition-colors'
+  'border-border text-foreground-subtle hover:bg-muted rounded-md border px-2 py-1 text-sm transition-colors'
 
 export interface InlineConfirmDialogProps {
   /** Confirmation prompt — the alertdialog's accessible name AND visible text. */
@@ -112,12 +104,11 @@ export function InlineConfirmDialog({
 // Object-form confirm gate (separate title / dialog role / type-to-confirm input)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const OBJECT_CONTAINER_CLASS =
-  'border-border bg-background-raised flex flex-col gap-2 rounded-md border p-3'
+const OBJECT_CONTAINER_CLASS = 'border-border bg-card flex flex-col gap-2 rounded-md border p-3'
 const OBJECT_CONFIRM_BUTTON_CLASS =
   'bg-error-bg text-error-fg rounded-md px-3 py-1 text-md font-medium transition-opacity hover:opacity-90 disabled:opacity-50'
 const OBJECT_CANCEL_BUTTON_CLASS =
-  'border-border text-foreground-subtle hover:bg-background-subtle rounded-md border px-3 py-1 text-md transition-colors'
+  'border-border text-foreground-subtle hover:bg-muted rounded-md border px-3 py-1 text-md transition-colors'
 const OBJECT_INPUT_CLASS = 'border-border rounded border px-2 py-1 text-md'
 
 export interface ObjectConfirmDialogProps {
@@ -130,8 +121,12 @@ export interface ObjectConfirmDialogProps {
   readonly confirmDataActionType?: string
   /** Row / detail record for `$record.<field>` resolution in `input.matchValue`. */
   readonly record?: Record<string, unknown>
-  /** Fired when the user confirms. */
-  readonly onConfirm: () => void
+  /**
+   * Fired when the user confirms, with the confirm button pressed — the gate
+   * unmounts before the action answers, so a host that closes from what was
+   * pressed reads its place now.
+   */
+  readonly onConfirm: (pressed: Element) => void
   /** Fired when the user cancels. */
   readonly onCancel: () => void
   /** Confirm-button label fallback when the config omits `confirmLabel`. */
@@ -142,79 +137,6 @@ export interface ObjectConfirmDialogProps {
    * catalog value; see {@link InlineConfirmDialogProps.cancelLabel}.
    */
   readonly fallbackCancelLabel?: string
-}
-
-/**
- * Resolve `$record.<field>` references in a `matchValue` against the row record,
- * through the one shared reader — an escaped `\$record.x` is the phrase itself.
- */
-function resolveRecordTemplate(
-  template: string,
-  record: Readonly<Record<string, unknown>> | undefined
-): string {
-  return record === undefined ? template : substituteRecordVars(template, record)
-}
-
-/**
- * Resolve a type-to-confirm `matchValue` against the caller's own session (for a
- * `$session.<field>` token) and the row record (`$record.<field>`). A non-session
- * matchValue resolves synchronously; a `$session.` token resolves once the
- * session fetch returns. `undefined` means "not yet resolved / no gate".
- */
-function useResolvedMatchValue(
-  rawMatch: string | undefined,
-  record: Record<string, unknown> | undefined
-): string | undefined {
-  const [matchValue, setMatchValue] = useState<string | undefined>(() =>
-    rawMatch !== undefined && !rawMatch.includes('$session.')
-      ? restoreInertTemplateValue(resolveRecordTemplate(rawMatch, record))
-      : undefined
-  )
-  // Only a `$session.`-bearing template needs the identity; everything else was
-  // already resolved in the initial state above and never asks.
-  const needsSession = rawMatch !== undefined && rawMatch.includes('$session.')
-  const { data: user } = useQuery({
-    queryKey: ['session-user'],
-    queryFn: nullable(fetchSessionUser),
-    enabled: needsSession,
-    ...READ_ONCE_QUERY_OPTIONS,
-  })
-
-  useEffect(() => {
-    if (!needsSession || user === undefined) return
-    // A value the server filled in is restored LAST, after every token resolved.
-    setMatchValue(
-      restoreInertTemplateValue(
-        resolveRecordTemplate(resolveSessionTemplate(rawMatch ?? '', user ?? undefined), record)
-      )
-    )
-  }, [needsSession, user, rawMatch, record])
-  return matchValue
-}
-
-/**
- * The words an object-form gate shows: its title and message with `$record.*`
- * filled from the row it was armed for, and its two button labels.
- *
- * The title and message are TEXT sites: a record that carries its formatted text
- * (a record drawer's, `withRecordTextFields`) prints it there, exactly as the
- * server prints the same value on a record page; `<field>.raw` keeps the stored
- * value. The type-to-confirm `matchValue` is a VALUE site and reads the record
- * as stored ({@link useResolvedMatchValue}).
- */
-function gateTexts(
-  config: ConfirmObject,
-  record: Record<string, unknown> | undefined,
-  fallbackConfirmLabel: string,
-  fallbackCancelLabel: string
-): { title: string; message: string; confirmLabel: string; cancelLabel: string } {
-  const text = record === undefined ? undefined : withRecordText(record)
-  return {
-    title: resolveRecordTemplate(config.title ?? config.message, text),
-    message: resolveRecordTemplate(config.message, text),
-    confirmLabel: config.confirmLabel ?? fallbackConfirmLabel,
-    cancelLabel: config.cancelLabel ?? fallbackCancelLabel,
-  }
 }
 
 /**
@@ -269,7 +191,7 @@ export function ObjectConfirmDialog({
           data-action-type={confirmDataActionType}
           disabled={confirmDisabled}
           className={OBJECT_CONFIRM_BUTTON_CLASS}
-          onClick={onConfirm}
+          onClick={(event) => onConfirm(event.currentTarget)}
         >
           {texts.confirmLabel}
         </button>

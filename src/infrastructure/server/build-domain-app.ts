@@ -16,6 +16,7 @@
  */
 
 import { Effect } from 'effect'
+import { loadAgentSkills } from '@/infrastructure/ai/skills/agent-skills-live'
 import {
   assetProjectDir,
   assetTemplateIssues,
@@ -51,6 +52,32 @@ export const buildHonoAppFromConfig = (
     ...(config.fetchSitemapRecords !== undefined
       ? { fetchSitemapRecords: config.fetchSitemapRecords }
       : {}),
+  })
+
+/**
+ * The skills the app's agents list, indexed once and checked before anything
+ * else is built: a listed directory with no `SKILL.md`, one that leaves the
+ * project, or a frontmatter without a `name` or `description` refuses the boot,
+ * naming each file. Paths resolve against the config's directory, or the
+ * working directory when the config is inline — the same anchor as the assets.
+ */
+const loadAgentSkillsOrRefuse = (config: ServerConfig) =>
+  Effect.gen(function* () {
+    const outcome = yield* Effect.tryPromise({
+      try: () => loadAgentSkills(config.app.agents, assetProjectDir(config.configPath)),
+      catch: (cause: unknown) =>
+        new ServerCreationError(
+          `Sovrium could not read its agent skills: ${formatRuntimeError(cause)}`
+        ),
+    })
+    if (!outcome.ok) {
+      return yield* Effect.fail(
+        new ServerCreationError(
+          `Sovrium could not load its agent skills:\n  ${outcome.issues.join('\n  ')}`
+        )
+      )
+    }
+    return outcome.store
   })
 
 /**
@@ -111,7 +138,8 @@ export const buildDomainRuntimeAndApp = (
         )
       )
     }
-    const runtime = createDomainRuntime(config.app, assets.store)
+    const skills = yield* loadAgentSkillsOrRefuse(config)
+    const runtime = createDomainRuntime(config.app, assets.store, skills)
     const context = yield* Effect.tryPromise({
       try: () => runtime.context(),
       catch: (cause: unknown) =>

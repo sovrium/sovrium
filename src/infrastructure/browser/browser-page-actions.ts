@@ -20,7 +20,7 @@ import type { BrowserLocator, BrowserUploadFile } from '@/application/ports/serv
  */
 
 /** Click at a point, bounded, then wait for what it started. */
-const clickAt = async (
+export const clickAt = async (
   state: PageState,
   point: { readonly x: number; readonly y: number },
   timeoutMs: number
@@ -71,11 +71,33 @@ export const clickElement = async (
   target: BrowserLocator,
   timeoutMs: number
 ): Promise<void> => {
-  const match = await findOne(state, target, { timeoutMs, uncovered: true })
-  await clickAt(state, match.point, timeoutMs)
+  const point = await findClickPoint(state, target, timeoutMs)
+  await clickAt(state, point, timeoutMs)
 }
 
-/** Click into a field, clear it, type `text`. The typed text is never logged or returned. */
+/** Where a click on `target` lands, once the element shows uncovered. */
+export const findClickPoint = async (
+  state: PageState,
+  target: BrowserLocator,
+  timeoutMs: number
+): Promise<{ readonly x: number; readonly y: number }> =>
+  (await findOne(state, target, { timeoutMs, uncovered: true })).point
+
+/** The input kinds a person fills by picking a value: typed digits would land in segments. */
+const PICKED_KINDS: ReadonlySet<string> = new Set([
+  'time',
+  'date',
+  'datetime-local',
+  'month',
+  'week',
+])
+
+/**
+ * Click into a field, clear it, then type `text` — or, on a date or time
+ * field, set it as picking a value does. The field is read back, and a field
+ * that does not hold `text` fails the step. The text is never logged,
+ * returned, or repeated in the error.
+ */
 export const fillField = async (
   state: PageState,
   input: {
@@ -91,7 +113,17 @@ export const fillField = async (
   })
   await withDeadline(state.view.click(match.point.x, match.point.y), input.timeoutMs, 'the click')
   await evaluate(state, pageCall('clearTarget', input.sensitive))
-  await withDeadline(state.view.type(input.text), input.timeoutMs, 'typing')
+  if (match.tag === 'INPUT' && PICKED_KINDS.has(match.type ?? '')) {
+    await evaluate(state, pageCall('assignValue', input.text))
+  } else {
+    await withDeadline(state.view.type(input.text), input.timeoutMs, 'typing')
+  }
+  if ((await evaluate<boolean>(state, pageCall('holdsValue', input.text))) === false) {
+    throw new StepError(
+      'step_failed',
+      `${describeLocator(input.target)} does not hold the value given after it was filled: the field may keep fewer characters, or reformat what is typed`
+    )
+  }
 }
 
 export const selectOption = async (

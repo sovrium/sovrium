@@ -157,9 +157,11 @@ export interface ActionRunContext {
    * `context.actions.<type>.<operator>(props)` call, an item a loop filled in,
    * a branch action its path resolved. Such props are FINAL: a handler uses
    * them as given and never renders them as a template again, so template
-   * text a caller sent stays text.
+   * text a caller sent stays text — except, with {@link handlerFills}, the props
+   * a handler fills itself, which a `path` or a `loop` kept as written.
    */
   readonly propsFinal?: true
+  readonly handlerFills?: true // see `RenderedActionProps.handlerFills`
   /**
    * A named template's variables (its declared defaults under the caller's
    * `vars`), read by the `{{$vars.name}}` references its authored body holds.
@@ -211,11 +213,8 @@ export interface ActionRunContext {
    * `mode: 'async'` fires the callee fire-and-forget and resolves
    * immediately with `{ result: {} }`. Rejects (→ the `automation:call`
    * step records a failure) when the target is missing, the inputSchema
-   * validation fails, or the depth/cycle guard trips.
-   *
-   * Built by `run-automation.ts` and threaded through every step's run
-   * context (analogous to `invokeTemplate` / `invokeNativeAction`).
-   * Optional so non-`automation` handlers need not opt in.
+   * validation fails, or the depth/cycle guard trips. Built by
+   * `run-automation.ts`, threaded like `invokeTemplate`; optional.
    */
   readonly invokeAutomation?: (input: {
     readonly name: string
@@ -263,6 +262,7 @@ export type NestedStepInvoker = (input: {
   readonly refusal?: string // why the props cannot be filled in safely: the step fails unrun
   readonly templateVars?: Readonly<Record<string, unknown>> // a named template's `$vars`, filled in
   readonly authored?: true // the props are as written, not final: the handler fills them in
+  readonly handlerFills?: true // the props are final but those the handler fills itself, kept as written
   readonly resume?: ContainerResume // a container the run resumes inside
   readonly loopScopes?: readonly LoopScope[] // the loops the action sits in, outermost first
 }) => Promise<{ readonly outcome: ActionOutcome; readonly step: ExecutedStep }>

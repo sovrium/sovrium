@@ -145,7 +145,7 @@ export function createAuthInstance(
   domainContext?: DomainContext
 ) {
   const hookContext: AuthHookContext = { appMeta, domainContext }
-  const handlers = createEmailHandlers(authConfig, appMeta?.name)
+  const handlers = createEmailHandlers(authConfig, appMeta?.name, undefined, appMeta?.languages)
   const emailAndPasswordConfig = buildEmailAndPasswordConfig(authConfig, handlers, hookContext)
 
   const baseURL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`

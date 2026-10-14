@@ -1,4 +1,5 @@
-# sovrium-library: block/contact-centered@0.30.0
+# sovrium-library: block/contact-centered@0.37.0
+# sovrium-library-params: consent=%5BConsent%20line%2C%20linked%20to%20the%20privacy%20policy%5D&form=contact&headline=Contact&subheadline=One%20line%20on%20who%20reads%20this.&submitLabel=Send%20message&successMessage=Message%20sent.%20We%20will%20reply%20soon.
 name: contact-centered
 type: container
 element: section
@@ -21,7 +22,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-lg text-pretty text-foreground-muted sm:text-xl
+              className: text-lg text-pretty text-muted-foreground sm:text-xl
             content: One line on who reads this.
       - type: form
         props:
@@ -54,5 +55,5 @@ children:
       - type: text
         element: p
         props:
-          className: text-sm text-foreground-subtle
+          className: text-sm text-muted-foreground
         content: '[Consent line, linked to the privacy policy]'

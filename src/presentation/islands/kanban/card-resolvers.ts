@@ -18,7 +18,7 @@ import type { KanbanCard } from '@/domain/models/app/pages/components/component-
  *
  * The two verbs a grid row takes: `navigate` follows the path with the card's
  * `$record.*` values (a `$param.*` token was already filled from the page
- * address at render), and `openDrawer` opens the named drawer on the card's
+ * address at render), and `openSheet` opens the named drawer on the card's
  * record — the drawer then names the record in the address (`?record=<id>`),
  * as it does for a grid row click. `table` is the board's bound table, which
  * the drawer needs to bind the record to its own table's forms alone.

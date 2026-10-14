@@ -20,7 +20,8 @@
  *
  * The two expansions resolve the same tokens in the same places — a copy's
  * `content`, its string children and its `data-*` props — against the same
- * scopes:
+ * scopes (the server adds the typed keys below, which the drawer receives
+ * already drawn as text):
  *
  *  - without `as`, `$record.<key>` reads the ELEMENT (the page record is out of
  *    reach inside the copy, exactly as in the drawer);
@@ -30,9 +31,16 @@
  *    repeat's element, else the page record — which is what lets a leg iterate
  *    its own `stops`.
  *
- * Every other prop keeps its tokens verbatim, as in the drawer. Widening that is
- * a per-destination escaping question (an `href` navigates, a `style` can name
- * a `url(`), not a loosened key filter.
+ * ─── THE TYPED KEYS A COPY ALSO RESOLVES, SERVER-SIDE ─────────────────────
+ *
+ * A copy's own sentences — `title`, `description`, `label` — resolve as TEXT,
+ * as its `content` does: an `item` row per step reads `$step.name` in its title.
+ * Its `href`, `src` and `alt`, on the node or in its props, take the stored
+ * value, exactly as `$record.` fills those props on a bound page — the same
+ * destination with the same rule, so a value is no more trusted inside a copy
+ * than outside one. Every other prop keeps its tokens verbatim. Widening that
+ * further is a per-destination escaping question (a `style` can name a `url(`),
+ * not a loosened key filter.
  *
  * ─── A VALUE IS TEXT, NEVER MARKUP (standing rule S2) ─────────────────────
  *
@@ -144,17 +152,36 @@ export function pageScopeReads(
   }
 }
 
-/** A copy's props: `data-*` strings resolve, every other prop is left as written. */
+/** The sentences a copy carries on its own node, resolved as text. */
+const TEXT_KEYS: ReadonlySet<string> = new Set(['title', 'description', 'label'])
+
+/** The addresses and the alternative text a copy carries, resolved to the stored value. */
+const ADDRESS_KEYS: ReadonlySet<string> = new Set(['href', 'src', 'alt'])
+
+/** A copy's props: `data-*` and address strings resolve, every other prop is left as written. */
 function propsInScope(props: Component['props'], scope: RecordScope): Component['props'] {
   if (props === undefined) return props
   return Object.fromEntries(
     Object.entries(props).map(([key, value]) => [
       key,
-      key.startsWith('data-') && typeof value === 'string'
+      (key.startsWith('data-') || ADDRESS_KEYS.has(key)) && typeof value === 'string'
         ? substituteScopedVars(value, scope.printable)
         : value,
     ])
   )
+}
+
+/** A copy's own typed keys: its sentences as text, its addresses as the stored value. */
+function typedKeysInScope(node: Component, scope: RecordScope): Partial<Component> {
+  const text = withScopesText(scope.printable)
+  return Object.fromEntries(
+    Object.entries(node).flatMap(([key, value]) => {
+      if (typeof value !== 'string') return []
+      if (TEXT_KEYS.has(key)) return [[key, substituteScopedVars(value, text)]]
+      if (ADDRESS_KEYS.has(key)) return [[key, substituteScopedVars(value, scope.printable)]]
+      return []
+    })
+  ) as Partial<Component>
 }
 
 /** One template node, resolved against one copy's scope. */
@@ -164,6 +191,7 @@ function nodeInScope(node: Component | string, scope: RecordScope): Component | 
   const resolved = substituteScopesInContent(node.content, scope.printable)
   const own: Component = {
     ...node,
+    ...typedKeysInScope(node, scope),
     props: withPlainTextPin(propsInScope(node.props, scope), resolved.forcePlainText),
     content: json ?? resolved.content,
   }

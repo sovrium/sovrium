@@ -6,238 +6,89 @@
  */
 
 /**
- * Prestyled-by-default class computer for the `toggle`, `toggle-group`, and
- * `switch` components.
- *
- * Schema authors who write the bare `{ type: 'toggle' }`, `{ type: 'switch' }`,
- * or `{ type: 'toggle-group', options: [...] }` get a complete, opinionated
- * pressable surface — rounded button, focus ring, primary-subtle pressed state,
- * smooth thumb animation on the switch — with zero theme-layer dependency.
- *
- * The recipe mirrors the buttons + inputs + selects slices (commits 02b2f35f3 +
- * 571ae53ce + 5527660bc): layout / spacing classes stay as raw Tailwind utilities;
- * only color / radius / shadow / motion / focus classes go through
- * {@link withVarFallback} so `app.design.*` overrides still win at the CSS cascade
- * layer (var lookups resolve `--sv-*` first, fall back to the inline OKLCH
- * literal).
- *
- * Base UI exposes interactive state via data attributes (`data-[pressed]`,
- * `data-[disabled]`, `data-[checked]`). Rather than branching on a `state` enum
- * at call time, the recipe bakes the data-attr Tailwind variants directly into
- * the returned class string so a single className covers every interactive state
- * the primitive can enter. The `variant` and `size` axes — schema-level fields
- * authors can set — remain parameters because they pick a different shape, not
- * a different runtime state.
- *
- * Helper file lives in `src/presentation/islands/` (alongside the islands that
- * consume it) because toggle/switch wiring runs inside the client island, not in
- * the server-side dispatcher — the layer-boundaries ESLint rule disallows
- * `ui/sections/` imports from `islands/`. Mirrors the location chosen for
- * `select-default-classes.ts`.
+ * Adapted from shadcn/ui toggle, toggle-group and switch (https://ui.shadcn.com), registry commit 30a58d4498f270af1c1e981a7d78a15cf5740841.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
  */
-
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
-import {
-  FOCUS_VISIBLE_RING,
-  MOTION_COLORS as MOTION,
-  RADIUS_MD,
-} from '../../design/shared-tokens-default-classes'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Shared building blocks
-// ──────────────────────────────────────────────────────────────────────────────
-
-type ToggleVariant = 'default' | 'outline'
-type ComponentSize = 'sm' | 'md' | 'lg'
-type SwitchState = 'default' | 'checked' | 'disabled'
-
-const DISABLED = 'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// TOGGLE (single pressable button)
-// ──────────────────────────────────────────────────────────────────────────────
-
-const TOGGLE_LAYOUT = 'inline-flex items-center justify-center font-medium'
-
-const TOGGLE_SIZE: Record<ComponentSize, string> = {
-  sm: 'h-8 px-2 text-sm',
-  md: 'h-9 px-3 text-base',
-  lg: 'h-10 px-4 text-md',
-}
-
-const TOGGLE_VARIANT_DEFAULT = [
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `data-[pressed]:bg-[${v('sv-primary-subtle', T.primarySubtle)}]`,
-  `data-[pressed]:text-[${v('sv-primary-subtle-fg', T.primarySubtleFg)}]`,
-].join(' ')
-
-const TOGGLE_VARIANT_OUTLINE = [
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `data-[pressed]:bg-[${v('sv-primary-subtle', T.primarySubtle)}]`,
-  `data-[pressed]:border-[${v('sv-border-strong', T.borderStrong)}]`,
-  `data-[pressed]:text-[${v('sv-primary-subtle-fg', T.primarySubtleFg)}]`,
-].join(' ')
 
 /**
- * Compute the default className for a single Base UI Toggle button. Composes
- * layout → radius → size → variant surface → motion → focus → data-state.
- * `variant === 'outline'` switches to a bordered-card recipe; otherwise the
- * default fills with the muted body-subtle surface.
+ * Prestyled-by-default class computer for the `toggle`, `toggle-group` and
+ * `switch` components, drawn on shadcn/ui's anatomy (base-nova).
+ *
+ * `toggleVariants` is shadcn's own `cva` recipe, the one way a variant or a
+ * size maps to classes; the toggle-group item composes it under the group's
+ * spacing rules. The switch keeps shadcn's `data-size` contract: the size is an
+ * attribute on the root, and the track and thumb read it through their group.
+ *
+ * Base UI exposes the pressed and checked states as data attributes, so a single
+ * class list covers every state the primitive can enter.
+ *
+ * `lg` is kept on the switch and the toggle group, where the schema accepts it
+ * and shadcn has no such step; it follows the `default` step's geometry one rung
+ * up.
  */
+
+import { cva } from 'class-variance-authority'
+
+type ToggleVariant = 'default' | 'outline'
+type ComponentSize = 'sm' | 'default' | 'lg'
+
+/** shadcn/ui `toggleVariants`, base-nova. */
+export const toggleVariants = cva(
+  "group/toggle inline-flex items-center justify-center gap-1 rounded-lg text-sm font-medium whitespace-nowrap transition-all outline-none hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-pressed:bg-muted data-[state=on]:bg-muted dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  {
+    variants: {
+      variant: {
+        default: 'bg-transparent',
+        outline: 'border border-input bg-transparent hover:bg-muted',
+      },
+      size: {
+        default:
+          'h-8 min-w-8 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
+        sm: "h-7 min-w-7 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        lg: 'h-9 min-w-9 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+      size: 'default',
+    },
+  }
+)
+
+/** The `toggle` root: shadcn/ui `Toggle`. */
 export const computeToggleClasses = ({
   variant = 'default',
-  size = 'md',
+  size = 'default',
+}: {
+  variant?: ToggleVariant
+  size?: ComponentSize
+} = {}): string => toggleVariants({ variant, size })
+
+/** shadcn/ui `ToggleGroup` root; the gap reads the `--gap` the island sets from the spacing. */
+export const computeToggleGroupClasses = (): string =>
+  'group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] rounded-lg data-[size=sm]:rounded-[min(var(--radius-md),10px)] data-vertical:flex-col data-vertical:items-stretch'
+
+/** shadcn/ui `ToggleGroupItem`: the group's spacing rules over `toggleVariants`. */
+export const computeToggleGroupItemClasses = ({
+  variant = 'default',
+  size = 'default',
 }: {
   variant?: ToggleVariant
   size?: ComponentSize
 } = {}): string =>
   [
-    TOGGLE_LAYOUT,
-    RADIUS_MD,
-    TOGGLE_SIZE[size],
-    variant === 'outline' ? TOGGLE_VARIANT_OUTLINE : TOGGLE_VARIANT_DEFAULT,
-    MOTION,
-    FOCUS_VISIBLE_RING,
-    DISABLED,
+    'shrink-0 group-data-[spacing=0]/toggle-group:rounded-none group-data-[spacing=0]/toggle-group:px-2 focus:z-10 focus-visible:z-10 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-end]:pr-1.5 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-start]:pl-1.5 group-data-horizontal/toggle-group:data-[spacing=0]:first:rounded-l-lg group-data-vertical/toggle-group:data-[spacing=0]:first:rounded-t-lg group-data-horizontal/toggle-group:data-[spacing=0]:last:rounded-r-lg group-data-vertical/toggle-group:data-[spacing=0]:last:rounded-b-lg group-data-horizontal/toggle-group:data-[spacing=0]:data-[variant=outline]:border-l-0 group-data-vertical/toggle-group:data-[spacing=0]:data-[variant=outline]:border-t-0 group-data-horizontal/toggle-group:data-[spacing=0]:data-[variant=outline]:first:border-l group-data-vertical/toggle-group:data-[spacing=0]:data-[variant=outline]:first:border-t',
+    toggleVariants({ variant, size }),
   ].join(' ')
 
-// ──────────────────────────────────────────────────────────────────────────────
-// TOGGLE-GROUP (wrapper + child items)
-// ──────────────────────────────────────────────────────────────────────────────
-
-const TOGGLE_GROUP_LAYOUT = 'inline-flex'
-
-const TOGGLE_GROUP_SURFACE = ['border', `border-[${v('sv-border', T.border)}]`].join(' ')
-
 /**
- * Compute the default className for the Base UI ToggleGroup wrapper — the
- * rounded container that holds child Toggle items. Mirrors the toggle outline
- * variant border so the group reads as a single cohesive surface, with item
- * dividers handled by `computeToggleGroupItemClasses` (border-r per item).
+ * shadcn/ui `Switch` root; `data-size` on the element picks the geometry. One
+ * addition: the unchecked track is outlined in the muted foreground, the edge
+ * that holds 3:1 against the page (WCAG 1.4.11) where shadcn draws none.
  */
-export const computeToggleGroupClasses = (): string =>
-  [TOGGLE_GROUP_LAYOUT, RADIUS_MD, TOGGLE_GROUP_SURFACE, 'overflow-hidden'].join(' ')
+export const computeSwitchTrackClasses = (): string =>
+  'peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none group-has-[:focus-visible]/field-label:border-transparent group-has-[:focus-visible]/field-label:ring-0 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] data-[size=lg]:h-[22.4px] data-[size=lg]:w-[40px] dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:bg-primary data-unchecked:border-muted-foreground data-unchecked:bg-input dark:data-unchecked:bg-input/80 data-disabled:cursor-not-allowed data-disabled:opacity-50'
 
-const TOGGLE_GROUP_ITEM_LAYOUT = 'px-3 py-2 text-sm font-medium'
-
-const TOGGLE_GROUP_ITEM_SURFACE = [
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  `data-[pressed]:bg-[${v('sv-primary-subtle', T.primarySubtle)}]`,
-  `data-[pressed]:text-[${v('sv-fg', T.fg)}]`,
-].join(' ')
-
-const TOGGLE_GROUP_ITEM_DIVIDER = [
-  'border-r last:border-r-0',
-  `border-[${v('sv-border', T.border)}]`,
-].join(' ')
-
-/**
- * Compute the default className for an individual item inside a ToggleGroup.
- * Items share a horizontal layout with right-border dividers (last item drops
- * its divider); pressed state lights up with the primary-subtle background so
- * selection is unambiguous against the muted default tone.
- */
-export const computeToggleGroupItemClasses = (): string =>
-  [
-    TOGGLE_GROUP_ITEM_LAYOUT,
-    TOGGLE_GROUP_ITEM_SURFACE,
-    TOGGLE_GROUP_ITEM_DIVIDER,
-    MOTION,
-    FOCUS_VISIBLE_RING,
-    DISABLED,
-  ].join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// SWITCH (track + thumb)
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * A 1px border plus 1px padding keeps the old 2px slot, so the thumb's
- * offset and travel are unchanged; the border now draws the unchecked
- * outline (see SWITCH_TRACK_SURFACE).
- */
-const SWITCH_TRACK_LAYOUT = 'relative inline-flex shrink-0 items-center border p-px'
-
-const SWITCH_TRACK_SIZE: Record<ComponentSize, string> = {
-  sm: 'h-4 w-7',
-  md: 'h-5 w-9',
-  lg: 'h-6 w-11',
-}
-
-/**
- * Off: the subtle surface outlined in `--sv-border-control`, the one border
- * token that reaches 3:1 against the page — the surface alone is 1.06:1, so
- * an unchecked switch had no visible edge. On: the primary fill, border
- * transparent (the fill is the edge).
- */
-const SWITCH_TRACK_SURFACE = [
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `border-[${v('sv-border-control', T.borderControl)}]`,
-  'data-[checked]:bg-primary',
-  'data-[checked]:border-transparent',
-].join(' ')
-
-/**
- * Compute the default className for the Switch track (the outer rounded pill).
- * Off state uses the muted body-subtle surface outlined in the control border;
- * checked state fills with the canonical `bg-primary` role utility (always
- * minted by the default theme layer, resolving `--color-primary` which the
- * author `theme.colors.primary` bridge recolors) so the on/off cue is unmistakable and the checked track is
- * addressable as `.bg-primary`. Size axis matches the toggle's size scale so a
- * `size: 'lg'` switch lines up visually with a `size: 'lg'` toggle in the same
- * form row.
- */
-export const computeSwitchTrackClasses = ({
-  size = 'md',
-}: {
-  size?: ComponentSize
-  /** Reserved for future use — Base UI handles state via data attributes baked into the returned class string. */
-  state?: SwitchState
-} = {}): string =>
-  [
-    SWITCH_TRACK_LAYOUT,
-    'rounded-full',
-    SWITCH_TRACK_SIZE[size],
-    SWITCH_TRACK_SURFACE,
-    MOTION,
-    FOCUS_VISIBLE_RING,
-    DISABLED,
-  ].join(' ')
-
-const SWITCH_THUMB_LAYOUT = 'pointer-events-none block'
-
-const SWITCH_THUMB_SIZE: Record<ComponentSize, string> = {
-  sm: 'h-3 w-3 data-[checked]:translate-x-3',
-  md: 'h-4 w-4 data-[checked]:translate-x-4',
-  lg: 'h-5 w-5 data-[checked]:translate-x-5',
-}
-
-const SWITCH_THUMB_SURFACE = `bg-[${v('sv-bg-raised', T.bgRaised)}]`
-
-const SWITCH_THUMB_SHADOW = `shadow-[${v('shadow-sm', T.shadowSm)}]`
-
-/**
- * Compute the default className for the Switch thumb (the circle that slides
- * inside the track). Size + translate distance scale together so the thumb
- * lands flush against the opposite edge of the track at every size. Transform
- * motion uses the same 150ms ease as colour transitions for a coherent feel.
- */
-export const computeSwitchThumbClasses = ({
-  size = 'md',
-}: {
-  size?: ComponentSize
-  /** Reserved for future use — checked state is expressed via data-[checked]: variants in the size map. */
-  state?: SwitchState
-} = {}): string =>
-  [
-    SWITCH_THUMB_LAYOUT,
-    'rounded-full',
-    SWITCH_THUMB_SIZE[size],
-    SWITCH_THUMB_SURFACE,
-    SWITCH_THUMB_SHADOW,
-    'transition-transform duration-150',
-  ].join(' ')
+/** shadcn/ui `Switch` thumb. */
+export const computeSwitchThumbClasses = (): string =>
+  'pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=lg]/switch:size-5 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=lg]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 group-data-[size=lg]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground'

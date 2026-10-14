@@ -17,7 +17,7 @@ children:
       - type: text
         element: p
         props:
-          className: text-md text-foreground-muted
+          className: text-md text-muted-foreground
         content: 'How you prove it is you, and where you are signed in.'
   - type: container
     element: section
@@ -40,7 +40,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: 'Sign in with your fingerprint, face or device PIN instead of a password.'
           - type: form
             action:
@@ -49,7 +49,7 @@ children:
               submitLabel: Add a passkey
       - type: container
         props:
-          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+          className: flex flex-col divide-y rounded-lg border bg-card divide-border border-border
         children:
           - type: container
             props:
@@ -104,11 +104,11 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: Ask for a code from your phone after your password.
       - type: container
         props:
-          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+          className: flex flex-col divide-y rounded-lg border bg-card divide-border border-border
         children:
           - type: flex
             props:
@@ -126,7 +126,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-sm text-foreground-muted
+                      className: text-sm text-muted-foreground
                     content: 'Confirm your password, then scan the code with the app.'
               - type: container
                 props:
@@ -153,7 +153,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-sm text-foreground-muted
+                      className: text-sm text-muted-foreground
                     content: Your account goes back to password only.
               - type: container
                 props:
@@ -187,7 +187,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: Where your account is signed in right now. Sign a device out if you do not recognise it.
           - type: form
             action:
@@ -196,7 +196,7 @@ children:
               submitLabel: Sign out everywhere else
       - type: container
         props:
-          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+          className: flex flex-col divide-y rounded-lg border bg-card divide-border border-border
         children:
           - type: container
             props:

@@ -70,13 +70,12 @@
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { codeLineNumbers } from '@/domain/models/app/pages/code-line-numbers'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { CodeCopyButton, CodeCopyStatus } from '@/presentation/render/elements/code-copy-controls'
 import {
   readCodeHighlight,
   type CodeHighlight,
 } from '@/presentation/render/resolve/code-highlight-resolver'
 import { omitInternalMarkers } from '../props/internal-marker-props'
-import { renderFramedBlock, resolveCodeFrame } from './code-block-frame'
+import { copyParts, renderFramedBlock, resolveCodeFrame } from './code-block-frame'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement, ReactNode } from 'react'
@@ -285,14 +284,23 @@ function renderCodePre(input: CodePreInput): ReactElement {
  * clipboard. With no header to hold it, the control floats at the top-right of
  * the code surface, which is where it lived before every block gained a frame.
  */
-function renderBareScope(codePre: ReactElement, copyControl: ReactNode): ReactElement {
+function renderBareScope(
+  codePre: ReactElement,
+  copyButton: ReactNode,
+  copyStatus: ReactNode
+): ReactElement {
   return (
     <div
       className="relative"
       data-code-copy-scope="true"
     >
       {codePre}
-      {copyControl !== undefined && <span className={BARE_COPY_SLOT_CLASSES}>{copyControl}</span>}
+      {copyButton !== undefined && (
+        <span className={BARE_COPY_SLOT_CLASSES}>
+          {copyButton}
+          {copyStatus}
+        </span>
+      )}
     </div>
   )
 }
@@ -361,17 +369,17 @@ export const codeBlockComponent: ComponentRenderer = ({
     content,
     renderedChildren,
   })
-  const copyControl =
-    c['copy'] === false ? undefined : (
-      <>
-        <CodeCopyButton
-          copyLabel={copyLabel}
-          copiedLabel={copiedLabel}
-        />
-        <CodeCopyStatus />
-      </>
-    )
-  if (frame === 'none') return renderBareScope(codePre, copyControl)
+  const { copyButton, copyStatus } = copyParts(c['copy'] !== false, copyLabel, copiedLabel)
+  if (frame === 'none') return renderBareScope(codePre, copyButton, copyStatus)
   const parts = designStyles?.parts
-  return renderFramedBlock({ frame, filename, terminalLabel, output, codePre, copyControl, parts })
+  return renderFramedBlock({
+    frame,
+    filename,
+    terminalLabel,
+    output,
+    codePre,
+    copyButton,
+    copyStatus,
+    parts,
+  })
 }

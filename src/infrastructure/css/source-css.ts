@@ -15,16 +15,17 @@ import {
 import { generateMarqueeStyles } from '@/infrastructure/css/styles/marquee-styles-generator'
 import { generateCalendarStyles } from '@/infrastructure/css/theme/calendar-styles'
 import { generateCodeBlockStyles } from '@/infrastructure/css/theme/code-block-styles-generator'
-import { generateCommandPaletteStyles } from '@/infrastructure/css/theme/command-palette-styles'
 import {
   NEUTRAL_FLOOR_LAYER,
   ROLE_TOKEN_BRIDGE,
+  V1_ROOT_LIGHT,
   V1_THEME_REGISTRATIONS,
   V1_TOKEN_LAYER,
 } from '@/infrastructure/css/theme/default-theme-layer'
 import { SELF_HOSTED_FONT_FACES } from '@/infrastructure/css/theme/fonts'
 import { generateRichTextStyles } from '@/infrastructure/css/theme/rich-text-styles'
 import { scopedTokenLayer } from '@/infrastructure/css/theme/scoped-theme-layer'
+import { generateSidebarShellStyles } from '@/infrastructure/css/theme/sidebar-shell-styles'
 import {
   generateAuthorSvBridge,
   generateDarkColorOverrides,
@@ -39,6 +40,7 @@ import {
   generateThemeTypeScale,
 } from '@/infrastructure/css/theme/theme-generators'
 import { generateBaseLayer } from '@/infrastructure/css/theme/theme-layer-generators'
+import { generateToastStyles } from '@/infrastructure/css/theme/toast-styles'
 import { STATIC_IMPORTS } from './source-css-head'
 import type { App } from '@/domain/models/app'
 import type { Design } from '@/domain/models/app/design'
@@ -88,11 +90,12 @@ function generateDesignCSS(design?: Design): string {
     generateMotionScale(declared.motion),
   ].filter(Boolean)
 
-  // The author-`--sv-*` bridge block, emitted as
+  // The author variable block, emitted as
   // a separate `:root` block AFTER `@theme static`. Each `app.design.colors.X`
-  // value also writes `--sv-Y: value` directly so the prestyled-by-default
-  // island channel (`bg-[var(--sv-Y, …)]`) picks up tenant overrides in
-  // addition to the legacy `bg-X` utility channel. The cascade ordering
+  // value also writes the shadcn variable it repaints (`--primary: value`) and,
+  // for a Sovrium extension role, its `--sv-Y` token, so every reader — a
+  // shadcn utility or an island's `var(--sv-Y, …)` — picks up the override in
+  // addition to the `bg-X` utility channel. The cascade ordering
   // (ROLE_TOKEN_BRIDGE → author bridge) ensures the tenant value beats the
   // bridge's neutral fallback by ordinary "later wins" cascade semantics. See
   // `generateAuthorSvBridge` for the full rationale.
@@ -124,6 +127,22 @@ function generateDesignCSS(design?: Design): string {
  * These should be defined in the app theme if needed
  */
 const FINAL_BASE_LAYER = ''
+
+/**
+ * shadcn/ui's own variables, light scheme, as one `:root` block: every
+ * declaration of the default light root whose name is not a Sovrium `--sv-*`
+ * role (`--background`, `--input`, `--ring`, `--radius`, the chart and sidebar
+ * rows). They are the design's DEFAULT, not part of the override surface:
+ * a recipe drawn on shadcn's anatomy reads its colour from them, with no
+ * inline literal to fall back on, so demoting them would leave a ported
+ * control painting the initial colour. Pure.
+ */
+export const shadcnLightVariables = (lightRoot: string = V1_ROOT_LIGHT): string => {
+  const declarations = [...lightRoot.matchAll(/^\s*(--(?!sv-)[a-z0-9-]+:\s*[^;]+;)/gm)].map(
+    (match) => `    ${match[1] ?? ''}`
+  )
+  return `:root {\n${declarations.join('\n')}\n  }`
+}
 
 /**
  * Build the always-present default token layer (see V1_TOKEN_LAYER in
@@ -158,12 +177,17 @@ function buildDefaultLayer(design?: Design): string {
   // canonical token). Dropping only the VALUE blocks (`V1_ROOT_*` / the alias
   // bridge) keeps the override surface demoted while letting layer-off compile
   // per-app exactly like layer-on. The self-hosted `@font-face` blocks stay so
-  // text still resolves to Plex Sans / JetBrains Mono (part of the prestyled
+  // text still resolves to Geist / Geist Mono (part of the prestyled
   // baseline, not the override layer). Verified by
   // `[internal ref]` — the resolved
   // computed styles with the layer disabled must equal the layer-on reading.
+  //
+  // shadcn/ui's own variables stay too, LIGHT only (`shadcnLightVariables`):
+  // the recipes ported onto shadcn's anatomy read them with no inline literal,
+  // and keeping the light values is what holds the light parity the spec
+  // above pins. The dark arm stays demoted with the rest of the surface.
   if (parseEcoDesignLayer(process.env) === 'off') {
-    return `${SELF_HOSTED_FONT_FACES}\n\n  ${V1_THEME_REGISTRATIONS}`
+    return `${SELF_HOSTED_FONT_FACES}\n\n  ${V1_THEME_REGISTRATIONS}\n\n  ${shadcnLightVariables()}`
   }
   const tokenLayer = design?.baseline === 'replace' ? NEUTRAL_FLOOR_LAYER : V1_TOKEN_LAYER
   // Emit `@font-face` BEFORE the token layer so the variable face is registered
@@ -191,8 +215,8 @@ export function buildSourceCSS(app?: App, darkPalette: readonly string[] = []): 
   const themeCSS = generateDesignCSS(design)
   // The author's density ladder. Emitted after `buildDefaultLayer` (below) so
   // its `:root` block beats the platform's `V1_DENSITY_LAYER` on source order —
-  // the same same-specificity, later-wins contract the author `--sv-*` colour
-  // bridge relies on.
+  // the same same-specificity, later-wins contract the author colour block
+  // relies on.
   const densityCSS = generateDensityLayer(app?.design?.density)
   // The SCOPED design system, emitted LAST so its selector-bound blocks sit
   // after every `:root` block the pipeline produces. Source order is not what
@@ -214,16 +238,14 @@ export function buildSourceCSS(app?: App, darkPalette: readonly string[] = []): 
   // and a `prefers-reduced-motion` override are not utility-shaped, so they must
   // not depend on the Tailwind candidate scan.
   const marqueeCSS = generateMarqueeStyles()
-  // FullCalendar theming: the `--fc-*` → `--sv-*` bridge plus the `.fc-*`
+  // FullCalendar theming: the `--fc-*` → `--color-*` bridge plus the `.fc-*`
   // geometry. Plain CSS for a THIRD reason on top of the two above — the
   // selectors belong to FullCalendar's DOM, not to ours, so the candidate-driven
   // compiler could never mint them as utilities however the corpus grew.
   const calendarCSS = generateCalendarStyles()
-  // The command palette, its record-creation dialog and its toast. Plain CSS for
-  // the third reason too: that DOM is built by a runtime STRING with no class
-  // attribute to hang a utility on, and its keyboard mark is a `[data-active]`
-  // state selector an inline style cannot express.
-  const commandPaletteCSS = generateCommandPaletteStyles()
+  // The toast region. Plain CSS for the third reason too: toasts are built by
+  // runtime code with no class attribute to hang a utility on.
+  const toastCSS = generateToastStyles()
   return [
     STATIC_IMPORTS,
     defaultLayerCSS,
@@ -242,12 +264,13 @@ export function buildSourceCSS(app?: App, darkPalette: readonly string[] = []): 
     '/*---break---\n     */',
     calendarCSS,
     '/*---break---\n     */',
-    commandPaletteCSS,
+    toastCSS,
     '/*---break---\n     */',
     // The `.rte` content block — descendant rules over markup the AUTHOR types.
     // Shares the separator above rather than adding a sixth, which would change
     // the compiled output every app is served.
     generateRichTextStyles(),
+    generateSidebarShellStyles(),
     scopedCSS,
     '/*---break---\n     */',
     FINAL_BASE_LAYER,

@@ -231,7 +231,7 @@ function renderRecordFieldSystemIsland(
       <span
         role="status"
         aria-label="Loading field..."
-        className="bg-background-subtle inline-block h-4 w-16 animate-pulse rounded"
+        className="bg-muted inline-block h-4 w-16 animate-pulse rounded"
       />
     </div>
   )
@@ -263,7 +263,7 @@ function renderPlainText(
       data-component="record-field"
       data-component-type="record-field"
     >
-      {text}
+      {text === '' ? <span data-slot="record-field-empty">—</span> : text}
     </div>
   )
 }

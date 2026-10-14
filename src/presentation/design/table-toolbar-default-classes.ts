@@ -6,163 +6,131 @@
  */
 
 /**
- * The bar ABOVE the grid — the toolbar strip and its two button weights, the
- * search field and the way a hit is marked.
- *
- * One band, two controls, and a single shared constraint: none of them may
- * restate the button recipe. `button-default-classes.ts` already resolves to
- * the design exactly, so every control here COMPOSES it. The one class the
- * active state has to change goes through {@link swapUtility}, not through
- * tailwind-merge, whose 29.4 KB this grid may not put into an island — the
- * measurement behind that is in `table-class-swap.ts`.
- *
- * A toolbar PANEL is a band inside the grid's own frame and lives with the
- * filter and sort chrome in `table-panel-default-classes.ts`; a toolbar MENU
- * floats over the rows and lives in `table-overlay-default-classes.ts`. The
- * line is a question about the element, not about length.
+ * Adapted from shadcn/ui button, input and badge (https://ui.shadcn.com), registry commit 3464245c4513b7998b1d11fa9c67b71cc1534dc7.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
  */
-
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
-import { computeButtonDefaultClasses } from './button-default-classes'
-import { swapUtility } from './table-class-swap'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// TOOLBAR — the bar above the grid, and its two button weights
-// ──────────────────────────────────────────────────────────────────────────────
-
-// Canvas: `display:flex; flex-wrap:wrap; gap:6px; align-items:center;
-// padding:8px; border-bottom:1px solid #e3e3e3; background:#fefefe`.
-//
-// The bar gains a SURFACE. It shipped transparent, so the toolbar and the
-// header row underneath it read as one undivided block of chrome above the
-// data; on the raised tone, with a bottom rule, it reads as the grid's own
-// control strip.
-//
-// 8px padding and a 6px gap, down from 12px and 8px. Fourteen controls can be
-// switched on at once, and at the old spend the bar was the tallest single
-// element on a page whose subject is the rows beneath it.
-//
-// `flex-wrap` is load-bearing and predates this recipe: with every control on,
-// the trailing cluster measured 906px inside a 375px viewport with no scroll,
-// so eight controls were silently unreachable on a phone.
-const TABLE_TOOLBAR = [
-  'flex flex-wrap items-center gap-1.5 p-2',
-  'border-b',
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `border-[${v('sv-border', T.border)}]`,
-].join(' ')
 
 /**
- * Compute the default className for the grid's toolbar.
+ * The bar ABOVE the grid, on shadcn/ui's Data Table toolbar: one row of
+ * `outline` / `sm` buttons at the 32px the example sets (`h-8`), a dashed
+ * outline for the controls that narrow the rows (the faceted-filter trigger's
+ * look), a `secondary` badge for a count, and the `Input` narrowed for search.
  *
- * Chrome and flow only. The trailing cluster's own `ml-auto` stays at the call
- * site: which controls hug the right edge is a composition decision of that
- * markup, not of the design.
+ * The button strings are base-nova's `buttonVariants`, copied rather than read
+ * from the `button` recipe — the same choice the pager made — so the grid keeps
+ * shadcn's shape whatever the `button` type's own departures are. A toolbar
+ * PANEL is a band inside the grid's frame and lives in
+ * `table-panel-default-classes.ts`; a menu floats and lives in the overlay
+ * recipes.
  */
+
+/**
+ * base-nova's `buttonVariants` base string, minus `border-transparent`: without
+ * tailwind-merge that class would outrank the outline variant's `border-border`
+ * in the stylesheet, so each variant names its own border colour instead.
+ */
+export const TABLE_BUTTON_BASE =
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+
+/** `variant: outline`, resting; an `aria-expanded` control wears the well. */
+const OUTLINE_RESTING =
+  'border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50'
+
+/** `variant: outline`, drawn in the well its `aria-expanded` state wears. */
+const OUTLINE_ACTIVE = 'border-border bg-muted text-foreground dark:border-input dark:bg-input/50'
+
+/** `variant: default`. */
+const DEFAULT_VARIANT = 'border-transparent bg-primary text-primary-foreground hover:bg-primary/80'
+
+/** `size: sm`, raised to the example's `h-8`. */
+export const TABLE_BUTTON_SIZE_SM =
+  "h-8 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5"
+
+/** `variant: ghost`. */
+export const TABLE_BUTTON_GHOST =
+  'border-transparent hover:bg-muted hover:text-foreground dark:hover:bg-muted/50'
+
+/** `size: icon-xs`. */
+export const TABLE_BUTTON_SIZE_ICON_XS =
+  "size-6 rounded-[min(var(--radius-md),10px)] [&_svg:not([class*='size-'])]:size-3"
+
+/**
+ * The part a toolbar button names on its element, as base-nova's `Button` does:
+ * `data-slot`, `data-variant` and `data-size`, so a hand-drawn toolbar button
+ * reads as the same `outline` / `sm` (or `default` / `sm`) button the `button`
+ * type renders, to a stylesheet and to a test alike.
+ */
+export const TABLE_TOOLBAR_BUTTON_PART = {
+  'data-slot': 'button',
+  'data-variant': 'outline',
+  'data-size': 'sm',
+} as const
+
+/** The part of the toolbar's one `default` / `sm` button. */
+export const TABLE_TOOLBAR_PRIMARY_BUTTON_PART = {
+  'data-slot': 'button',
+  'data-variant': 'default',
+  'data-size': 'sm',
+} as const
+
+/** The toolbar row: it wraps rather than overflowing, so a phone reaches every control. */
+const TABLE_TOOLBAR = 'flex flex-wrap items-center gap-2 border-b border-border bg-card p-2'
+
+/** The toolbar row. Which controls hug the right edge stays at the call site. */
 export const computeTableToolbarClasses = (): string => TABLE_TOOLBAR
 
 /**
- * The resting fill the shared `secondary` variant emits, and the well an active
- * control replaces it with.
+ * A secondary toolbar control: `outline` / `sm` at 32px.
  *
- * Named constants rather than inline literals because they are the SWAP's
- * contract: the first has to still be what `button-default-classes.ts` emits,
- * and a test asserts exactly that.
- */
-const TOOLBAR_BUTTON_RESTING_BG = `bg-[${v('sv-bg-raised', T.bgRaised)}]`
-const TOOLBAR_BUTTON_ACTIVE_BG = `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`
-
-/**
- * Compute the default className for a secondary toolbar control — every button
- * on the bar except `+ New record`.
- *
- * Delegates to the shared button recipe at `secondary` / `sm`, which IS the
- * design's `.btn-sec .btn-sm`: 28px tall, 4px/10px padding, 12px type, raised
- * fill, strong border, a well on hover. What shipped was a hand-written
- * `rounded border px-3 py-1 text-md` that was 32px tall, 14px, and carried no
- * fill at all — so the grid's own controls were a size and a weight apart from
- * every other button the platform draws.
- *
- * `active` marks a control whose panel is OPEN. It lands on the same well the
- * variant already uses for hover, so a pressed control and a hovered one read
- * alike — which is correct: both say "this is the one you are working with".
- * It REPLACES the resting fill rather than being appended to it (see
- * {@link swapUtility}): two `bg-*` classes on one element leave the winner to
- * the stylesheet's emission order, which is not a decision this file makes.
- *
- * `disabled` is a STATE rather than a `disabled:` variant because the shared
- * recipe spends it unconditionally — a caller that renders a disabled control
- * passes the flag rather than appending its own opacity utility.
+ * `active` draws the control in the well an open control wears, for a state
+ * that is not an `aria-expanded` (a builder holding committed rows). `dashed`
+ * is the faceted-filter trigger's border, for the controls that narrow the
+ * rows. `disabled` draws the disabled look for a caller that does not set the
+ * attribute.
  */
 export const computeTableToolbarButtonClasses = ({
   active = false,
   disabled = false,
+  dashed = false,
 }: {
   readonly active?: boolean
   readonly disabled?: boolean
-} = {}): string => {
-  const base = computeButtonDefaultClasses({
-    variant: 'secondary',
-    size: 'sm',
-    state: disabled ? 'disabled' : 'default',
-  })
-  return active ? swapUtility(base, TOOLBAR_BUTTON_RESTING_BG, TOOLBAR_BUTTON_ACTIVE_BG) : base
-}
+  readonly dashed?: boolean
+} = {}): string =>
+  [
+    TABLE_BUTTON_BASE,
+    active ? OUTLINE_ACTIVE : OUTLINE_RESTING,
+    TABLE_BUTTON_SIZE_SM,
+    dashed ? 'border-dashed' : '',
+    disabled ? 'pointer-events-none opacity-50' : '',
+  ]
+    .filter((c) => c !== '')
+    .join(' ')
 
 /**
- * Compute the default className for the toolbar's ONE primary control —
- * `+ New record` — and for the two panel commits that share its weight.
- *
- * A grid offers a dozen ways to look at records and exactly one way to add one.
- * That asymmetry is what the single filled button says, so the recipe is
- * deliberately not parameterised: a second primary on this bar would spend the
- * emphasis that makes the first one legible.
+ * The toolbar's ONE primary control, `+ New record`, and the panel commits that
+ * share its weight: `variant: default` / `sm` at 32px.
  */
 export const computeTableToolbarPrimaryButtonClasses = (): string =>
-  computeButtonDefaultClasses({ variant: 'default', size: 'sm' })
-
-// ──────────────────────────────────────────────────────────────────────────────
-// SEARCH — the toolbar's search field, and how a hit is marked
-// ──────────────────────────────────────────────────────────────────────────────
-
-// Canvas: a NARROWED `.input` — `height:28px; padding:4px 8px; font-size:12px;
-// background:#fefefe; border:1px solid #d3d3d3; radius:4px; max-width:140–200px`.
-//
-// The cap is the point. The field shipped at `max-w-sm` (384px) and 36px tall,
-// so on a bar holding a dozen controls the search box alone took a third of the
-// width and pushed the rest onto a second row at desktop sizes. A grid search
-// takes a word or two; the box only has to look like it will hold one.
-//
-// `max-w-[13rem]` (208px) is a LITERAL arbitrary value, not an interpolated
-// one, so the source scan reads it whole — the distinction that decides whether
-// an arbitrary class reaches the stylesheet at all (see
-// {@link computeTableCellCursorClasses}).
-const TABLE_SEARCH = [
-  'h-7 w-full max-w-[13rem] border px-2 py-1 text-sm',
-  `rounded-[${v('radius-base', T.radiusBase)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `placeholder:text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-  `focus:border-[${v('sv-primary', T.primary)}]`,
-  `focus:ring-1 focus:ring-[${v('sv-focus-ring', T.focusRing)}] focus:outline-none`,
-].join(' ')
+  [TABLE_BUTTON_BASE, DEFAULT_VARIANT, TABLE_BUTTON_SIZE_SM].join(' ')
 
 /**
- * Compute the default className for the toolbar search field.
- *
- * `w-full` under the cap rather than a fixed width: inside the wrapping toolbar
- * the field shrinks with the row it lands on, which is what keeps it usable at
- * 375px where a fixed 208px would force one more wrap.
+ * The count a narrowing control carries: a `secondary` badge, squared and at
+ * normal weight, as the faceted filter draws its selected values.
  */
-export const computeTableSearchClasses = (): string => TABLE_SEARCH
+export const computeTableToolbarCountClasses = (): string =>
+  'inline-flex h-5 min-w-5 items-center justify-center rounded-sm bg-secondary px-1 text-xs font-normal text-secondary-foreground'
 
 /**
- * Compute the className a matched substring carries inside a searched cell.
- *
- * A WELL, never a yellow highlight. The grid already spends colour on record
- * data — option hues, row fills, status dots — and a chromatic mark laid over
- * that competes with the author's own meaning. The neutral step says "this is
- * why the row is here" without claiming a hue the data may already own.
+ * The search field: shadcn's `Input`, narrowed as the example narrows it
+ * (150px, 250px from `lg`). `w-full` under the cap lets it shrink with the row
+ * it wraps onto at 375px.
  */
-export const computeTableSearchHitClasses = (): string => `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`
+export const computeTableSearchClasses = (): string =>
+  'h-8 w-full min-w-0 max-w-[150px] rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm lg:max-w-[250px] dark:bg-input/30'
+
+/**
+ * A matched substring inside a searched cell: a neutral WELL, never a hue, so
+ * it does not compete with the colours the record data already owns.
+ */
+export const computeTableSearchHitClasses = (): string => `bg-muted`

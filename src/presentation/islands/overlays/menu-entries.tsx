@@ -9,6 +9,7 @@ import { Menu } from '@base-ui/react/menu'
 import { computeMenuItemClasses } from './menu-default-classes'
 import { isRunnableMenuAction, runMenuItemAction } from './menu-item-actions'
 import { MenuItemBody } from './menu-popup-body'
+import { useMenuKind } from './menu-slot-context'
 import type { MenuItem, MenuSurface } from './menu-item-types'
 import type { ReactElement } from 'react'
 
@@ -30,14 +31,24 @@ function isExternalPath(path: string): boolean {
 export function PlainMenuItem({
   item,
   surface,
+  host,
 }: {
   readonly item: MenuItem
   readonly surface: MenuSurface
+  /**
+   * Where the menu sits on the page — the popup is portaled out of it, so the
+   * dialog or drawer holding the menu is found from here (`close`).
+   */
+  readonly host?: { readonly current: Element | null }
 }): ReactElement {
+  const run = () => runMenuItemAction(item.action, host?.current ?? undefined)
+  const kind = useMenuKind()
   return (
     <Menu.Item
+      data-slot={`${kind}-item`}
+      data-variant={item.variant ?? 'default'}
       disabled={item.disabled}
-      onClick={isRunnableMenuAction(item.action) ? () => runMenuItemAction(item.action) : undefined}
+      onClick={isRunnableMenuAction(item.action) ? run : undefined}
       className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />
@@ -67,8 +78,11 @@ export function NavigateMenuItem({
   ) : (
     <a href={path} />
   )
+  const kind = useMenuKind()
   return (
     <Menu.Item
+      data-slot={`${kind}-item`}
+      data-variant={item.variant ?? 'default'}
       disabled={item.disabled}
       render={anchor}
       className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}

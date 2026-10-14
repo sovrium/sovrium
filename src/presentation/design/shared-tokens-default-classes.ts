@@ -22,17 +22,11 @@
  * NOTE: this file is intentionally named `*-default-classes.ts` so the Tailwind
  * arbitrary-value safelist scanner (`src/infrastructure/css/arbitrary-var-safelist.ts`,
  * which globs `*-default-classes.ts` in this directory) keeps emitting the
- * `var(--sv-*,…)` arbitrary classes declared below — exactly as it did when the
+ * `var(--…,…)` arbitrary classes declared below — exactly as it did when the
  * composites lived in each island file.
  */
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
-
-/**
- * `base` corner radius — the CONTROL step: a button, a field, a menu item, a
- * tooltip chip. The smallest working step in the scale.
- */
-export const RADIUS_BASE = `rounded-[${v('radius-base', T.radiusBase)}]`
 
 /**
  * `md` corner radius — the POPUP step: a menu, a popover, a dialog, a drawer.
@@ -48,8 +42,8 @@ export const FOCUS_VISIBLE_RING = [
   'focus-visible:outline-none',
   'focus-visible:ring-2',
   'focus-visible:ring-offset-2',
-  `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-  `focus-visible:ring-offset-[${v('sv-bg', T.bg)}]`,
+  'focus-visible:ring-ring',
+  'focus-visible:ring-offset-background',
 ].join(' ')
 
 /**
@@ -63,9 +57,4 @@ export const MOTION_COLORS = 'transition-colors duration-150'
  * Was re-declared identically in the date + overlay islands. (The select and
  * field variants differ — see their local declarations.)
  */
-export const POPUP_SURFACE = [
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-overlay', T.bgOverlay)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-].join(' ')
+export const POPUP_SURFACE = ['border', 'border-border', 'bg-popover', 'text-foreground'].join(' ')

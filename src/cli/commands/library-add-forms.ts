@@ -16,15 +16,28 @@
  *
  * A form needs an `id` the config does not use. A new one takes the next free
  * id; a fragment already on disk keeps the id it carries, so installing the
- * block again writes the same bytes and changes nothing.
+ * block again writes the same bytes and changes nothing. A form re-added with
+ * new parameters follows the component's rule (`library-add-reinstall.ts`):
+ * rewritten while it is unedited, kept as an edit otherwise — and replaced,
+ * edited or not, under `--update`.
  *
  * Pure planning, no writes: a refusal comes back as its message, and the
  * caller (`library-add-plan.ts`) refuses with it, before anything is written.
  */
 
 import { dirname, join } from 'node:path'
-import { bindingName, provenanceHeader, renderTsFragment, renderYamlFragment } from './library-wire'
-import type { PlannedInstall, RootFormat } from './library-add-plan'
+import { defaultParams } from './library-add-params'
+import {
+  asOf,
+  editedMessage,
+  placementOf,
+  reinstallOf,
+  renderFragment,
+} from './library-add-reinstall'
+import { bindingName } from './library-wire'
+import type { RootFormat } from './library-add-config'
+import type { PlannedInstall } from './library-add-plan'
+import type { InstallParams, RenderWith } from './library-add-reinstall'
 import type {
   LibraryBlockForm,
   LibraryCatalogueApi,
@@ -36,6 +49,8 @@ import type {
 interface BlockFormsInput {
   readonly catalogue: Pick<LibraryCatalogueApi, 'entryForms' | 'libraryEntryId'>
   readonly version: string
+  /** `--update`: replace each form fragment with what this version writes, edited or not. */
+  readonly update?: boolean
   readonly format: RootFormat
   readonly configPath: string
   /** The form names the config already uses. */
@@ -77,6 +92,25 @@ interface FormPlace {
   readonly onDisk: string | undefined
 }
 
+/** This form as the block writes it with `params`, the parameter line recorded or not. */
+const formRenderer =
+  (input: BlockFormsInput, form: LibraryBlockForm, formId: number): RenderWith =>
+  (params: InstallParams, recordParams: boolean): string => {
+    const shipped =
+      input.catalogue
+        .entryForms(input.entry, { name: input.target.name, params })
+        .find((candidate) => candidate.name === form.name) ?? form
+    return renderFragment({
+      format: input.format,
+      id: input.catalogue.libraryEntryId(input.entry),
+      version: input.version,
+      params,
+      recordParams,
+      binding: bindingName(form.name),
+      value: { id: formId, ...shipped },
+    })
+  }
+
 /** One shipped form's install under `formId`, or the message refusing it. */
 const planOneForm = (
   input: BlockFormsInput,
@@ -85,18 +119,19 @@ const planOneForm = (
 ): PlannedInstall | string => {
   const { entry, target } = input
   const id = input.catalogue.libraryEntryId(entry)
-  const header = provenanceHeader(id, input.version)
-  const fragment = { id: formId, ...form }
-  const content =
-    input.format === 'typescript'
-      ? renderTsFragment(header, bindingName(form.name), fragment)
-      : renderYamlFragment(header, fragment)
-  if (onDisk !== undefined && onDisk !== content)
-    return (
-      `Error: ${relativePath} already exists and differs from what ${id} would write.\n\n` +
-      '  It was edited after it was installed, and library add never overwrites an edit.\n' +
-      '  Keep it, or move it aside and run the command again.'
-    )
+  const render = formRenderer(input, form, formId)
+  const content = render(target.params, true)
+  const verdict = reinstallOf({
+    entry,
+    onDisk,
+    content,
+    params: target.params,
+    defaults: defaultParams(entry, input.parsed),
+    render,
+  })
+  const update = input.update === true
+  if (verdict.kind === 'edited' && !update)
+    return editedMessage(relativePath, id, verdict.against, asOf(entry, target.name))
   if (onDisk === undefined && input.takenNames.has(form.name))
     return (
       `Error: the config already defines a form named "${form.name}".\n\n` +
@@ -111,7 +146,7 @@ const planOneForm = (
     relativePath,
     absolutePath,
     content,
-    present: onDisk !== undefined,
+    ...placementOf(verdict, onDisk, content, update ? input.version : undefined),
     ...(target.requiredBy === undefined ? {} : { requiredBy: target.requiredBy }),
   }
 }

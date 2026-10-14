@@ -20,7 +20,9 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from 'react'
 import { computeSubmitButtonClasses } from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
+import { pendingControlProps } from '@/presentation/design/pending-state'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
 import { authClient } from '../runtime/auth-client'
 import { dispatch, subscribe } from '../runtime/event-bus'
 
@@ -80,6 +82,7 @@ export function AccountLinkControl(props: AccountLinkControlProps): ReactElement
   }, [refresh])
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
+    if (pressWhilePending(event)) return
     event.preventDefault()
     setPending(true)
     void runLinkMethod(method, provider, account ?? null).then((refusal) => {
@@ -107,7 +110,7 @@ export function AccountLinkControl(props: AccountLinkControlProps): ReactElement
         <button
           type="submit"
           data-component-type="button"
-          disabled={pending}
+          {...pendingControlProps(pending)}
           className={computeSubmitButtonClasses(undefined)}
         >
           {pending ? props.pendingLabel : props.submitLabel}

@@ -19,13 +19,17 @@
  */
 
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { resolveAgentLimits } from '@/domain/models/app/agents/agent-gate-validation'
+import { acquireConcurrencySlot, checkActionRateLimit } from '@/infrastructure/process/agent-limits'
+import {
+  checkAgentRateLimit,
+  type LimitCheckOptions,
+} from '@/infrastructure/process/agent-rate-limit'
 import {
   checkChatRateLimit,
   resolveChatRateLimitConfig,
-} from '@/presentation/api/ai/chat-rate-limit'
+} from '@/infrastructure/process/chat-rate-limit'
 import { errorBody } from '@/presentation/api/runtime/auth-helpers'
-import { acquireConcurrencySlot, checkActionRateLimit, resolveAgentLimits } from './agent-limits'
-import { checkAgentRateLimit } from './agent-rate-limit'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Context } from 'hono'
 
@@ -38,7 +42,11 @@ import type { Context } from 'hono'
  * before any AI round-trip, so the provider is never called on a denied
  * request. Returns `undefined` when the run may proceed.
  */
-export const checkExecutionGates = (c: Context, agent: Agent): Response | undefined => {
+export const checkExecutionGates = (
+  c: Context,
+  agent: Agent,
+  options: LimitCheckOptions = {}
+): Response | undefined => {
   if (agent.enabled === false) {
     return c.json(
       errorBody({
@@ -54,7 +62,7 @@ export const checkExecutionGates = (c: Context, agent: Agent): Response | undefi
   // each agent gets an independent counter. Otherwise fall back to the
   // role-proportional per-agent action ceiling.
   if (resolveChatRateLimitConfig().limit !== undefined) {
-    const chatLimit = checkChatRateLimit(`agent:${agent.name}`)
+    const chatLimit = checkChatRateLimit(`agent:${agent.name}`, options)
     if (chatLimit.limited) {
       return c.json(
         errorBody({
@@ -67,7 +75,7 @@ export const checkExecutionGates = (c: Context, agent: Agent): Response | undefi
     }
     return undefined
   }
-  const rateLimit = checkAgentRateLimit(agent.name, agent.role)
+  const rateLimit = checkAgentRateLimit(agent.name, agent.role, options)
   if (rateLimit.limited) {
     return c.json(
       errorBody({
@@ -93,10 +101,14 @@ export const checkExecutionGates = (c: Context, agent: Agent): Response | undefi
  * A `queued` decision claims neither an action-window slot nor a concurrency
  * slot — the action is deferred, not dropped.
  */
-export const checkLimitGates = (c: Context, agent: Agent): Response | undefined => {
+export const checkLimitGates = (
+  c: Context,
+  agent: Agent,
+  options: LimitCheckOptions = {}
+): Response | undefined => {
   const limits = resolveAgentLimits(agent.limits)
 
-  const rate = checkActionRateLimit(agent.name, limits.maxActionsPerMinute)
+  const rate = checkActionRateLimit(agent.name, limits.maxActionsPerMinute, options)
   if (rate.queued) {
     return c.json(
       { status: 'queued', agent: agent.name, reason: 'maxActionsPerMinute exceeded' },
@@ -112,6 +124,26 @@ export const checkLimitGates = (c: Context, agent: Agent): Response | undefined 
   }
 
   return undefined
+}
+
+/**
+ * Charge one run to the counters {@link checkExecutionGates} and
+ * {@link checkLimitGates} read — for a run the gates only ASKED about
+ * (`record: false`) and whose actions charged nothing on their own.
+ *
+ * A run on the agent runtime charges each action it takes, through the same
+ * counters, as that action passes the agent's gates. Charging the run too
+ * would count its first action twice, so a gate in front of such a run only
+ * asks, and the run is charged here when it took no action at all — which is
+ * what keeps a stream of action-less runs under the same cap.
+ */
+export const chargeRun = (agent: Agent): void => {
+  if (resolveChatRateLimitConfig().limit !== undefined) {
+    checkChatRateLimit(`agent:${agent.name}`)
+  } else {
+    checkAgentRateLimit(agent.name, agent.role)
+  }
+  checkActionRateLimit(agent.name, resolveAgentLimits(agent.limits).maxActionsPerMinute)
 }
 
 /**

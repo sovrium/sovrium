@@ -6,10 +6,11 @@
  */
 
 import { Schema } from 'effect'
+import { NavigateActionSchema, ToastActionSchema } from '../../action-client'
 import { coreFields } from '../modules/core'
 import { visibilityFields } from '../modules/visibility'
 
-export const CommandPaletteTypeLiteral = Schema.Literal('command-palette')
+export const CommandPaletteTypeLiteral = Schema.Literal('command')
 
 /**
  * The palette's SEARCH mode: point ⌘K at a read endpoint instead of at the
@@ -17,8 +18,8 @@ export const CommandPaletteTypeLiteral = Schema.Literal('command-palette')
  *
  * Two palettes cannot share one ⌘K — both would open on the same keystroke —
  * so this is a mode, not an addition. Declaring `search` replaces the built-in
- * quick-action runtime with a search affordance backed by `endpoint`; omitting
- * it keeps the built-in palette.
+ * quick actions with a search affordance backed by `endpoint`; omitting it
+ * keeps the built-in palette.
  *
  * The endpoint is called with `?q=<term>` appended and `credentials: 'include'`,
  * and answers results ALREADY GROUPED:
@@ -50,7 +51,7 @@ export const CommandPaletteSearchSchema = Schema.Struct({
       Schema.isMinLength(1),
       Schema.isPattern(/^\//, {
         message:
-          'command-palette search endpoint must be a path starting with / — the palette queries this instance, never another origin',
+          'command search endpoint must be a path starting with / — the command menu queries this instance, never another origin',
       })
     )
   ),
@@ -76,8 +77,8 @@ export const CommandPaletteSearchSchema = Schema.Struct({
   ),
 }).annotate({
   identifier: 'CommandPaletteSearch',
-  title: 'Command Palette Search',
-  description: 'Point the ⌘K palette at a read endpoint instead of the built-in quick actions',
+  title: 'Command Search',
+  description: 'Point the ⌘K command menu at a read endpoint instead of the built-in quick actions',
 })
 
 /** @public */
@@ -101,14 +102,71 @@ export type CommandPaletteSearch = Schema.Schema.Type<typeof CommandPaletteSearc
  *
  * ─── IT RENDERS NO VISIBLE MARKUP ──────────────────────────────────────────
  *
- * The palette builds its overlay lazily in the browser on the first ⌘K and
- * caches it. Server-side it emits only a JSON config block and its runtime —
- * pre-rendering a `role="dialog"` and a `role="searchbox"` into every page
+ * The overlay is a client island, in both modes. Server-side the palette emits
+ * only a JSON config block and the island's host — in the built-in mode a
+ * DEFERRED host that mounts nothing until the first ⌘K, which a synchronous
+ * head script captures for either mode. Pre-rendering a `role="dialog"` and a
+ * search field (`role="combobox"`) into every page
  * would put two of each into the document for every unrelated selector to
  * resolve. That is also why it carries no engine-owned element to restyle, and
  * so is absent from `ENGINE_COMPONENT_TYPES`: a `design.components` entry for
  * it could only ever be a no-op.
  */
+/** One authored command: what it is called, its icon and keys, and where it goes or what it does. */
+const CommandItemSchema = Schema.Struct({
+  label: Schema.String.pipe(
+    Schema.annotate({
+      description: "The item's label, which typing matches; accepts a $t: key",
+      examples: ['Invoices'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+  icon: Schema.optional(
+    Schema.String.annotate({
+      description: 'Lucide icon drawn before the label',
+      examples: ['receipt'],
+    })
+  ),
+  href: Schema.optional(
+    Schema.String.annotate({ description: 'Where choosing the item goes', examples: ['/invoices'] })
+  ),
+  shortcut: Schema.optional(
+    Schema.Array(Schema.String).annotate({
+      description: 'The keys of a shortcut drawn beside the label, one keycap per key',
+      examples: [['G', 'I']],
+    })
+  ),
+  action: Schema.optional(
+    Schema.Union([ToastActionSchema, NavigateActionSchema]).annotate({
+      description:
+        'What choosing the item does instead of going somewhere: a toast or a navigation. The command closes first.',
+    })
+  ),
+}).annotate({
+  identifier: 'CommandItem',
+  title: 'Command Item',
+  description: 'One authored command of a group',
+})
+
+/** A named group of authored commands: shadcn/ui's CommandGroup. */
+const CommandGroupSchema = Schema.Struct({
+  label: Schema.String.pipe(
+    Schema.annotate({
+      description: "The group's heading; accepts a $t: key",
+      examples: ['Navigate'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+  items: Schema.Array(CommandItemSchema).pipe(
+    Schema.annotate({ description: "The group's commands, in order" }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+}).annotate({
+  identifier: 'CommandGroup',
+  title: 'Command Group',
+  description: 'A named group of authored commands',
+})
+
 export const commandPaletteFields = {
   ...coreFields,
   ...visibilityFields,
@@ -117,4 +175,17 @@ export const commandPaletteFields = {
    * actions. See {@link CommandPaletteSearchSchema}.
    */
   search: Schema.optional(CommandPaletteSearchSchema),
+  /**
+   * Authored groups of commands, in place of the built-in quick actions:
+   * typing narrows the items across groups, and hides a group left empty.
+   */
+  groups: Schema.optional(
+    Schema.Array(CommandGroupSchema).pipe(
+      Schema.annotate({
+        description:
+          'Named groups of authored commands shown in place of the built-in quick actions; typing narrows the items across groups. Ignored in search mode.',
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
 } as const

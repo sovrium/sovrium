@@ -27,7 +27,7 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { NotFoundError, ValidationError } from '@/domain/errors'
+import { NotFoundError, UniqueConstraintViolationError, ValidationError } from '@/domain/errors'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { omitFromWriteEcho, writeEchoReaderOf } from './hidden-lookup-omission'
 import { refuseWhenNoSingleIdAddress } from './read-record-programs'
@@ -62,6 +62,24 @@ const readableEcho = (
 }
 
 /**
+ * The refusal a restore's marker row stands for: a record not in the trash
+ * (vs. a missing row), or a unique value a live record holds since.
+ */
+const restoreRefusalOf = (
+  record: Readonly<Record<string, unknown>> | null
+): Readonly<ValidationError> | Readonly<UniqueConstraintViolationError> | undefined => {
+  if (record === null || !('_error' in record)) return undefined
+  if (record['_error'] === 'not_deleted') return new ValidationError('Record is not deleted')
+  if (record['_error'] === 'unique_conflict')
+    return new UniqueConstraintViolationError(
+      'Restore duplicates a unique value',
+      undefined,
+      String(record['field'])
+    )
+  return undefined
+}
+
+/**
  * The restored row less what its caller's read of it would leave out — judged
  * on the raw row, before the field filter can drop a lookup's key.
  */
@@ -92,16 +110,15 @@ export function restoreRecordProgram(
   }
 ): Effect.Effect<
   RestoreRecordResponse,
-  DatabaseError | NotFoundError | ValidationError,
+  DatabaseError | NotFoundError | ValidationError | UniqueConstraintViolationError,
   TableRepository | DataSourceRepository | AuthRepository
 > {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     yield* refuseWhenNoSingleIdAddress(params?.app, tableName)
     const record = yield* repo.restoreRecord(session, tableName, recordId)
-    // Special error marker for non-deleted records (vs. missing rows).
-    if (record && '_error' in record && record._error === 'not_deleted')
-      return yield* Effect.fail(new ValidationError('Record is not deleted'))
+    const refusal = restoreRefusalOf(record)
+    if (refusal !== undefined) return yield* Effect.fail(refusal)
     if (!record) return yield* Effect.fail(new NotFoundError('Record not found'))
     const restored = yield* restoredEcho(session, tableName, record, params)
 

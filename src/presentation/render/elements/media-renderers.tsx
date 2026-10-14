@@ -35,6 +35,7 @@ export function renderImage(props: ElementProps): ReactElement {
     <img
       {...omitInternalMarkers(withLoadingDefaults(props, false))}
       alt={(props.alt as string | undefined) || ''}
+      data-slot="image"
     />
   )
 }
@@ -57,6 +58,7 @@ export function renderAvatar(props: ElementProps): ReactElement {
       {...omitInternalMarkers(withLoadingDefaults(props, false))}
       style={style}
       alt={(props.alt as string | undefined) || ''}
+      data-slot="image"
       className={resolveClasses('rounded-full', props.className as string | undefined)}
     />
   )
@@ -71,21 +73,22 @@ export function renderThumbnail(props: ElementProps): ReactElement {
     <img
       {...omitInternalMarkers(withLoadingDefaults(props, false))}
       alt={(props.alt as string | undefined) || ''}
+      data-slot="image"
       className={resolveClasses('rounded-md', props.className as string | undefined)}
     />
   )
 }
 
 /**
- * Renders hero image with top-only border-radius
- * Applies lg radius to top corners only for integration with card layout
+ * Renders hero image with rounded-xl corners
  */
 export function renderHeroImage(props: ElementProps): ReactElement {
   return (
     <img
       {...omitInternalMarkers(withLoadingDefaults(props, true))}
       alt={(props.alt as string | undefined) || ''}
-      className={resolveClasses('rounded-t-lg', props.className as string | undefined)}
+      data-slot="image"
+      className={resolveClasses('rounded-xl', props.className as string | undefined)}
     />
   )
 }
@@ -147,6 +150,7 @@ export function renderVideo(
         {...rest}
         src={embedUrl}
         title={(rest['title'] as string | undefined) ?? 'Video'}
+        data-slot="video"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
       />
@@ -168,6 +172,7 @@ export function renderVideo(
       {...rest}
       src={src}
       autoPlay={autoplay}
+      data-slot="video"
     >
       {trackChildren}
       {children}
@@ -182,7 +187,14 @@ export function renderAudio(
   props: ElementProps,
   children: readonly React.ReactNode[]
 ): ReactElement {
-  return <audio {...omitInternalMarkers(props)}>{children}</audio>
+  return (
+    <audio
+      {...omitInternalMarkers(props)}
+      data-slot="audio"
+    >
+      {children}
+    </audio>
+  )
 }
 
 /**
@@ -192,5 +204,12 @@ export function renderIframe(
   props: ElementProps,
   children: readonly React.ReactNode[]
 ): ReactElement {
-  return <iframe {...omitInternalMarkers(props)}>{children}</iframe>
+  return (
+    <iframe
+      {...omitInternalMarkers(props)}
+      data-slot="iframe"
+    >
+      {children}
+    </iframe>
+  )
 }

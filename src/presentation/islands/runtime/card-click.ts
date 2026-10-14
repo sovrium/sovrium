@@ -16,7 +16,7 @@
  * normalised by {@link toSafeRedirectPath}, and nothing else. A value that
  * points to another site (`//host/…`, `https://host/…`) or at a script
  * (`javascript:…`) yields no click at all — the card draws no link and the
- * reader stays on the page. `openDrawer` opens the named drawer on the card's
+ * reader stays on the page. `openSheet` opens the named drawer on the card's
  * record.
  *
  * The drawer event is the bus's own `dispatch`, spelled inline: importing the

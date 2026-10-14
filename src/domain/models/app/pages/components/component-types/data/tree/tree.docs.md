@@ -8,7 +8,9 @@ A `tree` draws a hierarchy that lives in the records themselves: folders inside 
 
 `labelField` names each node and `countField` adds a figure after it, in the mono face. Siblings are ordered by `sortBy`. `expanded` sets how many levels are open at first (one by default), and `search` (on by default) draws a filter box that keeps every match's ancestors visible, so a match is never shown out of place.
 
-Selecting a node runs `onSelect` — `navigate` to its page or `openDrawer` to show it on this one — and, with `publishes`, sends the selected id on a shared-filter channel, so a `table` beside the tree narrows to the selected branch.
+The tree is drawn as the file tree of shadcn/ui's sidebar block: each branch a collapsible whose chevron turns when open, its children indented under a rule in the `border` colour, and the selected row and the row under the pointer on the `accent` surface. The filter box is an input group. Reference: shadcn/ui Sidebar.
+
+Selecting a node runs `onSelect` — `navigate` to its page or `openSheet` to show it on this one — and, with `publishes`, sends the selected id on a shared-filter channel, so a `table` beside the tree narrows to the selected branch.
 
 ## A parent can never be its own ancestor
 

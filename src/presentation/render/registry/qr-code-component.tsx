@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeQrCodeClasses } from '@/presentation/design/interactive-content-default-classes'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { resolveQrCode, resolveQrPayload } from '@/presentation/render/resolve/qr-code-resolver'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
@@ -58,7 +60,7 @@ type QrCodeComponentFields = Pick<QrCodeSpec, 'link' | 'value' | 'size' | 'ecc'>
 
 /** The attributes every host this renderer writes carries. */
 interface QrHostAttributes {
-  readonly className: string | undefined
+  readonly className: string
   readonly dataTestId: string | undefined
   readonly componentType: string | undefined
   readonly accessibleName: string | undefined
@@ -82,6 +84,7 @@ function recordTemplateHost(
   return (
     <div
       className={host.className}
+      data-slot="qr-code"
       data-testid={host.dataTestId}
       data-component-type={host.componentType}
       data-qr-template={payload}
@@ -97,7 +100,11 @@ export const qrCodeComponent: ComponentRenderer = (
 ): ReactElement | null => {
   const component = (config.component ?? {}) as QrCodeComponentFields
   const elementProps = config.elementPropsWithSpacing
-  const className = elementProps['className'] as string | undefined
+  const className = resolveClasses(
+    computeQrCodeClasses({ sized: component.size !== undefined }),
+    undefined,
+    elementProps['className'] as string | undefined
+  )
   const dataTestId = elementProps['data-testid'] as string | undefined
   const accessibleName = elementProps['aria-label'] as string | undefined
   const componentType = hostComponentType(elementProps)
@@ -127,6 +134,7 @@ export const qrCodeComponent: ComponentRenderer = (
     return (
       <div
         className={className}
+        data-slot="qr-code"
         data-testid={dataTestId}
         data-component-type={componentType}
         data-qr-value={resolved.payload}
@@ -138,6 +146,7 @@ export const qrCodeComponent: ComponentRenderer = (
   return (
     <div
       className={className}
+      data-slot="qr-code"
       data-testid={dataTestId}
       data-component-type={componentType}
       data-qr-value={resolved.payload}

@@ -48,7 +48,7 @@ const LANGUAGES: readonly (readonly [string, string])[] = [
   ['tsx', 'const Row = ({ item }: { item: Item }) => <li>{item.name}</li>'],
   ['json', '{\n  "status": "done",\n  "durationMs": 412\n}'],
   ['html', '<section class="card">\n  <h2>Deals</h2>\n</section>'],
-  ['css', '.card {\n  border: 1px solid var(--sv-border);\n}'],
+  ['css', '.card {\n  border: 1px solid var(--border);\n}'],
   ['sql', "select name, amount\nfrom deals\nwhere status = 'won'"],
   ['markdown', '## Deals\n\nA **won** deal closes the record.'],
   ['python', 'total = sum(item["amount"] for item in items)'],
@@ -225,7 +225,7 @@ const codeEditor: TypePageBody = {
                 {
                   type: 'text',
                   element: 'span',
-                  props: { className: 'text-foreground truncate font-mono text-[11px]' },
+                  props: { className: 'text-foreground truncate font-mono text-xs' },
                   content: "record.amount > 10000 ? 'enterprise' : 'standard'",
                 },
               ],
@@ -239,14 +239,13 @@ const codeEditor: TypePageBody = {
               type: 'container',
               element: 'div',
               props: {
-                className:
-                  'border-border bg-background-raised w-72 rounded-md border p-2 shadow-md',
+                className: 'border-border bg-card w-72 rounded-md border p-2 shadow-md',
               },
               children: [
                 {
                   type: 'text',
                   element: 'p',
-                  props: { className: 'text-foreground font-mono text-[11px]' },
+                  props: { className: 'text-foreground font-mono text-xs' },
                   content: "record.amount > 10000 ? 'enterprise' : 'standard'",
                 },
               ],

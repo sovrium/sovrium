@@ -401,7 +401,9 @@ const collectOutput = (
         stdout,
         stderr,
         duration: Date.now() - startedAt,
-        signal: proc.signalCode,
+        // Bun 1.4.3 types `signalCode` as a signal name OR a number; the
+        // contract above is a name, so a numeric one is stringified.
+        signal: proc.signalCode === null ? null : String(proc.signalCode),
       }
     },
     catch: (error) => new CommandSpawnError({ command: display, cause: error }),

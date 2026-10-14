@@ -26,6 +26,22 @@ export const alertDialogFields = {
   confirmLabel: Schema.optional(
     Schema.String.annotate({ description: 'Confirm button text (default: "Continue")' })
   ),
+  size: Schema.optional(
+    Schema.Literals(['default', 'sm']).annotate({
+      title: 'Size',
+      defaultNote: 'default',
+      description:
+        "'default', or 'sm' for a narrower confirmation whose icon, title and buttons stack and centre. shadcn/ui's Alert Dialog size.",
+    })
+  ),
+  icon: Schema.optional(
+    Schema.String.annotate({
+      title: 'Icon',
+      description:
+        'A Lucide icon drawn in a tile above the title (beside it at the default size on a wide screen). Decorative: hidden from assistive technology.',
+      examples: ['triangle-alert', 'trash-2'],
+    })
+  ),
   /**
    * Typed confirmation: the confirm button stays disabled until the reader has
    * typed exactly this text into the field the dialog then draws. For the

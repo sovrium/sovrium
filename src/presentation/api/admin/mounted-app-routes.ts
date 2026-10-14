@@ -292,9 +292,8 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
   // The operator's persisted language, resolved against the MOUNTED app's own
   // `languages.supported` — ACCOUNT first, then this browser's cookie, the same
   // rank the ordinary page routes apply (`preferredLanguageFor`,
-  // `presentation/api/pages/page-routes.ts`). A preference saved on an account
-  // travels to every machine its owner signs in on; the cookie is what one
-  // browser remembers.
+  // `presentation/api/pages/page-routes.ts`): the account travels to every
+  // machine its owner signs in on, the cookie is what one browser remembers.
   //
   // Derived from `posture.session` LOCALLY rather than threaded into
   // `renderPage`: a mounted page renders session-less by design, and what the
@@ -305,17 +304,18 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
   const result: PageRenderResult = await config.renderPage(surfaceApp, mountPath, {
     requestQuery: c.req.query(),
     requestOrigin: resolveRequestBaseUrl(c),
+    // The browser's cookies, as unmounted routes pass them (a folded sidebar).
+    cookies: getCookie(c),
     // The operator's persisted language, resolved against the MOUNTED app's own
     // `languages.supported` — never the operator's. A mount is a second app on
     // the operator's origin and one browser carries one preference, so the
     // clamp is what keeps a console that declares `en`/`fr` from being served
     // `lang="es-ES"` over English strings.
     //
-    // Threaded as `urlLanguage` because that is the rank it needs, not because
-    // a URL said anything: every preset page pins `meta.lang`, and a preference
-    // entering BELOW that pin would be inert on the one surface it was added
-    // for — inert, and silently. `undefined` leaves the pin deciding, which is
-    // the right answer for an operator who has chosen nothing
+    // Threaded as `urlLanguage` because that is the rank it needs: every preset
+    // page pins `meta.lang`, and a preference entering BELOW that pin would be
+    // inert, silently. `undefined` leaves the pin deciding, which is the right
+    // answer for an operator who has chosen nothing
     ...(preferredLanguage ? { urlLanguage: preferredLanguage } : {}),
     // G1: a mounted console prints the OPERATOR's name and version, never the
     // preset's own — which is the fact its config cannot reach.

@@ -193,6 +193,8 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   // `sovrium library add <provider> --all [--yes]`.
   '--all',
   '--yes',
+  // `sovrium library add <id> --update`: replace the installed fragment in place.
+  '--update',
   // `sovrium seed --remote`: seed the app the project's link file names, on the
   // signed-in cloud. A plain `sovrium seed` stays local, link or not.
   '--remote',

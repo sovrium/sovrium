@@ -57,7 +57,7 @@ export function StatusBanners(props: StatusBannersProps) {
       <RealtimeConnectionBanner status={props.connectionStatus} />
       {props.showToastIndicator && props.indicatorStatus !== 'idle' && (
         <div className="pointer-events-none fixed right-4 bottom-4 z-50">
-          <div className="border-border bg-background-overlay rounded-md border px-3 py-2 shadow-lg">
+          <div className="border-border bg-popover rounded-md border px-3 py-2 shadow-lg">
             <SaveStatusIndicator status={props.indicatorStatus} />
           </div>
         </div>

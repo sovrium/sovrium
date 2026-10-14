@@ -39,7 +39,7 @@ children:
             - type: text
               element: p
               props:
-                className: text-sm text-foreground-subtle
+                className: text-sm text-muted-foreground
               content: $record.client
           onClick:
             type: navigate

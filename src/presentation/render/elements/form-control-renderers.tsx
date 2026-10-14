@@ -16,25 +16,31 @@
  */
 
 import { type ReactElement } from 'react'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { ClockGlyph, MinusGlyph, PlusGlyph } from '@/presentation/design/control-glyphs'
 import {
-  FILE_UPLOAD_DROPZONE_PROMPT,
+  computeDateTriggerClasses,
+  DATE_CONTROL_ROOT_CLASSES,
+} from '@/presentation/design/date-trigger-default-classes'
+import {
+  computeFieldClasses,
+  computeFieldLabelClasses,
+} from '@/presentation/design/field-default-classes'
+import {
   fileUploadDropzoneHint,
   computeFileUploadDropzoneClasses,
-  computeFileUploadDropzoneHintClasses,
-  computeFileUploadDropzoneIconClasses,
-  computeFileUploadDropzoneTextClasses,
+  computeFileUploadTriggerClasses,
 } from '@/presentation/design/file-upload-default-classes'
-import { UploadGlyph } from '@/presentation/design/form-glyphs'
-import { computeFormFieldLabelClasses } from '@/presentation/design/form-layout-classes'
+import { FileUploadDropzoneParts } from '@/presentation/design/file-upload-dropzone-parts'
+import {
+  computeInputGroupAddonClasses,
+  computeInputGroupClasses,
+  computeInputGroupFieldClasses,
+  computeInputGroupIconButtonClasses,
+  computeInputGroupLabelClasses,
+  computeInputGroupRootClasses,
+} from '@/presentation/design/input-group-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
-import {
-  computeTimePickerAmPmClasses,
-  computeTimePickerFieldClasses,
-  computeTimePickerWrapperClasses,
-} from '../../design/specialty-ssr-default-classes'
-import { toUncontrolledFormProps } from '../props/uncontrolled-form-props'
 import type { ElementProps } from './html-element-renderer'
 
 /**
@@ -63,33 +69,25 @@ export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): Re
   const className = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
   const buttonText = label ?? ariaLabel
-  const skeletonLabel = dropZone ? FILE_UPLOAD_DROPZONE_PROMPT : buttonText
-  const dropzoneHint = fileUploadDropzoneHint({ accept: config.accept, maxFiles: config.maxFiles })
+  const maxFileSize = islandProps['maxFileSize'] as number | undefined
+  const dropzoneHint = fileUploadDropzoneHint({
+    accept: config.accept,
+    maxFiles: config.maxFiles,
+    maxFileSize,
+  })
   const controlState = disabled === true ? 'disabled' : 'default'
   const ariaDisabled = disabled === true ? 'true' : undefined
 
   // The SSR placeholder is *visual only* — it intentionally does NOT render
-  // a real `<input type="file">`. The eager-imported `FileUploadIsland`
-  // mounts synchronously on `DOMContentLoaded` and emits its own input with
-  // the React change-handler attached. Rendering a placeholder input here
-  // would race with Playwright's `setInputFiles(...)` — the test would set
-  // the file on the SSR input, which is then unmounted by `createRoot.render`
-  // before the change can propagate.
+  // a real `<input type="file">`. The island mounts on `DOMContentLoaded` and
+  // emits its own input with the React change-handler attached; a placeholder
+  // input here would race with Playwright's `setInputFiles(...)`, the file set
+  // on an input `createRoot.render` then unmounts.
   //
-  // When `dropZone: true`, paint the prestyled dashed-border drop-
-  // target stack (glyph + prompt + constraint hint).
-  //
-  // R-E: both branches now paint from the SHARED recipes in
-  // `presentation/utils/recipes` — the drop target from
-  // `file-upload-default-classes`, the button from
-  // `computeButtonDefaultClasses` — and the copy comes from the same module,
-  // so the words cannot drift either. The comment that stood here claimed the
-  // island "already ships the same recipe"; it did not. Measured before R-E,
-  // the skeleton drew `p-6 border-2 gap-2` on `bg-subtle` saying "Drop files
-  // or browse — Attachments", and `UploadLabel` drew `min-h-[120px] px-4 py-2
-  // shadow-sm` on `bg-background` saying "Drag and drop files here or browse
-  // — Attachments". The control changed size, colour and wording on mount;
-  // the claim of sameness is what let that stand unnoticed.
+  // Both branches paint from the recipes the island reads, and say the same
+  // words, so the control does not move or change its text on mount. The
+  // drop zone's Browse files button is drawn disabled until the island takes
+  // over: a press before then would open nothing.
   return (
     <div
       id={id}
@@ -103,21 +101,23 @@ export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): Re
     >
       {dropZone ? (
         <div
+          data-slot="empty"
           className={computeFileUploadDropzoneClasses({ state: controlState })}
           aria-disabled={ariaDisabled}
         >
-          <UploadGlyph className={computeFileUploadDropzoneIconClasses()} />
-          <span className={computeFileUploadDropzoneTextClasses()}>{skeletonLabel}</span>
-          {dropzoneHint !== undefined && (
-            <span className={computeFileUploadDropzoneHintClasses()}>{dropzoneHint}</span>
-          )}
+          <FileUploadDropzoneParts
+            hint={dropzoneHint}
+            disabled
+          />
         </div>
       ) : (
         <span
-          className={computeButtonDefaultClasses({ variant: 'secondary', state: controlState })}
+          data-slot="button"
+          data-variant="outline"
+          className={computeFileUploadTriggerClasses({ disabled: disabled === true })}
           aria-disabled={ariaDisabled}
         >
-          {skeletonLabel}
+          {buttonText}
         </span>
       )}
     </div>
@@ -153,42 +153,59 @@ export function renderTimePicker(config: RenderTimePickerConfig): ReactElement {
   const ariaLabel = label ?? (props['aria-label'] as string | undefined)
   const showAmPm = timeFormat === '12h'
 
-  // The prestyled-islands rule prestyle: merge wrapper recipe with any author-supplied className.
-  // The author wins same-property conflicts because `resolveClasses` drops the
-  // recipe's losing class — NOT because Tailwind sorts later utilities last,
-  // which it does not do by concatenation order.
-  const wrapperPrestyle = computeTimePickerWrapperClasses()
-  const wrapperClassName = resolveClasses(wrapperPrestyle, authorClassName)
-  const fieldClassName = computeTimePickerFieldClasses()
-  const ampmClassName = computeTimePickerAmPmClasses()
-
+  // shadcn/ui `Field` around one `InputGroup`: the label sits ABOVE the group,
+  // and the group is the one bordered box holding the time input and a clock
+  // in an end addon. The author's className joins the field's through
+  // `resolveClasses`, so it wins any same-property conflict with the recipe.
   return (
-    <span
-      className={wrapperClassName}
+    <div
+      className={resolveClasses(computeFieldClasses(), authorClassName)}
+      data-slot="field"
       data-testid={testId}
       data-component="time-picker"
       data-component-type={props['data-component-type'] as string | undefined}
     >
-      {label !== undefined && <label htmlFor={id}>{label}</label>}
-      <input
-        id={id}
-        type="time"
-        aria-label={ariaLabel}
-        min={minTime}
-        max={maxTime}
-        step={stepSeconds}
-        className={fieldClassName}
-      />
-      {showAmPm && (
-        <span
-          aria-hidden="true"
-          data-time-format="12h"
-          className={ampmClassName}
+      {label !== undefined && (
+        <label
+          htmlFor={id}
+          data-slot="field-label"
+          className={computeFieldLabelClasses()}
         >
-          AM / PM
-        </span>
+          {label}
+        </label>
       )}
-    </span>
+      <div
+        role="group"
+        data-slot="input-group"
+        className={computeInputGroupClasses()}
+      >
+        <input
+          id={id}
+          type="time"
+          aria-label={ariaLabel}
+          min={minTime}
+          max={maxTime}
+          step={stepSeconds}
+          data-slot="input-group-control"
+          className={`${computeInputGroupFieldClasses()} appearance-none [&::-webkit-calendar-picker-indicator]:hidden`}
+        />
+        <div
+          data-slot="input-group-addon"
+          data-align="inline-end"
+          className={computeInputGroupAddonClasses({ align: 'inline-end' })}
+        >
+          {showAmPm && (
+            <span
+              aria-hidden="true"
+              data-time-format="12h"
+            >
+              AM / PM
+            </span>
+          )}
+          <ClockGlyph />
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -201,7 +218,8 @@ export function renderTimePicker(config: RenderTimePickerConfig): ReactElement {
  * The SSR placeholder renders a non-interactive `<button>` carrying the
  * island marker (`data-island="date-picker"`) — the eager
  * `DatePickerIsland` takes over on mount and replaces it with the real
- * popover + calendar grid.
+ * popover + calendar grid. The placeholder paints from the island's own
+ * recipes, so the control keeps its width and height when it does.
  */
 export interface RenderDatePickerIslandConfig {
   readonly props: ElementProps
@@ -235,6 +253,20 @@ export function renderDatePickerIsland(config: RenderDatePickerIslandConfig): Re
       ? `${label} — ${placeholder}`
       : label
     : (placeholder ?? 'Pick a date')
+  const trigger = (
+    <button
+      type="button"
+      disabled
+      aria-haspopup="dialog"
+      // The trigger of an open control reports itself open. On the live
+      // control this is the island's job; here it is the one attribute that
+      // keeps the drawn trigger and the drawn panel telling the same story.
+      aria-expanded={depicted ? 'true' : undefined}
+      className={depicted ? undefined : computeDateTriggerClasses()}
+    >
+      {buttonLabel}
+    </button>
+  )
   return (
     <span
       id={id}
@@ -250,23 +282,17 @@ export function renderDatePickerIsland(config: RenderDatePickerIslandConfig): Re
       data-island-props={depicted ? undefined : JSON.stringify(islandProps)}
       data-specimen-open={depicted ? 'true' : undefined}
     >
-      <button
-        type="button"
-        disabled
-        aria-haspopup="dialog"
-        // The trigger of an open control reports itself open. On the live
-        // control this is the island's job; here it is the one attribute that
-        // keeps the drawn trigger and the drawn panel telling the same story.
-        aria-expanded={depicted ? 'true' : undefined}
-      >
-        {buttonLabel}
-      </button>
-      {depicted && (
-        // Markup from the island's own `DatePickerPopup`, produced server-side
-        // from decoded config — see `presentation/rendering/open-specimen-markup.ts`
-        // for why it arrives as a string and why that is safe here.
-        // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
-        <span dangerouslySetInnerHTML={{ __html: openPopupHtml }} />
+      {depicted ? (
+        <>
+          {trigger}
+          {/* The island's own `DatePickerPopup` markup, rendered server-side;
+          `open-specimen-markup.ts` says why a string is safe here. */}
+          {/* eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value */}
+          <span dangerouslySetInnerHTML={{ __html: openPopupHtml }} />
+        </>
+      ) : (
+        // Drawn from the island's recipes, so it keeps its size on mount.
+        <span className={DATE_CONTROL_ROOT_CLASSES}>{trigger}</span>
       )}
     </span>
   )
@@ -299,8 +325,11 @@ export function renderNumberInputIsland(config: RenderNumberInputIslandConfig): 
   const ariaLabel = label ?? (props['aria-label'] as string | undefined)
   const showSteppers = showStepper !== false
 
+  // The skeleton draws the island's own anatomy — a field, its label above one
+  // input group of decrement, number and increment — so nothing moves when the
+  // island mounts and replaces it. Everything is disabled until then.
   return (
-    <span
+    <div
       id={id}
       className={className}
       data-testid={testId}
@@ -309,98 +338,62 @@ export function renderNumberInputIsland(config: RenderNumberInputIslandConfig): 
       data-component-type={hostComponentType(props)}
       data-island-props={JSON.stringify(islandProps)}
     >
-      {/*
-        The SSR label carries the SAME recipe the island paints on its own
-        label. Not cosmetic symmetry: an unruled label inherits the document
-        root (16px) while the hydrated one reads the form-label step, so the
-        two spellings would make the label RESIZE the moment the island mounts.
-      */}
-      {label !== undefined && (
-        <label
-          htmlFor={`${id ?? ''}-input`}
-          className={computeFormFieldLabelClasses()}
+      <div
+        className={computeInputGroupRootClasses()}
+        data-slot="field"
+      >
+        {label !== undefined && (
+          <label
+            htmlFor={`${id ?? ''}-input`}
+            data-slot="field-label"
+            className={computeInputGroupLabelClasses()}
+          >
+            {label}
+          </label>
+        )}
+        <div
+          role="group"
+          data-slot="input-group"
+          className={computeInputGroupClasses({ fit: true })}
         >
-          {label}
-        </label>
-      )}
-      {showSteppers && (
-        <button
-          type="button"
-          aria-label="decrement"
-          disabled
-        >
-          -
-        </button>
-      )}
-      <input
-        id={`${id ?? ''}-input`}
-        type="number"
-        aria-label={ariaLabel}
-        min={min}
-        max={max}
-        step={step}
-        defaultValue={defaultValue}
-        disabled
-      />
-      {showSteppers && (
-        <button
-          type="button"
-          aria-label="increment"
-          disabled
-        >
-          +
-        </button>
-      )}
-    </span>
+          {showSteppers && numberInputSkeletonStep('decrement')}
+          <input
+            id={`${id ?? ''}-input`}
+            type="number"
+            aria-label={ariaLabel}
+            min={min}
+            max={max}
+            step={step}
+            defaultValue={defaultValue}
+            disabled
+            data-slot="input-group-control"
+            className={`${computeInputGroupFieldClasses({ fit: true })} text-center tabular-nums`}
+          />
+          {showSteppers && numberInputSkeletonStep('increment')}
+        </div>
+      </div>
+    </div>
   )
 }
 
-/**
- * Configuration for {@link renderOneTimeCodeInput}.
- *
- * `label` is mirrored into both `aria-label` and a sibling `<label>` so a
- * verification page needs no `id` for the control to be findable by its name —
- * the same pairing {@link renderTimePicker} uses, and for the same reason.
- */
-export interface RenderOneTimeCodeInputConfig {
-  readonly props: ElementProps
-  readonly label?: string
-}
-
-/**
- * The verification-code entry (`inputType: 'one-time-code'`).
- *
- * Two attributes carry the whole capability, and neither is decoration:
- * `autocomplete="one-time-code"` is what a phone keys its offer-the-code-from-
- * the-SMS behaviour on, and `inputmode="numeric"` is what brings up a digit
- * keypad instead of an alphabetic keyboard for six digits.
- *
- * The rendered `type` is `text`, NOT the schema literal. `one-time-code` is not
- * an HTML input type: a browser meeting it falls back to `text` anyway, but
- * does so while discarding the numeric keyboard this control exists to get. So
- * the literal is translated here rather than forwarded, and the author-facing
- * vocabulary stays the one the schema documents.
- *
- * Whatever the visual treatment, the VALUE is one string. A segmented control
- * that submitted six fields would be a different contract from every other
- * input on the page.
- */
-export function renderOneTimeCodeInput(config: RenderOneTimeCodeInputConfig): ReactElement {
-  const { props, label } = config
-  const { type: _discardedType, ...rest } = props
-  const id = props.id as string | undefined
-  const ariaLabel = label ?? (props['aria-label'] as string | undefined)
+/** One disabled step button of the number-input skeleton, in its addon. */
+function numberInputSkeletonStep(direction: 'increment' | 'decrement'): ReactElement {
+  const align = direction === 'increment' ? 'inline-end' : 'inline-start'
   return (
-    <>
-      {label !== undefined && id !== undefined && <label htmlFor={id}>{label}</label>}
-      <input
-        {...toUncontrolledFormProps(rest)}
-        type="text"
-        autoComplete="one-time-code"
-        inputMode="numeric"
-        aria-label={ariaLabel}
-        data-component="one-time-code"
-      />
-    </>
+    <div
+      data-slot="input-group-addon"
+      data-align={align}
+      className={computeInputGroupAddonClasses({ align })}
+    >
+      <button
+        type="button"
+        aria-label={direction}
+        disabled
+        data-slot="input-group-button"
+        className={computeInputGroupIconButtonClasses()}
+      >
+        {direction === 'increment' ? <PlusGlyph /> : <MinusGlyph />}
+      </button>
+    </div>
   )
 }

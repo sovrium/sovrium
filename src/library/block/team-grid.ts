@@ -38,7 +38,7 @@ const member = (index: number): Readonly<Record<string, unknown>> =>
       {
         type: 'text',
         element: 'p',
-        props: { className: 'text-sm text-foreground-subtle' },
+        props: { className: 'text-sm text-muted-foreground' },
         content: '[Role]',
       },
     ],

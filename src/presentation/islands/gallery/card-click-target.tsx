@@ -8,8 +8,11 @@
 import { FEATURED_WRAPPER_CLASSES } from './featured-card-classes'
 import type { KeyboardEvent, ReactElement } from 'react'
 
-/** The link a navigating card wraps its content in: a block, in the card's own colours. */
-const GALLERY_CARD_LINK_CLASSES = 'block text-inherit no-underline'
+/**
+ * What a clickable card wraps its cover and content in: the card's own
+ * column and spacing, in the card's own colours.
+ */
+const GALLERY_CARD_LINK_CLASSES = 'flex flex-col gap-(--card-spacing) text-inherit no-underline'
 
 /** Enter or Space on a card that opens a drawer opens it, as a click does. */
 function buildDrawerKeyHandler(open: () => void): (e: KeyboardEvent<HTMLDivElement>) => void {
@@ -23,12 +26,12 @@ function buildDrawerKeyHandler(open: () => void): (e: KeyboardEvent<HTMLDivEleme
 /** The card's content, wrapped in what its click does: a link, a drawer opener, or nothing. */
 export function CardClickTarget({
   navigatePath,
-  openDrawer,
+  openSheet,
   body,
   featured,
 }: {
   readonly navigatePath: string | undefined
-  readonly openDrawer: (() => void) | undefined
+  readonly openSheet: (() => void) | undefined
   readonly body: ReactElement
   readonly featured: boolean
 }): ReactElement {
@@ -43,14 +46,14 @@ export function CardClickTarget({
       </a>
     )
   }
-  if (!openDrawer) return body
+  if (!openSheet) return body
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={openDrawer}
-      onKeyDown={buildDrawerKeyHandler(openDrawer)}
-      className={featured ? FEATURED_WRAPPER_CLASSES : undefined}
+      onClick={openSheet}
+      onKeyDown={buildDrawerKeyHandler(openSheet)}
+      className={`${GALLERY_CARD_LINK_CLASSES}${featuredClasses}`}
     >
       {body}
     </div>

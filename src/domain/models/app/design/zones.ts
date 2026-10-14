@@ -25,52 +25,6 @@ const zoneGuidanceLine = (subject: string, description: string) =>
   )
 
 /**
- * The accent budget vocabulary — deliberately BINARY.
- *
- * The distinction the platform actually enforces is one question: *may this
- * surface spend warmth, accent and persuasion?* `[internal ref]`
- * assertion (c) asks exactly that and nothing finer — it refuses a gated route
- * governed by a zone carrying the PUBLIC budget, and treats every other budget
- * identically. A three- or five-value vocabulary would be a distinction the
- * lock cannot read, which is how a config key becomes prose.
- *
- * The per-zone prose in `BRAND.md` §5 stays richer on purpose (`demonstrative
- * marketing`, `quiet`, `demonstrative`) — that column describes *how* to spend
- * the budget. This field declares *which* budget, so the gate can hold it.
- */
-export const AccentBudgetSchema = Schema.Literals(['public', 'product']).pipe(
-  Schema.annotate({
-    identifier: 'AccentBudget',
-    title: 'Accent Budget',
-    description:
-      'Which accent budget the zone carries. `public` is the persuasion budget — warmth, accent, marketing weight — and may only govern ungated routes. `product` is the working budget for everything a signed-in operator sees.',
-    examples: ['public', 'product'],
-  })
-)
-
-/**
- * Zone names that carry the PUBLIC accent budget by convention.
- *
- * THIS IS THE ONE DEFINITION. It was briefly written twice — here and as
- * `PUBLIC_BUDGET_ZONES` in `[internal ref]` — while
- * `design.zones[]` existed and nothing read it. That duplication is now closed
- * in the direction the boundary allows: `scripts/` imports from `src/` (it
- * already imports `@/infrastructure/schema`), never the reverse, because `src/`
- * ships in the binary and `scripts/` does not. The name over there survives as a
- * re-export of this constant.
- *
- * So the value lives here, and rule 4 below refuses a config whose `zone` name
- * and `accentBudget` would contradict it.
- *
- * Note what this list is NOT: it does not answer *"what budget does this zone
- * carry?"* — `accentBudget` answers that, and is authoritative. This list only
- * answers *"which zone names are conventionally public?"*, which is what makes
- * `{ zone: 'marketing', accentBudget: 'product' }` a contradiction worth
- * refusing rather than an exotic-but-legal declaration.
- */
-export const PUBLIC_BUDGET_ZONE_NAMES: readonly string[] = ['marketing']
-
-/**
  * A per-zone voice override.
  *
  * ## Per-FIELD, not whole-object
@@ -193,9 +147,6 @@ export const DesignZoneSchema = Schema.Struct({
     Schema.check(Schema.isMinLength(1, { message: 'A zone name must not be empty' }))
   ),
 
-  /** Which accent budget this zone carries. See {@link AccentBudgetSchema}. */
-  accentBudget: Schema.optional(AccentBudgetSchema),
-
   /** How this zone's voice departs from `design.voice`. Per-field override. */
   voice: Schema.optional(ZoneVoiceOverrideSchema),
 }).pipe(
@@ -203,25 +154,24 @@ export const DesignZoneSchema = Schema.Struct({
     identifier: 'DesignZone',
     title: 'Design Zone',
     description:
-      'One route pattern, the zone it belongs to, the accent budget that zone carries, and how its voice departs from the app default.',
+      'One route pattern, the zone it belongs to, and how its voice departs from the app default.',
     examples: [
-      { pattern: '/docs/*', zone: 'documentation', accentBudget: 'product' },
-      { pattern: 'everything else', zone: 'marketing', accentBudget: 'public' },
+      { pattern: '/docs/*', zone: 'documentation' },
+      { pattern: 'everything else', zone: 'marketing' },
     ],
   })
 )
 
 /**
  * The app's zone map — which surface is which, and what each is allowed to
- * spend and say.
+ * say.
  *
  * ## Why this is a config key and not prose
  *
  * Every Sovrium app that has more than one register has a zone map, and THIS
  * key is it. An unskippable drift check
- * evaluates the entries below to enforce three things — that every declared
- * route belongs to a zone, that every zone still governs a live route, and that
- * a zone carrying the public accent budget never governs a gated one.
+ * evaluates the entries below to enforce two things — that every declared
+ * route belongs to a zone, and that every zone still governs a live route.
  *
  * The map lived in prose first: a `**Zones**:` line in each app's `BRAND.md`,
  * which the same check parsed out of Markdown. Parsing a sentence to hold an
@@ -232,20 +182,12 @@ export const DesignZoneSchema = Schema.Struct({
  * identity check refuses unless the path it names resolves on disk. A pointer
  * cannot drift from the map, which is the whole reason it is one.
  *
- * ## Two semantics the gate reads off these entries
+ * ## The reserved zone name
  *
  * `zone: 'none'` is a RESERVED WORD meaning "belongs to no zone". A route it
  * governs counts as COVERED — the coverage assertion does not flag it — and the
- * zone carries no budget and no voice, so the budget lock never applies to it.
- * It is how an app declares that `/404` is a real route with no zone posture,
+ * zone carries no voice. It is how an app declares that `/404` is a real route with no zone posture,
  * rather than a route someone forgot to place.
- *
- * The budget fallback is FAIL-CLOSED. `accentBudget` is authoritative when
- * declared; when OMITTED, a zone whose name is in
- * {@link PUBLIC_BUDGET_ZONE_NAMES} still carries the public budget and stays
- * locked. The field is `Schema.optional`, so silent opt-out is the type
- * system's default — and a config that could leave an unskippable gate by
- * deleting one optional field would take the gate's green with it.
  *
  * ## Order is significance
  *
@@ -265,24 +207,21 @@ export const DesignZoneSchema = Schema.Struct({
  * `design.zones` is reported as `zones-unreadable`, naming how many routes went
  * unchecked, exactly as an unreadable `**Zones**:` line was. That is what keeps
  * the whole gate from being opt-out: deleting this key would otherwise be the
- * cheapest way to make coverage, liveness and the budget lock all vacuous at
- * once.
+ * cheapest way to make coverage and liveness both vacuous at once.
  */
 export const DesignZonesSchema = Schema.Array(DesignZoneSchema).annotate({
   identifier: 'DesignZones',
   title: 'Design Zones',
   description:
-    "The app's zone map: which route patterns belong to which zone, what accent budget each zone carries, and how each zone's voice departs from `design.voice`.",
+    "The app's zone map: which route patterns belong to which zone, and how each zone's voice departs from `design.voice`.",
   examples: [
     [
-      { pattern: '/admin/*', zone: 'product', accentBudget: 'product' },
-      { pattern: 'everything else', zone: 'marketing', accentBudget: 'public' },
+      { pattern: '/admin/*', zone: 'product' },
+      { pattern: 'everything else', zone: 'marketing' },
     ],
   ],
 })
 
-/** @public */
-export type AccentBudget = Schema.Schema.Type<typeof AccentBudgetSchema>
 /** @public */
 export type ZoneVoiceOverride = Schema.Schema.Type<typeof ZoneVoiceOverrideSchema>
 /** @public */

@@ -6,6 +6,7 @@
  */
 
 import { computeChartShellClasses } from '@/presentation/design/chart-default-classes'
+import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
 import type { ComponentRenderer } from './component-dispatch-config'
 
@@ -16,12 +17,22 @@ import type { ComponentRenderer } from './component-dispatch-config'
  */
 const CHART_SKELETON_HEIGHTS = ['h-[40%]', 'h-[55%]', 'h-[70%]', 'h-[60%]', 'h-[85%]', 'h-[50%]']
 
+/** Each series' `icon`, resolved to the geometry the island draws (no icon set ships to the client). */
+const withSeriesIcons = (series: unknown): unknown =>
+  Array.isArray(series)
+    ? series.map((entry: Readonly<Record<string, unknown>>) =>
+        typeof entry['icon'] === 'string'
+          ? { ...entry, iconNode: resolveLucideIconNode(entry['icon']) }
+          : entry
+      )
+    : series
+
 /**
  * Extracts chart island props from section component props.
  *
  * Forwarded to the chart island for client-side data fetching, optional
- * aggregation, and visx-based SVG rendering (bar/line/area/scatter via
- * @visx/xychart, pie/donut via @visx/shape).
+ * aggregation, and SVG rendering through recharts (bar, line, area, scatter,
+ * pie and donut).
  */
 function extractChartProps(elementProps: Record<string, unknown>): Record<string, unknown> {
   return {
@@ -36,7 +47,7 @@ function extractChartProps(elementProps: Record<string, unknown>): Record<string
     chartType: elementProps.chartType,
     xAxis: elementProps.xAxis,
     yAxis: elementProps.yAxis,
-    series: elementProps.series,
+    series: withSeriesIcons(elementProps.series),
     legend: elementProps.legend,
     tooltip: elementProps.tooltip,
     chartAggregate: elementProps.chartAggregate,
@@ -90,19 +101,19 @@ export const islandChartComponent: ComponentRenderer = ({ elementProps }) => {
        *
        * Not `data-default-classes.ts`'s same-named `computeChartShellClasses`,
        * which paints the design-system reference app's chart SIMULACRUM (`p-4`
-       * on `sv-bg`) and is pinned by that file's test — a different surface
+       * on `background`) and is pinned by that file's test — a different surface
        * that happens to share a name. */}
       <div
         className={computeChartShellClasses()}
         aria-label="Loading chart..."
         role="status"
       >
-        <div className="bg-background-subtle mb-3 h-4 w-32 animate-pulse rounded" />
+        <div className="bg-muted mb-3 h-4 w-32 animate-pulse rounded" />
         <div className="flex h-48 items-end gap-3">
           {CHART_SKELETON_HEIGHTS.map((cls, i) => (
             <div
               key={`chart-skeleton-${String(i)}`}
-              className={`bg-background-subtle flex-1 animate-pulse rounded-t ${cls}`}
+              className={`bg-muted flex-1 animate-pulse rounded-t ${cls}`}
             />
           ))}
         </div>

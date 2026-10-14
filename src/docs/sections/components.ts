@@ -19,6 +19,7 @@ import structuralComponentsBody from '@/domain/models/app/pages/components/compo
 import { VisibilitySchema } from '@/domain/models/app/pages/components/visibility'
 import { componentType } from './component-directives'
 import { presentationComponentArticles } from './components-presentation'
+import { primitiveComponentArticles } from './components-primitives'
 import { defineArticle, defineSection } from './define'
 
 /**
@@ -117,7 +118,7 @@ export const section = defineSection({
       order: 3210,
       sidebarLabel: 'Layout Components',
       body: layoutComponentsBody,
-      documents: [componentType('container'), componentType('card'), componentType('split-pane')],
+      documents: [componentType('container'), componentType('card'), componentType('resizable')],
       stories: [
         'US-DESIGN-SYSTEM-COMPONENT-TYPES-LAYOUT',
         'US-PAGES-LAYOUT-TABS-CONTAINER-001',
@@ -221,5 +222,6 @@ export const section = defineSection({
       ],
     }),
     ...presentationComponentArticles,
+    ...primitiveComponentArticles,
   ],
 })

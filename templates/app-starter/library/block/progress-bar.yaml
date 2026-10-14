@@ -1,4 +1,4 @@
-# sovrium-library: block/progress-bar@0.30.0
+# sovrium-library: block/progress-bar@0.37.0
 name: progress-bar
 type: container
 props:
@@ -20,7 +20,7 @@ children:
           - type: text
             element: span
             props:
-              className: font-mono text-sm text-foreground-subtle
+              className: font-mono text-sm text-muted-foreground
             content: 312 / 480
       - type: progress
         progressVariant: bar
@@ -32,5 +32,5 @@ children:
       - type: text
         element: p
         props:
-          className: text-sm text-foreground-subtle
+          className: text-sm text-muted-foreground
         content: About 2 minutes left. You can leave this page.

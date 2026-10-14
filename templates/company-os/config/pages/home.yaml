@@ -17,7 +17,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -98,7 +98,7 @@ components:
                   - type: container
                     element: section
                     props:
-                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-card px-4 py-3.5
                     children:
                       - type: text
                         element: h2
@@ -108,7 +108,7 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: -mt-2 text-xs text-foreground-muted
+                          className: -mt-2 text-xs text-muted-foreground
                         content: Open deals, in the order they move
                       - type: chart
                         chartType: bar
@@ -128,7 +128,7 @@ components:
                   - type: container
                     element: section
                     props:
-                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-card px-4 py-3.5
                     children:
                       - type: text
                         element: h2
@@ -138,7 +138,7 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: -mt-2 text-xs text-foreground-muted
+                          className: -mt-2 text-xs text-muted-foreground
                         content: The same clients as in Delivery and Support
                       # The legend names every client; the ring itself stays
                       # unlabelled so four names never overlap on a small slice.
@@ -162,7 +162,7 @@ components:
                   - type: container
                     element: section
                     props:
-                      className: flex min-w-0 flex-col gap-2 max-md:order-first rounded-lg border border-border bg-background-raised px-4 py-3.5
+                      className: flex min-w-0 flex-col gap-2 max-md:order-first rounded-lg border border-border bg-card px-4 py-3.5
                     children:
                       - type: text
                         element: h2
@@ -172,7 +172,7 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: -mt-1.5 text-xs text-foreground-muted
+                          className: -mt-1.5 text-xs text-muted-foreground
                         content: Across the four modules, most urgent first
                       - type: list
                         dataSource:

@@ -24,10 +24,8 @@
  * unrecognised property has always been rejected. What it could not do was
  * SAY SO usably. Measured on this binary, a config whose only mistake is `tag`
  * on a `text` component (the property is spelled `element`) produced 67 lines of
- * `TreeFormatter` output, 19 of them `From side refinement failure` — one
- * nesting level per top-level `Schema.filter` on `AppSchema`, each printed
- * twice. The name of the offending property sat on line 52; its path was never
- * printed at all.
+ * `TreeFormatter` output, 19 of them `From side refinement failure`, the name of
+ * the offending property on line 52 and its path nowhere.
  *
  * This module answers the four questions the author actually has:
  *
@@ -94,10 +92,9 @@
  */
 
 import { SchemaAST, SchemaIssue } from 'effect'
-import { migrationHintForRemovedKey } from '@/domain/models/app/design/removed-keys'
-import { migrationHintForRemovedFormKey } from '@/domain/models/app/pages/components/component-types/data/form/removed-keys'
-import { migrationHintForRemovedTableKey } from '@/domain/models/app/pages/components/component-types/data/table/removed-keys'
 import { migrationHintForRetiredComponentType } from '@/domain/models/app/pages/components/component-types/retired-types'
+import * as RV from '@/domain/models/app/pages/components/component-types/retired-values'
+import { migrationHintForExcessKey } from '@/domain/models/app/removed-key-hints'
 import { suggestKey } from '../../kernel/config-parsing/key-suggestion'
 import {
   comparePositions,
@@ -148,7 +145,7 @@ export interface ExcessPropertyFinding {
  *
  * WHY THIS EXISTS. Effect 3 rendered a rejected union by enumerating its
  * members' `title` annotations, so an author who wrote an unsupported
- * `onRowClick` was told "Navigate Action, Open Drawer Action" — the two things
+ * `onRowClick` was told "Navigate Action, Open Sheet Action" — the two things
  * they MAY write. Effect 4's default formatter names the union's own identifier
  * instead (`Expected RowClickAction`), which appears nowhere in the config
  * format or the published docs. The annotations are still on the AST; only the
@@ -165,6 +162,8 @@ export interface UnionMismatchFinding {
   readonly variants: readonly string[]
   /** The rejected value, rendered for the author. */
   readonly got: string | undefined
+  /** What a value written under a retired name is now called. */
+  readonly migration?: string | undefined
 }
 
 /**
@@ -465,7 +464,7 @@ const annotationString = (ast: SchemaAST.AST, name: 'title' | 'identifier'): str
  * Every member's human title — but ONLY when the schema names ALL of them.
  *
  * The all-or-nothing gate is the safety property. A partial list reads as an
- * exhaustive one, so an author told "write `navigate` or `openDrawer`" when a
+ * exhaustive one, so an author told "write `navigate` or `openSheet`" when a
  * third untitled variant exists is sent to a wrong conclusion with confidence.
  * Staying silent hands the failure back to the decoder's own formatter, which
  * is merely terse — the same "invent nothing" discipline `suggestKey` follows.
@@ -781,36 +780,42 @@ const settleChecks = (candidate: Candidate, decisive: boolean): Candidate => ({
 })
 
 /**
- * A union.
- *
- * When the parser entered at least one branch, that branch's own failure is
- * more specific than "your value fits none of these shapes", so the walk simply
- * descends and this adds nothing. The interesting case is `issues.length === 0`:
- * v4's candidate index pruned EVERY branch before running any of them, which
- * happens exactly when the value's discriminant matches no member — the author
- * wrote a shape that does not exist. There is no branch-level error to report
- * because no branch was tried, and that is the case v3 answered by naming the
- * members and v4's formatter answers with an internal type name.
- *
- * Deliberately narrow. Emitting whenever the chosen branch merely produced
- * nothing would replace the decoder's specific complaint (a missing field, a bad
- * value) with a vaguer shape list across every union in `AppSchema`. This only
- * speaks where the decoder provably has nothing more specific to say.
+ * The member a contested union keeps. A tie over a bare value (`neutral-250`: a colour, or a
+ * reference?) has no shape to choose by, so the union is the leaf and every member is read.
  */
-const walkAnyOf = (
+const settleUnion = (
   issue: Extract<SchemaIssue.Issue, { readonly _tag: 'AnyOf' }>,
   segments: readonly (string | number)[]
 ): Candidate => {
   const branches = issue.issues.map((child) => walkIssue(child, segments))
   const chosen = pickBestBranch(branches)
-  const best =
-    branches.length > 1
-      ? settleChecks(chosen, branches.filter((branch) => branch.score >= chosen.score).length === 1)
-      : chosen
+  const tied = branches.filter((branch) => branch.score >= chosen.score)
+  if (tied.length > 1 && ['string', 'number', 'boolean'].includes(typeof inputOf(issue)))
+    return leafCandidate(issue, segments)
+  return branches.length > 1 ? settleChecks(chosen, tied.length === 1) : chosen
+}
+
+/**
+ * A union.
+ *
+ * When the parser entered a branch, that branch's own failure is more specific
+ * than "your value fits none of these shapes", so the walk descends (see
+ * `settleUnion`). The interesting case is `issues.length === 0`: v4's candidate
+ * index pruned EVERY branch unrun, which happens exactly when the value's
+ * discriminant matches no member — a shape that does not exist, which v3
+ * answered by naming the members and v4's formatter by an internal type name.
+ *
+ * Deliberately narrow: emitting whenever the chosen branch merely produced
+ * nothing would replace the decoder's specific complaint (a missing field, a bad
+ * value) with a vaguer shape list across every union in `AppSchema`.
+ */
+const walkAnyOf = (
+  issue: Extract<SchemaIssue.Issue, { readonly _tag: 'AnyOf' }>,
+  segments: readonly (string | number)[]
+): Candidate => {
+  const best = settleUnion(issue, segments)
   if (issue.issues.length > 0) return best
-
   const input = inputOf(issue)
-
   const variants = unionMemberTitles(issue.ast)
   if (variants !== undefined) {
     return {
@@ -833,9 +838,8 @@ const walkAnyOf = (
   const discriminant = unionDiscriminantValues(issue.ast)
   if (discriminant === undefined) return leafCandidate(issue, segments)
 
-  // Credit only for what the author demonstrably wrote. A value that carries no
-  // `type` at all is not evidence they meant this family, so it earns nothing
-  // and a sibling branch may still legitimately win.
+  // Credit only for what the author demonstrably wrote: a value carrying no `type`
+  // is no evidence they meant this family, so a sibling branch may still win.
   const wroteDiscriminant =
     typeof input === 'object' &&
     input !== null &&
@@ -940,6 +944,7 @@ const toDecodeFinding = (finding: Exclude<RawFinding, RawLeafFinding>): DecodeFi
       expected: finding.expected,
       variants: finding.variants,
       got: renderInput(finding.input),
+      migration: RV.migrationHintForRetiredAction(finding.input),
     }
   }
   const kind = nodeKindFromSegments(finding.segments)
@@ -954,10 +959,7 @@ const toDecodeFinding = (finding: Exclude<RawFinding, RawLeafFinding>): DecodeFi
         : undefined,
     accepted: finding.accepted,
     suggestion: suggestKey(finding.key, finding.accepted),
-    migration:
-      migrationHintForRemovedKey(path, finding.key) ??
-      migrationHintForRemovedTableKey(path, finding.discriminant, finding.key) ??
-      migrationHintForRemovedFormKey(path, finding.discriminant, finding.key),
+    migration: migrationHintForExcessKey(path, finding.discriminant, finding.key),
   }
 }
 
@@ -1014,7 +1016,7 @@ export const collectDecodeProblems = (
           ? {
               kind: 'decoder-message',
               path: formatPath(finding.segments),
-              lines: decoderLines(finding),
+              lines: RV.appendRetiredValueHint(decoderLines(finding), document, finding.segments),
             }
           : toDecodeFinding(finding),
     })
@@ -1090,12 +1092,6 @@ export const attributeSourcePath = (
     .map(([, file]) => file)
     .find((file) => file.length > 0)
 
-/**
- * Render findings as the indented lines that sit under `Validation failed:`.
- *
- * Returns an empty array when there is nothing to report, which is the caller's
- * signal to fall back to the decoder's own formatter. Pure.
- */
 /** `Did you mean 'x'?`, or nothing when no near-miss was found. Pure. */
 const suggestionLine = (suggestion: string | undefined): readonly string[] =>
   suggestion === undefined ? [] : [`    Did you mean '${suggestion}'?`]
@@ -1386,6 +1382,7 @@ export const messageLinesAsConfigFindings = (lines: readonly string[]): readonly
     return notation === undefined ? [...findings, messageAsConfigFinding(line)] : findings
   }, [])
 
+/** Findings as the lines under `Validation failed:`; empty means "use the decoder's". Pure. */
 export const formatDecodeReport = (
   findings: readonly DecodeFinding[],
   refSources: ReadonlyMap<string, string>
@@ -1396,6 +1393,9 @@ export const formatDecodeReport = (
       ? finding.lines.map((line) => `  ${line}`)
       : formatExplainedFinding(finding, refSources)
   )
+
+/** A retired name's replacement, as a detail line under its problem. Pure. */
+const migrationLine = (m: string | undefined): readonly string[] => (m ? [`    ${m}`] : [])
 
 /** The report lines of one finding this module explains. Pure. */
 const formatExplainedFinding = (
@@ -1410,7 +1410,7 @@ const formatExplainedFinding = (
 
   if (finding.kind === 'union-mismatch') {
     const [headline, trailer] = mismatchLines(finding)
-    return [headline, ...atLine, trailer]
+    return [headline, ...atLine, trailer, ...migrationLine(finding.migration)]
   }
 
   if (finding.kind === 'check-failure') return [`  ${finding.message}`, ...atLine]

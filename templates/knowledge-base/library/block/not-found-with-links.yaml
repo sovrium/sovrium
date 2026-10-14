@@ -4,7 +4,7 @@
 # assistant, which can find an article by what it says.
 name: not-found-with-links
 type: container
-element: main
+element: div
 props:
   className: px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24
 children:
@@ -19,7 +19,7 @@ children:
           - type: text
             element: span
             props:
-              className: font-mono text-md text-foreground-subtle
+              className: font-mono text-md text-muted-foreground
             content: '404'
           - type: text
             element: h1
@@ -29,7 +29,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-lg text-pretty text-foreground-muted sm:text-xl
+              className: text-lg text-pretty text-muted-foreground sm:text-xl
             content: 'The link may be old, or the article was moved. These are the pages people usually look for.'
           - type: container
             element: nav
@@ -40,13 +40,13 @@ children:
               - type: link
                 props:
                   href: /kb
-                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-background-subtle focus-visible:outline-2 focus-visible:outline-offset-2
+                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2
                 children:
                   - type: icon
                     props:
                       name: book-open
                       size: 20
-                      className: flex-none text-foreground-subtle
+                      className: flex-none text-muted-foreground
                   - type: flex
                     props:
                       className: flex min-w-0 flex-1 flex-col
@@ -59,23 +59,23 @@ children:
                       - type: text
                         element: span
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: How the handbook is organised, and where to begin
                   - type: icon
                     props:
                       name: chevron-right
                       size: 18
-                      className: flex-none text-foreground-subtle
+                      className: flex-none text-muted-foreground
               - type: link
                 props:
                   href: /kb/policies/expense-policy
-                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-background-subtle focus-visible:outline-2 focus-visible:outline-offset-2
+                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2
                 children:
                   - type: icon
                     props:
                       name: file-text
                       size: 20
-                      className: flex-none text-foreground-subtle
+                      className: flex-none text-muted-foreground
                   - type: flex
                     props:
                       className: flex min-w-0 flex-1 flex-col
@@ -88,23 +88,23 @@ children:
                       - type: text
                         element: span
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: Expenses, security and the other rules we keep
                   - type: icon
                     props:
                       name: chevron-right
                       size: 18
-                      className: flex-none text-foreground-subtle
+                      className: flex-none text-muted-foreground
               - type: link
                 props:
                   href: /assistant
-                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-background-subtle focus-visible:outline-2 focus-visible:outline-offset-2
+                  className: flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2
                 children:
                   - type: icon
                     props:
                       name: message-circle
                       size: 20
-                      className: flex-none text-foreground-subtle
+                      className: flex-none text-muted-foreground
                   - type: flex
                     props:
                       className: flex min-w-0 flex-1 flex-col
@@ -117,10 +117,10 @@ children:
                       - type: text
                         element: span
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: Describe what you were looking for; the assistant finds the article
                   - type: icon
                     props:
                       name: chevron-right
                       size: 18
-                      className: flex-none text-foreground-subtle
+                      className: flex-none text-muted-foreground

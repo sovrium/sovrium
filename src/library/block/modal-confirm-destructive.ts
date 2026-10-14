@@ -17,11 +17,12 @@ export const entry = defineLibraryEntry({
   category: 'application',
   tags: ['dialog', 'confirmation', 'delete', 'destructive', 'modal'],
   description:
-    'A destructive button that opens a confirmation dialog naming exactly what will be lost, with a cancel and a destructive confirm.',
+    'A destructive button that opens a confirmation dialog naming exactly what will be lost; its footer holds a way back and a destructive confirm.',
   notes: [
     PLACE_NOTE,
     'Give the dialog an `action` — usually a `crud` delete — so confirming runs it; without one, confirming only closes the dialog.',
     'Name what disappears and say it cannot be undone. For a gate the reader must type through, use a `button` with `confirm: { input: { matchValue } }` instead.',
+    'Neither the backdrop nor Escape dismisses it: the reader answers with one of the two buttons, so label both with what they do.',
     'The dialog is named after the installed block, so two installs never share one.',
   ],
   params: [
@@ -33,6 +34,7 @@ export const entry = defineLibraryEntry({
       'Its 12 invoices and 48 comments are deleted with it. This cannot be undone.'
     ),
     stringParam('confirmLabel', 'The text of the destructive confirm button.', 'Delete client'),
+    stringParam('cancelLabel', 'The text of the button that backs out.', 'Keep client'),
   ],
   env: [],
   requires: [],
@@ -51,7 +53,7 @@ export const entry = defineLibraryEntry({
         {
           type: 'alert-dialog',
           confirmLabel: p('confirmLabel'),
-          cancelLabel: 'Cancel',
+          cancelLabel: p('cancelLabel'),
           props: {
             id: dialogId,
             title: p('title'),

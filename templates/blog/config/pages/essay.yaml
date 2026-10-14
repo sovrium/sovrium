@@ -41,12 +41,12 @@ components:
             element: nav
             props:
               aria-label: Breadcrumb
-              className: flex items-center gap-1.5 text-[12.5px] text-foreground-muted
+              className: flex items-center gap-1.5 text-[12.5px] text-muted-foreground
             children:
               - type: link
                 props:
                   href: /
-                  className: text-foreground-muted no-underline hover:text-foreground
+                  className: text-muted-foreground no-underline hover:text-foreground
                 content: Essays
               - type: text
                 element: span
@@ -66,7 +66,7 @@ components:
           # The byline: who wrote it, and when.
           - type: container
             props:
-              className: flex flex-wrap items-center gap-2 text-[13px] text-foreground-muted
+              className: flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground
             children:
               # The author's portrait, drawn as an image: the portrait's address
               # is a value of this essay's record.
@@ -99,7 +99,7 @@ components:
               - type: text
                 element: span
                 props:
-                  className: rounded-sm border border-border px-1.5 py-px text-[11.5px] font-medium text-foreground-muted
+                  className: rounded-sm border border-border px-1.5 py-px text-[11.5px] font-medium text-muted-foreground
                 content: $record.tag_names
           - type: image
             props:
@@ -134,12 +134,12 @@ components:
               - type: link
                 props:
                   href: /blog/$collection.previous.slug
-                  className: flex flex-col gap-0.5 rounded-lg border border-border bg-background-raised px-3.5 py-2.5 no-underline hover:border-primary
+                  className: flex flex-col gap-0.5 rounded-lg border border-border bg-card px-3.5 py-2.5 no-underline hover:border-primary
                 children:
                   - type: text
                     element: span
                     props:
-                      className: text-[12px] text-foreground-muted
+                      className: text-[12px] text-muted-foreground
                     content: ← Previous
                   - type: text
                     element: span
@@ -192,7 +192,7 @@ components:
                 classes:
                   parts:
                     title: text-[15px] font-semibold
-                    description: text-[13px] text-foreground-muted
+                    description: text-[13px] text-muted-foreground
                 inlinePrefill:
                   prefill:
                     post: $parent.id

@@ -22,11 +22,9 @@
  *
  * Pure SSR component — no interactivity, no island required.
  *
- * Visual tone (the prestyled-islands rule, prestyled-by-default) comes from
- * {@link computeSkeletonClasses} — a Tailwind recipe with inline OKLCH
- * var-fallbacks so a schema author who writes the bare `{ type: 'skeleton' }`
- * gets a complete, opinionated placeholder (bg-subtle fill, variant-aware
- * radius, animate-pulse shimmer) with zero theme-layer dependency.
+ * Visual tone comes from {@link computeSkeletonClasses}: shadcn/ui's
+ * `Skeleton` (`data-slot="skeleton"`), a `bg-muted` block with `animate-pulse`,
+ * on the radius each of the three shapes names.
  */
 
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
@@ -77,6 +75,7 @@ export const skeletonComponent: ComponentRenderer = ({ component, rawProps, elem
     <div
       id={f.id}
       data-skeleton=""
+      data-slot="skeleton"
       data-component="skeleton"
       data-component-type={hostComponentType(elementProps)}
       data-skeleton-variant={f.variant}

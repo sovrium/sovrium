@@ -25,7 +25,7 @@
  * mounts.
  *
  * Height: the author's `chatHeight` is applied HERE and nowhere else, as an
- * inline style on the placeholder, which `computeAiChatContainerClasses` turns
+ * inline style on the placeholder, which `computeAiChatPanelClasses` turns
  * into a hard clip with `overflow-hidden`. The skeleton below — and the island
  * that replaces it — is a flex column inside that clip whose message log takes
  * the slack and scrolls, so the input row and the suggestion strip keep their
@@ -39,49 +39,17 @@
  */
 
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
-import {
-  computeAiChatContainerClasses,
-  computeAiChatErrorClasses,
-  computeAiChatInputClasses,
-  computeAiChatInputRowClasses,
-  computeAiChatMessageListClasses,
-  computeAiChatSuggestionStripClasses,
-} from '@/presentation/design/ai-chat-default-classes'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeAiChatPanelClasses } from '@/presentation/design/ai-chat-composition-classes'
 import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
 import { resolveChildTranslation } from '../i18n/translation-handler'
 import { getAiChatLabels, type AiChatLabels } from './ai-chat-labels'
+import { renderSkeletonBody, type AiChatSpecimenStatus } from './ai-chat-skeleton'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement } from 'react'
 
 /** Stable height fallback for the chat container when `chatHeight` is unset. */
 const DEFAULT_CHAT_HEIGHT_PX = 400
-
-/**
- * The skeleton's two controls, drawn from the SAME recipes the island uses.
- *
- * Not a hand-written transcription of the island's chat recipe: class literals
- * kept in sync by hand drift, and the panel would repaint the instant the
- * island mounted. `presentation/utils/recipes` is the
- * one directory both sides may import; see `ai-chat-default-classes.ts`.
- */
-const SEND_BUTTON = computeButtonDefaultClasses({ size: 'sm' })
-const ATTACH_BUTTON = computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })
-
-/**
- * A prompt chip is the small outlined button — the one variant whose fill is
- * the surface behind it, so three of them under the composer read as offers
- * rather than as three competing send buttons.
- */
-const SUGGESTION_CHIP = computeButtonDefaultClasses({ variant: 'outline', size: 'sm' })
-
-/**
- * The strip's own accessible name. Without it a screen-reader user meets a run
- * of unexplained buttons after the composer and has to read all three to learn
- * what they are for.
- */
-const SUGGESTIONS_GROUP_LABEL = 'Suggested questions'
 
 /**
  * AI chat is "disabled" whenever no AI provider is resolvable — the
@@ -91,16 +59,6 @@ const SUGGESTIONS_GROUP_LABEL = 'Suggested questions'
  * send control rather than a chat box that silently fails on send.
  */
 const isAiDisabled = (): boolean => !isAiProviderConfigured(process.env)
-
-/**
- * The three statuses an `ai-chat` specimen may be DEPICTED in.
- *
- * The same three the island itself passes through — a chat at rest, a reply
- * arriving, a turn that failed — read back off the island's own `status`
- * vocabulary rather than invented here, so a drawing of `error` is a drawing of
- * the banner a reader would actually meet.
- */
-type AiChatSpecimenStatus = 'idle' | 'streaming' | 'error'
 
 const SPECIMEN_STATUSES: ReadonlySet<string> = new Set<AiChatSpecimenStatus>([
   'idle',
@@ -213,6 +171,44 @@ const readVoiceInput = (component: unknown): VoiceInputProps | undefined => {
 }
 
 /**
+ * The upload target forwarded to the island: the chat's `id`, when the chat
+ * declares an `attachments` block. The island needs nothing else — the bucket,
+ * the accepted types and the size limit are applied by the upload route, which
+ * looks the chat up by that id.
+ */
+const readUploads = (component: unknown): { readonly chatId: string } | undefined => {
+  const { id, attachments } = (component ?? {}) as Readonly<Record<string, unknown>>
+  return typeof id === 'string' && typeof attachments === 'object' && attachments !== null
+    ? { chatId: id }
+    : undefined
+}
+
+/**
+ * The island props of the window's features: the upload target, and whether the
+ * chat lists the reader's conversations (`conversations: true`).
+ */
+const windowFeatures = (component: unknown, uploads: ReturnType<typeof readUploads>) => ({
+  ...(uploads !== undefined && { uploads }),
+  ...((component as { readonly conversations?: unknown } | undefined)?.conversations === true && {
+    conversations: true,
+  }),
+})
+
+/**
+ * `allowAttachments` as declared, whether the attach control shows — for it or
+ * for an `attachments` block, which shows it too — and the upload target.
+ */
+const readAttachmentOptions = (component: unknown, props: Record<string, unknown>) => {
+  const declaredAttachments = readChatOption(component, props, 'allowAttachments')
+  const uploads = readUploads(component)
+  return {
+    declaredAttachments,
+    allowAttachments: declaredAttachments === true || uploads !== undefined,
+    uploads,
+  }
+}
+
+/**
  * The five options AppSchema declares BESIDE `type` on an `ai-chat`, and the
  * position the component reference tells authors to write them in.
  */
@@ -237,17 +233,24 @@ const readChatOption = (
   return topLevel !== undefined ? topLevel : props[key]
 }
 
-/** The placeholder and height, each with its default. */
+/** The placeholder, in the page language unless the author wrote one, and the height. */
 const readSizing = (
   component: unknown,
-  props: Record<string, unknown>
+  props: Record<string, unknown>,
+  labels: AiChatLabels
 ): { readonly placeholder: string; readonly chatHeight: number } => ({
   placeholder:
-    (readChatOption(component, props, 'placeholder') as string | undefined) ?? 'Ask a question…',
+    (readChatOption(component, props, 'placeholder') as string | undefined) ?? labels.placeholder,
   chatHeight:
     (readChatOption(component, props, 'chatHeight') as number | undefined) ??
     DEFAULT_CHAT_HEIGHT_PX,
 })
+
+/** The words the island draws: all of them but the notice of a chat with no provider. */
+const islandLabels = (labels: AiChatLabels): Omit<AiChatLabels, 'notConfigured'> => {
+  const { notConfigured: _notConfigured, ...drawn } = labels
+  return drawn
+}
 
 /** What {@link resolveAiChatProps} reads from the dispatch config. */
 interface AiChatPropsSource {
@@ -272,15 +275,14 @@ const resolveAiChatProps = ({
 }: AiChatPropsSource): AiChatProps => {
   const props = rawProps ?? {}
   const agent = readChatOption(component, props, 'agent') as string | undefined
-  const { placeholder, chatHeight } = readSizing(component, props)
+  const labels = getAiChatLabels(currentLang)
+  const { placeholder, chatHeight } = readSizing(component, props, labels)
   const showHistory = readChatOption(component, props, 'showHistory') as boolean | undefined
-  const declaredAttachments = readChatOption(component, props, 'allowAttachments')
-  const allowAttachments = declaredAttachments === true
+  const { declaredAttachments, allowAttachments, uploads } = readAttachmentOptions(component, props)
   const allowedTables = props.allowedTables as ReadonlyArray<string> | undefined
   const suggestions = resolveSuggestions(props.suggestions, currentLang, languages)
   const voiceInput = readVoiceInput(component)
   const testId = (elementProps['data-testid'] as string | undefined) ?? 'ai-chat'
-  const labels = getAiChatLabels(currentLang)
   return {
     agent,
     placeholder,
@@ -300,8 +302,11 @@ const resolveAiChatProps = ({
       ...(allowedTables !== undefined && { allowedTables }),
       ...(suggestions !== undefined && { suggestions }),
       ...(voiceInput !== undefined && { voiceInput }),
+      ...windowFeatures(component, uploads),
       'data-testid': testId,
-      labels: { failure: labels.failure, retry: labels.retry },
+      // Every engine-written word but the notice of a chat with no provider,
+      // which the island never draws.
+      labels: islandLabels(labels),
     }),
   }
 }
@@ -310,160 +315,10 @@ const resolveAiChatProps = ({
 const renderDisabledBody = (labels: AiChatLabels): ReactElement => (
   <div
     role="status"
-    className="text-foreground-muted flex flex-1 items-center justify-center p-6 text-sm"
+    className="text-muted-foreground flex flex-1 items-center justify-center p-6 text-sm"
   >
     {labels.notConfigured}
   </div>
-)
-
-/**
- * The failed-turn banner, drawn from the island's own recipe.
- *
- * Only a specimen reaches this server-side: a live panel has no failure to
- * report until it has sent something, and the island owns the banner from that
- * point on. `error` is on this type's published states strip precisely because
- * it is the one appearance a reader cannot produce on demand.
- */
-const renderSpecimenErrorBanner = (labels: AiChatLabels): ReactElement => (
-  <div
-    data-testid="chat-error"
-    role="alert"
-    className={`${computeAiChatErrorClasses()} flex items-center gap-2`}
-  >
-    <span>{labels.failure}</span>
-  </div>
-)
-
-/**
- * The prompt chips, drawn UNDER the composer and OUTSIDE it.
- *
- * Under rather than over so the composer sits in the same place whether or not
- * a chat declares suggestions. Outside the `<form>` rather than inside it
- * because a `button` inside a form is a submit control, and a chip must fill
- * the input and stop there — a chip that sent would fire a model call from a
- * misclick, on a prompt the reader never confirmed.
- *
- * The skeleton draws it so the chips are present before hydration and the panel
- * does not shift when the island mounts; the island draws it again because a
- * chip needs a click handler, and both read the same recipe so neither repaints
- * the other.
- */
-const renderSuggestionStrip = (suggestions: ReadonlyArray<string>): ReactElement => (
-  <div
-    data-ai-chat-suggestions
-    role="group"
-    aria-label={SUGGESTIONS_GROUP_LABEL}
-    className={computeAiChatSuggestionStripClasses()}
-  >
-    {suggestions.map((prompt, index) => (
-      <button
-        // The prompt alone is not a key: two identical prompts are a config
-        // mistake, not a crash, and the index keeps them distinct.
-        key={`${index}:${prompt}`}
-        type="button"
-        data-testid="chat-suggestion"
-        className={SUGGESTION_CHIP}
-      >
-        {prompt}
-      </button>
-    ))}
-  </div>
-)
-
-/** The attach control of an `allowAttachments` chat, as the island draws it. */
-const renderAttachSkeleton = (): ReactElement => (
-  <button
-    type="button"
-    data-testid="chat-attach"
-    aria-label="Attach file"
-    className={ATTACH_BUTTON}
-  >
-    Attach
-  </button>
-)
-
-/**
- * The push-to-talk button of a `voiceInput` chat, inert until the island
- * mounts and drawn now only so the composer does not shift when it does.
- */
-const renderVoiceSkeleton = (): ReactElement => (
-  <button
-    type="button"
-    data-testid="chat-voice"
-    aria-label="Hold to talk"
-    aria-pressed="false"
-    disabled
-    className={ATTACH_BUTTON}
-  >
-    Talk
-  </button>
-)
-
-/** Static chat skeleton — the island client upgrades this on hydration. */
-const renderSkeletonBody = (
-  { placeholder, allowAttachments, suggestions, voiceInput, labels }: AiChatProps,
-  specimen: AiChatSpecimenStatus | undefined
-): ReactElement => (
-  <>
-    {/* Scrollable message log — empty until the island replays history */}
-    <div
-      data-ai-chat-messages
-      data-testid="chat-messages"
-      role="log"
-      aria-label="Chat messages"
-      aria-live="polite"
-      className={`chat-messages ${computeAiChatMessageListClasses()}`}
-    />
-
-    {specimen === 'error' && renderSpecimenErrorBanner(labels)}
-
-    {/* Message input row — the island upgrades this to a live form. A live
-        panel's row is a POST form, so no submit that slips past the disabled
-        Send can put the message in the address; a specimen keeps no method
-        ([internal ref] A3 clause 1: a specimen form element carries neither). */}
-    <form
-      data-ai-chat-form
-      {...(specimen === undefined && { method: 'post' })}
-      className={computeAiChatInputRowClasses()}
-    >
-      <label
-        htmlFor="ai-chat-input"
-        className="sr-only"
-      >
-        Message
-      </label>
-      {allowAttachments && renderAttachSkeleton()}
-      <input
-        id="ai-chat-input"
-        data-ai-chat-input
-        data-testid="chat-input"
-        type="text"
-        name="message"
-        placeholder={placeholder}
-        className={computeAiChatInputClasses()}
-      />
-      {voiceInput !== undefined && renderVoiceSkeleton()}
-      {/*
-        `type="button"` on a specimen, and it is the whole of what makes the
-        drawing inert. A specimen's row carries no `action` and no `method`, so
-        a submit control is the only remaining way this markup could put
-        something on the wire — and [internal ref] A3 clause 1 permits a specimen form element
-        only while it has none. A live panel keeps its submit; the island is
-        what gives that submit somewhere to go.
-      */}
-      <button
-        type={specimen === undefined ? 'submit' : 'button'}
-        data-ai-chat-send
-        data-testid="chat-send"
-        disabled
-        className={SEND_BUTTON}
-      >
-        Send
-      </button>
-    </form>
-
-    {suggestions !== undefined && renderSuggestionStrip(suggestions)}
-  </>
 )
 
 export const aiChatComponent: ComponentRenderer = ({
@@ -498,10 +353,7 @@ export const aiChatComponent: ComponentRenderer = ({
       data-testid={testId}
       data-agent={agent}
       data-allowed-tables={allowedTables !== undefined ? JSON.stringify(allowedTables) : undefined}
-      className={hostClassName(
-        elementProps,
-        `ai-chat-container ${computeAiChatContainerClasses()}`
-      )}
+      className={hostClassName(elementProps, `ai-chat-container ${computeAiChatPanelClasses()}`)}
       style={{ height: `${chatHeight}px` }}
     >
       {disabled ? renderDisabledBody(resolved.labels) : renderSkeletonBody(resolved, specimen)}

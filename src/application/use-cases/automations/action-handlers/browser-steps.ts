@@ -139,7 +139,6 @@ const runStep = (
   Effect.gen(function* () {
     const step = scope.steps[index] as RawStep
     const started = yield* Clock.currentTimeMillis
-    if (step['irreversible'] === true && step['do'] === 'click') yield* scope.beforeSubmit
     const values = valuesOf(scope, progress)
     const timeoutMs = timeoutOf(scope, step)
     const result = yield* Effect.result(runVerbHealing({ scope, values, step, index, timeoutMs }))

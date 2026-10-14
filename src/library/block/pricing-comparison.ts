@@ -44,8 +44,7 @@ export const entry = defineLibraryEntry({
           {
             type: 'container',
             props: {
-              className:
-                'mt-8 overflow-x-auto rounded-lg border border-border bg-background-raised',
+              className: 'mt-8 overflow-hidden rounded-lg border border-border bg-card',
             },
             children: [
               {
@@ -60,16 +59,14 @@ export const entry = defineLibraryEntry({
                   ['Price', '[PRICE]', '[PRICE]', '[PRICE]'],
                 ],
                 tableColumns: [{ className: 'font-medium' }, {}, {}, {}],
-                props: {
-                  className:
-                    '!table !w-full !rounded-none !border-0 !bg-transparent min-w-[36rem] text-left text-md text-foreground',
-                },
+                // `table` restates the element's own display: a table written
+                // only through `tableRows` counts as contentless, and an
+                // undeclared display would let it shrink to its columns.
+                props: { className: 'table min-w-[36rem] text-md' },
                 classes: {
                   parts: {
-                    header:
-                      'border-b border-border px-4 py-3 text-sm font-medium text-foreground-subtle',
-                    row: '*:border-b *:border-border last:*:border-b-0',
-                    cell: 'px-4 py-3 text-md',
+                    header: 'px-4 py-3 text-sm text-muted-foreground',
+                    cell: 'px-4 py-3',
                   },
                 },
               },

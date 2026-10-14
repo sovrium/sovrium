@@ -159,17 +159,17 @@ export default {
   // operator has two names for one console (BRAND §6).
   'admin.welcome.pulse.region': 'What needs attention',
   'admin.welcome.pulse.heading': 'Since this instance started',
-  'admin.welcome.pulse.failedRuns': 'failed runs',
+  'admin.welcome.pulse.failedRuns': 'Failed runs',
   'admin.welcome.pulse.failedRuns.where': 'Runs →',
-  'admin.welcome.pulse.variablesUnset': 'required variables unset',
+  'admin.welcome.pulse.variablesUnset': 'Required variables unset',
   'admin.welcome.pulse.variablesUnset.where': 'Environment →',
-  'admin.welcome.pulse.tokensExpired': 'tokens expired',
+  'admin.welcome.pulse.tokensExpired': 'Tokens expired',
   'admin.welcome.pulse.tokensExpired.where': 'Connections →',
-  'admin.welcome.pulse.invitationsPending': 'invitations pending',
+  'admin.welcome.pulse.invitationsPending': 'Invitations pending',
   'admin.welcome.pulse.invitationsPending.where': 'Users →',
-  'admin.welcome.pulse.recentSubmissions': 'new submissions',
+  'admin.welcome.pulse.recentSubmissions': 'New submissions',
   'admin.welcome.pulse.recentSubmissions.where': 'Submissions →',
-  'admin.welcome.pulse.automationsPaused': 'automations paused',
+  'admin.welcome.pulse.automationsPaused': 'Automations paused',
   'admin.welcome.pulse.automationsPaused.where': 'Runs →',
 
   // ── Welcome · the declaration tiles ─────────────────────────────────────
@@ -353,6 +353,8 @@ export default {
   'admin.login.pending': 'Signing in…',
   'admin.login.cloudSignIn': 'Sign in with Sovrium Cloud',
   'admin.login.forgotLink': 'Forgot your password?',
+  // The rule between the Sovrium Cloud button and the email form.
+  'admin.login.orEmail': 'Or with your email',
 
   // ── Forgot password (`/forgot-password`) ────────────────────────────────
   'admin.forgotPassword.heading': 'Forgot password',

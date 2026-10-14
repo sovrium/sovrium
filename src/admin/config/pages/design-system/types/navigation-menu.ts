@@ -15,7 +15,7 @@
 // drawing uses the shape that header uses: plain links, one of them carrying a
 // chevron because it opens something.
 
-import { panel } from './overlay-panel'
+import { box } from './overlay-panel'
 import type { PageComponent, TypePageBody } from './body-shape'
 
 const NAV_ITEMS = [
@@ -38,22 +38,26 @@ const NAV_ITEMS = [
   },
 ]
 
-const panelEntry = (label: string, description: string): PageComponent =>
+/** A panel entry (`navigation-menu-link`): a muted-on-hover row, its line clamped to two. */
+const panelEntry = (label: string, description: string, hovered = false): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    props: { className: 'flex flex-col gap-0.5 rounded px-2 py-1.5' },
+    props: {
+      className: `flex flex-col gap-1 rounded-md p-2 text-sm ${hovered ? 'bg-muted' : ''}`.trim(),
+      'data-slot': 'navigation-menu-link',
+    },
     children: [
       {
         type: 'text',
         element: 'span',
-        props: { className: 'text-foreground text-sm font-medium' },
+        props: { className: 'text-foreground leading-none font-medium' },
         content: label,
       },
       {
         type: 'text',
         element: 'span',
-        props: { className: 'text-foreground-subtle text-[11px]' },
+        props: { className: 'text-muted-foreground line-clamp-2' },
         content: description,
       },
     ],
@@ -74,20 +78,14 @@ const navigationMenu: TypePageBody = {
           props: { className: 'flex flex-col items-start gap-1' },
           children: [
             { type: 'navigation-menu', navItems: NAV_ITEMS, openOnHover: true },
-            panel({
-              width: 'w-72',
-              children: [
-                {
-                  type: 'container',
-                  element: 'div',
-                  props: { className: 'flex flex-col' },
-                  children: [
-                    panelEntry('Sovrium Partner', 'Implementation and migration.'),
-                    panelEntry('Sovrium Academy', 'Training for your own team.'),
-                  ],
-                },
+            box(
+              'bg-popover text-popover-foreground ring-foreground/10 flex w-72 flex-col rounded-lg p-1 shadow ring-1',
+              [
+                panelEntry('Sovrium Partner', 'Implementation and migration.', true),
+                panelEntry('Sovrium Academy', 'Training for your own team.'),
               ],
-            }),
+              'navigation-menu-content'
+            ),
           ],
         },
       ],

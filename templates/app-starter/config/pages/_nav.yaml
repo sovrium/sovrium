@@ -16,7 +16,7 @@ children:
         }
       - type: flex
         props:
-          className: hidden items-center gap-4 text-md text-foreground-muted md:flex
+          className: hidden items-center gap-4 text-md text-muted-foreground md:flex
         children:
           - { type: link, content: Overview, props: { href: / } }
           - { type: link, content: Metrics, props: { href: /metrics } }

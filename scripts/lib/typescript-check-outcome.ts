@@ -51,6 +51,8 @@
  * explicit and unrepresentable-as-a-mistake.
  */
 
+import { readFileSync } from 'node:fs'
+
 /**
  * The TypeScript 6 compiler, addressed by path instead of by name.
  *
@@ -499,4 +501,109 @@ export const formatDiagnosticReport = (stdout: string, reason: string | undefine
   ]
     .filter((s): s is string => s !== undefined && s.length > 0)
     .join('\n')
+}
+
+/** The tsconfig that carries the Effect language-service `plugins` entry. */
+export const EFFECT_DIAGNOSTICS_PROJECT = 'tsconfig.tsgo.json'
+
+/**
+ * The Effect language-service plugin entry of a tsconfig's text, as the inline
+ * JSON `effect-tsgo diagnostics --lspconfig` takes; `undefined` when the text
+ * carries none.
+ *
+ * ## Why single-file mode needs it
+ *
+ * `--file` resolves the file's NEAREST tsconfig, which is `tsconfig.json` — and
+ * that file must not carry the plugin (see tsconfig.tsgo.json's header). So a
+ * bare `--file` run prints `Checked 0 files out of 1 files.` and `Skipped 1
+ * files because their tsconfig does not enable the @effect/language-service
+ * plugin.`, then `0 errors, 0 warnings and 0 messages.`, and exits 0: the
+ * single-file gate checked nothing on every run until 2026-10-13. Adding
+ * `--project tsconfig.tsgo.json` beside `--file` makes it worse (every project
+ * file reported skipped). `--lspconfig` with this entry is what works, and the
+ * entry's `overrides` keep their per-path meaning: a file the AI-tree override
+ * allows `effect/ai` in stays clean, and the same call one directory over warns.
+ *
+ * @public
+ */
+export const effectLspConfig = (tsconfigText: string): string | undefined => {
+  const parsed: unknown = Bun.JSONC.parse(tsconfigText)
+  const plugins = (parsed as { compilerOptions?: { plugins?: unknown } } | null)?.compilerOptions
+    ?.plugins
+  const entry = Array.isArray(plugins)
+    ? plugins.find(
+        (plugin: unknown) =>
+          typeof plugin === 'object' &&
+          plugin !== null &&
+          (plugin as { name?: unknown }).name === '@effect/language-service'
+      )
+    : undefined
+  return entry === undefined ? undefined : JSON.stringify(entry)
+}
+
+/** What one Effect Diagnostics run inspects: the whole project, or one file under the plugin config. */
+export type EffectDiagnosticsTarget =
+  { readonly project: string } | { readonly file: string; readonly lspconfig: string }
+
+/**
+ * The single-file target: the file, and the plugin entry read from
+ * tsconfig.tsgo.json (relative to the cwd, like the project run).
+ *
+ * Fails CLOSED. A missing file, unparseable text or an absent entry all yield
+ * `lspconfig: ''`, never `'{}'`: the tool runs `'{}'` with its DEFAULT rules and
+ * reports the file checked, while it rejects `''` (`Invalid JSON lsp config`,
+ * exit 1), which the gate reads as a run that verified nothing.
+ *
+ * @public
+ */
+export const effectFileTarget = (
+  file: string,
+  readConfig: (path: string) => string = (path) => readFileSync(path, 'utf8')
+): Extract<EffectDiagnosticsTarget, { readonly file: string }> => {
+  try {
+    return { file, lspconfig: effectLspConfig(readConfig(EFFECT_DIAGNOSTICS_PROJECT)) ?? '' }
+  } catch {
+    return { file, lspconfig: '' }
+  }
+}
+
+/** The `effect-tsgo diagnostics` command line for a target. @public */
+export const effectDiagnosticsCommand = (target: EffectDiagnosticsTarget): readonly string[] => [
+  'bunx',
+  'effect-tsgo',
+  'diagnostics',
+  ...('project' in target
+    ? ['--project', target.project]
+    : ['--file', target.file, '--lspconfig', target.lspconfig]),
+  '--format',
+  'text',
+]
+
+/**
+ * How many files a tsgo diagnostics run says it SKIPPED because their tsconfig
+ * does not enable the plugin; `0` when it printed no such line.
+ *
+ * @public
+ */
+export const parseSkippedFileCount = (stdout: string): number => {
+  const match = /Skipped\s+(\d+)\s+files?\b/.exec(stdout)
+  return match?.[1] === undefined ? 0 : Number.parseInt(match[1], 10)
+}
+
+/**
+ * The failure a run with skipped files is, in either mode; `undefined` when
+ * nothing was skipped. A skipped file is a file the gate did not inspect while
+ * the summary still reads `0 errors`, so it FAILS rather than passing quietly.
+ *
+ * @public
+ */
+export const describeSkippedFiles = (stdout: string): string | undefined => {
+  const skipped = parseSkippedFileCount(stdout)
+  if (skipped === 0) return undefined
+  return (
+    `Effect Diagnostics skipped ${skipped} file(s) because their tsconfig does not enable the ` +
+    `@effect/language-service plugin, so it verified nothing about them. The plugin entry ` +
+    `lives in ${EFFECT_DIAGNOSTICS_PROJECT} only: a project run must pass --project ` +
+    `${EFFECT_DIAGNOSTICS_PROJECT}, and a single-file run must pass that entry with --lspconfig.`
+  )
 }

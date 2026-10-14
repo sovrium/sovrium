@@ -1,4 +1,5 @@
-# sovrium-library: block/newsletter-inline@0.30.0
+# sovrium-library: block/newsletter-inline@0.37.0
+# sovrium-library-params: form=newsletter&headline=%5BNewsletter%20name%5D&privacy=%5BPrivacy%20line%20%E2%80%94%20link%20to%20the%20policy%5D&subheadline=What%20arrives%2C%20how%20often%2C%20and%20that%20one%20click%20unsubscribes.&submitLabel=Subscribe&successMessage=You%20are%20subscribed.
 name: newsletter-inline
 type: container
 element: section
@@ -25,7 +26,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: 'What arrives, how often, and that one click unsubscribes.'
           - type: flex
             props:
@@ -57,5 +58,5 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-sm text-foreground-subtle
+                  className: text-sm text-muted-foreground
                 content: '[Privacy line — link to the policy]'

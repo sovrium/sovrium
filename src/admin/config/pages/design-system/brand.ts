@@ -10,7 +10,7 @@
 //
 // Foundations owns the token VALUES; this page owns what they are FOR: the
 // mark, the roles the colours play, the pictures this app permits, and the
-// accent budget each zone may spend.
+// zone each route family belongs to.
 //
 // ─── FOUR ROW SOURCES, AND NOT ONE OF THEM IS JOINED ───────────────────────
 //
@@ -39,6 +39,7 @@
 // heading is a row child gated on the first one: present exactly when there is
 // something to head, and exactly once.
 
+import { ledgerTable } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
 import {
   DESIGN_BRAND_ENDPOINT,
@@ -52,7 +53,6 @@ import {
   MEASURE_SM,
   MEASURE_XS,
   anchoredSection,
-  caption,
   microLabel,
   microLabelOf,
   railedConsoleBody,
@@ -70,7 +70,7 @@ const SLUG = 'brand'
 const TITLE = 'Brand'
 
 /** The page's one-line `meta.description`. */
-const DECK = 'The mark, the imagery rules, the colour roles and each zone’s accent budget.'
+const DECK = 'The mark, the imagery rules, the colour roles and the zone map.'
 
 /** Where an author reads what a `design.*` key does. */
 const DOCS_DESIGN = 'https://sovrium.com/en/docs/design'
@@ -89,7 +89,7 @@ const SECTIONS: readonly RailSection[] = [
   { id: 'design-system-brand-mark', title: 'The mark' },
   { id: 'design-system-brand-color-roles', title: 'Colour roles' },
   { id: 'design-system-brand-imagery', title: 'Imagery' },
-  { id: 'design-system-brand-zones', title: 'Zones and accent budget' },
+  { id: 'design-system-brand-zones', title: 'Zones' },
 ]
 
 /** One family of declared sentences, bound as rows. */
@@ -343,8 +343,7 @@ const markExampleTile = (verdict: 'do' | 'dont', note: string): PageComponent =>
         type: 'container',
         element: 'div',
         props: {
-          className:
-            'bg-background-raised border-border flex h-16 items-center justify-center rounded border',
+          className: 'bg-card border-border flex h-16 items-center justify-center rounded border',
         },
         children: [
           {
@@ -390,7 +389,7 @@ const markLockupExample = (): PageComponent =>
         type: 'container',
         element: 'div',
         props: {
-          className: 'border-border bg-background-raised flex flex-col gap-2 rounded border p-4',
+          className: 'border-border bg-card flex flex-col gap-2 rounded border p-4',
           'data-testid': 'design-system-mark-lockup',
         },
         children: [
@@ -506,7 +505,7 @@ const markSection = (): PageComponent =>
           type: 'link',
           props: {
             href: DOCS_DESIGN,
-            className: 'text-foreground hover:text-foreground-muted self-start text-sm font-medium',
+            className: 'text-foreground hover:text-muted-foreground self-start text-sm font-medium',
           },
           content: 'How brand placement is declared →',
         } as PageComponent,
@@ -672,8 +671,8 @@ const imageryTile = (verdict: 'do' | 'dont', frame: string, note: string): PageC
         props: {
           className:
             verdict === 'do'
-              ? 'bg-background-subtle flex h-20 items-center justify-center rounded'
-              : 'bg-background-subtle border-border flex h-20 items-center justify-center rounded border-4',
+              ? 'bg-muted flex h-20 items-center justify-center rounded'
+              : 'bg-muted border-border flex h-20 items-center justify-center rounded border-4',
         },
         children: [
           {
@@ -767,51 +766,36 @@ const imagerySection = (): PageComponent =>
   ])
 
 // ---------------------------------------------------------------------------
-// ZONES AND ACCENT BUDGET
+// ZONES
 // ---------------------------------------------------------------------------
 
-/** What a budget MEANS — the word alone tells a writer nothing they can spend. */
-/** One zone: where it applies, and how much accent it may spend there. */
-const zoneRow = (): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: { className: 'border-border flex flex-col gap-1 border-b py-3 last:border-b-0' },
-    children: [
+/**
+ * The zone map, one row per route pattern: the pattern, the zone it reads in,
+ * and whether that zone's voice departs from the app's.
+ *
+ * The pattern is printed VERBATIM and never parsed: a pattern is not
+ * necessarily a glob, and an app may declare the literal 'everything else'.
+ */
+const zonesLedger = (): PageComponent =>
+  ledgerTable({
+    props: { 'aria-label': 'Zones' },
+    dataSource: {
+      system: { endpoint: DESIGN_ZONES_ENDPOINT, rowsKey: 'items', idKey: 'pattern' },
+    },
+    columns: [
+      { field: 'pattern', label: 'Route pattern' },
+      { field: 'zone', label: 'Zone' },
       {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-wrap items-baseline gap-x-3 gap-y-1' },
-        children: [
-          // Printed VERBATIM and never parsed: a pattern is not necessarily a
-          // glob, and `apps/partner` declares the literal 'everything else'.
-          {
-            type: 'text',
-            element: 'p',
-            props: { className: 'text-foreground font-mono text-md font-medium' },
-            content: '$record.pattern',
-          },
-          microLabelOf('$record.zone'),
-          {
-            type: 'text',
-            element: 'span',
-            props: {
-              className:
-                'border-border text-foreground-subtle rounded-full border px-2 py-0.5 text-[11px]',
-            },
-            content: '$record.accentBudget',
-          },
-          {
-            type: 'text',
-            element: 'span',
-            props: { className: 'text-foreground-subtle text-[11px]' },
-            visibility: { record: { field: 'hasVoiceOverride', eq: true } },
-            content: 'Departs from the app voice',
-          },
-        ],
+        field: 'hasVoiceOverride',
+        label: 'Voice',
+        valueLabels: { true: 'Departs from the app voice', false: 'App voice' },
       },
     ],
-  }) as PageComponent
+    // The empty ledger is the not-declared state, so it carries the next step.
+    emptyMessage:
+      'This app declares no zones. Declare design.zones with a route pattern and a zone ' +
+      'name to record which register each route family reads in.',
+  })
 
 const zonesSection = (): PageComponent =>
   anchoredSection(SECTIONS[3] as RailSection, [
@@ -820,15 +804,7 @@ const zonesSection = (): PageComponent =>
       element: 'div',
       props: { className: 'flex flex-col gap-3', 'data-testid': 'design-system-zones' },
       children: [
-        {
-          type: 'container',
-          element: 'div',
-          props: { className: 'flex flex-col' },
-          dataSource: {
-            system: { endpoint: DESIGN_ZONES_ENDPOINT, rowsKey: 'items', idKey: 'pattern' },
-          },
-          children: [zoneRow()],
-        } as PageComponent,
+        zonesLedger(),
         {
           type: 'container',
           element: 'div',
@@ -849,23 +825,10 @@ const zonesSection = (): PageComponent =>
                   type: 'link',
                   props: {
                     href: VOICE_PAGE_PATH,
-                    className: 'text-foreground hover:text-foreground-muted text-md font-medium',
+                    className: 'text-foreground hover:text-muted-foreground text-md font-medium',
                   },
                   content: 'Open the Voice page →',
                 },
-              ],
-            },
-            {
-              type: 'container',
-              element: 'div',
-              props: { className: 'flex flex-col gap-2' },
-              visibility: { record: { field: 'declared', eq: false } },
-              children: [
-                caption(
-                  'This app declares no zones. Declare design.zones with a route pattern and an ' +
-                    "accentBudget of 'public' or 'product' to record how much accent each route " +
-                    'family may spend.'
-                ),
               ],
             },
           ],

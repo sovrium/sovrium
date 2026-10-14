@@ -8,4 +8,4 @@ meta:
   description: Every project, each one click from its details.
 components:
   - $ref: ./_nav.yaml
-  - component: drawer-record
+  - component: record-sheet

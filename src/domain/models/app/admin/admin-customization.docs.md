@@ -92,13 +92,13 @@ That is the one way your config changes the console's _shape_, and it works in o
 
 Only by working in the Sovrium repository, on the release rather than on an instance — which is exactly what "any other modification is code, and therefore a fork" means.
 
-The console is `src/admin/`, and its design is `src/admin/config/design.ts`. Contributors preview it with:
+The console is `src/admin/`. It declares no `design` of its own: it renders on Sovrium's native default, shadcn/ui's base-nova theme with the Geist fonts, and takes your app's `design` like any page your instance serves. Contributors preview it with:
 
 ```bash
 bun run app:admin
 ```
 
-That boots the console standalone with hot reload, so a token edit is visible on the next save. One detail worth knowing before you conclude something is broken: it boots `src/admin/preview.ts` rather than `src/admin/app.ts`, because `app.ts` deliberately declares no `auth` block and a console nobody can sign into answers `404` on every data page. The preview adds that one block, so sign in at `/login` with the `AUTH_ADMIN_*` credentials from `src/admin/.env.example`.
+That boots the console standalone with hot reload, so an edit to its pages is visible on the next save. One detail worth knowing before you conclude something is broken: it boots `src/admin/preview.ts` rather than `src/admin/app.ts`, because `app.ts` deliberately declares no `auth` block and a console nobody can sign into answers `404` on every data page. The preview adds that one block, so sign in at `/login` with the `AUTH_ADMIN_*` credentials from `src/admin/.env.example`.
 
 ## Related reading
 

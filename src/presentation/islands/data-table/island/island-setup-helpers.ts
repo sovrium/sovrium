@@ -110,10 +110,12 @@ export interface ServerFilterCondition {
   readonly value: unknown
 }
 
+/** A node of the records API's filter tree: a condition, or a nested group. */
+export type ServerFilterNode = ServerFilterCondition | ServerFilterGroup
+
 /** The filter-builder's rows as one `and` / `or` group of the records API. */
 export type ServerFilterGroup =
-  | { readonly and: readonly ServerFilterCondition[] }
-  | { readonly or: readonly ServerFilterCondition[] }
+  { readonly and: readonly ServerFilterNode[] } | { readonly or: readonly ServerFilterNode[] }
 
 const toServerCondition = (row: FilterRow): ServerFilterCondition | undefined => {
   const canonical = canonicalizeOperator(row.operator)

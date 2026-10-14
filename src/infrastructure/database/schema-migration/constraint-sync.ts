@@ -14,7 +14,15 @@ import {
   type SQLExecutionError,
 } from '../sql/sql-execution'
 import { generateForeignKeyConstraints, generateTableConstraints } from '../sql/sql-generators'
-import { isBtreeUniqueField, tableConstraintPrefix } from '../sql/sql-key-constraints'
+import {
+  isBtreeUniqueField,
+  isLiveUniqueField,
+  tableConstraintPrefix,
+} from '../sql/sql-key-constraints'
+import {
+  readUniqueShapeDrift,
+  uniqueShapeRepairStatements,
+} from '../table-operations/live-unique-shape'
 import type { Table } from '@/domain/models/app/tables'
 
 /**
@@ -45,8 +53,10 @@ import type { Table } from '@/domain/models/app/tables'
  *     detects it (`!isTableDefinitionUnchanged`, empty ALTER list) and runs the
  *     dialect-aware `recreateTableWithDataEffect`, which rebuilds the table with
  *     the current inline constraints and copies the data across.
- * Therefore the correct SQLite behavior for these three sync helpers is a
- * no-op: the constraints are always reconciled by (re)creation, never by ALTER.
+ * Therefore the correct SQLite behavior for these sync helpers is a no-op: the
+ * constraints are always reconciled by (re)creation, never by ALTER. The one
+ * exception is the unique sync's `DROP INDEX` of a live-rows unique index no
+ * longer declared, which is an index, not a constraint, on both engines.
  *
  * The PostgreSQL arms below are unchanged (byte-for-byte).
  *
@@ -61,54 +71,19 @@ import type { Table } from '@/domain/models/app/tables'
  */
 
 /**
- * Get drop statements for removed unique constraints
+ * The `ADD CONSTRAINT` of each single-field primary key declared unique — the
+ * one `unique` field still held by a table-level constraint. Probed by name, so
+ * a constraint already there is left alone.
  */
-const getUniqueConstraintDropStatements = (
+const buildKeyedUniqueAddStatements = (
   table: Table,
-  previousSchema: { readonly tables: readonly object[] } | undefined,
-  currentUniqueFields: readonly string[],
   physicalTableName: string
-): readonly string[] => {
-  if (!previousSchema) return []
-
-  const previousTable = previousSchema.tables.find(
-    (t: object) => 'name' in t && t.name === table.name
-  ) as
-    | {
-        name: string
-        fields?: readonly { name?: string; unique?: boolean }[]
-      }
-    | undefined
-
-  if (!previousTable) return []
-
-  // Single-field constraints that were removed
-  const previousUniqueFields =
-    previousTable.fields?.filter((f) => f.name && 'unique' in f && f.unique).map((f) => f.name!) ??
-    []
-
-  const removedFields = previousUniqueFields.filter(
-    (fieldName) => !currentUniqueFields.includes(fieldName)
-  )
-
-  return removedFields.map((fieldName) => {
-    const constraintName = `${tableConstraintPrefix(table.name)}_${fieldName}_key`
-    return `ALTER TABLE ${physicalTableName} DROP CONSTRAINT IF EXISTS ${constraintName}`
-  })
-}
-
-/**
- * Build SQL statements to add unique constraints (single-field and composite)
- */
-const buildUniqueConstraintAddStatements = (
-  table: Table,
-  uniqueFields: readonly string[],
-  physicalTableName: string
-): readonly string[] => {
-  // Single-field constraints
-  const singleFieldStatements = uniqueFields.map((fieldName) => {
-    const constraintName = `${tableConstraintPrefix(table.name)}_${fieldName}_key`
-    return `
+): readonly string[] =>
+  table.fields
+    .filter((field) => isBtreeUniqueField(field) && !isLiveUniqueField(table)(field))
+    .map((field) => {
+      const constraintName = `${tableConstraintPrefix(table.name)}_${field.name}_key`
+      return `
       DO $$
       BEGIN
         IF NOT EXISTS (
@@ -117,47 +92,39 @@ const buildUniqueConstraintAddStatements = (
             AND constraint_type = 'UNIQUE'
             AND constraint_name = '${constraintName}'
         ) THEN
-          ALTER TABLE ${physicalTableName} ADD CONSTRAINT ${constraintName} UNIQUE (${quoteSqlIdentifier(fieldName)});
+          ALTER TABLE ${physicalTableName} ADD CONSTRAINT ${constraintName} UNIQUE (${quoteSqlIdentifier(field.name)});
         END IF;
       END$$;
     `
-  })
-
-  return singleFieldStatements
-}
+    })
 
 /**
- * Sync unique constraints for existing table
- * Adds named UNIQUE constraints for single-field constraints (fields with unique property)
- * Removes constraints that are no longer in the schema
- * Uses PostgreSQL default naming convention: {table}_{column}_key for single fields
- * Note: Composite uniqueness is handled via indexes with unique: true
+ * Sync single-field uniqueness for an existing table, from the LIVE catalog
+ * (`live-unique-shape.ts`): the table-level `UNIQUE` constraints a live-rows
+ * index replaces are dropped (PostgreSQL — SQLite rebuilt the table already),
+ * the unique indexes no longer declared are dropped (both engines), and a
+ * single-field primary key declared unique gets its constraint (PostgreSQL).
+ * The live-rows indexes themselves are created by the index sync, which runs
+ * next under the names the dropped constraints carried.
+ *
+ * Reading the catalog rather than the previous config is what converts a
+ * database an earlier version created on a boot whose config did not change.
  */
 export const syncUniqueConstraints = (
   tx: TransactionLike,
   table: Table,
-  previousSchema?: { readonly tables: readonly object[] },
   physicalTableName: string = table.name
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    // SQLite: UNIQUE constraints are inline in CREATE TABLE; reconciled by
-    // (re)creation, never by ALTER (see the module-level dialect note).
-    if (isSqliteRuntime()) return
-    // Must use the SAME predicate the CREATE path uses. Re-deriving this as a
-    // bare `'unique' in f && f.unique` silently readmitted geolocation fields,
-    // which CREATE excludes because Postgres `POINT` has no btree operator class
-    // — so the ADD below failed on the second boot of an app that booted fine
-    // the first time.
-    const uniqueFields = table.fields.filter(isBtreeUniqueField).map((f) => f.name)
-    const dropStatements = getUniqueConstraintDropStatements(
-      table,
-      previousSchema,
-      uniqueFields,
-      physicalTableName
-    )
-    const addStatements = buildUniqueConstraintAddStatements(table, uniqueFields, physicalTableName)
-
-    yield* executeSQLStatements(tx, [...dropStatements, ...addStatements])
+    const sqlite = isSqliteRuntime()
+    const drift = yield* readUniqueShapeDrift(tx, table, physicalTableName)
+    const repairs = uniqueShapeRepairStatements({ sqlite, physicalTableName, drift })
+    // Must use the SAME predicate the CREATE path uses (`isBtreeUniqueField`):
+    // re-deriving it as a bare `'unique' in f && f.unique` silently readmitted
+    // geolocation fields, which CREATE excludes because Postgres `POINT` has no
+    // btree operator class — so the ADD failed on the second boot.
+    const keyed = sqlite ? [] : buildKeyedUniqueAddStatements(table, physicalTableName)
+    yield* executeSQLStatements(tx, [...repairs, ...keyed])
   })
 
 /**

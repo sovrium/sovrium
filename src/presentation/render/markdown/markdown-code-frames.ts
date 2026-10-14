@@ -44,10 +44,14 @@
 
 import { resolveDefaultCodeFrame } from '@/domain/models/app/pages/code-frame-defaults'
 import {
-  computeCodeFrameHeaderClasses,
-  computeCodeFrameShellClasses,
-} from '@/presentation/design/code-frame-default-classes'
-import { renderCodeCopyControlHtml } from '@/presentation/render/elements/code-copy-glyphs'
+  computeCodeBlockClasses,
+  computeCodeBlockFilenameClasses,
+  computeCodeBlockHeaderClasses,
+} from '@/presentation/design/code-block-default-classes'
+import {
+  CODE_COPY_STATUS_HTML,
+  renderCodeCopyButtonHtml,
+} from '@/presentation/render/elements/code-copy-glyphs'
 import type { MarkdownCodeBlock } from '@/domain/kernel/markdown/markdown-renderer'
 
 /**
@@ -79,7 +83,10 @@ const escapeText = (value: string): string =>
  * with the config renderer, whose framed blocks can also hold a printed output.
  */
 const markCommandPre = (preHtml: string): string =>
-  preHtml.replace(/^<pre\b/, '<pre data-code-command="true" data-copy-target="true"')
+  preHtml.replace(
+    /^<pre\b/,
+    '<pre data-slot="code-block-content" data-code-command="true" data-copy-target="true"'
+  )
 
 /**
  * Build the frame for a single fence: a `<figure>` holding a header that names
@@ -98,12 +105,15 @@ const renderFenceFrame = (block: MarkdownCodeBlock, preHtml: string): string => 
   const headerText = frame === 'file' ? label : `>_ ${label}`
   const headerMarker = frame === 'file' ? 'data-code-filename="true"' : 'data-code-terminal="true"'
   return [
-    `<figure data-code-frame="${frame}" data-code-copy-scope="true"`,
+    `<figure data-slot="code-block" data-code-frame="${frame}" data-code-copy-scope="true"`,
     ` aria-label="${escapeText(label).replace(/"/g, '&quot;')}"`,
-    ` class="${computeCodeFrameShellClasses()}">`,
-    `<figcaption ${headerMarker} class="${computeCodeFrameHeaderClasses()}">`,
-    `<span>${escapeText(headerText)}</span>`,
-    renderCodeCopyControlHtml(COPY_LABEL, COPIED_LABEL),
+    ` class="${computeCodeBlockClasses()}">`,
+    `<figcaption data-slot="code-block-header" class="${computeCodeBlockHeaderClasses()}">`,
+    `<span data-slot="code-block-filename" ${headerMarker} class="${computeCodeBlockFilenameClasses()}">`,
+    `<span class="truncate">${escapeText(headerText)}</span>`,
+    renderCodeCopyButtonHtml(COPY_LABEL, COPIED_LABEL),
+    `</span>`,
+    CODE_COPY_STATUS_HTML,
     `</figcaption>`,
     markCommandPre(preHtml),
     `</figure>`,

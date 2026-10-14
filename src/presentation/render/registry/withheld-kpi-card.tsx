@@ -5,10 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { CARD_SLOT_ATTRIBUTES } from '@/presentation/design/card-default-classes'
 import {
   computeKpiCardClasses,
   computeKpiLabelClasses,
-  KPI_STACK_CLASSES,
+  computeKpiValueClasses,
+  KPI_HEADER_CLASSES,
 } from '@/presentation/design/kpi-default-classes'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
 import { READ_WITHHELD_MARKER } from '@/presentation/render/resolve/withheld-component'
@@ -32,18 +34,29 @@ export function withheldKpiCard(elementProps: Record<string, unknown>): ReactEle
       {...namedHost('kpi')}
       data-kpi-state="withheld"
       data-testid={elementProps['data-testid'] as string | undefined}
+      {...CARD_SLOT_ATTRIBUTES}
       className={hostClassName(elementProps, computeKpiCardClasses())}
     >
-      <div className={KPI_STACK_CLASSES}>
+      <div
+        data-slot="card-header"
+        className={KPI_HEADER_CLASSES}
+      >
         {label !== undefined && (
           <div
+            data-slot="card-description"
             data-role="kpi-label"
             className={computeKpiLabelClasses()}
           >
             {label}
           </div>
         )}
-        <div data-role="kpi-value">—</div>
+        <div
+          data-slot="card-title"
+          data-role="kpi-value"
+          className={computeKpiValueClasses()}
+        >
+          —
+        </div>
       </div>
     </div>
   )

@@ -26,7 +26,7 @@ const slot = (index: number): Readonly<Record<string, unknown>> => ({
     {
       type: 'text',
       element: 'span',
-      props: { className: 'font-mono text-sm text-foreground-subtle' },
+      props: { className: 'font-mono text-sm text-muted-foreground' },
       content: `logo ${index}`,
     },
   ],
@@ -59,7 +59,7 @@ export const entry = defineLibraryEntry({
       children: [
         flex(
           [
-            small(p('intro'), 'flex-none whitespace-nowrap text-md text-foreground-muted'),
+            small(p('intro'), 'flex-none whitespace-nowrap text-md text-muted-foreground'),
             {
               type: 'container',
               props: { className: 'min-w-0 flex-1' },

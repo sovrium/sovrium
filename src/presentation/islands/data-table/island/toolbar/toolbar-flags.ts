@@ -93,7 +93,7 @@ export function hasLeadingControls(props: LeadingControlsProps): boolean {
  * else is configured.
  */
 export function hasQueryControls(props: QueryControlsProps): boolean {
-  return props.canImport || props.filtersEnabled || props.sortEnabled
+  return props.canImport || props.facets.length > 0 || props.filtersEnabled || props.sortEnabled
 }
 
 /**

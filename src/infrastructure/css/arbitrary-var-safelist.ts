@@ -7,7 +7,7 @@
 
 /**
  * Tailwind arbitrary-value safelist generator for the runtime-template-literal
- * classes built via `v('sv-X', T.Y)` in the `*-default-classes.ts` recipes.
+ * classes built via `v('X', T.Y)` in the `*-default-classes.ts` recipes.
  * Read the directory list off `RECIPE_DIRS` below rather than from prose — this
  * paragraph said "TWO directories" for as long as there were three, then named
  * three for as long as there have been two. What each one is there for:
@@ -17,7 +17,7 @@
  *     It holds the SSR element recipes (button/input/forms/…), which were
  *     silently missed when this generator scanned only the islands dir: the
  *     recipe-only arbitrary classes (e.g. the input error-state
- *     `border-[var(--sv-error-solid,…)]`) were never emitted and fell through
+ *     `border-[var(--sv-error-border,…)]`) were never emitted and fell through
  *     to the `@layer components` base `input{…}` rule, which resolves under
  *     `ECO_DESIGN_LAYER=on` (token layer present) but to `currentColor` under
  *     `off` — breaking the with≡without parity
@@ -28,10 +28,10 @@
  *
  * ## Why this exists
  * Recipes compose classes like:
- *   `` `bg-[${v('sv-primary', T.primary)}]` ``
+ *   `` `rounded-[${v('radius-md', T.radiusMd)}]` ``
  *
  * At module-load these resolve to deterministic literal strings such as
- *   `bg-[var(--sv-primary,oklch(0.205_0.008_40))]`
+ *   `rounded-[var(--radius-md,0.5rem)]`
  *
  * but Tailwind's content scanner only sees the template SOURCE (the
  * `${…}` placeholder), not the resolved value — so it never generates a
@@ -47,9 +47,9 @@
  * regex-parsing the generated `TOKENS` literal, and emit the resulting
  * concrete class strings to the compiler's `@source inline(...)` safelist.
  * Drift-resistant: any new `v(…)` call in a recipe is picked up automatically.
- * `VAR` is captured WHOLE, across namespaces — colour reads name `--sv-*`, the
- * tenant override channel, while shape and depth name `--radius-*` /
- * `--shadow-*` directly. A co-located test pins the expected size and one
+ * `VAR` is captured WHOLE, across namespaces — a colour read names a Sovrium
+ * extension token (`--sv-primary-hover`, the status ramps), while shape and
+ * depth name `--radius-*` / `--shadow-*` directly. A co-located test pins the expected size and one
  * canonical class per namespace, so regex / TOKENS-extractor drift fails the
  * unit suite rather than silently dropping a family.
  *
@@ -87,7 +87,7 @@ import { join } from 'node:path'
 
 /**
  * Directories holding the `*-default-classes.ts` recipes whose runtime
- * `v('sv-X', T.Y)` template literals must be safelisted. BOTH are scanned, and
+ * `v('X', T.Y)` template literals must be safelisted. BOTH are scanned, and
  * `walkRecipeDir` recurses, so a recipe in a subdirectory is still found.
  *
  * The SSR element recipes and the shared recipes both live in the ONE neutral
@@ -133,7 +133,8 @@ const CSS_VAR_PATH = join(import.meta.dir, '../../presentation/design/tokens.gen
  *
  * The variable name is captured whole rather than as a suffix after a literal
  * `sv-`, because the recipes no longer all sit on one namespace. Colour reads
- * stay on `--sv-*`, the tenant override channel; shape and depth reads name
+ * name a `--sv-*` extension token (a role with a shadcn twin is read through
+ * its utility and never reaches this safelist); shape and depth reads name
  * `--radius-*` / `--shadow-*` directly, which is where `design.radius` and
  * `design.elevation` actually land. A pattern anchored on `sv-` silently
  * skipped every one of the latter, and a skipped class is not a missing

@@ -5,33 +5,23 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Fragment } from 'react'
-import {
-  computeListItemClasses,
-  computeSpeechBubbleClasses,
-  computeTimelineContainerClasses,
-  computeTimelineRailClasses,
-} from '../../design/display-default-classes'
+import { CARD_SLOT_ATTRIBUTES, computeCardClasses } from '../../design/card-default-classes'
 import {
   computeSpinnerClasses,
   computeSpinnerGlyphClasses,
 } from '../../design/feedback-default-classes'
-import {
-  computeCardClasses,
-  computeDividerLabelTextClasses,
-  computeDividerLabelWrapperClasses,
-  computeDividerRuleClasses,
-} from '../../design/layout-default-classes'
-import {
-  computeTimelineEventClasses,
-  computeTimelineRailMarkerClasses,
-} from '../../design/timeline-rail-default-classes'
 import * as Renderers from '../elements'
 import { omitInternalMarkers } from '../props/internal-marker-props'
+import { bubbleComponents } from './bubble-component'
+import { renderCardAnatomy } from './card-anatomy'
 import { DESIGN_SCOPE_ATTRIBUTE } from './design-components'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import { recordBoundTimelineComponent } from './island-data-components'
+import { itemComponent } from './item-component'
+import { separatorComponent } from './separator-component'
 import { renderSidebarComponent } from './sidebar-component'
+import { renderTimelineRail } from './timeline-rail-component'
+import { toastComponent } from './toast-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
 /**
@@ -83,6 +73,7 @@ function containerRepeatMarkers(component: unknown): Record<string, string> | un
 }
 
 export const structuralComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
+  ...bubbleComponents,
   container: ({ elementPropsWithSpacing, content, renderedChildren, interactions, component }) => {
     const element =
       ((component as Record<string, unknown> | undefined)?.element as
@@ -132,33 +123,14 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
   // tightening `p-4`
   // to `p-3`).
   //
-  // THREE VARIANTS BRANCH HERE, and each was its own component type until the
-  // catalogue reshape. `bubble` was `speech-bubble`; `scoped` was the design
-  // boundary; `specimen` is the stage a drawn component sits on. The dispatch
-  // is in the renderer rather than the registry because the registry is keyed
-  // by `type` and all four are now one type.
+  // TWO VARIANTS BRANCH HERE: `scoped`, the design boundary, and `specimen`,
+  // the stage a drawn component sits on. The dispatch is in the renderer rather
+  // than the registry because the registry is keyed by `type`. (A chat turn's
+  // surface is its own type, `bubble`.)
   card: (context) => {
-    const { elementPropsWithSpacing, content, renderedChildren, interactions, component } = context
+    const { elementPropsWithSpacing, content, renderedChildren, component } = context
     const variant = (component as { variant?: unknown } | undefined)?.variant
     const authorClassName = elementPropsWithSpacing['className'] as string | undefined
-
-    // `bubble` — the tail side flips the sharp corner between sender (left,
-    // the default) and receiver (right). Read from the component and from
-    // `props`, because `speech-bubble` read it off `elementProps` and configs
-    // written against it put it there.
-    if (variant === 'bubble') {
-      const declared =
-        (component as { side?: unknown } | undefined)?.side ?? elementPropsWithSpacing['side']
-      const side = declared === 'right' ? 'right' : 'left'
-      return (
-        <div
-          data-testid={elementPropsWithSpacing['data-testid'] as string | undefined}
-          className={mergePrestyle(computeSpeechBubbleClasses({ side }), authorClassName)}
-        >
-          {content || renderedChildren}
-        </div>
-      )
-    }
 
     // `scoped` — the boundary the operator's design paints inside. The children
     // go INSIDE it and not beside it: a scope emitting the attribute next to
@@ -167,8 +139,8 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
     // BARE, unlike its two sibling variants: `replaceDefaults` drops the card
     // recipe, so this paints no background, border, radius or padding. A scope
     // is a BOUNDARY, not a surface — and the recipe is not merely superfluous
-    // here, it is actively wrong. Its three surface reads (`--sv-bg-raised`,
-    // `--sv-border`, `--radius-md`) are re-declared INSIDE the scope by the
+    // here, it is actively wrong. Its three surface reads (`--card`,
+    // `--border`, `--radius-md`) are re-declared INSIDE the scope by the
     // documented design, so a scoped card wearing the recipe frames whatever it
     // documents in that design's own colours: a raised, bordered box nobody
     // authored and no config can switch off.
@@ -201,6 +173,7 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
       return (
         <div
           {...omitInternalMarkers(elementPropsWithSpacing)}
+          {...CARD_SLOT_ATTRIBUTES}
           className={mergePrestyle(computeCardClasses(), authorClassName)}
         >
           <div data-specimen-stage="">{content || renderedChildren}</div>
@@ -208,61 +181,19 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
       )
     }
 
-    return Renderers.renderHTMLElement({
-      type: 'div',
-      props: {
-        ...elementPropsWithSpacing,
-        className: mergePrestyle(computeCardClasses(), authorClassName),
-      },
-      content: content,
-      children: renderedChildren,
-      interactions: interactions,
-    })
+    return renderCardAnatomy(context)
   },
 
   // Timeline. TWO SHAPES, ONE TYPE: with a `dataSource` it is the record-bound
-  // Gantt and mounts its island; without, it draws its authored children beside
-  // a rail, one marker per child, and mounts nothing. The binding — not a mode
-  // flag — decides, and declaring both is REFUSED at decode
-  // (`component-xor-rules.ts`): the author's children would vanish unseen.
+  // Gantt and mounts its island; without, it draws its authored children as an
+  // ordered list of events, one marker per child, and mounts nothing. The
+  // binding — not a mode flag — decides, and declaring both is REFUSED at
+  // decode (`component-xor-rules.ts`): the author's children would vanish unseen.
   timeline: (context) => {
     if ((context.component as { dataSource?: unknown } | undefined)?.dataSource !== undefined) {
       return recordBoundTimelineComponent(context)
     }
-    const { elementPropsWithSpacing, content, renderedChildren, interactions } = context
-    const authorClassName = elementPropsWithSpacing['className'] as string | undefined
-    const mergedClassName = mergePrestyle(computeTimelineContainerClasses(), authorClassName)
-    // One keyed `Fragment` (the `<>` shorthand takes no key) as the sole entry
-    // of `children`: flattening would change the `children.length` that
-    // `renderHTMLElement` feeds to `buildAccessibilityRole`, hence the role.
-    const children = (
-      <Fragment key="timeline-body">
-        <div
-          aria-hidden="true"
-          className={computeTimelineRailClasses()}
-        />
-        {content}
-        {renderedChildren.map((child, index) => (
-          <div
-            key={index}
-            className={computeTimelineEventClasses()}
-          >
-            <span
-              aria-hidden="true"
-              className={computeTimelineRailMarkerClasses()}
-            />
-            {child}
-          </div>
-        ))}
-      </Fragment>
-    )
-    return Renderers.renderHTMLElement({
-      type: 'div',
-      props: { ...elementPropsWithSpacing, className: mergedClassName },
-      content: undefined,
-      children: [children],
-      interactions: interactions,
-    })
+    return renderTimelineRail(context)
   },
 
   accordion: ({ elementPropsWithSpacing, content, renderedChildren, interactions }) =>
@@ -278,14 +209,8 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
   // landmark, a rail and a drawer. Its own module: `sidebar-component.tsx`.
   sidebar: renderSidebarComponent,
 
-  toast: ({ elementProps, content, renderedChildren, interactions }) =>
-    Renderers.renderHTMLElement({
-      type: 'div',
-      props: elementProps,
-      content: content,
-      children: renderedChildren,
-      interactions: interactions,
-    }),
+  // `toast` placed in the tree — its variant, action and duration (its own module).
+  toast: toastComponent,
 
   // Spinner — the box, the mark that turns in it, and the announcement.
   //
@@ -309,6 +234,7 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
       props: {
         ...rest,
         className: mergePrestyle(computeSpinnerClasses(), authorClassName as string | undefined),
+        'data-slot': 'spinner',
         role: 'status',
         ...(accessibleName === undefined ? {} : { 'aria-label': accessibleName }),
       },
@@ -318,67 +244,15 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
     })
   },
 
-  // List-item — prestyled `<li>` row. The schema's action fields
-  // promote a passive row to an interactive one; the `selected` and
-  // `disabled` schema-level flags drive the state axis.
-  'list-item': ({ elementProps, content, renderedChildren }) => {
-    const interactive =
-      Boolean(elementProps['onClick']) ||
-      Boolean(elementProps['href']) ||
-      elementProps['interactive'] === true
-    const disabled = elementProps['disabled'] === true
-    const selected = elementProps['selected'] === true
-    const state = disabled ? 'disabled' : selected ? 'selected' : 'default'
-    const authorClassName = elementProps['className'] as string | undefined
-    const className = mergePrestyle(computeListItemClasses({ state, interactive }), authorClassName)
-    return Renderers.renderListItem({ ...elementProps, className }, content, renderedChildren)
-  },
+  // `item` — one row of a list, on shadcn/ui's Item anatomy (its own module).
+  item: itemComponent,
 
-  // Divider — renders an <hr> with prestyled `sv-border` color tone
-  // `style` (solid|dashed|dotted) maps to inline `borderStyle`
-  // since that's a schema literal that shouldn't go through the token
-  // cascade. `label` (when present) wraps the rule in an aria-separator
-  // container with muted-fg label text so labelled separators read as
-  // passive chrome.
-  divider: ({ elementProps }) => {
-    const style = elementProps['style'] as string | undefined
-    const label = elementProps['label'] as string | undefined
-    const borderStyle = style === 'dashed' || style === 'dotted' ? style : 'solid'
-    const authorClassName = elementProps['className'] as string | undefined
-    if (label) {
-      const wrapperClassName = mergePrestyle(computeDividerLabelWrapperClasses(), authorClassName)
-      const ruleClassName = `flex-1 ${computeDividerRuleClasses()}`
-      return (
-        <div
-          {...omitInternalMarkers(elementProps)}
-          role="separator"
-          aria-label={label}
-          className={wrapperClassName}
-        >
-          <hr
-            className={ruleClassName}
-            style={{ borderStyle }}
-          />
-          <span className={computeDividerLabelTextClasses()}>{label}</span>
-          <hr
-            className={ruleClassName}
-            style={{ borderStyle }}
-          />
-        </div>
-      )
-    }
-    const ruleClassName = mergePrestyle(computeDividerRuleClasses(), authorClassName)
-    return (
-      <hr
-        {...omitInternalMarkers(elementProps)}
-        className={ruleClassName}
-        style={{ borderStyle }}
-      />
-    )
-  },
+  // `separator` — shadcn/ui's Separator, horizontal, vertical or labelled (its own module).
+  separator: separatorComponent,
 
-  // Spacer — renders a div with a configurable height. `size` (sm/md/lg/xl)
-  // maps to Tailwind h-* utilities; defaults to `md`.
+  // Spacer — renders an empty `data-slot="spacer"` div with a configurable
+  // height and no paint. `size` (sm/md/lg/xl) maps to Tailwind h-* utilities;
+  // defaults to `md`.
   spacer: ({ elementProps }) => {
     const size = elementProps['size'] as string | undefined
     const sizeClass =
@@ -387,6 +261,7 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
     return (
       <div
         aria-hidden="true"
+        data-slot="spacer"
         data-testid={elementProps['data-testid'] as string | undefined}
         className={mergePrestyle(sizeClass, userClassName)}
       />

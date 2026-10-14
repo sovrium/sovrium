@@ -21,7 +21,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -81,7 +81,7 @@ components:
                         - type: text
                           element: p
                           props:
-                            className: text-xs text-foreground-muted
+                            className: text-xs text-muted-foreground
                           content: $record.content_type · $record.channel
                       footer:
                         - { field: flag, format: badge }
@@ -114,7 +114,7 @@ components:
                         - type: text
                           element: p
                           props:
-                            className: text-xs text-foreground-muted
+                            className: text-xs text-muted-foreground
                           content: $record.content_type · $record.channel
                       footer:
                         - { field: flag, format: badge }

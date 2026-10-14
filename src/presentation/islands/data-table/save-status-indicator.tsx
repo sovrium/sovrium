@@ -19,7 +19,7 @@ import type { ReactElement } from 'react'
 function statusLabel(status: SaveStatus): string {
   switch (status) {
     case 'saving':
-      return 'Saving...'
+      return 'Saving…'
     case 'saved':
       return 'Saved'
     case 'error':
@@ -36,7 +36,7 @@ interface SaveStatusIndicatorProps {
 }
 
 /**
- * Renders the auto-save status (Saving... / Saved / Error) for an editable
+ * Renders the auto-save status (Saving… / Saved / Error) for an editable
  * component. Hidden entirely when the status is `idle` so a successful save
  * indicator auto-dismisses.
  *

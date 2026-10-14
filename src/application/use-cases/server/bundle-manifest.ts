@@ -15,7 +15,8 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  *
  * A bundle is DATA, not code: `project/app.json` is the config RESOLVED and
  * VALIDATED by the engine that wrote it (every `$ref` inlined, never
- * TypeScript), beside the static `public/**` tree and the `seed/**` files. The
+ * TypeScript), beside the private assets it declares (`project/<path>`), the
+ * static `public/**` tree and the `seed/**` files. The
  * manifest lists every other entry with its size and sha256, so a reader can
  * refuse a truncated or altered archive before it trusts a single byte.
  *
@@ -27,6 +28,14 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  *
  * Changing a field here changes a file format hosts keep for years. Add
  * optional fields; never rename or remove one without a `formatVersion` bump.
+ *
+ * Format change in 0.38, `formatVersion` still 1: an entry may also be
+ * `project/<path>`, a file the config declares under `assets`. A bundle with
+ * no asset is unchanged. An engine older than 0.38 decodes a bundle that
+ * carries one with its narrower entry-path pattern and refuses it: its manifest
+ * decode fails at `["entries"][n]["path"]` ("Expected a string matching the
+ * RegExp ^(?:project\/app\.json|(?:public|seed)\/[^\0\\]+)$"), and the host
+ * reports `manifest.json is not a bundle manifest`.
  */
 
 export const BUNDLE_FORMAT = 'sovrium-bundle'
@@ -40,17 +49,18 @@ const sha256Hex = (description: string) =>
   Schema.String.annotate({ description }).check(Schema.isPattern(SHA256_HEX))
 
 /**
- * An entry path: the resolved config, or a file under `public/` or `seed/`.
- * Forward slashes, relative, never a `.` or `..` segment — a path an extractor
- * could follow out of the directory it unpacks into is refused at decode.
+ * An entry path: the resolved config or a declared asset under `project/`, or
+ * a file under `public/` or `seed/`. Forward slashes, relative, never a `.` or
+ * `..` segment — a path an extractor could follow out of the directory it
+ * unpacks into is refused at decode.
  */
-const ENTRY_PATH = /^(?:project\/app\.json|(?:public|seed)\/[^\0\\]+)$/
+const ENTRY_PATH = /^(?:project|public|seed)\/[^\0\\]+$/
 const hasDotSegment = (path: string): boolean =>
   path.split('/').some((segment) => segment === '.' || segment === '..' || segment === '')
 
 const entryPathSchema = Schema.String.annotate({
   description:
-    "Path inside the archive: 'project/app.json', or a file under 'public/' or 'seed/'. Forward slashes, relative, no '.' or '..' segment",
+    "Path inside the archive: 'project/app.json', a declared asset under 'project/', or a file under 'public/' or 'seed/'. Forward slashes, relative, no '.' or '..' segment",
 }).check(
   Schema.isPattern(ENTRY_PATH),
   Schema.makeFilter((path: string) =>

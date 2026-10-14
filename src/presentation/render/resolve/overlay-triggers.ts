@@ -10,7 +10,7 @@
  *
  * Two trigger shapes name an overlay by id: a click interaction
  * (`interactions.click.modal: <id>`, at the root or under `props`) and an
- * `openDrawer` action (`{ action: 'openDrawer', component: <id> }`, on a row
+ * `openSheet` action (`{ action: 'openSheet', component: <id> }`, on a row
  * click or a button). Both are read wherever they sit on a node — the node's
  * own fields, not its `children`, which are walked as nodes of their own.
  *
@@ -22,6 +22,7 @@
 const OVERLAY_TYPES: ReadonlySet<string> = new Set([
   'dialog',
   'alert-dialog',
+  'sheet',
   'drawer',
   'record-drawer',
   'popover',
@@ -51,7 +52,7 @@ function targetsInValue(value: unknown, depth: number): readonly string[] {
     ...(isRecord(value['click']) && typeof value['click']['modal'] === 'string'
       ? [value['click']['modal']]
       : []),
-    ...(value['action'] === 'openDrawer' && typeof value['component'] === 'string'
+    ...(value['action'] === 'openSheet' && typeof value['component'] === 'string'
       ? [value['component']]
       : []),
   ]
@@ -99,7 +100,7 @@ export function collectOverlayTargets(
 const HAS_OPENER_KEY = '_hasOpener'
 
 /** Dialog types whose initial open state depends on having an opener. */
-const DIALOG_TYPES: ReadonlySet<string> = new Set(['dialog', 'alert-dialog'])
+const DIALOG_TYPES: ReadonlySet<string> = new Set(['dialog', 'alert-dialog', 'drawer'])
 
 /** `node` with its `children` and every breakpoint's `children` mapped by `visit`. */
 function mapChildLists(node: NodeRecord, visit: (child: unknown) => unknown): NodeRecord {

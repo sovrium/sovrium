@@ -17,7 +17,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -37,7 +37,7 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-[13px] text-foreground-muted
+                  className: text-[13px] text-muted-foreground
                 content: Everything approved and not yet repaid, oldest first. Mark each claim repaid once the money has gone out; the person who filed it reads the date on their claim.
               - type: table
                 props:

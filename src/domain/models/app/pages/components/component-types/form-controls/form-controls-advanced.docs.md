@@ -12,7 +12,7 @@ components:
 
 ## `slider`
 
-A range input for a numeric value or a span.
+A range input for a numeric value or a span. Reference: shadcn/ui Slider.
 
 <!-- sovrium:options type:slider -->
 
@@ -20,7 +20,7 @@ A range input for a numeric value or a span.
 
 ## `date-picker`
 
-A calendar-based date input.
+A calendar-based date input. Reference: shadcn/ui Date Picker.
 
 <!-- sovrium:options type:date-picker -->
 
@@ -84,7 +84,7 @@ pages:
 
 ## `rating`
 
-A row of stars that reads, and inside a form writes, a `rating` field.
+A row of stars that reads, and inside a form writes, a `rating` field. No shadcn counterpart; its parts follow shadcn/ui's naming. An earned star is drawn in the primary colour, an unearned one in a muted tone, so the shape of the scale stays visible.
 
 <!-- sovrium:options type:rating -->
 
@@ -96,4 +96,4 @@ The control that writes a `signature` field, and the reading that shows one.
 
 <!-- sovrium:options type:signature-pad -->
 
-The signer reads `statement` above a ruled well, draws in it, and confirms; with `allowTyped` (on by default) they may type their full name instead, which is a signature too and the path a reader who cannot draw needs. What is stored is the image, the signer's name, the instant, how it was made, and the statement as it read at that moment — so a later edit of the config cannot change what an existing signature agreed to. A signed field is written once: from then on the pad shows "Signed by … on …" and no well.
+The signer reads `statement` above a dashed well, draws in it, and confirms; with `allowTyped` (on by default) they may type their full name instead, which is a signature too and the path a reader who cannot draw needs. What is stored is the image, the signer's name, the instant, how it was made, and the statement as it read at that moment — so a later edit of the config cannot change what an existing signature agreed to. A signed field is written once: from then on the pad shows "Signed by … on …" and no well. Reference: shadcn/ui Button, Item. Clear, Type your name instead and Sign sit together at the end of the row, Sign being the one primary button; a signed field is drawn as one outlined item with a check.

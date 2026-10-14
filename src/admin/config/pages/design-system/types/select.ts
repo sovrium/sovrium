@@ -7,10 +7,10 @@
 
 // `select` — a choice from a list the author knows.
 //
-// Three drawings. The third is the decision an author actually makes:
-// `searchable` is not a nicety, it is the difference between a list a reader
-// scans and one they cannot. The rule worth carrying away — past roughly a dozen
-// options, a plain select stops being usable.
+// Three drawings. The third is the decision an author actually makes: type-ahead
+// is not a nicety, it is the difference between a list a reader scans and one
+// they cannot. The rule worth carrying away — past roughly a dozen options, a
+// plain select stops being usable, and the control to reach for is `combobox`.
 //
 // The closed and open forms are the same control in the two states a reader meets
 // it in; the popup is the component's own and nothing here positions it.
@@ -76,8 +76,7 @@ const select: TypePageBody = {
           fieldLabel: 'Owner',
           children: [
             {
-              type: 'select',
-              searchable: true,
+              type: 'combobox',
               searchPlaceholder: 'Search people',
               options: [
                 { label: 'Amélie Roux', value: 'aroux' },
@@ -145,38 +144,6 @@ const select: TypePageBody = {
         {
           label: 'multiple: true',
           children: [sel('sel-multi', { multiple: true })],
-        },
-      ],
-    },
-    {
-      id: 'searchable',
-      title: 'Searchable',
-      configKey: 'select.searchable | searchPlaceholder | allowCustomValue',
-      drawings: [
-        {
-          label: 'searchable: true',
-          children: [sel('sel-search', { searchable: true, searchPlaceholder: 'Search stages' })],
-        },
-        {
-          label: 'searchable: true · allowCustomValue: true',
-          children: [
-            sel('sel-custom', {
-              searchable: true,
-              allowCustomValue: true,
-              searchPlaceholder: 'Search or type',
-            }),
-          ],
-        },
-      ],
-    },
-    {
-      id: 'native',
-      title: 'Native',
-      configKey: 'select.native',
-      drawings: [
-        {
-          label: 'native: true',
-          children: [sel('sel-native', { native: true, emptyOption: { label: 'Not set' } })],
         },
       ],
     },

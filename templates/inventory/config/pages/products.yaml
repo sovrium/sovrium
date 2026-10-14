@@ -25,7 +25,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -98,7 +98,7 @@ components:
                     pagination:
                       pageSize: 100
                     onRowClick:
-                      action: openDrawer
+                      action: openSheet
                       component: product-detail
                     emptyMessage: Your catalogue appears here with its stock on hand and value, grouped by category. Add the first product, or import a CSV.
                   # The products to buy again: out of stock, or under their
@@ -122,12 +122,12 @@ components:
                       - { field: stock_on_hand, function: sum, label: Σ }
                       - { field: value_at_cost, function: sum }
                     onRowClick:
-                      action: openDrawer
+                      action: openSheet
                       component: product-detail
                     emptyMessage: Nothing to reorder. Every active product holds more than its reorder point.
           # One product, opened over the grid: its figures, and where its stock
           # sits and how it got there — every movement with its warehouse.
-          - type: drawer
+          - type: sheet
             id: product-detail
             drawerSide: right
             drawerSize: md

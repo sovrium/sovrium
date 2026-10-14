@@ -263,7 +263,8 @@ function buildScrollInteractionProps(config: ElementPropsConfig): Record<string,
     threshold !== undefined ? { 'data-scroll-threshold': threshold.toString() } : {}
   const delayProps = delay ? { 'data-scroll-delay': delay } : {}
   const durationProps = duration ? { 'data-scroll-duration': duration } : {}
-  const onceProps = once === true ? { 'data-scroll-once': once.toString() } : {}
+  // `once` defaults to true, so only `once: false` leaves the marker off.
+  const onceProps = once === false ? {} : { 'data-scroll-once': 'true' }
 
   // Build animation styles immutably
   const delayStyle = delay ? { animationDelay: delay } : {}

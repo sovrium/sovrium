@@ -166,7 +166,7 @@ pages:
       - type: ai-chat
         agent: assistant
         visibility: { runtime: ai }
-      - type: command-palette
+      - type: command
         visibility: { unlessRuntime: ai }
 ```
 

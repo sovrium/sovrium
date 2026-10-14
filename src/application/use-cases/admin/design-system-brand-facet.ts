@@ -265,13 +265,8 @@ export const brandFacet = (app: App): BrandFacetResponse => {
  * The declared zones, as rows.
  *
  * The last Brand block with no read. `design.zones[]` is an array of objects
- * with a `voice` override nested one level below, so a page binding it could
- * reach the pattern and the zone name but not say which budget the zone carries
- * — `accentBudget` is OPTIONAL in config, and applying its fallback is an `if`.
- *
- * So the budget is published RESOLVED, with the fail-closed default `Brand Zone
- * Drift` already enforces: a zone declaring none is `product`. Publishing the
- * declared value instead would hand the page the same problem it came with.
+ * with a `voice` override nested one level below, which a page binding it could
+ * not flatten on its own.
  *
  * The voice override is a BOOLEAN, not the override itself. Those sentences are
  * already rows on the guidance facet under `zone.voice.*`, and publishing them
@@ -291,7 +286,6 @@ export const zonesFacet = (app: App): DesignZonesResponse => {
     const zone = entry as {
       readonly pattern?: unknown
       readonly zone?: unknown
-      readonly accentBudget?: unknown
       readonly voice?: unknown
     }
     if (typeof zone.pattern !== 'string' || typeof zone.zone !== 'string') return []
@@ -306,7 +300,6 @@ export const zonesFacet = (app: App): DesignZonesResponse => {
       {
         pattern: zone.pattern,
         zone: zone.zone,
-        accentBudget: zone.accentBudget === 'public' ? ('public' as const) : ('product' as const),
         hasVoiceOverride: typeof zone.voice === 'object' && zone.voice !== null,
         inherited,
         inheritedCount: inherited.length,

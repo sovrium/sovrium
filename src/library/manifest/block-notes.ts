@@ -33,7 +33,7 @@ export const PLACE_NOTE =
 
 /** The note every block carries on colour. */
 export const THEME_NOTE =
-  'Colours come from the theme tokens, so the block follows your `theme` without edits.'
+  'Colours come from the design tokens, so the block follows your `design` without edits.'
 
 /** The note every data-bound block carries on the table it reads. */
 export const DATA_NOTE =

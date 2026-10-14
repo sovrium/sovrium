@@ -88,7 +88,7 @@ export interface AssetNotice {
   readonly source: string
   /**
    * The `src/` modules that embed the asset; each must name `licenses/<file>`.
-   * One font can ship in more than one form — IBM Plex Sans is inlined into the
+   * One font can ship in more than one form — Geist is inlined into the
    * CSS AND embedded as static files for SVG text — and every form is listed.
    */
   readonly embeddedIn: readonly string[]
@@ -134,6 +134,14 @@ export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = [
     source: 'npm argparse — https://github.com/nodeca/argparse',
   },
   {
+    kind: 'package',
+    file: 'MIT-es-toolkit.txt',
+    package: 'es-toolkit',
+    license: 'MIT',
+    source:
+      'npm es-toolkit — https://github.com/toss/es-toolkit; MIT with a NOTICE (its compat layer derives from Lodash), both carried; reached through recharts',
+  },
+  {
     kind: 'runtime',
     file: 'MIT-bun-runtime.txt',
     name: 'bun',
@@ -142,24 +150,30 @@ export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = [
   },
   {
     kind: 'asset',
-    file: 'OFL-1.1-ibm-plex.txt',
-    name: 'IBM Plex Sans (font)',
+    file: 'OFL-1.1-geist.txt',
+    name: 'Geist and Geist Mono (fonts)',
     license: 'OFL-1.1',
     source:
-      '@fontsource-variable/ibm-plex-sans, latin subset, inlined as woff2; ' +
-      '@ibm/plex-sans 1.1.0, fonts/complete/woff2/ Regular and Bold, embedded as static woff2 for SVG text',
+      '@fontsource-variable/geist 5.3.0 and @fontsource-variable/geist-mono 5.3.0, latin subset, ' +
+      'inlined as woff2; geist 1.7.2 (npm tarball), dist/fonts/geist-sans/ Regular and Bold, ' +
+      'embedded as static woff2 for SVG text',
     embeddedIn: [
-      'src/infrastructure/css/theme/fonts/plex-sans.ts',
-      'src/infrastructure/assets/plex-sans-woff2.ts',
+      'src/infrastructure/css/theme/fonts/geist.ts',
+      'src/infrastructure/css/theme/fonts/geist-mono.ts',
+      'src/infrastructure/assets/geist-sans-woff2.ts',
     ],
   },
   {
     kind: 'asset',
-    file: 'OFL-1.1-jetbrains-mono.txt',
-    name: 'JetBrains Mono (font)',
-    license: 'OFL-1.1',
-    source: '@fontsource-variable/jetbrains-mono, latin subset, inlined as woff2',
-    embeddedIn: ['src/infrastructure/css/theme/fonts/jetbrains-mono.ts'],
+    file: 'MIT-shadcn-ui.txt',
+    name: 'shadcn/ui (registry snapshot and adapted component source)',
+    license: 'MIT',
+    source:
+      'https://github.com/shadcn-ui/ui (LICENSE.md, fetched 2026-10-12): the registry items pinned ' +
+      'under scripts/baselines/shadcn-registry/ and every component file adapted from them (ADR-045 D10)',
+    // The snapshot is listed through its README, which names this file. Each
+    // component adapted from the registry joins this list in its own port.
+    embeddedIn: ['scripts/baselines/shadcn-registry/README.md'],
   },
 ]
 

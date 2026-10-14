@@ -64,10 +64,46 @@ const InputGroupActionSchema = Schema.Struct({
     }),
     Schema.check(Schema.isMinLength(1))
   ),
+  variant: Schema.optional(
+    Schema.Literals(['ghost', 'default', 'secondary', 'outline', 'destructive', 'link']).annotate({
+      description:
+        "The attached control's look, a button variant: 'ghost' (the default), 'default', 'secondary', 'outline', 'destructive' or 'link'. shadcn/ui's InputGroupButton variant.",
+    })
+  ),
+  size: Schema.optional(
+    Schema.Literals(['xs', 'sm', 'icon-xs', 'icon-sm']).annotate({
+      description:
+        "The attached control's size: 'xs' (the default), 'sm', or a square 'icon-xs' / 'icon-sm'. shadcn/ui's InputGroupButton size.",
+    })
+  ),
 }).annotate({
   identifier: 'InputGroupAction',
   title: 'Attached Control',
   description: 'A link drawn attached to the trailing edge of the input',
+})
+
+/** One addon of the group: where it sits, and the text, icon or key hint it shows. */
+const InputGroupAddonSchema = Schema.Struct({
+  align: Schema.optional(
+    Schema.Literals(['inline-start', 'inline-end', 'block-start', 'block-end']).annotate({
+      description:
+        "Where the addon sits: before the control ('inline-start', the default), after it ('inline-end'), above it ('block-start') or below it ('block-end'). shadcn/ui's InputGroupAddon align.",
+    })
+  ),
+  text: Schema.optional(
+    Schema.String.annotate({ description: 'Text the addon shows, such as a unit or a count' })
+  ),
+  icon: Schema.optional(
+    Schema.String.annotate({ description: 'Lucide icon the addon shows, such as search' })
+  ),
+  kbd: Schema.optional(
+    Schema.String.annotate({ description: 'A keyboard hint the addon shows, such as ⌘K' })
+  ),
+}).annotate({
+  identifier: 'InputGroupAddon',
+  title: 'Input Group Addon',
+  description:
+    'Something that qualifies the value without being part of it, beside, above or below the control. Never submitted.',
 })
 
 export const inputGroupFields = {
@@ -137,4 +173,18 @@ export const inputGroupFields = {
     )
   ),
   action: Schema.optional(InputGroupActionSchema),
+  /** Addons around the control, beyond the `prefix`/`suffix` shorthand. */
+  addons: Schema.optional(
+    Schema.Array(InputGroupAddonSchema).annotate({
+      description:
+        'Addons around the control: icons, key hints or text, each before, after, above or below it. prefix and suffix are the inline text shorthand.',
+    })
+  ),
+  /** The control the group holds. */
+  control: Schema.optional(
+    Schema.Literals(['input', 'textarea']).annotate({
+      description:
+        "The control the group holds: 'input' (the default) or a multi-line 'textarea'. shadcn/ui's InputGroupInput and InputGroupTextarea.",
+    })
+  ),
 } as const

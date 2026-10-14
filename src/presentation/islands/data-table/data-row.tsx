@@ -16,7 +16,7 @@ import { AiRefinementMarker } from '../runtime/ai-refinement-marker'
 import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
 import { followAddress } from '../runtime/follow-address'
 import { useRowMarkers } from './account-sessions'
-import { stopClickPropagation } from './cell-click'
+import { clickLandsOnInnerControl, stopClickPropagation } from './cell-click'
 import { cellPresentation } from './column-presentation'
 import {
   cellRefinementStatus,
@@ -232,15 +232,19 @@ function DataCell({
     onDoubleClick !== undefined
   )
   const fillHandle = fillHandleFor(cell, ctx, isCursor)
+  // An open text editor is laid OVER the cell, so the cell is its containing block.
+  const rowId = cell.row.original.id as string | number | undefined
+  const editing = isEditingThisCell(ctx.editingCell, meta?.field, rowId)
 
   return (
     <td
+      data-slot="table-cell"
       {...dataCellAttributes({
         ctx,
         meta,
         presentation,
         cursorAttrs,
-        positioned: fillHandle !== undefined,
+        positioned: fillHandle !== undefined || editing,
         isCursor,
       })}
       {...(suppressRowClick &&
@@ -279,10 +283,10 @@ function performRowAction(row: DataTableRow, ctx: DataRowContext, target?: Eleme
     followAddress(resolved, { openInNewTab: action.openInNewTab })
     return
   }
-  // PG-04: openDrawer dispatch — `sovrium:open-drawer` for the named drawer,
+  // PG-04: openSheet dispatch — `sovrium:open-drawer` for the named drawer,
   // carrying the clicked row's record and the ids of the rows on screen, in
   // their order, for the drawer's Previous / Next.
-  if (action?.type === 'openDrawer') {
+  if (action?.type === 'openSheet') {
     dispatchIslandEvent('sovrium:open-drawer', {
       id: action.component,
       record: row.original,
@@ -363,11 +367,16 @@ export function DataRow({
 
   return (
     <tr
+      data-slot="table-row"
       {...markers}
       className={rowBackgroundClass(ctx, rowIndex, selected, paint.filled)}
       {...(selected && { 'aria-selected': 'true' as const })}
       {...(paint.style && { style: paint.style })}
-      {...(rowIsClickable && { onClick: (e) => activate(e.currentTarget) })}
+      {...(rowIsClickable && {
+        onClick: (e) => {
+          if (!clickLandsOnInnerControl(e)) activate(e.currentTarget)
+        },
+      })}
       {...(paint.filled && {
         onMouseEnter: paint.onMouseEnter,
         onMouseLeave: paint.onMouseLeave,

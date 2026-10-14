@@ -39,7 +39,7 @@
 // wire, and the copy below stays here. `hasDefault` and `defaultValue` keep
 // their exact meanings for every existing consumer.
 //
-// ─── STATUS IS TYPOGRAPHY, NOT COLOUR ────────────────────────────
+// ─── STATUS IS TYPOGRAPHY, NOT COLOUR ──────────────────────────────────────
 //
 // The set/unset indicator is weight and de-emphasis, never a green/amber pill.
 // A console that paints "not set" amber implies the operator did something
@@ -49,9 +49,10 @@
 //
 // No edit affordance, no write endpoint, no reveal. The page binds one READ and
 // renders it. Values are configured in the deployment environment, and the
-// provenance card says so, so an operator who came here to fix one knows where
+// card's sentence says so, so an operator who came here to fix one knows where
 // to go.
 
+import { factsCard } from '../components/card-blocks'
 import { pageHeading } from '../components/data-page'
 import { withShell } from '../components/shell'
 import { ENV_ENDPOINT } from '../system-sources'
@@ -86,10 +87,6 @@ const gatedText = (
     visibility: { record },
   }) as PageComponent
 
-/** A quiet uppercase micro-label used as a section heading. */
-const sectionLabel = (content: string): PageComponent =>
-  text('h2', 'text-foreground-subtle text-sm font-medium tracking-wide uppercase', content)
-
 /**
  * One variable row.
  *
@@ -120,7 +117,7 @@ const variableRow = (): PageComponent =>
     element: 'div',
     props: {
       className:
-        'flex flex-col gap-1 px-4 py-3 md:flex-row md:items-baseline md:justify-between md:gap-6',
+        'flex flex-col gap-1 px-6 py-3 md:flex-row md:items-baseline md:justify-between md:gap-6',
       'data-testid': 'config-env-row-$record.key',
     },
     children: [
@@ -130,21 +127,21 @@ const variableRow = (): PageComponent =>
         props: { className: 'flex min-w-0 flex-col gap-0.5' },
         children: [
           text('span', 'text-foreground font-mono text-sm', '$record.key'),
-          text('span', 'text-foreground-subtle text-sm', '$record.description'),
+          text('span', 'text-muted-foreground text-sm', '$record.description'),
           // Required / optional, as two mutually exclusive spans over the one
           // boolean. The trailing "has a default" hint is a THIRD span gated on
           // the withheld state alone: where the literal IS disclosed, the line
           // below already says so and more precisely, and a label repeating the
-          // value beside it is a word not doing work ([internal ref] D4).
-          gatedText('span', 'text-foreground-subtle text-sm', '$t:admin.env.required', {
+          // value beside it is a word not doing work.
+          gatedText('span', 'text-muted-foreground text-sm', '$t:admin.env.required', {
             field: 'required',
             eq: true,
           }),
-          gatedText('span', 'text-foreground-subtle text-sm', '$t:admin.env.optional', {
+          gatedText('span', 'text-muted-foreground text-sm', '$t:admin.env.optional', {
             field: 'required',
             eq: false,
           }),
-          gatedText('span', 'text-foreground-subtle text-sm', '· has a default', {
+          gatedText('span', 'text-muted-foreground text-sm', '· has a default', {
             field: 'defaultState',
             eq: 'withheld',
           }),
@@ -155,7 +152,7 @@ const variableRow = (): PageComponent =>
           // that A1 forbids ever building.
           gatedText(
             'span',
-            'text-foreground-subtle font-mono text-sm break-all',
+            'text-muted-foreground font-mono text-sm break-all',
             'Default $record.defaultValue',
             { field: 'defaultState', eq: 'disclosed' }
           ),
@@ -170,11 +167,11 @@ const variableRow = (): PageComponent =>
           // "where did this value come from" is not a meaningful question when
           // there is no value, and the status word already says "Not set".
           // Labelling it too rendered "Not set · Not set" on every unset row.
-          gatedText('span', 'text-foreground-subtle text-sm', '$t:admin.env.fromEnvironment', {
+          gatedText('span', 'text-muted-foreground text-sm', '$t:admin.env.fromEnvironment', {
             field: 'source',
             eq: 'environment',
           }),
-          gatedText('span', 'text-foreground-subtle text-sm', '$t:admin.env.fromDefault', {
+          gatedText('span', 'text-muted-foreground text-sm', '$t:admin.env.fromDefault', {
             field: 'source',
             eq: 'default',
           }),
@@ -184,7 +181,7 @@ const variableRow = (): PageComponent =>
             field: 'isSet',
             eq: true,
           }),
-          gatedText('span', 'text-foreground-subtle text-sm', '$t:admin.env.notSet', {
+          gatedText('span', 'text-muted-foreground text-sm', '$t:admin.env.notSet', {
             field: 'isSet',
             eq: false,
           }),
@@ -196,7 +193,7 @@ const variableRow = (): PageComponent =>
           // defines `masked` as exactly `isSet ? '***' : null` — one predicate,
           // and the one that does not depend on a null-vs-absent distinction the
           // condition vocabulary cannot draw.
-          gatedText('span', 'text-foreground-subtle font-mono text-sm', '$record.masked', {
+          gatedText('span', 'text-muted-foreground font-mono text-sm', '$record.masked', {
             field: 'isSet',
             eq: true,
           }),
@@ -205,87 +202,25 @@ const variableRow = (): PageComponent =>
     ],
   }) as PageComponent
 
-/**
- * The variable list, in DECLARATION order — the operator's grouping is
- * information, and the endpoint preserves it.
- *
- * The `<ul>` carries the binding and the row template is its single child, so
- * the expansion emits one `<li>` per declared variable.
- *
- * NEEDS: an empty-state slot on a system row template. An app declaring no
- * `env` block yields zero rows, and after `[internal ref]`
- * that renders an empty bordered box rather than the leaked template — correct,
- * but mute. The retired builder said "No variables declared / Add an env block
- * to your app config", which is the more useful answer on what is in fact the
- * COMMON configuration. No component-level slot expresses "render this when the
- * binding returned nothing" (`listDisplay.emptyMessage` belongs to the `list`
- * island shape, which cannot mint a per-row attribute and so cannot serve this
- * page), and `visibility.record` gates on a RECORD, so it is inert precisely
- * when there is none. The slot is a platform capability, not an authoring
- * choice.
- */
-const listSection = (): PageComponent =>
-  ({
-    type: 'container',
-    element: 'section',
-    props: {
-      'aria-label': '$t:admin.env.declared.region',
-      'data-testid': 'config-env-list',
-      className: 'flex flex-col gap-3',
-    },
-    children: [
-      sectionLabel('$t:admin.env.declared.heading'),
-      {
-        // `list`, not a `container` with `element: 'ul'`: the container element
-        // enum admits only sectioning elements, and the retired builder reached
-        // `ul` and `li` only by casting past the schema (`as unknown as
-        // Component`) — a door config does not have, and should not.
-        //
-        // `list` is also the type whose renderer already handles both states
-        // this page needs: data-bound children, and a data-bound list that came
-        // back EMPTY (which it keeps visible rather than collapsing to nothing).
-        // It stays SSR rather than becoming an island because that only happens
-        // with `listDisplay.itemTemplate`, which is the fixed shape this page
-        // exists to avoid.
-        type: 'list',
-        props: {
-          className:
-            'border-border divide-border bg-background-raised divide-y overflow-hidden rounded-lg border',
-        },
-        dataSource: { system: { endpoint: ENV_ENDPOINT, rowsKey: 'variables', idKey: 'key' } },
-        children: [variableRow()],
-      } as PageComponent,
-    ],
-  }) as PageComponent
-
-// The visible title block is retired here for the same reason it is on `/api`
-// and `/mcp`: the chrome bar's trail already ends in this page's name, so a
-// second copy printed the word twice. `pageHeading` is the shared `sr-only`
-// heading the twelve data surfaces already use — one rule for the console.
 const header = (): PageComponent => pageHeading('$t:admin.env.heading', '$t:admin.env.blurb')
 
 /**
- * The provenance card — where variables are actually configured, which is NOT
- * this console. It names the destination so the read-only posture is EXPLAINED
- * rather than merely enforced.
+ * The declared variables, as the console's facts card (the library's `dl-rows`
+ * block): the card's sentence is the secrecy notice, its rows the variables.
  */
-const provenanceCard = (): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className: 'border-border bg-background-raised flex flex-col gap-1 rounded-lg border p-4',
-      'data-testid': 'config-env-provenance',
-    },
-    children: [
-      text('p', 'text-foreground text-md font-medium', '$t:admin.env.callout.heading'),
-      text(
-        'p',
-        'text-foreground-subtle max-w-2xl text-md leading-relaxed',
-        '$t:admin.locked.audit.env.secrecyNotice'
-      ),
-    ],
-  }) as PageComponent
+const variablesCard = (): PageComponent =>
+  factsCard({
+    title: '$t:admin.env.declared.heading',
+    description: '$t:admin.locked.audit.env.secrecyNotice',
+    testId: 'config-env-list',
+    descriptionTestId: 'config-env-provenance',
+    body: {
+      type: 'list',
+      props: { className: 'divide-border divide-y', 'aria-label': '$t:admin.env.declared.region' },
+      dataSource: { system: { endpoint: ENV_ENDPOINT, rowsKey: 'variables', idKey: 'key' } },
+      children: [variableRow()],
+    } as PageComponent,
+  })
 
 export default withShell(
   {
@@ -298,7 +233,7 @@ export default withShell(
         type: 'container',
         element: 'div',
         props: { className: 'flex max-w-3xl flex-col gap-8' },
-        children: [header(), provenanceCard(), listSection()],
+        children: [header(), variablesCard()],
       },
     ],
   } as PageConfig,

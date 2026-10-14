@@ -19,6 +19,8 @@
  * harvest finds them.
  */
 
+import { computeTableCheckboxCellClasses } from '@/presentation/design/table-body-default-classes'
+
 export type ColumnAlign = 'left' | 'center' | 'right'
 
 const CELL_ALIGN_CLASSES: Readonly<Record<ColumnAlign, string>> = {
@@ -36,6 +38,29 @@ const HEADER_LABEL_ALIGN_CLASSES: Readonly<Record<ColumnAlign, string>> = {
 /** The text-alignment class of a cell (body or header) in this column. */
 export function columnAlignClass(align: ColumnAlign | undefined): string {
   return align ? CELL_ALIGN_CLASSES[align] : ''
+}
+
+/**
+ * The placement classes a body or header cell of this column carries beyond
+ * its recipe: its alignment, tabular figures for a column of quantities or
+ * instants, and the narrow checkbox gutter of the selection column.
+ */
+export function columnPlacementClass(
+  meta:
+    | {
+        readonly align?: ColumnAlign | undefined
+        readonly tabular?: boolean | undefined
+        readonly selection?: boolean | undefined
+      }
+    | undefined
+): string {
+  return [
+    columnAlignClass(meta?.align),
+    meta?.tabular === true ? 'tabular-nums' : '',
+    meta?.selection === true ? computeTableCheckboxCellClasses() : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 /** The alignment class of the flex row holding a header's label and sort glyph. */

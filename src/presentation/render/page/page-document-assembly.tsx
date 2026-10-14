@@ -29,20 +29,18 @@ import {
 } from '@/presentation/render/page/analytics-helpers'
 import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { ClientScriptPathsContext } from '@/presentation/render/page/client-script-paths'
+import { hasCommandPaletteHost } from '@/presentation/render/page/command-palette-capture'
 import { DynamicPage } from '@/presentation/render/page/dynamic-page'
 import {
   CORE_RUNTIME_FEATURES,
   hasInteractiveFeatures,
 } from '@/presentation/render/page/page-interactivity'
+import { bindsToIsland } from '@/presentation/render/page/page-island-detection'
 import { pageFoldsDocsNav } from '@/presentation/render/registry/docs-nav-drawer-mode'
 import {
   ISLAND_COMPONENT_TYPES,
   zeroJsDialogNeedsNoRuntime,
 } from '@/presentation/render/registry/island-component-types'
-import { isListIslandMode } from '@/presentation/render/registry/list-island-mode'
-import { isSearchPalette } from '@/presentation/render/registry/search-palette-mode'
-import { isSourcedSidebar } from '@/presentation/render/registry/sourced-sidebar-mode'
-import { isRecordFieldSystemMode } from '@/presentation/render/registry/system-detail-mode'
 import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -152,31 +150,7 @@ function hasDataIslandProp(s: Component): boolean {
   return typeof props?.['data-island'] === 'string'
 }
 
-/**
- * The shapes that mount an island through their BINDING rather than their type,
- * so none of them can be listed in `ISLAND_COMPONENT_TYPES`:
- *
- *  - CAP-1 a client-fetching data-bound list (`listDisplay.itemTemplate` + a
- *    table/system binding) → the `list` island;
- *  - CAP-2 a record-field self-bound to a system detail endpoint →
- *    `record-field-system`;
- *  - P2 a sidebar with a FETCHED group → `sidebar-groups`. An authored-only
- *    sidebar is fully SSR and needs no bundle.
- *  - W a `command-palette` in SEARCH mode → `command-palette`. The built-in
- *    quick-action mode builds its overlay from an inline script and mounts
- *    nothing, and it is appended to every page.
- *
- * Mirrors `bindsToIsland` in `page-island-detection.ts`, which decides whether to
- * INJECT the hydration script for the bundle this decides to BUILD. The two must
- * agree: a bundle with no script leaves a dead skeleton, a script with no bundle
- * 404s.
- */
-function bindsToIsland(s: Component): boolean {
-  return (
-    isListIslandMode(s) || isRecordFieldSystemMode(s) || isSourcedSidebar(s) || isSearchPalette(s)
-  )
-}
-
+/** The binding shapes that mount an island: one list, shared with the script injection (`page-island-detection.ts`). */
 function selfNeedsIslands(s: Component): boolean {
   // Checked BEFORE the type set: `dialog` is a member of it, but a
   // `hydrate: false` dialog renders enhancer-driven markup and mounts nothing.
@@ -283,10 +257,15 @@ async function resolveIslandBundle(
   islandBuilder?: IslandBuilder
 ): Promise<{ readonly entryFile: string | undefined; readonly preloadHrefs: readonly string[] }> {
   const needs = pageNeedsIslands(page, components)
-  if (!needs || !islandBuilder) return { entryFile: undefined, preloadHrefs: [] }
+  // A page whose only island is the built-in ⌘K palette still needs the entry's
+  // NAME, so the capture script can load it on the first open; it preloads
+  // nothing, since nothing is mounted until then.
+  const deferred = !needs && hasCommandPaletteHost(page.components)
+  if ((!needs && !deferred) || !islandBuilder) return { entryFile: undefined, preloadHrefs: [] }
 
   try {
     const result = await islandBuilder.buildIslands()
+    if (deferred) return { entryFile: result.entryFile, preloadHrefs: [] }
     const types = pagePreloadIslandTypes(page, components)
     const chunks = types.flatMap((type) => result.preloads[type] ?? [])
     return {

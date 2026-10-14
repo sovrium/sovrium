@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { DATE_CONTROL_ROOT_CLASSES } from '@/presentation/design/date-trigger-default-classes'
 import { computeDateTriggerClasses } from './date-default-classes'
 import { DatePickerPopup } from './date-picker-popup'
 import { useDatePickerState } from './use-date-picker-state'
@@ -55,14 +56,13 @@ function TriggerButton({
 }
 
 /**
- * Date-picker island — a trigger button that opens a custom calendar
- * popup. The calendar grid is a 7-column `<table role="grid">` with one
- * `<td role="gridcell">` per day, matching the structure the spec asserts.
+ * Date-picker island — a trigger button that opens a calendar popup. The
+ * calendar is the shared react-day-picker wrapper (`parts/day-picker.tsx`):
+ * a `<table role="grid">` with one `<td role="gridcell">` per day.
  *
  * Supports `single` (default) and `range` selection modes plus `minDate` /
- * `maxDate` constraints. We intentionally roll a small grid rather than
- * pull in `react-day-picker` (not installed in `package.json` despite being
- * documented as a stack member) — keeping the island dependency-free.
+ * `maxDate` constraints. The selection rules stay in this island's state
+ * hook; the grid only reports which day was pressed.
  *
  * ─── THE ROOT IS A FULL-WIDTH BLOCK, AND IT CARRIES THE REF ────────────────
  *
@@ -102,7 +102,7 @@ export default function DatePickerIsland({
   return (
     <span
       ref={state.containerRef}
-      className="relative block w-full"
+      className={DATE_CONTROL_ROOT_CLASSES}
       data-component="date-picker-island"
     >
       <TriggerButton
@@ -123,8 +123,7 @@ export default function DatePickerIsland({
         <DatePickerPopup
           label={label}
           viewMonth={state.viewMonth}
-          onPrevMonth={state.handlePrevMonth}
-          onNextMonth={state.handleNextMonth}
+          onMonthChange={state.handleMonthChange}
           minDateObj={state.minDateObj}
           maxDateObj={state.maxDateObj}
           datePickerMode={datePickerMode}

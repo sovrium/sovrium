@@ -19,7 +19,9 @@
  * the endpoint still enforces it, and a refusal is reported inline.
  */
 
-import { useState, type FormEvent, type ReactElement } from 'react'
+import { useRef, useState, type FormEvent, type ReactElement } from 'react'
+import { pendingControlProps } from '@/presentation/design/pending-state'
+import { renderPendingContent } from '@/presentation/design/spinner-mark'
 import type { RelatedLabels, RelatedSection } from './record-drawer-related'
 
 /** Column types a single textbox cannot write. */
@@ -37,10 +39,10 @@ const NOT_WRITABLE: ReadonlySet<string> = new Set([
 ])
 
 const FORM_CLASS = 'flex flex-col gap-2'
-const LABEL_CLASS = 'text-foreground-muted flex flex-col gap-1 text-sm'
+const LABEL_CLASS = 'text-muted-foreground flex flex-col gap-1 text-sm'
 const INPUT_CLASS = 'border-border bg-background text-foreground rounded border px-2 py-1 text-sm'
-const SAVE_CLASS = 'bg-primary text-primary-fg rounded px-3 py-1 text-sm'
-const CANCEL_CLASS = 'text-foreground-muted px-3 py-1 text-sm'
+const SAVE_CLASS = 'bg-primary text-primary-foreground rounded px-3 py-1 text-sm'
+const CANCEL_CLASS = 'text-muted-foreground px-3 py-1 text-sm'
 const ERROR_CLASS = 'text-error-fg text-sm'
 
 /** POST the filled values plus the link back to the opened record. */
@@ -58,6 +60,36 @@ async function createRelatedRecord(
   return response.ok
 }
 
+/**
+ * The create's submit, held in flight from the press to the answer: a second
+ * press or Enter meanwhile sends nothing, so one Save is one create.
+ */
+function useRelatedCreateSubmit(
+  section: RelatedSection,
+  values: Readonly<Record<string, string>>,
+  linkValue: string | number,
+  onDone: (created: boolean) => void
+) {
+  const [failed, setFailed] = useState(false)
+  const [pending, setPending] = useState(false)
+  const inFlight = useRef(false)
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (inFlight.current) return
+    inFlight.current = true
+    setPending(true)
+    void createRelatedRecord(section, values, linkValue)
+      .catch(() => false)
+      .then((ok) => {
+        inFlight.current = false
+        setPending(false)
+        if (ok) onDone(true)
+        else setFailed(true)
+      })
+  }
+  return { failed, pending, onSubmit }
+}
+
 export function RelatedCreateForm({
   section,
   linkValue,
@@ -70,17 +102,10 @@ export function RelatedCreateForm({
   readonly onDone: (created: boolean) => void
 }): ReactElement {
   const [values, setValues] = useState<Readonly<Record<string, string>>>({})
-  const [failed, setFailed] = useState(false)
+  const { failed, pending, onSubmit } = useRelatedCreateSubmit(section, values, linkValue, onDone)
   const columns = section.columns.filter(
     (column) => column.field !== section.field && !NOT_WRITABLE.has(column.type)
   )
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    void createRelatedRecord(section, values, linkValue).then((ok) => {
-      if (ok) onDone(true)
-      else setFailed(true)
-    })
-  }
   return (
     <form
       className={FORM_CLASS}
@@ -111,6 +136,7 @@ export function RelatedCreateForm({
       )}
       <CreateFormButtons
         labels={labels}
+        pending={pending}
         onCancel={() => onDone(false)}
       />
     </form>
@@ -120,9 +146,11 @@ export function RelatedCreateForm({
 /** Save submits the form; cancel closes it without writing. */
 function CreateFormButtons({
   labels,
+  pending,
   onCancel,
 }: {
   readonly labels: RelatedLabels
+  readonly pending: boolean
   readonly onCancel: () => void
 }): ReactElement {
   return (
@@ -131,8 +159,9 @@ function CreateFormButtons({
         type="submit"
         data-component-type="button"
         className={SAVE_CLASS}
+        {...pendingControlProps(pending)}
       >
-        {labels.save}
+        {pending ? renderPendingContent(labels.saving) : labels.save}
       </button>
       <button
         type="button"

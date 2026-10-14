@@ -44,6 +44,9 @@ function buildSelectProps(
     ),
     placeholder: rawProps?.placeholder,
     multiple: pickFromComponent(c, rawProps, 'multiple'),
+    clearable: pickFromComponent(c, rawProps, 'clearable'),
+    chips: pickFromComponent(c, rawProps, 'chips'),
+    name: rawProps?.name,
     // `native` selects the PLATFORM control. Read here rather than in
     // the renderer so the single lookup contract documented above keeps covering
     // every top-level field of the select schema.
@@ -66,41 +69,68 @@ function buildSelectProps(
   }
 }
 
-/** The `select` component: the platform control, or the themed island over an SSR placeholder. */
-export const selectComponent: ComponentRenderer = ({
-  rawProps,
-  elementProps,
-  component,
-  designStyles,
-  currentLang,
-  languages,
-}) => {
-  const built = buildSelectProps(rawProps, elementProps, component, designStyles)
-  // The caption is read off `rawProps`, which the props translation pass never
-  // reaches, so a `$t:` label is resolved HERE — once, on the way into the
-  // props both the platform control and the island serialise, so neither the
-  // SSR document nor the hydrated island prints the key.
-  const selectProps =
-    typeof built.label === 'string'
-      ? { ...built, label: localizeChildLabel(built.label, currentLang, languages) }
-      : built
-  // The PLATFORM control: the same element this renderer already
-  // produced below, left enabled and emitted with NO island marker — so
-  // nothing replaces it and the page ships no component code for it.
-  // `selectProps` already carries `id` / `className` / `data-testid` through
-  // `baseProps`, so only `name` (a `rawProps`-only field) has to be threaded.
-  if (selectProps.native === true) {
-    return renderNativeSelect(selectProps, rawProps?.name as string | undefined)
+/**
+ * The themed select, hosted by the island named `islandKey`: `select`, or
+ * `combobox`, which mounts the same island with type-ahead always on.
+ */
+const themedSelect =
+  (islandKey: 'select' | 'combobox'): ComponentRenderer =>
+  ({ rawProps, elementProps, component, designStyles, currentLang, languages }) => {
+    const built = buildSelectProps(rawProps, elementProps, component, designStyles)
+    // The caption is read off `rawProps`, which the props translation pass never
+    // reaches, so a `$t:` label is resolved HERE — once, on the way into the
+    // props both the platform control and the island serialise, so neither the
+    // SSR document nor the hydrated island prints the key.
+    const selectProps =
+      typeof built.label === 'string'
+        ? { ...built, label: localizeChildLabel(built.label, currentLang, languages) }
+        : built
+    // The PLATFORM control: the same element this renderer already
+    // produced below, left enabled and emitted with NO island marker — so
+    // nothing replaces it and the page ships no component code for it.
+    // `selectProps` already carries `id` / `className` / `data-testid` through
+    // `baseProps`, so only `name` (a `rawProps`-only field) has to be threaded.
+    if (selectProps.native === true) {
+      return renderNativeSelect(selectProps, rawProps?.name as string | undefined)
+    }
+    return (
+      <div
+        id={elementProps.id as string | undefined}
+        data-island={islandKey}
+        data-component-type={hostComponentType(elementProps)}
+        data-island-props={JSON.stringify(selectProps)}
+        data-testid={elementProps['data-testid'] as string | undefined}
+      >
+        {renderSsrSelectPlaceholder(selectProps)}
+      </div>
+    )
   }
-  return (
-    <div
-      id={elementProps.id as string | undefined}
-      data-island="select"
-      data-component-type={hostComponentType(elementProps)}
-      data-island-props={JSON.stringify(selectProps)}
-      data-testid={elementProps['data-testid'] as string | undefined}
-    >
-      {renderSsrSelectPlaceholder(selectProps)}
-    </div>
-  )
-}
+
+/** The `select` component: the platform control, or the themed island over an SSR placeholder. */
+export const selectComponent: ComponentRenderer = themedSelect('select')
+
+/**
+ * The `combobox` component: one choice found by typing. The `select` island
+ * with type-ahead always on, mounted under its own key so a page carrying only
+ * comboboxes still ships the island.
+ */
+export const comboboxComponent: ComponentRenderer = (context) =>
+  themedSelect('combobox')({
+    ...context,
+    component: { ...asRecord(context.component), searchable: true },
+  })
+
+/**
+ * The `native-select` component: the browser's own `<select>`, rendered with no
+ * island. It is the platform branch of {@link selectComponent}, reached by its
+ * own type rather than by `native: true` on a `select`.
+ */
+export const nativeSelectComponent: ComponentRenderer = (context) =>
+  selectComponent({ ...context, component: { ...asRecord(context.component), native: true } })
+
+/** The select family's renderers, keyed by type, for the island form registry. */
+export const selectComponents = {
+  select: selectComponent,
+  combobox: comboboxComponent,
+  'native-select': nativeSelectComponent,
+} as const satisfies Readonly<Record<string, ComponentRenderer>>

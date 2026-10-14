@@ -5,52 +5,61 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Menu } from '@base-ui/react/menu'
 import {
-  computeTableMenuClasses,
-  computeTableMenuItemClasses,
-} from '@/presentation/design/table-default-classes'
+  computeMenuItemClasses,
+  computeMenuPopupClasses,
+} from '../../overlays/menu-default-classes'
 import { buildCsvExportHref, buildJsonExportHref } from './export-helpers'
 import type { DataTableInstance } from './table-features'
 import type { ActiveFilter } from './use-ui-state'
 
-// ---------------------------------------------------------------------------
-// ExportMenu (CSV/JSON dropdown)
-// ---------------------------------------------------------------------------
-
+/**
+ * The export menu's popup: shadcn's `DropdownMenuContent`, aligned to the end
+ * of its trigger, one link item per format. Each item is a download link, so
+ * the browser saves the file the server answers with.
+ */
 export function ExportMenu({
   tableName,
   table,
   activeFilter,
-  onClose,
 }: {
   readonly tableName: string
   readonly table: DataTableInstance
   readonly activeFilter: ActiveFilter | undefined
-  readonly onClose: () => void
 }) {
   return (
-    <div
-      role="menu"
-      className={`${computeTableMenuClasses()} absolute top-full right-0 mt-1`}
-    >
-      <a
-        href={buildCsvExportHref(tableName, table, activeFilter)}
-        download
-        role="menuitem"
-        className={computeTableMenuItemClasses()}
-        onClick={onClose}
+    <Menu.Portal>
+      <Menu.Positioner
+        side="bottom"
+        align="end"
+        sideOffset={4}
+        className="isolate z-50 outline-none"
       >
-        Export as CSV
-      </a>
-      <a
-        href={buildJsonExportHref(tableName, activeFilter)}
-        download
-        role="menuitem"
-        className={computeTableMenuItemClasses()}
-        onClick={onClose}
-      >
-        Export as JSON
-      </a>
-    </div>
+        <Menu.Popup
+          data-slot="dropdown-menu-content"
+          className={computeMenuPopupClasses()}
+        >
+          <Menu.LinkItem
+            data-slot="dropdown-menu-item"
+            href={buildCsvExportHref(tableName, table, activeFilter)}
+            download
+            closeOnClick
+            className={computeMenuItemClasses()}
+          >
+            Export as CSV
+          </Menu.LinkItem>
+          <Menu.LinkItem
+            data-slot="dropdown-menu-item"
+            href={buildJsonExportHref(tableName, activeFilter)}
+            download
+            closeOnClick
+            className={computeMenuItemClasses()}
+          >
+            Export as JSON
+          </Menu.LinkItem>
+        </Menu.Popup>
+      </Menu.Positioner>
+    </Menu.Portal>
   )
 }

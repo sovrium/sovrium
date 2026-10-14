@@ -11,7 +11,10 @@ import {
   markToastPoliteness,
   resolveToastDismissLabel,
 } from '@/presentation/islands/runtime/toast-accessibility'
-import { resolveToastDuration } from '@/presentation/islands/runtime/toast-duration'
+import {
+  markToastTiming,
+  resolveToastDuration,
+} from '@/presentation/islands/runtime/toast-duration'
 
 /**
  * The client runtime's toast, raised by the non-island controls (filter
@@ -33,6 +36,8 @@ type ToastOptions = {
   duration?: number
   actionLabel?: string
   actionUrl?: string
+  /** A loading toast this one takes the place of: one toast that turns into its outcome. */
+  replacing?: Element
 }
 
 function ensureToastContainer(): Element {
@@ -44,7 +49,6 @@ function ensureToastContainer(): Element {
     container.setAttribute('aria-live', 'polite')
     const el = container as HTMLElement
     el.style.position = 'fixed'
-    el.style.bottom = '16px'
     el.style.right = '16px'
     el.style.zIndex = '9999'
     el.style.display = 'flex'
@@ -55,11 +59,24 @@ function ensureToastContainer(): Element {
   return container
 }
 
-export function showToast(message: string, options: ToastOptions = {}): void {
+/** The toast's action button: it posts to its URL, then the toast closes. */
+function createActionButton(toast: Element, label: string, url: string): HTMLButtonElement {
+  const actionBtn = document.createElement('button')
+  actionBtn.type = 'button'
+  actionBtn.textContent = label
+  actionBtn.addEventListener('click', () => {
+    void fetch(url, { method: 'POST' }).finally(() => {
+      toast.remove()
+    })
+  })
+  return actionBtn
+}
+
+export function showToast(message: string, options: ToastOptions = {}): Element {
   const container = ensureToastContainer()
   const toast = document.createElement('div')
   toast.setAttribute('data-toast', '')
-  if (options.variant) toast.setAttribute('data-variant', options.variant)
+  markToastTiming(toast, options)
 
   // A failure interrupts; everything else waits its turn. Set BEFORE insertion,
   // so assistive technology sees an alert at the moment the toast arrives.
@@ -72,16 +89,7 @@ export function showToast(message: string, options: ToastOptions = {}): void {
   appendToastMessage(toast, message)
 
   if (options.actionLabel && options.actionUrl) {
-    const actionBtn = document.createElement('button')
-    actionBtn.type = 'button'
-    actionBtn.textContent = options.actionLabel
-    const { actionUrl } = options
-    actionBtn.addEventListener('click', () => {
-      void fetch(actionUrl, { method: 'POST' }).finally(() => {
-        toast.remove()
-      })
-    })
-    toast.appendChild(actionBtn)
+    toast.appendChild(createActionButton(toast, options.actionLabel, options.actionUrl))
   }
 
   // Dismissal is the shared policy, never a local rule: an explicit `duration`
@@ -99,13 +107,20 @@ export function showToast(message: string, options: ToastOptions = {}): void {
   // A toast that never expires gets the control that removes it — and the toast
   // is assembled completely before it is inserted, so a live region announces
   // it once rather than once per child.
+  // A loading toast waits for the answer that replaces it: no timer, no close.
+  const place = (): Element => {
+    const { replacing } = options
+    if (replacing?.parentNode === container) container.replaceChild(toast, replacing)
+    else container.appendChild(toast)
+    return toast
+  }
+  if (options.variant === 'loading') return place()
   if (dismissAfter === undefined) {
     appendToastDismissControl(toast, resolveToastDismissLabel(container))
-    container.appendChild(toast)
-    return
+    return place()
   }
-  container.appendChild(toast)
   window.setTimeout(() => {
     toast.remove()
   }, dismissAfter)
+  return place()
 }

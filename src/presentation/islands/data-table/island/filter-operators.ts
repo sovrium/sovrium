@@ -181,6 +181,19 @@ export function getOperatorsForType(fieldType: string | undefined): readonly Fil
  * like type (single-select / multi-select / status / boolean) AND the
  * declared `options` are non-empty.
  */
+/**
+ * The words an operator is offered in for a field of this type — what its
+ * select option reads — so a committed filter's chip repeats them rather than
+ * the stored spelling.
+ */
+export function operatorLabel(operator: string, fieldType: string | undefined): string {
+  const canonical = canonicalizeOperator(operator)
+  return (
+    getOperatorsForType(fieldType).find((candidate) => candidate.value === canonical)?.label ??
+    operator
+  )
+}
+
 export function isSelectValueField(fieldType: string | undefined): boolean {
   return categorize(fieldType) === 'select'
 }

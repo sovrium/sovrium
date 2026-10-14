@@ -21,8 +21,8 @@ const step = (label: string, index: number): Readonly<Record<string, unknown>> =
     position === CURRENT
       ? 'border-foreground font-medium text-foreground'
       : position < CURRENT
-        ? 'border-foreground text-foreground-muted'
-        : 'border-border text-foreground-subtle'
+        ? 'border-foreground text-muted-foreground'
+        : 'border-border text-muted-foreground'
   return {
     type: 'container',
     props: {

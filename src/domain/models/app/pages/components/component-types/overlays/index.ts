@@ -8,6 +8,7 @@
 export { AlertDialogTypeLiteral, alertDialogFields } from './alert-dialog'
 export { DialogTypeLiteral, dialogFields } from './dialog'
 export { DrawerTypeLiteral, drawerFields } from './drawer'
+export { BottomDrawerTypeLiteral, bottomDrawerFields } from './bottom-drawer'
 // The record-binding SHAPES outlived the `record-drawer` component type they
 // were named for — `table`'s row-expand renders the same field list.
 export { RecordDrawerFieldSchema } from './record-drawer'

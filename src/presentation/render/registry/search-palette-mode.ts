@@ -24,7 +24,7 @@ import type { Component } from '@/domain/models/app/pages/components'
  * the script tag 404s.
  */
 export function isSearchPalette(component: Component): boolean {
-  if (component.type !== 'command-palette') return false
+  if (component.type !== 'command') return false
   return (component as { readonly search?: unknown }).search !== undefined
 }
 

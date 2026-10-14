@@ -30,10 +30,10 @@
  * A CodeMirror theme is static for the life of the mount and the scheme flips
  * at runtime by adding `.dark` to an ancestor, so a theme that resolved the
  * colours at mount could never follow it. Custom properties inherit through the
- * shadow-free DOM CodeMirror renders into, so `var(--sv-bg-raised)` re-resolves
- * on the flip with no remount and no listener. Each carries the literal
- * `TOKENS` default beside it, exactly as the class recipes do, so an editor
- * still paints correctly if the theme layer has not been emitted.
+ * shadow-free DOM CodeMirror renders into, so `var(--card)` re-resolves on the
+ * flip with no remount and no listener. Every value reads one of the theme's
+ * shadcn roles: the ground is the card, the gutter `muted` at half strength
+ * under muted digits, the edges `border`.
  *
  * ─── SELECTORS ARE ONE PER KEY, NEVER A COMMA LIST ────────────────────────
  *
@@ -47,36 +47,23 @@
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { EditorView } from '@uiw/react-codemirror'
-import { TOKENS as T } from '@/presentation/design/css-var'
 import type { TagStyle } from '@codemirror/language'
 import type { Extension } from '@codemirror/state'
 
-/**
- * `var(--<name>, <literal>)` for a CSS-in-JS declaration.
- *
- * The sibling of `withVarFallback`, minus its Tailwind concession: that helper
- * rewrites spaces to `_` because Tailwind's arbitrary-value parser splits on
- * whitespace, and these strings never reach Tailwind — they are injected as raw
- * CSS by CodeMirror's style module, where an underscore inside `oklch(...)`
- * would be a parse error rather than a space.
- */
-const token = (name: string, fallback: string): string => `var(--${name},${fallback})`
+/** A read of one of the theme's shadcn roles. */
+const role = (name: string): string => `var(--${name})`
 
-const GROUND = token('sv-bg-raised', T.bgRaised)
-const INK = token('sv-fg', T.fg)
-const MUTED_INK = token('sv-fg-muted', T.fgMuted)
-const GUTTER = token('sv-bg-subtle', T.bgSubtle)
-const EDGE = token('sv-border', T.border)
-const HIGHLIGHT = token('sv-bg-inset', T.bgInset)
+const GROUND = role('card')
+const INK = role('foreground')
+const MUTED_INK = role('muted-foreground')
+// shadcn's `bg-muted/50`, spelled for a CSS-in-JS declaration.
+const GUTTER = 'color-mix(in oklab, var(--muted) 50%, transparent)'
+const SELECTION = role('muted')
+const EDGE = role('border')
+const HIGHLIGHT = role('muted')
 const MONO = 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)'
-const SUBTLE_INK = token('sv-fg-subtle', T.fgSubtle)
-const DISABLED_INK = token('sv-fg-disabled', T.fgDisabled)
-// `sv-chart-1` has no `TOKENS` entry — the ramp is generated into the theme
-// layer rather than into the catalog — so the fallback is spelled out, exactly
-// as `KPI_SPARKLINE_STROKE` does for the same variable and the same reason.
-// Keep the two literals equal if the default series hue ever moves.
-const LITERAL = 'var(--sv-chart-1, #398ad6)'
-const ERROR_INK = token('sv-error-fg', T.errorFg)
+const LITERAL = role('chart-1')
+const ERROR_INK = role('destructive')
 
 /**
  * The token-bound surface for every `code-editor` and every `code` form field.
@@ -91,15 +78,11 @@ export const sovriumEditorTheme: Extension = EditorView.theme({
     backgroundColor: GROUND,
     color: INK,
   },
-  // 12px on 1.7 — `variants.mjs:166` and `chrome.mjs:77` put every code surface
-  // in the system on that pair, and the editor was the one that did not: it
-  // inherited CodeMirror's own 13px on a tighter leading, so a formula field
-  // and the code block documenting it were set differently on the same page.
-  // Declared on `.cm-editor` rather than `.cm-content` so the gutter's digits
-  // sit on the same baseline grid as the lines they number.
+  // The mono face at shadcn's `text-sm`, declared on the scroller so the
+  // gutter's digits sit on the same baseline grid as the lines they number.
   '.cm-scroller': {
     fontFamily: MONO,
-    fontSize: '0.75rem',
+    fontSize: '0.875rem',
     lineHeight: '1.7',
   },
   '.cm-content': {
@@ -121,10 +104,10 @@ export const sovriumEditorTheme: Extension = EditorView.theme({
   // neither scope tracks `.dark` — so a light-grey selection would survive onto
   // the dark ground and swallow the text under it.
   '.cm-selectionBackground': {
-    backgroundColor: GUTTER,
+    backgroundColor: SELECTION,
   },
   '&.cm-focused .cm-selectionBackground': {
-    backgroundColor: GUTTER,
+    backgroundColor: SELECTION,
   },
   '.cm-gutters': {
     backgroundColor: GUTTER,
@@ -149,6 +132,18 @@ export const sovriumEditorTheme: Extension = EditorView.theme({
 })
 
 /**
+ * A read-only editor's ground: shadcn's `bg-muted/50`, the surface a code block
+ * a reader copies from lies on. An editable editor keeps the card. `&.cm-editor`
+ * outranks the surface theme's `&`, so the order the two are mounted in does
+ * not decide which ground shows.
+ */
+export const sovriumReadOnlyGround: Extension = EditorView.theme({
+  '&.cm-editor': {
+    backgroundColor: GUTTER,
+  },
+})
+
+/**
  * The syntax palette (wave R-E).
  *
  * ─── THE DEFECT THIS CLOSES ────────────────────────────────────────────────
@@ -169,7 +164,7 @@ export const sovriumEditorTheme: Extension = EditorView.theme({
  *
  * ─── WHY IT IS NEARLY MONOCHROME ───────────────────────────────────────────
  *
- * The obvious repair is five hues on `--sv-chart-1..5`. The drawings do not do
+ * The obvious repair is five hues on `--chart-1..5`. The drawings do not do
  * that, and they are right not to: `variants.mjs`'s own code samples carry
  * exactly three treatments — a keyword in the plain ink at weight 600, a
  * literal in ONE hue, a type in the subtle grey. Everything else is body text.
@@ -182,7 +177,7 @@ export const sovriumEditorTheme: Extension = EditorView.theme({
  * the palette inherits both schemes for free: every value below is a token
  * read, so the flip that broke the old colours moves these ones instead.
  *
- * A theme that wants a loud editor can still have one — `--sv-chart-1` and the
+ * A theme that wants a loud editor can still have one — `--chart-1` and the
  * neutral ramp are the same knobs everything else answers to.
  */
 
@@ -222,7 +217,7 @@ const HIGHLIGHT_TAGS: readonly TagStyle[] = [
   // Names of things, as opposed to the things themselves.
   {
     tag: [tags.typeName, tags.className, tags.namespace, tags.propertyName, tags.attributeName],
-    color: SUBTLE_INK,
+    color: MUTED_INK,
   },
   // Punctuation recedes: it is scaffolding the eye should skip.
   {
@@ -233,7 +228,7 @@ const HIGHLIGHT_TAGS: readonly TagStyle[] = [
   // even where the ground makes tone hard to judge.
   {
     tag: [tags.comment, tags.lineComment, tags.blockComment, tags.docComment],
-    color: DISABLED_INK,
+    color: MUTED_INK,
     fontStyle: 'italic',
   },
   // Markdown and doc structure keep their meaning without borrowing a hue.

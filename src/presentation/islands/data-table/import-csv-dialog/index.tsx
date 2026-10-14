@@ -6,12 +6,12 @@
  */
 
 import { useCallback } from 'react'
+import { computeDialogOverlayClasses } from '@/presentation/design/dialog-default-classes'
 import {
   computeTableDialogPanelClasses,
   computeTableDialogPositionerClasses,
   computeTableDialogTitleClasses,
 } from '@/presentation/design/table-default-classes'
-import { computeOverlayBackdropClasses } from '../../overlays/overlay-default-classes'
 import { DialogFooter } from './dialog-footer'
 import { DuplicateStep } from './duplicate-step'
 import { ImportResultView } from './import-result'
@@ -118,7 +118,8 @@ export function ImportCsvDialog({
   return (
     <>
       <div
-        className={computeOverlayBackdropClasses()}
+        data-slot="dialog-overlay"
+        className={computeDialogOverlayClasses()}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -128,9 +129,13 @@ export function ImportCsvDialog({
         aria-labelledby="import-csv-dialog-title"
         className={computeTableDialogPositionerClasses()}
       >
-        <div className={computeTableDialogPanelClasses({ width: 'grid' })}>
+        <div
+          data-slot="dialog-content"
+          className={computeTableDialogPanelClasses({ width: 'grid' })}
+        >
           <h2
             id="import-csv-dialog-title"
+            data-slot="dialog-title"
             className={computeTableDialogTitleClasses()}
           >
             Import CSV

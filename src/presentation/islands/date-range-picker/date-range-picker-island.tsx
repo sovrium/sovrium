@@ -166,7 +166,7 @@ export default function DateRangePickerIsland({
             pendingStart={state.pendingStart}
             onDayClick={state.handleDayClick}
             onPresetClick={state.handlePresetClick}
-            onShiftMonths={state.shiftMonths}
+            onMonthChange={state.handleMonthChange}
           />
         )}
       </span>

@@ -29,7 +29,7 @@ const slot = (index: number): Readonly<Record<string, unknown>> => ({
     {
       type: 'text',
       element: 'span',
-      props: { className: 'font-mono text-sm text-foreground-subtle' },
+      props: { className: 'font-mono text-sm text-muted-foreground' },
       content: `logo ${index}`,
     },
   ],
@@ -67,7 +67,7 @@ export const entry = defineLibraryEntry({
           wrap([
             stack(
               [
-                small(p('intro'), 'text-md text-foreground-muted'),
+                small(p('intro'), 'text-md text-muted-foreground'),
                 grid([1, 2, 3, 4, 5, 6].map(slot), 'w-full grid-cols-3 gap-4 lg:grid-cols-6'),
               ],
               'items-center gap-6 text-center'

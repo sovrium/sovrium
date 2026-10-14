@@ -4,12 +4,12 @@
 
 Tables declare what is searchable and a binding declares how a query runs (**Search Overview**). These are the components that let a visitor type one.
 
-| Component         | What it is                                                                      |
-| ----------------- | ------------------------------------------------------------------------------- |
-| `search-input`    | A search box, in one of two scopes: it publishes a query, or it searches pages. |
-| `list`            | A search-first result display with item templates, highlighting and load-more.  |
-| `command-palette` | The ⌘K overlay, placed by you rather than appended by the engine.               |
-| toolbar `search`  | An in-component box on `table`, `kanban` and `calendar`.                        |
+| Component        | What it is                                                                      |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `search-input`   | A search box, in one of two scopes: it publishes a query, or it searches pages. |
+| `list`           | A search-first result display with item templates, highlighting and load-more.  |
+| `command`        | The ⌘K overlay, placed by you rather than appended by the engine.               |
+| toolbar `search` | An in-component box on `table`, `kanban` and `event-calendar`.                  |
 
 ## `search-input`, and why `scope` is required
 
@@ -168,7 +168,7 @@ With `enabled: false` no palette is rendered and no global keybinding is registe
 
 ### Placing one yourself
 
-Appending it everywhere and switching it off app-wide are two coarse states, and neither can say _the palette on this page searches my endpoint_. Declaring a `command-palette` component is the third: a page carrying one keeps exactly that palette, and the engine appends nothing on top — two palettes on one keystroke open two overlays.
+Appending it everywhere and switching it off app-wide are two coarse states, and neither can say _the palette on this page searches my endpoint_. Declaring a `command` component is the third: a page carrying one keeps exactly that palette, and the engine appends nothing on top — two palettes on one keystroke open two overlays.
 
 It renders no visible markup. The overlay is built in the browser on the first ⌘K and cached, so the page carries only a configuration block and its runtime.
 
@@ -180,7 +180,7 @@ pages:
   - name: Shell
     path: /
     components:
-      - type: command-palette
+      - type: command
         search:
           endpoint: /api/my-search
           placeholder: Search everything
@@ -235,7 +235,7 @@ pages:
         toolbar: { search: true, filters: true, sort: true }
 ```
 
-`kanban` and `calendar` take a `search` block instead — `enabled`, `placeholder`, `debounceMs`, `highlight` — documented with the other shared component modules in **Component Model**.
+`kanban` and `event-calendar` take a `search` block instead — `enabled`, `placeholder`, `debounceMs`, `highlight` — documented with the other shared component modules in **Component Model**.
 
 ## Related reading
 

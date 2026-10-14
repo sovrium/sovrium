@@ -25,6 +25,13 @@ import {
   UserPillCell,
   type CellRenderer,
 } from './cell-renderers'
+import {
+  CurrencyCell,
+  EmailLinkCell,
+  PercentCell,
+  PhoneLinkCell,
+  StoredValueCell,
+} from './cells/typed-value-cells'
 import { DateCell, DateTimeCell, DurationCell } from './date-cells'
 import { FormulaReadonlyCell } from './formula-cell'
 import { GeolocationCell } from './geolocation-cell'
@@ -90,4 +97,20 @@ export const FIELD_TYPE_TO_CELL_RENDERER: Readonly<Record<string, CellRenderer>>
   // A `url` value is a link that opens in a new tab — or, when it is not a web
   // address, the text it is.
   url: UrlLinkCell,
+  // The types the registry still had no entry for, so each printed TanStack's
+  // passthrough: the system timestamps as raw ISO instants, an amount without
+  // its currency, a percentage as a bare number. Their formats come from the
+  // table the page text reads too (`field-type-presentation-service.ts`).
+  'created-at': DateTimeCell,
+  'updated-at': DateTimeCell,
+  'deleted-at': DateTimeCell,
+  currency: CurrencyCell,
+  percentage: PercentCell,
+  number: StoredValueCell,
+  integer: StoredValueCell,
+  decimal: StoredValueCell,
+  autonumber: StoredValueCell,
+  time: StoredValueCell,
+  email: EmailLinkCell,
+  'phone-number': PhoneLinkCell,
 }

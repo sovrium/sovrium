@@ -58,6 +58,7 @@ export function SearchToolbar({ search, value, onChange, onPendingChange }: Sear
   return (
     <input
       type="search"
+      data-slot="input"
       placeholder={search.placeholder ?? defaultPlaceholder}
       value={localValue}
       onChange={onInputChange}

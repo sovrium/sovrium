@@ -15,6 +15,7 @@ import { type DatabaseError, type DrizzleTransaction } from '@/infrastructure/da
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
 import { tryTransactionWithOutbox } from '@/infrastructure/webhooks/webhook-outbox-queries'
+import { findRestoreUniqueConflict } from '../mutation-helpers/restore-unique-conflict'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { typedExecute } from '../statement/typed-execute'
@@ -47,6 +48,11 @@ async function runRestoreTransaction(
     return { _error: 'not_deleted' } as Record<string, unknown>
   }
 
+  // A value of a unique field a live record has taken since: refused, never
+  // duplicated (the record stays in the trash).
+  const conflict = await findRestoreUniqueConflict(tx, tableName, [recordId])
+  if (conflict !== undefined) return { _error: 'unique_conflict', field: conflict }
+
   // Check if table has deleted_by column (dialect-aware introspection)
   const hasDeletedBy = await columnExists(tx, databaseTableName(tableName), 'deleted_by')
 
@@ -68,7 +74,9 @@ async function runRestoreTransaction(
  * Restore a soft-deleted record
  *
  * Clears the deleted_at timestamp to restore a soft-deleted record.
- * Returns error if record doesn't exist or is not soft-deleted.
+ * Returns error if record doesn't exist or is not soft-deleted, and the marker
+ * `{ _error: 'unique_conflict', field }` when a live record now holds its value
+ * of a unique field.
  * Permissions applied via application layer.
  *
  * @param session - Better Auth session

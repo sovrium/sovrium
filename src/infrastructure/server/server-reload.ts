@@ -38,7 +38,6 @@ import { ServerReloadError } from '@/infrastructure/errors/server-reload-error'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 import { notifyDevReload } from '@/infrastructure/realtime/dev-reload-channel'
 import { writeLockFile as writeLockFileToDisk } from '@/infrastructure/server/lock-file'
-import { registerLockFileCleanup } from '@/infrastructure/server/lock-file-cleanup'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
@@ -139,10 +138,6 @@ export const createServerReload =
 
       if (!deps.silent) {
         yield* refreshLockFile(deps.server.port ?? 0, configHash, deps.configPath)
-        // Replace semantics — the controller swaps the SIGUSR1 target and
-        // installs nothing, so a long `--watch` session does not accumulate
-        // signal handlers holding superseded Hono apps alive.
-        yield* Effect.sync(() => registerLockFileCleanup(nextHonoApp, deps.configPath))
       }
 
       // The listener survived, so no `EventSource` reconnected and nothing told

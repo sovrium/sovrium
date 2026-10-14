@@ -48,7 +48,7 @@ const requiredMessage = (field: RecordDrawerField): string =>
   field.requiredMessage ?? `${field.label ?? field.name} is required`
 
 /** Validate + PATCH the writable fields; dispatches a grid refresh on success. */
-export function useRecordSave(params: SaveParams): () => void {
+export function useRecordSave(params: SaveParams): () => Promise<void> {
   const { recordFields, values, table, recordId, setOpen, setError, failedLabel } = params
   const save = useCallback(async () => {
     const writable = writableFields(recordFields)
@@ -71,5 +71,5 @@ export function useRecordSave(params: SaveParams): () => void {
     dispatch('sovrium:crud-success', { table, operation: 'update', recordId })
     setOpen(false)
   }, [recordFields, values, table, recordId, setOpen, setError, failedLabel])
-  return useCallback(() => void save(), [save])
+  return save
 }

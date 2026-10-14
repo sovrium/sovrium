@@ -1,4 +1,5 @@
-# sovrium-library: block/bento-feature-stack@0.30.0
+# sovrium-library: block/bento-feature-stack@0.37.0
+# sovrium-library-params: eyebrow=%5BEyebrow%5D&headline=One%20headline%20proof%2C%20three%20supporting%20ones&imageAlt=Visual%20for%20the%20headline%20proof&imageSrc=&mainText=Two%20sentences%20that%20explain%20what%20the%20visual%20shows.&mainTitle=%5BHeadline%20proof%5D
 name: bento-feature-stack
 type: container
 element: section
@@ -23,7 +24,7 @@ children:
               - type: text
                 element: span
                 props:
-                  className: font-mono text-sm text-foreground-subtle
+                  className: font-mono text-sm text-muted-foreground
                 content: '[Eyebrow]'
           - type: text
             element: h2
@@ -47,7 +48,7 @@ children:
                   - type: text
                     element: span
                     props:
-                      className: font-mono text-sm text-foreground-subtle
+                      className: font-mono text-sm text-muted-foreground
                     content: visual
               - type: text
                 element: h3
@@ -57,7 +58,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted
+                  className: text-md leading-relaxed text-pretty text-muted-foreground
                 content: Two sentences that explain what the visual shows.
           - type: flex
             props:
@@ -84,7 +85,7 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                          className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                         content: 'One sentence, specific to the reader.'
               - type: card
                 props:
@@ -107,7 +108,7 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                          className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                         content: 'One sentence, specific to the reader.'
               - type: card
                 props:
@@ -130,5 +131,5 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                          className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                         content: 'One sentence, specific to the reader.'

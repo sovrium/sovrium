@@ -81,7 +81,7 @@ const baseFieldStruct = Schema.Struct({
       Schema.annotate({
         title: 'Field Description',
         description:
-          'Author-written guidance rendered beside the field (under the control on a form, beside the value in a drawer) and associated with the control via aria-describedby. Unlike a placeholder it persists once the user starts typing.',
+          'Author-written guidance rendered beside the field (under the control on a form, beside the value in a sheet) and associated with the control via aria-describedby. Unlike a placeholder it persists once the user starts typing.',
         examples: [
           'Excluding VAT, in euros.',
           'We only use this to send the receipt — it is never shared.',
@@ -105,7 +105,7 @@ const baseFieldStruct = Schema.Struct({
       Schema.annotate({
         title: 'Unique',
         description:
-          'Rejects a record whose value for this field is already used by another record in the same table.',
+          'Rejects a record whose value for this field is already used by another record in the same table. A record in the trash does not count: once the only record holding a value is deleted, the value can be used again. A field that a `foreignKeys` entry references counts deleted records too.',
       })
     )
   ),

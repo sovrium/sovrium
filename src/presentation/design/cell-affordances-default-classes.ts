@@ -52,8 +52,8 @@
  * boundary disallows island imports from `ui/sections/`.
  */
 
+import { computeBadgeClasses } from '@/presentation/design/badge-default-classes'
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
-import { computeBadgeClasses } from '@/presentation/design/navbar-default-classes'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared building blocks
@@ -74,12 +74,7 @@ const PILL_LAYOUT = 'inline-flex items-center gap-1.5 px-2 py-0.5 text-xs max-w-
 // #d3d3d3` — RAISED on the row's own surface, not pressed into it. A reference
 // to a record elsewhere is a thing the reader can follow, and a well says the
 // opposite: that it is set into the cell and part of it.
-const REFERENCE_PILL_SURFACE = [
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  'border',
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-].join(' ')
+const REFERENCE_PILL_SURFACE = [`bg-card`, `text-foreground`, 'border', `border-input`].join(' ')
 
 /**
  * Compute the default className for the user-pill container — wraps the small
@@ -99,10 +94,7 @@ const USER_AVATAR_LAYOUT =
 // legible at this size on a light well, and the primary token belongs to
 // controls: an app that overrides it to a saturated brand hue got a column of
 // coloured dots down a table whose loudest element should be the data.
-const USER_AVATAR_SURFACE = [
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-].join(' ')
+const USER_AVATAR_SURFACE = [`bg-muted`, `text-muted-foreground`].join(' ')
 
 /**
  * Compute the default className for the small avatar circle inside a user
@@ -170,31 +162,35 @@ export const computeLinkedRecordWrapClasses = (): string =>
  * a one-word argument that already type-checks.
  *
  * ## The shape is the shared badge, and the fill is the author's
- * A chip is a chip: this is {@link computeBadgeClasses} at `outline`, which is
- * the drawings' `.b-out` exactly — 11px on a 1.3 leading, `radius-sm`, a strong
- * border, no fill. What it stops being is a `rounded-full` PILL, which reads as
- * a control the reader could press rather than a label the row carries.
+ * A chip is base-nova's `Badge`: at rest a `secondary` badge, FILLED with the
+ * muted secondary surface, so an option that declares no colour still reads as
+ * a value the row carries rather than an empty outline beside the filled ones.
+ * The declared option colour still arrives as an inline `style` from
+ * `resolveChipPaint`, filling the whole chip under an AA-paired foreground
+ * (`option-colors.spec.ts` reads the resolved pixel and holds it).
  *
- * The declared option colour is UNCHANGED and still arrives as an inline
- * `style` from `resolveChipPaint`, filling the whole chip under an AA-paired
- * foreground. The drawings put a status hue in a leading dot on an outline
- * badge; Sovrium fills instead, and that is a specified contract rather than
- * drift — `option-colors.spec.ts` reads the resolved pixel and holds it. An
- * option that declares no colour falls through to the bare outline badge, which
- * IS the drawing.
+ * An author who chose `badgeForm: 'outline'` or `'outline-dot'` for the column
+ * keeps the `outline` badge: that is the quiet form they asked for.
  */
-export const computeStatusPillClasses = (): string =>
-  [computeBadgeClasses({ variant: 'outline' }), 'max-w-full'].join(' ')
+export const computeStatusPillClasses = ({
+  form,
+}: { readonly form?: 'filled' | 'outline' | 'outline-dot' | undefined } = {}): string =>
+  [
+    computeBadgeClasses({
+      variant: form === 'outline' || form === 'outline-dot' ? 'outline' : 'secondary',
+    }),
+    'max-w-full',
+  ].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // FORMULA — read-only formatted value (kind-dispatched)
 // ──────────────────────────────────────────────────────────────────────────────
 
 const FORMULA_KIND_MAP: Record<FormulaKind, string> = {
-  number: ['tabular-nums', `text-[${v('sv-fg', T.fg)}]`].join(' '),
-  text: `text-[${v('sv-fg', T.fg)}]`,
-  date: `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  error: ['italic', `text-[${v('sv-error-fg', T.errorFg)}]`].join(' '),
+  number: ['tabular-nums', `text-foreground`].join(' '),
+  text: `text-foreground`,
+  date: `text-muted-foreground`,
+  error: ['italic', `text-destructive`].join(' '),
 }
 
 /**
@@ -238,7 +234,7 @@ export const computeGeolocationClasses = (): string => 'inline-flex items-center
  * row.
  */
 export const computeGeolocationCoordClasses = (): string =>
-  ['font-mono tabular-nums text-(length:--sv-density-text)', `text-[${v('sv-fg', T.fg)}]`].join(' ')
+  ['font-mono tabular-nums text-(length:--sv-density-text)', `text-foreground`].join(' ')
 
 /**
  * Compute the default className for the small pin glyph that prefixes the
@@ -246,9 +242,7 @@ export const computeGeolocationCoordClasses = (): string =>
  * competing with the coordinate readout it precedes.
  */
 export const computeGeolocationPinClasses = (): string =>
-  ['inline-flex items-center text-xs leading-none', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(
-    ' '
-  )
+  ['inline-flex items-center text-xs leading-none', `text-muted-foreground`].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // COUNT — small numeric badge
@@ -288,7 +282,7 @@ export const computeCountBadgeClasses = (): string =>
 export const computeJsonPreviewClasses = (): string =>
   [
     'inline-block max-w-full truncate font-mono text-(length:--sv-density-text)',
-    `text-[${v('sv-fg', T.fg)}]`,
+    `text-foreground`,
   ].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -317,8 +311,7 @@ export const computeArrayChipsWrapClasses = (): string =>
  * options paints two colours, because the hue belongs to the option and not to
  * the column.
  */
-export const computeArrayChipClasses = (): string =>
-  [computeBadgeClasses({ variant: 'outline' }), 'max-w-full'].join(' ')
+export const computeArrayChipClasses = (): string => computeStatusPillClasses()
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CODE — inline mono code with bg-bgSubtle
@@ -335,7 +328,7 @@ export const computeArrayChipClasses = (): string =>
 export const computeCodeInlineClasses = (): string =>
   [
     'inline-block max-w-full truncate font-mono text-(length:--sv-density-text)',
-    `text-[${v('sv-fg', T.fg)}]`,
+    `text-foreground`,
   ].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -374,7 +367,7 @@ export const computeRatingRowClasses = (): string =>
  * disabled foreground it read as a greyed-out control the reader could not use.
  */
 export const computeRatingGlyphClasses = ({ filled = false }: { filled?: boolean } = {}): string =>
-  filled ? `text-[${v('sv-fg', T.fg)}]` : `text-[${v('sv-border-strong', T.borderStrong)}]`
+  filled ? `text-foreground [&_svg]:fill-current` : `text-input`
 
 /**
  * Compute the className for one rank of a rating scale drawn as a native radio
@@ -386,28 +379,11 @@ export const computeRatingRankClasses = (): string =>
   [
     'relative inline-block cursor-pointer rounded-sm',
     'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-offset-2',
-    `has-[:focus-visible]:ring-[${v('sv-focus-ring', T.focusRing)}]`,
+    `has-[:focus-visible]:ring-ring`,
   ].join(' ')
-
-/** Glyph pairs `[filled, hollow]` that a rating's declared `style` selects between. */
-const RATING_GLYPHS: Readonly<Record<string, readonly [string, string]>> = {
-  stars: ['★', '☆'],
-  hearts: ['♥', '♡'],
-  circles: ['●', '○'],
-}
 
 /** The scale length used when a rating declares no `max`. */
 export const DEFAULT_RATING_MAX = 5
-
-/**
- * The `[filled, hollow]` glyph pair for a declared `style`, falling back to
- * stars for an unknown one. Beside {@link computeRatingGlyphClasses} because
- * the glyph and its tone are one decision, read by the grid, the page form and
- * the server-rendered hosted form alike.
- */
-export function ratingGlyphsFor(style: string | undefined): readonly [string, string] {
-  return RATING_GLYPHS[style ?? 'stars'] ?? RATING_GLYPHS['stars']!
-}
 
 /**
  * Compute the className for the progress TRACK — the `role="progressbar"` box
@@ -426,22 +402,21 @@ export const computeProgressTrackClasses = (): string =>
   [
     'inline-block h-1.5 w-20 max-w-full overflow-hidden align-middle',
     RADIUS_FULL,
-    `bg-[${v('sv-border', T.border)}]`,
+    `bg-border`,
   ].join(' ')
 
 /**
  * Compute the className for the progress FILL. The width is an inline style
  * (it is the datum), and so is the author's declared `color` when present.
  *
- * With no declared colour the fill takes `sv-primary`, which the drawings spend
+ * With no declared colour the fill takes `primary`, which the drawings spend
  * on every filled shape in the grid — the checked checkbox, the cursor ring,
  * the fill handle — and which resolves to a near-black neutral by default, so
  * A7 ruling 5 still holds: the platform picks no hue. `fg-muted` was the wrong
  * neutral rather than the wrong idea; against the track's new border tone it
  * left barely a step between the filled part and the empty one.
  */
-export const computeProgressFillClasses = (): string =>
-  ['block h-full', `bg-[${v('sv-primary', T.primary)}]`].join(' ')
+export const computeProgressFillClasses = (): string => ['block h-full', `bg-primary`].join(' ')
 
 /**
  * Compute the className for a color cell — the swatch and its code sit side by
@@ -455,21 +430,14 @@ export const computeColorCellClasses = (): string => 'inline-flex items-center g
  * surface with nothing to show it had rendered at all.
  */
 export const computeColorSwatchClasses = (): string =>
-  [
-    'inline-block h-3 w-3 flex-shrink-0 border',
-    RADIUS_SM,
-    `border-[${v('sv-border', T.border)}]`,
-  ].join(' ')
+  ['inline-block h-3 w-3 flex-shrink-0 border', RADIUS_SM, `border-border`].join(' ')
 
 /**
  * Compute the className for the readable hex beside the swatch. Mono +
  * tabular so a column of codes aligns character for character.
  */
 export const computeColorCodeClasses = (): string =>
-  [
-    'font-mono text-(length:--sv-density-text) tabular-nums',
-    `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  ].join(' ')
+  ['font-mono text-(length:--sv-density-text) tabular-nums', `text-muted-foreground`].join(' ')
 
 /**
  * Compute the className for a barcode readout. A fixed-advance face is the
@@ -477,14 +445,13 @@ export const computeColorCodeClasses = (): string =>
  * proportional digits defeat that.
  */
 export const computeBarcodeClasses = (): string =>
-  ['font-mono text-(length:--sv-density-text) tabular-nums', `text-[${v('sv-fg', T.fg)}]`].join(' ')
+  ['font-mono text-(length:--sv-density-text) tabular-nums', `text-foreground`].join(' ')
 
 /**
  * Compute the className for a formatted duration. `tabular-nums` so a column
  * of `h:mm` readouts aligns at the colon.
  */
-export const computeDurationClasses = (): string =>
-  ['tabular-nums', `text-[${v('sv-fg', T.fg)}]`].join(' ')
+export const computeDurationClasses = (): string => ['tabular-nums', `text-foreground`].join(' ')
 
 /**
  * Compute the className for a boolean check / cross glyph. Neutral on both
@@ -497,7 +464,7 @@ export const computeCheckboxGlyphClasses = ({
 }: { checked?: boolean } = {}): string =>
   [
     'inline-flex items-center text-xs leading-none',
-    checked ? `text-[${v('sv-fg', T.fg)}]` : `text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
+    checked ? `text-foreground` : `text-muted-foreground`,
   ].join(' ')
 
 /**
@@ -524,10 +491,7 @@ export const computeAttachmentEntryClasses = (): string =>
  * its storage key — the key is a path the reader never chose and cannot use.
  */
 export const computeAttachmentLinkClasses = (): string =>
-  [
-    'inline-block max-w-full truncate underline underline-offset-2',
-    `text-[${v('sv-fg', T.fg)}]`,
-  ].join(' ')
+  ['inline-block max-w-full truncate underline underline-offset-2', `text-foreground`].join(' ')
 
 /**
  * Compute the className for the small page glyph that precedes an attachment's
@@ -540,9 +504,6 @@ export const computeAttachmentLinkClasses = (): string =>
  * it exists to save.
  */
 export const computeAttachmentGlyphClasses = (): string =>
-  [
-    'inline-block h-4 w-3.5 shrink-0 border',
-    RADIUS_SM,
-    `border-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-    `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  ].join(' ')
+  ['inline-block h-4 w-3.5 shrink-0 border', RADIUS_SM, `border-muted-foreground`, `bg-muted`].join(
+    ' '
+  )

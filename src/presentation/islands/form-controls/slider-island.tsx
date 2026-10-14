@@ -8,10 +8,48 @@
 import { Slider } from '@base-ui/react/slider'
 import { useCallback, useRef, useState } from 'react'
 import { cn } from '@/presentation/design/class-merge'
-import { computeSliderRangeClasses, computeSliderTrackClasses } from './numeric-default-classes'
 import { useSliderAriaSync } from './slider-aria-sync'
+import {
+  SLIDER_CONTROL,
+  SLIDER_LABEL,
+  SLIDER_RANGE,
+  SLIDER_ROOT,
+  SLIDER_TRACK,
+  SLIDER_VALUE,
+} from './slider-default-classes'
 import { SliderThumb } from './slider-thumb'
 import type { ReactElement } from 'react'
+
+/** The caption row above the slider: its label and, when asked, the value. */
+function SliderCaption({
+  label,
+  value,
+}: {
+  readonly label: string
+  readonly value: number | undefined
+}): ReactElement {
+  return (
+    <div className="mb-2 flex items-center justify-between">
+      <span className={SLIDER_LABEL}>{label}</span>
+      {value !== undefined && <span className={SLIDER_VALUE}>{value}</span>}
+    </div>
+  )
+}
+
+/** shadcn/ui's slider track and the range filling it. */
+function SliderRail(): ReactElement {
+  return (
+    <Slider.Track
+      className={SLIDER_TRACK}
+      data-slot="slider-track"
+    >
+      <Slider.Indicator
+        className={SLIDER_RANGE}
+        data-slot="slider-range"
+      />
+    </Slider.Track>
+  )
+}
 
 interface SliderIslandProps {
   readonly min?: number
@@ -27,7 +65,9 @@ interface SliderIslandProps {
 }
 
 /**
- * Slider island — wraps Base UI Slider for range value selection.
+ * Slider island — Base UI `Slider`, drawn on shadcn/ui's `Slider` anatomy:
+ * `data-slot="slider"`, `slider-track`, `slider-range` and `slider-thumb`, the
+ * thumb aligned to the track's edges as shadcn sets it.
  *
  * Supports keyboard interaction (arrow keys, Home/End), configurable
  * min/max/step, and optional value display label.
@@ -63,10 +103,10 @@ export default function SliderIsland({
       data-testid={testId}
     >
       {label && (
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-foreground text-md font-medium">{label}</span>
-          {showValue && <span className="text-foreground-muted text-md">{value}</span>}
-        </div>
+        <SliderCaption
+          label={label}
+          value={showValue ? value : undefined}
+        />
       )}
       <Slider.Root
         defaultValue={defaultValue}
@@ -75,14 +115,12 @@ export default function SliderIsland({
         step={step}
         disabled={disabled}
         onValueChange={handleValueChange}
-        className="relative flex w-full touch-none items-center"
+        thumbAlignment="edge"
+        className={SLIDER_ROOT}
+        data-slot="slider"
       >
-        <Slider.Control className="relative flex w-full touch-none items-center">
-          <Slider.Track
-            className={computeSliderTrackClasses({ state: disabled ? 'disabled' : 'default' })}
-          >
-            <Slider.Indicator className={computeSliderRangeClasses()} />
-          </Slider.Track>
+        <Slider.Control className={SLIDER_CONTROL}>
+          <SliderRail />
           <SliderThumb
             inputRef={inputRef}
             label={label}

@@ -47,7 +47,17 @@ Multi-line plain text. Line breaks are preserved; there is no rich formatting.
 
 Filtering, sorting, grouping, aggregating or searching on the field answers `404`, as for a field that does not exist. The operator console shows **Set** or **Not set**, and the record history names a change to the field without keeping either value.
 
-Automations read it unchanged — a record step nobody started hands it to the next step, which can send it where it is needed — and the run history stores `***` in its place. The value leaves the server only on a request the automation makes: an answer to whoever started the run — a `webhook/response`, a manual run's output — carries `***` instead. A run a person started by hand reads as that person, so the value is absent from its steps — and from those of any automation it calls. What a called automation returns is masked in the caller's run history and answers too, like a value the caller read itself. Seed files write it, and the seed command never prints it.
+Automations read it unchanged — a record step nobody started hands it to the next step, which can send it where it is needed — and the run history stores `***` in its place. The value leaves the server only on a request the automation makes: an answer to whoever started the run — a `webhook/response`, a manual run's output — carries `***` instead, with the one exception below. A run a person started by hand reads as that person, so the value is absent from its steps — and from those of any automation it calls. What a called automation returns is masked in the caller's run history and answers too, like a value the caller read itself. Seed files write it, and the seed command never prints it.
+
+One answer can carry it: a webhook whose trigger names the field in `revealWriteOnly`, for a machine that pulls its own secrets — a server asking for the environment of the apps it runs. The webhook must authenticate a machine: `auth.type` `session` with a `requiredRole` other than the `auth.defaultRole` every sign-up receives (`member` unless declared), `bearer` or `apiKey`, and not `respondImmediately`. Each entry is `table.field` and must name a write-only field. On a `session` webhook only a caller presenting an API key receives the value; a person signed in with a session cookie still gets `***`. Only what the run's own record steps read from the named fields is revealed, in the `webhook/response` answer: every other write-only field, a value a called automation returns, and the run history stay masked, and a manual run of the same automation reads as the person who started it. An answer that can carry the value is sent with `Cache-Control: no-store`, replacing any the response declares.
+
+```yaml
+trigger:
+  type: webhook
+  method: GET
+  auth: { type: session, requiredRole: node }
+  revealWriteOnly: [apps.sso_client_secret]
+```
 
 The guarantee covers every way to read the app, not its storage: the value is stored as written, so a `sovrium backup` archive and direct access to the database carry it. Keep both as you keep the secret itself.
 

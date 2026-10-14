@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeTableToolbarButtonClasses } from '@/presentation/design/table-default-classes'
+import {
+  TABLE_TOOLBAR_BUTTON_PART,
+  computeTableToolbarButtonClasses,
+  computeTableToolbarCountClasses,
+} from '@/presentation/design/table-default-classes'
+import { FacetedFilter, type FacetControl } from '../../faceted-filter/faceted-filter'
 import { useGridString } from '../grid-strings'
 
 interface BadgeButtonProps {
@@ -21,27 +26,34 @@ interface BadgeButtonProps {
  * A toolbar button carrying a count badge — the Filter and Sort openers, which
  * differ only in their label, their badge's test id, and what they open.
  *
- * The badge keeps its shape (a 16px circle that grows with a two-digit count)
- * and loses its arbitrary `text-[10px]` for the ladder's own 11px rung. The
- * literal was below every step the platform declares, so it was the one piece
- * of type in the grid that could not move when the ladder did.
+ * Drawn as shadcn's faceted-filter trigger: a dashed `outline` button, and the
+ * count as a squared `secondary` badge behind a short rule.
  */
 function BadgeButton({ label, badgeTestId, count, onClick }: BadgeButtonProps) {
   return (
     <button
       type="button"
-      className={`${computeTableToolbarButtonClasses({ active: count > 0 })} inline-flex items-center gap-1`}
+      {...TABLE_TOOLBAR_BUTTON_PART}
+      className={computeTableToolbarButtonClasses({ active: count > 0, dashed: true })}
       aria-label={label}
       onClick={onClick}
     >
       {label}
       {count > 0 && (
-        <span
-          data-testid={badgeTestId}
-          className="bg-primary text-primary-fg inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-xs font-medium"
-        >
-          {count}
-        </span>
+        <>
+          <span
+            aria-hidden="true"
+            data-slot="separator"
+            className="bg-border mx-1 h-4 w-px shrink-0"
+          />
+          <span
+            data-slot="badge"
+            data-testid={badgeTestId}
+            className={computeTableToolbarCountClasses()}
+          >
+            {count}
+          </span>
+        </>
       )}
     </button>
   )
@@ -61,6 +73,8 @@ export interface QueryControlsProps {
    */
   readonly canImport: boolean
   readonly onOpenImportDialog: () => void
+  /** One faceted filter per field in `toolbar.facets`. */
+  readonly facets: readonly FacetControl[]
   readonly filtersEnabled: boolean
   readonly onOpenFilterOverlay: () => void
   readonly activeFilterCount: number
@@ -86,12 +100,19 @@ export function QueryControls(props: QueryControlsProps) {
       {props.canImport && (
         <button
           type="button"
+          {...TABLE_TOOLBAR_BUTTON_PART}
           className={computeTableToolbarButtonClasses()}
           onClick={props.onOpenImportDialog}
         >
           {captions.importRows}
         </button>
       )}
+      {props.facets.map((facet) => (
+        <FacetedFilter
+          key={facet.field}
+          {...facet}
+        />
+      ))}
       {props.filtersEnabled && (
         <BadgeButton
           label={captions.filter}

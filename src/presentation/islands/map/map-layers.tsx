@@ -14,6 +14,7 @@
  */
 
 import { useMemo, type ReactElement } from 'react'
+import { computeBadgeClasses } from '@/presentation/design/badge-default-classes'
 import { tilesFor, type MapView, type Marker } from './map-projection'
 import type { MapItem } from './map-types'
 
@@ -65,7 +66,7 @@ export function Basemap({
       <div
         aria-hidden="true"
         data-map-basemap="grid"
-        className="bg-muted/40 absolute inset-0"
+        className="bg-muted absolute inset-0"
         style={GRID_STYLE}
       />
     )
@@ -88,8 +89,8 @@ export function Basemap({
 
 const PIN =
   'absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background shadow-sm'
-const CLUSTER =
-  'absolute flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background font-mono text-xs'
+/** A cluster: base-nova's default badge, carrying the count it stands for. */
+const CLUSTER = `absolute -translate-x-1/2 -translate-y-1/2 tabular-nums ${computeBadgeClasses()}`
 
 /** One marker: a record's pin in its colour, or a cluster carrying its count. */
 function MarkerButton({
@@ -118,7 +119,9 @@ function MarkerButton({
       type="button"
       tabIndex={-1}
       aria-hidden="true"
-      {...(single ? { 'data-map-pin': first.id } : { 'data-map-cluster': marker.items.length })}
+      {...(single
+        ? { 'data-map-pin': first.id }
+        : { 'data-map-cluster': marker.items.length, 'data-slot': 'badge' })}
       className={single ? `${PIN} ${color === undefined ? 'bg-foreground' : ''}` : CLUSTER}
       style={at}
       onClick={() => (single ? onPin(first) : onCluster(marker))}

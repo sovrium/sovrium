@@ -31,20 +31,20 @@ components:
   # directory a manager keeps an eye on: who is here, in which office, since
   # when.
   - type: container
-    element: main
+    element: div
     props:
       className: flex items-start gap-5 px-5 py-5 md:ml-[57px] lg:ml-[232px] max-lg:flex-col
     children:
       - type: container
         props:
-          className: flex w-[440px] max-w-full flex-none flex-col gap-4 rounded-lg border border-border bg-background-raised p-5
+          className: flex w-[440px] max-w-full flex-none flex-col gap-4 rounded-lg border border-border bg-card p-5
         children:
           - type: form
             formRef: publish-announcement
             classes:
               parts:
                 title: text-[17px] font-semibold
-                description: text-sm text-foreground-muted
+                description: text-sm text-muted-foreground
       - type: container
         element: section
         props:

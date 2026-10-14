@@ -46,6 +46,25 @@ export function installPageInputs(): void {
       }
       return el.tagName
     },
+    /**
+     * Set a field's value the way picking it does — through the native setter,
+     * so a framework watching the property sees it — then tell the page.
+     */
+    assignValue: (text: string): boolean => {
+      const el = target() as HTMLInputElement
+      const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value')?.set
+      if (setter === undefined) el.value = text
+      else setter.call(el, text)
+      fire(el, 'input')
+      fire(el, 'change')
+      return true
+    },
+    /** Whether the field holds exactly `text`. Answers a boolean so the value never leaves the page. */
+    holdsValue: (text: string): boolean => {
+      const el = target()
+      if ('value' in el) return String((el as HTMLInputElement).value) === text
+      return norm(el.innerText) === norm(text)
+    },
     focusTarget: (): boolean => {
       target().focus()
       return true
@@ -112,9 +131,11 @@ export function installPageInputs(): void {
 
 /** The `window.__sovrium` methods {@link pageCall} reaches: a closed list, never a value a run supplies. */
 type PageMethod =
+  | 'assignValue'
   | 'attachFiles'
   | 'clearTarget'
   | 'focusTarget'
+  | 'holdsValue'
   | 'href'
   | 'isChecked'
   | 'mask'

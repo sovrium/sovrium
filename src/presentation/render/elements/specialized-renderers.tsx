@@ -11,11 +11,7 @@ import { type Design } from '@/domain/models/app/design'
 import { type Languages } from '@/domain/models/app/languages'
 import { LanguageSwitcher } from '@/presentation/render/page/language-switcher'
 import { omitInternalMarkers } from '../props/internal-marker-props'
-import {
-  getAnimationConfig,
-  calculateStaggerDelay,
-  buildAlertVariantStyles,
-} from './html-element-helpers'
+import { getAnimationConfig, calculateStaggerDelay } from './html-element-helpers'
 import type { ElementProps } from '.'
 import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
 
@@ -89,90 +85,6 @@ export function renderLanguageSwitcher(
       attributes={attributes}
       linkPart={linkPart}
     />
-  )
-}
-
-/**
- * Renders alert element with variant support
- *
- * Creates an alert component with semantic variants (success, danger, warning, info).
- * The variant prop determines the visual styling based on design colors.
- * Uses inline styles derived from design tokens for color variants.
- *
- * When `props.dismissible === true`, the alert is wrapped with a stable
- * `data-alert-id` and an accessible close button is appended. The close
- * button rides the existing body-end `clickScript` (page-body-scripts.tsx)
- * by carrying `data-click-toggle-element`, so no new client script or
- * static-asset route is needed (the toggle handler is event-delegated at
- * the document level).
- *
- * @param props - Element props including variant, dismissible, and data-testid
- * @param content - Alert message text
- * @param children - Optional child elements
- * @param design - Design configuration for color resolution
- * @returns React element for alert component
- */
-export function renderAlert(
-  props: ElementProps,
-  content: string | undefined,
-  children: readonly React.ReactNode[],
-  design?: Design
-): ReactElement {
-  const variant = props.variant as string | undefined
-  const dismissible = props.dismissible === true
-  const existingStyle = (props.style as Record<string, unknown> | undefined) || {}
-
-  // Strip `dismissible` from the spread so it does not become an invalid DOM
-  // attribute (React would log a warning, and even if quietly stripped, it
-  // wouldn't serve the spec — the toggle target is the alert itself via
-  // `data-alert-id`).
-  const { dismissible: _dismissible, ...domProps } = omitInternalMarkers(props) as ElementProps & {
-    dismissible?: unknown
-  }
-
-  // Merge existing styles with variant styles
-  const mergedStyle = {
-    padding: '12px 16px',
-    borderRadius: '4px',
-    border: '1px solid',
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '8px',
-    ...buildAlertVariantStyles(variant, design),
-    ...existingStyle,
-  }
-
-  // Stable id so the close button can target this specific alert from the
-  // event-delegated clickScript. Server-side only — no hydration to mismatch.
-  const alertId = dismissible ? crypto.randomUUID() : undefined
-
-  return (
-    <div
-      {...domProps}
-      {...(alertId ? { 'data-alert-id': alertId } : {})}
-      role="alert"
-      style={mergedStyle}
-    >
-      <span style={{ flex: 1 }}>{content || children}</span>
-      {dismissible && alertId && (
-        <button
-          type="button"
-          aria-label="Dismiss"
-          data-click-toggle-element={`[data-alert-id="${alertId}"]`}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'inherit',
-            fontSize: '18px',
-            lineHeight: 1,
-            padding: '0 4px',
-          }}
-        >
-          ×
-        </button>
-      )}
-    </div>
   )
 }
 

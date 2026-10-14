@@ -9,7 +9,6 @@ import { menuLink, menuButton, menuPanel, span } from '@/library/manifest/app-bl
 import {
   asComponent,
   flex,
-  linkButton,
   logo,
   param,
   PLACE_NOTE,
@@ -17,6 +16,7 @@ import {
   THEME_NOTE,
 } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
+import { buttonLink } from '@/library/manifest/navigation-block-kit'
 
 const ITEMS: readonly (readonly [string, string, string])[] = [
   ['file-text', '[Item]', '/product/one'],
@@ -84,10 +84,10 @@ export const entry = defineLibraryEntry({
           [
             logo(p('brand')),
             flyout(p('menuLabel'), p('itemLine')),
-            flex([linkButton(p('ctaLabel'), p('ctaHref'))], 'hidden md:flex'),
+            flex([buttonLink(p('ctaLabel'), p('ctaHref'))], 'hidden md:flex'),
             menuButton(menuId),
           ],
-          'mx-auto h-16 w-full max-w-6xl items-center justify-between gap-6'
+          'mx-auto h-14 w-full max-w-6xl items-center justify-between gap-6'
         ),
         menuPanel(menuId, [
           {
@@ -104,7 +104,7 @@ export const entry = defineLibraryEntry({
               menuLink('[Docs]', '/docs'),
             ],
           },
-          flex([linkButton(p('ctaLabel'), p('ctaHref'))], 'mt-6 flex-col'),
+          flex([buttonLink(p('ctaLabel'), p('ctaHref'), { size: 'lg' })], 'mt-6 flex-col'),
         ]),
       ],
     })

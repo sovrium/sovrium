@@ -35,6 +35,7 @@ import {
   SSE_HEARTBEAT_INTERVAL_MS,
   SSE_STREAM_MAX_LIFETIME_MS,
 } from '@/presentation/api/runtime/sse-stream'
+import { renderSseChunk, type EncodedChunk, type SseMessage } from './sse-chunk'
 import type { Context } from 'hono'
 import type { SSEStreamingApi } from 'hono/streaming'
 
@@ -109,19 +110,9 @@ const armSocketIdleTimeout = (c: Context, lifetimeMs: number): void => {
   }
 }
 
-/**
- * One chunk as it appears on the SSE wire.
- *
- * - `data`: a JSON-serialisable object rendered as `data: <json>\n\n`.
- * - `terminal`: the literal `data: [DONE]\n\n` sentinel from OpenAI's
- *   streaming protocol. Only the AI chat-stream uses `terminal`; the
- *   subscribe/presence streams never emit it.
- */
-export type EncodedChunk =
-  | { readonly kind: 'data'; readonly payload: Record<string, unknown> }
-  | { readonly kind: 'terminal' }
-
 /** Why the SSE stream stopped streaming. Exactly one fires per connection. */
+export type { EncodedChunk } from './sse-chunk'
+
 export type SseTerminationReason = 'completed' | 'aborted' | 'timeout'
 
 /**
@@ -294,15 +285,12 @@ const drainSource = <A, E>({
   // suggestion: this is a safe write-only serialization of a typed payload
   // (`Record<string, unknown>`) for the SSE wire format — there is no input
   // to parse and no Schema would add safety here. Encode is pure.
-  const renderChunk = (chunk: A): string => {
-    const encoded = encode(chunk)
-    return encoded.kind === 'terminal' ? '[DONE]' : JSON.stringify(encoded.payload)
-  }
+  const renderChunk = (chunk: A): SseMessage => renderSseChunk(encode(chunk))
 
   const writeChunk = (chunk: A): Effect.Effect<void, SseWriteError> => {
-    const data = renderChunk(chunk)
+    const message = renderChunk(chunk)
     return Effect.tryPromise({
-      try: () => stream.writeSSE({ data }),
+      try: () => stream.writeSSE(message),
       catch: (cause) => new SseWriteError({ cause }),
     })
   }

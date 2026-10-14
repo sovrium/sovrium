@@ -5,15 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeFieldDescriptionClasses } from '@/presentation/design/field-default-classes'
 import { fieldDescriptionId } from '@/presentation/design/field-display'
-import { computeFormHelpTextClasses } from '@/presentation/design/form-layout-classes'
 import { type FieldDef } from './field-def'
 import type { ReactElement } from 'react'
 
-const HELP_TEXT_CLASS = `help-text ${computeFormHelpTextClasses()}`
+const HELP_TEXT_CLASS = `help-text ${computeFieldDescriptionClasses()}`
 
 /**
- * The field's persistent guidance, under its control and addressed by the
+ * The field's persistent guidance, as shadcn/ui's `FieldDescription`, under its control and addressed by the
  * control's `aria-describedby`. Renders NOTHING when the field declares no
  * description — an empty node would be announced as a blank pause. Mirrors the
  * SSR `CrudFieldShell` so hydration does not move the text. Shared by the plain
@@ -24,6 +24,7 @@ export function FieldHelpText({ field }: { readonly field: FieldDef }): ReactEle
   return (
     <small
       id={fieldDescriptionId(field.name)}
+      data-slot="field-description"
       className={HELP_TEXT_CLASS}
     >
       {field.description}

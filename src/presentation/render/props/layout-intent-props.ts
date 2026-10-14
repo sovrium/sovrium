@@ -19,7 +19,7 @@ const LAYOUT_INTENT_KEYS: Readonly<Record<string, readonly string[]>> = {
   gallery: ['featured'],
   kpi: ['size', 'tone'],
   chart: ['dataLabels'],
-  calendar: ['dayMinHeight'],
+  'event-calendar': ['dayMinHeight'],
 }
 
 /**

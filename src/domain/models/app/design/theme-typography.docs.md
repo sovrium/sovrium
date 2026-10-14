@@ -16,7 +16,7 @@ design:
         family: Inter
         fallback: 'system-ui, sans-serif'
       mono:
-        family: 'JetBrains Mono'
+        family: 'Fira Code'
         fallback: 'ui-monospace, monospace'
 ```
 

@@ -48,7 +48,7 @@ export function GraphLegend({
   return (
     <ul
       data-graph-legend=""
-      className="text-foreground-subtle mt-2 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-xs"
+      className="text-muted-foreground mt-2 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-xs"
     >
       {entries.map((entry) => (
         <li

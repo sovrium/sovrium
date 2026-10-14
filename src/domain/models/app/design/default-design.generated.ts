@@ -8,7 +8,7 @@
 /**
  * Flat, resolved views over the default design — the shapes other modules and gates read.
  *
- * AUTO-GENERATED from `src/admin/config/design.ts` — DO NOT EDIT.
+ * AUTO-GENERATED from `[internal ref]` — DO NOT EDIT.
  *
  * Regenerate: `bun run build:default-design`
  */
@@ -19,20 +19,9 @@
  * which the CSS text never was.
  */
 export const DEFAULT_SV_LIGHT_VALUES: Readonly<Record<string, string>> = {
-  bg: 'oklch(0.985 0 0)',
   'bg-inset': 'oklch(0.952 0 0)',
-  'bg-overlay': 'oklch(0.995 0 0)',
-  'bg-raised': 'oklch(0.995 0 0)',
-  'bg-subtle': 'oklch(0.965 0 0)',
-  border: 'oklch(0.92 0 0)',
-  'border-control': 'oklch(0.62 0 0)',
   'border-inverse': 'oklch(0.205 0 0)',
   'border-strong': 'oklch(0.87 0 0)',
-  'chart-1': '#398ad6',
-  'chart-2': '#cd5f62',
-  'chart-3': '#479c4d',
-  'chart-4': '#b67700',
-  'chart-5': '#9470cd',
   'density-button-h': '28px',
   'density-control-h': '36px',
   'density-gap': '7px',
@@ -48,14 +37,10 @@ export const DEFAULT_SV_LIGHT_VALUES: Readonly<Record<string, string>> = {
   'error-bg': '#fdf5f3',
   'error-border': '#f0c8bd',
   'error-fg': '#a12b1a',
-  'error-solid': '#c13520',
   'error-solid-fg': 'oklch(0.985 0 0)',
-  fg: 'oklch(0.14 0 0)',
   'fg-disabled': 'oklch(0.71 0 0)',
   'fg-inverse': 'oklch(0.985 0 0)',
-  'fg-muted': 'oklch(0.445 0 0)',
   'fg-subtle': 'oklch(0.54 0 0)',
-  'focus-ring': 'oklch(0.205 0 0)',
   'info-100': 'oklch(0.92 0 0)',
   'info-300': 'oklch(0.87 0 0)',
   'info-50': 'oklch(0.985 0 0)',
@@ -79,13 +64,10 @@ export const DEFAULT_SV_LIGHT_VALUES: Readonly<Record<string, string>> = {
   'neutral-800': 'oklch(0.272 0 0)',
   'neutral-900': 'oklch(0.205 0 0)',
   'neutral-950': 'oklch(0.14 0 0)',
-  primary: 'oklch(0.205 0 0)',
   'primary-active': 'oklch(0.14 0 0)',
-  'primary-fg': 'oklch(0.985 0 0)',
   'primary-hover': 'oklch(0.272 0 0)',
   'primary-subtle': 'oklch(0.965 0 0)',
   'primary-subtle-fg': 'oklch(0.205 0 0)',
-  scrim: 'oklch(0.14 0 0)',
   'success-100': 'oklch(0.92 0 0)',
   'success-300': 'oklch(0.87 0 0)',
   'success-50': 'oklch(0.985 0 0)',
@@ -109,6 +91,138 @@ export const DEFAULT_SV_LIGHT_VALUES: Readonly<Record<string, string>> = {
   'warning-fg': 'oklch(0.445 0 0)',
   'warning-solid': 'oklch(0.71 0 0)',
   'warning-solid-fg': 'oklch(0.272 0 0)',
+}
+
+/**
+ * Every shadcn/ui variable the snapshot declares and its LIGHT literal, chart
+ * hues as `#rrggbb`. The value layer the engine speaks ([internal ref] D12).
+ */
+export const DEFAULT_SHADCN_LIGHT_VALUES: Readonly<Record<string, string>> = {
+  background: 'oklch(1 0 0)',
+  foreground: 'oklch(0.145 0 0)',
+  card: 'oklch(1 0 0)',
+  'card-foreground': 'oklch(0.145 0 0)',
+  popover: 'oklch(1 0 0)',
+  'popover-foreground': 'oklch(0.145 0 0)',
+  primary: 'oklch(0.205 0 0)',
+  'primary-foreground': 'oklch(0.985 0 0)',
+  secondary: 'oklch(0.97 0 0)',
+  'secondary-foreground': 'oklch(0.205 0 0)',
+  muted: 'oklch(0.97 0 0)',
+  'muted-foreground': 'oklch(0.556 0 0)',
+  accent: 'oklch(0.97 0 0)',
+  'accent-foreground': 'oklch(0.205 0 0)',
+  destructive: 'oklch(0.577 0.245 27.325)',
+  border: 'oklch(0.922 0 0)',
+  input: 'oklch(0.922 0 0)',
+  ring: 'oklch(0.708 0 0)',
+  'chart-1': '#d4d4d4',
+  'chart-2': '#737373',
+  'chart-3': '#525252',
+  'chart-4': '#404040',
+  'chart-5': '#262626',
+  radius: '0.625rem',
+  sidebar: 'oklch(0.985 0 0)',
+  'sidebar-foreground': 'oklch(0.145 0 0)',
+  'sidebar-primary': 'oklch(0.205 0 0)',
+  'sidebar-primary-foreground': 'oklch(0.985 0 0)',
+  'sidebar-accent': 'oklch(0.97 0 0)',
+  'sidebar-accent-foreground': 'oklch(0.205 0 0)',
+  'sidebar-border': 'oklch(0.922 0 0)',
+  'sidebar-ring': 'oklch(0.708 0 0)',
+}
+
+/** The same variables in the DARK scheme. */
+export const DEFAULT_SHADCN_DARK_VALUES: Readonly<Record<string, string>> = {
+  background: 'oklch(0.145 0 0)',
+  foreground: 'oklch(0.985 0 0)',
+  card: 'oklch(0.205 0 0)',
+  'card-foreground': 'oklch(0.985 0 0)',
+  popover: 'oklch(0.205 0 0)',
+  'popover-foreground': 'oklch(0.985 0 0)',
+  primary: 'oklch(0.922 0 0)',
+  'primary-foreground': 'oklch(0.205 0 0)',
+  secondary: 'oklch(0.269 0 0)',
+  'secondary-foreground': 'oklch(0.985 0 0)',
+  muted: 'oklch(0.269 0 0)',
+  'muted-foreground': 'oklch(0.708 0 0)',
+  accent: 'oklch(0.269 0 0)',
+  'accent-foreground': 'oklch(0.985 0 0)',
+  destructive: 'oklch(0.704 0.191 22.216)',
+  border: 'oklch(1 0 0 / 10%)',
+  input: 'oklch(1 0 0 / 15%)',
+  ring: 'oklch(0.556 0 0)',
+  'chart-1': '#d4d4d4',
+  'chart-2': '#737373',
+  'chart-3': '#525252',
+  'chart-4': '#404040',
+  'chart-5': '#262626',
+  radius: '0.625rem',
+  sidebar: 'oklch(0.205 0 0)',
+  'sidebar-foreground': 'oklch(0.985 0 0)',
+  'sidebar-primary': 'oklch(0.488 0.243 264.376)',
+  'sidebar-primary-foreground': 'oklch(0.985 0 0)',
+  'sidebar-accent': 'oklch(0.269 0 0)',
+  'sidebar-accent-foreground': 'oklch(0.985 0 0)',
+  'sidebar-border': 'oklch(1 0 0 / 10%)',
+  'sidebar-ring': 'oklch(0.556 0 0)',
+}
+
+/**
+ * The chart series palette, slot by slot — the snapshot's `--chart-1` …
+ * `--chart-5` as six-digit hex, the spelling `deriveOptionChipColors` parses
+ * and `Chart Palette Drift` compares.
+ */
+export const DEFAULT_CHART_COLORS: Readonly<Record<string, string>> = {
+  'chart-1': '#d4d4d4',
+  'chart-2': '#737373',
+  'chart-3': '#525252',
+  'chart-4': '#404040',
+  'chart-5': '#262626',
+}
+
+/**
+ * `design.colors` key → the shadcn/ui variable it repaints. Each shadcn
+ * colour name maps to itself; a Sovrium author key with a shadcn twin maps to
+ * the twin (`background-raised` → `card`).
+ */
+export const DESIGN_COLOR_VARS: Readonly<Record<string, string>> = {
+  primary: 'primary',
+  'primary-foreground': 'primary-foreground',
+  background: 'background',
+  'background-subtle': 'muted',
+  'background-raised': 'card',
+  'background-overlay': 'popover',
+  foreground: 'foreground',
+  'foreground-muted': 'muted-foreground',
+  muted: 'muted',
+  'muted-foreground': 'muted-foreground',
+  card: 'card',
+  popover: 'popover',
+  border: 'border',
+  ring: 'ring',
+  error: 'destructive',
+  destructive: 'destructive',
+  'chart-1': 'chart-1',
+  'chart-2': 'chart-2',
+  'chart-3': 'chart-3',
+  'chart-4': 'chart-4',
+  'chart-5': 'chart-5',
+  'card-foreground': 'card-foreground',
+  'popover-foreground': 'popover-foreground',
+  secondary: 'secondary',
+  'secondary-foreground': 'secondary-foreground',
+  accent: 'accent',
+  'accent-foreground': 'accent-foreground',
+  input: 'input',
+  sidebar: 'sidebar',
+  'sidebar-foreground': 'sidebar-foreground',
+  'sidebar-primary': 'sidebar-primary',
+  'sidebar-primary-foreground': 'sidebar-primary-foreground',
+  'sidebar-accent': 'sidebar-accent',
+  'sidebar-accent-foreground': 'sidebar-accent-foreground',
+  'sidebar-border': 'sidebar-border',
+  'sidebar-ring': 'sidebar-ring',
 }
 
 /**
@@ -156,10 +270,8 @@ export const DEFAULT_SCALE_VALUES: Readonly<Record<string, string>> = {
   'ease-enter': 'cubic-bezier(0, 0, 0.2, 1)',
   'ease-exit': 'cubic-bezier(0.4, 0, 1, 1)',
   'font-display': 'var(--font-sans)',
-  'font-mono':
-    "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
-  'font-sans':
-    "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+  'font-mono': "'Geist Mono Variable', monospace",
+  'font-sans': "'Geist Variable', sans-serif",
   'font-weight-bold': '700',
   'font-weight-medium': '500',
   'font-weight-regular': '400',
@@ -174,13 +286,16 @@ export const DEFAULT_SCALE_VALUES: Readonly<Record<string, string>> = {
   'line-height-relaxed': '1.7',
   'line-height-snug': '1.25',
   'line-height-tight': '1.1',
+  'radius-2xl': '1.125rem',
+  'radius-3xl': '1.375rem',
+  'radius-4xl': '1.625rem',
   'radius-base': '4px',
   'radius-full': '9999px',
-  'radius-lg': '8px',
-  'radius-md': '6px',
+  'radius-lg': '0.625rem',
+  'radius-md': '0.5rem',
   'radius-none': '0px',
-  'radius-sm': '2px',
-  'radius-xl': '12px',
+  'radius-sm': '0.375rem',
+  'radius-xl': '0.875rem',
   'shadow-lg': '0 8px 24px rgb(0 0 0 / 0.12)',
   'shadow-md': '0 4px 12px rgb(0 0 0 / 0.06)',
   'shadow-none': 'none',
@@ -230,46 +345,27 @@ export const DEFAULT_SCALE_VALUES: Readonly<Record<string, string>> = {
 }
 
 /**
- * The author-key -> `--sv-*` role map.
- *
- * `[internal ref]` AST-parses this literal for its T2
- * lock and THROWS rather than proceeding with a shrunken map, so the object
- * shape here is load-bearing — keep it a plain inline object literal.
+ * The author-key -> Sovrium EXTENSION-token map: a `design.colors` key with
+ * no shadcn twin and the `--sv-*` role it repaints (`primary-hover`,
+ * `success`, `destructive-foreground` …). It is no longer an alias bridge:
+ * a key with a shadcn twin repaints the shadcn variable through
+ * {@link DESIGN_COLOR_VARS}, and the `--sv-*` alias layer left in P10
+ * (plan §6.5). Keep it a plain inline object literal, which is what the gates
+ * that read it parse.
  */
 export const COLOR_TO_SV_TOKEN: Readonly<Record<string, string>> = {
-  primary: 'primary',
   'primary-hover': 'primary-hover',
   'primary-active': 'primary-active',
-  'primary-foreground': 'primary-fg',
   'primary-subtle': 'primary-subtle',
   'primary-subtle-foreground': 'primary-subtle-fg',
-  background: 'bg',
-  'background-subtle': 'bg-subtle',
-  'background-raised': 'bg-raised',
-  'background-overlay': 'bg-overlay',
   'background-inset': 'bg-inset',
-  foreground: 'fg',
-  'foreground-muted': 'fg-muted',
   'foreground-subtle': 'fg-subtle',
   'foreground-disabled': 'fg-disabled',
   'foreground-inverse': 'fg-inverse',
-  muted: 'bg-subtle',
-  'muted-foreground': 'fg-muted',
-  card: 'bg-raised',
-  popover: 'bg-overlay',
-  border: 'border',
-  ring: 'focus-ring',
   success: 'success-solid',
   warning: 'warning-solid',
-  error: 'error-solid',
-  destructive: 'error-solid',
   'destructive-foreground': 'error-solid-fg',
   info: 'info-solid',
-  'chart-1': 'chart-1',
-  'chart-2': 'chart-2',
-  'chart-3': 'chart-3',
-  'chart-4': 'chart-4',
-  'chart-5': 'chart-5',
 }
 
 /** The colour roles the console publishes, in order. */

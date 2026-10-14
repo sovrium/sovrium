@@ -149,7 +149,7 @@ A subscription inherits the data source's `filter` and `sort`, so a client recei
 
 ## Presence and conflicts
 
-A page declaring `presence: true` makes the server broadcast join, leave and snapshot messages scoped by page path, so a team can see who else is looking at the same rows before two people edit one.
+A page declaring `presence: true` makes the server broadcast join, leave and snapshot messages scoped by page path, so a team can see who else is looking at the same rows before two people edit one. The page shows who is there as an avatar group (Reference: shadcn/ui Avatar): one small avatar per person — however many tabs she has open — showing her photo or her initials, with a dot saying she is here now and her name on hover; the names of everyone there are written beside the group.
 
 Presence follows the page's audience. `GET /api/realtime/presence?pagePath=…` is served only when `pagePath` is a declared page that sets `presence: true` and whose `access` admits the caller — the decision a visit to the page is judged on. A page the caller may not open, a page without presence and a path that is no page all answer the same `404`, and name nobody; a caller is never shown in presence on a page she may not open.
 

@@ -67,7 +67,7 @@ interface CalendarViewProps {
 }
 
 /**
- * Renders the Sovrium toolbar above the FullCalendar shell (month/week/day
+ * Renders the shadcn/ui toolbar above the FullCalendar shell (month/week/day
  * plugins).
  *
  * The calendar is NAMED by the element around it — the island host — which

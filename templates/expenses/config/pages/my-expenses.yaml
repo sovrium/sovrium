@@ -17,7 +17,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -100,7 +100,7 @@ components:
                     kpiFormat: { type: currency, options: { currency: EUR } }
               - type: container
                 props:
-                  className: flex items-center gap-2 text-[13px] text-foreground-muted
+                  className: flex items-center gap-2 text-[13px] text-muted-foreground
                 children:
                   - type: icon
                     props:
@@ -160,14 +160,14 @@ components:
                   - { field: decision_reason, label: Why }
                   - { field: amount, label: Amount, format: currency }
                 onRowClick:
-                  action: openDrawer
+                  action: openSheet
                   component: my-claim
                 pagination:
                   pageSize: 25
                 emptyMessage: No expenses yet. Add what you paid for the company with its receipt; once finance approves it, you are repaid in the next monthly transfer.
           # One claim, from `/?record=<id>` or a click on its row: the amount,
           # the receipt, and where the decision stands.
-          - type: drawer
+          - type: sheet
             id: my-claim
             drawerSide: right
             drawerSize: md

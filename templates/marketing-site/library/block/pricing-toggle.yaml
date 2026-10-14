@@ -1,4 +1,5 @@
-# sovrium-library: block/pricing-toggle@0.30.0
+# sovrium-library: block/pricing-toggle@0.37.0
+# sovrium-library-params: ctaHref=%2Fcontact&footnote=%5BTax%20and%20billing%20note%5D&headline=%5BPricing%20heading%5D&monthlyLabel=Monthly&subheadline=One%20sentence%20on%20what%20every%20plan%20includes.&yearlyLabel=Yearly%20%C2%B7%20%5B%E2%88%9200%20%25%5D
 name: pricing-toggle
 type: container
 element: section
@@ -21,7 +22,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-lg text-pretty text-foreground-muted sm:text-xl
+              className: text-lg text-pretty text-muted-foreground sm:text-xl
             content: One sentence on what every plan includes.
       - type: tabs
         layout: flow
@@ -54,7 +55,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                      className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                     content: 'For [who] starting out.'
                   - type: flex
                     props:
@@ -68,14 +69,14 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: / month
                   - type: link
                     props:
                       href: /contact
-                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-card text-foreground hover:bg-muted hover:text-foreground h-10 px-4 text-md'
                     content: '[Choose Plan A]'
-                  - type: divider
+                  - type: separator
                   - type: flex
                     props:
                       className: flex flex-col gap-2
@@ -92,7 +93,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Included item]'
                       - type: flex
                         props:
@@ -106,7 +107,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Included item]'
                       - type: flex
                         props:
@@ -120,7 +121,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Limit]'
               - type: card
                 props:
@@ -140,7 +141,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                      className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                     content: 'For [who] who [need].'
                   - type: flex
                     props:
@@ -154,14 +155,14 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: / month
                   - type: link
                     props:
                       href: /contact
-                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground h-10 px-4 text-md'
                     content: '[Choose Plan B]'
-                  - type: divider
+                  - type: separator
                   - type: flex
                     props:
                       className: flex flex-col gap-2
@@ -178,7 +179,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: 'Everything in [Plan A]'
                       - type: flex
                         props:
@@ -192,7 +193,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Included item]'
                       - type: flex
                         props:
@@ -206,7 +207,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Included item]'
                       - type: flex
                         props:
@@ -220,7 +221,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Limit]'
               - type: card
                 props:
@@ -238,7 +239,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                      className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                     content: 'For [who] at scale.'
                   - type: flex
                     props:
@@ -252,14 +253,14 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: / month
                   - type: link
                     props:
                       href: /contact
-                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-card text-foreground hover:bg-muted hover:text-foreground h-10 px-4 text-md'
                     content: '[Choose Plan C]'
-                  - type: divider
+                  - type: separator
                   - type: flex
                     props:
                       className: flex flex-col gap-2
@@ -276,7 +277,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: 'Everything in [Plan B]'
                       - type: flex
                         props:
@@ -290,7 +291,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Included item]'
                       - type: flex
                         props:
@@ -304,7 +305,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Named contact]'
           - type: grid
             props:
@@ -326,7 +327,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                      className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                     content: 'For [who] starting out.'
                   - type: flex
                     props:
@@ -340,14 +341,14 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: / year
                   - type: link
                     props:
                       href: /contact
-                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-card text-foreground hover:bg-muted hover:text-foreground h-10 px-4 text-md'
                     content: '[Choose Plan A]'
-                  - type: divider
+                  - type: separator
                   - type: flex
                     props:
                       className: flex flex-col gap-2
@@ -364,7 +365,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Included item]'
                       - type: flex
                         props:
@@ -378,7 +379,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Included item]'
                       - type: flex
                         props:
@@ -392,7 +393,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Limit]'
               - type: card
                 props:
@@ -412,7 +413,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                      className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                     content: 'For [who] who [need].'
                   - type: flex
                     props:
@@ -426,14 +427,14 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: / year
                   - type: link
                     props:
                       href: /contact
-                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground h-10 px-4 text-md'
                     content: '[Choose Plan B]'
-                  - type: divider
+                  - type: separator
                   - type: flex
                     props:
                       className: flex flex-col gap-2
@@ -450,7 +451,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: 'Everything in [Plan A]'
                       - type: flex
                         props:
@@ -464,7 +465,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Included item]'
                       - type: flex
                         props:
@@ -478,7 +479,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Included item]'
                       - type: flex
                         props:
@@ -492,7 +493,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Limit]'
               - type: card
                 props:
@@ -510,7 +511,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                      className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                     content: 'For [who] at scale.'
                   - type: flex
                     props:
@@ -524,14 +525,14 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: / year
                   - type: link
                     props:
                       href: /contact
-                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-card text-foreground hover:bg-muted hover:text-foreground h-10 px-4 text-md'
                     content: '[Choose Plan C]'
-                  - type: divider
+                  - type: separator
                   - type: flex
                     props:
                       className: flex flex-col gap-2
@@ -548,7 +549,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: 'Everything in [Plan B]'
                       - type: flex
                         props:
@@ -562,7 +563,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Included item]'
                       - type: flex
                         props:
@@ -576,7 +577,7 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-md text-foreground-muted
+                              className: text-md text-muted-foreground
                             content: '[Named contact]'
       - type: flex
         props:
@@ -585,5 +586,5 @@ children:
           - type: text
             element: p
             props:
-              className: text-sm text-foreground-subtle
+              className: text-sm text-muted-foreground
             content: '[Tax and billing note]'

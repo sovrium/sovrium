@@ -33,12 +33,14 @@ import {
 } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
 import { HoneypotInput } from './form-honeypot'
+import { IdempotencyKeyInput } from './form-idempotency-key'
 import { FlatFormActions } from './form-layout-keys'
 import { bodyLinkOverrides, type FormBodyLink } from './form-link-answers'
 import { FormBodyMultiStep, type FormBodyShared } from './form-renderer-multi-step'
 import { FormBodyOneQuestion } from './form-renderer-one-question'
 import { FormRuntimeMount } from './form-runtime'
 import { SaveForLater } from './form-save-for-later'
+import { resolveStepNavLabels } from './form-step-nav-labels'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
@@ -119,16 +121,15 @@ function buildFormBodyShared({
     title: resolveText(form.title, languages, form.name, activeLang),
     descriptionHtml: renderInlineMarkdown(resolveText(form.description, languages, '', activeLang)),
     ...(form.steps !== undefined
-      ? { stepDescriptionsHtml: stepDescriptionsHtml(form.steps, languages, activeLang) }
+      ? {
+          stepDescriptionsHtml: stepDescriptionsHtml(form.steps, languages, activeLang),
+          stepNav: resolveStepNavLabels(lang, languages),
+        }
       : {}),
     submitLabel: resolveText(
       form.display?.submitLabel,
       languages,
-      resolveInterpreterString(
-        'form.submit',
-        resolveDocumentLang(languages, activeLang),
-        languages
-      ),
+      resolveInterpreterString('form.submit', lang, languages),
       activeLang
     ),
     resolvedFields: markEditablePrefill(
@@ -367,6 +368,7 @@ function FormBodyFlat({
         {...formAttributes}
       >
         {antiSpamHoneypot && <HoneypotInput />}
+        <IdempotencyKeyInput embedded={embedded} />
         {renderFlatFormFields({ resolvedFields, fieldGroups, prefillMap, lockPrefill })}
         <FlatFormActions
           layoutKeys={layoutKeys}

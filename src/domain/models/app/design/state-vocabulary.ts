@@ -87,9 +87,8 @@ export interface CategoryState {
    * An inline style forcing a paint CSS cannot be asked for statically.
    *
    * Present exactly for a `depicted` state. Inline and not a utility class,
-   * because the recipes paint through ARBITRARY values
-   * (`bg-[var(--sv-primary)]`) at the same specificity as any named background
-   * utility — so which one wins is Tailwind's output order rather than the
+   * because the recipes paint through role utilities (`bg-primary`) at the
+   * same specificity as any other named background utility — so which one wins is Tailwind's output order rather than the
    * author's, and a depiction that lost that race would render identically to
    * `default` and turn a state row into four labels.
    */
@@ -178,7 +177,7 @@ const DEPICTED_STATES: ReadonlySet<string> = new Set([
  * outer one reads as a ring rather than as a thickened border on a control
  * whose own border already touches it.
  */
-const FOCUS_RING = '0 0 0 2px var(--color-background), 0 0 0 4px var(--color-focus-ring)'
+const FOCUS_RING = '0 0 0 2px var(--color-background), 0 0 0 4px var(--color-ring)'
 
 /**
  * The CURRENT-item paint, shared by `active` and `pressed`.
@@ -219,7 +218,7 @@ const REACH_OF_STATE: Readonly<Record<string, StateReach>> = {
   // draw `hover` and most of them are inputs, rows and menu entries; painting
   // an email field with the primary fill would depict a state it never enters.
   // `interactive` overrides it back, below, because a button's hover IS that.
-  hover: { style: { backgroundColor: 'var(--color-background-subtle)' } },
+  hover: { style: { backgroundColor: 'var(--color-muted)' } },
   focus: { style: { boxShadow: FOCUS_RING } },
   active: { style: CURRENT_PAINT },
   pressed: { style: CURRENT_PAINT },
@@ -316,9 +315,9 @@ const CATEGORY_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
     //   `color`    the element the recipe lands on. On a `button` specimen that
     //              IS the control, and an inline declaration beats the
     //              variant's own `text-[…]` class.
-    //   `--sv-fg`  its DESCENDANTS. A `button-group` specimen is a group with
-    //              two `outline` buttons inside it, each painting
-    //              `text-[var(--sv-fg,…)]` — a class, which beats an inherited
+    //   `--color-foreground`  its DESCENDANTS. A `button-group` specimen is a
+    //              group with two `outline` buttons inside it, each painting
+    //              `text-foreground` — a class, which beats an inherited
     //              `color` from the group and would keep the labels black on
     //              the new fill. Re-binding the token they read is what an
     //              inherited colour cannot do: the depiction repaints the
@@ -327,8 +326,8 @@ const CATEGORY_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
     hover: {
       style: {
         backgroundColor: 'var(--color-primary-hover)',
-        color: 'var(--color-primary-fg)',
-        '--sv-fg': 'var(--color-primary-fg)',
+        color: 'var(--color-primary-foreground)',
+        '--color-foreground': 'var(--color-primary-foreground)',
       },
     },
   }),
@@ -394,7 +393,7 @@ const TYPE_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
   //
   // An inline `<a>` is the one member of `interactive` that is not a filled,
   // box-like control. Measured live with the category's recipe applied: the
-  // hover cell painted `--color-primary-hover` under a `--sv-primary` word —
+  // hover cell painted `--color-primary-hover` under a `--primary` word —
   // 1.20:1, a solid black block with the word invisible in it — the focus cell
   // drew the shared 4px ring, and the disabled cell rendered
   // `<a href="#" disabled="">`, which disables nothing.
@@ -413,7 +412,7 @@ const TYPE_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
     focus: {
       style: {
         textDecorationLine: 'underline',
-        textDecorationColor: 'var(--color-focus-ring)',
+        textDecorationColor: 'var(--color-ring)',
       },
     },
     // Row 18, and the ARIA pattern for a disabled anchor: the `href` goes, the
@@ -444,12 +443,15 @@ const TYPE_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
   'date-range-picker': stripOf(['default', 'open', 'hover', 'focus', 'invalid', 'disabled']),
   field: stripOf(['default', 'hover', 'focus', 'invalid', 'disabled']),
   input: stripOf(['default', 'hover', 'focus', 'invalid', 'disabled']),
+  'input-otp': stripOf(['default', 'hover', 'focus', 'invalid', 'disabled']),
   'input-group': stripOf(['default', 'hover', 'focus', 'invalid', 'disabled']),
   'radio-group': stripOf(['default', 'focus', 'disabled']),
   // REFUSED — `needs-data-source`. `empty` carries no reach; see the note above.
   'record-picker': stripOf(['default', 'focus', 'loading', 'empty', 'invalid', 'disabled']),
   'rich-text-editor': stripOf(['default', 'focus', 'disabled']),
   select: stripOf(['default', 'hover', 'focus', 'invalid', 'disabled']),
+  combobox: stripOf(['default', 'hover', 'focus', 'invalid', 'disabled']),
+  'native-select': stripOf(['default', 'hover', 'focus', 'invalid', 'disabled']),
   slider: stripOf(['default', 'hover', 'focus', 'disabled']),
   switch: stripOf(['default', 'hover', 'focus', 'checked', 'disabled'], {
     // Same declared field as `checkbox`, read through the same lookup.
@@ -459,7 +461,7 @@ const TYPE_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
   toggle: stripOf(['default', 'hover', 'focus', 'pressed', 'disabled']),
   'toggle-group': stripOf(['default', 'hover', 'focus', 'disabled']),
   // ── data ─────────────────────────────────────────────────────────────────
-  calendar: stripOf(['default', 'loading']),
+  'event-calendar': stripOf(['default', 'loading']),
   chart: stripOf(['default', 'loading']),
   'filter-bar': stripOf(['default', 'hover', 'focus', 'active', 'empty'], {
     // A filter bar's `empty` is a bar with no conditions in force, and
@@ -475,6 +477,7 @@ const TYPE_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
   // rather than the form wearing an attribute browsers ignore.
   form: stripOf(['default', 'focus', 'invalid', 'disabled']),
   gallery: stripOf(['default', 'loading']),
+  carousel: stripOf(['default', 'loading']),
   kanban: stripOf(['default', 'loading']),
   kpi: stripOf(['default', 'loading']),
   list: stripOf(['default', 'loading']),
@@ -496,7 +499,7 @@ const TYPE_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
   toc: stripOf(['default', 'hover', 'active']),
   // ── display ──────────────────────────────────────────────────────────────
   accordion: stripOf(['default', 'hover', 'focus', 'active']),
-  'list-item': stripOf(['default', 'hover', 'selected'], {
+  item: stripOf(['default', 'hover', 'selected'], {
     // The `list-item` renderer reads `selected` straight off the element props
     // — `const selected = elementProps['selected'] === true` — and picks the
     // prestyled `selected` class set from it. An HTML-level flag, so `props`.
@@ -514,7 +517,7 @@ const TYPE_STATES: Readonly<Record<string, readonly CategoryState[]>> = {
   timeline: stripOf(['default', 'loading']),
   // ── navigation ───────────────────────────────────────────────────────────
   breadcrumb: stripOf(['default', 'hover', 'focus', 'disabled']),
-  'command-palette': stripOf(['default', 'hover', 'focus', 'empty'], {
+  command: stripOf(['default', 'hover', 'focus', 'empty'], {
     // The palette's empty state is the one a reader cannot reach by looking at
     // a working app: a query that matched nothing. It is reached through the
     // specimen's OWN search text and the runtime's own filter, so the cell is a

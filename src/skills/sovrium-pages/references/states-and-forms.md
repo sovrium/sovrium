@@ -19,7 +19,7 @@ plus dark mode, which fails in its own specific ways.
 
 ## Empty states
 
-Every data component (`table`, `list`, `kanban`, `calendar`, `gallery`, `chart`, `kpi`,
+Every data component (`table`, `list`, `kanban`, `event-calendar`, `gallery`, `chart`, `kpi`,
 `matrix`, `graph`) declares what it shows when there is nothing to show. The platform's default
 is a fallback, not a design.
 
@@ -35,7 +35,7 @@ Name which of the four empty cases applies, because each needs different words:
 - Every empty state carries exactly one next action. A bare "No data" is a dead end.
 - Keep no-results distinct from first-use: telling a searcher "create your first record" misreads what happened. Tables separate the two (`emptyMessage` and `noMatchMessage`): `sovrium docs data-components/data-components`.
 - A permission-denied area that may reveal existence says "restricted", never "empty"; where existence itself is sensitive, the page is not shown at all.
-- Use the `empty-state` component for standalone empty areas; its keys carry an `empty` prefix, and a misspelled key is dropped silently: `sovrium docs components/display-components`.
+- Use the `empty` component for standalone empty areas; its keys carry an `empty` prefix, and a misspelled key is dropped silently: `sovrium docs components/display-components`.
 - An illustration is optional and never replaces the sentence and the action.
 - First-use empty states may teach one thing (what an item is), never a tour.
 - The words follow `design.voice.tone.empty` when the app declares it (see `copy.md`).
@@ -119,7 +119,7 @@ The right marking depends on the form. Pick the case, then apply it consistently
 
 ## Forms: choosing a control
 
-- Five options or fewer, one choice: a `radio-group`, or a `toggle-group` for a compact segmented control. Every option is visible without opening anything.
+- Five options or fewer, one choice: a `radio-group`, or a `toggle-group` when the choices read better as a row of pressable buttons, each drawn apart as a toggle of its own. Every option is visible without opening anything.
 - More than five options, one choice: a `select`; with many options or unfamiliar values, a searchable picker.
 - Several choices from a short list: checkboxes. From a long list: a multi-select with search.
 - A binary setting that applies immediately: a `switch`. A binary answer submitted with the form: a checkbox.

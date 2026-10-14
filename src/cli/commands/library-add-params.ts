@@ -42,6 +42,47 @@ const configDefault = (
   return isAppRelativeLoginPage(loginPage) ? loginPage : undefined
 }
 
+/** Where a resolved value came from, as the CLI names it. */
+export type ParamSource = 'from --set' | 'from auth.loginPage' | 'default'
+
+/** Resolved parameters, and where each value came from. */
+export interface ResolvedParams {
+  readonly values: Readonly<Record<string, LibraryParamValue | undefined>>
+  readonly sources: Readonly<Record<string, ParamSource>>
+}
+
+const parseSets = (sets: readonly string[]): ReadonlyMap<string, string> =>
+  new Map(
+    sets.map((pair) => {
+      const cut = pair.indexOf('=')
+      return cut <= 0
+        ? refuse(`Error: --set expects key=value, got "${pair}".`)
+        : ([pair.slice(0, cut), pair.slice(cut + 1)] as const)
+    })
+  )
+
+/** Every parameter's value, from `given`, the app's config or the entry default. */
+const resolveGiven = (
+  entryId: string,
+  entry: LibraryEntry,
+  given: ReadonlyMap<string, string>,
+  parsed: unknown
+): ResolvedParams => {
+  const resolved = entry.params.map((param) => {
+    const raw = given.get(param.name)
+    if (raw !== undefined)
+      return [param.name, parseParamValue(entryId, param, raw), 'from --set'] as const
+    const fromConfig = configDefault(param, parsed)
+    return fromConfig === undefined
+      ? ([param.name, param.default, 'default'] as const)
+      : ([param.name, fromConfig, 'from auth.loginPage'] as const)
+  })
+  return {
+    values: Object.fromEntries(resolved.map(([name, value]) => [name, value])),
+    sources: Object.fromEntries(resolved.map(([name, , source]) => [name, source])),
+  }
+}
+
 /**
  * `--set` pairs, validated against what the entry declares. A parameter left
  * unset takes the target app's value when it declares `defaultFromConfig` and
@@ -54,14 +95,7 @@ export const resolveParams = (
   parsed?: unknown
 ): Readonly<Record<string, LibraryParamValue | undefined>> => {
   const accepted = entry.params.map((param) => param.name)
-  const given = new Map(
-    sets.map((pair) => {
-      const cut = pair.indexOf('=')
-      return cut <= 0
-        ? refuse(`Error: --set expects key=value, got "${pair}".`)
-        : ([pair.slice(0, cut), pair.slice(cut + 1)] as const)
-    })
-  )
+  const given = parseSets(sets)
   const unknown = [...given.keys()].find((key) => !accepted.includes(key))
   if (unknown !== undefined)
     return refuse(
@@ -74,15 +108,62 @@ export const resolveParams = (
       `Error: ${entryId} needs the required parameter "${missing.name}" — ${missing.description}\n\n` +
         `  Set it with --set ${missing.name}=<value>.`
     )
-  return Object.fromEntries(
-    entry.params.map((param) => {
-      const raw = given.get(param.name)
-      return [
-        param.name,
-        raw === undefined
-          ? (configDefault(param, parsed) ?? param.default)
-          : parseParamValue(entryId, param, raw),
-      ]
+  return resolveGiven(entryId, entry, given, parsed).values
+}
+
+/**
+ * The parameters an entry resolves when no `--set` is given — the reference a
+ * fragment that records no parameters is compared with — or `undefined` when
+ * one is required and so has no value without a `--set`.
+ */
+export const defaultParams = (
+  entry: LibraryEntry,
+  parsed: unknown
+): Readonly<Record<string, LibraryParamValue | undefined>> | undefined =>
+  entry.params.some((param) => param.required === true)
+    ? undefined
+    : resolveGiven('', entry, new Map(), parsed).values
+
+/**
+ * The parameters of an entry the requested one REQUIRES: each `--set` given
+ * for the requested entry is passed on when the requirement declares a
+ * parameter of the same name and type; any other key is not the
+ * requirement's concern. A requirement's own required parameter left without
+ * a value is refused as it would be for a direct install.
+ */
+export const requirementParams = (input: {
+  readonly requiredId: string
+  readonly required: LibraryEntry
+  readonly requested: LibraryEntry
+  readonly sets: readonly string[]
+  readonly parsed: unknown
+}): ResolvedParams & { readonly note: string } => {
+  const { required, requested } = input
+  const given = parseSets(input.sets)
+  const shared = new Map(
+    [...given].filter(([name]) => {
+      const own = required.params.find((param) => param.name === name)
+      const asked = requested.params.find((param) => param.name === name)
+      return own !== undefined && asked !== undefined && own.type === asked.type
     })
   )
+  const missing = required.params.find(
+    (param) => param.required === true && !shared.has(param.name)
+  )
+  if (missing !== undefined)
+    return refuse(
+      `Error: ${input.requiredId} needs the required parameter "${missing.name}" — ${missing.description}\n\n` +
+        `  It is installed as a requirement; install it on its own first with --set ${missing.name}=<value>.`
+    )
+  const resolved = resolveGiven(input.requiredId, required, shared, input.parsed)
+  return { ...resolved, note: describeParams(resolved) }
 }
+
+/** `iconName=key (from --set), successPath=/sign-in (default)` — empty for an entry with none. */
+export const describeParams = ({ values, sources }: ResolvedParams): string =>
+  Object.keys(values)
+    .flatMap((name) => {
+      const value = values[name]
+      return value === undefined ? [] : [`${name}=${String(value)} (${sources[name] ?? 'default'})`]
+    })
+    .join(', ')

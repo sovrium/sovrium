@@ -39,7 +39,7 @@ export function NewConversation({
       <button
         type="button"
         onClick={onStart}
-        className="text-foreground-muted border-border-strong/40 bg-background-subtle hover:bg-background-subtle/70 text-md inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 font-medium transition-colors"
+        className="text-muted-foreground border-border-strong/40 bg-muted hover:bg-muted/70 text-md inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 font-medium transition-colors"
       >
         <span
           aria-hidden="true"
@@ -166,7 +166,7 @@ export function ListSearch({
         onChange={handleChange}
         placeholder="Search conversations…"
         aria-label="Search conversations"
-        className="border-border bg-background-raised focus:border-border-strong focus:ring-focus-ring/30 text-md w-full rounded-md border py-1.5 pr-3 pl-8 transition-colors focus:ring-2 focus:outline-none"
+        className="border-border bg-card focus:border-border-strong focus:ring-ring/30 text-md w-full rounded-md border py-1.5 pr-3 pl-8 transition-colors focus:ring-2 focus:outline-none"
       />
     </div>
   )

@@ -12,7 +12,7 @@ import { Schema } from 'effect'
  *
  * Opening a row's full record is a first-class property of the grid in the
  * parity target, not something an author assembles. Today it is hand-wired:
- * `onRowClick: { action: 'openDrawer', component: <id> }` plus a sibling
+ * `onRowClick: { action: 'openSheet', component: <id> }` plus a sibling
  * `drawer` carrying the same `dataSource.table`, connected by a matching
  * id. Three declarations, two components, one id to keep in step — to express
  * the single most ordinary thing a grid does.

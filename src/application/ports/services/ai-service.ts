@@ -48,8 +48,7 @@ export class AiConfigError extends Data.TaggedError('AiConfigError')<{
  *
  * Distinct from `AiProviderError` so the route can return 504 Gateway
  * Timeout instead of 502 — a timeout is a deadline breach, not a provider
- * 5xx. The live adapter raises this when the `fetch` `AbortSignal.timeout`
- * fires (deterministic, unlike racing an Effect timer against the request).
+ * 5xx. The deadline interrupts the request, which aborts its socket.
  */
 export class AiTimeoutError extends Data.TaggedError('AiTimeoutError')<{
   readonly message: string
@@ -63,10 +62,47 @@ export type AiError = AiProviderError | AiConfigError | AiTimeoutError
 // Message + chat-completion shapes
 // ---------------------------------------------------------------------------
 
-/** A single chat message in OpenAI-compatible format. */
+/**
+ * One part of a message's content ([internal ref] D3).
+ *
+ *  - `text` — prose;
+ *  - `image` — bytes the user pasted, inline as base64 with their media type;
+ *  - `file` — a REFERENCE into an operator-named bucket, never the bytes: the
+ *    infrastructure adapter resolves it, so a caller never holds a file's
+ *    content just to hand it to a model.
+ */
+export type MessagePart =
+  | { readonly type: 'text'; readonly text: string }
+  | { readonly type: 'image'; readonly mediaType: string; readonly data: string }
+  | {
+      readonly type: 'file'
+      readonly bucket: string
+      readonly key: string
+      readonly mediaType: string
+      readonly name: string
+    }
+
+/** A message's content: a string is shorthand for one `text` part. */
+export type MessageContent = string | ReadonlyArray<MessagePart>
+
+/**
+ * The prose of a message's content: its text parts joined, a string as is.
+ *
+ * What every caller that persists, logs or pattern-matches a message reads —
+ * an image or a file reference has no text to contribute.
+ */
+export const messageText = (content: MessageContent): string =>
+  typeof content === 'string'
+    ? content
+    : content
+        .filter((part): part is Extract<MessagePart, { type: 'text' }> => part.type === 'text')
+        .map((part) => part.text)
+        .join('\n')
+
+/** A single chat message. */
 export interface ChatMessage {
   readonly role: 'system' | 'user' | 'assistant' | 'tool'
-  readonly content: string
+  readonly content: MessageContent
   /**
    * Tool-call identifier this message answers. Present only on `role: 'tool'`
    * messages — it links a tool-result message back to the `tool_call` the
@@ -131,13 +167,19 @@ export interface ChatInput {
    */
   readonly responseFormat?: Record<string, unknown>
   /**
-   * Per-call request deadline in milliseconds. When set, the live adapter
-   * passes an `AbortSignal.timeout(timeoutMs)` to the underlying `fetch`; a
-   * breach aborts the request deterministically and surfaces as
-   * {@link AiTimeoutError}. Unset → no deadline. Used by the chat route to
-   * enforce the operator-tunable `AI_CHAT_TIMEOUT` env var.
+   * Per-call request deadline in milliseconds. A breach interrupts the call,
+   * which aborts its socket, and surfaces as {@link AiTimeoutError}. Unset →
+   * the adapter's default deadline. A caller that sets one is also promising
+   * its latency: the adapter then never retries the call behind its back.
    */
   readonly timeoutMs?: number
+  /**
+   * `false` when the caller retries the call itself, under its own policy, so
+   * the adapter must not retry it too: retries would multiply, and the number
+   * of provider requests would no longer be the one the caller counts. Unset →
+   * the adapter retries a transient failure when no {@link timeoutMs} is set.
+   */
+  readonly retry?: boolean
   /**
    * Function/tool definitions advertised to the AI provider. When set, they
    * are forwarded verbatim as the OpenAI-compatible request body `tools`
@@ -147,6 +189,26 @@ export interface ChatInput {
   readonly tools?: ReadonlyArray<ChatToolDefinition>
 }
 
+/** Tokens one model call consumed, as the provider reported them. */
+export interface ChatUsage {
+  readonly inputTokens: number
+  readonly outputTokens: number
+  readonly totalTokens: number
+}
+
+/**
+ * Why a model call (or, for the agent runtime, a whole turn) ended.
+ *
+ *  - `stop` — the model finished its answer;
+ *  - `length` — it hit its output-token budget;
+ *  - `tool-calls` — it asked for tools (a model call only; a turn resolves them);
+ *  - `tool-limit` — the turn hit its step cap with the model still asking for tools;
+ *  - `cancelled` — the caller stopped the turn;
+ *  - `error` — the provider answered with an error part.
+ */
+export type ChatFinishReason =
+  'stop' | 'length' | 'tool-calls' | 'tool-limit' | 'cancelled' | 'error'
+
 /** Result of a successful `chat` call. */
 export interface ChatReply {
   /** The assistant message text. Empty string when the reply is purely tool calls. */
@@ -155,28 +217,45 @@ export interface ChatReply {
   readonly model: string
   /**
    * Tool calls the AI provider requested in this turn — present (and
-   * non-empty) only when the model responded with `finish_reason: 'tool_calls'`.
-   * The chat route inspects this to execute the requested tools and loop.
+   * non-empty) only when the model responded with tool calls. The agent
+   * runtime executes them and loops; the provider never does.
    */
   readonly toolCalls?: ReadonlyArray<ChatToolCall>
+  /** Reasoning the provider returned apart from the answer, when it returned any. */
+  readonly reasoning?: string
+  /** Why the call ended, when the provider said. */
+  readonly finishReason?: ChatFinishReason
+  /** Tokens the call consumed, when the provider reported them. */
+  readonly usage?: ChatUsage
 }
 
 /**
- * A single chunk emitted by {@link AiService.chatStream}.
+ * A single event emitted by {@link AiService.chatStream} ([internal ref] D3).
  *
- * Mirrors the OpenAI-compatible streaming SSE chunk shape: each `content`
- * chunk carries a `delta` (incremental text since the previous chunk), and
- * a terminal `done` marker signals end-of-stream. Tool-call chunks land in
- * later P0-2 specs and are intentionally NOT part of this v1 surface.
+ * The port emits only what a MODEL produces: answer text (`content`),
+ * reasoning it streams apart from the answer (`reasoning`), the tool calls it
+ * asks for (`tool_call`, complete — never a partial argument string), and one
+ * terminal `done`. Tool results and questions to the user are not model
+ * output; the agent runtime adds those to the stream it hands its callers.
  *
- * Consumers assemble the full reply by concatenating every `content` delta
- * in order until the `done` chunk arrives. The `model` echo on the `done`
- * chunk matches `ChatReply.model` for non-streaming calls so symmetric code
- * paths (e.g. persistence) can reuse the same field.
+ * A stream that ends WITHOUT `done` was cut short by the provider: a consumer
+ * must not treat what it collected as a complete answer.
  */
 export type ChatChunk =
   | { readonly type: 'content'; readonly delta: string }
-  | { readonly type: 'done'; readonly model: string }
+  | { readonly type: 'reasoning'; readonly delta: string }
+  | {
+      readonly type: 'tool_call'
+      readonly id: string
+      readonly name: string
+      readonly arguments: Record<string, unknown>
+    }
+  | {
+      readonly type: 'done'
+      readonly model: string
+      readonly finishReason?: ChatFinishReason
+      readonly usage?: ChatUsage
+    }
 
 // ---------------------------------------------------------------------------
 // AiService port
@@ -185,9 +264,13 @@ export type ChatChunk =
 /**
  * AI Service Port
  *
- * Provides AI chat-completion operations against an OpenAI-compatible
- * endpoint. The live adapter (`AiServiceLive`) reads provider configuration
- * from env vars (`AI_PROVIDER`, `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`).
+ * Provides AI chat-completion operations. The live adapter (`AiServiceLive`)
+ * reads provider configuration from env vars (`AI_PROVIDER`, `AI_BASE_URL`,
+ * `AI_API_KEY`, `AI_MODEL`) and speaks to the provider through `effect/ai`,
+ * which no caller imports: the port's types are Sovrium's ([internal ref] D7).
+ *
+ * Cancellation is interruption: interrupting the fiber that runs `chat`, or
+ * the one consuming `chatStream`, aborts the provider request.
  *
  * Exposes two SEPARATE methods for the two transports:
  *   - `chat`        — buffered, one-shot completion (HTTP JSON in/out).
@@ -211,9 +294,10 @@ export class AiService extends Context.Service<
     /** Non-streaming chat completion. Returns the assistant message text. */
     readonly chat: (input: ChatInput) => Effect.Effect<ChatReply, AiError>
     /**
-     * Streaming chat completion. Emits `content` chunks as the provider
-     * produces tokens, terminated by a single `done` chunk. Errors raised
-     * before or during the stream surface on the `AiError` channel.
+     * Streaming chat completion. Emits `content` / `reasoning` deltas as the
+     * provider produces tokens and each `tool_call` once complete, terminated
+     * by a single `done` chunk. Errors raised before or during the stream
+     * surface on the `AiError` channel.
      */
     readonly chatStream: (input: ChatInput) => Stream.Stream<ChatChunk, AiError>
     /**

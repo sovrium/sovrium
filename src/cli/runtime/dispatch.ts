@@ -131,6 +131,7 @@ interface ParsedFlags {
   readonly libraryLimit: string | undefined
   readonly libraryAll: boolean
   readonly libraryYes: boolean
+  readonly libraryUpdate: boolean
   readonly skillsTarget: string | undefined
 }
 
@@ -148,11 +149,15 @@ const resolvePublicDirFlag = (argv: readonly string[]): string | false | undefin
 /** The `sovrium library` flags that choose API operations and bound a search. */
 const parseLibraryOperationFlags = (
   argv: readonly string[]
-): Pick<ParsedFlags, 'libraryTag' | 'libraryLimit' | 'libraryAll' | 'libraryYes'> => ({
+): Pick<
+  ParsedFlags,
+  'libraryTag' | 'libraryLimit' | 'libraryAll' | 'libraryYes' | 'libraryUpdate'
+> => ({
   libraryTag: getFlagValue(argv, '--tag'),
   libraryLimit: getFlagValue(argv, '--limit'),
   libraryAll: argv.includes('--all'),
   libraryYes: argv.includes('--yes'),
+  libraryUpdate: argv.includes('--update'),
 })
 
 /** The flags only `sovrium seed` reads (`--as` is shared with `library add`). */
@@ -215,6 +220,7 @@ const verbSwitchesOf = (
   | 'libraryLimit'
   | 'libraryAll'
   | 'libraryYes'
+  | 'libraryUpdate'
   | 'skillsTarget'
   | 'allowDestructive'
 > => ({
@@ -224,6 +230,7 @@ const verbSwitchesOf = (
   libraryLimit: flags.libraryLimit,
   libraryAll: flags.libraryAll,
   libraryYes: flags.libraryYes,
+  libraryUpdate: flags.libraryUpdate,
   skillsTarget: flags.skillsTarget,
 })
 

@@ -19,6 +19,8 @@ export type MenuSurface = 'default' | 'inverted'
 /** The toast an automation's `onSuccess` / `onError` slot declares. */
 interface MenuActionOutcome {
   readonly navigate?: string
+  /** Close the dialog or drawer holding the menu once the action succeeds. */
+  readonly close?: boolean
   readonly toast?: { readonly message?: string; readonly variant?: string }
 }
 
@@ -58,6 +60,10 @@ export interface MenuItem {
   readonly shortcut?: string
   readonly disabled?: boolean
   readonly separator?: boolean
+  /** Rows sharing this name in a run are radio items of one group. */
+  readonly radioGroup?: string
+  /** The row is a group heading, not a menu item. */
+  readonly heading?: boolean
   readonly variant?: 'default' | 'destructive'
   /**
    * Makes this row a TOGGLE, starting in the state it names.

@@ -6,7 +6,11 @@
  */
 
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { computeTocLinkClasses } from '../../design/navigation-default-classes'
+import {
+  computeTocItemIndentClasses,
+  computeTocLinkClasses,
+  computeTocListClasses,
+} from '../../design/navigation-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
 import type { TocHeading } from '@/presentation/render/resolve/toc-resolver'
@@ -24,6 +28,10 @@ import type { ReactElement } from 'react'
  * emits a `<nav>` of `<a href="#id">` links — one per heading, in document
  * order — so native browser anchor scrolling drives navigation without any
  * client-side JavaScript.
+ *
+ * The anatomy is the "On this page" column of shadcn/ui's documentation:
+ * `toc` on the `<nav>`, `toc-list` on the list, `toc-link` on every link with
+ * its heading level on `data-depth`.
  *
  * Sticky variant — when `props.sticky === true`, the wrapping `<nav>` gets
  * `sticky top-0` Tailwind classes; combined with the spec's typical
@@ -48,11 +56,7 @@ export const tocComponent: ComponentRenderer = (config: ComponentDispatchConfig)
   } = config.elementPropsWithSpacing as Record<string, unknown>
   const userClassName = restProps['className'] as string | undefined
   const stickyClasses = sticky ? 'sticky top-0 self-start' : ''
-  const baseClasses = 'text-md'
-  const className = resolveClasses(
-    [baseClasses, stickyClasses].filter(Boolean).join(' '),
-    userClassName
-  )
+  const className = resolveClasses(stickyClasses, userClassName)
 
   // Strip className from rest so we don't double-set it, and the internal
   // data-source markers so they never reach the `<nav>`.
@@ -62,32 +66,32 @@ export const tocComponent: ComponentRenderer = (config: ComponentDispatchConfig)
     <nav
       {...nonClassProps}
       aria-label="Table of contents"
+      data-slot="toc"
       className={className}
       data-testid={dataTestId as string | undefined}
     >
-      <ul className="m-0 list-none space-y-1 p-0">
-        {headings.map((heading) => {
-          // Indent by level so h2 sits flush, h3 is indented once, etc.
-          // h1 is treated the same as h2 visually (TOC root level) because
-          // documentation pages typically have one h1 (the page title) and
-          // the TOC navigates the h2+ structure.
-          const indent = heading.level <= 2 ? 0 : heading.level - 2
-          const indentClass = indent === 0 ? '' : `pl-${indent * 4}`
-          return (
-            <li
-              key={heading.id}
-              data-toc-level={heading.level}
-              className={indentClass}
+      <ul
+        data-slot="toc-list"
+        className={computeTocListClasses()}
+      >
+        {headings.map((heading) => (
+          // An h1 sits flush with the h2s: a page has one h1, its title, and
+          // the TOC navigates the h2+ structure beneath it.
+          <li
+            key={heading.id}
+            data-toc-level={heading.level}
+            className={computeTocItemIndentClasses(heading.level) || undefined}
+          >
+            <a
+              href={`#${heading.id}`}
+              data-slot="toc-link"
+              data-depth={heading.level}
+              className={computeTocLinkClasses()}
             >
-              <a
-                href={`#${heading.id}`}
-                className={computeTocLinkClasses()}
-              >
-                {heading.text}
-              </a>
-            </li>
-          )
-        })}
+              {heading.text}
+            </a>
+          </li>
+        ))}
       </ul>
     </nav>
   )

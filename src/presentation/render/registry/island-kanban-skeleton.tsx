@@ -14,13 +14,8 @@
  * does.
  */
 
-// The kanban column shell comes from the WAVE R-D recipe, not from
-// `data-default-classes.ts`. That module is a `presentation-component` and is
-// therefore unreachable from `islands/kanban/*`, which is exactly why the
-// hydrated board carried its own hand-written literals and drifted from this
-// skeleton. `kanban-default-classes.ts` lives in `presentation-util` and both
-// sides import it, so the well the skeleton paints is byte-identical to the one
-// that replaces it.
+// The column well comes from `kanban-default-classes.ts`, which the hydrated
+// board imports too, so the well the skeleton paints is the one that replaces it.
 import {
   computeKanbanBoardClasses,
   computeKanbanColumnClasses,
@@ -38,8 +33,8 @@ import type { ReactElement } from 'react'
  * Painted via the shared helper so the SSR skeleton paints the same
  * chrome as the hydrated island. The `w-72 shrink-0` width sizing stays raw —
  * width is a layout concern owned by the consumer. The header bar rides on
- * `bg-background-inset` rather than `bg-background-subtle`: the well is now
- * `bg-background-subtle` itself, so a same-tone bar on it was invisible.
+ * `bg-background` rather than `bg-muted`: the well is on the muted surface
+ * itself, so a same-tone bar on it would be invisible.
  */
 function KanbanSkeletonColumn({
   withHeader = true,
@@ -47,12 +42,24 @@ function KanbanSkeletonColumn({
   readonly withHeader?: boolean
 }): ReactElement {
   return (
-    <div className={`${computeKanbanColumnClasses()} w-72 shrink-0`}>
+    <div
+      data-slot="kanban-column"
+      className={`${computeKanbanColumnClasses()} w-72 shrink-0`}
+    >
       {withHeader ? (
-        <div className="bg-background-inset h-4 w-24 animate-pulse rounded-sm" />
+        <div
+          data-slot="skeleton"
+          className="bg-background h-4 w-24 animate-pulse rounded-md"
+        />
       ) : undefined}
-      <div className="bg-background-raised h-20 animate-pulse rounded-sm" />
-      <div className="bg-background-raised h-20 animate-pulse rounded-sm" />
+      <div
+        data-slot="skeleton"
+        className="bg-card ring-foreground/10 h-20 animate-pulse rounded-xl ring-1"
+      />
+      <div
+        data-slot="skeleton"
+        className="bg-card ring-foreground/10 h-20 animate-pulse rounded-xl ring-1"
+      />
     </div>
   )
 }
@@ -89,7 +96,10 @@ function KanbanSwimlaneSkeleton({
             key={`kanban-skeleton-head-${slot}`}
             className="w-72 shrink-0"
           >
-            <div className="bg-background-inset h-4 w-24 animate-pulse rounded-sm" />
+            <div
+              data-slot="skeleton"
+              className="bg-muted h-4 w-24 animate-pulse rounded-md"
+            />
           </div>
         ))}
       </div>
@@ -99,7 +109,10 @@ function KanbanSwimlaneSkeleton({
           className={computeKanbanSwimlaneClasses()}
         >
           <div className={computeKanbanSwimlaneHeaderClasses()}>
-            <div className="bg-background-inset h-3 w-16 animate-pulse rounded-sm" />
+            <div
+              data-slot="skeleton"
+              className="bg-muted h-3 w-16 animate-pulse rounded-md"
+            />
             <span
               className={computeKanbanSwimlaneRuleClasses()}
               aria-hidden="true"

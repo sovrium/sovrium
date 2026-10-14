@@ -2,13 +2,13 @@
 
 > The `kanban` component — records grouped into columns by a field value, with drag-and-drop between them — and the colour rules the record views share.
 
-A board places each record in the column its grouping field names, and lets a reader drag it into another. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. `kanbanGroupBy` is the board's own: it says which field becomes its columns, whether the records come from a view or from the table. A board is never a mode of a grid — to show the same records as a grid and as a board, declare a `table` and a `kanban`.
+A board places each record in the column its grouping field names, and lets a reader drag it into another. Reference: shadcn/ui Card. Each column is a well on the `muted` surface whose header names it and counts its cards in a `secondary` badge, and whose `emptyColumnMessage` is written in the muted foreground when it holds none; each card is a small card on the `card` colour, edged by a faint ring rather than a border. A card held in a drag is ringed in the `ring` colour and lifted, and the place it would land is outlined in the same colour. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. `kanbanGroupBy` is the board's own: it says which field becomes its columns, whether the records come from a view or from the table. A board is never a mode of a grid — to show the same records as a grid and as a board, declare a `table` and a `kanban`.
 
 <!-- sovrium:options type:kanban depth=3 -->
 
 `kanbanGroupBy: { field }` names the field whose values become the columns. `drag` is `{ enabled, persistAction }` — whether cards move, and what saves the move. `persistAction` must be a `crud` action, `{ type: crud, operation: update, table }`: it is the only type a drop runs.
 
-`drag.onDrop` asks for what a column needs once a card has landed in it: the amount when a deal is won, the reason when it is lost. Each entry is `{ when: { value }, action }`, where `value` is a column as the grouping field spells it and `action` is `{ action: openDrawer, component }` or a `fill` action. The move is saved first; once the save succeeds, the first entry naming the column the card landed in runs, with the moved card as `$record` — `openDrawer` opens that record in the named drawer, as a card click does, and `fill` writes one of its values into a form on the page. A drop into a column no entry names runs nothing else, and a move that fails to save runs no entry. A drawer an entry names stays closed until a drop opens it.
+`drag.onDrop` asks for what a column needs once a card has landed in it: the amount when a deal is won, the reason when it is lost. Each entry is `{ when: { value }, action }`, where `value` is a column as the grouping field spells it and `action` is `{ action: openSheet, component }` or a `fill` action. The move is saved first; once the save succeeds, the first entry naming the column the card landed in runs, with the moved card as `$record` — `openSheet` opens that record in the named drawer, as a card click does, and `fill` writes one of its values into a form on the page. A drop into a column no entry names runs nothing else, and a move that fails to save runs no entry. A drawer an entry names stays closed until a drop opens it.
 
 ```yaml
 - type: kanban
@@ -18,8 +18,8 @@ A board places each record in the column its grouping field names, and lets a re
     persistAction: { type: crud, operation: update, table: deals }
     onDrop:
       - when: { value: Won }
-        action: { action: openDrawer, component: deal-won }
-- type: drawer
+        action: { action: openSheet, component: deal-won }
+- type: sheet
   id: deal-won
   props: { title: Deal won }
   children:
@@ -52,7 +52,7 @@ pages:
 
 The card takes `children` for its body — record components bound to the card's record: `text`, `badge`, `avatar` (`label: $record.owner`), `image` (`src: $record.photo`) and `qr-code` (`value: $record.asset_tag`; `size`, `ecc` and `props.className` mean what they mean on a page `qr-code`); a data component there is refused at boot, naming `card.children` — `coverImage`, `colorField`, `footer` entries of `{ field, format }` — where `format` is `relative-date`, `short-date`, `avatar`, `badge`, `text` or `currency` — and `onClick`. `relative-date` reads in the page's language (`meta.lang`), so a French page prints « dans 3 j ». `currency` formats the amount with the bound column's own `currency`, `precision` and separators, exactly as a table's `format: currency` cell does. A `coverImage`, or the `src` of an `image` child, naming an attachment field shows the first file it holds that is an image, as a gallery card's cover does; a file that is not an image — a PDF, a Word document — is never drawn, so a card whose files are none of them images has no cover, as a card whose field is empty. One typed as text is drawn only when the filled value is a web address (`http` or `https`, without a user name or password) or a path on this site; any other value, such as a script or an address on another site written without its scheme, shows no image.
 
-`card.onClick` takes one of two shapes, the two a grid row click takes. `{ type: navigate, path }` follows the path, reading `$record.*` from the card and `$param.*` from the page address — `/groups/$param.id/members/$record.id`. The filled path only ever opens a page on this site: one that points to another site (`//host/…`, `https://host/…`) or at a script (`javascript:…`) — usually because a record holds it — does not navigate, as a list item's does. `{ action: openDrawer, component }` opens the card's record in the drawer with that `id` on the same page, and the address then names the record (`?record=<id>`), so the opened card is a link; that drawer stays closed until a card is clicked. The drawer binds the card's record only to the update forms editing the board's table, as a grid row click does: a form in the same drawer editing another table is never handed the card's id. Any other action is refused when the config is decoded — put richer behaviour on the drawer's footer actions instead.
+`card.onClick` takes one of two shapes, the two a grid row click takes. `{ type: navigate, path }` follows the path, reading `$record.*` from the card and `$param.*` from the page address — `/groups/$param.id/members/$record.id`. The filled path only ever opens a page on this site: one that points to another site (`//host/…`, `https://host/…`) or at a script (`javascript:…`) — usually because a record holds it — does not navigate, as a list item's does. `{ action: openSheet, component }` opens the card's record in the drawer with that `id` on the same page, and the address then names the record (`?record=<id>`), so the opened card is a link; that drawer stays closed until a card is clicked. The drawer binds the card's record only to the update forms editing the board's table, as a grid row click does: a form in the same drawer editing another table is never handed the card's id. Any other action is refused when the config is decoded — put richer behaviour on the drawer's footer actions instead.
 
 **Relationships print their label where the card shows text.** In a card's `children` content and in a footer item, a relationship field that declares `displayField` prints the related record's label — `$record.company` reads `Acme Robotics`, not `1`. Wherever the value builds an address — an `onClick` `path`, a `url`, an `href` — the same `$record.company` keeps the record's id, because a link built from a label would not resolve. A relationship that declares no `displayField` prints its id everywhere.
 
@@ -74,7 +74,7 @@ Lanes behave exactly as columns do: one lane per declared option of the field, i
 
 ## Colouring records by a field
 
-`kanban`, `calendar` and `timeline` each accept a `colorField` naming the field whose value colours the card, event or bar. The three spell it differently, because the key sits wherever each component already keeps its display config: `card.colorField` on a kanban, `colorField` on a calendar, `props.colorField` on a timeline.
+`kanban`, `event-calendar` and `timeline` each accept a `colorField` naming the field whose value colours the card, event or bar. The three spell it differently, because the key sits wherever each component already keeps its display config: `card.colorField` on a kanban, `colorField` on an event calendar, `props.colorField` on a timeline.
 
 **On a kanban it is `card.colorField` and nothing else.** The option table above also lists a top-level `colorField`, which the board decodes and never reads — the resolver looks only inside `card`. Write it there.
 
@@ -97,7 +97,7 @@ Text is not left to chance: each surface derives a foreground from the fill — 
 
 ### When a value declares no colour
 
-The fallback differs per surface, and the difference is deliberate. A `calendar` or a `timeline` takes a hue from a built-in palette, because both surfaces already painted a hue per value and they keep doing so. A `kanban` takes **nothing** — the card stays monochrome, because a kanban card has never invented a hue and colour stays something you opt into.
+The fallback differs per surface, and the difference is deliberate. An `event-calendar` or a `timeline` takes a hue from a built-in palette, because both surfaces already painted a hue per value and they keep doing so. A `kanban` takes **nothing** — the card stays monochrome, because a kanban card has never invented a hue and colour stays something you opt into.
 
 Where a palette hue is used it is derived from **the value itself**, so a given value always draws the same hue. A timeline previously assigned palette hues in order of first appearance, which meant a bar changed colour as you paged or filtered the records around it.
 

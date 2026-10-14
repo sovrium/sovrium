@@ -436,6 +436,32 @@ export const CrudActionSchema = Schema.Struct({
         'Per-field label/placeholder overrides for the form this action embeds. Targets fields by name. Additive — the default fields are used when omitted.',
     })
   ),
+  /**
+   * Text the control shows, beside a spinner, while its request is in flight:
+   * the embedded form's submit for `create` / `update`, the delete button for
+   * `delete`. The control is disabled and marked busy for that time, so a
+   * second press sends nothing. When omitted, the built-in word for the
+   * `operation` is used in the page language (`Saving…` for create and update,
+   * `Deleting…` for delete). Supports a `$t:key` translation reference.
+   * Mirrors `AuthActionSchema.pendingLabel`.
+   *
+   * @example
+   * ```yaml
+   * action:
+   *   type: crud
+   *   operation: delete
+   *   table: invoices
+   *   pendingLabel: Archivage…
+   * ```
+   */
+  pendingLabel: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Text the submit or delete button shows, beside a spinner, while its request is in flight. The button is disabled for that time, so a second press sends nothing; when the success moves to another page it stays so until the page has gone. Accepts a `$t:` key.',
+      defaultNote: 'Saving… for create and update, Deleting… for delete, in the page language',
+      examples: ['Archiving…', 'Archivage…', '$t:invoices.archiving'],
+    })
+  ),
   onSuccess: Schema.optional(ActionResponseSchema),
   onError: Schema.optional(ActionResponseSchema),
 }).annotate({
@@ -460,7 +486,23 @@ export const CrudActionSchema = Schema.Struct({
  *       message: Report generated!
  *       variant: success
  *     navigate: /reports
+ *
+ * # A button inside a dialog: once the run is accepted, the dialog closes
+ * action:
+ *   type: automation
+ *   name: send-reminder
+ *   inputData:
+ *     invoiceId: '$record.id'
+ *   onSuccess:
+ *     toast:
+ *       message: Reminder sent
+ *     close: true
  * ```
+ *
+ * On success the button follows `onSuccess.navigate` (with `$record.*` filled
+ * from its record) and `onSuccess.close`, after the start is accepted or, with
+ * `await: true`, after the run has ended. A refused start or a failed run shows
+ * `onError.toast` and neither closes nor navigates.
  */
 export const AutomationActionSchema = Schema.Struct({
   type: Schema.Literal('automation').annotate({
@@ -482,6 +524,31 @@ export const AutomationActionSchema = Schema.Struct({
     Schema.Boolean.annotate({
       description:
         'Wait for completion before triggering response (default: false = fire-and-forget)',
+    })
+  ),
+  /**
+   * Text the button shows, beside a spinner, while the automation is being
+   * started or run. With `await: true` the button stays pending until the run
+   * ends; without it, until the run is accepted, and only then is `onSuccess`
+   * shown. The button is disabled for that time, so a second press starts
+   * nothing. When omitted, the built-in word is used in the page language
+   * (`Running…`). Supports a `$t:key` translation reference.
+   *
+   * @example
+   * ```yaml
+   * action:
+   *   type: automation
+   *   name: generate-monthly-report
+   *   await: true
+   *   pendingLabel: Generating…
+   * ```
+   */
+  pendingLabel: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Text the button shows, beside a spinner, while the automation runs: until the run ends with `await: true`, until the run is accepted otherwise. The button is disabled for that time, so a second press starts nothing. Accepts a `$t:` key.',
+      defaultNote: 'Running…, in the page language',
+      examples: ['Generating…', 'Génération…', '$t:report.generating'],
     })
   ),
   onSuccess: Schema.optional(ActionResponseSchema),

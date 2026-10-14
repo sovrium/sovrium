@@ -11,17 +11,14 @@ import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ElementProps } from './html-element-renderer'
 
 /**
- * Sovrium draws icons at stroke 1.5, where lucide's own default is 2.
- *
- * At the sizes an icon actually renders at, a 2px stroke reads heavier than the
- * type beside it and makes the glyph the loudest thing in a row of controls.
- * 1.5 puts the line weight on the same footing as the text, which is what the
- * reference drawings do — every inline SVG in them is `stroke-width: 1.5`.
+ * Icons draw at lucide's own 2-pixel stroke, the weight shadcn/ui's components
+ * draw every icon at, so an icon placed on a page matches the icons inside the
+ * buttons, menus and inputs around it.
  *
  * `strokeWidth` is not a schema field; it arrives through the open `props` bag,
  * so this is a rendering DEFAULT and an author who passes one still wins.
  */
-const ICON_STROKE_WIDTH = 1.5
+const ICON_STROKE_WIDTH = 2
 
 /**
  * Renders icon using Lucide React icons
@@ -30,10 +27,11 @@ const ICON_STROKE_WIDTH = 1.5
  * - name: kebab-case Lucide icon name (e.g. 'check-circle', 'arrow-right')
  * - color: SVG stroke color (default: 'currentColor')
  * - size: SVG width/height in pixels (default: 24)
- * - strokeWidth: SVG stroke-width (default: 1.5 — see ICON_STROKE_WIDTH)
+ * - strokeWidth: SVG stroke-width (default: 2 — see ICON_STROKE_WIDTH)
  * - ariaLabel: accessible label; if provided, sets role="img" instead of aria-hidden
  * - className: CSS classes forwarded to the SVG
  *
+ * Every SVG carries `data-slot="icon"`, shadcn/ui's name for the part.
  * Falls back to an empty SVG with data-testid for unknown icon names.
  */
 export function renderIcon(
@@ -77,6 +75,7 @@ export function renderIcon(
         size={iconSize ?? 24}
         color={iconColor ?? 'currentColor'}
         strokeWidth={iconStrokeWidth ?? ICON_STROKE_WIDTH}
+        data-slot="icon"
         data-testid={testId}
       />
     ) as ReactElement
@@ -88,6 +87,7 @@ export function renderIcon(
       {...(restProps as React.SVGProps<SVGSVGElement>)}
       {...a11yProps}
       {...colorProps}
+      data-slot="icon"
       data-testid={testId}
       xmlns="http://www.w3.org/2000/svg"
       width={iconSize ?? 24}

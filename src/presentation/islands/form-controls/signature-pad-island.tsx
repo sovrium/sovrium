@@ -8,7 +8,7 @@
 /**
  * `signature-pad` island — the well a signer signs in.
  *
- * The statement sits above a ruled well; the signer draws, or (with
+ * The statement sits above a dashed well; the signer draws, or (with
  * `allowTyped`) types their full name instead, and presses Sign. The mark is
  * uploaded as a PNG and the signature written onto the record — image, signer,
  * instant, method and the statement as it read — by `writeSignature`. Once
@@ -24,7 +24,14 @@ import {
   wireSignatureCanvas,
   writeSignature,
 } from './signature-canvas'
-import { PadActions, SaveFailed, SignatureInput, SignedReading } from './signature-pad-parts'
+import {
+  PadActions,
+  PadStatement,
+  SaveFailed,
+  SignatureInput,
+  SignedReading,
+} from './signature-pad-parts'
+import type { SignedItemClasses } from '@/presentation/design/signature-signed-item'
 
 interface SignaturePadIslandProps {
   readonly table: string
@@ -38,6 +45,8 @@ interface SignaturePadIslandProps {
   readonly allowTyped: boolean
   readonly label: string
   readonly lang?: string
+  /** The signed reading's item classes, resolved by the server. */
+  readonly signedClasses: SignedItemClasses
 }
 
 type Status =
@@ -99,6 +108,7 @@ export default function SignaturePadIsland(props: SignaturePadIslandProps): Reac
         signedAt={status.signedAt}
         statement={props.statement}
         lang={props.lang}
+        classes={props.signedClasses}
       />
     )
   }
@@ -112,9 +122,10 @@ export default function SignaturePadIsland(props: SignaturePadIslandProps): Reac
     <div
       role="group"
       aria-label={props.label}
+      data-slot="signature-pad"
       className="flex flex-col gap-3"
     >
-      <p className="text-sm">{props.statement}</p>
+      <PadStatement statement={props.statement} />
       <SignatureInput
         typed={typed}
         name={name}

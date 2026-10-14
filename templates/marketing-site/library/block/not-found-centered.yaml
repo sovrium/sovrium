@@ -1,7 +1,8 @@
-# sovrium-library: block/not-found-centered@0.30.0
+# sovrium-library: block/not-found-centered@0.37.0
+# sovrium-library-params: ctaHref=%2F&ctaLabel=Back%20to%20home&headline=This%20page%20does%20not%20exist&secondaryHref=%2Fcontact&secondaryLabel=%5BContact%5D&subheadline=The%20link%20may%20be%20old%2C%20or%20the%20address%20mistyped.
 name: not-found-centered
 type: container
-element: main
+element: div
 props:
   className: 'px-5 py-14 sm:px-8 sm:py-20 lg:px-16 lg:py-24 flex min-h-[70vh] items-center justify-center'
 children:
@@ -12,7 +13,7 @@ children:
       - type: text
         element: span
         props:
-          className: font-mono text-md text-foreground-subtle
+          className: font-mono text-md text-muted-foreground
         content: '404'
       - type: text
         element: h1
@@ -22,7 +23,7 @@ children:
       - type: text
         element: p
         props:
-          className: text-lg text-pretty text-foreground-muted sm:text-xl max-w-md
+          className: text-lg text-pretty text-muted-foreground sm:text-xl max-w-md
         content: 'The link may be old, or the address mistyped.'
       - type: flex
         props:
@@ -31,10 +32,10 @@ children:
           - type: link
             props:
               href: /
-              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground h-10 px-4 text-md'
             content: Back to home
           - type: link
             props:
               href: /contact
-              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-card text-foreground hover:bg-muted hover:text-foreground h-10 px-4 text-md'
             content: '[Contact]'

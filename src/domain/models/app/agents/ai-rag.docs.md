@@ -62,6 +62,36 @@ A knowledge base is keyed by agent name, and one agent never retrieves another's
 
 Chat can additionally reach knowledge scoped to the requesting user's permissions.
 
+## Answers that cite their sources
+
+An agent that declares knowledge searches it on every chat turn. Each passage it finds is handed to the model under a number, `[1]`, `[2]` and so on, and the model is asked to mark what it uses with those numbers. The reply then carries `citations`: one per number the answer contains, in the order it first uses them, each with the passage's `source`, `label` and `excerpt`.
+
+```json
+{
+  "reply": "You can upload files of up to 50MB [1].",
+  "citations": [
+    {
+      "index": 1,
+      "source": "/knowledge/product-manual.md",
+      "label": "Product Manual",
+      "excerpt": "The maximum file upload size is 50MB. Supported formats: PDF, PNG, JPG."
+    }
+  ]
+}
+```
+
+A passage the answer does not mark is not cited, and a number that matches no passage the model was given is dropped. An answer that marks nothing carries no `citations`.
+
+The `source` of a document is its declared `path` and its label the declared `label`, falling back to the path. A passage from a table names its row as `table:<name>:<recordId>`. Those passages pass the same read check a search does: the model is never handed a row, or a field, the user could not read through the records API.
+
+Which passages are searched:
+
+- the agent's own table knowledge;
+- the documents it lists in `knowledge.documents`, when it lists any;
+- otherwise, with `memory.knowledge.enabled`, the documents under its `memory.knowledge.sources`.
+
+A turn retrieves at most `memory.knowledge.retrievalLimit` passages, else `AI_RAG_MAX_RESULTS`. With `memory.knowledge` enabled, a passage must reach its `similarityThreshold`. Without it, the closest passages are handed over whatever their score, and the model cites only what it uses.
+
 ## Tuning
 
 Chunking, embedding and retrieval are operator settings.

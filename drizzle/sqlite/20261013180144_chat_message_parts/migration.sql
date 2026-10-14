@@ -1,0 +1,1 @@
+ALTER TABLE `system_ai_messages` ADD `parts` text;

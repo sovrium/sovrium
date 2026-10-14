@@ -17,5 +17,5 @@ children:
   - type: text
     element: p
     props:
-      className: text-[15px] leading-[1.6] text-foreground-muted
+      className: text-[15px] leading-[1.6] text-muted-foreground
     content: $text

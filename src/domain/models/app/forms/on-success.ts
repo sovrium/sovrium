@@ -56,6 +56,58 @@ export const SuccessPageActionSchema = Schema.Struct({
 })
 
 /**
+ * A toast shown BESIDE a form's primary success effect.
+ *
+ * `type` names the one thing a form does once it has been sent — a success page,
+ * a redirect, a reset, a toast, an inline message. A confirmation is often
+ * wanted on top of that thing rather than instead of it ("Saved" as the page
+ * moves on, "Added" as the form clears for the next entry), so `toast` is a
+ * sibling of `type` on every variant but `type: toast`, where it would be a
+ * second toast saying what the first one says. The vocabulary is the one
+ * `type: toast` already uses, so a form's toast reads the same either way.
+ */
+export const FormSuccessToastSchema = Schema.Struct({
+  message: Schema.String.annotate({
+    description:
+      'Text of the brief confirmation shown beside the success effect. Accepts a `$t:` key.',
+  }),
+  variant: Schema.optional(
+    Schema.Literals(['success', 'info']).annotate({
+      description: 'Which style the confirmation is given: a success tone or a neutral one.',
+    })
+  ),
+}).annotate({
+  identifier: 'FormSuccessToast',
+  title: 'Form Success Toast',
+  description:
+    'A brief confirmation shown beside the primary success effect — before the redirect leaves, or as the form clears.',
+})
+
+/**
+ * Whether the dialog, drawer or popover the form sits in closes once it has been
+ * sent. Shared by every success variant.
+ *
+ * Unset keeps the habit a form has today: a form that writes a table record
+ * closes the overlay it sits in, and one that writes none leaves it open. `true`
+ * closes it in both cases, which is what a table-less form in a dialog (a
+ * contact request, a feedback note) needs; `false` keeps it open in both, which
+ * is what an "add another" dialog that resets needs.
+ */
+const FormSuccessCloseSchema = Schema.Boolean.annotate({
+  description:
+    'Whether the dialog, sheet or popover the form sits in closes once it has been sent. Unset: a form that writes a table record closes it, one that writes none leaves it open. true always closes it; false always leaves it open, for an add-another dialog that resets. A form in no overlay has nothing to close. true is refused beside type: successPage, which would be closed before anyone read it.',
+  examples: [true, false],
+})
+
+/** The effects every success variant may add beside its own `type`. */
+const formSuccessSiblingFields = {
+  /** Close the overlay the form sits in. */
+  close: Schema.optional(FormSuccessCloseSchema),
+  /** A toast beside the primary effect. */
+  toast: Schema.optional(FormSuccessToastSchema),
+} as const
+
+/**
  * Success Page — show a custom success page after submission.
  */
 export const SuccessPageOnSuccessSchema = Schema.Struct({
@@ -110,6 +162,7 @@ export const SuccessPageOnSuccessSchema = Schema.Struct({
         'Lists the submitted answers back on the success page, skipping hidden fields and any field the reader may not see.',
     })
   ),
+  ...formSuccessSiblingFields,
 }).annotate({
   identifier: 'SuccessPageOnSuccess',
   title: 'Success Page (onSuccess)',
@@ -161,6 +214,7 @@ export const RedirectOnSuccessSchema = Schema.Struct({
       Schema.check(Schema.isGreaterThanOrEqualTo(0))
     )
   ),
+  ...formSuccessSiblingFields,
 }).annotate({
   identifier: 'RedirectOnSuccess',
   title: 'Redirect (onSuccess)',
@@ -191,6 +245,7 @@ export const ResetOnSuccessSchema = Schema.Struct({
         'Fields to leave filled in when the form is cleared, so a returning visitor does not retype them.',
     })
   ),
+  ...formSuccessSiblingFields,
 }).annotate({
   identifier: 'ResetOnSuccess',
   title: 'Reset (onSuccess)',
@@ -212,6 +267,8 @@ export const ToastOnSuccessSchema = Schema.Struct({
       description: 'Which style the confirmation is given: a success tone or a neutral one.',
     })
   ),
+  /** Close the overlay the form sits in. No `toast` here: this variant IS the toast. */
+  close: formSuccessSiblingFields.close,
 }).annotate({
   identifier: 'ToastOnSuccess',
   title: 'Toast (onSuccess)',
@@ -227,6 +284,7 @@ export const MessageOnSuccessSchema = Schema.Struct({
   message: Schema.String.annotate({
     description: 'Text shown in place of the form once it has been sent. Accepts a `$t:` key.',
   }),
+  ...formSuccessSiblingFields,
 }).annotate({
   identifier: 'MessageOnSuccess',
   title: 'Inline Message (onSuccess)',
@@ -234,6 +292,16 @@ export const MessageOnSuccessSchema = Schema.Struct({
 
 /**
  * Form onSuccess — discriminated union of post-submit behaviors.
+ *
+ * `type` is the primary effect. Beside it every variant may add `close` and —
+ * except `type: toast` — a `toast`. They run in one order: the toast, then the
+ * overlay closes, then the primary effect (the redirect, the reset, the page or
+ * message drawn in place). Two pairings are refused by
+ * {@link formOnSuccessConflict}, which `FormSchema` applies: a reset's own
+ * `message` beside a `toast` (two confirmations of one reset), and `close: true`
+ * beside a success page (the page would be closed before anyone read it). The
+ * check cannot sit here: this union and its members carry an `identifier`, and a
+ * check on an identified schema erases its published definition.
  */
 export const FormOnSuccessSchema = Schema.Union([
   SuccessPageOnSuccessSchema,
@@ -246,6 +314,25 @@ export const FormOnSuccessSchema = Schema.Union([
   title: 'Form onSuccess',
   description: 'Post-submit behavior. Discriminated by `type`.',
 })
+
+/**
+ * The reason a form's `onSuccess` is refused, or `true` when it is not. Applied
+ * by `FormSchema`; see {@link FormOnSuccessSchema} for why it does not sit on
+ * the union itself.
+ */
+export const formOnSuccessConflict = (onSuccess: FormOnSuccess): true | string => {
+  if (
+    onSuccess.type === 'reset' &&
+    onSuccess.message !== undefined &&
+    onSuccess.toast !== undefined
+  ) {
+    return "onSuccess declares both a reset 'message' and a 'toast' — both confirm the same reset, so the reader would be told twice. Keep one: the reset's 'message', or the 'toast'."
+  }
+  if (onSuccess.type === 'successPage' && onSuccess.close === true) {
+    return "onSuccess declares both 'close: true' and type 'successPage' — the success page is drawn where the form was, so closing its dialog would hide it before anyone read it. Keep one: type 'successPage' to show the page in the dialog, or 'close' with a 'toast' to close it and confirm on the page below."
+  }
+  return true
+}
 
 /** @public */
 export type SuccessPageAction = Schema.Schema.Type<typeof SuccessPageActionSchema>
@@ -261,3 +348,5 @@ export type ToastOnSuccess = Schema.Schema.Type<typeof ToastOnSuccessSchema>
 export type MessageOnSuccess = Schema.Schema.Type<typeof MessageOnSuccessSchema>
 /** @public */
 export type FormOnSuccess = Schema.Schema.Type<typeof FormOnSuccessSchema>
+/** @public */
+export type FormSuccessToast = Schema.Schema.Type<typeof FormSuccessToastSchema>

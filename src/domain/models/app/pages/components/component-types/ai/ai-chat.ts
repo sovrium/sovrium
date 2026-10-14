@@ -62,6 +62,39 @@ const AiChatVoiceInputSchema = Schema.Struct({
     'Adds a push-to-talk microphone button to the chat composer. The recording is transcribed by the speech-to-text endpoint the operator configures and is never stored.',
 })
 
+/**
+ * Uploads for the chat composer: the bucket the files land in, the media types
+ * the chat takes, and the largest file. The type is read from each file's
+ * content when it is uploaded, never from its name or declared type.
+ */
+const AiChatAttachmentsSchema = Schema.Struct({
+  bucket: Schema.String.annotate({
+    description:
+      'Name of a bucket declared in `buckets` that stores the files. Files are readable only by the person who uploaded them, never from a public address.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  accept: Schema.optional(
+    Schema.Array(
+      Schema.String.annotate({
+        description: 'A media type such as `text/csv`, or a family such as `image/*`.',
+      }).pipe(Schema.check(Schema.isMinLength(1)))
+    ).annotate({
+      defaultNote: 'PDF, Word (.docx), CSV, Markdown and plain text',
+      description:
+        "The media types the chat accepts, judged from each file's content. A file of any other type is refused with the reason shown on its chip.",
+    })
+  ),
+  maxSizeMb: Schema.optional(
+    Schema.Finite.annotate({
+      defaultNote: '10',
+      description: 'Largest file accepted, in megabytes. A larger file is refused.',
+    }).pipe(Schema.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(100)))
+  ),
+}).annotate({
+  title: 'Chat Attachments',
+  description:
+    'Uploads picked files to the named bucket and sends them with the question. Files are kept until the conversation is deleted or the account erased, and appear in the account data export.',
+})
+
 /** @public */
 export type AiChatVoiceInput = Schema.Schema.Type<typeof AiChatVoiceInputSchema>
 
@@ -87,8 +120,25 @@ export const aiChatFields = {
       description: 'Whether to show previous conversation history on load',
     })
   ),
-  allowAttachments: Schema.optional(
-    Schema.Boolean.annotate({ description: 'Whether to allow file attachments in chat' })
+  conversations: Schema.optional(
+    Schema.Boolean.annotate({
+      defaultNote: 'false',
+      description:
+        'Adds a Conversations button to the chat: it lists the past conversations of the signed-in person with this chat agent, newest first, opens one to carry it on, and starts a new one.',
+    })
   ),
+  id: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Identifier of this chat, unique among the chats of the app. Required with `attachments`: uploads are addressed to the chat by it.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  allowAttachments: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Superseded by `attachments`. Shows an attach button whose files stay in the browser: they are drawn with the message and never sent to the agent.',
+    })
+  ),
+  attachments: Schema.optional(AiChatAttachmentsSchema),
   voiceInput: Schema.optional(AiChatVoiceInputSchema),
 } as const

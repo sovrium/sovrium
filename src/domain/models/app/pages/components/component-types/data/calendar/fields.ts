@@ -15,7 +15,7 @@ import { responsiveFields } from '../../modules/responsive'
 import { visibilityFields } from '../../modules/visibility'
 import { CalendarViewSchema, CalendarEventConfigSchema, CalendarInteractionSchema } from './schema'
 
-export const CalendarTypeLiteral = Schema.Literal('calendar')
+export const CalendarTypeLiteral = Schema.Literal('event-calendar')
 
 export const calendarFields = {
   ...coreFields,

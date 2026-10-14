@@ -9,7 +9,10 @@ import {
   resolveInterpreterString,
   resolveInterpreterStringOverrides,
 } from '@/domain/models/app/languages/translation-resolver'
-import { computeListShellClasses } from '@/presentation/design/list-default-classes'
+import {
+  LIST_SKELETON_CLASSES,
+  computeListShellClasses,
+} from '@/presentation/design/list-default-classes'
 import { declaredListRowClasses } from '@/presentation/design/list-row-class-resolution'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { withRecordTextProp } from '@/presentation/render/props/record-value-format'
@@ -80,12 +83,13 @@ function renderListSkeleton(
     <div
       role="status"
       aria-label={resolveInterpreterString('list.loading', currentLang, languages)}
-      className={`${shell.listClasses ?? computeListShellClasses()} space-y-2 p-2`}
+      className={`${shell.listClasses ?? computeListShellClasses()} gap-2 p-2`}
     >
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={`list-skeleton-${String(i)}`}
-          className="bg-background-subtle h-6 w-full animate-pulse rounded"
+          data-slot="skeleton"
+          className={LIST_SKELETON_CLASSES}
         />
       ))}
     </div>

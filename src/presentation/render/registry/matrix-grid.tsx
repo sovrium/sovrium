@@ -32,7 +32,7 @@ import type {
 import type { ReactElement } from 'react'
 
 const NOTICE_CLASS =
-  'mb-2 rounded-md border border-error-border bg-error-bg px-3 py-2 text-sm text-error-fg'
+  'mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive'
 // A column is as wide as its NAME, not as its mark.
 //
 // The cell only ever holds a glyph, so 32px was enough for everything the grid
@@ -53,9 +53,17 @@ const NOTICE_CLASS =
 // head over a centred mark reads as a half-column offset all the way down the
 // grid — measured on the console's own instance, where the only populated
 // column's glyphs sat visibly right of the word naming them.
-const COLUMN_HEAD_CLASS = 'w-16 shrink-0 truncate text-center text-xs text-foreground-subtle'
-const ROW_HEAD_CLASS = 'w-40 shrink-0 truncate text-sm text-foreground'
-const CELL_CLASS = 'flex h-8 w-16 shrink-0 items-center justify-center'
+//
+// The parts take shadcn/ui's Table anatomy (`table-header`, `table-row`,
+// `table-head`, `table-cell`) on a div grid: the accessible twin below is the
+// only `<table>` on the page, and the drawing is one `role="img"`.
+const COLUMN_HEAD_CLASS = 'w-16 shrink-0 truncate text-center text-xs font-medium text-foreground'
+const ROW_HEAD_CLASS = 'w-40 shrink-0 truncate px-2 text-sm font-medium text-foreground'
+const ROW_CLASS =
+  'flex items-center gap-1 border-b border-border transition-colors hover:bg-muted/50'
+const CELL_CLASS = 'flex h-8 w-16 shrink-0 items-center justify-center font-mono text-xs'
+const EMPTY_CELL_CLASS = `${CELL_CLASS} text-muted-foreground`
+const BAND_CLASS = 'px-2 pt-3 pb-1 text-xs font-medium text-muted-foreground'
 const CORNER_LIT = 'h-1.5 w-1.5 bg-foreground'
 const CORNER_UNLIT = 'h-1.5 w-1.5 bg-border'
 
@@ -66,8 +74,7 @@ const CORNER_UNLIT = 'h-1.5 w-1.5 bg-border'
  */
 function CellMark({ cell }: { readonly cell: MatrixCellView }): ReactElement | undefined {
   if (cell.glyph === undefined) return undefined
-  if (cell.glyph === 'ops-label')
-    return <span className="text-foreground font-mono text-xs">{cell.ops}</span>
+  if (cell.glyph === 'ops-label') return <span className="text-foreground">{cell.ops}</span>
   if (cell.glyph === 'filled') return <span className="bg-foreground h-3 w-3 rounded-xs" />
   return (
     <span className="grid grid-cols-2 gap-px">
@@ -93,14 +100,15 @@ function CellMark({ cell }: { readonly cell: MatrixCellView }): ReactElement | u
 function MatrixCell({ cell }: { readonly cell: MatrixCellView }): ReactElement {
   return (
     <div
+      data-slot="table-cell"
       data-matrix-cell={cell.key}
-      className={CELL_CLASS}
+      className={cell.glyph === undefined ? EMPTY_CELL_CLASS : CELL_CLASS}
       {...(cell.glyph === undefined ? {} : { 'data-matrix-glyph': cell.glyph })}
       {...(cell.ops === undefined ? {} : { 'data-matrix-ops': cell.ops })}
       {...(cell.flagged ? { 'data-matrix-flagged': 'true' } : {})}
       {...(cell.flagLabel === undefined ? {} : { title: cell.flagLabel })}
     >
-      <CellMark cell={cell} />
+      {cell.glyph === undefined ? '—' : <CellMark cell={cell} />}
     </div>
   )
 }
@@ -116,17 +124,28 @@ function MatrixCell({ cell }: { readonly cell: MatrixCellView }): ReactElement {
  */
 function MatrixGroup({ group }: { readonly group: MatrixRowGroupView }): ReactElement {
   return (
-    <div {...(group.value === undefined ? {} : { 'data-matrix-row-group': group.value })}>
+    <div
+      data-slot="table-body"
+      {...(group.value === undefined ? {} : { 'data-matrix-row-group': group.value })}
+    >
       {group.value === undefined ? undefined : (
-        <div className="text-foreground-subtle mt-3 mb-2 text-xs">{group.value}</div>
+        <div
+          data-slot="matrix-band"
+          className={BAND_CLASS}
+        >
+          {group.value}
+        </div>
       )}
       {group.rows.map((row) => (
         <div
           key={row.id}
-          className="flex items-center gap-1"
+          data-slot="table-row"
+          data-matrix-row={row.id}
+          className={ROW_CLASS}
         >
           <div
-            data-matrix-row={row.id}
+            data-slot="table-cell"
+            data-matrix-row-head=""
             className={ROW_HEAD_CLASS}
             // Same reason as the column head. A resource name is likelier to
             // overrun than a grant source's — a page path can be long — and a
@@ -166,12 +185,18 @@ function MatrixColumnBand({ group }: { readonly group: MatrixColumnGroupView }):
   return (
     <div {...(group.value === undefined ? {} : { 'data-matrix-column-group': group.value })}>
       {group.value === undefined ? undefined : (
-        <div className="text-foreground-subtle mb-2 text-xs">{group.value}</div>
+        <div
+          data-slot="matrix-band"
+          className={BAND_CLASS}
+        >
+          {group.value}
+        </div>
       )}
       <div className="flex items-center gap-1">
         {group.columns.map((column) => (
           <div
             key={column.id}
+            data-slot="table-head"
             data-matrix-column={column.id}
             className={COLUMN_HEAD_CLASS}
             // A truncated name with no way back to the whole one is a dead end
@@ -205,11 +230,15 @@ export function MatrixGrid({
 }): ReactElement {
   return (
     <div
+      data-slot="table"
       data-matrix-grid=""
-      className="min-w-max"
+      className="min-w-max text-sm"
       {...(label === undefined ? { 'aria-hidden': true } : { role: 'img', 'aria-label': label })}
     >
-      <div className="border-border flex items-end gap-1 border-b pb-2">
+      <div
+        data-slot="table-header"
+        className="border-border flex items-end gap-1 border-b pb-2"
+      >
         <div className="w-40 shrink-0" />
         {view.columnGroups.map((group, index) => (
           <MatrixColumnBand

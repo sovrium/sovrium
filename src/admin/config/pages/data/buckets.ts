@@ -47,7 +47,9 @@
 // console's base, so these addresses are already full and must not gain
 // `/_admin`.
 
+import { sectionCard } from '../../components/dashboard-blocks'
 import { fillHost, pageHeading } from '../../components/data-page'
+import { dataTable } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
 import { BUCKETS_ENDPOINT, BUCKETS_OVERVIEW_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
@@ -120,12 +122,12 @@ const SYSTEM_PUBLIC_FILE_URL = '/api/buckets/$record.bucket/files/$record.key'
  * against is the instance total — see {@link instanceKpi}.
  */
 const usageKpi = (endpoint: string): PageComponent =>
-  ({
-    type: 'kpi',
+  sectionCard({
     label: 'Total size',
-    dataSource: { system: { endpoint, valuePath: 'totalBytes' } },
+    endpoint,
+    valuePath: 'totalBytes',
     kpiFormat: { type: 'bytes' },
-  }) as PageComponent
+  })
 
 /**
  * The instance total: every byte the storage backend holds, across all
@@ -133,12 +135,12 @@ const usageKpi = (endpoint: string): PageComponent =>
  * upload can hit is deployment-wide.
  */
 const instanceKpi = (): PageComponent =>
-  ({
-    type: 'kpi',
+  sectionCard({
     label: 'All buckets',
-    dataSource: { system: { endpoint: BUCKETS_OVERVIEW_ENDPOINT, valuePath: 'totals.totalBytes' } },
+    endpoint: BUCKETS_OVERVIEW_ENDPOINT,
+    valuePath: 'totals.totalBytes',
     kpiFormat: { type: 'bytes' },
-  }) as PageComponent
+  })
 
 /**
  * The two usage tiles side by side — this listing first, the instance second.
@@ -277,8 +279,7 @@ const SYSTEM_GRID: FilesGridVariant = {
 }
 
 const filesGrid = (variant: FilesGridVariant): PageComponent =>
-  ({
-    type: 'table',
+  dataTable({
     props: { id: FILES_GRID_ID },
     dataSource: { system: { endpoint: variant.endpoint, rowsKey: 'items', idKey: 'key' } },
     columns: [

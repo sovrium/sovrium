@@ -39,5 +39,5 @@ children:
           - type: link
             props:
               href: /sign-in
-              className: whitespace-nowrap text-foreground-muted hover:text-foreground
+              className: whitespace-nowrap text-muted-foreground hover:text-foreground
             content: Team sign-in

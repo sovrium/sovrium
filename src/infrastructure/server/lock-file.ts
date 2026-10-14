@@ -61,15 +61,6 @@ export const getLockFilePath = (): string => lockFilePathIn(getLockDir())
 export const lockFilePathIn = (lockDir: string): string => join(lockDir, LOCK_FILE_NAME)
 
 /**
- * Sidecar file used by `sovrium reload` to pass the `--message "..."` value
- * to the running server's SIGUSR1 handler. Signals carry no payload, so the
- * CLI writes the message here pre-signal and the handler reads-and-deletes
- * it once the new version row is appended. Missing file ⇒ no message ⇒
- * server uses its default fallback.
- */
-export const getReloadMessageFilePath = (): string => join(getLockDir(), 'reload-message')
-
-/**
  * Write a lock file to disk.
  *
  * Creates the lock directory first — the consolidated data dir

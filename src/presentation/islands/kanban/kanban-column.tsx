@@ -98,7 +98,10 @@ export function KanbanColumnHeader({
   readonly onToggle?: (value: string) => void
 }): ReactElement {
   return (
-    <div className={computeKanbanColumnHeaderClasses()}>
+    <div
+      data-slot="kanban-column-header"
+      className={computeKanbanColumnHeaderClasses()}
+    >
       {column.color ? (
         <span
           className={computeKanbanColumnDotClasses()}
@@ -115,6 +118,8 @@ export function KanbanColumnHeader({
         onToggle={onToggle}
       />
       <span
+        data-slot="badge"
+        data-variant="secondary"
         className={computeKanbanColumnCountClasses()}
         aria-label={`${column.records.length} records`}
       >

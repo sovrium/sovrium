@@ -154,7 +154,7 @@ function buildButtonModifierClasses(
   const isButton = type === 'button' || type === 'btn'
   return {
     variantClass: isButton && variant && variant !== 'default' ? `btn-${variant}` : undefined,
-    sizeClass: isButton && size && size !== 'md' ? `btn-${size}` : undefined,
+    sizeClass: isButton && size && size !== 'default' ? `btn-${size}` : undefined,
   }
 }
 

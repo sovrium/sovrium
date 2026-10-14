@@ -14,10 +14,10 @@
  * defaults inline via `withVarFallback`. The default layer is
  * therefore an OVERRIDE surface, not a load-bearing default — every styled
  * surface still renders correctly when the layer is absent because the
- * fallback literal inside `var(--sv-X, <literal>)` resolves at the browser.
+ * fallback literal inside `var(--x, <literal>)` resolves at the browser.
  *
  * This env var is the deployable proof of that contract:
- *   - `on` (default): emit the layer, `--sv-*` overrides win at the cascade.
+ *   - `on` (default): emit the layer, variable overrides win at the cascade.
  *   - `off`: skip the layer entirely; every island falls through to the
  *     inline OKLCH literal. The visual baseline MUST match the `on` baseline
  *     pixel-for-pixel — that's the prestyled-default contract.
@@ -28,7 +28,7 @@
  *
  * Frugal-by-default: shipping the layer is the default; operators opt out
  * (saves ~30KB on the compiled CSS but means tenants cannot override role
- * tokens via the `--sv-*` channel).
+ * tokens through the shadcn variables or the Sovrium `--sv-*` extension tokens).
  */
 import { parseEcoEnum } from './eco-env-parsing'
 

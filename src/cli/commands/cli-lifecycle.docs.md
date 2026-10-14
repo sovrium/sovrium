@@ -1,6 +1,6 @@
 # Lifecycle Commands
 
-> Run and control a server — `start`, `stop`, `restart` and the zero-downtime `reload` — plus the lock file that ties the four together and the status file a running instance publishes about itself.
+> Run and control a server — `start`, `stop`, `restart` and `reload`, which applies an edited config to a running server — plus the lock file that ties the four together and the status file a running instance publishes about itself.
 
 `stop`, `restart` and `reload` all find the running process through a **lock file** the server writes at boot, recording its PID, port and config path. That is why none of them needs you to name the config again.
 
@@ -85,18 +85,18 @@ Restart relaunches the same program that is running — the installed binary sta
 Usage: sovrium reload [options]
 ```
 
-Re-read the configuration of a running server **without downtime**. Sovrium validates the file first and only signals the process once it decodes cleanly, so an invalid edit is rejected before it can reach the live server.
+Apply your edited configuration to a running server — started with or without `--watch` — exactly as `--watch` applies a save, and report what happened. It changes config, not code: a new Sovrium version still needs `restart`, or a redeploy.
 
-```bash
-sovrium reload
-sovrium reload --message "Add the invoices table"
+```console
+$ sovrium reload
+Configuration reloaded in place in 42 ms — open connections were kept.
+$ sovrium reload
+Configuration reloaded — the server restarted on port 3000 in 1.4 s (automations changed); open connections were closed.
 ```
 
-`--message` records an operator note against the new configuration version, which then shows up in the app's migration history.
+The server re-reads the whole configuration — every `$ref` and every imported module — and compares it with the one it is running. **A change to pages, components, theme or copy is swapped in place**: open connections are kept and nothing stops answering, which is the zero-downtime case. **A change to `tables`, `automations`, `auth`, `agents`, `connections`, `env`, `analytics` or `buckets` restarts the server in place**: the new configuration is checked first, while the old one keeps serving; only then is the listener closed and opened again on the same port. Open connections are closed, and a request that arrives during the restart is refused for about as long as a boot takes.
 
-Because configuration is code-only, there is no runtime-edited schema for a reload to conflict with — the file on disk is always the truth. An invalid file stops the reload with `Error: Invalid configuration -` and the failing path and reason.
-
-**Reload changes config, not code.** A new Sovrium version still needs `restart`, or a redeploy. `reload` re-reads your config file; it does not swap the binary.
+`reload` returns once the server has published the outcome in the [status file](#the-status-file), and its message is that outcome. A configuration the server refuses changes nothing — the previous one keeps serving — and `reload` prints `Sovrium refused this configuration — nothing was reloaded.` with each problem and where it is, then exits `1`; the status file reads `rejected` for every other reader too. A restart whose new server cannot boot rolls back to the previous configuration, or says the server is down, and exits `1`. If the server does not confirm within 120 seconds, `reload` says so and exits `1`. `--message` is accepted for compatibility and recorded nowhere: Sovrium keeps no history of configuration versions.
 
 ## The status file
 
@@ -129,7 +129,7 @@ Just after boot:
 | `configHash` | Exactly the value the server sends as the `X-Sovrium-Config` response header, so a page in a browser and the file on disk can be compared directly                                   |
 | `configPath` | Absolute path of the config root. Empty for an inline `APP_SCHEMA` config, which has no file                                                                                         |
 | `updatedAt`  | ISO 8601 instant of this write                                                                                                                                                       |
-| `lastReload` | Absent until the first save; from then on it describes the most recent one                                                                                                           |
+| `lastReload` | Absent until the first save under `--watch` or the first `sovrium reload`; from then on it describes the most recent one                                                             |
 
 ### `state` and `lastReload.outcome` answer different questions
 
@@ -141,7 +141,7 @@ Just after boot:
 | `rejected` | Serving, and the last save was refused. The configuration on disk is **not** the one running |
 | `down`     | Nothing is listening: a save failed, and the previous configuration would not boot either    |
 
-`lastReload` carries `at`, the instant the verdict was reached; `kind`, either `hot` or `restart`, absent when the save never got far enough to be classified; `durationMs`; `outcome`; `phase`, one of `load`, `preflight` or `boot`, present on a failure only; and `findings`, in the same shape `sovrium validate --json` publishes. `phase` says where the save stopped, and that decides who has to act: `load` is the config, `boot` is the new server failing after the old one was stopped, and `preflight` is the checks that run **before** anything is stopped — so it always reads `kept`.
+`lastReload` carries `at`, the instant the verdict was reached; `kind`, either `hot` or `restart`, absent when the save never got far enough to be classified; `reason`, on a successful restart, the top-level key whose change forced it; `durationMs`; `outcome`; `phase`, one of `load`, `preflight` or `boot`, present on a failure only; and `findings`, in the same shape `sovrium validate --json` publishes. `phase` says where the save stopped, and that decides who has to act: `load` is the config, `boot` is the new server failing after the old one was stopped, and `preflight` is the checks that run **before** anything is stopped — so it always reads `kept`.
 
 | `outcome`     | What happened to the listener                                                                   |
 | ------------- | ----------------------------------------------------------------------------------------------- |

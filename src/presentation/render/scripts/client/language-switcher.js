@@ -111,44 +111,19 @@
   /**
    * Re-derive a language for a document the SERVER has ALREADY composed.
    *
-   * This is not the precedence that decides what the page says. By the time
-   * this runs the request has been answered: `resolvePreferredLanguage`
-   * (`@/domain/models/app/languages/language-detection`) and
-   * `resolvePageLanguage` (`@/presentation/render/page/page-lang-resolver`)
-   * picked the locale, the server rendered every server-resolved string and
-   * the `<title>` in it, and the answer is sitting in `<html lang>`. Their
-   * ranking is written down in those two files; do not restate it here,
-   * because a second copy of a precedence list is how this comment came to
-   * describe a contract the server had stopped honouring.
+   * Not the precedence that decides what the page says: `resolvePreferredLanguage`
+   * and `resolvePageLanguage` picked the locale server-side and the answer sits in
+   * `<html lang>`; their ranking lives in those files and is not restated here.
+   * Step 1 reads the server's answer whatever produced it. The cookie is never
+   * READ here — `rememberLanguage` writes it, so a choice reaches the NEXT
+   * request; `localStorage` is the key this boot path reads. Step 3 repaints a
+   * remembered choice over a default-language document (`APP-LANGUAGES-055..057`
+   * assert on response bytes for that gap), and step 2 fences it: an explicit
+   * `/{lang}/` address outranks memory, as it does server-side, so `/en/about`
+   * never repaints itself to French.
    *
-   * Two consequences for the list below. Step 1 reads the SERVER's answer
-   * whatever produced it — a `/{lang}/` prefix, the `sovrium_language`
-   * cookie, `Accept-Language` — and not `page.meta.lang`, which is merely one
-   * of the inputs that can have set it. And the cookie is never READ here:
-   * this script only writes it (`rememberLanguage`), so a choice reaches the
-   * NEXT request rather than this one. `localStorage` is the key this boot
-   * path reads, and `rememberLanguage` writes both to keep them in step.
-   *
-   * Step 3 therefore outranks the served document whenever the server resolved
-   * the DEFAULT language: a remembered choice repaints over it client-side. The
-   * gap between what the server sent and what a reader sees is the subject of
-   * `APP-LANGUAGES-055..057`
-   * (`specs/internationalization/basic-language-configuration.spec.ts`),
-   * which asserts on response BYTES for exactly that reason.
-   *
-   * Step 2 is the fence around that repaint. An address is something a visitor
-   * typed, was linked to, or that a crawler followed, and the SERVER already
-   * ranks it above a remembered preference. Without the same rule here the two
-   * halves disagreed on exactly one case — a DEFAULT-language prefix, where
-   * `<html lang>` matches the default so step 1 declines — and `/en/about`
-   * repainted itself to French for anyone who had ever chosen French on this
-   * site. A shared English link rendering French is the visible half; the
-   * `lang` attribute being rewritten to `fr-FR` over English copy is the half
-   * assistive tech and crawlers get.
-   *
-   * Priority order, as implemented:
    * 1. <html lang> IF it differs from default (the server resolved something)
-   * 2. A `/{lang}/` address segment (explicit, and it outranks browser memory)
+   * 2. A `/{lang}/` address segment
    * 3. localStorage (this browser's remembered choice)
    * 4. <html lang> IF it matches default
    * 5. Browser detection (navigator.language), when `detectBrowser` is on
@@ -215,7 +190,7 @@
   let isOpen = false
 
   // Cache DOM elements to avoid repeated queries
-  let currentLanguageEl, languageCodeEl, dropdown, switcherButton
+  let currentLanguageEl, languageCodeEl, dropdown, switcherButton, menuTrigger
 
   /**
    * Normalizes language code to match translation keys
@@ -425,41 +400,61 @@
   }
 
   /**
-   * Toggles the language dropdown visibility
-   * Updates isOpen state, display style, and aria-hidden attribute
+   * Opens or closes the language menu: its display and `aria-hidden`, and the
+   * trigger's `aria-expanded`, which is how the menu's state is announced.
    */
+  function setMenuOpen(open) {
+    isOpen = open
+    if (dropdown) {
+      dropdown.style.display = open ? 'block' : 'none'
+      dropdown.setAttribute('aria-hidden', open ? 'false' : 'true')
+    }
+    if (menuTrigger) {
+      menuTrigger.setAttribute('aria-expanded', open ? 'true' : 'false')
+    }
+  }
+
   function toggleDropdown(event) {
     if (event) {
       event.stopPropagation()
     }
-    isOpen = !isOpen
-    if (dropdown) {
-      if (isOpen) {
-        dropdown.style.display = 'block'
-        dropdown.setAttribute('aria-hidden', 'false')
-      } else {
-        dropdown.style.display = 'none'
-        dropdown.setAttribute('aria-hidden', 'true')
+    setMenuOpen(!isOpen)
+  }
+
+  /**
+   * The menu's keyboard, as a dropdown menu's: the arrow keys open it from the
+   * trigger (on the picked language) and move through its rows, wrapping;
+   * Escape closes it and returns to the trigger; Tab closes it. Enter and Space
+   * pick the focused row, a native button.
+   */
+  function handleMenuKeydown(event) {
+    const rows = dropdown ? Array.from(dropdown.querySelectorAll('[role="menuitemradio"]')) : []
+    if (rows.length === 0) {
+      return
+    }
+    if ((event.key === 'Escape' || event.key === 'Tab') && isOpen) {
+      setMenuOpen(false)
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        menuTrigger?.focus()
       }
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      const step = event.key === 'ArrowDown' ? 1 : -1
+      const current = rows.indexOf(document.activeElement)
+      const picked = rows.findIndex((row) => row.getAttribute('aria-checked') === 'true')
+      const target = isOpen && current !== -1 ? current + step : Math.max(picked, 0)
+      setMenuOpen(true)
+      rows[(target + rows.length) % rows.length].focus()
     }
   }
 
   /**
-   * Remember the choice where the SERVER can read it.
-   *
-   * `localStorage` is invisible to Sovrium: it never crosses the wire, so a page
-   * composed server-side — the `<html lang>`, a `$t:` heading, an island's own
-   * label field — went on being English while this script repainted whatever it
-   * could reach on the client. The cookie is the half that travels, and it is
-   * written IN ADDITION to `localStorage` rather than instead of it, because the
-   * client boot path still reads that key.
-   *
-   * `SameSite=Lax` and no `HttpOnly`: this script is the writer, and a language
-   * preference carries no authority — the server matches it against the app's
-   * own `languages.supported` before believing a word of it
-   * (`resolvePreferredLanguage`). `Secure` only under HTTPS, since a `secure`
-   * cookie set on `http://localhost` is discarded outright and the preference
-   * would silently never reach a development server.
+   * Remember the choice where the SERVER can read it: a cookie IN ADDITION to
+   * `localStorage`, which never crosses the wire and which the boot path still
+   * reads. `SameSite=Lax`, no `HttpOnly` (a preference carries no authority; the
+   * server checks it against `languages.supported`), `Secure` only under HTTPS,
+   * since a secure cookie set on `http://localhost` is discarded outright.
    *
    * @param {string} code - ISO 639-1 short language code
    */
@@ -476,28 +471,13 @@
   }
 
   /**
-   * Selects a new language and updates the UI
-   *
-   * Saves to localStorage + the server-readable cookie if persistSelection is
-   * enabled, then lets the SERVER compose the next document — by address where
-   * the URL carries a `/{lang}/` segment, and by reloading the current one
-   * where it does not.
-   *
-   * ─── WHY AN UNPREFIXED SELECTION RELOADS ───────────────────────────────────
-   *
-   * A repaint can only reach what this script can see: the `data-translations`
-   * payload on a `$t:` element, the `<title>`, `<html lang>` and `dir`.
-   * Everything else the SERVER resolved stays in the language the page was
-   * first composed in — an island's serialized labels, a nav row, an
-   * `aria-label`, a form's built-in submit text, a `meta.i18n` description —
-   * and stays that way for good, on the one surface where the reader has just
-   * said which language they want. Since the choice is written to a cookie the
-   * server reads, recomposing costs one request and answers all of it.
-   *
-   * Without persistence there is nothing to recompose FROM: the server would
-   * answer in the default language and the click would look like it did
-   * nothing. So that case keeps repainting in place, which is the only way the
-   * choice can show at all.
+   * Selects a new language: remembers it when `persistSelection` is on, then
+   * lets the SERVER compose the next document — by address where the URL
+   * carries a `/{lang}/` segment, by reloading the current one where it does
+   * not. A repaint only reaches what this script can see; an island's labels,
+   * a nav row or a form's submit text stay in the first language, and the
+   * cookie makes recomposing cost one request. Without persistence there is
+   * nothing to recompose from, so that case repaints in place.
    *
    * @param {string} code - ISO 639-1 short language code (e.g., 'en', 'fr', 'es')
    */
@@ -535,12 +515,20 @@
 
     // Nothing was persisted, so a reload would come back in the default
     // language - update UI in place (backward compatibility)
-    isOpen = false
     updateUI()
-    if (dropdown) {
-      dropdown.style.display = 'none'
-      dropdown.setAttribute('aria-hidden', 'true')
+    setMenuOpen(false)
+  }
+
+  /** A radio row's indicator, holding the server-drawn check on the picked row only. */
+  function radioIndicator(indicatorClass, picked) {
+    const indicator = document.createElement('span')
+    indicator.setAttribute('data-slot', 'dropdown-menu-radio-item-indicator')
+    indicator.className = indicatorClass || ''
+    const check = dropdown.querySelector('template[data-language-check]')
+    if (picked && check) {
+      indicator.appendChild(check.content.cloneNode(true))
     }
+    return indicator
   }
 
   /**
@@ -553,9 +541,10 @@
 
     const supportedLanguagesJson = dropdown.getAttribute('data-supported-languages')
     const showFlags = dropdown.getAttribute('data-show-flags') === 'true'
-    // The option chrome is a design-system recipe the SSR markup stamps here,
-    // because this script cannot import it.
+    // The row and indicator chrome are design-system recipes the SSR markup
+    // stamps here, because this script cannot import them.
     const optionClass = dropdown.getAttribute('data-option-class')
+    const indicatorClass = dropdown.getAttribute('data-indicator-class')
 
     if (!supportedLanguagesJson) {
       return
@@ -578,9 +567,15 @@
       // Store short code for language selection
       button.setAttribute('data-language-code', lang.code)
       button.setAttribute('type', 'button')
+      button.setAttribute('role', 'menuitemradio')
+      button.setAttribute('data-slot', 'dropdown-menu-radio-item')
+      button.setAttribute('tabindex', '-1')
+      const picked = lang.code === currentLanguage
+      button.setAttribute('aria-checked', picked ? 'true' : 'false')
       if (optionClass) {
         button.className = optionClass
       }
+      button.appendChild(radioIndicator(indicatorClass, picked))
 
       const span = document.createElement('span')
       span.setAttribute('data-testid', 'language-option')
@@ -616,10 +611,6 @@
     })
   }
 
-  /**
-   * Initializes the language switcher on page load
-   * Caches DOM elements and attaches event listeners
-   */
   /**
    * Point the two-language toggle at the same page in the other language.
    * The server renders the other language's root, the only address it can
@@ -661,6 +652,7 @@
     languageCodeEl = document.querySelector('[data-testid="language-code"]')
     dropdown = document.querySelector('[data-language-dropdown]')
     switcherButton = document.querySelector('[data-testid="language-switcher"]')
+    menuTrigger = document.querySelector('[data-testid="language-switcher-button"]')
 
     // Populate dropdown with language options
     populateDropdown()
@@ -670,7 +662,11 @@
 
     if (switcherButton) {
       switcherButton.addEventListener('click', toggleDropdown)
+      switcherButton.addEventListener('keydown', handleMenuKeydown)
     }
+
+    // A press anywhere outside the switcher closes its menu.
+    document.addEventListener('click', () => isOpen && setMenuOpen(false))
   }
 
   // Initialize when DOM is ready

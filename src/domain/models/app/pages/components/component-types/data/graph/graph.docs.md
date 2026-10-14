@@ -22,11 +22,13 @@ A graph can also read its nodes and edges from the app's own tables, with the sa
 
 ## How a node is drawn
 
+Each node is a small card on the `card` colour, edged by a faint ring; a selected node is ringed in the `ring` colour, the edges are drawn in the `border` colour and the column headings are muted. Reference: shadcn/ui Card.
+
 Two things about a node are legible before its name is: its **shape** and its **weight**. Neither is yours to configure, and both come from the endpoint — so this holds whichever layout placed the node.
 
 Shape carries the **kind**. Shapes are assigned per drawing, in the order the kinds first appear, which is the whole reason `legend` exists: the built-in organisation graph alone emits twelve node kinds, and twelve shapes are not learnable from the figure on their own.
 
-Weight carries the **state**. A node your endpoint reports as `paused` is drawn dashed, one reported `disabled` is drawn muted, and anything else is drawn at rest. Colour is part of neither — kind is shape, state is weight, and colour stays with your theme's own tokens. `paused` and `disabled` are your **endpoint's** words, exactly as the values in `kinds` are, and a state Sovrium does not recognise is drawn at rest rather than being an error.
+Weight carries the **state**. A node your endpoint reports as `paused` is drawn dashed, one reported `disabled` is drawn at half opacity, and anything else is drawn at rest. Colour is part of neither — kind is shape, state is weight, and colour stays with your theme's own tokens. `paused` and `disabled` are your **endpoint's** words, exactly as the values in `kinds` are, and a state Sovrium does not recognise is drawn at rest rather than being an error.
 
 **A node reporting no state is not a node reporting `active`.** An endpoint that can report state emits `active` explicitly, and omits the key entirely when the source it would have read was unavailable. A node drawn at rest therefore means _this read could not tell_, which is not the same as _this thing is running_.
 

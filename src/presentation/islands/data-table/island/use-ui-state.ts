@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useState } from 'react'
+import { useFacetState } from '../faceted-filter/use-facet-state'
 
 export interface ActiveFilter {
   readonly field: string
@@ -59,7 +60,6 @@ export interface SortRow {
 export function useDataTableUiState() {
   const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({})
   const [columnOrder, setColumnOrder] = useState<string[]>([])
-  const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [filterOverlayOpen, setFilterOverlayOpen] = useState(false)
   // Filter-builder committed state (drives the records predicate).
@@ -73,6 +73,7 @@ export function useDataTableUiState() {
   // Groups whose open/closed state the reader has flipped, keyed by group path.
   // Stored as a readonly array — toggling rewrites the array verbatim.
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlyArray<string>>([])
+  const facets = useFacetState()
 
   const onOpenImportDialog = useCallback(() => setImportDialogOpen(true), [])
   const onCloseImportDialog = useCallback(() => setImportDialogOpen(false), [])
@@ -80,8 +81,6 @@ export function useDataTableUiState() {
   const onCloseFilterOverlay = useCallback(() => setFilterOverlayOpen(false), [])
   const onOpenSortOverlay = useCallback(() => setSortOverlayOpen(true), [])
   const onCloseSortOverlay = useCallback(() => setSortOverlayOpen(false), [])
-  const onToggleExportMenu = useCallback(() => setExportMenuOpen((prev) => !prev), [])
-  const onCloseExportMenu = useCallback(() => setExportMenuOpen(false), [])
 
   const addFilter = useCallback((row: Omit<FilterRow, 'id'>) => {
     setActiveFilters((prev) => [...prev, { id: `f-${Date.now()}-${prev.length}`, ...row }])
@@ -134,13 +133,11 @@ export function useDataTableUiState() {
       : undefined
 
   return {
+    ...facets,
     columnVisibility,
     setColumnVisibility,
     columnOrder,
     setColumnOrder,
-    exportMenuOpen,
-    onToggleExportMenu,
-    onCloseExportMenu,
     importDialogOpen,
     onOpenImportDialog,
     onCloseImportDialog,

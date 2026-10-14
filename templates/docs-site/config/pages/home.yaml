@@ -22,7 +22,7 @@ markdown:
       heading1: >-
         !mt-[26px] !mb-0 !max-w-[760px] !text-[52px] !leading-[1.05] !tracking-[-0.025em]
         !font-semibold max-md:!text-[34px]
-      lead: '!mt-5 !mb-0 !max-w-[640px] !text-[19px] !leading-[1.6] !text-foreground-muted'
+      lead: '!mt-5 !mb-0 !max-w-[640px] !text-[19px] !leading-[1.6] !text-muted-foreground'
   content: |
     # Write docs as files. Publish them as a site.
 
@@ -62,7 +62,7 @@ components:
           - type: link
             props:
               href: /docs/installation
-              className: inline-flex h-9 items-center rounded-md border border-border bg-background-raised px-3 text-sm font-medium text-foreground no-underline
+              className: inline-flex h-9 items-center rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground no-underline
             content: Install
       - type: code
         props:

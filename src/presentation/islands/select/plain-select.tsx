@@ -6,18 +6,23 @@
  */
 
 import { Select } from '@base-ui/react/select'
-import { useMemo, type ReactElement } from 'react'
+import { useCallback, useMemo, useState, type ReactElement } from 'react'
 import { cn } from '@/presentation/design/class-merge'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
+  computeSelectClearClasses,
   computeSelectIconClasses,
   computeSelectLabelClasses,
   computeSelectListClasses,
+  computeSelectPopupClasses,
+  computeSelectPositionerClasses,
+  computeSelectScrollArrowClasses,
   computeSelectTriggerClasses,
+  computeSelectValueClasses,
 } from '../../design/select-default-classes'
 import { useSharedFilterPublisher } from '../hooks/use-shared-filter-publisher'
-import { ChevronDown } from './select-icons'
-import { SelectOption } from './select-option-renderers'
+import { ChevronDown, ChevronUp, XMark } from './select-icons'
+import { SelectOptions } from './select-option-renderers'
 import type { OptionItem, SelectIslandProps } from './select-island-types'
 
 /**
@@ -118,10 +123,25 @@ const partClasses = (
  * Extracted from `PlainSelect` so that function stays inside its line cap —
  * the same reason `useValueRenderer` above is its own function.
  *
- * Base UI assigns `role="listbox"` to `Select.List` when present and demotes
- * `Select.Popup` to `role="presentation"`. The styled overlay surface therefore
- * lives on `Select.List` so the element carrying the listbox role is the real,
- * non-transparent themed paint. The Popup is the bare positioning wrapper.
+ * shadcn/ui's `SelectContent` anatomy: the surface is the popup
+ * (`data-slot="select-content"`), framing the scroll arrows and the option
+ * list. Base UI gives `Select.List` the `listbox` role and the popup
+ * `presentation`; the list carries the `list` part an author restyles.
+ *
+ * Two positioning choices depart from shadcn's defaults, for the reasons the
+ * field is built around:
+ *
+ * - `alignItemWithTrigger` defaults to TRUE, which deliberately draws the
+ *   popup OVER the trigger so the selected option's text lands on the value
+ *   text — and takes the field the reader was setting off the screen. A
+ *   dropdown belongs below the field it fills, pinned to its left edge, which
+ *   is also what lets `--anchor-width` read as a width the reader can relate
+ *   to the control.
+ * - `positionMethod` defaults to `absolute`, which places the popup in the
+ *   document's own flow: a list opening below the fold then GROWS the
+ *   document, and a page whose shell is its own scroll container gets a second
+ *   scrollbar it never had. Anchored to the viewport instead, the popup takes
+ *   up no document space at all.
  */
 function SelectPopup({
   options,
@@ -132,46 +152,134 @@ function SelectPopup({
 }): ReactElement {
   return (
     <Select.Portal>
-      {/*
-       * `alignItemWithTrigger` defaults to TRUE, which deliberately draws the
-       * popup OVER the trigger so the selected option's text lands on the
-       * value text — and takes the field the reader was setting off the
-       * screen. A dropdown belongs below the field it fills, pinned to its
-       * left edge, which is also what lets `--anchor-width` read as a width
-       * the reader can relate to the control.
-       *
-       * `positionMethod` defaults to `absolute`, which places the popup in the
-       * document's own flow: a list opening below the fold then GROWS the
-       * document, and a page whose shell is its own scroll container gets a
-       * second scrollbar it never had. Anchored to the viewport instead, the
-       * popup takes up no document space at all.
-       */}
       <Select.Positioner
+        className={computeSelectPositionerClasses()}
         sideOffset={4}
         alignItemWithTrigger={false}
         positionMethod="fixed"
         side="bottom"
         align="start"
       >
-        <Select.Popup>
+        <Select.Popup
+          className={computeSelectPopupClasses()}
+          data-slot="select-content"
+          data-align-trigger="false"
+        >
+          <Select.ScrollUpArrow
+            className={computeSelectScrollArrowClasses('top')}
+            data-slot="select-scroll-up-button"
+          >
+            <ChevronUp />
+          </Select.ScrollUpArrow>
           <Select.List className={listClassName}>
-            {options?.map((option) => (
-              <SelectOption
-                key={option.value}
-                option={option}
-              />
-            ))}
+            <SelectOptions options={options ?? NO_OPTIONS} />
           </Select.List>
+          <Select.ScrollDownArrow
+            className={computeSelectScrollArrowClasses('bottom')}
+            data-slot="select-scroll-down-button"
+          >
+            <ChevronDown />
+          </Select.ScrollDownArrow>
         </Select.Popup>
       </Select.Positioner>
     </Select.Portal>
   )
 }
 
+const NO_OPTIONS: readonly OptionItem[] = []
+
+/** shadcn/ui `SelectTrigger`: the value, then the chevron Base UI's `Select.Icon` draws. */
+function SelectTrigger({
+  parts,
+  placeholder,
+  renderValue,
+}: {
+  readonly parts: SelectPartClasses
+  readonly placeholder: string | undefined
+  readonly renderValue: (value: SelectedValue) => string
+}): ReactElement {
+  return (
+    <Select.Trigger
+      className={parts.trigger}
+      data-slot="select-trigger"
+      data-size="default"
+    >
+      <Select.Value
+        placeholder={placeholder ?? 'Select...'}
+        className={computeSelectValueClasses()}
+        data-slot="select-value"
+      >
+        {renderValue}
+      </Select.Value>
+      <Select.Icon render={<ChevronDown className={parts.icon} />} />
+    </Select.Trigger>
+  )
+}
+
+/** The clear control, once a clearable select holds a value. */
+function ClearControl({
+  clear,
+}: {
+  readonly clear: ReturnType<typeof useClearableValue>
+}): ReactElement | undefined {
+  if (clear?.value == null || clear.value === '') return undefined
+  return (
+    <button
+      type="button"
+      aria-label="Clear"
+      data-slot="select-clear"
+      className={computeSelectClearClasses()}
+      onClick={clear.reset}
+    >
+      <XMark />
+    </button>
+  )
+}
+
+/**
+ * A clearable select holds its value itself, so its clear control can return
+ * it to nothing; every other select leaves the value to the primitive.
+ */
+function useClearableValue(
+  enabled: boolean,
+  defaultValue: string | undefined,
+  publish: (value: unknown) => void
+):
+  | {
+      readonly value: string | null
+      readonly change: (next: unknown) => void
+      readonly reset: () => void
+    }
+  | undefined {
+  const [value, setValue] = useState<string | null>(defaultValue ?? null)
+  const change = useCallback(
+    (next: unknown) => {
+      setValue(typeof next === 'string' ? next : null)
+      publish(next)
+    },
+    [publish]
+  )
+  const reset = useCallback(() => change(null), [change])
+  return useMemo(
+    () => (enabled ? { value, change, reset } : undefined),
+    [enabled, value, change, reset]
+  )
+}
+
+/**
+ * The plain select: shadcn/ui's `Select` on Base UI.
+ *
+ * `modal` defaults to TRUE, which is a dialog's contract: it locks the
+ * document's scroll and disables pointer interaction everywhere else. A
+ * dropdown is not a dialog — a reader picking a value keeps the page around
+ * it. (The searchable half runs on `Combobox.Root`, whose own `modal` already
+ * defaults to false, so it needs nothing here.)
+ */
 export function PlainSelect({
   options,
   placeholder,
   multiple,
+  clearable,
   defaultValue,
   disabled,
   label,
@@ -187,32 +295,36 @@ export function PlainSelect({
   const items = useMemo(() => options ?? [], [options])
   const renderValue = useValueRenderer(items, placeholder)
   const parts = partClasses(designClasses, designFloor, designReplace)
+  const clear = useClearableValue(clearable === true && multiple !== true, defaultValue, publish)
 
   return (
     <div className={cn(className)}>
-      {/*
-       * `modal` defaults to TRUE, which is a dialog's contract: it locks the
-       * document's scroll and disables pointer interaction everywhere else.
-       * A dropdown is not a dialog — a reader picking a value keeps the page
-       * around it. (The searchable half runs on `Combobox.Root`, whose own
-       * `modal` already defaults to false, so it needs nothing here.)
-       */}
       <Select.Root
         items={items}
         multiple={multiple}
         modal={false}
-        defaultValue={defaultValue}
         disabled={disabled}
-        onValueChange={publish}
+        {...(clear === undefined
+          ? { defaultValue, onValueChange: publish }
+          : { value: clear.value, onValueChange: clear.change })}
       >
-        {label && <Select.Label className={parts.label}>{label}</Select.Label>}
+        {label && (
+          <Select.Label
+            className={parts.label}
+            data-slot="label"
+          >
+            {label}
+          </Select.Label>
+        )}
 
-        <Select.Trigger className={parts.trigger}>
-          <Select.Value placeholder={placeholder ?? 'Select...'}>{renderValue}</Select.Value>
-          <Select.Icon className={parts.icon}>
-            <ChevronDown />
-          </Select.Icon>
-        </Select.Trigger>
+        <div className="relative">
+          <SelectTrigger
+            parts={parts}
+            placeholder={placeholder}
+            renderValue={renderValue}
+          />
+          <ClearControl clear={clear} />
+        </div>
 
         <SelectPopup
           options={options}

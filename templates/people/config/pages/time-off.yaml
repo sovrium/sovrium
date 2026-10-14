@@ -16,7 +16,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -97,7 +97,7 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-xs text-foreground-muted
+                  className: text-xs text-muted-foreground
                 content: Approved absences in green, requests waiting on a decision in amber. A rejected request is not an absence and is not drawn.
               - type: container
                 props:
@@ -107,7 +107,7 @@ components:
                     props:
                       className: min-w-0 flex-1 max-lg:w-full
                     children:
-                      - type: calendar
+                      - type: event-calendar
                         dataSource:
                           table: time_off_requests
                           filter:
@@ -119,7 +119,7 @@ components:
                         defaultView: month
                         calendarEvent:
                           onEventClick:
-                            action: openDrawer
+                            action: openSheet
                             component: request-detail
                   - type: container
                     element: section
@@ -154,7 +154,7 @@ components:
                             item: gap-y-1
           # One request, opened from the calendar or from `/time-off?record=<id>`:
           # whose it is, the dates, and where the decision stands.
-          - type: drawer
+          - type: sheet
             id: request-detail
             drawerSide: right
             drawerSize: md

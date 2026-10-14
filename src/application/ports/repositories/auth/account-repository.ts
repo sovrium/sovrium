@@ -18,8 +18,8 @@ import type { Effect } from 'effect'
  *     reads ({@link loadProfile} / {@link loadSessions} / {@link loadAccounts})
  *     plus the authored-record collection ({@link tablesWithCreatedBy} +
  *     {@link readAuthoredRecords}), the caller's form-submission ledger rows
- *     ({@link loadFormSubmissions}) and the audit entries they made
- *     ({@link loadAuditTrail}).
+ *     ({@link loadFormSubmissions}), the audit entries they made
+ *     ({@link loadAuditTrail}) and their AI footprint ({@link loadAiFootprint}).
  *   - `POST /api/account/delete` (GDPR Art. 17) → {@link cancelErasure} and the
  *     transactional {@link scheduleErasure}.
  *
@@ -121,6 +121,19 @@ export interface AccountFormSubmissionRow {
 }
 
 /**
+ * One `system.ai_chat_attachments` row the caller uploaded: the file as the
+ * export names it, never its storage key. `uploadedAt` stays dialect-native.
+ */
+export interface AccountChatAttachmentRow {
+  readonly id: string
+  readonly name: string
+  readonly size: number
+  readonly mimeType: string
+  readonly sessionId: string | null
+  readonly uploadedAt: Date
+}
+
+/**
  * One `audit_log` row the caller made (`actor_id` = caller), reduced to the
  * act: no metadata, no transport, no actor block. `createdAt` stays
  * dialect-native; the use case owns ISO normalization.
@@ -131,6 +144,63 @@ export interface AccountAuditEntryRow {
   readonly resourceType: string
   readonly resourceId: string
   readonly result: string
+}
+
+/**
+ * The caller's AI footprint, read for the export. Each list is scoped exactly
+ * as erasure scopes the same table, and every column is named: `metadata`,
+ * tool-call `input`/`output`/`error_message` and the caller's own identifiers
+ * are never selected. Timestamps stay dialect-native; ordering is the export's
+ * (newest first, ties by id descending; messages oldest first).
+ */
+export interface AccountAiFootprint {
+  readonly conversations: readonly {
+    readonly id: string
+    readonly sessionId: string | null
+    readonly agentName: string | null
+    readonly title: string | null
+    readonly createdAt: Date
+    readonly updatedAt: Date
+  }[]
+  /** Every message of those conversations; `toolCalls` is the raw stored JSON. */
+  readonly messages: readonly {
+    readonly id: string
+    readonly conversationId: string
+    readonly role: string
+    readonly content: string
+    readonly status: string
+    readonly model: string | null
+    readonly toolCalls: unknown
+    readonly createdAt: Date
+  }[]
+  readonly facts: readonly {
+    readonly id: string
+    readonly namespace: string
+    readonly agentName: string
+    readonly fact: string
+    readonly createdAt: Date
+  }[]
+  /** `agentName` is the actor when an agent acted, `null` when the caller did. */
+  readonly activity: readonly {
+    readonly action: string
+    readonly targetTable: string | null
+    readonly agentName: string | null
+    /** Where the agent ran (`chat`, `automation`, `schedule`), when the feed recorded it. */
+    readonly surface: string | null
+    readonly createdAt: Date
+  }[]
+  /** `failed` is `1`/`true` when the call recorded an error (dialect-native). */
+  readonly toolCalls: readonly {
+    readonly id: string
+    readonly toolName: string
+    readonly callerRole: string
+    readonly transport: string
+    readonly sessionId: string | null
+    readonly failed: boolean | number
+    readonly errorCode: number | null
+    readonly latencyMs: number
+    readonly createdAt: Date
+  }[]
 }
 
 /**
@@ -188,6 +258,11 @@ export class AccountRepository extends Context.Service<
       userId: string
     ) => Effect.Effect<readonly AccountFormSubmissionRow[], AccountDatabaseError>
 
+    /** Load every file the caller attached to a chat, oldest first. */
+    readonly loadChatAttachments: (
+      userId: string
+    ) => Effect.Effect<readonly AccountChatAttachmentRow[], AccountDatabaseError>
+
     /**
      * Load every admin audit-log entry the caller made — the `audit_log` rows
      * whose `actor_id` equals `userId` — newest first.
@@ -200,6 +275,17 @@ export class AccountRepository extends Context.Service<
     readonly loadAuditTrail: (
       userId: string
     ) => Effect.Effect<readonly AccountAuditEntryRow[], AccountDatabaseError>
+
+    /**
+     * Load the caller's AI footprint: conversations and their messages and
+     * facts by `user_id`; tool calls by `caller_id` under `caller_type` 'oauth'
+     * or 'user'; activity entries by `actor_type = 'user'` with the id or
+     * `email` as actor, or by `user_email = email` whatever acted.
+     */
+    readonly loadAiFootprint: (
+      userId: string,
+      email: string
+    ) => Effect.Effect<AccountAiFootprint, AccountDatabaseError>
 
     /**
      * Read the caller's pending scheduled-erasure instant, or `undefined` when

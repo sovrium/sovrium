@@ -39,7 +39,7 @@ children:
   - type: link
     props:
       href: /feed.xml
-      className: flex items-center gap-1.5 text-[14px] text-foreground-muted no-underline hover:text-foreground
+      className: flex items-center gap-1.5 text-[14px] text-muted-foreground no-underline hover:text-foreground
     children:
       - type: icon
         props:

@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeTableToolbarPrimaryButtonClasses } from '@/presentation/design/table-default-classes'
+import {
+  TABLE_TOOLBAR_PRIMARY_BUTTON_PART,
+  computeTableToolbarPrimaryButtonClasses,
+} from '@/presentation/design/table-default-classes'
 import { SaveStatusIndicator } from '../../save-status-indicator'
 import { SearchToolbar } from './search-toolbar'
 import type { SaveStatus } from '../../../hooks/use-inline-editing'
@@ -49,6 +52,7 @@ export function LeadingControls(props: LeadingControlsProps) {
       {props.canCreate && (
         <button
           type="button"
+          {...TABLE_TOOLBAR_PRIMARY_BUTTON_PART}
           aria-label={props.newRecordLabel}
           onClick={props.onCreate}
           className={computeTableToolbarPrimaryButtonClasses()}

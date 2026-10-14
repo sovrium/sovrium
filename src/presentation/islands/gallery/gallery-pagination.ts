@@ -22,14 +22,8 @@ export interface PaginationConfig {
    * the schema states, never "no control": a `pageSize` that narrows the grid
    * with nothing to page by would put bound records out of reach).
    *
-   * `infinite` is accepted by the schema and deliberately NOT implemented:
-   * scroll-triggered paging needs a sentinel row, an intersection observer and
-   * a re-entrancy guard, and none of that can ship until something specifies
-   * how it behaves at the end of the set. The same refusal is written on the
-   * list's `loadMore` prop (`../list/list-island.tsx`) and on
-   * `PaginationStyleSchema`, which the published JSON Schema carries. A gallery
-   * declaring it therefore pages exactly as `numbered` does — the refusal costs
-   * the reader a nicer interaction, never a record.
+   * `infinite` grows the slice like `loadMore`, as the reader scrolls to the
+   * last card, through the same sentinel the table grid uses.
    */
   readonly style?: 'loadMore' | 'numbered' | 'infinite'
 }
@@ -54,8 +48,8 @@ interface PaginationView {
  * Compute what the grid draws, and which control gets the reader to the rest.
  *
  * Every style pages: the choice decides the CONTROL, never whether the records
- * past the first page are reachable. `loadMore` grows the slice from the top;
- * `numbered` — and `infinite`, which falls back to it — moves a window of
+ * past the first page are reachable. `loadMore` and `infinite` grow the slice
+ * from the top; `numbered` moves a window of
  * `pageSize`. With no `pageSize` at all there is no window and no control:
  * paging is opt-in, and a gallery that was not asked to page draws everything.
  */
@@ -77,7 +71,7 @@ export function computePaginationView(
   const pageCount = Math.max(1, Math.ceil(records.length / pageSize))
   const currentPage = Math.min(page, pageCount)
 
-  if (paginationStyle === 'loadMore') {
+  if (paginationStyle === 'loadMore' || paginationStyle === 'infinite') {
     const sliceCount = Math.min(page * pageSize, records.length)
     return {
       visibleRecords: records.slice(0, sliceCount),

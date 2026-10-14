@@ -16,7 +16,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -103,7 +103,7 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: text-xs text-foreground-muted
+                          className: text-xs text-muted-foreground
                         content: Largest first · rejected claims left out
                       - type: chart
                         chartType: donut
@@ -141,7 +141,7 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: text-xs text-foreground-muted
+                          className: text-xs text-muted-foreground
                         content: Claims by the date they were spent
                       - type: chart
                         chartType: bar
@@ -229,10 +229,10 @@ components:
                         variant: ghost
                         visibleWhen: { field: status, eq: Pending }
                         action:
-                          action: openDrawer
+                          action: openSheet
                           component: claim-reason
                 onRowClick:
-                  action: openDrawer
+                  action: openSheet
                   component: claim-decision
                 pagination:
                   pageSize: 25
@@ -296,7 +296,7 @@ components:
           # footer. Rejecting goes through Reject on the row, which asks why.
           # Declared first on purpose: when several drawers show the same
           # table, a `?record=` link opens the first one declared.
-          - type: drawer
+          - type: sheet
             id: claim-decision
             drawerSide: right
             drawerSize: md
@@ -332,7 +332,7 @@ components:
           # Rejecting a claim, from Reject on its row: write why and save. The
           # claim is then marked Rejected (config/automations/reject-with-reason.yaml),
           # and the person who filed it reads why on their own claim.
-          - type: drawer
+          - type: sheet
             id: claim-reason
             drawerSide: right
             drawerSize: md

@@ -62,6 +62,18 @@ export const badgeFields = {
   ...i18nFields,
   badgeVariant: Schema.optional(BadgeVariantSchema),
   /**
+   * Makes the badge a link. Meant for `badgeVariant: link`, whose look is a
+   * link's; on another tone the badge still navigates.
+   */
+  href: Schema.optional(
+    Schema.String.annotate({
+      title: 'Link',
+      description:
+        "Makes the badge a link to this address. Meant for `badgeVariant: 'link'`; any tone navigates.",
+      examples: ['/invoices/unpaid'],
+    })
+  ),
+  /**
    * Specialized rendering mode. When set to `'status'`, the badge renders
    * the status-indicator UI (colored dot + label, optional pulse).
    */
@@ -79,8 +91,8 @@ export const badgeFields = {
       Schema.annotate({
         title: 'Foreground',
         description:
-          'The ink being measured under variant: contrast — a token name or a literal colour (hex, `rgb()`, `oklch()`, `white`, `black`)',
-        examples: ['--sv-color-foreground', '#6b7f5e'],
+          'The ink being measured under variant: contrast — a token name such as `--foreground` or a literal colour (hex, `rgb()`, `oklch()`, `white`, `black`)',
+        examples: ['--foreground', '#6b7f5e'],
       }),
       Schema.check(Schema.isMinLength(1))
     )
@@ -92,7 +104,7 @@ export const badgeFields = {
         title: 'Background',
         description:
           'The ground the ink sits on under variant: contrast, in the same forms as `foreground`',
-        examples: ['--sv-color-background', 'white'],
+        examples: ['--background', 'white'],
       }),
       Schema.check(Schema.isMinLength(1))
     )
@@ -111,7 +123,7 @@ export const badgeFields = {
   /**
    * Color of the status dot. Maps to a design-system v1 semantic *solid*
    * token at render time (e.g. `green` → `--color-success-solid`, `red` →
-   * `--color-error-solid`). Only applies when `variant === 'status'`.
+   * `--color-destructive`). Only applies when `variant === 'status'`.
    */
   statusColor: Schema.optional(StatusDotColorSchema),
   /**

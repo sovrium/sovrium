@@ -7,7 +7,7 @@
 
 /**
  * The record drawer's footer actions (CAP-1): a row of buttons below the record
- * body, each firing against the loaded record — a `fetch`, or an `openDrawer`
+ * body, each firing against the loaded record — a `fetch`, or an `openSheet`
  * that hands the same record to the drawer it names — behind an optional
  * confirm gate. Split out of `record-drawer-content.tsx`, which composes it.
  */
@@ -20,6 +20,7 @@ import {
 import { executeFetchAction } from '../runtime/action-executor'
 import { dispatch } from '../runtime/event-bus'
 import { InlineConfirmDialog, ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
+import { renderToast } from '../runtime/toast'
 import type { Action, FetchAction } from '@/domain/models/app/pages/components/action'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
@@ -35,27 +36,42 @@ export interface DrawerAction {
 }
 
 /**
+ * A footer `fetch`: its toast either way, and on success the executor's shared
+ * outcome — `navigate` with `$record.*` read from the record the drawer shows
+ * (`action-outcome.ts`). `close` closes this drawer, which the footer belongs
+ * to. A refusal closes nothing.
+ */
+async function runDrawerFetch(
+  action: FetchAction,
+  record: RawRecord,
+  onLeave: () => void
+): Promise<void> {
+  const result = await executeFetchAction(action, { record, renderToast })
+  if (result?.ok === true && action.onSuccess?.close === true) onLeave()
+}
+
+/**
  * Dispatch a drawer footer action against the loaded record. Reuses the shared
  * `executeFetchAction` runtime — `$record.<field>` in the action's `url` / `body`
  * resolves against `record` at CLICK time (the drawer loads its record lazily).
- * An `openDrawer` action closes this drawer and opens the one it names.
+ * An `openSheet` action closes this drawer and opens the one it names.
  */
 function dispatchDrawerAction(action: Action, record: RawRecord, onLeave: () => void): void {
   if ('type' in action && action.type === 'fetch') {
-    void executeFetchAction(action as FetchAction, { record })
+    void runDrawerFetch(action as FetchAction, record, onLeave)
     return
   }
-  // `openDrawer` hands the SAME record to the drawer it names — a detail drawer
+  // `openSheet` hands the SAME record to the drawer it names — a detail drawer
   // whose footer opens the decision drawer — and steps aside for it, so one
   // modal surface is open at a time.
-  if ('action' in action && action.action === 'openDrawer') {
+  if ('action' in action && action.action === 'openSheet') {
     onLeave()
     dispatch('sovrium:open-drawer', { id: action.component, record })
   }
 }
 
 const ACTION_BUTTON_CLASS =
-  'border-border text-foreground hover:bg-background-subtle rounded border px-3 py-1.5 text-md transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+  'border-border text-foreground hover:bg-muted rounded border px-3 py-1.5 text-md transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 
 /**
  * A single footer action button. A `confirm`-bearing action arms the shared

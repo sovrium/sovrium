@@ -16,7 +16,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -121,7 +121,7 @@ components:
                 pagination:
                   pageSize: 100
                 onRowClick:
-                  action: openDrawer
+                  action: openSheet
                   component: piece-detail
                 emptyMessage: Every piece you plan lands here, grouped by campaign. Start with an idea — it needs only a title.
       - $ref: ./_piece-detail.yaml

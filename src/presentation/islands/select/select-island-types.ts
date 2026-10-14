@@ -10,6 +10,8 @@ export interface OptionItem {
   readonly value: string
   readonly disabled?: boolean
   readonly icon?: string
+  /** The group the option is listed under; consecutive options of one group form it. */
+  readonly group?: string
 }
 
 export interface SelectIslandProps {
@@ -27,10 +29,16 @@ export interface SelectIslandProps {
    * Read by `PlainSelect` only: it reaches `Select.Root`'s own `multiple`, and
    * the selected set is named in the closed trigger as one comma-separated
    * label — the primitive's own answer, and the one that keeps the trigger a
-   * single-line field. The searchable half stays single-valued.
+   * single-line field. On the searchable half it holds a set chosen by typing.
    */
   readonly multiple?: boolean
   readonly searchable?: boolean
+  /** On a combobox holding a set: draw each chosen value as a removable chip. */
+  readonly chips?: boolean
+  /** The form field name; a combobox submits each chosen value under it. */
+  readonly name?: string
+  /** Draw a clear control once a value is chosen (plain, single select). */
+  readonly clearable?: boolean
   /** Placeholder shown inside the combobox search input (only used when `searchable: true`). */
   readonly searchPlaceholder?: string
   /** Accept typed values not in the option list (combobox free-form input). */

@@ -37,10 +37,9 @@ import { swapUtility } from './table-class-swap'
 // The type step is the change that matters: the footer shipped at 14px, one
 // step ABOVE the 12px values it paginates, so the loudest text on the grid was
 // the chrome counting it. 11px muted puts it where a caption belongs.
-const TABLE_PAGER = [
-  'flex items-center gap-2 px-2 py-1.5 text-xs',
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-].join(' ')
+const TABLE_PAGER = ['flex items-center gap-2 px-2 py-1.5 text-xs', `text-muted-foreground`].join(
+  ' '
+)
 
 /**
  * Compute the default className for a pager bar.
@@ -57,11 +56,7 @@ export const computeTablePagerClasses = ({
 }: {
   readonly position?: 'top' | 'bottom'
 } = {}): string =>
-  [
-    TABLE_PAGER,
-    position === 'top' ? 'border-b' : 'border-t',
-    `border-[${v('sv-border', T.border)}]`,
-  ].join(' ')
+  [TABLE_PAGER, position === 'top' ? 'border-b' : 'border-t', `border-border`].join(' ')
 
 // Canvas: `height:26px; width:auto; padding:2px 8px; font-size:11px`.
 //
@@ -74,8 +69,8 @@ export const computeTablePagerClasses = ({
 const TABLE_PAGER_SELECT = [
   'select-compact h-6 w-auto border px-2 py-0.5 text-xs',
   `rounded-[${v('radius-base', T.radiusBase)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
+  `bg-card`,
+  `border-input`,
 ].join(' ')
 
 /** Compute the default className for the pager's page-size `<select>`. */
@@ -125,8 +120,8 @@ export const computeTablePagerButtonClasses = ({
 // that belongs to controls.
 const TABLE_BULK_BAR = [
   'flex items-center gap-2.5 border-b px-2 py-1.5 text-sm',
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `border-[${v('sv-border', T.border)}]`,
+  `bg-muted`,
+  `border-border`,
 ].join(' ')
 
 /** Compute the default className for the bulk-actions bar. */
@@ -135,10 +130,9 @@ export const computeTableBulkBarClasses = (): string => TABLE_BULK_BAR
 /**
  * Compute the default className for the bulk bar's `N selected` count.
  *
- * MONO, and that is the whole of what this part adds. The count changes on
- * every click, and in a proportional face `1 selected` and `11 selected` are
+ * Tabular digits, and that is the whole of what this part adds. The count
+ * changes on every click, and with proportional digits `1 selected` and `11 selected` are
  * different widths — so the label beside it, and every button after it, shifts
  * sideways each time the reader ticks a row. Tabular digits hold the row still.
  */
-export const computeTableBulkBarCountClasses = (): string =>
-  `font-mono text-sm text-[${v('sv-fg', T.fg)}]`
+export const computeTableBulkBarCountClasses = (): string => `tabular-nums text-sm text-foreground`

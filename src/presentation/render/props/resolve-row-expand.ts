@@ -17,7 +17,7 @@ import type { Tables } from '@/domain/models/app/tables'
  * `rowExpand` is a shorthand for the wiring an author writes by hand today: a
  * row-click that opens a drawer, plus a sibling `record-drawer` bound to the
  * same table. So it is RESOLVED into exactly that — a synthesized drawer beside
- * the grid, and an `openDrawer` row-click pointing at it — rather than given a
+ * the grid, and an `openSheet` row-click pointing at it — rather than given a
  * second panel implementation inside the grid island.
  *
  * Two things follow, and both are the reason for this shape:
@@ -82,6 +82,24 @@ function narrowFields(
  * input would print an object as `[object Object]` and could not edit the
  * structure without losing it. Every other entry is drawn as derived.
  */
+/**
+ * An entry the grid shows as a column is named as its column header names it:
+ * the column's `label` wins over the field's own.
+ */
+function withColumnLabels(
+  fields: readonly DerivedRecordField[],
+  columns: unknown
+): readonly DerivedRecordField[] {
+  if (!Array.isArray(columns)) return fields
+  return fields.map((field) => {
+    const column = (columns as readonly Record<string, unknown>[]).find(
+      (candidate) => candidate['field'] === field.name
+    )
+    const label = column?.['label']
+    return typeof label === 'string' ? { ...field, label } : field
+  })
+}
+
 const withStructuredRendering = (
   field: DerivedRecordField
 ): DerivedRecordField | (DerivedRecordField & { readonly renderAs: 'key-value' }) =>
@@ -119,9 +137,13 @@ export function resolveRowExpandDrawerProps(params: {
     title: expand.title ?? resolveInterpreterString('recordDrawer.title', currentLang, languages),
     role: 'dialog',
     table: dataSource?.table,
-    recordFields: narrowFields(derived, expand.fields).map(withStructuredRendering),
+    recordFields: withColumnLabels(narrowFields(derived, expand.fields), comp['columns']).map(
+      withStructuredRendering
+    ),
     canEdit: expand.canEdit !== false,
     saveLabel: resolveInterpreterString('recordDrawer.save', currentLang, languages),
+    savingLabel: resolveInterpreterString('form.saving', currentLang, languages),
+    runningLabel: resolveInterpreterString('action.running', currentLang, languages),
     closeLabel: resolveInterpreterString('recordDrawer.close', currentLang, languages),
   }
 }
@@ -130,15 +152,15 @@ export function resolveRowExpandDrawerProps(params: {
  * The row-click the grid island runs when the grid expands: open the drawer
  * synthesized above.
  *
- * Written in the `{ action: 'openDrawer', component }` spelling the island
+ * Written in the `{ action: 'openSheet', component }` spelling the island
  * already narrows, so `rowExpand` reaches the row through the SAME prop a
  * hand-wired `onRowClick` does. Declaring both keys is refused at validation, so
  * this never overwrites an author's own row-click.
  */
 export function resolveRowExpandRowClick(
   component: Component | undefined
-): { readonly action: 'openDrawer'; readonly component: string } | undefined {
+): { readonly action: 'openSheet'; readonly component: string } | undefined {
   const comp = (component ?? {}) as Record<string, unknown>
   if (!normalizeRowExpand(comp['rowExpand'] as DataTableRowExpand | undefined)) return undefined
-  return { action: 'openDrawer', component: rowExpandDrawerId(component) }
+  return { action: 'openSheet', component: rowExpandDrawerId(component) }
 }

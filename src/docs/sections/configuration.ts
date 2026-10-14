@@ -7,6 +7,7 @@
 
 import configValidationBody from '@/cli/commands/config-validation.docs.md' with { type: 'file' }
 import configurationTypescriptBody from '@/cli/commands/configuration-typescript.docs.md' with { type: 'file' }
+import envVarsAiBody from '@/cli/commands/env-vars-ai.docs.md' with { type: 'file' }
 import envVarsBrowserBody from '@/cli/commands/env-vars-browser.docs.md' with { type: 'file' }
 import envVarsDocumentsBody from '@/cli/commands/env-vars-documents.docs.md' with { type: 'file' }
 import envVarsHostingBody from '@/cli/commands/env-vars-hosting.docs.md' with { type: 'file' }
@@ -168,13 +169,12 @@ export const configuration = defineSection({
     }),
     defineArticle({
       slug: 'env-vars-services',
-      title: 'Environment Variables: Storage, AI, Email and Observability',
+      title: 'Environment Variables: Storage, Email and Observability',
       description:
-        'The service variables, every one of them off, local or frugal by default — storage, AI providers, SMTP, the MCP server, eco levers and observability export.',
+        'The service variables, every one of them off, local or frugal by default — storage, SMTP, the MCP server, eco levers and observability export.',
       keywords: [
         'sovrium',
         'STORAGE_PROVIDER',
-        'AI_PROVIDER',
         'SMTP_HOST',
         'MCP_ENABLED',
         'ECO_MODE',
@@ -194,6 +194,29 @@ export const configuration = defineSection({
         'US-INFRASTRUCTURE-OBSERVABILITY-PERFORMANCE',
         'US-INFRASTRUCTURE-OBSERVABILITY-TRACING',
       ],
+    }),
+    defineArticle({
+      slug: 'env-vars-ai',
+      title: 'Environment Variables: AI and Speech',
+      description:
+        'The AI provider and its model, the limits on every chat turn and on the files a chat reads, how long conversations are kept, document retrieval, and speech-to-text.',
+      keywords: [
+        'sovrium',
+        'AI_PROVIDER',
+        'AI_VISION',
+        'AI_CHAT_RATE_LIMIT',
+        'AI_CHAT_MAX_FILE_CHARS',
+        'AI_MEMORY_MAX_AGE_DAYS',
+        'AI_RAG_CHUNK_SIZE',
+        'STT_PROVIDER',
+      ],
+      order: 1216,
+      sidebarLabel: 'Env Vars: AI',
+      body: envVarsAiBody,
+      documents: [],
+      // No `stories:`: the AI stories are claimed by the articles that document
+      // the chat, memory and retrieval themselves.
+      stories: [],
     }),
     defineArticle({
       slug: 'env-vars-documents',

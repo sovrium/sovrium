@@ -20,7 +20,7 @@ children:
           - type: text
             element: p
             props:
-              className: mt-1 text-sm text-foreground-subtle
+              className: mt-1 text-sm text-muted-foreground
             content: Shown to members of Finance and Operations.
       - type: description-list
         layout: rows

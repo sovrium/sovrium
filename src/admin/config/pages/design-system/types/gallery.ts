@@ -76,10 +76,9 @@ const gallery: TypePageBody = {
       label: 'carousel',
       children: [
         {
-          type: 'gallery',
+          type: 'carousel',
           props: { id: 'design-system-gallery-carousel' },
           dataSource: BOUND,
-          layout: 'carousel',
           emptyMessage: 'No specimen rows',
         },
       ],
@@ -93,7 +92,6 @@ const gallery: TypePageBody = {
       drawings: [
         { label: "layout: 'grid'", children: [shelf('gal-grid', { layout: 'grid' })] },
         { label: "layout: 'masonry'", children: [shelf('gal-masonry', { layout: 'masonry' })] },
-        { label: "layout: 'carousel'", children: [shelf('gal-carousel', { layout: 'carousel' })] },
       ],
     },
     {
@@ -127,7 +125,7 @@ const gallery: TypePageBody = {
                     type: 'text',
                     element: 'p',
                     content: '$record.role',
-                    props: { className: 'text-foreground-subtle text-[11px]' },
+                    props: { className: 'text-muted-foreground text-xs' },
                   },
                 ],
               },
@@ -152,7 +150,7 @@ const gallery: TypePageBody = {
                 '      - type: text\n' +
                 '        content: View profile\n' +
                 '  onClick:\n' +
-                '    action: openDrawer\n' +
+                '    action: openSheet\n' +
                 '    component: person-drawer',
             } as PageComponent,
           ],

@@ -91,6 +91,7 @@ export const transcribeOverHttp = (
       parseTranscript(payload, {
         model: request.model,
         timestamps: request.input.timestamps === true,
+        joinSegments: isWhisperCpp,
       })
     )
   )

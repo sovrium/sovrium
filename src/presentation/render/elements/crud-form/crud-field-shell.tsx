@@ -8,10 +8,10 @@
 import { type ReactElement, type ReactNode } from 'react'
 import { fieldDescriptionId } from '@/presentation/design/field-display'
 import {
-  computeFormFieldClasses,
-  computeFormFieldLabelClasses,
-  computeFormHelpTextClasses,
-} from '../../../design/forms-default-classes'
+  computeFieldClasses,
+  computeFieldDescriptionClasses,
+  computeFieldLabelClasses,
+} from '../../../design/field-default-classes'
 
 /**
  * Minimal shape needed by CrudFieldShell. Re-declared here to avoid a circular
@@ -26,7 +26,7 @@ type CrudFieldShellField = {
   readonly description?: string
 }
 
-const HELP_TEXT_CLASS = `help-text ${computeFormHelpTextClasses()}`
+const HELP_TEXT_CLASS = `help-text ${computeFieldDescriptionClasses()}`
 
 function labelText(field: CrudFieldShellField): string {
   return field.displayLabel ?? field.name
@@ -64,14 +64,19 @@ export function CrudFieldShell({
 }: CrudFieldShellProps): ReactElement {
   return (
     <label
-      className={computeFormFieldClasses()}
+      data-slot="field"
+      data-orientation="vertical"
+      className={computeFieldClasses()}
       {...labelProps}
     >
-      <span className={computeFormFieldLabelClasses()}>
+      <span
+        data-slot="field-label"
+        className={computeFieldLabelClasses()}
+      >
         {labelText(field)}
         {field.required && (
           <span
-            className="text-error-fg ml-0.5"
+            className="text-destructive ml-0.5"
             aria-hidden="true"
           >
             *
@@ -82,6 +87,7 @@ export function CrudFieldShell({
       {field.description !== undefined && (
         <small
           id={fieldDescriptionId(field.name)}
+          data-slot="field-description"
           className={HELP_TEXT_CLASS}
         >
           {field.description}

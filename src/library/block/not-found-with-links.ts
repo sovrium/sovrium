@@ -30,24 +30,24 @@ const destination = (
   props: {
     href,
     className:
-      'flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-background-subtle focus-visible:outline-2 focus-visible:outline-offset-2',
+      'flex items-center gap-4 border-b border-border py-4 text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2',
   },
   children: [
     {
       type: 'icon',
-      props: { name: iconName, size: 20, className: 'flex-none text-foreground-subtle' },
+      props: { name: iconName, size: 20, className: 'flex-none text-muted-foreground' },
     },
     {
       type: 'flex',
       props: { className: 'flex min-w-0 flex-1 flex-col' },
       children: [
         span(title, 'text-md font-semibold text-foreground'),
-        span(description, 'text-sm text-foreground-subtle'),
+        span(description, 'text-sm text-muted-foreground'),
       ],
     },
     {
       type: 'icon',
-      props: { name: 'chevron-right', size: 18, className: 'flex-none text-foreground-subtle' },
+      props: { name: 'chevron-right', size: 18, className: 'flex-none text-muted-foreground' },
     },
   ],
 })
@@ -103,7 +103,7 @@ export const entry = defineLibraryEntry({
             [
               stack(
                 [
-                  span('404', 'font-mono text-md text-foreground-subtle'),
+                  span('404', 'font-mono text-md text-muted-foreground'),
                   h1(p('headline')),
                   lead(p('subheadline')),
                   {
@@ -126,7 +126,7 @@ export const entry = defineLibraryEntry({
             'max-w-xl'
           ),
         ],
-        { element: 'main' }
+        { element: 'div' }
       )
     )
   },

@@ -19,7 +19,7 @@ const inCorner = (children: readonly PageComponent[]): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className: 'border-border bg-background-subtle flex w-full justify-end rounded-lg border p-6',
+      className: 'border-border bg-muted flex w-full justify-end rounded-lg border p-6',
     },
     children: [...children],
   }) as PageComponent
@@ -29,8 +29,7 @@ const toastOf = (variant: string, title: string, body: string): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className:
-        'border-border bg-background-raised flex w-72 flex-col gap-1 rounded-lg border p-3 shadow-md',
+      className: 'border-border bg-card flex w-72 flex-col gap-1 rounded-lg border p-3 shadow-md',
     },
     children: [
       {

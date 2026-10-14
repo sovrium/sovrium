@@ -75,7 +75,7 @@ export function DialogFooter({
         className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
         onClick={onClose}
       >
-        Cancel
+        {importResult ? 'Done' : 'Cancel'}
       </button>
     </div>
   )

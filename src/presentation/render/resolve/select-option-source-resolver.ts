@@ -108,9 +108,10 @@ function isSystemBinding(
  */
 const MAX_RESOLVED_OPTIONS = 1000
 
-/** True for a `select` that declares the narrow option-source binding. */
+const SELECT_FAMILY: ReadonlySet<string> = new Set(['select', 'combobox', 'native-select'])
+/** True for a select-family control declaring the narrow option-source binding. */
 function isBoundSelect(component: Component): component is BoundSelect {
-  if (component.type !== 'select') return false
+  if (!SELECT_FAMILY.has(component.type)) return false
   const { dataSource } = component as { dataSource?: unknown }
   return dataSource !== null && typeof dataSource === 'object'
 }

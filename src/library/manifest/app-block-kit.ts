@@ -64,30 +64,18 @@ export const plainButton = (
   extra: Readonly<Record<string, unknown>> = {}
 ): BlockNode => ({ type: 'button', variant, label, ...extra })
 
-/** An icon-only link with an accessible name. */
-export const iconLink = (iconName: string, label: string, href: string): BlockNode => ({
-  type: 'link',
-  props: {
-    href,
-    'aria-label': label,
-    className:
-      'inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground',
-  },
-  children: [{ type: 'icon', props: { name: iconName, size: 18 } }],
-})
-
 /** A dashed placeholder region: where the operator's own content goes. */
 export const slot = (label: string, extra = 'h-40'): BlockNode => ({
   type: 'container',
   props: {
     className:
-      `flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle ${extra}`.trim(),
+      `flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-muted ${extra}`.trim(),
   },
   children: [
     {
       type: 'text',
       element: 'span',
-      props: { className: 'font-mono text-sm text-foreground-subtle' },
+      props: { className: 'font-mono text-sm text-muted-foreground' },
       content: label,
     },
   ],
@@ -155,7 +143,7 @@ export const menuLink = (label: string, href: string, nested = false): BlockNode
   props: {
     href,
     className: nested
-      ? 'block border-b border-border py-3 pl-4 text-md text-foreground-muted'
+      ? 'block border-b border-border py-3 pl-4 text-md text-muted-foreground'
       : 'block border-b border-border py-3 text-lg font-medium text-foreground',
   },
   content: label,

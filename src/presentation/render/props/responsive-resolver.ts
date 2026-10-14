@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { responsiveColumnsClass } from '../styling/class-builders'
 import type { Responsive, VariantOverrides } from '@/domain/models/app/pages/components/responsive'
 import type { Breakpoint } from '@/presentation/render/props/use-breakpoint'
 
@@ -210,4 +211,24 @@ export function buildResponsiveClasses(
 
   // Combine base with responsive classes
   return [effectiveBase, responsiveClasses].filter(Boolean).join(' ').trim() || undefined
+}
+
+/**
+ * Builds breakpoint-prefixed `grid-cols-*` classes from the `columns` a
+ * breakpoint override sets, e.g. `{ sm: { props: { columns: 2 } } }` →
+ * `sm:grid-cols-2`.
+ *
+ * `columns` is otherwise resolved once, at the render breakpoint — which on the
+ * server is always `mobile` — so without these classes a grid keeps its mobile
+ * column count at every viewport. The mobile override is the base column count
+ * and is already applied through the merged props, so it is skipped here.
+ */
+export function buildResponsiveColumnClasses(
+  responsive: Responsive | undefined
+): string | undefined {
+  if (!responsive) return undefined
+  const classes = BREAKPOINT_ORDER.flatMap((bp) =>
+    bp === 'mobile' ? [] : [responsiveColumnsClass(bp, responsive[bp]?.props?.columns)]
+  ).filter(Boolean)
+  return classes.length > 0 ? classes.join(' ') : undefined
 }

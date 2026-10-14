@@ -9,7 +9,7 @@ Before the runtime invokes a model it assembles context from whichever tiers an 
 | `knowledge` | Read-only sources | Read       | Retrieves relevant documents by semantic search |
 | `facts`     | Across sessions   | Read/write | Remembers what the agent learns over time       |
 
-**Chat history is not configured here.** Recent-message context is durable and keyed on the user and the session rather than declared per agent, and the operator caps how many prior messages are replayed.
+**Chat history is not configured here.** Recent-message context is durable and keyed on the user and the session rather than declared per agent, and the operator caps how many prior messages are replayed. How a user finds, edits and branches a past conversation is described under [Conversation history](#conversation-history).
 
 ```yaml
 agents:
@@ -55,3 +55,29 @@ The property that matters in practice: an agent cannot leak one customer's learn
 ## Composing the tiers
 
 Both are optional and combine freely. A read-only analyst might enable only knowledge; a long-running support agent enables both. With both on, context is assembled from each before the model is invoked — the retrieved documents and the relevant facts, together.
+
+## Conversation history
+
+Every chat turn of a signed-in user is stored with the session it belongs to, so a conversation can be found again, corrected, or asked again. All of it is the user's own: another user's conversation answers `404`, as one that does not exist.
+
+| Route                                                                    | Does                                                                                          |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `GET /api/ai/conversations`                                              | Lists the user's conversations, most recent activity first, each titled by its first question |
+| `GET /api/ai/conversations/{sessionId}`                                  | Returns the conversation's current branch                                                     |
+| `POST /api/ai/conversations/{sessionId}/messages/{messageId}/edit`       | Replaces a question with `{ content }` and answers the new text                               |
+| `POST /api/ai/conversations/{sessionId}/messages/{messageId}/regenerate` | Asks for another answer to the same question                                                  |
+| `DELETE /api/ai/conversations/{sessionId}`                               | Deletes the conversation, its messages and the files sent in it                               |
+
+The list takes `agent` to show one agent's conversations only, and `limit` (up to 100, 50 by default) and `offset` to page through them; `total` counts them all.
+
+### How long conversations are kept
+
+A conversation is kept until its user deletes it or their account is erased, unless the operator sets `AI_MEMORY_MAX_AGE_DAYS`. Then, at the start of the user's next turn on `POST /api/ai/chat` or `POST /api/ai/chat/stream`, their conversations with no message for longer than that many days are deleted, together with every file sent in them: the messages, the uploads' records and their stored bytes, all hard-deleted. `AI_MEMORY_CONTEXT_MESSAGES` caps how many of a conversation's most recent messages are sent to the model with each turn. Both are listed in **Env Vars: AI**.
+
+### Edits and regenerations keep what came before
+
+Neither an edit nor a regeneration overwrites a message. Each adds an alternative beside the message it replaces, and the conversation continues from the newest alternative. The model is sent the conversation as it stood before the replaced message, never the exchange being replaced. An edit answers the new text and keeps the old question with its answer; a regeneration keeps the old answer. A question sent with files is answered with them again: an edit replaces its text and keeps its files, and a regeneration reads them anew.
+
+Reading a conversation returns its current branch, each assistant message with its answer rendered as sanitized `html`, as the chat stream renders it. A message with alternatives lists their ids in `siblings`, itself included, oldest first, which is what a window needs to show "2 / 3". To read another alternative, pass its id as `branch`: the answer is the conversation through that message, followed by its newest continuation. Both routes answer with the new reply and the branch it now ends.
+
+A new message in the chat continues the current branch. An account export includes every message of every alternative, and deleting the conversation or the account deletes them all.

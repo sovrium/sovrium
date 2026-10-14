@@ -70,25 +70,25 @@ const consoleTopbar = {
     {
       type: 'text',
       element: 'span',
-      props: { className: 'text-foreground-muted text-sm' },
+      props: { className: 'text-muted-foreground text-sm' },
       content: '$app',
     },
     {
       type: 'text',
       element: 'span',
-      props: { className: 'text-foreground-muted text-sm' },
+      props: { className: 'text-muted-foreground text-sm' },
       content: '/',
     },
     {
       type: 'text',
       element: 'span',
-      props: { className: 'text-foreground-muted hidden text-sm sm:inline' },
+      props: { className: 'text-muted-foreground hidden text-sm sm:inline' },
       content: '$area',
     },
     {
       type: 'text',
       element: 'span',
-      props: { className: 'text-foreground-muted hidden text-sm sm:inline' },
+      props: { className: 'text-muted-foreground hidden text-sm sm:inline' },
       content: '/',
     },
     {
@@ -107,7 +107,7 @@ const consoleTopbar = {
           props: {
             name: 'search',
             size: 16,
-            className: 'text-foreground-muted size-8 rounded-md p-2',
+            className: 'text-muted-foreground size-8 rounded-md p-2',
             'aria-label': 'Search',
           },
         },
@@ -116,7 +116,7 @@ const consoleTopbar = {
           props: {
             name: 'moon',
             size: 16,
-            className: 'text-foreground-muted size-8 rounded-md p-2',
+            className: 'text-muted-foreground size-8 rounded-md p-2',
             'aria-label': 'Toggle theme',
           },
         },
@@ -159,7 +159,7 @@ const dataPageHeader = {
           element: 'span',
           props: {
             className:
-              'bg-background-muted text-foreground-muted rounded-xs px-1.5 py-0.5 text-[11px]',
+              'bg-background-muted text-muted-foreground rounded-xs px-1.5 py-0.5 text-[11px]',
           },
           content: '$count',
         },
@@ -196,7 +196,7 @@ const dataPageHeader = {
           element: 'span',
           props: {
             className:
-              'border-border text-foreground-muted flex h-8 w-70 max-w-full items-center rounded-xs border px-3 text-sm',
+              'border-border text-muted-foreground flex h-8 w-70 max-w-full items-center rounded-xs border px-3 text-sm',
           },
           content: '$searchLabel',
         },
@@ -205,7 +205,7 @@ const dataPageHeader = {
           element: 'span',
           props: {
             className:
-              'border-border text-foreground-muted rounded-md border px-2.5 py-1 font-mono text-xs',
+              'border-border text-muted-foreground rounded-md border px-2.5 py-1 font-mono text-xs',
           },
           content: '$filterOne',
         },
@@ -214,14 +214,14 @@ const dataPageHeader = {
           element: 'span',
           props: {
             className:
-              'border-border text-foreground-muted hidden rounded-md border px-2.5 py-1 font-mono text-xs sm:inline',
+              'border-border text-muted-foreground hidden rounded-md border px-2.5 py-1 font-mono text-xs sm:inline',
           },
           content: '$filterTwo',
         },
         {
           type: 'text',
           element: 'span',
-          props: { className: 'text-foreground-muted ml-auto flex-none text-xs' },
+          props: { className: 'text-muted-foreground ml-auto flex-none text-xs' },
           content: '$range',
         },
       ],
@@ -255,7 +255,7 @@ const emptyStateCard = {
           'border-border flex w-full flex-col items-start gap-2.5 rounded-lg border border-dashed px-7 py-6',
       },
       children: [
-        { type: 'icon', props: { name: 'zap', size: 18, className: 'text-foreground-muted' } },
+        { type: 'icon', props: { name: 'zap', size: 18, className: 'text-muted-foreground' } },
         {
           type: 'text',
           element: 'p',
@@ -305,7 +305,7 @@ const auditRow = {
       element: 'span',
       props: {
         className:
-          'bg-background-muted text-foreground-muted flex size-6.5 flex-none items-center justify-center rounded-full text-[11px] font-medium',
+          'bg-background-muted text-muted-foreground flex size-6.5 flex-none items-center justify-center rounded-full text-[11px] font-medium',
       },
       content: '$initial',
     },
@@ -342,7 +342,7 @@ const auditRow = {
         {
           type: 'text',
           element: 'span',
-          props: { className: 'text-foreground-muted text-[11px]' },
+          props: { className: 'text-muted-foreground text-[11px]' },
           content: '$surface',
         },
       ],
@@ -350,7 +350,7 @@ const auditRow = {
     {
       type: 'text',
       element: 'span',
-      props: { className: 'text-foreground-muted flex-none font-mono text-[11px]' },
+      props: { className: 'text-muted-foreground flex-none font-mono text-[11px]' },
       content: '$at',
     },
   ],

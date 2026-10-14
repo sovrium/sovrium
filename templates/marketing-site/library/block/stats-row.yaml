@@ -1,4 +1,5 @@
-# sovrium-library: block/stats-row@0.30.0
+# sovrium-library: block/stats-row@0.37.0
+# sovrium-library-params: headline=%5BWhat%20these%20numbers%20prove%5D&source=%5BSource%20%C2%B7%20date%5D
 name: stats-row
 type: container
 element: section
@@ -21,7 +22,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-sm text-foreground-subtle
+              className: text-sm text-muted-foreground
             content: '[Source · date]'
       - type: grid
         props:
@@ -39,7 +40,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                 content: '[What figure 1 measures]'
           - type: flex
             props:
@@ -53,7 +54,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                 content: '[What figure 2 measures]'
           - type: flex
             props:
@@ -67,7 +68,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                 content: '[What figure 3 measures]'
           - type: flex
             props:
@@ -81,5 +82,5 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                  className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                 content: '[What figure 4 measures]'

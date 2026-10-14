@@ -51,7 +51,7 @@ export const entry = defineLibraryEntry({
       section([
         stack(
           [
-            icon('quote', 'text-foreground-subtle', 30),
+            icon('quote', 'text-muted-foreground', 30),
             {
               type: 'text',
               element: 'blockquote',

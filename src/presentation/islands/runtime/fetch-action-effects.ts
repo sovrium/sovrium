@@ -5,8 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { leavesPage } from './action-outcome'
 import { dispatch as dispatchIslandEvent } from './event-bus'
-import { substituteResponse, substituteRecordInBody } from './fetch-action-substitution'
+import {
+  substituteRecord,
+  substituteResponse,
+  substituteRecordInBody,
+} from './fetch-action-substitution'
 import { refreshServerRenderedRegions } from './refetch-server-rendered-region'
 import type {
   FetchAction,
@@ -58,6 +63,18 @@ export interface ExecuteFetchActionOptions {
    * targets the clicked row's object. Absent for non-row gestures.
    */
   readonly record?: Record<string, unknown>
+  /**
+   * The control the action was pressed from: the overlay it sits in is the one
+   * `onSuccess.close` closes. Absent, there is nothing to close.
+   */
+  readonly origin?: Element
+  /**
+   * The success toast, when the caller draws a richer one than `renderToast`
+   * (`duration`, an action link). Runs first, in place of `renderToast`.
+   */
+  readonly successToast?: () => void
+  /** The caller's own success effect (an endpoint form's reset), after `status`/`refetch`. */
+  readonly successEffects?: () => void
 }
 
 /** A toast slot (the action's `onSuccess` / `onError`), possibly absent. */
@@ -178,6 +195,36 @@ export function applyFetchSuccessEffects(
     void refreshServerRenderedRegions(ids)
   }
   if (onSuccess.reload === true && typeof window !== 'undefined') window.location.reload()
+}
+
+/**
+ * Where a fetch action's success goes next: its `onSuccess.navigate`, with each
+ * `$response.<path>` read from the body the request returned and each
+ * `$record.<field>` from the row it was pressed on — the same two readers the
+ * request and the status message use. `undefined` when it names no address.
+ */
+export function fetchSuccessNavigate(
+  onSuccess: FetchAction['onSuccess'],
+  body: unknown,
+  record?: Record<string, unknown>
+): string | undefined {
+  const navigate = onSuccess?.navigate
+  return navigate === undefined
+    ? undefined
+    : substituteRecord(substituteResponse(navigate, body), record)
+}
+
+/**
+ * True when a fetch action's success leaves the page — it reloads the document
+ * (`onSuccess.reload`), or navigates to another one: the control that sent it
+ * then stays pending until the page goes.
+ */
+export function fetchSuccessLeaves(
+  result: { readonly ok: boolean; readonly body?: unknown } | undefined,
+  onSuccess: FetchAction['onSuccess']
+): boolean {
+  if (result?.ok !== true || onSuccess === undefined) return false
+  return onSuccess.reload === true || leavesPage(fetchSuccessNavigate(onSuccess, result.body))
 }
 
 /**

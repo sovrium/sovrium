@@ -30,6 +30,7 @@ import {
   withScopesText,
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { fillRecordIntoTypedField } from '@/presentation/render/elements/button-navigate-action'
+import { walkComponentSlots, type ComponentListEntry } from './component-slot-walk'
 import {
   fillProseField,
   substituteRecordInProps,
@@ -254,6 +255,15 @@ export function substituteRecordInComponent(
   }
   const resolvedContent = substituteRecordInContent(component.content, record)
   const describedItems = withDescriptionFieldValues(component, record, tableName)
+  const withheld = substitution === 'stop-at-nested-binding' && component.dataSource !== undefined
+  const walk = (entries: readonly ComponentListEntry[]): readonly ComponentListEntry[] =>
+    withheld
+      ? entries
+      : filterChildrenForRecord(entries, record).map((child) =>
+          typeof child === 'string'
+            ? substituteRecordVars(child, withRecordText(record))
+            : substituteRecordInComponent(child, record, tableName, substitution)
+        )
   return {
     ...component,
     // Every OTHER string leaf — a component's own TYPED fields.
@@ -289,16 +299,10 @@ export function substituteRecordInComponent(
     // read ever runs. Everything else about this node is still substituted,
     // including its own `dataSource`, which is what makes the inner read a
     // DIFFERENT read per outer row.
-    // Only the children are withheld; the typed-field walk above still runs.
-    children:
-      substitution === 'stop-at-nested-binding' && component.dataSource !== undefined
-        ? (component.children ?? [])
-        : filterChildrenForRecord(component.children ?? [], record).map(
-            (child: Component | string) =>
-              typeof child === 'string'
-                ? substituteRecordVars(child, withRecordText(record))
-                : substituteRecordInComponent(child, record, tableName, substitution)
-          ),
+    // Only the children and slots are withheld; the typed-field walk still runs.
+    // A slot (a card's `footer`) is walked as `children` is, replacing its blind walk.
+    ...walkComponentSlots(component, walk),
+    children: walk(component.children ?? []),
   }
 }
 

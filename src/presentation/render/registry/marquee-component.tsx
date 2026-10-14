@@ -12,8 +12,9 @@
  * its direction, the pause states, and the `prefers-reduced-motion` fallback —
  * lives in the `[data-marquee-*]` rules emitted by
  * `infrastructure/css/styles/marquee-styles-generator.ts`. The only JavaScript
- * involved is the delegated `marqueePauseScript` in `page-body-scripts.tsx`, and
- * only when the author asks for an explicit `pauseControl`.
+ * involved is the delegated `MARQUEE_PAUSE_SCRIPT`
+ * (`render/scripts/marquee-pause-script.ts`), and only when the author asks
+ * for an explicit `pauseControl`.
  *
  * ```
  * [data-marquee]                        root; carries data-marquee-direction

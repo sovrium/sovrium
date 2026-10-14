@@ -32,7 +32,7 @@ export const entry = defineLibraryEntry({
       appRegion([
         flex(
           [
-            span('Showing 21–40 of 142', 'text-sm text-foreground-subtle'),
+            span('Showing 21–40 of 142', 'text-sm text-muted-foreground'),
             { type: 'pagination', totalPages: 8, currentPage: 2, siblingCount: 1 },
           ],
           'flex-wrap items-center justify-between gap-4'

@@ -16,7 +16,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -80,10 +80,10 @@ components:
                 pagination:
                   pageSize: 25
                 onRowClick:
-                  action: openDrawer
+                  action: openSheet
                   component: contact-detail
                 emptyMessage: No contacts yet. Add the first person you sell to.
-              - type: drawer
+              - type: sheet
                 id: contact-detail
                 drawerSide: right
                 drawerSize: md

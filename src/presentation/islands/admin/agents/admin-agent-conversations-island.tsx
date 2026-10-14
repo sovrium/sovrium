@@ -34,6 +34,10 @@ import {
 } from './admin-agent-conversations-state'
 import { ConversationThread } from './admin-agent-conversations-thread'
 
+/** @public Stub consumer (shadcn parity plan §9.1): a lazy edge to @shadcn/react until the conversation port. */
+// eslint-disable-next-line react-refresh/only-export-components -- a lazy loader, not a component
+export const loadMessageScrollerPrimitives = () => import('../../parts/message-scroller-primitives')
+
 interface AdminAgentConversationsIslandProps {
   /** The operator's agent names — the conversations are merged across all of them. */
   readonly agentNames?: ReadonlyArray<string>

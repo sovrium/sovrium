@@ -40,44 +40,44 @@ children:
         content: Account
         props:
           href: '/settings'
-          className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+          className: whitespace-nowrap rounded-md px-3 py-2 text-md text-muted-foreground hover:bg-muted hover:text-foreground
         activeWhen: { value: $query.section, equals: account }
         activeProps:
           aria-current: page
-          className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+          className: whitespace-nowrap rounded-md bg-muted px-3 py-2 text-md font-medium text-foreground
       - type: link
         content: Security
         props:
           href: '/settings/security'
-          className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+          className: whitespace-nowrap rounded-md px-3 py-2 text-md text-muted-foreground hover:bg-muted hover:text-foreground
         activeWhen: { value: $query.section, equals: security }
         activeProps:
           aria-current: page
-          className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+          className: whitespace-nowrap rounded-md bg-muted px-3 py-2 text-md font-medium text-foreground
       - type: link
         content: API keys
         props:
           href: '/settings/api-keys'
-          className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+          className: whitespace-nowrap rounded-md px-3 py-2 text-md text-muted-foreground hover:bg-muted hover:text-foreground
         activeWhen: { value: $query.section, equals: api-keys }
         activeProps:
           aria-current: page
-          className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+          className: whitespace-nowrap rounded-md bg-muted px-3 py-2 text-md font-medium text-foreground
       - type: link
         content: Team
         props:
           href: '/settings/team'
-          className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+          className: whitespace-nowrap rounded-md px-3 py-2 text-md text-muted-foreground hover:bg-muted hover:text-foreground
         activeWhen: { value: $query.section, equals: team }
         activeProps:
           aria-current: page
-          className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+          className: whitespace-nowrap rounded-md bg-muted px-3 py-2 text-md font-medium text-foreground
       - type: link
         content: Workspace
         props:
           href: '/settings/workspace/1'
-          className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+          className: whitespace-nowrap rounded-md px-3 py-2 text-md text-muted-foreground hover:bg-muted hover:text-foreground
         activeWhen: { value: $query.section, equals: workspace }
         activeProps:
           aria-current: page
-          className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+          className: whitespace-nowrap rounded-md bg-muted px-3 py-2 text-md font-medium text-foreground

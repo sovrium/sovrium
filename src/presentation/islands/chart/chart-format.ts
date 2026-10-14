@@ -158,3 +158,7 @@ function formatNumber(raw: string): string {
   const num = Number(raw)
   return Number.isFinite(num) ? String(num) : raw
 }
+
+/** A declared `tooltip.format` line: `{label}` names the hovered entry and `{value}` reads its value. */
+export const formatTooltipText = (format: string, label: string, value: number): string =>
+  format.replaceAll('{label}', label).replaceAll('{value}', String(value))

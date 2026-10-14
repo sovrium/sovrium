@@ -25,7 +25,7 @@ export const recordPanel = (title: string, children: readonly BlockNode[]): Bloc
   element: 'section',
   props: {
     className:
-      'flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5',
+      'flex min-w-0 flex-col gap-4 rounded-xl bg-card p-4 text-card-foreground ring-1 ring-foreground/10',
     ...(title === '' ? {} : { 'aria-label': title }),
   },
   children: [
@@ -35,7 +35,7 @@ export const recordPanel = (title: string, children: readonly BlockNode[]): Bloc
           {
             type: 'text',
             element: 'h2',
-            props: { className: 'text-md font-semibold text-foreground' },
+            props: { className: 'text-base leading-snug font-medium' },
             content: title,
           },
         ]),
@@ -51,7 +51,7 @@ export const recordFact = (label: string, field: string): BlockNode => ({
     {
       type: 'text',
       element: 'span',
-      props: { className: 'text-sm text-foreground-muted' },
+      props: { className: 'text-sm text-muted-foreground' },
       content: label,
     },
     { type: 'record-field', props: { field, className: 'text-md text-foreground' } },

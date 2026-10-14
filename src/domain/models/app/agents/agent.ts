@@ -14,6 +14,7 @@ import { AgentMcpSchema } from './mcp'
 import { AgentMemorySchema } from './memory'
 import { AgentPermissionsSchema } from './permissions'
 import { AgentScheduleSchema } from './schedule'
+import { AgentSkillsSchema } from './skills'
 import { AgentCapabilitiesSchema } from './tools'
 
 /**
@@ -55,6 +56,9 @@ export const AgentSchema = Schema.Struct({
 
   /** MCP client configuration for external tool servers */
   mcp: Schema.optional(AgentMcpSchema),
+
+  /** Skill directories the agent may load on demand (Agent Skills format) */
+  skills: Schema.optional(AgentSkillsSchema),
 }).pipe(
   Schema.annotate({
     identifier: 'Agent',

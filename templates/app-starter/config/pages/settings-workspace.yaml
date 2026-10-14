@@ -35,6 +35,6 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: 'The settings that apply to everyone in the workspace.'
           - component: settings-form

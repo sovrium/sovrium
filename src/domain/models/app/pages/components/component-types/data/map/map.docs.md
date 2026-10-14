@@ -8,7 +8,9 @@ A `map` places one pin per record at the value of a `geolocation` field. It bind
 
 `locationField` names the `geolocation` field and `labelField` the field that names each pin — on its card, in its accessible name and in the list twin. `colorField` fills each pin with the colour of a select or status option; without it every pin is drawn in the foreground ink. Nearby pins are grouped into one marker carrying their count unless `cluster: false`. The map opens fitted to its pins, or on a fixed view when `center: { lat, lng }` and `zoom` are given, at `height` pixels (400 by default).
 
-Clicking a pin opens its card. With `onPinClick` set, the card carries an Open button that runs it — `openDrawer` to show the record in a drawer on the page, or `navigate` to its own page; without it, the card names the record and offers no Open. The `+` and `−` controls in the corner change the scale, for a keyboard as for a pointer.
+Clicking a pin opens its card. With `onPinClick` set, the card carries an Open button that runs it — `openSheet` to show the record in a drawer on the page, or `navigate` to its own page; without it, the card names the record and offers no Open. The `+` and `−` controls in the corner change the scale, for a keyboard as for a pointer.
+
+The map sits in a frame edged by a faint ring, its zoom controls a vertical group of two outline buttons, a cluster marker a badge, a pin's card on the popover surface and each entry of the list twin an item. Reference: shadcn/ui Button Group, Item, Popover.
 
 ## Tiles are the operator's choice
 

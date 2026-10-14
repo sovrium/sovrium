@@ -57,10 +57,37 @@ The prompt and the instructions divide cleanly in practice: the prompt says who 
 | `memory`      | Conversation history and persistent learned facts |
 | `knowledge`   | The tables and documents it retrieves from        |
 | `mcp`         | External tools it may invoke                      |
+| `skills`      | Skill directories it may use                      |
+
+### Declare an agent's skills
+
+A skill is a directory holding a `SKILL.md` in the Agent Skills format: a `---` frontmatter block that declares a `name` (lowercase kebab-case) and a `description`, then a Markdown body, with any reference files beside it. `skills` lists the directories an agent may use:
+
+```yaml
+agents:
+  - name: quote-agent
+    role: member
+    systemPrompt: You prepare and review quotes.
+    skills:
+      - skills/quote-review
+      - skills/refund-policy
+```
+
+Each path is relative to the directory that holds the config file, or to the working directory when the config is passed inline. It is written with `/`, never starts with `/`, and has no `..` segment, so a skill always lives inside the project; a directory that a symbolic link leads out of the project is refused too.
+
+The skills are checked when the server starts. A listed directory with no `SKILL.md`, a frontmatter without a `name` or a `description`, a `SKILL.md` over 128 KB, or two skills of one agent declaring the same name stops the boot, and the message names each file to fix. `sovrium validate` runs the same check against the directory holding the config file, so it refuses such a config before you deploy it, in the same words.
+
+### How an agent uses its skills
+
+A skill costs the agent almost nothing until it needs it. From its first request, the agent's system prompt lists each of its skills by name and description, and nothing more. When a task calls for one, the agent calls its built-in `load_skill` tool with the skill's name and reads the body of the `SKILL.md`, followed by the paths of the files beside it. When the body points to one of those files, the agent calls `load_skill` again with the skill's name and the file's `path`, and reads that file.
+
+`load_skill` is offered only to an agent that lists skills, however the agent is reached. It only reads, so it never waits for an approval. An agent can load only the skills its own `skills` lists: a skill another agent lists, a path that leaves the skill's directory, a missing file, or a file over 256 KB is refused. The refusal is handed to the agent as the tool's result, so it can say so and still answer.
 
 ## How an agent is reached
 
 From a chat component, over the API at `POST /api/agents/{name}/chat`, on its own schedule, and from an automation's agent action.
+
+In a streamed chat, an agent can also ask the person it is talking to a short question and wait for the answer — a choice, a date, a yes or no — with its built-in `ask_user` tool (see [AI Chat](/en/docs/ai-chat#when-the-agent-asks-a-question)). It is offered only where someone can answer: never on a schedule or in an automation.
 
 Every one of those except the schedule is a **caller**, and every caller passes the agent's trigger grant first — as does every endpoint that reads an agent back, since its definition includes the prompts and the allowlist. The agent's own cron is deliberately outside that grant: a timer is not a caller.
 
@@ -76,7 +103,9 @@ The agent's role is a ceiling, not a grant to whoever talks to it. When a signed
 
 An admin-role agent is therefore safe to open to members: each member gets the answer her own permissions allow, and only a caller whose own access covers the agent's gets its full reach.
 
-A visitor signed in to nothing, using an agent whose trigger grant is `all`, is narrowed the same way to what the records API serves a signed-out visitor: only the tables whose `read` is `all`, only the fields she may read there, and only live rows. An admin-role agent open to everyone therefore answers staff with its full reach and a visitor with the public part of it. The agent's own schedule has no caller, so a scheduled run reads with the agent's declared reach.
+The same holds for the actions an agent takes in a chat. A record action runs only where the records API would let the person chatting perform it herself on that table, and it then runs **as her**: its reads return only the rows and fields she may read, its writes meet her row-level rules and field write rules, and the records it writes name her as their author. An `auth` action needs a caller with admin rights. An action she may not take is refused before it runs, and the model is told why. A call held for approval keeps the person it was made for: once approved, it still runs as her.
+
+A visitor signed in to nothing, using an agent whose trigger grant is `all`, is narrowed the same way to what the records API serves a signed-out visitor: only the tables whose `read` is `all`, only the fields she may read there, and only live rows. The agent takes no record or `auth` action for her. An admin-role agent open to everyone therefore answers staff with its full reach and a visitor with the public part of it. The agent's own schedule has no caller, so a scheduled run reads with the agent's declared reach.
 
 ## The built-in System Agent
 

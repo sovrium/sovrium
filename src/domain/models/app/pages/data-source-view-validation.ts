@@ -41,8 +41,9 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const VIEW_READER_TYPES: ReadonlySet<string> = new Set([
   'table',
   'kanban',
-  'calendar',
+  'event-calendar',
   'gallery',
+  'carousel',
   'list',
   'chart',
   'kpi',

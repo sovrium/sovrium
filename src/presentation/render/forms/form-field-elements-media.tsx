@@ -139,6 +139,7 @@ export const FileInput = ({
       <AudioRecorderControls
         fieldName={field.name}
         maxSeconds={field.recordAudioMaxSeconds}
+        label={field.recordAudioLabel}
       />
     )}
     <div

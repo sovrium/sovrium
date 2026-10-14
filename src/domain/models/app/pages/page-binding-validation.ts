@@ -8,6 +8,7 @@
 import { extractParamNames } from '@/domain/kernel/matching/route-matcher'
 import { normalizeRouteParamRef } from '@/domain/models/app/pages/route-param-ref'
 import { PAGE_WINDOW_DEFAULT_PARAM, PAGE_WINDOW_PRESET_ID } from '@/domain/models/app/pages/window'
+import { actionPlacementViolations } from './action-placement-validation'
 import {
   activeMarkerViolations,
   codeContentFromViolations,
@@ -37,7 +38,7 @@ const QUERY_PROP_NAME = /^[a-z][a-z0-9-]*$/
  * Cross-field decode rules for a single page — the ones that need more context
  * than the field schema they guard, and therefore cannot live on it.
  *
- * Seventeen families, each introduced with the client primitive it guards:
+ * Eighteen families, each introduced with the client primitive it guards:
  *
  *  1. **Route-parameter bindings.** A ROWS-source `dataSource.system.param`, or
  *     a `$param.<name>` reference ANYWHERE in the page, names a segment of the
@@ -52,7 +53,6 @@ const QUERY_PROP_NAME = /^[a-z][a-z0-9-]*$/
  *  2. **`redirectToFirst` needs a list.** "Redirect to the first object" is
  *     meaningless without a source that resolves a list of objects, so the page
  *     must declare one.
- *
  *  3. **`breadcrumb` items XOR derive.** A breadcrumb either enumerates its
  *     trail or derives it from the path; declaring both leaves no defensible
  *     precedence, and `labels` (a per-segment relabel map) is inert without
@@ -151,9 +151,8 @@ const QUERY_PROP_NAME = /^[a-z][a-z0-9-]*$/
  *
  * Pure: no I/O, no schema import, no React. Returns human-readable violation
  * messages, empty when the page is well-formed. The caller (`PagesSchema`'s
- * `Schema.check`) surfaces the first one as the decode error.
- *
- * @see src/domain/models/app/pages/index.ts — the `Schema.check` that calls this
+ * `Schema.check`) surfaces the first one as the decode error. Family 18 (what
+ * an action's response slots may ask for, by where it sits) is its own module.
  */
 export function collectPageBindingViolations(page: unknown): readonly string[] {
   if (!isRecord(page)) return []
@@ -188,6 +187,7 @@ export function collectPageBindingViolations(page: unknown): readonly string[] {
     ...codeContentFromViolations(nodes, label),
     ...routeParamAllowListViolations(page, declared, label),
     ...queryVisibilityViolations(page, label),
+    ...actionPlacementViolations(nodes, label),
   ]
 }
 
@@ -246,12 +246,7 @@ interface RouteContext {
  * @see src/domain/models/app/pages/components/component-types/modules/data-bound.ts
  */
 const ROWS_SOURCE_COMPONENT_TYPES: ReadonlySet<string> = new Set([
-  'table',
-  'list',
-  'kanban',
-  'calendar',
-  'gallery',
-  'timeline',
+  ...['table', 'list', 'kanban', 'event-calendar', 'gallery', 'carousel', 'timeline'],
   'container',
 ])
 

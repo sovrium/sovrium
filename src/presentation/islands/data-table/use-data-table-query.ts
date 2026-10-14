@@ -110,6 +110,12 @@ interface UseDataTableQueryParams {
    */
   readonly loadMore?: boolean
   /**
+   * The first row a load-more or infinite grid's next page starts at. An offset
+   * rather than a page number, so a continuation that finds rows it already holds
+   * (a record inserted before them) can step past exactly those rows.
+   */
+  readonly offset?: number
+  /**
    * The filter-builder's rows, sent with the request rather than applied to
    * the loaded page — set only for a load-more grid (see `toServerFilterGroup`).
    */
@@ -178,6 +184,7 @@ function buildQueryKey(q: ResolvedQuery, sortParam: string | undefined): readonl
         // A load-more grid's answer carries a `nextCursor` a numbered grid's
         // does not, and the page's islands share one cache.
         q.loadMore,
+        q.offset,
         q.sharedFilterParams,
       ]
 }
@@ -245,6 +252,7 @@ function resolveQuery(params: UseDataTableQueryParams): ResolvedQuery {
     groupByParam: params.groupByParam,
     labelsParam: params.labelsParam,
     loadMore: params.loadMore,
+    ...(params.offset !== undefined && { offset: params.offset }),
   }
 }
 

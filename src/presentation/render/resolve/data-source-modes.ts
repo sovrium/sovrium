@@ -45,7 +45,7 @@ import {
 import { ftsFirstRows, ftsSearchProps } from './fts-search-binding'
 import { readRowsForCaller, type CallerRowsQuery } from './record-read-gate'
 import { substituteRecordInComponent } from './record-substitution'
-import { addressRowAttachments } from './row-attachment-addresses'
+import { addressRowAttachments, recordAddresser } from './row-attachment-addresses'
 import { readBoundRecordForCaller } from './single-record-read'
 import {
   isReadWithheld,
@@ -73,15 +73,10 @@ function buildFavoritesButton(tableName: string, record: Record<string, unknown>
 
 /**
  * The columns a `form` must not render an input for: every declared field this
- * visitor may not read, from the composed plan.
- *
- * Leaving the record out of the form is not enough on its own. An input with
- * no value still renders, and the form submits every input it renders — an
- * empty one included — so a field the visitor could not read would be saved
- * as blank over its real value. The records API cannot be relied on to refuse
- * that write: a field that restricts only `read` inherits its write from the
- * table's `update`. So a form carries only the inputs its visitor may read,
- * and saving it leaves every other column exactly as it was.
+ * visitor may not read, from the composed plan. An input with no value still
+ * renders and is submitted, so an unreadable field would be saved as blank over
+ * its real value — and a field restricting only `read` inherits its write from
+ * the table's `update`, so the records API cannot be relied on to refuse it.
  */
 function withheldFieldsProps(
   component: Component,
@@ -95,9 +90,9 @@ function withheldFieldsProps(
 function applySingleRecordToComponent(
   component: Component,
   record: RecordRow,
-  ctx: Pick<SingleModeOptions, 'tableName' | 'plan' | 'db'>
+  ctx: Pick<SingleModeOptions, 'tableName' | 'plan' | 'db'> & { readonly pageFields: RecordRow }
 ): Component {
-  const pageRecord = pageRecordOf(record, ctx.tableName, ctx.db.recordText)
+  const pageRecord = pageRecordOf(ctx.pageFields, ctx.tableName, ctx.db.recordText)
   const substituted = substituteRecordInComponent(component, pageRecord, ctx.tableName)
   const existingChildren = (substituted.children ?? []) as ReadonlyArray<Component | string>
   return {
@@ -156,7 +151,11 @@ async function resolveSingleMode(
   })
   if (gatedRecord === undefined) return SINGLE_RECORD_NOT_FOUND
   const record = await withManyToManyLinks(gatedRecord, options)
-  return applySingleRecordToComponent(component, record, { ...options, tableName })
+  // Its attachment tokens are addresses, as in a list row; `_record` keeps the stored value.
+  const address = recordAddresser(options.app, options.db.signFileUrl)
+  const bound = await address(component, record, tableName)
+  const ctx = { ...options, tableName, pageFields: bound.record }
+  return applySingleRecordToComponent(bound.tree, record, ctx)
 }
 
 export function checkFieldErrors(

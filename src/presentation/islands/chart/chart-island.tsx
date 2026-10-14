@@ -90,7 +90,7 @@ interface ChartIslandProps {
  * - Returns `ChartLoading` while the records query is in flight.
  * - Returns `ChartError` on fetch failure.
  * - Returns `ChartEmpty` (with `emptyMessage`) when zero records come back.
- * - Otherwise renders a visx-backed SVG chart of the requested `chartType`.
+ * - Otherwise renders a recharts SVG chart of the requested `chartType`.
  *
  * The island host names the chart (`data-component="chart"`) once, whatever
  * branch is drawn inside it.

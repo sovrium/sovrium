@@ -38,10 +38,20 @@
 
 import { MirrorApprovalCreate } from '@/application/use-cases/agents/approval'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
-import { checkPermissionWithAdminOverride } from '@/domain/models/app/auth/permissions'
-import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import {
+  agentToolRefusal,
+  requiresApproval,
+  resolveAgentLimits,
+} from '@/domain/models/app/agents/agent-gate-validation'
+import { buildApprovalRecord } from '@/domain/models/app/agents/approval-record-service'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
 import { requireDomainContext } from '@/infrastructure/logging/request-effect'
+import {
+  getAgentUsage,
+  isTokenBudgetExhausted,
+  recordTokenUsage,
+  releaseConcurrencySlot,
+} from '@/infrastructure/process/agent-limits'
 import {
   checkAgentListPermission,
   checkTriggerPermission,
@@ -53,24 +63,16 @@ import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { recordAgentActivity } from './agent-activity-log'
 import { callAgentAi } from './agent-ai-call'
 import { checkExecutionGates, checkLimitGates, tokenBudgetExhausted } from './agent-execution-gates'
-import {
-  getAgentUsage,
-  isTokenBudgetExhausted,
-  recordTokenUsage,
-  releaseConcurrencySlot,
-  resolveAgentLimits,
-} from './agent-limits'
 import { serializeAgent } from './agent-presenter'
 import { decideAsApprover, type Decision } from './approval-decision'
 import { runApprovalMirror, toMirrorRecord } from './approval-mirror'
-import { buildApprovalRecord, serializeApproval } from './approval-presenter'
+import { serializeApproval } from './approval-presenter'
 import {
-  appendAgentActivityEntry,
-  getApproval,
-  listApprovalsForAgent,
-  putApproval,
-  refreshApproval,
-} from './approval-store'
+  listApprovals,
+  openApproval,
+  readApproval,
+  recordFeedAction,
+} from './approval-store-access'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 import type { Context, Hono } from 'hono'
@@ -92,19 +94,6 @@ interface ExecuteRequestBody {
 const MESSAGE_ACTION = 'agent.message'
 
 /**
- * Decide whether the agent's approval configuration requires this action to
- * be queued for human review.
- */
-const requiresApproval = (agent: Agent, action: string): boolean => {
-  const mode = agent.approval?.mode ?? 'none'
-  if (mode === 'all') return true
-  if (mode === 'selective') {
-    return (agent.approval?.required ?? []).includes(action)
-  }
-  return false
-}
-
-/**
  * Resolve the action label from an execute request body. Two execution shapes
  * are accepted: a structured `action` (record.*) or a free-form conversational
  * `message` (mapped to the generic `agent.message` label). Returns `''` when
@@ -114,52 +103,6 @@ const resolveExecuteAction = (body: ExecuteRequestBody): string => {
   if (typeof body.action === 'string' && body.action.length > 0) return body.action
   if (typeof body.message === 'string' && body.message.length > 0) return MESSAGE_ACTION
   return ''
-}
-
-/**
- * `record.read` / `record.list` / `record.create` / `record.update` /
- * `record.delete` → CRUD verb.
- *
- * Every record action MUST appear here. `isRbacDenied` treats an unmapped
- * action as "no CRUD verb to check" and returns `false` — not denied — so an
- * omission does not fail closed, it silently skips the table-permission gate
- * entirely. `record.list` maps to `read` because it is a read of many rows:
- * a role denied `read` on a table must not reach that table's rows in bulk.
- */
-const RECORD_ACTION_TO_PERMISSION: Readonly<
-  Record<string, 'read' | 'create' | 'update' | 'delete'>
-> = {
-  'record.read': 'read',
-  'record.list': 'read',
-  'record.create': 'create',
-  'record.update': 'update',
-  'record.delete': 'delete',
-}
-
-/**
- * RBAC gate: the agent's auth `role` must hold the
- * table-level permission for the requested record CRUD verb. Returns `true`
- * when an explicitly configured table permission denies the agent's role, and
- * `false` when access is granted (or no permission rule constrains it).
- */
-const isRbacDenied = (
-  agent: Agent,
-  table: string,
-  action: string,
-  app: App | undefined
-): boolean => {
-  const permission = RECORD_ACTION_TO_PERMISSION[action]
-  if (permission === undefined) return false
-  const tableConfig = app?.tables?.find((candidate) => candidate.name === table)
-  const rule = tableConfig?.permissions?.[permission]
-  if (rule === undefined) return false
-  // The table-permission admin override, judged on the agent's role: the
-  // built-in `admin` and the app's top role both outrank the rule.
-  return !checkPermissionWithAdminOverride(
-    isAdminEquivalent(agent.role, app ?? {}),
-    rule,
-    agent.role
-  )
 }
 
 /**
@@ -187,28 +130,15 @@ const isToolAccessDenied = (
   body: ExecuteRequestBody,
   action: string,
   app: App | undefined
-): boolean => {
+): boolean =>
   // A free-form conversational turn targets neither a table nor a declared
   // action — it is never tool-gated.
-  if (action === MESSAGE_ACTION) return false
-
-  const { tools } = agent
-  // Secure by default: an agent with no allowlist has no access.
-  if (tools === undefined) return true
-
-  // Allowlist action gate: the requested action must be allowed.
-  if (!(tools.actions as ReadonlyArray<string>).includes(action)) return true
-
-  const table = typeof body.table === 'string' ? body.table : undefined
-  if (table === undefined) return false
-
-  // Allowlist table gate: the requested table must be allowed.
-  if (!tools.tables.includes(table)) return true
-
-  // RBAC gate: a role that lacks the table-level CRUD permission is denied
-  // even when the table/action are allowlisted.
-  return isRbacDenied(agent, table, action, app)
-}
+  action !== MESSAGE_ACTION &&
+  agentToolRefusal(
+    agent,
+    { action, table: typeof body.table === 'string' ? body.table : undefined },
+    app
+  ) !== undefined
 
 /**
  * Log an agent action in both activity sinks and return who started its run.
@@ -233,14 +163,11 @@ const logAgentAction = async (
       : undefined
   const startedById = getSessionContext(c as Context)?.userId
   await recordAgentActivity(requireDomainContext(c), { actorName: agentName, action, targetTable })
-  appendAgentActivityEntry({
-    id: crypto.randomUUID(),
+  await recordFeedAction(requireDomainContext(c), {
     action,
     agentName,
-    actor: { type: 'agent', name: agentName },
     targetTable,
     recordId,
-    createdAt: new Date().toISOString(),
     runStartedById: startedById,
   })
   return startedById
@@ -295,7 +222,7 @@ const executeWithinSlot = async (
 
   // The AI round-trip is observational; its `usage.total_tokens` feeds the
   // per-day token budget.
-  const tokensUsed = await callAgentAi(agent, action)
+  const tokensUsed = await callAgentAi(requireDomainContext(c), agent, action)
   recordTokenUsage(agentName, tokensUsed)
 
   // Once the daily token budget can no longer cover
@@ -312,8 +239,15 @@ const executeWithinSlot = async (
     return c.json({ status: 'completed', approvalRequired: false, agent: agentName }, 200)
   }
 
-  const record = buildApprovalRecord(agent, action, payload, startedById)
-  putApproval(record)
+  const record = buildApprovalRecord({
+    id: crypto.randomUUID(),
+    nowMs: Date.now(),
+    agent,
+    action,
+    payload,
+    requestedById: startedById,
+  })
+  await openApproval(requireDomainContext(c), record)
   await runApprovalMirror(requireDomainContext(c), MirrorApprovalCreate(toMirrorRecord(record)))
 
   return c.json(
@@ -459,7 +393,7 @@ const handleListApprovals =
     const refusal = await checkTriggerPermission(c, agent, app)
     if (refusal) return refusal
     const statusFilter = c.req.query('status')
-    const all = listApprovalsForAgent(agentName).map((record) => refreshApproval(record))
+    const all = await listApprovals(requireDomainContext(c), agentName)
     const filtered =
       statusFilter === undefined ? all : all.filter((record) => record.status === statusFilter)
     return c.json({ approvals: filtered.map(serializeApproval) }, 200)
@@ -474,11 +408,11 @@ const handleGetApproval =
     const refusal = await checkTriggerPermission(c, agent, app)
     if (refusal) return refusal
     const approvalId = c.req.param('id') ?? ''
-    const record = getApproval(approvalId)
+    const record = await readApproval(requireDomainContext(c), approvalId)
     if (!record || record.agentName !== agentName) {
       return c.json(notFoundBody(`Approval '${approvalId}' not found.`), 404)
     }
-    return c.json(serializeApproval(refreshApproval(record)), 200)
+    return c.json(serializeApproval(record), 200)
   }
 
 const handleDecision =
@@ -492,12 +426,11 @@ const handleDecision =
     const refusal = await checkTriggerPermission(c, agent, app)
     if (refusal) return refusal
     const approvalId = c.req.param('id') ?? ''
-    const stored = getApproval(approvalId)
-    if (!stored || stored.agentName !== agentName) {
+    const record = await readApproval(requireDomainContext(c), approvalId)
+    if (!record || record.agentName !== agentName) {
       return c.json(notFoundBody(`Approval '${approvalId}' not found.`), 404)
     }
 
-    const record = refreshApproval(stored)
     if (record.status !== 'pending') {
       return c.json(
         {

@@ -16,7 +16,7 @@ The section is reached from **Design** in the sidebar's System group. Overview i
 | `/_admin/design-system/foundations`      | Every token the app renders with — colour, type, spacing, radius, breakpoints, durations — drawn at the value it resolves to in the scheme you are reading, with the type ladder beside it. |
 | `/_admin/design-system/ui-kit`           | Every component type this instance ships, grouped by category with the field types folded in, drawn by the renderer your own pages use.                                                     |
 | `/_admin/design-system/ui-kit/:type`     | One catalogued type, addressed by the schema's own spelling of its name.                                                                                                                    |
-| `/_admin/design-system/brand`            | The identity you declared: the logo and its rules, the imagery rules, what each colour is for, and the accent budget each zone may spend.                                                   |
+| `/_admin/design-system/brand`            | The identity you declared: the logo and its rules, the imagery rules, what each colour is for, and the zone each route family belongs to.                                                   |
 | `/_admin/design-system/voice`            | The rules a writer follows here: the principles, how the app addresses a reader, the tone per moment, and the per-zone overrides.                                                           |
 | `/_admin/design-system/components`       | The reusable components your own config declares, each rendered on its own beside its usage guidance and its usage count.                                                                   |
 | `/_admin/design-system/components/:name` | One declared component.                                                                                                                                                                     |
@@ -27,7 +27,7 @@ Every page renders through the same shell and reads the same endpoints, so what 
 
 ## The component catalog
 
-The **UI kit** page renders one specimen per component type, grouped by category. Each type also has a page of its own at `/_admin/design-system/ui-kit/{type}`.
+The **UI kit** page renders one specimen per component type, grouped by category. Each type also has a page of its own at `/_admin/design-system/ui-kit/{type}`. A column beside the page lists the categories and their types; below 1024 px wide it folds behind a **Browse categories** button at the top of the page, which opens the same list in a panel.
 
 Most types are drawn. One that is not is **named anyway, with the reason**: that is the point of the catalog, because a heading over an empty box would assert that the blank is the design. Two reasons appear:
 
@@ -96,18 +96,19 @@ Two things to know. It is opt-in **by name, not by value** — `?flat`, `?flat=0
 
 The console's own pages are assembled from a set of narrow read endpoints, and they are yours to call too — each admin-gated, each `404` to anyone else.
 
-| Endpoint                                     | Rows                                                                                                  |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `GET /api/admin/design-system/tokens`        | Token rows; `?group=` restricts to one top-level DTCG group.                                          |
-| `GET /api/admin/design-system/guidance`      | The principles, voice and tone rules a writer follows.                                                |
-| `GET /api/admin/design-system/coverage`      | One row per layer — its count, its label, and a short `summary` saying what the layer actually holds. |
-| `GET /api/admin/design-system/exports`       | The available export documents, with their size and line metadata.                                    |
-| `GET /api/admin/design-system/usage`         | Per-component usage, when and don't guidance, with usage counts.                                      |
-| `GET /api/admin/design-system/brand`         | The brand mark and its declared facts. A singleton, so it takes no query.                             |
-| `GET /api/admin/design-system/zones`         | Per-zone accent budget and overrides.                                                                 |
-| `GET /api/admin/design-system/provenance`    | For one `?type=` and `?part=`, which layer each rendered class came from.                             |
-| `GET /api/admin/design-system/type-ladder`   | The platform type ladder, as rows.                                                                    |
-| `GET /api/admin/design-system/specimen-rows` | The fixture rows the catalog's data specimens are drawn from.                                         |
+| Endpoint                                      | Rows                                                                                                  |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `GET /api/admin/design-system/tokens`         | Token rows; `?group=` restricts to one top-level DTCG group.                                          |
+| `GET /api/admin/design-system/guidance`       | The principles, voice and tone rules a writer follows.                                                |
+| `GET /api/admin/design-system/coverage`       | One row per layer — its count, its label, and a short `summary` saying what the layer actually holds. |
+| `GET /api/admin/design-system/exports`        | The available export documents, with their size and line metadata.                                    |
+| `GET /api/admin/design-system/usage`          | Per-component usage, when and don't guidance, with usage counts.                                      |
+| `GET /api/admin/design-system/brand`          | The brand mark and its declared facts. A singleton, so it takes no query.                             |
+| `GET /api/admin/design-system/zones`          | Per-zone voice overrides.                                                                             |
+| `GET /api/admin/design-system/provenance`     | For one `?type=` and `?part=`, which layer each rendered class came from.                             |
+| `GET /api/admin/design-system/type-ladder`    | The platform type ladder, as rows.                                                                    |
+| `GET /api/admin/design-system/specimen-rows`  | The fixture rows the catalog's data specimens are drawn from.                                         |
+| `GET /api/admin/design-system/specimen-graph` | The same fixture as nodes and edges (people, teams, projects), for the graph and matrix specimens.    |
 
 ## The share link
 

@@ -62,7 +62,7 @@ const row = (content: string, muted = false): PageComponent =>
     props: {
       className: muted
         ? 'text-foreground-subtle rounded px-2 py-1 text-sm'
-        : 'text-foreground hover:bg-background-subtle rounded px-2 py-1 text-sm',
+        : 'text-foreground hover:bg-muted rounded px-2 py-1 text-sm',
     },
   }) as PageComponent
 
@@ -86,7 +86,7 @@ const chip = (label: string) => ({
       type: 'text' as const,
       element: 'span' as const,
       content: '×',
-      props: { className: 'text-foreground-muted' },
+      props: { className: 'text-muted-foreground' },
     },
   ],
 })
@@ -124,7 +124,7 @@ const recordPicker: TypePageBody = {
                   type: 'text',
                   element: 'p',
                   content: 'Search companies…',
-                  props: { className: 'text-foreground-muted px-1 text-sm' },
+                  props: { className: 'text-muted-foreground px-1 text-sm' },
                 },
               ],
             },
@@ -132,7 +132,7 @@ const recordPicker: TypePageBody = {
               type: 'text',
               element: 'p',
               content: 'Two of three linked.',
-              props: { className: 'text-foreground-muted text-xs' },
+              props: { className: 'text-muted-foreground text-xs' },
             },
           ],
         },
@@ -352,7 +352,7 @@ const recordPicker: TypePageBody = {
             {
               type: 'container',
               element: 'div',
-              props: { className: 'bg-background-raised rounded-md shadow-md' },
+              props: { className: 'bg-card rounded-md shadow-md' },
               children: [box([line('acme'), list([row('Acme Europe'), row('Acme Nordics')])])],
             } as PageComponent,
           ],

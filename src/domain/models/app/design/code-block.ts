@@ -53,14 +53,19 @@ import { Schema } from 'effect'
  *
  * ─── WHAT OMITTING IT MEANS ────────────────────────────────────────────────
  *
- * Exactly today's behaviour: `theme` governs both schemes, and no dark-scoped
- * rule is emitted at all. The absence is not a defaulted `darkTheme` — an app
- * that deliberately wants one theme everywhere (a docs site pinned to light, a
- * terminal-styled surface pinned to dark) keeps it by saying nothing.
+ * With a `theme` named, `theme` governs both schemes and no dark-scoped rule is
+ * emitted at all. The absence is not a defaulted `darkTheme` — an app that
+ * deliberately wants one theme everywhere (a docs site pinned to light, a
+ * terminal-styled surface pinned to dark) keeps it by naming that one theme.
+ *
+ * With NEITHER named, the engine's pair applies — `github-light` in the light
+ * scheme, `github-dark` in the dark one — because every app follows the
+ * visitor's colour scheme by default (see `resolveCodeBlockThemes`). A
+ * `darkTheme` named alone pairs with the default `github-light`.
  *
  * @example
  * ```typescript
- * // One theme everywhere — unchanged, and still the default shape
+ * // One theme everywhere, in both schemes
  * const design = {
  *   codeBlock: { theme: 'github-dark' }
  * }
@@ -78,7 +83,8 @@ export const CodeBlockConfigSchema = Schema.Struct({
     Schema.String.pipe(
       Schema.annotate({
         title: 'Code Block Theme',
-        description: 'Named Shiki theme for syntax highlighting (e.g., github-dark, github-light)',
+        description:
+          'Named Shiki theme for syntax highlighting (e.g., github-dark, github-light). Named without a `darkTheme`, it applies in both colour schemes. When neither is named, code blocks use `github-light` in the light scheme and `github-dark` in the dark one.',
         examples: ['github-dark', 'github-light', 'nord', 'dracula'],
       }),
       Schema.check(Schema.isMinLength(1))
@@ -86,16 +92,16 @@ export const CodeBlockConfigSchema = Schema.Struct({
   ),
   /**
    * Named Shiki theme applied to fenced code blocks under the DARK colour
-   * scheme. Omitted, `theme` governs both schemes and nothing dark-scoped is
-   * emitted — see the module comment for why that is a real choice rather than
-   * an unfilled default.
+   * scheme. Omitted beside a named `theme`, that theme governs both schemes and
+   * nothing dark-scoped is emitted; omitted with no `theme` either, the engine's
+   * `github-dark` applies — see the module comment.
    */
   darkTheme: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
         title: 'Code Block Dark Theme',
         description:
-          'Named Shiki theme applied under the dark colour scheme. When omitted, `theme` applies in both schemes.',
+          'Named Shiki theme applied under the dark colour scheme. When omitted, a named `theme` applies in both schemes; with no `theme` either, the dark scheme uses `github-dark`. Named alone, it pairs with the default `github-light`.',
         examples: ['github-dark', 'nord', 'dracula', 'catppuccin-mocha'],
       }),
       Schema.check(Schema.isMinLength(1))

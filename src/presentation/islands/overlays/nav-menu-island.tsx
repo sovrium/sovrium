@@ -5,13 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Menu } from '@base-ui/react/menu'
+import { NavigationMenu } from '@base-ui/react/navigation-menu'
 import { cn } from '@/presentation/design/class-merge'
-import { NavChevronDown, NavItemBadge } from '@/presentation/design/nav-menu-parts'
+import { NavItemBadge } from '@/presentation/design/nav-item-badge'
+import { NavChevronDown } from '@/presentation/design/nav-menu-parts'
+import {
+  computeNavMenuChildLinkClasses,
+  computeNavMenuContentClasses,
+  computeNavMenuPopupClasses,
+  computeNavMenuTriggerClasses,
+} from '@/presentation/design/navigation-menu-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { computeMenuPopupClasses } from './menu-default-classes'
-import { computeNavMenuTriggerClasses } from './overlay-default-classes'
-import type { BadgeVariant } from '@/presentation/design/navbar-default-classes'
+import type { BadgeVariant } from '@/presentation/design/badge-default-classes'
 import type { ReactElement } from 'react'
 
 interface NavBadge {
@@ -51,19 +56,32 @@ interface NavMenuIslandProps {
 }
 
 /**
- * A single mega-menu child row (`Menu.LinkItem`). Threads the authored
- * `target`/`rel` onto the anchor alongside the label,
- * optional badge, and description.
+ * Hover-open delay without `openOnHover`. Base UI's navigation menu always wires
+ * hover and offers no switch, so a click-only menu pushes the rest delay to the
+ * largest timer a browser keeps (2^31 - 1 ms); `mouseleave` clears it.
+ */
+const CLICK_ONLY_HOVER_DELAY = 2_147_483_647
+
+/** How long a hover-opened panel waits before closing as the pointer travels into it. */
+const HOVER_CLOSE_DELAY = 150
+
+/**
+ * A single mega-menu child row: a plain link (`navigation-menu-link`) carrying
+ * the authored `target`/`rel`, its label, an optional badge
+ * and a description. It is a LINK, not a `menuitem`: a navigation menu is a
+ * disclosure of links, so the arrow keys and Tab move through it as they move
+ * through any list of links.
  */
 function NavDropdownChild({ child }: { readonly child: NavChild }): ReactElement {
   return (
-    <Menu.LinkItem
+    <NavigationMenu.Link
       href={child.href ?? '#'}
       target={child.target}
       rel={child.rel}
-      className="data-[highlighted]:bg-background-subtle text-md flex flex-col rounded-md px-3 py-2 transition-colors outline-none"
+      data-slot="navigation-menu-link"
+      className={computeNavMenuChildLinkClasses()}
     >
-      <span className="text-foreground flex items-center gap-2 font-medium">
+      <span className="text-foreground flex items-center gap-2 leading-none font-medium">
         {child.label}
         {child.badge && (
           <NavItemBadge
@@ -73,45 +91,34 @@ function NavDropdownChild({ child }: { readonly child: NavChild }): ReactElement
         )}
       </span>
       {child.description && (
-        <span className="text-foreground-muted mt-0.5 text-sm">{child.description}</span>
+        <span className="text-muted-foreground line-clamp-2 leading-snug">{child.description}</span>
       )}
-    </Menu.LinkItem>
+    </NavigationMenu.Link>
   )
 }
 
 /**
- * [internal ref] (round-4) wiring:
- * - [internal ref]: `openOnHover` opens the mega-menu on pointer hover; a
- *    `closeDelay` lets the pointer travel from the trigger into the open panel.
- * - [internal ref]: each child's `target`/`rel` are threaded onto its
- *    `Menu.LinkItem` anchor (and the plain-link leaf branch below).
+ * One entry that opens a panel: a trigger button (`aria-expanded`, the shared
+ * chevron rotating on Base UI's `data-popup-open`) and the panel's content,
+ * which Base UI moves into the menu's one viewport while it is open.
+ *
  * - [internal ref]: `computeNavMenuTriggerClasses(triggerClassName)` applies
  *    the authored override so the trigger matches the SSR placeholder byte-for-byte.
  * - [internal ref]: the recipe emits a leading `group` so the shared
  *    `NavChevronDown`'s `group-data-[popup-open]:rotate-180` flips on open.
- *
- * `closeDelay` is intentionally ~150ms when `openOnHover` is on: it keeps the
- * menu open while the pointer crosses the gap from the trigger to the panel
- * (the spec hovers the trigger, then hovers a panel item, expecting it to stay
- * open). Base UI's default `closeDelay` is 0, which would snap the menu shut.
  */
 function NavDropdown({
   item,
-  index,
-  openOnHover,
   triggerClassName,
 }: {
   readonly item: NavItem
-  readonly index: number
-  readonly openOnHover?: boolean
   readonly triggerClassName?: string
 }): ReactElement {
   return (
-    <Menu.Root key={`nav-${index}`}>
-      <Menu.Trigger
+    <NavigationMenu.Item data-slot="navigation-menu-item">
+      <NavigationMenu.Trigger
+        data-slot="navigation-menu-trigger"
         className={computeNavMenuTriggerClasses(triggerClassName)}
-        openOnHover={openOnHover}
-        closeDelay={openOnHover ? 150 : undefined}
       >
         {item.label}
         {item.badge && (
@@ -121,49 +128,82 @@ function NavDropdown({
           />
         )}
         <NavChevronDown />
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner
-          side="bottom"
-          align="start"
-          sideOffset={4}
-          // z-[above the sticky header]: Base UI's Positioner is `z-auto` and,
-          // because Floating UI gives it a `transform`, it forms a stacking
-          // context that traps the popup's own `z-50` — so the popup paints
-          // BELOW a `sticky z-40` header. Lifting the Positioner above the
-          // header (z-50 > z-40) hoists the whole popup subtree over it
-          //.
-          className="z-50"
-        >
-          <Menu.Popup className={cn(computeMenuPopupClasses(), 'w-80 p-2')}>
-            {item.children?.map((child, childIndex) => (
-              <NavDropdownChild
-                key={`child-${childIndex}`}
-                child={child}
-              />
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
+      </NavigationMenu.Trigger>
+      <NavigationMenu.Content
+        data-slot="navigation-menu-content"
+        className={cn(computeNavMenuContentClasses(), 'w-80 p-2')}
+      >
+        {item.children?.map((child, childIndex) => (
+          <NavDropdownChild
+            key={`child-${childIndex}`}
+            child={child}
+          />
+        ))}
+      </NavigationMenu.Content>
+    </NavigationMenu.Item>
+  )
+}
+
+/** A top-level entry with no panel: a link drawn as a trigger. */
+function NavTopLink({
+  item,
+  triggerClassName,
+}: {
+  readonly item: NavItem
+  readonly triggerClassName?: string
+}): ReactElement {
+  return (
+    <NavigationMenu.Item data-slot="navigation-menu-item">
+      <NavigationMenu.Link
+        href={item.href ?? '#'}
+        target={item.target}
+        rel={item.rel}
+        data-slot="navigation-menu-link"
+        className={computeNavMenuTriggerClasses(triggerClassName)}
+      >
+        {item.label}
+        {item.badge && (
+          <NavItemBadge
+            text={item.badge.text}
+            variant={item.badge.variant}
+          />
+        )}
+      </NavigationMenu.Link>
+    </NavigationMenu.Item>
+  )
+}
+
+/** Where every open panel is drawn: one viewport, sized to the content it holds. */
+function NavMenuViewport(): ReactElement {
+  return (
+    <NavigationMenu.Portal>
+      <NavigationMenu.Positioner
+        side="bottom"
+        align="start"
+        sideOffset={8}
+        // z-[above the sticky header]: Floating UI gives the Positioner a
+        // `transform`, so it forms a stacking context that would trap the
+        // popup's own stacking below a `sticky z-40` header. Lifting the
+        // Positioner to z-50 hoists the whole panel over it.
+        className="isolate z-50 h-(--positioner-height) w-(--positioner-width) max-w-(--available-width)"
+      >
+        <NavigationMenu.Popup className={computeNavMenuPopupClasses()}>
+          <NavigationMenu.Viewport className="relative size-full overflow-hidden" />
+        </NavigationMenu.Popup>
+      </NavigationMenu.Positioner>
+    </NavigationMenu.Portal>
   )
 }
 
 /**
- * Navigation menu island — renders a mega-menu style navigation.
+ * Navigation menu island — shadcn/ui's Navigation Menu on Base UI
+ * `NavigationMenu`: links, and disclosure triggers (`aria-expanded`) whose
+ * panel is a list of links — never `menu`/`menuitem` roles.
  *
- * Top-level items with no children render as direct links.
- * Items with children open a dropdown panel showing label + description.
- * Built using Base UI Menu for each dropdown section.
- *
- * The wrapper is a `div` (NOT `<nav>`): the island mounts INSIDE the SSR
- * host marker, and the standard header composition embeds the component in
- * an authored `<nav>` — a nested `<nav>` here would double the navigation
- * landmark count. Menus carry their own ARIA roles.
- *
- * The root does NOT repeat the authored `data-testid`: the SSR host already
- * carries it, and this root renders INSIDE that host, so echoing it here made
- * one authored component answer to its test id twice once hydrated.
+ * The root renders a `div` (Base UI's default is `<nav>`): the island mounts
+ * inside the SSR host, and the header composition wraps it in an authored
+ * `<nav>`, which must stay the page's only navigation landmark.
+ * The root does not repeat the authored `data-testid`: the SSR host carries it.
  */
 export default function NavMenuIsland({
   navItems = [],
@@ -173,37 +213,34 @@ export default function NavMenuIsland({
   id,
 }: NavMenuIslandProps): ReactElement {
   return (
-    <div
-      className={resolveClasses('flex items-center gap-1', className)}
+    <NavigationMenu.Root
+      render={<div />}
       id={id}
+      className="relative"
+      delay={openOnHover === true ? undefined : CLICK_ONLY_HOVER_DELAY}
+      closeDelay={openOnHover === true ? HOVER_CLOSE_DELAY : undefined}
     >
-      {navItems.map((item, index) =>
-        item.children && item.children.length > 0 ? (
-          <NavDropdown
-            key={`nav-${index}`}
-            item={item}
-            index={index}
-            openOnHover={openOnHover}
-            triggerClassName={triggerClassName}
-          />
-        ) : (
-          <a
-            key={`nav-${index}`}
-            href={item.href ?? '#'}
-            target={item.target}
-            rel={item.rel}
-            className={computeNavMenuTriggerClasses(triggerClassName)}
-          >
-            {item.label}
-            {item.badge && (
-              <NavItemBadge
-                text={item.badge.text}
-                variant={item.badge.variant}
-              />
-            )}
-          </a>
-        )
-      )}
-    </div>
+      <NavigationMenu.List
+        data-slot="navigation-menu-list"
+        className={resolveClasses('flex items-center gap-1', className)}
+      >
+        {navItems.map((item, index) =>
+          item.children && item.children.length > 0 ? (
+            <NavDropdown
+              key={`nav-${index}`}
+              item={item}
+              triggerClassName={triggerClassName}
+            />
+          ) : (
+            <NavTopLink
+              key={`nav-${index}`}
+              item={item}
+              triggerClassName={triggerClassName}
+            />
+          )
+        )}
+      </NavigationMenu.List>
+      <NavMenuViewport />
+    </NavigationMenu.Root>
   )
 }

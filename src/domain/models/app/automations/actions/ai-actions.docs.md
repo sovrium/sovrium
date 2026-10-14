@@ -60,13 +60,27 @@ Classifying into a **closed** list is what makes the result usable in a branch: 
     model: gpt-4o
     input: '{{extractText.result}}'
     schema:
-      total: { type: number }
-      due_date: { type: string }
-      vendor: { type: string }
+      type: object
+      properties:
+        total: { type: number }
+        due_date: { type: string }
+        vendor: { type: string }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              label: { type: string }
+              amount: { type: number }
+      required: [total, vendor]
     connection: openai-key
 ```
 
-`schema` describes the shape you want back. It is sent as a named JSON Schema constraint, which providers with strict structured output (Mistral, OpenAI strict mode) require. Pair it with a file action that turns a PDF into text first — extraction reads text, not documents.
+`schema` is a JSON Schema object — `type: object`, its `properties`, and the `required` ones. A list is `type: array` with `items`, and `items` can be an object schema of its own, as `lines` is above. It is sent to the provider unchanged, as a named JSON Schema constraint, which providers with strict structured output (Mistral, OpenAI strict mode) require. A bare property map such as `total: { type: number }` at the top level is not a JSON Schema: write the full form. Pair the action with a file action that turns a PDF into text first — extraction reads text, not documents.
+
+The step's output is the extracted object itself: `{{steps.parseInvoice.total}}` reads the total, and `{{steps.parseInvoice.lines}}` the list, which a `loop/each` walks with `items: '{{steps.parseInvoice.lines}}'`. The `.result` alias every step carries reads the same object (`{{steps.parseInvoice.result.total}}`); there is no `data` wrapper.
+
+A reply that is not a JSON object fails the step with `parse_error`, and no half-extracted field reaches a later step. A model asked again may answer valid JSON, so a `retry` policy attempts the extraction again.
 
 ## `transcribe`
 
@@ -108,9 +122,19 @@ Invokes an agent configured under the app's agents. The agent plans and executes
 
 `maxSteps` caps the agent's reasoning and tool steps. Set it: an agent without a cap is a loop whose termination depends on a model.
 
+Each tool call the model makes really runs. A `record.create` writes the row, an `http.request` sends the request, an `email.send` delivers the message. They go through the same actions a step of the automation would, inside the same run, and the real result goes back to the model. Every call first passes the agent's gates: its allowlist and role, its action limits, and its approval rule. A call the approval rule covers waits for a person, and the step completes with the request's id in `pendingApprovals`. Each action is recorded in the AI activity log as the agent's, with the surface `automation`.
+
 When the agent turns on knowledge retrieval (`memory.knowledge.enabled`), the step retrieves from that agent's own knowledge base and from the shared knowledge documents (narrowed to its `memory.knowledge.sources`, when set). It never retrieves from another agent's knowledge base, so an agent declared with a narrow role cannot ground its answer on what an agent with a wider role has embedded.
 
 A run someone starts by hand (a manual trigger, a record button) has a human caller, and its agent steps never show her more than she may read herself: of the agent's knowledge, the step grounds only on records she may read through the records API, and only on fields she may read. A run nobody started by hand (a webhook, a schedule, a record event) keeps the agent's declared reach.
+
+## When an AI step fails
+
+Every error an AI action meets fails its step: a provider refusing the call (a rate limit, a rejected key, a timeout, an unavailable service), an AI service that is not configured, a reply `extract` cannot parse, an agent tool call outside its allowlist. The step is recorded as `failed`, its error reads `<code>: <message>` — `rate_limit_exceeded`, `authentication_error`, `gateway_timeout`, `provider_unavailable`, `ai_not_configured`, `parse_error`, `invalid_tool`, `table_not_found` and the like — and it exposes no generated or extracted fields.
+
+The run then behaves as after any failed step. Without `continueOnError`, it fails and the steps after it do not run, so a `loop/each` over an extraction that failed never runs at all; a synchronous webhook answers `500` with the run's id and status, and the error is in the step's record in run history. Under a `retry` policy, an error worth another attempt — a rate limit, a timeout, an unavailable provider, a malformed reply — is attempted again up to `maxAttempts`, and a run that used them all ends `exhausted`; a rejected key or another refusal fails at once. With `continueOnError: true` the run goes on, and the next step can branch on `{{steps.<name>.status}}` (`failed`) and read `{{steps.<name>.error.message}}`.
+
+The AI service already repeats a provider call that fails transiently a few times within one attempt, unless the step sets its own `timeout`; a `retry` policy counts whole attempts on top of that.
 
 ## Routing is the operator's choice, not the action's
 

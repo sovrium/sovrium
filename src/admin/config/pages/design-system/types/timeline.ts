@@ -41,7 +41,7 @@ const dot = (tone: string): PageComponent =>
     children: [],
   }) as PageComponent
 
-const entry = (when: string, what: string, tone = 'bg-foreground-muted'): PageComponent =>
+const entry = (when: string, what: string, tone = 'bg-muted-foreground'): PageComponent =>
   ({
     type: 'container',
     element: 'div',
@@ -127,7 +127,7 @@ const dependency = (from: string, to: string): PageComponent =>
       {
         type: 'container',
         element: 'div',
-        props: { className: 'bg-background-subtle rounded px-3 py-1.5' },
+        props: { className: 'bg-muted rounded px-3 py-1.5' },
         children: [
           {
             type: 'text',
@@ -146,7 +146,7 @@ const dependency = (from: string, to: string): PageComponent =>
       {
         type: 'container',
         element: 'div',
-        props: { className: 'bg-background-subtle rounded px-3 py-1.5' },
+        props: { className: 'bg-muted rounded px-3 py-1.5' },
         children: [
           {
             type: 'text',
@@ -182,7 +182,7 @@ const ghost = (label: string): PageComponent =>
       {
         type: 'container',
         element: 'div',
-        props: { className: 'bg-background-subtle ml-8 rounded-md px-3 py-1.5 shadow-md' },
+        props: { className: 'bg-muted ml-8 rounded-md px-3 py-1.5 shadow-md' },
         children: [
           {
             type: 'text',

@@ -47,8 +47,8 @@ classes:
     link: '!text-primary-subtle-foreground underline underline-offset-2'
     callout: >-
       mt-0 mb-6 rounded-r-lg border border-l-[3px] border-[#e5ded5]
-      border-l-[var(--color-warmth-border,var(--color-border-strong))] px-4 py-[0.85rem]
-      !bg-background-subtle !text-foreground dark:border-[#262626] *:!my-0
+      border-l-[var(--color-border-strong)] px-4 py-[0.85rem]
+      !bg-muted !text-foreground dark:border-[#262626] *:!my-0
     calloutNote: '!border-l-primary !bg-primary-subtle'
   states:
     current:

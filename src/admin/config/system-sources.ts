@@ -58,9 +58,6 @@ export const ATTENTION_ENDPOINT = '/api/admin/attention'
  */
 export const ENV_ENDPOINT = '/api/admin/env'
 
-/** Cross-entity search, backing the shell's ⌘K palette. */
-export const SEARCH_ENDPOINT = '/api/admin/search'
-
 /**
  * The instance's own consumption: response grades, cache outcomes, process
  * usage, top storage consumers and the `ECO_*` levers — ONE envelope, read by
@@ -482,11 +479,9 @@ export const FIELD_TYPES_ENDPOINT = '/api/admin/schema/field-types'
 export const DESIGN_GUIDANCE_ENDPOINT = '/api/admin/design-system/guidance'
 
 /**
- * The declared zones: which route family reads in which register, and what
- * accent budget it may spend.
+ * The declared zones: which route family reads in which register.
  *
- * `accentBudget` arrives RESOLVED — a zone declaring none is `product` — because
- * a page cannot apply a default. `hasVoiceOverride` is a boolean rather than the
+ * `hasVoiceOverride` is a boolean rather than the
  * override itself: the override's sentences are already rows on the guidance
  * facet under `zone.voice.*`, and publishing them twice would let the two drift.
  */
@@ -682,6 +677,18 @@ export const SPECIMEN_ROWS_ENDPOINT = '/api/admin/design-system/specimen-rows'
  * pre-computed number.
  */
 export const SPECIMEN_TABLE_NAME = 'design_system_specimens'
+
+/**
+ * The same fixture as a GRAPH: its people, the three teams they belong to and
+ * the projects those teams own, with the edges between them.
+ *
+ * A graph and a matrix read nodes and edges, which a list of rows cannot give
+ * them, so the platform serves this beside the rows. The envelope is
+ * `{ nodes, edges }`, the keys both types read by default. Node kinds are
+ * `person`, `team` and `project`; an `access` edge carries the letters a
+ * matrix cell draws in `ops`.
+ */
+export const SPECIMEN_GRAPH_ENDPOINT = '/api/admin/design-system/specimen-graph'
 
 /**
  * The share links that let someone read this system without an account.

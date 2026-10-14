@@ -56,7 +56,7 @@ export const entry = defineLibraryEntry({
           [
             ...(p('headline') === '' ? [] : [panelHead(p('headline'))]),
             {
-              type: 'calendar',
+              type: 'event-calendar',
               dataSource: { table: p('table') },
               dateField: p('startField'),
               endDateField: p('endField'),

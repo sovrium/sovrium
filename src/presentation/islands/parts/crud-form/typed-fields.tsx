@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useId, type ReactElement, type ReactNode } from 'react'
+import { useId, type ReactElement } from 'react'
 import {
   numericAdornmentOf,
   numericInputAttributes,
@@ -22,6 +22,7 @@ import { RatingScale } from '../rating-scale'
 import { CONTROL_CLASS, LABEL_CLASS } from './field-chrome-classes'
 import { type FieldDef, labelOf } from './field-def'
 import { FieldHelpText } from './field-help-text'
+import { LabelledControl } from './field-label'
 import { FieldShell, PickerControl, ReadOnlyPicker } from './record-picker-chrome'
 import { readLinkedIds, writeLinkedIds } from './record-picker-value'
 import { useUserPicker } from './use-user-picker'
@@ -72,17 +73,17 @@ function NativeInput(props: {
   )
 }
 
-/** The label wrapping a control, with the field's help text under it. */
-function LabelledControl(props: {
+/** A typed control in the field anatomy: its label, the control, its help text. */
+function LabelledTypedControl(props: {
   readonly field: FieldDef
-  readonly children: ReactNode
+  readonly control: (id: string) => ReactElement
 }): ReactElement {
   return (
-    <label className={LABEL_CLASS}>
-      {labelOf(props.field)}
-      {props.children}
-      <FieldHelpText field={props.field} />
-    </label>
+    <LabelledControl
+      label={labelOf(props.field)}
+      help={<FieldHelpText field={props.field} />}
+      control={props.control}
+    />
   )
 }
 
@@ -98,19 +99,26 @@ function LabelledControl(props: {
 export function NumberField({ field, value, onChange, invalid }: TypedFieldProps): ReactElement {
   const inputId = useId()
   const adornment = numericAdornmentOf(field)
-  const input = (
+  const input = (id: string): ReactElement => (
     <NativeInput
       field={field}
       type="number"
       value={value}
       onInput={(raw) => onChange(field.name, raw)}
       attributes={numericInputAttributes(field)}
-      id={inputId}
+      id={id}
       {...(invalid !== undefined && { invalid })}
     />
   )
-  if (adornment === undefined) return <LabelledControl field={field}>{input}</LabelledControl>
-  const unit = <span className="text-foreground-muted text-sm">{adornment.text}</span>
+  if (adornment === undefined) {
+    return (
+      <LabelledTypedControl
+        field={field}
+        control={input}
+      />
+    )
+  }
+  const unit = <span className="text-muted-foreground text-sm">{adornment.text}</span>
   return (
     <FieldShell
       field={field}
@@ -118,7 +126,7 @@ export function NumberField({ field, value, onChange, invalid }: TypedFieldProps
     >
       <div className="flex items-center gap-2">
         {adornment.position === 'before' && unit}
-        {input}
+        {input(inputId)}
         {adornment.position === 'after' && unit}
       </div>
     </FieldShell>
@@ -128,15 +136,19 @@ export function NumberField({ field, value, onChange, invalid }: TypedFieldProps
 /** A `date` column: a native date input holding the ISO calendar date. */
 export function DateField({ field, value, onChange, invalid }: TypedFieldProps): ReactElement {
   return (
-    <LabelledControl field={field}>
-      <NativeInput
-        field={field}
-        type="date"
-        value={toDateInputValue(value)}
-        onInput={(raw) => onChange(field.name, raw)}
-        {...(invalid !== undefined && { invalid })}
-      />
-    </LabelledControl>
+    <LabelledTypedControl
+      field={field}
+      control={(id) => (
+        <NativeInput
+          field={field}
+          type="date"
+          value={toDateInputValue(value)}
+          onInput={(raw) => onChange(field.name, raw)}
+          id={id}
+          {...(invalid !== undefined && { invalid })}
+        />
+      )}
+    />
   )
 }
 
@@ -148,15 +160,19 @@ export function DateField({ field, value, onChange, invalid }: TypedFieldProps):
 export function DateTimeField({ field, value, onChange, invalid }: TypedFieldProps): ReactElement {
   const zone = field.timeZone ?? LOCAL_ZONE
   return (
-    <LabelledControl field={field}>
-      <NativeInput
-        field={field}
-        type="datetime-local"
-        value={toLocalInputValue(value, zone)}
-        onInput={(raw) => onChange(field.name, fromLocalInputValue(raw, zone) ?? '')}
-        {...(invalid !== undefined && { invalid })}
-      />
-    </LabelledControl>
+    <LabelledTypedControl
+      field={field}
+      control={(id) => (
+        <NativeInput
+          field={field}
+          type="datetime-local"
+          value={toLocalInputValue(value, zone)}
+          onInput={(raw) => onChange(field.name, fromLocalInputValue(raw, zone) ?? '')}
+          id={id}
+          {...(invalid !== undefined && { invalid })}
+        />
+      )}
+    />
   )
 }
 

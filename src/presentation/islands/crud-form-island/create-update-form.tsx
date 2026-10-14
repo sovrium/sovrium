@@ -8,6 +8,7 @@
 import { useCallback, useMemo } from 'react'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
 import { type FieldDef } from '../parts/crud-form/fields'
 import { FormBody } from '../parts/crud-form/layout'
 import { type SaveBarState } from '../parts/crud-form/save-bar'
@@ -31,6 +32,7 @@ function buildSubmitHandler(
 ): React.FormEventHandler<HTMLFormElement> {
   if (useNativeForm) {
     return (e) => {
+      if (pressWhilePending(e)) return
       const blocking = blockingFieldState(fields, values, ctx.uiStrings)
       if (blocking !== undefined) {
         e.preventDefault()
@@ -43,11 +45,23 @@ function buildSubmitHandler(
         (event) => postHeldValues((event as FormDataEvent).formData, fields, values),
         { once: true }
       )
+      // The submit is pending from this press until the page moves on, so a
+      // second press posts nothing more; a page restored from the back-forward
+      // cache gives it back.
+      ctx.setState({ isPending: true })
+      window.addEventListener(
+        'pageshow',
+        (event) => {
+          if (event.persisted) ctx.setState({ isPending: false })
+        },
+        { once: true }
+      )
     }
   }
   return (e) => {
     e.preventDefault()
-    void submitCrudForm(ctx)
+    if (pressWhilePending(e)) return
+    void submitCrudForm({ ...ctx, origin: e.currentTarget })
   }
 }
 
@@ -140,7 +154,7 @@ function CrudFormElement(props: {
           redirectUrl={island.redirectUrl}
           useNativeForm={useNativeForm}
           submitLabel={submitLabel}
-          savingLabel={formString(island.uiStrings, 'form.saving', 'Saving...')}
+          savingLabel={formString(island.uiStrings, 'form.saving', 'Saving…')}
           variant={island.variant}
           layout={layout}
           {...(island.aside === undefined ? {} : { aside: island.aside })}
@@ -154,6 +168,21 @@ function CrudFormElement(props: {
   )
 }
 
+/**
+ * Whether an edit saves by a native POST rather than the script. Auto-save
+ * persists edits in place, and a native post (a full page load) would conflict,
+ * so it takes the script; so does a host that must not be navigated away from
+ * (`submitInPlace`), a form that announces its save with a toast AND moves on
+ * (the native post would land on the next page with the toast never shown), and
+ * a form that decides its dialog (`close`): `false` keeps it open, which a
+ * reload would not, and `true` closes it in place, with no page load.
+ */
+function postsNatively(island: CrudFormIslandProps, autoSaving: boolean): boolean {
+  if (island.operation !== 'update' || !island.recordId || autoSaving) return false
+  if (island.submitInPlace || island.close !== undefined) return false
+  return !(island.successToast?.message !== undefined && island.redirectUrl !== undefined)
+}
+
 export function CreateUpdateForm(props: {
   readonly island: CrudFormIslandProps
   readonly values: Record<string, string>
@@ -165,21 +194,9 @@ export function CreateUpdateForm(props: {
   readonly onDiscard: () => void
 }) {
   const { island, values, state, ctx, onFieldChange } = props
-  const { operation, fields } = island
+  const { fields } = island
   const autoSave = useAutoSave({ island, values, ctx, setState: ctx.setState })
-  // When auto-save is active the form persists edits in-place; the native
-  // POST/redirect path would conflict (full page reload on submit), so it is
-  // disabled and submission falls back to the JS mutation handler. A host that
-  // must not be navigated away from (`submitInPlace`) takes the same path, and
-  // so does a form that announces its save with a toast AND moves on
-  // (`navigate`): the native post would land on the next page with the toast
-  // never shown, where the script shows it and then navigates.
-  const useNativeForm =
-    operation === 'update' &&
-    !!island.recordId &&
-    !autoSave.enabled &&
-    !island.submitInPlace &&
-    !(island.successToast?.message !== undefined && island.redirectUrl !== undefined)
+  const useNativeForm = postsNatively(island, autoSave.enabled)
 
   // onSuccess.type: 'successPage' — replace the form with the success page once
   // the submission has succeeded. A `reset` action returns to the empty form.

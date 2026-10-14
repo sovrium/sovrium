@@ -14,7 +14,9 @@ import {
   computeAuthFeedbackBannerClasses,
   computeFormLayoutClasses,
 } from '@/presentation/design/form-layout-classes'
+import { pendingControlProps } from '@/presentation/design/pending-state'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
 import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
 
 /** Which ceremony the control runs: save a new passkey, or sign in with one. */
@@ -146,6 +148,7 @@ export function PasskeyForm(props: PasskeyFormProps): React.ReactElement {
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>): void => {
+      if (pressWhilePending(event)) return
       event.preventDefault()
       setIsPending(true)
       setOutcome({})
@@ -168,7 +171,7 @@ export function PasskeyForm(props: PasskeyFormProps): React.ReactElement {
       <PasskeyFeedback outcome={outcome} />
       <button
         type="submit"
-        disabled={isPending}
+        {...pendingControlProps(isPending)}
         className={`${computeButtonDefaultClasses({ variant })} w-full`}
       >
         {props.label ?? (mode === 'register' ? 'Add a passkey' : 'Sign in with a passkey')}

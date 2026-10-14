@@ -45,6 +45,7 @@ import {
   type FormPrefillContext,
 } from './form-prefill-resolver'
 import { FormBodyStep } from './form-renderer-multi-step'
+import { resolveStepNavLabels } from './form-step-nav-labels'
 import { prefillColumnsOf } from './record-prefill-resolver'
 import type { EmbeddedFormPrefillContext } from './form-body'
 import type { App } from '@/domain/models/app'
@@ -174,7 +175,7 @@ function FormPage({
         {!embed && (
           <FormPageChrome
             app={app}
-            lang={activeLang}
+            lang={documentLang}
           />
         )}
       </body>
@@ -283,17 +284,13 @@ export function renderEmbedFormPage(
 /**
  * Render a single step's HTML fragment for a multi-step form.
  *
- * Returns the HTML for a `<div class="form-step">` block containing the
- * step's title/description, its declared fields (with values from the
- * per-session draft prefilled), and Previous/Next/Submit buttons sized
- * to the step's position in the visible-step sequence.
+ * Returns a `<div class="form-step">` block — title, description, fields from the draft, actions row.
  *
  * Consumed by:
  *   - `GET /api/forms/:name/steps/:stepId` — server-mediated navigation
  *     between steps (Previous button, deep-link back to a step).
- *   - The advance endpoint when it streams the next step's HTML to the
- *     runtime as part of the Next-button response (richer flow; for the
- *     foundation we only return `{ nextStepId }` JSON).
+ *   - The advance endpoint, which answers `{ nextStepId }`; the runtime
+ *     then fetches that step's HTML here.
  *
  * `draftValues` is keyed by the field's submitter-facing identifier
  * (`column` for table-bound, `name` for standalone). Values flow into
@@ -308,13 +305,15 @@ export interface StepFragmentState {
   readonly draftValues: Readonly<Record<string, unknown>>
   /** The choices read from tables for this request, as the full page carries them. */
   readonly optionSets?: FormOptionSets
+  /** The reader's language, as the page the step belongs to was served in. */
+  readonly activeLang?: string
 }
 
 export function renderFormStepFragment(
   app: Readonly<App>,
   form: Readonly<Form>,
   stepId: string,
-  { draftValues, optionSets = {} }: StepFragmentState
+  { draftValues, optionSets = {}, activeLang }: StepFragmentState
 ): string {
   const steps = form.steps ?? []
   if (steps.length === 0) return ''
@@ -323,7 +322,7 @@ export function renderFormStepFragment(
   const step = steps[stepIndex]!
   // Evaluated against the draft, so a condition on an earlier step's answer
   // is already applied to this step as served.
-  const resolvedFields = resolveAllFields(app as App, form as Form, undefined, {
+  const resolvedFields = resolveAllFields(app as App, form as Form, activeLang, {
     conditionValues: draftValues,
     optionSets,
   })
@@ -342,7 +341,8 @@ export function renderFormStepFragment(
       stepFields={stepItems(resolvedFields, step.fields)}
       prefillMap={prefillMap}
       lockPrefill={false}
-      descriptionHtml={stepDescriptionsHtml([step], app.languages, undefined)[step.id] ?? ''}
+      descriptionHtml={stepDescriptionsHtml([step], app.languages, activeLang)[step.id] ?? ''}
+      labels={resolveStepNavLabels(resolveDocumentLang(app.languages, activeLang), app.languages)}
     />
   )
 }

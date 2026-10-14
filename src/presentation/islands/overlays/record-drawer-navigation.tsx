@@ -40,7 +40,7 @@ export interface DrawerNavigationProps {
 }
 
 const STEP_CLASS =
-  'border-border text-foreground hover:bg-background-subtle rounded-md border px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50'
+  'border-border text-foreground hover:bg-muted rounded-md border px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50'
 
 /**
  * The ids of the list that last opened each drawer, by drawer id. Recorded by a

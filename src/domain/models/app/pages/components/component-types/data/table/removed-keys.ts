@@ -39,7 +39,7 @@
 const REMOVED_ON_TABLE: ReadonlyMap<string, string> = new Map([
   [
     'views',
-    '`views` has been removed: a table component no longer switches between a grid, a board, a calendar and a gallery. Each is its own component — add a `kanban`, `calendar` or `gallery` beside the grid, each with its own `dataSource`. A lasting filter, sort, grouping or field selection is one of the table’s `views[]`, bound with `dataSource.view`.',
+    '`views` has been removed: a table component no longer switches between a grid, a board, a calendar and a gallery. Each is its own component — add a `kanban`, `event-calendar` or `gallery` beside the grid, each with its own `dataSource`. A lasting filter, sort, grouping or field selection is one of the table’s `views[]`, bound with `dataSource.view`.',
   ],
   [
     'viewLabels',
@@ -51,7 +51,7 @@ const REMOVED_ON_TABLE: ReadonlyMap<string, string> = new Map([
   ],
   [
     'dateField',
-    '`dateField` has been removed from `table`: it only served the switched-in calendar. Declare a `calendar` component bound to the same table (or view) and set `dateField` there.',
+    '`dateField` has been removed from `table`: it only served the switched-in calendar. Declare an `event-calendar` component bound to the same table (or view) and set `dateField` there.',
   ],
   [
     'groupBy',
@@ -63,7 +63,7 @@ const REMOVED_ON_TABLE: ReadonlyMap<string, string> = new Map([
 const REMOVED_ON_TOOLBAR: ReadonlyMap<string, string> = new Map([
   [
     'viewSwitcher',
-    '`toolbar.viewSwitcher` has been removed: a board, a calendar and a gallery are separate components. Add a `kanban`, `calendar` or `gallery` beside the grid, each with its own `dataSource`.',
+    '`toolbar.viewSwitcher` has been removed: a board, a calendar and a gallery are separate components. Add a `kanban`, `event-calendar` or `gallery` beside the grid, each with its own `dataSource`.',
   ],
   [
     'views',

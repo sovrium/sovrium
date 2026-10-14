@@ -5,14 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// `badge` — six drawings over two independent axes, which is why the names here
+// `badge` — eight drawings over two independent axes, which is why the names here
 // are not the schema's.
 //
-// `badgeVariant` picks the fill (`default secondary destructive outline`) and
-// `variant` picks the MODE (`status` or `contrast`), and the two are orthogonal.
-// The design system's six named forms each pin a point in that product, so each
-// heading is the form and each drawing is the real component with whichever keys
-// produce it.
+// `badgeVariant` picks the fill (`default secondary destructive outline ghost
+// link`) and `variant` picks the MODE (`status` or `contrast`), and the two are
+// orthogonal. The six named forms, plus shadcn's two quiet tones, each pin a
+// point in that product, so each heading is the form and each drawing is the
+// real component with whichever keys produce it.
 //
 // ─── AND THAT IS WHY THE DERIVATION RULE DOES NOT REACH THIS FILE ──────────
 //
@@ -76,6 +76,8 @@ const badge: TypePageBody = {
       ],
     },
     { label: 'semantic', children: [badgeOf({ badgeVariant: 'destructive' }, 'Revoked')] },
+    { label: 'ghost', children: [badgeOf({ badgeVariant: 'ghost' }, 'Internal')] },
+    { label: 'link', children: [badgeOf({ badgeVariant: 'link', href: '#' }, '3 unpaid')] },
   ],
 }
 

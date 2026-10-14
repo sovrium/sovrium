@@ -18,7 +18,7 @@ children:
             props:
               className: text-xl font-semibold text-foreground text-lg
             content: '[Schedule]'
-      - type: calendar
+      - type: event-calendar
         dataSource:
           table: projects
         dateField: due_date

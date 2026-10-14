@@ -6,8 +6,9 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
+import { computeTableCellEditorClasses } from '@/presentation/design/table-default-classes'
 import { resolveInputType } from './editors/editor-registry'
-import type { EditableCellProps } from './editable-cell'
+import type { EditableCellProps } from './editing/editable-cell-types'
 import type { TabDirection } from './island/tab-target'
 import type { MutableRefObject, ReactElement } from 'react'
 
@@ -228,7 +229,8 @@ function AutoSaveTextEditor(props: TextEditorProps): ReactElement {
       onChange={(e) => handleChange(e.target.value)}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
-      className="border-primary focus:ring-focus-ring text-md w-full rounded border px-1 py-0.5 focus:ring-1 focus:outline-none"
+      data-slot="input"
+      className={computeTableCellEditorClasses()}
     />
   )
 }
@@ -295,7 +297,8 @@ function ManualSaveTextEditor(props: TextEditorProps): ReactElement {
       onBlur={() => {
         if (!savingRef.current) onCancel()
       }}
-      className="border-primary focus:ring-focus-ring text-md w-full rounded border px-1 py-0.5 focus:ring-1 focus:outline-none"
+      data-slot="input"
+      className={computeTableCellEditorClasses()}
     />
   )
 

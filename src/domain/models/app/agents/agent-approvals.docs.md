@@ -49,6 +49,8 @@ The grant does **not** govern what the agent may then do — that remains its ro
 
 It inserts a person between the model's decision and its effect.
 
+Approval applies to each **tool call** the agent makes, on every surface: a chat turn, an automation's `agent` step, a scheduled run. When the model asks for an action the rule covers, that one call is held as a pending request named after the action (`record.create`), and the turn pauses there. Calls the rule does not cover run at once. Approving the request runs the action, under the agent's identity and never the approver's, and the agent then finishes its turn with the result. Rejecting it runs nothing.
+
 <!-- sovrium:options AgentApprovalSchema -->
 
 <!-- sovrium:options AgentApprovalEscalationSchema -->
@@ -89,6 +91,6 @@ Running `all` for a fortnight after deploying a new agent is a cheap way to lear
 
 ## Approval and scheduling together
 
-A scheduled run respects approval. An agent with `mode: all` on a nightly cron does not execute in the small hours — it queues a request that sits until somebody arrives, and expires if the timeout passes first.
+A scheduled run starts at once, and approval holds only the calls it covers. An agent with `mode: all` on a nightly cron still runs in the small hours, but every action it decides on becomes a request that waits until somebody arrives, and expires if the timeout passes first. A run that decides on no action simply completes.
 
-That combination is usually a mistake, and worth naming: an unattended trigger paired with an attended gate produces an agent that reliably does nothing overnight. Either narrow to `selective` so the routine part proceeds, or accept that the schedule only prepares work for the morning.
+An unattended trigger paired with `mode: all` therefore produces a queue of decisions for the morning rather than work done overnight. If that is not what you want, narrow to `selective` so the routine actions proceed and only the consequential ones wait.

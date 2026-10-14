@@ -6,6 +6,7 @@
  */
 
 import type { FieldMetaMap } from '../../../hooks/use-inline-editing'
+import type { RowActionsDisplay } from '../../row-actions/row-action-types'
 import type { useDataTableUiState } from '../use-ui-state'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type {
@@ -90,6 +91,8 @@ export interface IslandSetupParams {
    */
   readonly saveLabel: string
   readonly cancelLabel: string
+  /** How the action column draws its actions: inline buttons, or a `…` menu per row. */
+  readonly rowActionsDisplay: RowActionsDisplay
 }
 
 /**

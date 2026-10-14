@@ -8,11 +8,12 @@
 import { Toggle } from '@base-ui/react/toggle'
 import { ToggleGroup } from '@base-ui/react/toggle-group'
 import { useMemo } from 'react'
+import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeToggleGroupClasses,
   computeToggleGroupItemClasses,
 } from '@/presentation/islands/form-controls/toggle-default-classes'
-import type { ReactElement } from 'react'
+import type { CSSProperties, ReactElement } from 'react'
 
 interface ToggleItem {
   readonly id: string
@@ -23,6 +24,12 @@ interface ToggleItem {
 interface ToggleGroupIslandProps {
   readonly items?: readonly ToggleItem[]
   readonly toggleType?: 'single' | 'multiple'
+  readonly orientation?: 'horizontal' | 'vertical'
+  readonly size?: 'sm' | 'default' | 'lg'
+  readonly variant?: 'default' | 'outline'
+  readonly spacing?: number
+  /** The group's accessible name, such as "Alignment". */
+  readonly label?: string
   readonly defaultValue?: readonly string[]
   readonly disabled?: boolean
   readonly className?: string
@@ -31,16 +38,20 @@ interface ToggleGroupIslandProps {
 }
 
 /**
- * Toggle group island — wraps Base UI ToggleGroup for grouped toggles.
- *
- * Supports single (one active at a time) or multiple selection modes with
- * roving tabindex keyboard navigation. Default styling lives in
- * `toggle-default-classes.ts` (prestyled-by-default); author
- * `className` composes AFTER the default wrapper recipe.
+ * Toggle group island — Base UI `ToggleGroup`, drawn on shadcn/ui's
+ * `ToggleGroup` anatomy: `data-slot="toggle-group"` carrying its variant, size,
+ * spacing and orientation as data attributes, `data-slot="toggle-group-item"`
+ * on each item. `toggleType` picks single or multiple selection; the
+ * orientation is also Base UI's arrow-key axis.
  */
 export default function ToggleGroupIsland({
   items = [],
   toggleType = 'single',
+  orientation = 'horizontal',
+  size = 'default',
+  variant = 'default',
+  spacing = 2,
+  label,
   defaultValue,
   disabled = false,
   className,
@@ -51,17 +62,24 @@ export default function ToggleGroupIsland({
     () => (defaultValue ? [...defaultValue] : []),
     [defaultValue]
   )
-  const wrapperClasses = computeToggleGroupClasses()
-  const itemClasses = computeToggleGroupItemClasses()
+  const itemClasses = computeToggleGroupItemClasses({ variant, size })
 
   return (
     <ToggleGroup
       defaultValue={memoizedDefaultValue}
       multiple={toggleType === 'multiple'}
       disabled={disabled}
-      className={`${wrapperClasses} ${className ?? ''}`}
+      orientation={orientation}
+      className={resolveClasses(computeToggleGroupClasses(), className)}
+      style={{ '--gap': spacing } as CSSProperties}
       id={id}
       data-testid={testId}
+      data-slot="toggle-group"
+      aria-label={label}
+      data-variant={variant}
+      data-size={size}
+      data-spacing={spacing}
+      data-orientation={orientation}
     >
       {items.map((item) => (
         <Toggle
@@ -69,6 +87,10 @@ export default function ToggleGroupIsland({
           value={item.id}
           disabled={item.disabled}
           className={itemClasses}
+          data-slot="toggle-group-item"
+          data-variant={variant}
+          data-size={size}
+          data-spacing={spacing}
         >
           {item.label}
         </Toggle>

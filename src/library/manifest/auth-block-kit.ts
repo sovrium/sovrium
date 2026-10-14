@@ -6,15 +6,16 @@
  */
 
 /**
- * The anatomy every AUTH block shares: the app's mark and name, one `h1`, one
- * sentence saying what happens next, the form, an "or" divider, alternatives
- * as secondary buttons, and a footer link.
+ * The anatomy every AUTH block shares, in shadcn/ui's terms (its `login-03`
+ * block): the app's mark and name, one `h1`, one sentence saying what happens
+ * next, the form, a FieldSeparator, alternatives as outline buttons, and a
+ * FieldDescription ending in a link.
  *
- * The card is 384 px wide (416 for an invitation) on the page ground, with a
- * hairline border and no shadow. Below the `sm` breakpoint the card dissolves
- * into the page — no border, no padding of its own — so a phone shows the
- * content from the top with the page's 16 px gutter rather than a box floating
- * in the middle of a small screen.
+ * The card is 384 px wide (416 for an invitation) on the muted page ground,
+ * with shadcn's Card surface: a hairline ring and no shadow. Below the `sm`
+ * breakpoint the card dissolves into the page — no ring, no padding of its
+ * own — so a phone shows the content from the top with the page's gutter
+ * rather than a box floating in the middle of a small screen.
  *
  * Every alternative sign-in way is gated on what the app DECLARES
  * (`visibility.declares`), so a block installed into an app without passkeys
@@ -49,15 +50,15 @@ export const unlessDeclared = (capability: AuthCapability, node: BlockNode): Blo
 /** The app's mark and name above the heading. */
 export const appMark = (iconName: string): BlockNode => ({
   type: 'flex',
-  props: { className: 'flex items-center gap-2 text-sm font-semibold text-foreground' },
+  props: { className: 'flex items-center gap-2 text-sm font-medium text-foreground' },
   children: [
     {
-      type: 'icon',
+      type: 'container',
       props: {
-        name: iconName,
-        size: 14,
-        className: 'box-content rounded-sm bg-primary p-1 text-primary-foreground',
+        className:
+          'flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground',
       },
+      children: [{ type: 'icon', props: { name: iconName, size: 16 } }],
     },
     { type: 'text', element: 'span', content: '$app.label' },
   ],
@@ -80,36 +81,44 @@ export const authHeading = (title: string, sentence: string): BlockNode => ({
           {
             type: 'text',
             element: 'p',
-            props: { className: 'text-md text-foreground-muted' },
+            props: { className: 'text-sm text-balance text-muted-foreground' },
             content: sentence,
           },
         ]),
   ],
 })
 
-/** A hairline either side of a small "or". */
+/** shadcn's FieldSeparator: a hairline either side of a small "Or". */
 export const orDivider = (): BlockNode => ({
   type: 'flex',
   props: {
-    className: 'flex items-center gap-3 text-sm text-foreground-subtle',
-    role: 'separator',
+    'data-slot': 'field-separator',
+    className: 'flex h-5 items-center gap-2 text-sm text-muted-foreground',
   },
   children: [
-    { type: 'container', props: { className: 'h-px flex-1 bg-border' } },
-    { type: 'text', element: 'span', content: 'or' },
-    { type: 'container', props: { className: 'h-px flex-1 bg-border' } },
+    { type: 'separator', props: { className: 'flex-1' } },
+    {
+      type: 'text',
+      element: 'span',
+      props: { 'data-slot': 'field-separator-content', className: 'shrink-0 px-2' },
+      content: 'Or',
+    },
+    { type: 'separator', props: { className: 'flex-1' } },
   ],
 })
 
-/** A sentence ending in a link — "No account yet? Create one". */
+/** shadcn's FieldDescription ending in a link — "No account yet? Create one". */
 export const footerLink = (sentence: string, label: string, href: string): BlockNode => ({
   type: 'flex',
-  props: { className: 'flex flex-wrap gap-1 text-md text-foreground-muted' },
+  props: {
+    'data-slot': 'field-description',
+    className: 'flex flex-wrap gap-1 text-sm text-muted-foreground',
+  },
   children: [
     ...(sentence === '' ? [] : [{ type: 'text', element: 'span', content: sentence }]),
     {
       type: 'link',
-      props: { href, className: 'font-medium text-foreground underline underline-offset-4' },
+      props: { href, className: 'text-foreground underline underline-offset-4 hover:text-primary' },
       content: label,
     },
   ],
@@ -120,7 +129,7 @@ export const quietLink = (label: string, href: string): BlockNode => ({
   type: 'link',
   props: {
     href,
-    className: 'self-start text-md text-foreground-muted underline underline-offset-4',
+    className: 'self-start text-sm underline-offset-4 hover:underline',
   },
   content: label,
 })
@@ -136,14 +145,14 @@ export const authPage = (children: readonly BlockNode[], wide = false): BlockNod
   type: 'container',
   element: 'section',
   props: {
-    className:
-      'flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6',
+    className: 'flex min-h-svh justify-center bg-muted p-6 sm:items-center md:p-10',
   },
   children: [
     {
       type: 'container',
       props: {
-        className: `flex w-full ${wide ? 'max-w-104' : 'max-w-96'} flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-background-raised sm:p-8`,
+        'data-slot': 'card',
+        className: `flex w-full ${wide ? 'max-w-104' : 'max-w-96'} flex-col gap-6 self-start text-sm sm:self-auto sm:rounded-xl sm:bg-card sm:p-6 sm:text-card-foreground sm:ring-1 sm:ring-foreground/10`,
       },
       children,
     },
@@ -161,17 +170,18 @@ export const AUTH_PLACE_NOTE =
 /** One variant of an auth screen, stacked at the card's own rhythm. */
 export const authColumn = (children: readonly BlockNode[]): BlockNode => ({
   type: 'flex',
-  props: { className: 'flex flex-col gap-6' },
+  props: { className: 'flex flex-col gap-6 [&_button]:w-full' },
   children,
 })
 
-/** A link drawn as a secondary button, for an alternative way in that lives on its own page. */
+/** A link drawn as shadcn's outline button, for an alternative way in that lives on its own page. */
 export const alternativeLink = (label: string, href: string): BlockNode => ({
   type: 'link',
   props: {
     href,
+    'data-slot': 'button',
     className:
-      'inline-flex h-8 w-full items-center justify-center rounded-md border border-border-strong bg-background-raised text-base font-medium text-foreground hover:bg-background-subtle',
+      'inline-flex h-8 w-full items-center justify-center rounded-lg border border-border bg-background px-2.5 text-sm font-medium text-foreground hover:bg-muted',
   },
   content: label,
 })

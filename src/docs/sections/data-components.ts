@@ -157,7 +157,7 @@ export const section = defineSection({
       order: 3406,
       sidebarLabel: 'Galleries',
       body: galleryBody,
-      documents: [componentType('gallery')],
+      documents: [componentType('gallery'), componentType('carousel')],
       stories: [
         'US-PAGES-DATA-COMPONENTS-DATA-GALLERY',
         'US-PAGES-DATA-COMPONENTS-DATA-GALLERY-FEATURED-CARD',
@@ -172,7 +172,7 @@ export const section = defineSection({
       order: 3407,
       sidebarLabel: 'Calendars',
       body: calendarBody,
-      documents: [componentType('calendar')],
+      documents: [componentType('event-calendar')],
       stories: [
         'US-PAGES-DATA-COMPONENTS-DATA-CALENDAR',
         'US-PAGES-DATA-COMPONENTS-DATA-CALENDAR-DAY-MIN-HEIGHT',

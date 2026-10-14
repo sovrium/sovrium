@@ -84,11 +84,14 @@ const INTERACTIVE_SPECIMENS: readonly CatalogSpecimen[] = [
     }),
   },
   {
+    // A title and a message true of every tone: the type page redraws this one
+    // specimen under each `alertVariant`, so a failure sentence would read as a
+    // success on the success row.
     type: 'alert',
     component: component({
       type: 'alert',
-      alertVariant: 'destructive',
-      content: 'Migration failed. The database was left unchanged.',
+      title: 'Heads up',
+      content: 'Changes apply after the next deploy.',
     }),
   },
   {

@@ -79,13 +79,13 @@ export const entry = defineLibraryEntry({
                   {
                     type: 'text',
                     element: 'h3',
-                    props: { className: 'text-md font-semibold text-foreground' },
+                    props: { className: 'text-md leading-snug font-medium text-foreground' },
                     content: `$record.${p('titleField')}`,
                   },
                   {
                     type: 'text',
                     element: 'p',
-                    props: { className: 'text-sm text-foreground-subtle' },
+                    props: { className: 'text-sm text-muted-foreground' },
                     content: `$record.${p('subtitleField')}`,
                   },
                 ],

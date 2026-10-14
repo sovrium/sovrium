@@ -9,15 +9,14 @@ import { menuLink, menuButton, menuPanel } from '@/library/manifest/app-block-ki
 import {
   asComponent,
   flex,
-  linkButton,
   logo,
-  navLink,
   param,
   PLACE_NOTE,
   stringParam,
   THEME_NOTE,
 } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
+import { buttonLink } from '@/library/manifest/navigation-block-kit'
 
 const LINKS: readonly (readonly [string, string])[] = [
   ['[Product]', '/product'],
@@ -69,21 +68,20 @@ export const entry = defineLibraryEntry({
           [
             logo(p('brand')),
             {
-              type: 'container',
-              element: 'nav',
-              props: { 'aria-label': 'Main', className: 'hidden items-center gap-8 md:flex' },
-              children: LINKS.map(([label, href]) => navLink(label, href)),
+              type: 'navigation-menu',
+              props: { 'aria-label': 'Main', className: 'hidden md:flex' },
+              navItems: LINKS.map(([label, href]) => ({ label, href })),
             },
             flex(
               [
-                linkButton(p('signInLabel'), p('signInHref'), 'ghost'),
-                linkButton(p('ctaLabel'), p('ctaHref')),
+                buttonLink(p('signInLabel'), p('signInHref'), { variant: 'ghost' }),
+                buttonLink(p('ctaLabel'), p('ctaHref')),
               ],
               'hidden items-center gap-2 md:flex'
             ),
             menuButton(menuId),
           ],
-          'mx-auto h-16 w-full max-w-6xl items-center justify-between gap-6'
+          'mx-auto h-14 w-full max-w-6xl items-center justify-between gap-6'
         ),
         menuPanel(menuId, [
           {
@@ -94,8 +92,8 @@ export const entry = defineLibraryEntry({
           },
           flex(
             [
-              linkButton(p('ctaLabel'), p('ctaHref')),
-              linkButton(p('signInLabel'), p('signInHref'), 'secondary'),
+              buttonLink(p('ctaLabel'), p('ctaHref'), { size: 'lg' }),
+              buttonLink(p('signInLabel'), p('signInHref'), { variant: 'outline', size: 'lg' }),
             ],
             'mt-6 flex-col gap-3'
           ),

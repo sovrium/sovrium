@@ -40,12 +40,14 @@ export function SkeletonRows({
 }): ReactElement {
   return (
     <tbody
+      data-slot="table-body"
       className={computeTableBodyClasses()}
       aria-hidden="true"
     >
       {Array.from({ length: 5 }).map((_, i) => (
         <tr
           key={`skeleton-${String(i)}`}
+          data-slot="table-row"
           data-skeleton-row="true"
           // Loading placeholders are inert: marking them `pointer-events: none`
           // keeps a click that lands during the records-fetch window from
@@ -59,6 +61,7 @@ export function SkeletonRows({
           {allColumns.map((_, j) => (
             <td
               key={`skeleton-cell-${String(j)}`}
+              data-slot="table-cell"
               className={cellClass}
             >
               <div

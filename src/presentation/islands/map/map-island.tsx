@@ -18,6 +18,9 @@
 
 import { useMemo, useState, type ReactElement } from 'react'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import { computeVerticalButtonGroupClasses } from '@/presentation/design/button-group-default-classes'
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
+import { computeListItemClasses } from '@/presentation/design/item-default-classes'
 import { useRecordsQuery, type RecordsDataSource } from '../hooks/use-records-query'
 import { cardPathClick, openCardDrawer } from '../runtime/card-click'
 import { MapCard } from './map-card'
@@ -43,7 +46,18 @@ interface MapIslandProps {
   readonly tiles?: { readonly url?: string; readonly attribution?: string }
 }
 
-const CONTROL = 'border-border bg-background flex size-8 items-center justify-center border text-sm'
+/** A zoom control: base-nova's outline `icon-sm` button. */
+const CONTROL = computePartButtonClasses({ variant: 'outline', size: 'icon-sm' })
+
+/** The zoom pair: a vertical button group in the frame's corner. */
+const ZOOM_GROUP = `absolute bottom-3 left-3 ${computeVerticalButtonGroupClasses()}`
+
+/** The frame: ringed, borderless, its corners clipping the basemap. */
+const FRAME =
+  'relative min-w-0 flex-1 overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/10'
+
+/** A twin entry: a small item that is the button opening its card. */
+const TWIN_ITEM = `${computeListItemClasses({ interactive: true })} text-left`
 
 function itemsOf(rows: readonly TableRecord[], props: MapIslandProps): readonly MapItem[] {
   return rows.map((record) => {
@@ -70,10 +84,18 @@ function openItem(click: PinClick | undefined, item: MapItem, table: string | un
 /** The zoom controls, the keyboard's way to change the scale. */
 function ZoomControls({ onZoom }: { readonly onZoom: (step: number) => void }): ReactElement {
   return (
-    <div className="absolute bottom-3 left-3 flex flex-col">
+    <div
+      role="group"
+      data-slot="button-group"
+      data-orientation="vertical"
+      className={ZOOM_GROUP}
+    >
       <button
         type="button"
         aria-label="Zoom in"
+        data-slot="button"
+        data-variant="outline"
+        data-size="icon-sm"
         className={CONTROL}
         onClick={() => onZoom(1)}
       >
@@ -82,6 +104,9 @@ function ZoomControls({ onZoom }: { readonly onZoom: (step: number) => void }): 
       <button
         type="button"
         aria-label="Zoom out"
+        data-slot="button"
+        data-variant="outline"
+        data-size="icon-sm"
         className={CONTROL}
         onClick={() => onZoom(-1)}
       >
@@ -134,15 +159,22 @@ function closeCard(openId: string | undefined, setOpenId: (id: string | undefine
   document.querySelector<HTMLElement>(`[data-map-twin="${CSS.escape(openId)}"]`)?.focus()
 }
 
+/**
+ * The map beside its twin, or above it: the switch follows the HOST's width
+ * (`@container` on the SSR host), not the viewport's, so a map placed in a
+ * narrow column stacks its twin under a full-width frame rather than squeezing
+ * the frame into a sliver beside it.
+ */
 export default function MapIsland(props: MapIslandProps): ReactElement {
   const model = useMapModel(props)
   const [openId, setOpenId] = useState<string | undefined>(undefined)
   const open = model.items.find((item) => item.id === openId)
   return (
-    <div className="flex flex-col gap-3 md:flex-row">
+    <div className="flex flex-col gap-3 @xl:flex-row">
       <div
         ref={model.ref}
-        className="border-border relative min-w-0 flex-1 overflow-hidden rounded-md border"
+        data-slot="map"
+        className={FRAME}
         style={model.frameStyle}
       >
         <Basemap
@@ -190,22 +222,25 @@ function MapTwin({
   readonly onChoose: (id: string) => void
 }): ReactElement {
   if (items.length === 0) {
-    return <p className="text-muted-foreground text-sm md:w-56">{empty ?? 'Loading…'}</p>
+    return <p className="text-muted-foreground text-sm @xl:w-56">{empty ?? 'Loading…'}</p>
   }
   return (
     <ul
       aria-label="Locations"
-      className="flex flex-col gap-1 md:w-56"
+      data-slot="item-group"
+      className="flex flex-col gap-1 @xl:w-56"
     >
       {items.map((item) => (
         <li key={item.id}>
           <button
             type="button"
+            data-slot="item"
+            data-size="sm"
             data-map-twin={item.id}
             onClick={() => onChoose(item.id)}
-            className="hover:bg-muted w-full rounded-sm px-2 py-1 text-left text-sm"
+            className={TWIN_ITEM}
           >
-            {item.label}
+            <span data-slot="item-title">{item.label}</span>
           </button>
         </li>
       ))}

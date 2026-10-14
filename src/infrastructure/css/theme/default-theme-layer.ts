@@ -17,30 +17,30 @@
  *   - {@link V1_TOKEN_LAYER}    — canonical role tokens, ramps and non-color
  *     tokens. Registers the canonical token names in an `@theme` block (so the
  *     Tailwind engine mints `bg-background`, `text-foreground`, `bg-primary`, `bg-error-bg`,
- *     `ring-focus-ring`, … utilities) and ships their light/dark VALUES in plain
- *     `:root` / dark-selector blocks so they switch at runtime. The minting
- *     names point at an internal `--sv-*` indirection layer whose value is
- *     supplied by {@link ROLE_TOKEN_BRIDGE}.
+ *     `ring-ring`, … utilities) and ships their light/dark VALUES in plain
+ *     `:root` / dark-selector blocks so they switch at runtime. A minting name
+ *     points at shadcn/ui's variable (`--color-background: var(--background)`)
+ *     or, for a Sovrium extension role base-nova does not declare, at its
+ *     `--sv-*` extension token (`--color-background-inset: var(--sv-bg-inset)`),
+ *     whose value is supplied by {@link ROLE_TOKEN_BRIDGE}.
  *   - {@link ROLE_TOKEN_BRIDGE}  — `var()` fallback chains supplying every
- *     canonical `--sv-*` role var with its default value. `var()` late-binds at
- *     use-time, so the author's `@theme` (emitted later in the pipeline) still
- *     wins.
+ *     role with its default value. `var()` late-binds at use-time, so the
+ *     author's `@theme` (emitted later in the pipeline) still wins.
  *
- *     MOST roles now resolve to the neutral default DIRECTLY, because reading
- *     the matching `--color-*` name back would form a custom-property CYCLE
- *     once that name became a registered canonical alias — see the
- *     per-role notes in the block itself. Only six roles still read a
- *     `--color-*` key as an intermediate rung: `--sv-focus-ring`
- *     (`--color-ring`), the four `-solid` status roles (`--color-success` /
- *     `-warning` / `-error` / `-info`) and `--sv-border` (`--color-input`).
+ *     Every role resolves to its default DIRECTLY: no role reads a `--color-*`
+ *     key back as an intermediate rung any more. Reading a registered name
+ *     back forms a custom-property CYCLE, and the six rungs that survived that
+ *     rule (`--color-ring`, `--color-success` / `-warning` / `-error` /
+ *     `-info`, `--color-input`) were redundant with the author bridge
+ *     (`theme-generators.ts`), which sets the role var itself. They were
+ *     deleted on the way to the shadcn default.
  *
- *     Of those, `ring`/`success`/`warning`/`error`/`info` are ALSO first-class
- *     `theme.colors` keys routed through `COLOR_TO_SV_TOKEN`
- *     (`theme-generators.ts`), so their rung is redundant with the author
- *     bridge. `--color-input` is the one exception: it is absent from
- *     `COLOR_TO_SV_TOKEN`, so this rung is the ONLY path by which it reaches
- *     `--sv-border` — a surviving shadcn component-layer alias. Retiring it is
- *     a per-token change that needs visual-regression baselines, so it stays.
+ *     The roles that have a shadcn/ui counterpart are declared under shadcn's
+ *     name ONLY (`--background`, `--primary`, `--border`, `--ring`,
+ *     `--chart-1` …). The `--sv-*` second spellings of those roles are gone;
+ *     the `--sv-*` names that remain are the Sovrium extensions of the shadcn
+ *     set — the density steps and the roles base-nova does not declare
+ *     (`--sv-primary-hover`, `--sv-bg-inset`, the status ramps, …).
  *   - {@link NEUTRAL_FLOOR_LAYER} — the same canonical token set as
  *     {@link V1_TOKEN_LAYER} but with neutral, unstyled grayscale / system-font
  *     values + a dark cascade, used when `theme.baseline === 'replace'` so a
@@ -48,11 +48,11 @@
  *
  * ## How the Tailwind v4 wiring works (verified, not assumed)
  *
- * `@theme { --color-background: var(--sv-bg) }` does two things: it registers
+ * `@theme { --color-background: var(--background) }` does two things: it registers
  * `--color-background` (so the `bg-background` utility resolves to `background-color:
  * var(--color-background)`) AND it would normally hoist that var into `:root`. We keep
  * the actual light/dark VALUES in a separate `:root` block and a dark-selector
- * block keyed off the `--sv-*` indirection layer; overriding `--sv-bg` under the
+ * block keyed off the shadcn variables; overriding `--background` under the
  * dark selector switches the role token at runtime. `@source inline(...)`
  * safelists every canonical utility so it is emitted in BOTH the native PostCSS
  * path AND the candidate-driven native-free binary path — independent of the
@@ -61,23 +61,25 @@
  * ## Dark-mode selector
  *
  * The running app toggles dark mode by adding the `.dark` class to
- * `<html>` (see `command-palette-runtime.ts`), and the compiler declares
+ * `<html>` (the palette's dark-mode action does it), and the compiler declares
  * `@custom-variant dark (&:is(.dark *))`. v1's own source keys dark off
  * `[data-theme="dark"]`. To honour both, the dark cascade is emitted under
  * `:where(.dark, [data-theme='dark'])` — the `.dark` arm matches the live
  * toggle, the `[data-theme='dark']` arm matches the legacy authored convention.
  *
- * Source of truth: `src/admin/config/design.ts`.
+ * Source of truth: the shadcn/ui registry snapshot
+ *, read by
+ * `scripts/build/shadcn-registry-to-design-source.ts`.
  * Every constant re-exported below is GENERATED from it by
  * `bun run build:default-design` — this module is the name every importer uses
  * and the place the prose lives, not the place the values live. Semantic
  * element styles (html/body/h1/a/.humane/…) are deliberately EXCLUDED because
- * they overlap with the existing `generateBaseLayer`. The Source Serif 4
- * italic `@font-face` declaration is shipped via
- * `SELF_HOSTED_FONT_FACES` (assembled by `buildDefaultLayer` in
- * `compiler.ts`); Plex Sans and JetBrains Mono are self-hosted —
- * for the self-hosted font strategy
- * for the strategy and budget.
+ * they overlap with the existing `generateBaseLayer`. The `@font-face`
+ * declarations are shipped via `SELF_HOSTED_FONT_FACES` (assembled by
+ * `buildDefaultLayer` in `source-css.ts`); Geist and Geist Mono are
+ * self-hosted —
+ * (§ Self-hosted
+ * fonts) for the strategy and budget.
  */
 
 export {

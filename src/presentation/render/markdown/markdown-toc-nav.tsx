@@ -55,7 +55,7 @@ export const renderToc = (
             <a
               href={`#${heading.id}`}
               data-toc-link={heading.id}
-              className="sv-toc-link hover:border-border-strong text-foreground-muted hover:text-foreground -ml-px block border-l border-transparent pl-3 transition-colors duration-150"
+              className="sv-toc-link hover:border-border-strong text-muted-foreground hover:text-foreground -ml-px block border-l border-transparent pl-3 transition-colors duration-150"
             >
               {heading.text}
             </a>

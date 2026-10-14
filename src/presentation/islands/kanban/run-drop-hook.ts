@@ -8,7 +8,7 @@
 /**
  * A board's drop hooks (`drag.onDrop`): what runs once a card dropped into a
  * column has been SAVED. The first hook whose `when.value` is that column runs
- * with the moved card as `$record` — `openDrawer` opens the named drawer on it,
+ * with the moved card as `$record` — `openSheet` opens the named drawer on it,
  * `fill` writes one of its values into a form control on the page. Called only
  * after the write answered OK, so a move that failed to save asks nothing.
  */

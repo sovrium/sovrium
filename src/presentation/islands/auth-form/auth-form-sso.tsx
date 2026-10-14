@@ -16,7 +16,9 @@ import {
   computeFormLayoutClasses,
 } from '@/presentation/design/form-layout-classes'
 import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
+import { pendingControlProps } from '@/presentation/design/pending-state'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
 
 /** One identity provider as the sign-in control needs it: no secret ever reaches the browser. */
 export interface SsoButtonProvider {
@@ -80,9 +82,9 @@ function ProviderButton(props: {
   return (
     <button
       type="button"
-      disabled={props.disabled}
+      {...pendingControlProps(props.disabled)}
       data-sso-provider={provider.id}
-      onClick={handleClick}
+      onClick={props.disabled ? undefined : handleClick}
       className={computeButtonDefaultClasses({ variant: 'secondary' })}
     >
       {provider.label}
@@ -103,7 +105,7 @@ function WorkEmailField(props: { readonly inputId: string; readonly disabled: bo
       />
       <button
         type="submit"
-        disabled={props.disabled}
+        {...pendingControlProps(props.disabled)}
         className={`${computeButtonDefaultClasses()} w-full`}
       >
         Continue
@@ -151,6 +153,7 @@ export function SsoSignInForm(props: SsoSignInFormProps): React.ReactElement {
 
   const handleEmail = useCallback(
     (event: FormEvent<HTMLFormElement>): void => {
+      if (pressWhilePending(event)) return
       event.preventDefault()
       const email = String(new FormData(event.currentTarget).get('email') ?? '').trim()
       const provider = ssoProviderForEmail(providers, email)

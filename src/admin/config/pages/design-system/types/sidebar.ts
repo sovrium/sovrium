@@ -44,18 +44,24 @@
 // pretend to be somewhere it is not, which is a better property than a drawing
 // that always looks complete.
 //
-// ─── AND ONE THING THE TYPE DOES NOT HAVE ──────────────────────────────────
+// ─── THE ANATOMY ───────────────────────────────────────────────────────────
 //
-// There is no icon rail. Below the medium breakpoint the console's aside leaves
-// the flow and the burger reveals it as a drawer over a backdrop, by class alone
-// so it works before any island hydrates. That is the only collapsed state in
-// the schema and in the renderer, and none is drawn here that is not.
+// Every part is shadcn's, at the non-collapsing default, and carries its
+// `data-slot`: `sidebar` on the box, `sidebar-group` and `sidebar-group-label`,
+// `sidebar-menu-button` on a row, `sidebar-menu-badge` on a count, and
+// `sidebar-menu-sub` on a nested list indented behind a rule. shadcn's
+// `collapsible` has no counterpart yet; the narrow states are Sovrium's
+// `rail` (an icon column) and `drawer` (a sheet behind a menu button).
 
 import { SPECIMEN_ROWS_ENDPOINT } from '../../../system-sources'
 import type { PageComponent, TypePageBody } from './body-shape'
 
-/** The console aside's real geometry, minus the chrome that is not this type. */
-const COLUMN = 'flex w-64 shrink-0 flex-col gap-4 rounded-md border border-border p-4'
+/**
+ * shadcn's Sidebar at its 16rem width, edged like the `sidebar` variant. The
+ * ground, the group padding, the row height and the current fill are the
+ * component's own; the drawing adds only the width and the edge.
+ */
+const COLUMN = 'w-64 shrink-0 rounded-lg border border-sidebar-border'
 
 const nav = (landmark: string, groups: readonly unknown[], className = COLUMN): PageComponent =>
   ({ type: 'sidebar', props: { className }, groups }) as PageComponent
@@ -151,10 +157,27 @@ const sidebar: TypePageBody = {
                   ],
                 },
               ],
-              `${COLUMN} bg-background-raised shadow-lg`
+              `${COLUMN} shadow-lg`
             ),
           ],
         } as PageComponent,
+      ],
+    },
+    {
+      label: 'with icons and a count',
+      children: [
+        nav('Icons', [
+          {
+            label: 'Workspace',
+            landmark: 'Icons',
+            headingLevel: 2 as const,
+            items: [
+              { label: 'Inbox', href: '#inbox', icon: 'inbox', badge: '12' },
+              { label: 'Invoices', href: '#invoices', icon: 'file-text' },
+              { label: 'Clients', href: '#clients', icon: 'users' },
+            ],
+          },
+        ]),
       ],
     },
     {

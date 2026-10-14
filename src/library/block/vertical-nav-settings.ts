@@ -67,13 +67,13 @@ export const entry = defineLibraryEntry({
                 props: {
                   href: `${href}?section=${key}`,
                   className:
-                    'whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground',
+                    'inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline',
                 },
                 activeWhen: { value: '$query.section', equals: key },
                 activeProps: {
                   'aria-current': 'page',
                   className:
-                    'whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground',
+                    'inline-flex h-8 items-center justify-start rounded-lg bg-muted px-2.5 text-sm font-medium whitespace-nowrap text-foreground no-underline hover:bg-muted hover:no-underline',
                 },
                 content: label,
               })),

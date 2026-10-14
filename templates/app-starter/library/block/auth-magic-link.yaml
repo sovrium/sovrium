@@ -3,11 +3,11 @@ name: auth-magic-link
 type: container
 element: section
 props:
-  className: flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6
+  className: flex min-h-screen justify-center bg-muted px-4 pt-10 pb-12 sm:items-center sm:px-6
 children:
   - type: container
     props:
-      className: flex w-full max-w-96 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-background-raised sm:p-8
+      className: flex w-full max-w-96 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-card sm:p-8
     children:
       - type: flex
         props:
@@ -33,7 +33,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-md text-foreground-muted
+              className: text-md text-muted-foreground
             content: We email you a link that signs you in. No password needed.
       - type: form
         action:
@@ -47,7 +47,7 @@ children:
             message: 'We sent a sign-in link to $form.email. It works once and expires soon. Nothing there? Check your spam folder, or send a new one.'
       - type: flex
         props:
-          className: flex flex-wrap gap-1 text-md text-foreground-muted
+          className: flex flex-wrap gap-1 text-md text-muted-foreground
         children:
           - type: link
             props:

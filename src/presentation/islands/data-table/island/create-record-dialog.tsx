@@ -41,17 +41,15 @@ import {
   type SelectOptionLike,
 } from '@/domain/models/app/tables/select-option'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeDialogOverlayClasses } from '@/presentation/design/dialog-default-classes'
 import { NUMBER_INPUT_MODE } from '@/presentation/design/field-control-attributes'
 import {
   computeTableDialogTitleClasses,
   computeTableAddRowInputClasses,
   computeTableEditorLabelClasses,
+  computeTableFormDialogClasses,
 } from '@/presentation/design/table-default-classes'
 import { type FieldMetaMap } from '../../hooks/use-inline-editing'
-import {
-  computeDialogPopupClasses,
-  computeOverlayBackdropClasses,
-} from '../../overlays/overlay-default-classes'
 import { isNumericFieldType } from './create-record-data'
 
 /**
@@ -260,7 +258,7 @@ function CreateRecordDialogBody({
     <Dialog.Popup
       role="dialog"
       aria-label={title}
-      className={`${computeDialogPopupClasses()} flex max-h-dvh flex-col gap-3`}
+      className={computeTableFormDialogClasses()}
     >
       <Dialog.Title className={computeTableDialogTitleClasses()}>{title}</Dialog.Title>
       {/* Scroll the field list (not the whole popup) so the title stays pinned
@@ -351,7 +349,8 @@ export function CreateRecordDialog({
       <Dialog.Portal>
         <Dialog.Backdrop
           data-overlay
-          className={computeOverlayBackdropClasses()}
+          data-slot="dialog-overlay"
+          className={computeDialogOverlayClasses()}
         />
         <CreateRecordDialogBody
           title={title}

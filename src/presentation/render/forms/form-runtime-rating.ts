@@ -19,8 +19,8 @@
  *     the `click` that follows knows whether the rank was already chosen. A
  *     cleared group posts nothing, and the column stores NULL — never 0, which
  *     its `CHECK (col >= 1)` refuses;
- *   - the glyphs up to the chosen rank are drawn filled, from the glyph pair
- *     and the two tone classes the server wrote on the group.
+ *   - the glyphs up to the chosen rank are drawn filled, from the two tone
+ *     classes the server wrote on the group (the filled one fills the icon).
  *
  * `paintRatings()` is also called after a reset, so the glyphs follow the
  * radios the reset cleared.
@@ -32,12 +32,10 @@ export const FORM_RUNTIME_RATING_SCRIPT = `
     return el && el.type === 'radio' && el.closest ? el.closest('[data-rating-scale]') : null
   }
   function paintRating(group) {
-    var glyphs = group.getAttribute('data-rating-glyphs') || ''
     var chosen = group.querySelector('input:checked')
     var score = chosen ? Number(chosen.value) : 0
     group.querySelectorAll('[data-rating-glyph]').forEach(function (glyph, index) {
       var filled = index < score
-      glyph.textContent = glyphs.charAt(filled ? 0 : 1)
       glyph.className = group.getAttribute(filled ? 'data-rating-filled-class' : 'data-rating-hollow-class') || ''
       glyph.setAttribute('data-filled', filled ? 'true' : 'false')
     })

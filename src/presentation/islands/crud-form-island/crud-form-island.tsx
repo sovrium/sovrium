@@ -8,6 +8,7 @@
 import { useCallback } from 'react'
 import { DeleteView } from '../parts/crud-delete-view'
 import { CreateUpdateForm } from './create-update-form'
+import { formString } from './form-strings'
 import { useCrudFormState } from './state'
 import { submitCrudForm } from './submit-pipeline'
 import { type CrudFormIslandProps } from './types'
@@ -39,6 +40,9 @@ export default function CrudFormIsland(props: CrudFormIslandProps) {
         className={props.className}
         id={props.id}
         testId={props['data-testid']}
+        pendingLabel={
+          props.pendingLabel ?? formString(props.uiStrings, 'form.deleting', 'Deleting…')
+        }
       />
     )
   }

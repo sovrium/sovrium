@@ -66,18 +66,18 @@ agent's job is to configure them so the result still passes, and to verify it by
 Each interactive component implements one APG pattern. Verify the keys the pattern promises, on
 the rendered page:
 
-| Pattern        | Typical Sovrium components                                             | Keys to verify                                                                                              |
-| -------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Dialog (modal) | `dialog`, `drawer`                                                     | Focus moves in; Tab cycles inside; Escape closes; focus returns to the trigger                              |
-| Alert dialog   | `alert-dialog`                                                         | As dialog; focus starts on the least destructive action; the dialog cannot be dismissed by clicking outside |
-| Menu button    | `dropdown-menu`, `context-menu`, `menubar`                             | Enter, Space or Down opens; arrows move; Escape closes and returns focus; typing a letter jumps             |
-| Tabs           | `tabs`                                                                 | Arrows move between tabs; Tab moves into the panel; Home and End reach the ends                             |
-| Combobox       | `select` with search, `command-palette`, `record-picker`, date pickers | Typing filters; arrows move the active option; Enter selects; Escape closes without selecting               |
-| Listbox        | `select`, `reorderable-list`                                           | Arrows move; Space or Enter selects; multi-select supports Shift and Ctrl/Cmd modifiers where offered       |
-| Grid           | `table` with cell navigation, `calendar`                               | Arrows move cell to cell; Enter edits or activates; Escape leaves edit mode; Tab leaves the grid            |
-| Disclosure     | `accordion`, collapsible sections                                      | Enter or Space toggles; the expanded state is announced                                                     |
-| Radio group    | `radio-group`, `toggle-group`                                          | Tab enters the group once; arrows move the choice                                                           |
-| Tooltip        | `tooltip`, `hover-card`                                                | Appears on focus as well as hover; Escape dismisses; never holds the only copy of essential information     |
+| Pattern        | Typical Sovrium components                                        | Keys to verify                                                                                              |
+| -------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Dialog (modal) | `dialog`, `sheet`                                                 | Focus moves in; Tab cycles inside; Escape closes; focus returns to the trigger                              |
+| Alert dialog   | `alert-dialog`                                                    | As dialog; focus starts on the least destructive action; the dialog cannot be dismissed by clicking outside |
+| Menu button    | `dropdown-menu`, `context-menu`, `menubar`, `navigation-menu`     | Enter, Space or Down opens; arrows move; Escape closes and returns focus; typing a letter jumps             |
+| Tabs           | `tabs`                                                            | Arrows move between tabs; Tab moves into the panel; Home and End reach the ends                             |
+| Combobox       | `combobox`, `command`, `record-picker`, date pickers              | Typing filters; arrows move the active option; Enter selects; Escape closes without selecting               |
+| Listbox        | `select`, `reorderable-list`                                      | Arrows move; Space or Enter selects; multi-select supports Shift and Ctrl/Cmd modifiers where offered       |
+| Grid           | `table` with cell navigation, `event-calendar`                    | Arrows move cell to cell; Enter edits or activates; Escape leaves edit mode; Tab leaves the grid            |
+| Disclosure     | `accordion`, collapsible sections, a `sidebar` entry that expands | Enter or Space toggles; the expanded state is announced                                                     |
+| Radio group    | `radio-group`, `toggle-group`                                     | Tab enters the group once; arrows move the choice                                                           |
+| Tooltip        | `tooltip`, `hover-card`                                           | Appears on focus as well as hover; Escape dismisses; never holds the only copy of essential information     |
 
 Component options and behaviour: `sovrium docs components/overlay-components`,
 `sovrium docs components/navigation-components`, `sovrium docs form-controls/form-controls`,

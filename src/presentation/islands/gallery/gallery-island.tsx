@@ -7,11 +7,12 @@
 
 import { useState } from 'react'
 import { computeGalleryPagerClasses } from '@/presentation/design/gallery-default-classes'
+import { InfiniteLoadMore } from '../parts/infinite-load-more'
 import { LoadMoreButton } from '../parts/load-more-button'
 import { withWeekdayDates, type WeekdayFields } from '../parts/weekday-dates'
 import { hasDataBinding } from '../runtime/data-binding'
 import { isRefusedRead } from '../runtime/records-api'
-import { GalleryCarousel } from './gallery-carousel'
+import { GalleryCarousel } from './carousel-layout'
 import { GalleryClassesContext } from './gallery-classes-context'
 import { GalleryGrid } from './gallery-grid'
 import { GalleryPager } from './gallery-pager'
@@ -32,6 +33,37 @@ import type { ReactElement } from 'react'
 const GALLERY_PAGER_CLASSES = computeGalleryPagerClasses()
 
 /** The shared load-more control, in the gallery's pager chrome. */
+/**
+ * How a gallery that grows from the top reaches its next page: a Load more
+ * button, or under `infinite` the end-of-list sentinel with the same button kept
+ * for the keyboard and a polite count of the cards loaded.
+ */
+function GalleryContinuation({
+  infinite,
+  hasMore,
+  loaded,
+  total,
+  onLoadMore,
+}: {
+  readonly infinite: boolean
+  readonly hasMore: boolean
+  readonly loaded: number
+  readonly total: number
+  readonly onLoadMore: () => void
+}): ReactElement | undefined {
+  if (!infinite) return hasMore ? <GalleryLoadMore onClick={onLoadMore} /> : undefined
+  return (
+    <InfiniteLoadMore
+      hasMore={hasMore}
+      isLoading={false}
+      onLoadMore={onLoadMore}
+      status={`${String(loaded)} of ${String(total)} loaded`}
+      label="Load More"
+      footerClassName={GALLERY_PAGER_CLASSES}
+    />
+  )
+}
+
 function GalleryLoadMore({ onClick }: { readonly onClick: () => void }): ReactElement {
   return (
     <LoadMoreButton
@@ -80,6 +112,10 @@ function buildLoadMoreHandler(setPage: (updater: (prev: number) => number) => vo
  * declared style asks for). Pulled out of `GalleryIsland` so the parent stays
  * under the cyclomatic-complexity cap — this component only deals with the "we
  * have records" branch.
+ *
+ * One 1-based cursor serves every control: `loadMore` and `infinite` read it as
+ * "how many pages have been revealed", the numbered pager as "which page is
+ * drawn". The setter goes to the pager as-is; it is referentially stable.
  */
 function GalleryContent({
   records,
@@ -95,10 +131,6 @@ function GalleryContent({
   readonly records: readonly TableRecord[]
 }): ReactElement {
   const pagination = dataSource?.pagination
-  // One 1-based cursor serves both controls: `loadMore` reads it as "how many
-  // pages have been revealed", the numbered pager as "which page is drawn". The
-  // setter goes to the pager as-is — it is referentially stable, which a fresh
-  // arrow per render would not be.
   const [page, setPage] = useState<number>(1)
   const { visibleRecords, showLoadMore, showPager, pageCount, currentPage } = computePaginationView(
     records,
@@ -127,7 +159,13 @@ function GalleryContent({
           featured={featured}
         />
       )}
-      {showLoadMore && <GalleryLoadMore onClick={onLoadMore} />}
+      <GalleryContinuation
+        infinite={pagination?.style === 'infinite'}
+        hasMore={showLoadMore}
+        loaded={visibleRecords.length}
+        total={records.length}
+        onLoadMore={onLoadMore}
+      />
       {showPager && (
         <GalleryPager
           pageCount={pageCount}

@@ -10,16 +10,18 @@ import {
   computeSidebarDisclosureListClasses,
   computeSidebarDisclosureRowClasses,
   computeSidebarDisclosureStateClasses,
+  computeSidebarMenuSubItemClasses,
   type SidebarRailBreakpoint,
 } from '@/presentation/design/sidebar-default-classes'
-import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
 import {
   CURRENT_ENTRY_KEY,
   CURRENT_SECTION_KEY,
 } from '@/presentation/render/resolve/sidebar-current-resolver'
 import { renderIcon } from '../elements/icon-renderer'
 import { resolveChildTranslation } from '../i18n/translation-handler'
+import { toIslandChild } from './sidebar-disclosure-payload'
 import {
+  entrySlotAttributes,
   railTitle,
   renderBadge,
   renderChevronToggle,
@@ -133,10 +135,10 @@ export function renderEntry(
     <a
       {...(item.props ?? {})}
       href={item.href}
+      {...entrySlotAttributes(isNested, isCurrent)}
       data-sidebar-entry=""
       data-active-match={item.activeMatch ?? 'exact'}
       className={sidebarEntryClasses(isNested, isCurrent, i18n.parts?.['link'])}
-      {...(isCurrent ? { 'aria-current': 'page' as const } : {})}
       {...railTitle(rail, label, authoredTitle)}
     >
       {item.icon !== undefined &&
@@ -145,46 +147,6 @@ export function renderEntry(
       {renderBadge((item as SidebarNavItem).badge, i18n.parts?.['badge'])}
     </a>
   )
-}
-
-/** A leaf or sub-entry as the island will re-render it: labels resolved, icon as geometry. */
-function toIslandChild(
-  child: SidebarSubItem | SidebarLeafItem,
-  i18n: SidebarI18n
-): Record<string, unknown> {
-  const nested = (child as SidebarSubItem).children
-  return {
-    label: resolveChildTranslation(child.label, i18n.currentLang, i18n.languages),
-    href: child.href,
-    activeMatch: child.activeMatch ?? 'exact',
-    // Resolved HERE, where the icon set is already in the binary. Handing the
-    // island a NAME instead would make it reach `lucide-resolver`, whose
-    // namespace import is unshakeable and costs the browser 668 KB.
-    ...(child.icon === undefined ? {} : { iconNode: resolveLucideIconNode(child.icon) }),
-    ...(child.props === undefined ? {} : { props: child.props }),
-    // The row's marker, carried through hydration for the same reason
-    // `subItems` below is. `badge` is on the entry bag every level spreads, so a
-    // row at ANY depth may declare one — and every one of those rows is redrawn
-    // by the island. Both branches travel: the literal because the island writes
-    // it, and the endpoint because the island mounts the count itself. Kept in
-    // the schema's own shape rather than normalised, so the island's two
-    // branches read as the server's two do.
-    ...(child.badge === undefined ? {} : { badge: child.badge }),
-    // The third level, carried through hydration. The level-2 disclosure IS an
-    // island wherever a sidebar has one, so the island re-renders this list —
-    // omit it here and the nested rows the server drew vanish the moment the
-    // chunk lands, which is the worst of the three possible bugs: correct
-    // without JavaScript and broken with it.
-    //
-    // Named `subItems` and never `children`, for the reason the disclosure's own
-    // payload gives: island props are spread onto the component, and React
-    // would read a `children` key as the element's own children.
-    ...(nested === undefined ? {} : { subItems: nested.map((leaf) => toIslandChild(leaf, i18n)) }),
-    ...((child as SidebarSubItem).childrenProps === undefined
-      ? {}
-      : { childrenProps: (child as SidebarSubItem).childrenProps }),
-    current: (child as Record<string, unknown>)[CURRENT_ENTRY_KEY] === true,
-  }
 }
 
 /**
@@ -210,6 +172,28 @@ function toIslandChild(
 /** Resolve a copy field, falling back to the default this component ships. */
 const copy = (value: string | undefined, fallback: string, i18n: SidebarI18n): string =>
   resolveChildTranslation(value ?? fallback, i18n.currentLang, i18n.languages)
+
+/** A fetched disclosure's source as the island reads it, its three lines in the sidebar's language. */
+const sourcePayload = (
+  source: NonNullable<SidebarNavItem['source']>,
+  i18n: SidebarI18n
+): Record<string, unknown> => ({
+  endpoint: source.endpoint,
+  rowsKey: source.rowsKey ?? 'items',
+  labelKey: source.labelKey,
+  hrefTemplate: source.hrefTemplate,
+  ...(source.itemProps === undefined ? {} : { itemProps: source.itemProps }),
+  // `query` travels as its OWN prop rather than pre-appended to the
+  // endpoint, exactly as a GROUP's source carries it
+  // (`sidebar-groups.tsx`): the island hands `{ endpoint, query }` to
+  // `buildSystemQueryUrl` and one helper owns the merge, so the shape
+  // the schema shares has one spelling across every consumer.
+  ...(source.query === undefined ? {} : { query: source.query }),
+  loadingLabel: copy(source.loadingLabel, DEFAULT_LOADING_LABEL, i18n),
+  ...(source.loading === 'skeleton' ? { loading: 'skeleton' as const } : {}),
+  errorLabel: copy(source.errorLabel, DEFAULT_ERROR_LABEL, i18n),
+  emptyLabel: copy(source.emptyLabel, DEFAULT_EMPTY_LABEL, i18n),
+})
 
 /**
  * Everything the island needs to re-render this disclosure itself.
@@ -255,26 +239,7 @@ function buildIslandProps(
       ? {}
       : { subItems: item.children.map((child) => toIslandChild(child, i18n)) }),
     ...(item.childrenProps === undefined ? {} : { childrenProps: item.childrenProps }),
-    ...(source === undefined
-      ? {}
-      : {
-          source: {
-            endpoint: source.endpoint,
-            rowsKey: source.rowsKey ?? 'items',
-            labelKey: source.labelKey,
-            hrefTemplate: source.hrefTemplate,
-            ...(source.itemProps === undefined ? {} : { itemProps: source.itemProps }),
-            // `query` travels as its OWN prop rather than pre-appended to the
-            // endpoint, exactly as a GROUP's source carries it
-            // (`sidebar-groups.tsx`): the island hands `{ endpoint, query }` to
-            // `buildSystemQueryUrl` and one helper owns the merge, so the shape
-            // the schema shares has one spelling across every consumer.
-            ...(source.query === undefined ? {} : { query: source.query }),
-            loadingLabel: copy(source.loadingLabel, DEFAULT_LOADING_LABEL, i18n),
-            errorLabel: copy(source.errorLabel, DEFAULT_ERROR_LABEL, i18n),
-            emptyLabel: copy(source.emptyLabel, DEFAULT_EMPTY_LABEL, i18n),
-          },
-        }),
+    ...(source === undefined ? {} : { source: sourcePayload(source, i18n) }),
   }
 }
 
@@ -294,6 +259,7 @@ function renderOpenList(
   if (item.children === undefined && item.source === undefined) return undefined
   return (
     <ul
+      data-slot="sidebar-menu-sub"
       className={computeSidebarDisclosureListClasses()}
       id={listId}
       {...(item.childrenProps ?? {})}
@@ -304,7 +270,11 @@ function renderOpenList(
         </li>
       ) : (
         item.children.map((child, index) => (
-          <li key={`${child.href}-${index}`}>
+          <li
+            key={`${child.href}-${index}`}
+            data-slot="sidebar-menu-sub-item"
+            className={computeSidebarMenuSubItemClasses()}
+          >
             {renderEntry(child, i18n, true, rail)}
             {renderNestedList(child, i18n, rail)}
           </li>
@@ -344,11 +314,18 @@ function renderNestedList(
   if (children === undefined || children.length === 0) return undefined
   return (
     <ul
+      data-slot="sidebar-menu-sub"
       className={computeSidebarDisclosureListClasses()}
       {...(child.childrenProps ?? {})}
     >
       {children.map((leaf, index) => (
-        <li key={`${leaf.href}-${index}`}>{renderEntry(leaf, i18n, true, rail)}</li>
+        <li
+          key={`${leaf.href}-${index}`}
+          data-slot="sidebar-menu-sub-item"
+          className={computeSidebarMenuSubItemClasses()}
+        >
+          {renderEntry(leaf, i18n, true, rail)}
+        </li>
       ))}
     </ul>
   )

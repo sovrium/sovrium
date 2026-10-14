@@ -197,7 +197,7 @@ const colorSwatchComponent: ComponentRenderer = ({
         <span
           aria-hidden="true"
           data-token-chip=""
-          className="inline-block h-8 w-8 rounded border border-[var(--sv-border,#e5e5e5)] align-middle"
+          className="border-border inline-block h-8 w-8 rounded border align-middle"
           style={{ backgroundColor: resolved ?? 'transparent' }}
         />
       ) : undefined}
@@ -218,9 +218,7 @@ const colorSwatchComponent: ComponentRenderer = ({
 
 /**
  * The contrast branch of `badge` — the ratio between two colours, and the
- * verdict on it.
- *
- * The failing case says so rather than omitting the verdict: a badge that only
+ * verdict on it. The failing case says so rather than omitting the verdict: a badge that only
  * rendered on success would leave a reader unable to tell a failure from a
  * missing badge, which is the state this exists to remove.
  */
@@ -238,6 +236,7 @@ export const contrastBadgeComponent: ComponentRenderer = ({
   return (
     <span
       {...omitInternalMarkers(elementPropsWithSpacing)}
+      data-slot="badge"
       data-contrast={verdict === undefined ? 'unresolved' : verdict.passes ? 'pass' : 'fail'}
     >
       {verdict === undefined ? (
@@ -524,7 +523,7 @@ const specimenComponent: ComponentRenderer = ({
  * The curve is a static SVG and MUST stay one. It is a server-rendered element
  * with no island, so it appears in no registry, mounts nothing, and adds no
  * bytes to the eager closure the payload budget measures. Reaching for a chart
- * library here would pull the visx chunk onto any page documenting a duration.
+ * library here would pull the chart chunk onto any page documenting a duration.
  */
 const swatchComponent: ComponentRenderer = (context) => {
   const variant = (context.component as { variant?: unknown } | undefined)?.variant

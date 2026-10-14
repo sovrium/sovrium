@@ -94,8 +94,21 @@ const unlockScroll = (root: Element): void => {
   document.body.style.removeProperty('overflow')
 }
 
+/**
+ * A drawer is never folded: a sidebar folded to icons on a wide screen opens
+ * on a phone with its labels, as shadcn/ui's mobile sheet does. The fold
+ * leaves the box while the drawer is open and comes back with `data-state`.
+ */
+const unfoldForDrawer = (root: Element, opening: boolean): void => {
+  const folds = root.getAttribute('data-sidebar-folds')
+  if (opening || folds === null || root.getAttribute('data-state') !== 'collapsed') {
+    root.removeAttribute('data-collapsible')
+  } else root.setAttribute('data-collapsible', folds)
+}
+
 const open = (parts: DrawerParts): void => {
   if (isOpen(parts)) return
+  unfoldForDrawer(parts.root, true)
   moveChildren(parts.body, parts.panel)
   lockScroll(parts.root)
   parts.trigger.setAttribute('aria-expanded', 'true')
@@ -110,6 +123,7 @@ const open = (parts: DrawerParts): void => {
 const restore = (parts: DrawerParts): void => {
   if (!isOpen(parts)) return
   moveChildren(parts.panel, parts.body)
+  unfoldForDrawer(parts.root, false)
   unlockScroll(parts.root)
   parts.trigger.setAttribute('aria-expanded', 'false')
   parts.trigger.focus({ preventScroll: true })

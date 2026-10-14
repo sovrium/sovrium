@@ -52,6 +52,8 @@ id_ed25519*
 !**/__snapshots__/*.png
 !**/__snapshots__/*.yml
 !**/__snapshots__/*.yaml
+specs/**/__snapshots__/**/*-darwin.*
+specs/**/__snapshots__/**/*-win32.*
 /*.png
 /tmp/
 /.test-temp/

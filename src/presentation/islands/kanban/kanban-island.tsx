@@ -5,13 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useEffect, useState, type ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
+import { BoardContinuation } from './board-continuation'
 import { buildKanbanDragHandler } from './build-drag-handler'
 import { buildKanbanGrid, type KanbanGrid } from './group-lanes'
 import { groupRecords } from './group-records'
 import { KanbanBoard } from './kanban-board'
 import { KanbanFormatProvider } from './kanban-format-context'
 import { KanbanError, KanbanLoading, KanbanMissingGroupBy } from './kanban-states'
+import { useBoardWindow, type BoardPagination } from './use-board-window'
 import { useKanbanDragGate } from './use-kanban-drag-gate'
 import { useKanbanRecords } from './use-kanban-records'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
@@ -38,6 +40,8 @@ export interface KanbanIslandProps {
     readonly view?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
+    /** `style: infinite` draws the board a page of cards at a time, as the reader scrolls. */
+    readonly pagination?: BoardPagination
   }
   readonly kanbanGroupBy?: KanbanGroupBy
   /**
@@ -125,12 +129,18 @@ function resolveGrid(input: {
 function useBoardRecords(dataSource: KanbanIslandProps['dataSource']) {
   const { data, isLoading, isError, error } = useKanbanRecords(dataSource)
   const [localRecords, setLocalRecords] = useState<readonly TableRecord[]>([])
-  useEffect(() => {
-    if (data?.records) setLocalRecords(data.records)
-  }, [data?.records])
+  // Re-synced DURING render rather than in an effect, so the board never draws
+  // one frame of empty columns between the read landing and its copy.
+  const [syncedFrom, setSyncedFrom] = useState<readonly TableRecord[] | undefined>(undefined)
+  if (data?.records !== undefined && data.records !== syncedFrom) {
+    setSyncedFrom(data.records)
+    setLocalRecords(data.records)
+  }
   return {
     localRecords,
     setLocalRecords,
+    // The cards drawn: all of them, or the pages an `infinite` board has revealed.
+    ...useBoardWindow(localRecords, dataSource?.pagination),
     isLoading,
     isError,
     error,
@@ -166,7 +176,7 @@ function resolveBoardState(input: {
 
 /**
  * The board. Its bound table reaches every card through the format context
- * (`format.table`), so a card's `openDrawer` names it as a grid row's does and
+ * (`format.table`), so a card's `openSheet` names it as a grid row's does and
  * the drawer binds the card's record only to the forms editing that table. The
  * colour-field hues and the drag gate travel the same way: only the card reads
  * them, so no column, lane or cell between here and it carries them.
@@ -185,27 +195,24 @@ export default function KanbanIsland({
   fieldMeta,
   recordText,
 }: KanbanIslandProps): ReactElement {
-  const { localRecords, setLocalRecords, isLoading, isError, error } = useBoardRecords(dataSource)
+  const { localRecords, setLocalRecords, isLoading, isError, error, shown, continuation } =
+    useBoardRecords(dataSource)
 
   const groupByField = columnFieldOf(kanbanGroupBy)
   const laneField = swimlanes?.field
-  const gate = useKanbanDragGate(dataSource, drag, [groupByField, laneField])
-  const { draggableEnabled, persistEnabled } = gate
+  const { draggableEnabled, persistEnabled } = useKanbanDragGate(dataSource, drag, [
+    groupByField,
+    laneField,
+  ])
   const table = dataSource?.table
   const format = { fieldMeta, table, colorFieldColors, draggableEnabled, recordText }
 
   const state = resolveBoardState({ groupByField, isLoading, isError, error })
   if (state || groupByField === undefined) return state ?? <KanbanMissingGroupBy />
 
-  const columns = groupRecords(localRecords, groupByField, columnOptions, columnColors)
-  const grid = resolveGrid({
-    records: localRecords,
-    columnField: groupByField,
-    columnOptions,
-    columnColors,
-    swimlanes,
-    swimlaneOptions,
-  })
+  const columns = groupRecords(shown, groupByField, columnOptions, columnColors)
+  const lanes = { columnOptions, columnColors, swimlanes, swimlaneOptions }
+  const grid = resolveGrid({ records: shown, columnField: groupByField, ...lanes })
   const handleDragEnd = buildKanbanDragHandler({
     localRecords,
     setLocalRecords,
@@ -227,6 +234,7 @@ export default function KanbanIsland({
         emptyColumnMessage={emptyColumnMessage}
         onDragEnd={handleDragEnd}
       />
+      <BoardContinuation continuation={continuation} />
     </KanbanFormatProvider>
   )
 }

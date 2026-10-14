@@ -56,7 +56,6 @@ export {
 export {
   renderFileUploadIsland,
   renderTimePicker,
-  renderOneTimeCodeInput,
   renderNumberInputIsland,
   renderDatePickerIsland,
 } from './form-control-renderers'
@@ -71,12 +70,7 @@ export {
 } from './field-renderer'
 
 // Re-export specialized renderers for backward compatibility
-export {
-  renderLanguageSwitcher,
-  renderAlert,
-  renderList,
-  renderListItem,
-} from './specialized-renderers'
+export { renderLanguageSwitcher, renderList, renderListItem } from './specialized-renderers'
 
 // The house spinner mark, shared by the loading button and the `spinner` type
-export { renderSpinnerMark } from './spinner-mark'
+export { renderSpinnerMark } from '@/presentation/design/spinner-mark'

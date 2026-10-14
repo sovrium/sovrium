@@ -157,6 +157,7 @@ export const ai = defineSection({
       body: aiChatBody,
       documents: [],
       stories: [
+        'US-AI-CHAT-ASK-USER',
         'US-AI-CHAT-CONTEXT',
         'US-AI-CHAT-CROSS-001',
         'US-AI-CHAT-ERROR-HANDLING',

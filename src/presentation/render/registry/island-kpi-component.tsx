@@ -5,9 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { CARD_SLOT_ATTRIBUTES } from '@/presentation/design/card-default-classes'
 import { cn } from '@/presentation/design/class-merge'
 import {
   computeKpiCardClasses,
+  KPI_HEADER_CLASSES,
+  KPI_SKELETON_CLASSES,
   KPI_STACK_CLASSES,
   computeKpiLabelClasses,
   computeKpiValueClasses,
@@ -39,7 +42,11 @@ const kpiValueClasses = (
     ...(size === undefined && part === undefined
       ? {}
       : {
-          valueClassName: cn(computeKpiValueClasses(), computeKpiValueSizeClasses(size), part),
+          valueClassName: cn(
+            computeKpiValueClasses({ sized: size !== undefined }),
+            computeKpiValueSizeClasses(size),
+            part
+          ),
         }),
     ...(tone === undefined ? {} : { toneClassName: tone }),
   }
@@ -102,30 +109,43 @@ export const islandKpiComponent: ComponentRenderer = ({ elementProps, designStyl
       data-island-props={propsJson}
       {...namedHost('kpi')}
       data-testid={elementProps['data-testid'] as string | undefined}
+      {...CARD_SLOT_ATTRIBUTES}
       className={hostClassName(elementProps, computeKpiCardClasses())}
     >
       {/* Loading skeleton — preserved as Suspense fallback.
 
-          The host draws the card chrome, and the skeleton stacks on the SAME
-          rhythm the hydrated `KpiCard` reads, so the border, radius, fill,
-          padding and column gap do not change at the moment the island
-          mounts, and the label that was server-rendered does not jump. */}
+          The host IS the card, and the skeleton sits in a card header on the
+          SAME parts the hydrated `KpiCard` draws, so the card does not change
+          at the moment the island mounts, and the label that was
+          server-rendered does not jump. */}
       <div
         className={KPI_STACK_CLASSES}
         aria-label="Loading KPI..."
         role="status"
       >
-        {kpiLabel ? (
+        <div
+          data-slot="card-header"
+          className={KPI_HEADER_CLASSES}
+        >
+          {kpiLabel ? (
+            <div
+              data-slot="card-description"
+              data-role="kpi-label"
+              className={computeKpiLabelClasses()}
+            >
+              {kpiLabel}
+            </div>
+          ) : (
+            <div
+              data-slot="skeleton"
+              className={`${KPI_SKELETON_CLASSES} h-5 w-32`}
+            />
+          )}
           <div
-            data-role="kpi-label"
-            className={computeKpiLabelClasses()}
-          >
-            {kpiLabel}
-          </div>
-        ) : (
-          <div className="bg-background-inset h-4 w-32 animate-pulse rounded-sm" />
-        )}
-        <div className="bg-background-inset h-9 w-24 animate-pulse rounded-sm" />
+            data-slot="skeleton"
+            className={`${KPI_SKELETON_CLASSES} h-8 w-24`}
+          />
+        </div>
       </div>
     </div>
   )

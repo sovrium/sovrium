@@ -6,6 +6,7 @@
  */
 
 import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { ENGLISH_WORDS, expiryIn, greetingsOf, type EmailWords } from './email-words'
 
 /**
  * Email template data types for Better Auth integration
@@ -16,6 +17,8 @@ export interface PasswordResetEmailData {
   readonly userName?: string
   readonly resetUrl: string
   readonly expiresIn?: string
+  /** The reader's language; English when absent. */
+  readonly words?: EmailWords
 }
 
 export interface EmailVerificationData {
@@ -24,6 +27,8 @@ export interface EmailVerificationData {
   readonly userName?: string
   readonly verifyUrl: string
   readonly expiresIn?: string
+  /** The reader's language; English when absent. */
+  readonly words?: EmailWords
 }
 
 /** What the confirmation-link email for an immediate account deletion is built from. */
@@ -122,8 +127,8 @@ export const resolveBrand = (appName: string | undefined): string =>
  * The footer line that differs between an email a person asked for (a reset,
  * a verification) and one the instance sends on its own (an operator alert).
  */
-const requestedEmailNotice = (brand: string): string =>
-  `<p>This email was sent by ${escapeHtml(brand)}. If you didn't request this, please ignore this email.</p>`
+const requestedEmailNotice = (brand: string, words: EmailWords): string =>
+  `<p>${words.t('requestedNotice', { app: escapeHtml(brand) })}</p>`
 
 /** What {@link emailLayout} frames its content with. */
 export interface EmailLayoutOptions {
@@ -134,6 +139,8 @@ export interface EmailLayoutOptions {
    * caller passing anything derived from data must escape it first.
    */
   readonly footerHtml?: string
+  /** The reader's language, for `<html lang>` and the footer; English when absent. */
+  readonly words?: EmailWords
 }
 
 /**
@@ -145,9 +152,11 @@ export interface EmailLayoutOptions {
  */
 export function emailLayout(content: string, options: EmailLayoutOptions = {}): string {
   const brand = escapeHtml(resolveBrand(options.appName))
-  const footerHtml = options.footerHtml ?? requestedEmailNotice(resolveBrand(options.appName))
+  const words = options.words ?? ENGLISH_WORDS
+  const footerHtml =
+    options.footerHtml ?? requestedEmailNotice(resolveBrand(options.appName), words)
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(words.lang)}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -185,46 +194,46 @@ export function passwordResetEmail(data: PasswordResetEmailData): {
   readonly html: string
   readonly text: string
 } {
-  const greeting = data.userName ? `Hi ${data.userName},` : 'Hi,'
-  const htmlGreeting = data.userName ? `Hi ${escapeHtml(data.userName)},` : 'Hi,'
-  const expiry = data.expiresIn ?? '1 hour'
+  const words = data.words ?? ENGLISH_WORDS
+  const greeting = greetingsOf(words, data.userName)
+  const expires = words.t('linkExpires', { expiry: expiryIn(words, data.expiresIn ?? '1 hour') })
   const brand = resolveBrand(data.appName)
   const htmlBrand = escapeHtml(brand)
 
   const content = `
     <div class="content">
-      <p>${htmlGreeting}</p>
-      <p>We received a request to reset your password for your ${htmlBrand} account.</p>
-      <p>Click the button below to reset your password:</p>
+      <p>${greeting.html}</p>
+      <p>${words.t('resetPassword.intro', { app: htmlBrand })}</p>
+      <p>${words.t('resetPassword.cta')}</p>
       <p style="text-align: center;">
-        <a href="${escapeHtml(data.resetUrl)}" class="button">Reset Password</a>
+        <a href="${escapeHtml(data.resetUrl)}" class="button">${words.t('resetPassword.button')}</a>
       </p>
       <p class="link-fallback">
-        If the button doesn't work, copy and paste this link into your browser:<br>
+        ${words.t('linkFallback')}<br>
         ${escapeHtml(data.resetUrl)}
       </p>
       <div class="warning">
-        This link will expire in ${expiry}. If you didn't request a password reset, you can safely ignore this email.
+        ${expires} ${words.t('resetPassword.ignore')}
       </div>
     </div>
   `
 
   const text = `
-${greeting}
+${greeting.text}
 
-We received a request to reset your password for your ${brand} account.
+${words.t('resetPassword.intro', { app: brand })}
 
-Reset your password by visiting this link:
+${words.t('resetPassword.textCta')}
 ${data.resetUrl}
 
-This link will expire in ${expiry}.
+${expires}
 
-If you didn't request a password reset, you can safely ignore this email.
+${words.t('resetPassword.ignore')}
 `.trim()
 
   return {
-    subject: `Reset your ${brand} password`,
-    html: emailLayout(content, { appName: data.appName }),
+    subject: words.t('resetPassword.subject', { app: brand }),
+    html: emailLayout(content, { appName: data.appName, words }),
     text,
   }
 }
@@ -248,46 +257,46 @@ export function emailVerificationEmail(data: EmailVerificationData): {
   readonly html: string
   readonly text: string
 } {
-  const greeting = data.userName ? `Hi ${data.userName},` : 'Hi,'
-  const htmlGreeting = data.userName ? `Hi ${escapeHtml(data.userName)},` : 'Hi,'
-  const expiry = data.expiresIn ?? '24 hours'
+  const words = data.words ?? ENGLISH_WORDS
+  const greeting = greetingsOf(words, data.userName)
+  const expires = words.t('linkExpires', { expiry: expiryIn(words, data.expiresIn ?? '24 hours') })
   const brand = resolveBrand(data.appName)
   const htmlBrand = escapeHtml(brand)
 
   const content = `
     <div class="content">
-      <p>${htmlGreeting}</p>
-      <p>Welcome to ${htmlBrand}! Please verify your email address to complete your registration.</p>
-      <p>Click the button below to verify your email:</p>
+      <p>${greeting.html}</p>
+      <p>${words.t('verification.intro', { app: htmlBrand })}</p>
+      <p>${words.t('verification.cta')}</p>
       <p style="text-align: center;">
-        <a href="${escapeHtml(data.verifyUrl)}" class="button">Verify Email</a>
+        <a href="${escapeHtml(data.verifyUrl)}" class="button">${words.t('verification.button')}</a>
       </p>
       <p class="link-fallback">
-        If the button doesn't work, copy and paste this link into your browser:<br>
+        ${words.t('linkFallback')}<br>
         ${escapeHtml(data.verifyUrl)}
       </p>
       <div class="warning">
-        This link will expire in ${expiry}. If you didn't create an account with ${htmlBrand}, you can safely ignore this email.
+        ${expires} ${words.t('verification.ignore', { app: htmlBrand })}
       </div>
     </div>
   `
 
   const text = `
-${greeting}
+${greeting.text}
 
-Welcome to ${brand}! Please verify your email address to complete your registration.
+${words.t('verification.intro', { app: brand })}
 
-Verify your email by visiting this link:
+${words.t('verification.textCta')}
 ${data.verifyUrl}
 
-This link will expire in ${expiry}.
+${expires}
 
-If you didn't create an account with ${brand}, you can safely ignore this email.
+${words.t('verification.ignore', { app: brand })}
 `.trim()
 
   return {
-    subject: `Verify your ${brand} email address`,
-    html: emailLayout(content, { appName: data.appName }),
+    subject: words.t('verification.subject', { app: brand }),
+    html: emailLayout(content, { appName: data.appName, words }),
     text,
   }
 }

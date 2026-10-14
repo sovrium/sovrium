@@ -35,7 +35,7 @@ import { MatrixAxisSchema, MatrixCellSchema, MatrixDataSourceSchema } from './sc
  * and ships HTML. Consequences, all deliberate:
  *
  *  - no `React.lazy` entry, no `ISLANDS` registration, no
- *    `ISLAND_MOUNT_CEILINGS` baseline, no visx, and not one byte added to the
+ *    `ISLAND_MOUNT_CEILINGS` baseline, no charting library, and not one byte added to the
  *    client bundle (eco R2);
  *  - the grid and its accessible twin are in the FIRST response, so a reader
  *    with no scripting — and a crawler — get the facts rather than a skeleton;

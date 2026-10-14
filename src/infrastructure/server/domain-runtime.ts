@@ -58,7 +58,9 @@
  */
 
 import { Effect, Layer as LayerModule, ManagedRuntime } from 'effect'
+import { AgentSkills, type AgentSkillsShape } from '@/application/ports/services/agent-skills'
 import { AssetStore, type AssetStoreShape } from '@/application/ports/services/asset-store'
+import { makeMcpClientLayer } from '@/infrastructure/ai/mcp-client/mcp-client-live'
 import { AutomationRuntimeLayer } from '@/infrastructure/automations/runtime-layer'
 import { makeAiComputeListenerLayer } from '@/infrastructure/database/ai-compute-listener'
 import { makeAiKnowledgeListenerLayer } from '@/infrastructure/database/ai-knowledge-listener'
@@ -67,6 +69,7 @@ import { AiActivityLogRepositoryLive } from '@/infrastructure/database/repositor
 import { AiFactsRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-facts-repository-live'
 import { AiMemoryRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-memory-repository-live'
 import { ApprovalRepositoryLive } from '@/infrastructure/database/repositories/ai/approval-repository-live'
+import { ChatAttachmentRepositoryLive } from '@/infrastructure/database/repositories/ai/chat-attachment-repository-live'
 import { FormSubmissionRepositoryLive } from '@/infrastructure/database/repositories/forms/form-submission-repository-live'
 import { DynamicRecordRepositoryLive } from '@/infrastructure/database/repositories/tables/dynamic-record-repository-live'
 import { createAppLayer } from '@/infrastructure/layers/app-layer'
@@ -112,10 +115,16 @@ import type { Context as HonoContext } from 'hono'
  * module-level `Layer`, so there is no second implementation to disagree with
  * the first.
  */
-const domainLayerFor = (app: App | undefined, assets: AssetStoreShape | undefined) =>
+const domainLayerFor = (
+  app: App | undefined,
+  assets: AssetStoreShape | undefined,
+  skills: AgentSkillsShape | undefined
+) =>
   LayerModule.mergeAll(
     // The private assets this server's boot loaded (an empty store when none).
     LayerModule.succeed(AssetStore, assets ?? AssetStore.defaultValue()),
+    // The agent skills this server's boot indexed (none when no agent lists one).
+    LayerModule.succeed(AgentSkills, skills ?? AgentSkills.defaultValue()),
     createAppLayer(app?.auth),
     AutomationRuntimeLayer,
     // The form-submission extras that are NOT in the automation runtime:
@@ -128,6 +137,7 @@ const domainLayerFor = (app: App | undefined, assets: AssetStoreShape | undefine
     // through `createAppLayer`.
     AiMemoryRepositoryLive,
     AiFactsRepositoryLive,
+    ChatAttachmentRepositoryLive,
     AiActivityLogRepositoryLive,
     DynamicRecordRepositoryLive,
     // The agent-approval mirror, reached from the cron-driven schedule runner
@@ -136,7 +146,12 @@ const domainLayerFor = (app: App | undefined, assets: AssetStoreShape | undefine
     // The operator console's global search index (`GET /api/admin/search`).
     AdminSearchRepositoryLive,
     makeAiComputeListenerLayer(app),
-    makeAiKnowledgeListenerLayer(app)
+    makeAiKnowledgeListenerLayer(app),
+    // The external MCP servers the operator declared (`MCP_CLIENT_SERVERS`):
+    // one session each, opened in the background at boot and closed with this
+    // runtime. Needs the app for one boot refusal — an agent naming a server
+    // the environment does not declare.
+    makeMcpClientLayer(app)
   )
 
 /** The domain layer a server runtime provides, as one type. */
@@ -178,8 +193,11 @@ export type DomainContext = Context.Context<DomainServices>
 // TEXT, and a local alias is exactly the case
 // that lever cannot see — the same disable `observability-runtime.ts` carries on
 // its `ObsRuntime` alias, for the same reason.
-export const createDomainRuntime = (app?: App, assets?: AssetStoreShape): DomainRuntime =>
-  ManagedRuntime.make(domainLayerFor(app, assets))
+export const createDomainRuntime = (
+  app?: App,
+  assets?: AssetStoreShape,
+  skills?: AgentSkillsShape
+): DomainRuntime => ManagedRuntime.make(domainLayerFor(app, assets, skills))
 
 /**
  * Release a domain runtime's layer scope, absorbing — but never hiding — a

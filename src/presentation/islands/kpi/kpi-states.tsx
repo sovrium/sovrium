@@ -7,6 +7,8 @@
 
 import {
   computeKpiLabelClasses,
+  KPI_HEADER_CLASSES,
+  KPI_SKELETON_CLASSES,
   KPI_STACK_CLASSES,
 } from '@/presentation/design/kpi-default-classes'
 import { useNamedHostAttributes } from '../hooks/use-named-host-attributes'
@@ -26,12 +28,21 @@ export function KpiLoading(): ReactElement {
       role="status"
       aria-label="Loading KPI..."
     >
-      {/* Placeholder bars are sized to the parts they stand in for — a 16px
-          caption line and the value's 36px leading — and spaced by the card's
-          own `gap-1` rather than a margin, so the skeleton occupies the same
-          box the loaded card will. */}
-      <div className="bg-background-subtle h-4 w-32 animate-pulse rounded" />
-      <div className="bg-background-subtle h-9 w-24 animate-pulse rounded" />
+      {/* Two skeletons in the card header, where the label and the figure
+          will sit, sized to the lines they stand in for. */}
+      <div
+        data-slot="card-header"
+        className={KPI_HEADER_CLASSES}
+      >
+        <div
+          data-slot="skeleton"
+          className={`${KPI_SKELETON_CLASSES} h-5 w-32`}
+        />
+        <div
+          data-slot="skeleton"
+          className={`${KPI_SKELETON_CLASSES} h-8 w-24`}
+        />
+      </div>
     </div>
   )
 }
@@ -49,7 +60,7 @@ export function KpiError({
   // replaced by raw error text.
   return (
     <div
-      className="border-error-border bg-error-bg text-md rounded border p-3"
+      className="border-destructive/30 bg-destructive/10 text-destructive rounded-xl border p-3 text-sm"
       ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'error' })}
       role="alert"
     >
@@ -61,7 +72,7 @@ export function KpiError({
           {label}
         </div>
       )}
-      <div className="text-error-fg">
+      <div>
         <p>Failed to load KPI records: {error instanceof Error ? error.message : String(error)}</p>
         <p className="mt-1 opacity-80">Refresh the page to try again.</p>
       </div>
@@ -88,18 +99,24 @@ export function KpiRateLimited({
       className={KPI_STACK_CLASSES}
       ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'rate-limited' })}
     >
-      {label && (
-        <div
-          data-role="kpi-label"
-          className={computeKpiLabelClasses()}
-        >
-          {label}
-        </div>
-      )}
-      <RateLimitedNotice
-        onRetry={onRetry}
-        strings={strings}
-      />
+      <div
+        data-slot="card-header"
+        className={KPI_HEADER_CLASSES}
+      >
+        {label && (
+          <div
+            data-slot="card-description"
+            data-role="kpi-label"
+            className={computeKpiLabelClasses()}
+          >
+            {label}
+          </div>
+        )}
+        <RateLimitedNotice
+          onRetry={onRetry}
+          strings={strings}
+        />
+      </div>
     </div>
   )
 }
@@ -107,7 +124,7 @@ export function KpiRateLimited({
 export function KpiMissingTable(): ReactElement {
   return (
     <div
-      className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
+      className="border-destructive/30 bg-destructive/10 text-destructive rounded-xl border p-3 text-sm"
       ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'missing-table' })}
       role="alert"
     >

@@ -14,6 +14,11 @@
  *  - `.md`   → Markdown markers stripped (pure domain `markdownToText`).
  *  - `.txt`  → passed through unchanged.
  *
+ * {@link extractAttachmentText} reads a file a person attached to a chat, by the
+ * media type its CONTENT was judged to be at upload: PDF, Word (`.docx`, via
+ * `docx-text.ts`), CSV, Markdown and plain text. An image has no text: it
+ * reaches a vision-capable model as an image, never through here.
+ *
  * PDF parsing degrades gracefully: when `unpdf` cannot parse the bytes (e.g.
  * a test fixture that writes plain text into a `.pdf` file, or a corrupt
  * file) the raw bytes are decoded as UTF-8 text so a non-PDF `.pdf` still
@@ -21,7 +26,9 @@
  */
 
 import { extractText, getDocumentProxy } from 'unpdf'
+import { DOCX_MEDIA_TYPE } from '@/domain/kernel/identity/attachment-content-type'
 import { markdownToText } from '@/domain/kernel/markdown/markdown-to-text'
+import { docxToText } from './docx-text'
 
 /** File extensions the document pipeline can ingest. */
 export const SUPPORTED_DOCUMENT_EXTENSIONS: ReadonlySet<string> = new Set(['.pdf', '.md', '.txt'])
@@ -81,4 +88,24 @@ export const parseDocument = async (input: {
   }
   // `.txt` (and any other supported plain-text format) passes through.
   return text
+}
+
+/**
+ * The text of a chat attachment, for the model to read as a quoted document,
+ * or `undefined` when the type has no text to give (a raster image) or the file
+ * cannot be read (a damaged Word document). `mediaType` is the type the upload
+ * route read from the file's content, so it is trusted here; CSV and Markdown
+ * are given verbatim, because a model reads both as they are written.
+ */
+export const extractAttachmentText = async (input: {
+  readonly mediaType: string
+  readonly bytes: Uint8Array
+}): Promise<string | undefined> => {
+  if (input.mediaType === 'application/pdf') return parsePdf(input.bytes)
+  if (input.mediaType === DOCX_MEDIA_TYPE) return docxToText(input.bytes)
+  // An SVG is markup: a model that cannot take it as a picture reads it as text.
+  if (input.mediaType.startsWith('text/') || input.mediaType === 'image/svg+xml') {
+    return new TextDecoder('utf-8').decode(input.bytes)
+  }
+  return undefined
 }

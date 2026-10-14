@@ -23,7 +23,7 @@ const STANDARD_SHADOWS = ['sm', 'md', 'lg', 'xl', '2xl', 'inner', 'none'] as con
  * remaining key no schema literal spells (the type is `dropdown-menu`).
  */
 const COMPONENT_SHADOW_MAP: Record<string, readonly string[]> = {
-  'list-item': ['sm'],
+  item: ['sm'],
   dropdown: ['lg'],
   input: ['inner'],
   button: ['brand', 'md'],

@@ -10,7 +10,7 @@ meta:
 components:
   - $ref: ./_site-header.yaml
   - type: container
-    element: main
+    element: div
     props:
       className: flex flex-col gap-10 px-6 pt-[72px] pb-16 max-md:gap-5 max-md:px-3.5 max-md:pt-6
     children:
@@ -36,12 +36,12 @@ components:
           - type: text
             element: p
             props:
-              className: max-w-[600px] text-[17px] text-foreground-muted max-md:hidden
+              className: max-w-[600px] text-[17px] text-muted-foreground max-md:hidden
             content: Sign in with your work email. We send you a link — no password to remember.
           - type: text
             element: p
             props:
-              className: text-[15px] text-foreground-muted md:hidden
+              className: text-[15px] text-muted-foreground md:hidden
             content: Sign in with your work email — we send you a link.
           - type: link
             props:
@@ -76,13 +76,13 @@ components:
         children:
           - type: card
             props:
-              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left max-md:flex-row max-md:items-center max-md:gap-2.5 max-md:px-3.5 max-md:py-3
+              className: flex flex-col gap-2 rounded-lg border border-border bg-card p-5 text-left max-md:flex-row max-md:items-center max-md:gap-2.5 max-md:px-3.5 max-md:py-3
             children:
               - type: icon
                 props:
                   name: megaphone
                   size: 20
-                  className: text-foreground-muted
+                  className: text-muted-foreground
               - type: text
                 element: h2
                 props:
@@ -91,17 +91,17 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-sm text-foreground-muted max-md:hidden
+                  className: text-sm text-muted-foreground max-md:hidden
                 content: Announcements from every team, with the must-reads you acknowledge in one click.
           - type: card
             props:
-              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left max-md:flex-row max-md:items-center max-md:gap-2.5 max-md:px-3.5 max-md:py-3
+              className: flex flex-col gap-2 rounded-lg border border-border bg-card p-5 text-left max-md:flex-row max-md:items-center max-md:gap-2.5 max-md:px-3.5 max-md:py-3
             children:
               - type: icon
                 props:
                   name: users
                   size: 20
-                  className: text-foreground-muted
+                  className: text-muted-foreground
               - type: text
                 element: h2
                 props:
@@ -110,17 +110,17 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-sm text-foreground-muted max-md:hidden
+                  className: text-sm text-muted-foreground max-md:hidden
                 content: A directory of every colleague with their role, team and office.
           - type: card
             props:
-              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left max-md:flex-row max-md:items-center max-md:gap-2.5 max-md:px-3.5 max-md:py-3
+              className: flex flex-col gap-2 rounded-lg border border-border bg-card p-5 text-left max-md:flex-row max-md:items-center max-md:gap-2.5 max-md:px-3.5 max-md:py-3
             children:
               - type: icon
                 props:
                   name: link
                   size: 20
-                  className: text-foreground-muted
+                  className: text-muted-foreground
               - type: text
                 element: h2
                 props:
@@ -129,6 +129,6 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-sm text-foreground-muted max-md:hidden
+                  className: text-sm text-muted-foreground max-md:hidden
                 content: Policies, guides and the links to every internal tool, grouped.
   - $ref: ./_site-footer.yaml

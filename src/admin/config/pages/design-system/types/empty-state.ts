@@ -20,7 +20,7 @@ const emptyState: TypePageBody = {
       label: 'with action',
       children: [
         {
-          type: 'empty-state',
+          type: 'empty',
           // INSIDE `props`, though the schema declares these at the top level:
           // the renderer reads them off `elementProps`, so written top-level
           // they validate, typecheck, and draw an empty dashed box.
@@ -45,7 +45,7 @@ const emptyState: TypePageBody = {
       label: 'plain',
       children: [
         {
-          type: 'empty-state',
+          type: 'empty',
           props: {
             emptyIcon: 'search',
             emptyTitle: 'No deals match these filters',

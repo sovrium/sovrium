@@ -89,9 +89,10 @@ export const DesignSchema = Schema.Struct({
    * - `'light'` — force the light scheme as the default.
    * - `'dark'` — force the dark scheme as the default (the `.dark` class is
    *   set on `<html>` ahead of the stylesheet).
-   * - `'system'` — follow the visitor's `prefers-color-scheme` (default when a
-   *   `theme-toggle` is present or `darkColors` is declared, and no value is
-   *   configured). An app with neither stays light.
+   * - `'system'` — follow the visitor's `prefers-color-scheme`. This is the
+   *   default when no value is configured, for every app: one that declares no
+   *   `darkColors` follows the system scheme on the default dark palette. An app
+   *   meant to stay light declares `colorScheme: 'light'`.
    *
    * A stored visitor preference always overrides this default once the no-FOUC
    * head script runs. This sets the starting point, not the policy.
@@ -100,7 +101,7 @@ export const DesignSchema = Schema.Struct({
     Schema.Literals(['light', 'dark', 'system']).annotate({
       title: 'Default Color Scheme',
       description:
-        "Default color scheme before content renders: 'light', 'dark', or 'system' (follow prefers-color-scheme). Omitted, an app that declares `darkColors` follows the visitor's system scheme; an app without one stays light.",
+        "Default color scheme before content renders: 'light', 'dark', or 'system' (follow prefers-color-scheme). Omitted, every app follows the visitor's system scheme, using the default dark palette when it declares no `darkColors`; declare 'light' to keep an app light. A visitor's stored theme-toggle choice still wins.",
     })
   ),
 
@@ -211,9 +212,8 @@ export const DesignSchema = Schema.Struct({
   components: Schema.optional(DesignComponentsSchema),
 
   /**
-   * The zone map — which route patterns belong to which zone, what accent
-   * budget each zone carries, and how each zone's voice departs from
-   * `design.voice`.
+   * The zone map — which route patterns belong to which zone, and how each
+   * zone's voice departs from `design.voice`.
    *
    * The one key here that describes ROUTES rather than tokens or words, and the
    * only one that ever had a home outside the schema: the `**Zones**:` line in
@@ -298,8 +298,8 @@ export const DesignSchema = Schema.Struct({
         codeBlock: { theme: 'github-dark' },
         components: { button: { parts: { root: 'rounded-none' } } },
         zones: [
-          { pattern: '/admin/*', zone: 'product', accentBudget: 'product' },
-          { pattern: 'everything else', zone: 'marketing', accentBudget: 'public' },
+          { pattern: '/admin/*', zone: 'product' },
+          { pattern: 'everything else', zone: 'marketing' },
         ],
         logo: { src: '/logos/wordmark.svg', alt: 'Acme' },
         imagery: { iconSet: 'Lucide' },

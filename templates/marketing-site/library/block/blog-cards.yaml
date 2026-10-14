@@ -54,7 +54,7 @@ children:
                 - type: text
                   element: span
                   props:
-                    className: font-mono text-sm text-foreground-subtle
+                    className: font-mono text-sm text-muted-foreground
                   content: $record.published_at
                 - type: text
                   element: h3
@@ -64,7 +64,7 @@ children:
                 - type: text
                   element: p
                   props:
-                    className: line-clamp-2 text-md text-foreground-muted
+                    className: line-clamp-2 text-md text-muted-foreground
                   content: $record.excerpt
               onClick:
                 type: navigate

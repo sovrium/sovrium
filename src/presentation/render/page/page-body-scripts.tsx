@@ -8,6 +8,8 @@
 import { type ReactElement } from 'react'
 import { ClientEntryScript } from '@/presentation/render/page/client-script-paths'
 import { isSchemaAuthoredComponent } from '@/presentation/render/registry/synthesized-component-types'
+import { CARRIED_TOAST_READER_SCRIPT } from '@/presentation/render/scripts/carried-toast-reader-script'
+import { MARQUEE_PAUSE_SCRIPT } from '@/presentation/render/scripts/marquee-pause-script'
 import {
   renderInlineScriptTag,
   renderScriptTag,
@@ -243,10 +245,9 @@ const autoResizeScript = `!function(){function grow(el){el.style.height='auto';e
  *
  * Clearing on open rather than deleting that handler is deliberate — it also
  * serves the older `[data-modal-trigger]` contract, and making open idempotent
- * costs one statement. `command-palette-runtime.ts` already does exactly this,
- * for exactly this reason; see the comment above its `removeAttribute('hidden')`.
+ * costs one statement.
  */
-const clickScript = `!function(){function openModal(id){window.__sovriumOpenModals=window.__sovriumOpenModals||{};window.__sovriumOpenModals[id]=true;var c=document.getElementById(id);if(!c)return;c.style.display="";var d=c.querySelector('[role="dialog"]');if(d){d.removeAttribute("hidden");d.setAttribute("aria-hidden","false");d.focus()}}function closeModal(c){c.style.display="none"}document.addEventListener("click",function(t){var e=t.target.closest("[data-click-animation], [data-click-navigate], [data-click-open-url], [data-click-scroll-to], [data-click-toggle-element], [data-click-submit-form], [data-click-modal], [data-modal-close], [data-backdrop]");if(!e)return;if(e.hasAttribute("data-modal-close")){var mc=e.closest("[data-modal-container]");if(mc)closeModal(mc);return}if(e.hasAttribute("data-backdrop")&&t.target===e){var mc2=e.closest("[data-modal-container]");if(mc2)closeModal(mc2);return}var n=e.getAttribute("data-click-animation"),a=e.getAttribute("data-click-navigate"),c=e.getAttribute("data-click-open-url"),i=e.getAttribute("data-click-open-in-new-tab")==="true",o=e.getAttribute("data-click-scroll-to"),l=e.getAttribute("data-click-toggle-element"),r=e.getAttribute("data-click-submit-form"),m=e.getAttribute("data-click-modal"),s=c||a,d=!!c;if(m){openModal(m)}else if(r){var f=document.querySelector(r),b=f&&f.querySelector("[type=submit]");f&&"FORM"===f.tagName&&!(b&&b.disabled)&&f.requestSubmit()}else if(l){var g=document.querySelector(l);if(g){var h="none"===window.getComputedStyle(g).display;g.style.display=h?"":"none"}}else if(o){var j=document.querySelector(o);j&&j.scrollIntoView({behavior:"smooth",block:"start"})}else if(n&&"none"!==n){var k="animate-click-"+n;if(e.classList.add(k),s){var done=!1;var cb=function(){done||(done=!0,e.classList.remove(k),d&&i?window.open(s,"_blank","noopener,noreferrer"):window.location.href=s)};e.addEventListener("animationend",cb,{once:!0});setTimeout(cb,300)}else{var cb2=function(){e.classList.remove(k)};e.addEventListener("animationend",cb2,{once:!0});setTimeout(cb2,300)}}else s&&(d&&i?window.open(s,"_blank","noopener,noreferrer"):window.location.href=s)});document.addEventListener("keydown",function(e){if(e.key==="Escape"){var open=document.querySelector('[data-modal-container]:not([style*="display: none"])');if(!open){var all=document.querySelectorAll("[data-modal-container]");for(var i=0;i<all.length;i++){if(all[i].style.display!=="none"){open=all[i];break}}}if(open)closeModal(open)}})}();`
+const clickScript = `!function(){function openModal(id){window.__sovriumOpenModals=window.__sovriumOpenModals||{};window.__sovriumOpenModals[id]=true;var c=document.getElementById(id);if(!c)return;c.style.display="";var d=c.querySelector('[role="dialog"]');if(d){d.removeAttribute("hidden");d.setAttribute("aria-hidden","false");d.focus()}}function closeModal(c){if(c.querySelector('[data-pending="true"]'))return;c.style.display="none"}document.addEventListener("click",function(t){var e=t.target.closest("[data-click-animation], [data-click-navigate], [data-click-open-url], [data-click-scroll-to], [data-click-toggle-element], [data-click-submit-form], [data-click-modal], [data-modal-close], [data-backdrop]");if(!e)return;if(e.hasAttribute("data-modal-close")){var mc=e.closest("[data-modal-container]");if(mc)closeModal(mc);return}if(e.hasAttribute("data-backdrop")&&t.target===e){var mc2=e.closest("[data-modal-container]");if(mc2)closeModal(mc2);return}var n=e.getAttribute("data-click-animation"),a=e.getAttribute("data-click-navigate"),c=e.getAttribute("data-click-open-url"),i=e.getAttribute("data-click-open-in-new-tab")==="true",o=e.getAttribute("data-click-scroll-to"),l=e.getAttribute("data-click-toggle-element"),r=e.getAttribute("data-click-submit-form"),m=e.getAttribute("data-click-modal"),s=c||a,d=!!c;if(m){openModal(m)}else if(r){var f=document.querySelector(r),b=f&&f.querySelector("[type=submit]");f&&"FORM"===f.tagName&&!(b&&b.disabled)&&f.requestSubmit()}else if(l){var g=document.querySelector(l);if(g){var h="none"===window.getComputedStyle(g).display;g.style.display=h?"":"none"}}else if(o){var j=document.querySelector(o);j&&j.scrollIntoView({behavior:"smooth",block:"start"})}else if(n&&"none"!==n){var k="animate-click-"+n;if(e.classList.add(k),s){var done=!1;var cb=function(){done||(done=!0,e.classList.remove(k),d&&i?window.open(s,"_blank","noopener,noreferrer"):window.location.href=s)};e.addEventListener("animationend",cb,{once:!0});setTimeout(cb,300)}else{var cb2=function(){e.classList.remove(k)};e.addEventListener("animationend",cb2,{once:!0});setTimeout(cb2,300)}}else s&&(d&&i?window.open(s,"_blank","noopener,noreferrer"):window.location.href=s)});document.addEventListener("keydown",function(e){if(e.key==="Escape"){var open=document.querySelector('[data-modal-container]:not([style*="display: none"])');if(!open){var all=document.querySelectorAll("[data-modal-container]");for(var i=0;i<all.length;i++){if(all[i].style.display!=="none"){open=all[i];break}}}if(open)closeModal(open)}})}();`
 
 /**
  * Design-toggle runtime (SECURITY: Safe - static code, no user input).
@@ -303,22 +304,6 @@ const themeToggleScript = `!function(){document.addEventListener("click",functio
 const copyCodeScript = `!function(){document.addEventListener("click",function(t){var b=t.target.closest("[data-copy-code]");if(!b)return;var s=b.closest("[data-code-copy-scope]");if(!s)return;var p=s.querySelector("[data-copy-target]")||s.querySelector("[data-code-command]")||s.querySelector("pre:not([data-code-output])");if(!p)return;var c=p.querySelector("code")||p;var text=c.textContent||"";if(!text)return;var st=s.querySelector("[data-copy-status]");var done=function(){var copied=b.getAttribute("data-copied-label")||"Copied";b.setAttribute("data-copied","true");if(st)st.textContent=copied;setTimeout(function(){b.removeAttribute("data-copied");if(st)st.textContent=""},2000)};if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done).catch(function(){})}else{try{var ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);done()}catch(err){}}})}();`
 
 /**
- * Marquee pause runtime (SECURITY: Safe - static code, no user input).
- *
- * Backs the optional `pauseControl` button on a `marquee` band. The band itself is
- * CSS-only — this handler does nothing but flip `data-marquee-paused` on the band
- * root, which the stylesheet reads to stop the track's `animation-play-state`.
- * The control is what makes the motion stoppable WITHOUT a pointer held anywhere
- * (WCAG 2.2.2), so it also swaps its own visible label to the inverse action —
- * otherwise a visitor who paused the band is stranded with a permanently frozen
- * row and no obvious way back.
- *
- * Delegated for the same reason as `copyCodeScript`: a band inside a tab panel
- * mounts after hydration.
- */
-const marqueePauseScript = `!function(){document.addEventListener("click",function(t){var b=t.target.closest("[data-marquee-pause]");if(!b)return;var m=b.closest("[data-marquee]");if(!m)return;if(m.getAttribute("data-marquee-paused")==="true"){m.removeAttribute("data-marquee-paused");b.textContent=b.getAttribute("data-marquee-pause-label")||"Pause"}else{m.setAttribute("data-marquee-paused","true");b.textContent=b.getAttribute("data-marquee-resume-label")||"Resume"}})}();`
-
-/**
  * Renders scripts for body end position
  */
 function renderBodyEndScripts(config: {
@@ -353,7 +338,10 @@ function renderBodyEndScripts(config: {
         `tabs` panel work even though the panel mounts after hydration. Order is
         therefore not load-bearing; keep it stable only to keep diffs readable:
         clickScript (delegated click/modal), autoResizeScript (textarea grow),
-        themeToggleScript, copyCodeScript (code-block copy), marqueePauseScript.
+        themeToggleScript, copyCodeScript (code-block copy), MARQUEE_PAUSE_SCRIPT,
+        and the carried-toast reader — the one enhancer that is not delegated:
+        it shows, once, a success toast the previous page carried here as it
+        navigated, on every page whatever runtime or palette it ships.
       */}
       <script
         // eslint-disable-next-line sovrium/require-sanitized-html -- a concatenation of engine-authored enhancer script constants
@@ -363,7 +351,8 @@ function renderBodyEndScripts(config: {
             autoResizeScript +
             themeToggleScript +
             copyCodeScript +
-            marqueePauseScript,
+            MARQUEE_PAUSE_SCRIPT +
+            CARRIED_TOAST_READER_SCRIPT,
         }}
       />
     </>

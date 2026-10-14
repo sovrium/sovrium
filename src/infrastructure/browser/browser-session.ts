@@ -10,8 +10,10 @@ import { BrowserFailure, type BrowserSession } from '@/application/ports/service
 import { StepError } from './browser-cdp'
 import {
   checkBox,
+  clickAt,
   clickElement,
   fillField,
+  findClickPoint,
   gotoPage,
   pressKey,
   selectOption,
@@ -53,8 +55,16 @@ const op = <A>(run: () => Promise<A>, name: string): Effect.Effect<A, BrowserFai
 const gestures = (
   state: PageState
 ): Pick<BrowserSession, 'click' | 'fill' | 'select' | 'check' | 'press'> => ({
-  click: (target, timeoutMs) =>
-    op(() => asGesture(state, undefined, () => clickElement(state, target, timeoutMs)), 'click'),
+  click: (target, timeoutMs, onFound) =>
+    onFound === undefined
+      ? op(() => asGesture(state, undefined, () => clickElement(state, target, timeoutMs)), 'click')
+      : // Located first, then `onFound`, then the click: a miss never runs `onFound`.
+        op(() => findClickPoint(state, target, timeoutMs), 'click-locate').pipe(
+          Effect.tap(() => onFound),
+          Effect.flatMap((point) =>
+            op(() => asGesture(state, undefined, () => clickAt(state, point, timeoutMs)), 'click')
+          )
+        ),
   fill: (input) =>
     op(
       () => asGesture(state, input.sensitive ? 'secret' : 'plain', () => fillField(state, input)),

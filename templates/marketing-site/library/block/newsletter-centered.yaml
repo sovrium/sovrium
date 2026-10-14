@@ -1,4 +1,5 @@
-# sovrium-library: block/newsletter-centered@0.30.0
+# sovrium-library: block/newsletter-centered@0.37.0
+# sovrium-library-params: form=newsletter&headline=Get%20%5Bthe%20thing%5D%20by%20email&privacy=%5BPrivacy%20line%20%E2%80%94%20link%20to%20the%20policy%5D&subheadline=One%20sentence%20on%20cadence%20and%20content.%20Nothing%20else.&submitLabel=Subscribe&successMessage=You%20are%20subscribed.
 name: newsletter-centered
 type: container
 element: section
@@ -26,7 +27,7 @@ children:
           - type: text
             element: p
             props:
-              className: max-w-md text-md text-foreground-muted
+              className: max-w-md text-md text-muted-foreground
             content: One sentence on cadence and content. Nothing else.
           - type: container
             props:
@@ -58,5 +59,5 @@ children:
           - type: text
             element: p
             props:
-              className: text-sm text-foreground-subtle
+              className: text-sm text-muted-foreground
             content: '[Privacy line — link to the policy]'

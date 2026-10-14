@@ -51,11 +51,11 @@ constraints:
 
 ## Uniqueness and integrity
 
-- Single-field: `unique: true` on the field, or a top-level `unique: [{ fields: [slug] }]`.
-- Composite: a top-level `unique: [{ fields: [tenant_id, slug] }]`, which becomes a unique index.
+- Single-field: `unique: true` on the field, or a top-level `unique: [{ fields: [slug] }]`. It covers the records that are not in the trash: a value held only by a deleted record can be used again, and restoring that record while another one holds its value is refused with `409`.
+- Composite: a top-level `unique: [{ fields: [tenant_id, slug] }]`, which becomes a unique index over the records that are not in the trash, like a single field. A unique index declared under `indexes` keeps the shape you write: it counts deleted records unless it carries a `where`.
 - Partial: a unique index carrying a `where` clause — a unique slug only among rows that are not soft-deleted, for instance.
-- On an existing table: turning `unique` on, for a field already there or for one being added, is enforced on both engines, and turning it off drops the constraint. While two or more rows share a value of that field, the migration is refused before anything is written. The refusal names the table, the field, the number of rows and the duplicated values, and nothing is changed, so cleaning those rows or reverting the edit lets the next boot through. A new unique field with a default is refused the same way when the table already holds two rows, because each of them would get the default.
-- Relational: a `relationship` field creates its foreign key with `onDelete` and `onUpdate` actions; a reference spanning several columns is declared with `foreignKeys`.
+- On an existing table: turning `unique` on, for a field already there or for one being added, is enforced on both engines, and turning it off drops the constraint. While two or more rows that are not in the trash share a value of that field, the migration is refused before anything is written. The refusal names the table, the field, the number of rows and the duplicated values, and nothing is changed, so cleaning those rows or reverting the edit lets the next boot through. A new unique field with a default is refused the same way when the table already holds two records that are not in the trash, because each of them would get the default.
+- Relational: a `relationship` field creates its foreign key with `onDelete` and `onUpdate` actions; a reference spanning several columns is declared with `foreignKeys`. A unique key that a `foreignKeys` entry references, a `unique` field or a composite top-level `unique`, stays unique over every record, deleted ones included, because the database accepts a reference only to such a key.
 
 ## Check a configuration before deploying it
 

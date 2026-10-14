@@ -37,6 +37,7 @@ Mistral speaks the OpenAI wire format; a plain reply's `"tool_calls": null` is r
 | `AI_MAX_TOKENS`           | The default maximum output length                                                                                                                              |
 | `AI_EMBEDDING_MODEL`      | The embedding model for retrieval, defaulting per provider                                                                                                     |
 | `AI_EMBEDDING_DIMENSIONS` | The vector width, which must match the embedding model's output                                                                                                |
+| `AI_VISION`               | `1` declares the model able to read images; a chat message carrying a picture is refused without it                                                            |
 
 An empty or whitespace-only value is treated identically to unset: an operator who blanks out the provider intends to disable it, not to supply an invalid value, so the server boots cleanly with AI off rather than throwing a parse error.
 

@@ -6,12 +6,16 @@
  */
 
 import { Popover } from '@base-ui/react/popover'
+import { useCallback, useState } from 'react'
 import { useLiveInjectedMarkup } from './live-injected-markup'
+import { useOverlayPending } from './overlay-pending'
 import {
+  computeFloatingPositionerClasses,
+  computePopoverContentClasses,
   computePopoverDescriptionClasses,
-  computePopoverPopupClasses,
+  computePopoverHeaderClasses,
   computePopoverTitleClasses,
-} from './overlay-default-classes'
+} from './popover-default-classes'
 import type { ReactElement } from 'react'
 
 interface PopoverIslandProps {
@@ -48,6 +52,40 @@ function PopoverChildren({ html }: { readonly html: string }): ReactElement {
   return <div ref={ref} />
 }
 
+/** The `popover-header` slot, omitted when the author declared neither line. */
+function PopoverHeading({
+  title,
+  description,
+}: {
+  readonly title?: string
+  readonly description?: string
+}): ReactElement | undefined {
+  if (!title && !description) return undefined
+  return (
+    <div
+      data-slot="popover-header"
+      className={computePopoverHeaderClasses()}
+    >
+      {title && (
+        <Popover.Title
+          data-slot="popover-title"
+          className={computePopoverTitleClasses()}
+        >
+          {title}
+        </Popover.Title>
+      )}
+      {description && (
+        <Popover.Description
+          data-slot="popover-description"
+          className={computePopoverDescriptionClasses()}
+        >
+          {description}
+        </Popover.Description>
+      )}
+    </div>
+  )
+}
+
 /**
  * Popover island — wraps Base UI Popover for floating content panels.
  *
@@ -67,9 +105,18 @@ export default function PopoverIsland({
   id,
   'data-testid': testId,
 }: PopoverIslandProps): ReactElement {
+  // Controlled, so a pending control inside holds a press outside, and a control
+  // inside can ask it to close (overlay-pending.ts).
+  const [open, setOpen] = useState(false)
+  const close = useCallback(() => setOpen(false), [])
+  const { panelRef, onOpenChange } = useOverlayPending(setOpen, close)
   return (
-    <Popover.Root>
+    <Popover.Root
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <Popover.Trigger
+        data-slot="popover-trigger"
         className={className}
         id={triggerId ?? id}
         data-testid={testId}
@@ -84,28 +131,19 @@ export default function PopoverIsland({
         <Popover.Positioner
           side={floatingSide}
           align={floatingAlign}
-          sideOffset={8}
+          sideOffset={4}
+          className={computeFloatingPositionerClasses()}
         >
-          <Popover.Popup className={computePopoverPopupClasses()}>
-            {title && (
-              <Popover.Title className={computePopoverTitleClasses()}>{title}</Popover.Title>
-            )}
-            {description && (
-              <Popover.Description className={computePopoverDescriptionClasses()}>
-                {description}
-              </Popover.Description>
-            )}
+          <Popover.Popup
+            ref={panelRef}
+            data-slot="popover-content"
+            className={computePopoverContentClasses()}
+          >
+            <PopoverHeading
+              title={title}
+              description={description}
+            />
             {childrenHtml && <PopoverChildren html={childrenHtml} />}
-            <Popover.Arrow className="text-background-overlay">
-              <svg
-                width="12"
-                height="6"
-                viewBox="0 0 12 6"
-                fill="currentColor"
-              >
-                <path d="M0 6L6 0L12 6" />
-              </svg>
-            </Popover.Arrow>
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>

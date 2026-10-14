@@ -25,21 +25,15 @@
  */
 
 import { useCallback } from 'react'
-import { computeAiChatSuggestionStripClasses } from '@/presentation/design/ai-chat-default-classes'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeAiChatSuggestionStripClasses } from '@/presentation/design/ai-chat-composition-classes'
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
 import type { ReactElement } from 'react'
 
 /**
  * The small outlined button — the one variant whose fill is the surface behind
  * it, so a row of chips reads as offers rather than as competing send buttons.
  */
-const SUGGESTION_CHIP = computeButtonDefaultClasses({ variant: 'outline', size: 'sm' })
-
-/**
- * The strip's own accessible name, matching the skeleton's. Without it a
- * screen-reader user meets a run of unexplained buttons after the composer.
- */
-const SUGGESTIONS_GROUP_LABEL = 'Suggested questions'
+const SUGGESTION_CHIP = computePartButtonClasses({ variant: 'outline', size: 'sm' })
 
 interface SuggestionChipProps {
   readonly prompt: string
@@ -70,6 +64,12 @@ function SuggestionChip({ prompt, onSelect }: SuggestionChipProps): ReactElement
 }
 
 interface SuggestionStripProps {
+  /**
+   * The strip's own accessible name, in the page language and matching the
+   * skeleton's. Without it a screen-reader user meets a run of unexplained
+   * buttons after the composer.
+   */
+  readonly label: string
   readonly suggestions: ReadonlyArray<string> | undefined
   readonly onSelect: (prompt: string) => void
 }
@@ -81,6 +81,7 @@ interface SuggestionStripProps {
  * which would be a name in the accessibility tree announcing nothing.
  */
 export function SuggestionStrip({
+  label,
   suggestions,
   onSelect,
 }: SuggestionStripProps): ReactElement | undefined {
@@ -90,7 +91,7 @@ export function SuggestionStrip({
     <div
       data-ai-chat-suggestions
       role="group"
-      aria-label={SUGGESTIONS_GROUP_LABEL}
+      aria-label={label}
       className={computeAiChatSuggestionStripClasses()}
     >
       {suggestions.map((prompt, index) => (

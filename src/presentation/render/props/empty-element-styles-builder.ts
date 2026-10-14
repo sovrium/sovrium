@@ -105,6 +105,16 @@ const SELF_DISPLAYING_TYPES: ReadonlySet<string> = new Set([
   // fields and its submit, so it has intrinsic content in every case the 1x1
   // floor exists to protect. That is exactly the `image` argument.
   'form',
+  // `table`, for the same reason: written rows come from `tableRows` and bound
+  // rows from `dataSource`, never from `children`, so every table read as
+  // contentless. A static table carried `display:inline-block` and shrank to
+  // its columns inside its full-width `table-container`.
+  'table',
+  // `separator` never has content: a labelled one is a flex row of rule, label,
+  // rule, and an inline-block shrank it to its label in a block parent.
+  'separator',
+  // `item` lays its slots out as a flex row of its own.
+  'item',
 ])
 
 /**
@@ -132,7 +142,7 @@ const DISPLAY_UTILITIES: ReadonlySet<string> = new Set([
   'grid',
   'inline-grid',
   'contents',
-  'list-item',
+  'item',
   'hidden',
 ])
 

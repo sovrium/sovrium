@@ -10,13 +10,11 @@
  * agent declared in `app.agents[]`.
  *
  * Unlike `ai/generate` (a single one-shot completion), an agent action runs
- * an autonomous multi-step loop: it advertises the agent's allowlisted tools
- * to the LLM, executes any tool calls the model requests, feeds the results
- * back, and re-queries — bounded by the action's `maxSteps`.
- *
- * The handler reuses the shared `AiService` port (the same provider plumbing
- * as `ai/generate`), so the agent's LLM round-trips are observed by the AI
- * mock server in E2E specs.
+ * the agent runtime (`use-cases/agents/agent-runtime.ts`): it advertises the
+ * agent's allowlisted tools, RUNS each tool call the model makes through the
+ * agent's gates and the automation engine's own handler for the action — the
+ * same handlers, inside the same run, as a step would — hands the real result
+ * back, and re-queries, bounded by the action's `maxSteps`.
  *
  * Wave: the automations actions AI agent requirement.
  */
@@ -24,21 +22,28 @@
 import { Effect } from 'effect'
 import { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import { AiService } from '@/application/ports/services/ai-service'
+import {
+  runAgentTurnToEnd,
+  type AgentTurnResult,
+} from '@/application/use-cases/agents/agent-runtime'
+import {
+  agentActionKey,
+  buildAgentActionTools,
+  buildAgentSystemPrompt,
+} from '@/domain/models/app/agents/agent-turn-service'
 import { readsOfToolCalls } from '@/domain/models/app/automations/step-read-service'
-import { aiErrorOutcome } from './ai'
+import { aiErrorOutcome, classifyAiError } from './ai'
 import { chunksWithinStarterReach } from './ai-agent-starter-reach'
 import { actionAttributes, stringProp } from './shared'
-import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
+import type { ActionHandler, ActionOutcome, ActionRunContext, AutomationContext } from './shared'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type {
-  ChatInput,
-  ChatMessage,
-  ChatReply,
-  ChatToolCall,
-  ChatToolDefinition,
-} from '@/application/ports/services/ai-service'
+  AgentActionResult,
+  AgentActionRunner,
+  AgentToolResult,
+} from '@/application/use-cases/agents/agent-tool-call'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 
@@ -128,223 +133,6 @@ const retrieveKnowledgeChunks = (input: {
     return reachable.map((row) => ({ content: row.content, sourceRef: row.sourceRef }))
   })
 
-/**
- * Build the agent's effective system prompt: its base `systemPrompt` plus a
- * capability context block enumerating the allowlisted tables + actions, so
- * the LLM is aware of the exact constraints it operates within. Mirrors the
- * agent-execute path's `buildSystemPrompt` (kept inline so the application
- * layer does not reach into the presentation layer).
- */
-const buildAgentSystemPrompt = (agent: Agent): string => {
-  const { tools } = agent
-  const capabilityLines =
-    tools !== undefined
-      ? [
-          '',
-          'Your capabilities are restricted to the following allowlist:',
-          `- Tables you may access: ${tools.tables.join(', ')}`,
-          `- Actions you may perform: ${tools.actions.join(', ')}`,
-        ]
-      : []
-  return [agent.systemPrompt, ...capabilityLines].join('\n')
-}
-
-/**
- * Per-action description overrides for the tools advertised to the LLM.
- *
- * The generic fallback ("perform the X operation") is enough for actions whose
- * name already says what they do, but it is actively harmful for the read pair:
- * `record.read` and `record.list` would otherwise be described identically bar
- * one word, leaving the model to guess which one takes a filter. A model that
- * picks `read` for a filtered question gets a refusal, and one that picks
- * `list` for a by-id question sweeps the table — so the distinction is spelled
- * out rather than implied.
- */
-const ACTION_DESCRIPTIONS: Readonly<Record<string, string>> = {
-  'record.read':
-    'Fetch exactly ONE record by its primary key. Requires the record id. ' +
-    'Cannot filter, sort, or return multiple records — use record.list for that.',
-  'record.list':
-    'Fetch a SET of records matching conditions. Supports filtering, sorting, ' +
-    'and limit/offset paging, and returns zero or more records. ' +
-    'Use record.read instead when you already know the exact record id.',
-}
-
-/**
- * Build the OpenAI-compatible `tools[]` array advertised to the LLM — one
- * function per allowlisted agent action, scoped to the agent's tables. A
- * tool is named exactly after the agent action (`record.read`) so the
- * model (and the captured request) reflects the allowlist verbatim: an
- * action outside the allowlist simply has no tool.
- */
-const buildAgentTools = (agent: Agent): ReadonlyArray<ChatToolDefinition> => {
-  const { tools } = agent
-  if (tools === undefined) return []
-  const tableList = tools.tables.join(', ')
-  return tools.actions.map((action) => ({
-    type: 'function' as const,
-    function: {
-      name: action,
-      description: `${
-        ACTION_DESCRIPTIONS[action] ?? `Perform the "${action}" operation.`
-      } Allowlisted tables: ${tableList}.`,
-      parameters: {
-        type: 'object',
-        properties: {
-          table: {
-            type: 'string',
-            description: `One of the allowlisted tables: ${tableList}.`,
-          },
-        },
-      },
-    },
-  }))
-}
-
-/**
- * Synthesise a `role: 'tool'` result message for one tool call. The agent
- * action runtime does not execute side effects against tables in this v1
- * surface — it acknowledges the call so the loop can continue and the model
- * can produce a final answer. Tool calls outside the agent's allowlist are
- * rejected with an error result (never silently honoured).
- */
-const buildToolResult = (
-  toolCall: ChatToolCall,
-  allowedActions: ReadonlySet<string>
-): ChatMessage => ({
-  role: 'tool',
-  toolCallId: toolCall.id,
-  content: allowedActions.has(toolCall.name)
-    ? `Tool "${toolCall.name}" acknowledged.`
-    : `Tool "${toolCall.name}" is not in the agent's allowlist and was rejected.`,
-})
-
-/** Resolve the effective request model: `agent.model` → `AI_MODEL` → mock. */
-const resolveModel = (agent: Agent): string =>
-  agent.model ?? process.env['AI_MODEL'] ?? 'mock-model'
-
-/** Immutable inputs threaded through every step of the agent loop. */
-interface AgentLoopInput {
-  readonly agent: Agent
-  readonly model: string
-  readonly tools: ReadonlyArray<ChatToolDefinition>
-  readonly allowedActions: ReadonlySet<string>
-  readonly allowedTables: ReadonlySet<string>
-  readonly maxSteps: number
-}
-
-/**
- * Validate one model-requested tool call against the agent's allowlist. A
- * call is rejected when its action is outside the allowlist, or when it
- * references a `table` argument that is not one of the agent's allowlisted
- * tables. Returns a structured {@link ActionOutcome} on rejection (so the
- * caller surfaces `output.error.code` per the AI runtime-error contract),
- * or `undefined` when the call is honourable.
- */
-const validateToolCall = (
-  toolCall: ChatToolCall,
-  input: AgentLoopInput
-): ActionOutcome | undefined => {
-  if (!input.allowedActions.has(toolCall.name)) {
-    return aiErrorOutcome({
-      code: 'invalid_tool',
-      message: `ai.agent: the agent attempted tool "${toolCall.name}" which is not in its allowlist`,
-      retryable: false,
-    })
-  }
-  const requestedTable = toolCall.arguments['table']
-  if (typeof requestedTable === 'string' && !input.allowedTables.has(requestedTable)) {
-    return aiErrorOutcome({
-      code: 'table_not_found',
-      message: `ai.agent: tool "${toolCall.name}" referenced table "${requestedTable}" which is not in the agent's allowlisted tables`,
-      retryable: false,
-    })
-  }
-  return undefined
-}
-
-/** Mutable-by-replacement state advanced one step at a time. */
-interface AgentLoopState {
-  readonly messages: ReadonlyArray<ChatMessage>
-  readonly stepsExecuted: number
-  readonly toolsUsed: ReadonlyArray<string>
-  /** The allowlisted tool calls the model asked for, with their arguments. */
-  readonly toolCalls: ReadonlyArray<ChatToolCall>
-  readonly lastReply: ChatReply | undefined
-}
-
-/** Assemble the `AiService.chat` request body for one agent step. */
-const buildStepChatInput = (state: AgentLoopState, input: AgentLoopInput): ChatInput => ({
-  messages: state.messages,
-  model: input.model,
-  ...(input.agent.temperature !== undefined ? { temperature: input.agent.temperature } : {}),
-  ...(input.agent.maxTokens !== undefined ? { maxTokens: input.agent.maxTokens } : {}),
-  ...(input.tools.length > 0 ? { tools: input.tools } : {}),
-})
-
-/**
- * Fold a model reply into the next loop state: when the reply carries tool
- * calls, append the assistant turn + each tool result and record the
- * allowlisted tool names; otherwise the state's message list is unchanged.
- */
-const advanceState = (
-  state: AgentLoopState,
-  reply: ChatReply,
-  allowedActions: ReadonlySet<string>
-): AgentLoopState => {
-  const toolCalls = reply.toolCalls ?? []
-  const base = { stepsExecuted: state.stepsExecuted + 1, lastReply: reply }
-  if (toolCalls.length === 0) {
-    return { ...state, ...base }
-  }
-  const honoured = toolCalls.map((call) => call.name).filter((name) => allowedActions.has(name))
-  return {
-    messages: [
-      ...state.messages,
-      { role: 'assistant', content: reply.content, toolCalls },
-      ...toolCalls.map((call) => buildToolResult(call, allowedActions)),
-    ],
-    toolsUsed: [...state.toolsUsed, ...honoured],
-    toolCalls: [...state.toolCalls, ...toolCalls.filter((call) => allowedActions.has(call.name))],
-    ...base,
-  }
-}
-
-/**
- * Drive the agent loop recursively: a single `AiService.chat` round-trip per
- * recursion, stopping when the model returns no tool calls or `maxSteps` is
- * reached — whichever comes first. A provider failure mid-loop surfaces as a
- * graceful `ActionOutcome` (`status: 'success'` with `output.error`).
- */
-const runAgentLoop = (
-  state: AgentLoopState,
-  input: AgentLoopInput
-): Effect.Effect<AgentLoopState | ActionOutcome, never, AiService> =>
-  Effect.gen(function* () {
-    if (state.stepsExecuted >= input.maxSteps) return state
-    const ai = yield* AiService
-    const result = yield* Effect.result(ai.chat(buildStepChatInput(state, input)))
-    if (result._tag === 'Failure') {
-      return aiErrorOutcome({
-        code: 'agent_provider_error',
-        message: result.failure.message,
-        retryable: true,
-      })
-    }
-    // Validate every tool call the model requested against the agent's
-    // allowlist BEFORE acting on it. An unknown action or an out-of-allowlist
-    // table aborts the loop with a structured `agent_error`-class outcome
-    // rather than being silently acknowledged.
-    const toolCalls = result.success.toolCalls ?? []
-    const rejection = toolCalls
-      .map((call) => validateToolCall(call, input))
-      .find((outcome): outcome is ActionOutcome => outcome !== undefined)
-    if (rejection !== undefined) return rejection
-    const next = advanceState(state, result.success, input.allowedActions)
-    const stopped = toolCalls.length === 0
-    return stopped ? next : yield* runAgentLoop(next, input)
-  })
-
 /** Read `props.maxSteps` defensively, defaulting to {@link DEFAULT_MAX_STEPS}. */
 const resolveMaxSteps = (props: Readonly<Record<string, unknown>>): number => {
   const raw = props['maxSteps']
@@ -400,9 +188,87 @@ const composeSystemPrompt = (
     .join('\n\n')
 }
 
+/** The code a step fails with when the model's only calls were refused by the gates. */
+const REFUSAL_CODES: Readonly<Record<NonNullable<AgentToolResult['refusal']>, string>> = {
+  'action-not-allowed': 'invalid_tool',
+  'table-not-allowed': 'table_not_found',
+  'role-denied': 'tool_error',
+  'caller-denied': 'tool_error',
+  'rate-limited': 'agent_error',
+  queued: 'agent_error',
+}
+
+/**
+ * The step failure for a turn that ended because every call of a step was
+ * refused — never silently honoured, never acknowledged.
+ */
+const refusalOutcome = (results: readonly AgentToolResult[]): ActionOutcome | undefined => {
+  const refusals = results.filter((result) => result.outcome === 'denied')
+  const last = refusals.at(-1)
+  if (last === undefined || refusals.length !== results.length) return undefined
+  return aiErrorOutcome({
+    code: REFUSAL_CODES[last.refusal ?? 'action-not-allowed'],
+    message: `ai.agent: the agent attempted tool "${last.name}"${
+      last.table === undefined ? '' : ` on table "${last.table}"`
+    }, which its allowlist or role does not permit`,
+    retryable: false,
+  })
+}
+
+/**
+ * The agent's actions run inside the automation run, through the engine's
+ * native-action dispatcher, so a record the agent writes starts its table's
+ * record automations under the run's depth limit and its reads are recorded
+ * against this step. Outside a run (a unit test) nothing can run an action.
+ */
+const runActionInRun =
+  (runContext: ActionRunContext | undefined): AgentActionRunner<never> =>
+  (action, props) => {
+    const invoke = runContext?.invokeNativeAction
+    if (invoke === undefined) {
+      return Effect.succeed({ ok: false, error: 'no automation run to dispatch the action in' })
+    }
+    const { type, operator } = agentActionKey(action)
+    return Effect.tryPromise({
+      try: () => invoke(type, operator, props),
+      catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
+    }).pipe(
+      Effect.map((output): AgentActionResult => ({
+        ok: true,
+        output:
+          typeof output === 'object' && output !== null
+            ? (output as Readonly<Record<string, unknown>>)
+            : { result: output },
+      })),
+      Effect.catch((error) => Effect.succeed<AgentActionResult>({ ok: false, error }))
+    )
+  }
+
+/** The step output of a turn that ran to its end. */
+const turnOutput = (
+  turn: AgentTurnResult,
+  knowledgeUsed: number
+): Readonly<Record<string, unknown>> => {
+  const pending = turn.toolResults.flatMap((result) =>
+    result.approvalId === undefined ? [] : [result.approvalId]
+  )
+  return {
+    result: turn.reply,
+    toolsUsed: turn.toolResults
+      .filter((result) => result.outcome === 'ok' || result.outcome === 'failed')
+      .map((result) => result.name),
+    stepsExecuted: turn.steps,
+    // Knowledge retrieval count — non-zero only when the agent declares
+    // `memory.knowledge.enabled` AND a knowledge source returned at least
+    // one chunk above the configured similarity threshold.
+    knowledgeUsed,
+    ...(pending.length > 0 && { pendingApprovals: pending }),
+  }
+}
+
 /**
  * `ai/agent` handler — dispatches the resolved `task` to the named agent in
- * `app.agents[]`, runs the bounded autonomous loop, and surfaces the result
+ * `app.agents[]`, runs its turn on the agent runtime, and surfaces the result
  * as `output: { result, toolsUsed, stepsExecuted, knowledgeUsed }`.
  *
  * `props.task` and `props.agent` are already template-resolved by the run
@@ -410,7 +276,7 @@ const composeSystemPrompt = (
  * cross-validator rejects `ai:agent` actions naming an unknown agent at
  * decode time), but the handler still presence-guards defensively.
  */
-export const handleAiAgent: ActionHandler = (action, app: App, automation) =>
+export const handleAiAgent: ActionHandler = (action, app: App, automation, runContext) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const resolved = resolveAgentTask(props, app)
@@ -423,40 +289,45 @@ export const handleAiAgent: ActionHandler = (action, app: App, automation) =>
     // prepended to the system prompt so the model can ground its answer in
     // ingested knowledge.
     const knowledgeChunks = yield* retrieveKnowledgeChunks({ task, agent, app, automation })
-    const systemPrompt = composeSystemPrompt(agent, knowledgeChunks)
-
-    const initial: AgentLoopState = {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: task },
-      ],
-      stepsExecuted: 0,
-      toolsUsed: [],
-      toolCalls: [],
-      lastReply: undefined,
+    const toolDefinitions = buildAgentActionTools(agent)
+    const turn = yield* Effect.result(
+      runAgentTurnToEnd({
+        surface: 'automation',
+        agent,
+        app,
+        requestedById: automation.userId,
+        tools: { runAction: runActionInRun(runContext) },
+        messages: [
+          { role: 'system', content: composeSystemPrompt(agent, knowledgeChunks) },
+          { role: 'user', content: task },
+        ],
+        toolDefinitions,
+        maxSteps: resolveMaxSteps(props),
+        model: {
+          model: agent.model,
+          temperature: agent.temperature,
+          maxTokens: agent.maxTokens,
+        },
+      })
+    )
+    if (turn._tag === 'Failure') {
+      return aiErrorOutcome({
+        code: 'agent_provider_error',
+        message: turn.failure.message,
+        retryable: classifyAiError(turn.failure).retryable,
+      })
     }
-    const outcome = yield* runAgentLoop(initial, {
-      agent,
-      model: resolveModel(agent),
-      tools: buildAgentTools(agent),
-      allowedActions: new Set(agent.tools?.actions ?? []),
-      allowedTables: new Set(agent.tools?.tables ?? []),
-      maxSteps: resolveMaxSteps(props),
-    })
-    if (!('messages' in outcome)) return outcome
-
+    const refusal = refusalOutcome(turn.success.toolResults)
+    if (refusal !== undefined) return refusal
+    const calls = turn.success.events.flatMap((event) =>
+      event.type === 'tool_call'
+        ? [{ id: event.id, name: event.name, arguments: event.arguments }]
+        : []
+    )
     return {
       status: 'success',
-      output: {
-        result: outcome.lastReply?.content ?? '',
-        toolsUsed: outcome.toolsUsed,
-        stepsExecuted: outcome.stepsExecuted,
-        // Knowledge retrieval count — non-zero only when the agent declares
-        // `memory.knowledge.enabled` AND a knowledge source returned at least
-        // one chunk above the configured similarity threshold.
-        knowledgeUsed: knowledgeChunks.length,
-      },
+      output: turnOutput(turn.success, knowledgeChunks.length),
       // The records the tool calls named, for the erasure index.
-      reads: readsOfToolCalls(outcome.toolCalls),
+      reads: readsOfToolCalls(calls),
     } as const
   }).pipe(Effect.withSpan('automations.handle-ai-agent', { attributes: actionAttributes(action) }))

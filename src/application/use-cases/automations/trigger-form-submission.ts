@@ -5,9 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Cause, Effect, Exit } from 'effect'
 import { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
+import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import {
+  INTERRUPTED_RUN_ERROR,
+  RUN_DEFECT_ERROR,
+} from '@/domain/models/app/automations/automation-run-outcome-service'
 import { firstMatchingTrigger } from '@/domain/models/app/automations/trigger-entries-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
@@ -191,22 +196,65 @@ const advanceLedgerStatus = (
 }
 
 /**
- * Fire all form-triggered automations matching the submitted form, then
+ * Run the matching automations one after another, then move the ledger to
+ * `done` or `failed`. The body of the background fiber the submission starts.
+ *
+ * The ledger read `processing` before the submission answered, so this fiber
+ * owes it a terminal state on EVERY exit: an engine defect, or a shutdown that
+ * could not wait for the runs and interrupted them, moves it to `failed` with
+ * the reason a run closed that way carries — never left `processing`.
+ */
+const runFormAutomationsThenSettle = (
+  input: TriggerFormSubmissionInput,
+  matching: ReturnType<typeof findMatchingFormAutomations>
+): Effect.Effect<void, never, ExecuteAutomationRunRequirements | FormSubmissionRepository> =>
+  Effect.gen(function* () {
+    const { app, processEnv, userId, submissionId } = input
+    const triggerData = buildFormTriggerData(input)
+    const results = yield* Effect.forEach(
+      matching,
+      ({ automation, trigger }) =>
+        dispatchAutomationOnce({ automation, trigger, app, processEnv, triggerData, userId }),
+      { concurrency: 1 }
+    )
+    const outcome = collapseToLedgerOutcome(results)
+    yield* advanceLedgerStatus(submissionId, outcome.status, outcome.reason)
+  }).pipe(
+    Effect.onExit((exit) =>
+      Exit.isSuccess(exit)
+        ? Effect.void
+        : advanceLedgerStatus(
+            input.submissionId,
+            'failed',
+            Cause.hasInterruptsOnly(exit.cause) ? INTERRUPTED_RUN_ERROR : RUN_DEFECT_ERROR
+          )
+    ),
+    Effect.catchCause((cause) =>
+      Effect.sync(() => {
+        logError('[automation:form-submission] dispatch failure', cause)
+      })
+    )
+  )
+
+/**
+ * Start all form-triggered automations matching the submitted form, and
  * advance the submission ledger lifecycle.
  *
  * Lifecycle:
  *   1. Ledger row is inserted with `received` upstream (in `submitFormProgram`)
- *   2. If at least one matching automation: ledger -> `processing` BEFORE
- *      dispatch.
- *   3. After all automations complete: ledger -> `done` (all success) or
- *      `failed` (any terminal failure, with `status_reason` populated from
- *      the engine's error string).
+ *   2. If at least one matching automation: ledger -> `processing` BEFORE the
+ *      submission answers, so a reader right after the answer sees the
+ *      in-flight state.
+ *   3. The automations run in a tracked background fiber, one after another;
+ *      once they end the ledger moves to `done` (all success) or `failed`
+ *      (any terminal failure, with `status_reason` from the engine's error).
  *   4. If no matching automation: ledger -> `done` directly (the
  *      submission has no remaining work).
  *
- * Errors are absorbed at the boundary: a form-submission endpoint returns
- * 201 regardless of automation outcome (the run row records the failure,
- * and the submission ledger row reflects the terminal status).
+ * The submission does not wait for the runs: it answers 201 once its rows are
+ * committed, and a stopping server waits for the runs or records them as
+ * stopped. Errors are absorbed: the run row records a failure, and the ledger
+ * row its terminal status.
  */
 export const triggerFormSubmissionAutomations = (
   input: TriggerFormSubmissionInput
@@ -216,7 +264,7 @@ export const triggerFormSubmissionAutomations = (
   ExecuteAutomationRunRequirements | FormSubmissionRepository | AutomationPauseRepository
 > =>
   Effect.gen(function* () {
-    const { app, formName, processEnv, userId, submissionId } = input
+    const { app, formName, submissionId } = input
     // Entry point: one read of the operational pauses per submission.
     const pausedNames = yield* loadPausedAutomationNames
     const matching = findMatchingFormAutomations(app, formName, pausedNames)
@@ -227,28 +275,9 @@ export const triggerFormSubmissionAutomations = (
       return
     }
 
-    // Transition: `received` -> `processing` BEFORE dispatch so an
-    // observer querying mid-run sees the in-flight state.
     yield* advanceLedgerStatus(submissionId, 'processing')
-
-    const triggerData = buildFormTriggerData(input)
-
-    const results = yield* Effect.forEach(
-      matching,
-      ({ automation, trigger }) =>
-        dispatchAutomationOnce({
-          automation,
-          trigger,
-          app,
-          processEnv,
-          triggerData,
-          userId,
-        }),
-      { concurrency: 1 }
-    )
-
-    const outcome = collapseToLedgerOutcome(results)
-    yield* advanceLedgerStatus(submissionId, outcome.status, outcome.reason)
+    const bridge = yield* AutomationFiberBridge
+    yield* Effect.forkDetach(bridge.trackBackground(runFormAutomationsThenSettle(input, matching)))
   }).pipe(
     Effect.catchCause((cause) =>
       Effect.sync(() => {

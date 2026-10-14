@@ -20,21 +20,15 @@
 
 import { rename, writeFile, mkdir } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
+import { refuse } from './app-prelude'
+import { findConfig, indented, judgeConfig, rootFormatOf } from './library-add-config'
 import { undeclaredEnvMessage } from './library-add-env'
 import { resolveParams } from './library-add-params'
-import {
-  digest,
-  findConfig,
-  indented,
-  judgeConfig,
-  out,
-  planInstalls,
-  readIfExists,
-  refuse,
-  rootFormatOf,
-} from './library-add-plan'
+import { digest, out, planInstalls, readIfExists } from './library-add-plan'
+import { writeLine } from './library-add-reinstall'
 import { bindingName, libraryArticleAddress, planYamlWire, refLine } from './library-wire'
-import type { LibraryAddRequest, PlannedInstall, RootFormat } from './library-add-plan'
+import type { RootFormat } from './library-add-config'
+import type { LibraryAddRequest, PlannedInstall } from './library-add-plan'
 import type { ConnectionOperation } from '@/domain/models/app/connections/operations'
 
 /** A line the operator places by hand, and the key it goes under. */
@@ -294,9 +288,7 @@ const describeDryRun = (
   env: EnvPlan
 ): readonly string[] => [
   ...installs.flatMap((install) => [
-    install.present
-      ? `Already installed: ${install.relativePath}`
-      : `Would write ${install.relativePath}`,
+    install.present ? `Already installed: ${install.relativePath}` : writeLine(install, true),
     ...operationLines(install, true),
   ]),
   ...wiring.added.map(
@@ -315,7 +307,7 @@ const describeInstall = (
   ...installs.flatMap((install) => [
     install.present
       ? `Already installed: ${install.id} (${install.relativePath})`
-      : `Wrote ${install.relativePath}${install.requiredBy === undefined ? '' : ` — ${install.id}, required by ${install.requiredBy}`}`,
+      : writeLine(install),
     ...operationLines(install, false),
   ]),
   ...(rootWritten
@@ -354,9 +346,9 @@ export type { LibraryAddRequest } from './library-add-plan'
 /** Install one entry — and what it requires — into the working directory's config. */
 export const runLibraryAdd = async (request: LibraryAddRequest): Promise<void> => {
   const primaryId = request.catalogue.libraryEntryId(request.entry)
-  // Parameters are refused FIRST, before the config is even looked for; the
-  // plan resolves them again from the same input.
-  resolveParams(primaryId, request.entry, request.sets)
+  // Parameters are refused FIRST, before the config is even looked for (under
+  // --update, once the fragment's own are read); the plan resolves them again.
+  if (request.update !== true) resolveParams(primaryId, request.entry, request.sets)
   const configPath = await findConfig(process.cwd(), request.into)
   const format = rootFormatOf(configPath)
   const configName = basename(configPath)
@@ -383,7 +375,9 @@ export const runLibraryAdd = async (request: LibraryAddRequest): Promise<void> =
   if (envProblem !== undefined) return refuse(envProblem)
   const wiring = planWiring(rootText, installs, format, request.noWire)
   const env = await planEnv(configPath, installs)
-  const rewrites = installs.some((install) => install.operations !== undefined && !install.present)
+  const rewrites = installs.some(
+    (i) => (i.operations ?? i.updated ?? i.replaced) !== undefined && !i.present
+  )
   if (wiring.added.length > 0 || rewrites) await confirmCandidate(configPath, wiring, installs)
 
   if (request.dryRun) return out(describeDryRun(configName, installs, wiring, env))

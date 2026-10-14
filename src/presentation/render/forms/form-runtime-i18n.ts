@@ -16,7 +16,8 @@
  * under the project's max-lines cap.
  */
 
-import { resolveText } from './form-field-resolver'
+import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
+import { resolveDocumentLang, resolveText } from './form-field-resolver'
 import type { FormOnError, FormOnSuccess } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
 
@@ -40,9 +41,18 @@ export function resolveOnSuccessText(
 ): FormOnSuccess {
   if (languages === undefined) return onSuccess
   const record = onSuccess as Record<string, unknown>
-  const { title, message, url, actions } = record
+  const { title, message, url, actions, toast } = record
+  const toastMessage = (toast as { readonly message?: unknown } | undefined)?.message
   return {
     ...record,
+    ...(typeof toastMessage === 'string'
+      ? {
+          toast: {
+            ...(toast as Record<string, unknown>),
+            message: resolveText(toastMessage, languages, '', activeLang),
+          },
+        }
+      : {}),
     ...(typeof title === 'string' ? { title: resolveText(title, languages, '', activeLang) } : {}),
     ...(typeof message === 'string'
       ? { message: resolveText(message, languages, '', activeLang) }
@@ -88,3 +98,44 @@ export function resolveOnErrorText(
       : {}),
   } as FormOnError
 }
+
+/**
+ * The submit button's in-flight word (`display.pendingLabel`), its `$t:` key
+ * resolved for the active locale, or nothing when the form declares none — the
+ * runtime then reads the built-in `form.sending` word.
+ */
+export function resolvePendingLabel(
+  form: { readonly display?: { readonly pendingLabel?: string | undefined } | undefined },
+  languages: Languages | undefined,
+  activeLang: string | undefined
+): { readonly pendingLabel?: string } {
+  const label = form.display?.pendingLabel
+  if (label === undefined) return {}
+  return { pendingLabel: resolveText(label, languages, '', activeLang) }
+}
+
+/**
+ * The engine words the runtime writes itself — a missing field's reason, a
+ * refused submission, the edit link, the in-flight word, the Stop button of a
+ * recorder and the refusal of a picked file (`form.file*`) — in the page
+ * language, present only where they differ from the English it is written in.
+ */
+const RUNTIME_STRING_PREFIXES = [
+  'form.requiredNamed',
+  'form.submissionFailed',
+  'form.editAnswers',
+  'form.sending',
+  'form.stopRecording',
+  'form.file',
+] as const
+
+/** The runtime's own words for the page language (its `strings` map). */
+export const resolveRuntimeStrings = (
+  languages: Languages | undefined,
+  activeLang: string | undefined
+): Readonly<Record<string, string>> | undefined =>
+  resolveInterpreterStringOverrides(
+    RUNTIME_STRING_PREFIXES,
+    resolveDocumentLang(languages, activeLang),
+    languages
+  )

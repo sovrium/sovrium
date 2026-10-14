@@ -31,7 +31,7 @@ export function RowExpandDrawerHost({
     <div
       data-island="record-drawer"
       data-island-props={JSON.stringify(props)}
-      data-component-type="drawer"
+      data-component-type="sheet"
       style={HIDDEN_STYLE}
     >
       <div

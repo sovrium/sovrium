@@ -6,64 +6,81 @@
  */
 
 import {
-  computeTableCellClasses,
-  computeTableHeaderCellClasses,
-  computeTableSkeletonBarClasses,
-} from '@/presentation/design/table-default-classes'
+  computeStaticTableBodyClasses,
+  computeStaticTableCellClasses,
+  computeStaticTableContainerClasses,
+  computeStaticTableRowClasses,
+  computeStaticTableShellClasses,
+} from '@/presentation/design/display-default-classes'
+import { computeTableSkeletonBarClasses } from '@/presentation/design/table-default-classes'
 import type { ReactElement } from 'react'
 
 /**
  * The widths the placeholder bars cycle through, so the skeleton reads as text
- * of differing lengths rather than as a regular grid of blocks. Same rounding
- * of the design's 70 / 50 / 40 / 45 % as the island's own skeleton.
+ * of differing lengths rather than as a regular grid of blocks.
  */
 const SKELETON_BAR_WIDTHS = ['w-3/4', 'w-1/2', 'w-2/5', 'w-5/12'] as const
 
+/** One row of pulse bars, one per column, in a head or a body cell. */
+function SkeletonCells({ kind }: { readonly kind: 'header' | 'data' }): ReactElement {
+  return (
+    <>
+      {SKELETON_BAR_WIDTHS.map((width) => (
+        <div
+          key={width}
+          data-slot={kind === 'header' ? 'table-head' : 'table-cell'}
+          className={`table-cell ${computeStaticTableCellClasses({ kind })}`}
+        >
+          <div className={`${computeTableSkeletonBarClasses()} ${width}`} />
+        </div>
+      ))}
+    </>
+  )
+}
+
 /**
- * The pre-hydration grid placeholder, lifted out of the dispatch entry so that
- * entry reads as what it DECIDES — island props, expand wiring, host — rather
- * than as forty lines of pulse bars.
+ * The pre-hydration grid placeholder: the static table's `Table` anatomy and
+ * recipes (`data-slot` table, header, body, rows and cells), its cells holding
+ * pulse bars, so the grid that hydrates over it keeps its shape. It is laid out
+ * with CSS table display rather than a `<table>` element: a `<table>` in a grid
+ * host is the sign the grid has hydrated, and a placeholder must not give it.
  */
 export function DataTableSkeleton(): ReactElement {
   return (
     <div
       aria-label="Loading data table..."
       role="status"
+      data-slot="table-container"
+      className={computeStaticTableContainerClasses()}
     >
-      {/* Toolbar skeleton */}
-      <div className="border-border border-b p-3">
-        <div className="bg-background-inset h-9 w-64 animate-pulse rounded-sm" />
-      </div>
-      {/* Header skeleton — the same header-cell chrome the hydrated grid paints,
-          so the row does not shift tone or height on hydration. */}
-      <div className={`${computeTableHeaderCellClasses({ inTable: false })} flex gap-4`}>
-        {SKELETON_BAR_WIDTHS.map((width) => (
-          <div
-            key={`header-bar-${width}`}
-            className={`${computeTableSkeletonBarClasses()} ${width}`}
-          />
-        ))}
-      </div>
-      {/* Row skeletons, at the grid's own default density. */}
-      {Array.from({ length: 5 }).map((_, i) => (
+      <div
+        data-slot="table"
+        className={`table ${computeStaticTableShellClasses()}`}
+      >
         <div
-          key={`skeleton-${String(i)}`}
-          className={`${computeTableCellClasses({ rowHeight: 'medium' })} border-border flex items-center gap-4 border-b`}
+          data-slot="table-header"
+          className="table-header-group"
         >
-          {SKELETON_BAR_WIDTHS.map((width) => (
-            <div
-              key={`row-bar-${width}`}
-              className={`${computeTableSkeletonBarClasses()} ${width}`}
-            />
-          ))}
+          <div
+            data-slot="table-row"
+            className={`table-row ${computeStaticTableRowClasses()}`}
+          >
+            <SkeletonCells kind="header" />
+          </div>
         </div>
-      ))}
-      {/* Pagination skeleton */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <div className="bg-background-inset h-4 w-24 animate-pulse rounded-sm" />
-        <div className="flex gap-2">
-          <div className="bg-background-inset h-8 w-20 animate-pulse rounded-sm" />
-          <div className="bg-background-inset h-8 w-20 animate-pulse rounded-sm" />
+        <div
+          data-slot="table-body"
+          className={`table-row-group ${computeStaticTableBodyClasses()}`}
+        >
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={`skeleton-${String(i)}`}
+              data-slot="table-row"
+              className={`table-row ${computeStaticTableRowClasses()}`}
+            >
+              <SkeletonCells kind="data" />
+            </div>
+          ))}
         </div>
       </div>
     </div>

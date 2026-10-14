@@ -34,7 +34,7 @@ const comment = (
 ) => ({
   type: 'container' as const,
   element: 'div' as const,
-  props: { className: indented ? 'flex gap-3 pl-10' : 'flex gap-3' },
+  props: { className: indented ? 'ml-4 flex gap-3 border-l border-border pl-6' : 'flex gap-3' },
   children: [
     avatar(initials, author),
     {
@@ -57,7 +57,7 @@ const comment = (
               type: 'text' as const,
               element: 'span' as const,
               content: when,
-              props: { className: 'text-foreground-subtle text-xs' },
+              props: { className: 'text-muted-foreground text-xs' },
             },
           ],
         },
@@ -84,20 +84,36 @@ const note = (content: string): PageComponent =>
     type: 'text',
     element: 'p',
     content,
-    props: { className: 'text-foreground-subtle text-[11px]' },
+    props: { className: 'text-muted-foreground text-sm' },
   }) as PageComponent
 
+/**
+ * The composer as the island draws it: shadcn's InputGroup, the textarea in
+ * the frame and the action in its block-end addon.
+ */
 const composer = (placeholder: string, action: string): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    props: { className: 'flex w-96 max-w-full flex-col gap-2' },
+    props: {
+      className:
+        'flex w-96 max-w-full flex-col rounded-lg border border-input focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50',
+    },
     children: [
-      { type: 'textarea', rows: 2, props: { name: 'c', placeholder } },
+      {
+        type: 'textarea',
+        rows: 2,
+        props: {
+          name: 'comment',
+          placeholder,
+          className:
+            'resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent',
+        },
+      },
       {
         type: 'container',
         element: 'div',
-        props: { className: 'flex justify-end' },
+        props: { className: 'flex justify-end px-2 pb-2' },
         children: [
           { type: 'button', children: [{ type: 'text', element: 'span', content: action }] },
         ],
@@ -146,7 +162,7 @@ const comments: TypePageBody = {
       children: [
         {
           type: 'button',
-          variant: 'secondary',
+          variant: 'outline',
           children: [{ type: 'text', element: 'span', content: '3 comments' }],
         },
       ],
@@ -161,29 +177,7 @@ const comments: TypePageBody = {
             'yesterday',
             'Noted. I will hold the invoice until it clears.'
           ),
-          {
-            type: 'container',
-            element: 'div',
-            props: { className: 'flex flex-col gap-2' },
-            children: [
-              {
-                type: 'textarea',
-                rows: 2,
-                props: { name: 'comment', placeholder: 'Write a comment' },
-              },
-              {
-                type: 'container',
-                element: 'div',
-                props: { className: 'flex justify-end' },
-                children: [
-                  {
-                    type: 'button',
-                    children: [{ type: 'text', element: 'span', content: 'Comment' }],
-                  },
-                ],
-              },
-            ],
-          },
+          composer('Write a comment', 'Comment'),
         ]),
       ],
     },

@@ -488,7 +488,7 @@ interface RepeatContext {
 
 /** A `drawer` carrying a `dataSource` -- the record-bound surface. */
 function isRecordBoundDrawer(node: Readonly<Record<string, unknown>>): boolean {
-  return node['type'] === 'drawer' && isRecord(node['dataSource'])
+  return node['type'] === 'sheet' && isRecord(node['dataSource'])
 }
 
 /**

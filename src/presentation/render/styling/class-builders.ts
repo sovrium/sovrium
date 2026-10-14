@@ -106,8 +106,8 @@ export function buildFlexClasses(props?: Record<string, unknown>): string {
 }
 
 /** Resolve a responsive `grid-cols-*` utility for a breakpoint, or `undefined` if unset. */
-function responsiveColumnsClass(
-  breakpoint: 'sm' | 'md' | 'lg',
+export function responsiveColumnsClass(
+  breakpoint: 'sm' | 'md' | 'lg' | 'xl' | '2xl',
   value: unknown
 ): string | undefined {
   const columns = columnsValue(value)

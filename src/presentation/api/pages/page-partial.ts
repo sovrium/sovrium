@@ -19,8 +19,6 @@
 
 import {
   DENSITY_HEADER,
-  NEEDS_CLIENT_HEADER,
-  documentLoadsClientScript,
   extractDocumentDensity,
   extractRegionElement,
   partialEchoHeaders,
@@ -63,7 +61,6 @@ export function pagePartialOf(
     headers: {
       ...partialEchoHeaders(html),
       ...(density === undefined ? {} : { [DENSITY_HEADER]: density }),
-      ...(documentLoadsClientScript(html) ? { [NEEDS_CLIENT_HEADER]: '1' } : {}),
     },
   }
 }

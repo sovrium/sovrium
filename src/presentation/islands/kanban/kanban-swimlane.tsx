@@ -92,7 +92,10 @@ export function KanbanSwimlane({
       data-swimlane={lane.value}
       className={computeKanbanSwimlaneClasses()}
     >
-      <div className={computeKanbanSwimlaneHeaderClasses()}>
+      <div
+        data-slot="kanban-swimlane-header"
+        className={computeKanbanSwimlaneHeaderClasses()}
+      >
         <h3 className={KANBAN_COLUMN_TITLE_CLASSES}>
           <button
             type="button"

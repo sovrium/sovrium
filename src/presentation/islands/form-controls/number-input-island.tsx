@@ -5,12 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeFormFieldLabelClasses } from '@/presentation/design/form-layout-classes'
+import { MinusGlyph, PlusGlyph } from '@/presentation/design/control-glyphs'
 import {
-  computeNumberInputFieldClasses,
-  computeNumberInputStepperClasses,
-  computeNumberInputWrapperClasses,
-} from './numeric-default-classes'
+  computeInputGroupAddonClasses,
+  computeInputGroupLabelClasses,
+  computeInputGroupRootClasses,
+  computeInputGroupClasses,
+  computeInputGroupFieldClasses,
+  computeInputGroupIconButtonClasses,
+} from '@/presentation/design/input-group-default-classes'
 import { useNumberInputState } from './use-number-input-state'
 import type { ReactElement } from 'react'
 
@@ -32,39 +35,56 @@ interface StepperButtonProps {
   readonly disabled: boolean
 }
 
+/**
+ * One step button, in the addon at its end of the group: shadcn/ui's
+ * `InputGroupButton` (ghost, `icon-xs`) drawing lucide's minus or plus. Its
+ * accessible name is the direction; the glyph is hidden.
+ */
 function StepperButton({ direction, onClick, disabled }: StepperButtonProps): ReactElement {
+  const align = direction === 'increment' ? 'inline-end' : 'inline-start'
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={direction}
-      disabled={disabled}
-      className={computeNumberInputStepperClasses({ direction })}
+    <div
+      data-slot="input-group-addon"
+      data-align={align}
+      className={computeInputGroupAddonClasses({ align })}
     >
-      {direction === 'increment' ? '+' : '−'}
-    </button>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={direction}
+        disabled={disabled}
+        data-slot="input-group-button"
+        data-size="icon-xs"
+        className={computeInputGroupIconButtonClasses()}
+      >
+        {direction === 'increment' ? <PlusGlyph /> : <MinusGlyph />}
+      </button>
+    </div>
   )
 }
 
-/**
- * The label naming the control, at the step the `field` renderer already gives
- * the label above its own control.
- *
- * A component of its own rather than four lines inline: the island body sits
- * against the 60-line cap, and a label that has to be spelled out at the call
- * site is a label the next branch added here will forget to rule.
- */
+/** The number centred in its group, without the browser's own spin arrows. */
+const NUMBER_FIELD =
+  'text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+
+/** Whether `value` already sits on (or past) a declared bound in one direction. */
+const atBound = (value: number, bound: number | undefined, direction: 1 | -1): boolean =>
+  typeof bound === 'number' && !Number.isNaN(value) && direction * (value - bound) >= 0
+
+/** The field's label, above the group: shadcn/ui's `FieldLabel`. */
 function NumberInputLabel({
   htmlFor,
   label,
 }: {
   readonly htmlFor: string | undefined
-  readonly label: string
-}): ReactElement {
+  readonly label: string | undefined
+}): ReactElement | undefined {
+  if (label === undefined) return undefined
   return (
     <label
       htmlFor={htmlFor}
-      className={computeFormFieldLabelClasses()}
+      data-slot="field-label"
+      className={computeInputGroupLabelClasses()}
     >
       {label}
     </label>
@@ -72,62 +92,47 @@ function NumberInputLabel({
 }
 
 /**
- * Number-input island — composes a native `<input type="number">` (which
- * gives us `role="spinbutton"` and keyboard arrow handling for free) with
- * explicit `+` / `−` stepper buttons and on-blur value clamping to `min` /
- * `max`. The buttons increment / decrement by `step` (default `1`).
+ * Number-input island — shadcn/ui's `Field` holding one `InputGroup`: the label
+ * above, then a decrement button, a native `<input type="number">` (which
+ * gives `role="spinbutton"` and the arrow keys for free) and an increment
+ * button, in one bordered box. The buttons move the value by `step` (default
+ * `1`) and a typed value is clamped to `min` / `max` on blur.
  *
- * Default styling lives in `numeric-default-classes.ts` (prestyled-by-default
- *): the outer wrapper carries the border + focus-within ring,
- * the inner `<input>` is transparent so the wrapper surface shows through,
- * and the stepper buttons share dividers with the field for a single
- * cohesive control. The schema author writes `{ type: 'number-input' }` and
- * gets the full bordered-with-flanking-steppers recipe.
+ * A step button is disabled when the value already sits on the bound it would
+ * cross, so the control never offers a press that would do nothing.
  *
- * The label takes `computeFormFieldLabelClasses` — the SAME recipe the `field`
- * renderer paints on the label above its own control — rather than a step of
- * its own. Carrying no class at all is not "unstyled": it inherits the document
- * root, which is 16px, so the label drew LARGER than the 13px control it named
- * and larger than every label beside it. A label is ruled by the form it
- * belongs to, and there is exactly one form-label step in this system.
- *
- * Mounted as an eager island so the React change-handler is wired before
- * Playwright (or the user) interacts with the input — same reasoning as the
- * file-upload island.
+ * Mounted as an eager island so the change handler is wired before anyone
+ * interacts with the input — the same reasoning as the file-upload island.
  */
-export default function NumberInputIsland({
-  id,
-  label,
-  min,
-  max,
-  step,
-  defaultValue,
-  showStepper = true,
-  disabled = false,
-  name,
-}: NumberInputIslandProps): ReactElement {
+export default function NumberInputIsland(props: NumberInputIslandProps): ReactElement {
+  const { id, label, min, max, step, defaultValue, name } = props
+  const steppers = props.showStepper !== false
+  const disabled = props.disabled === true
   const stepAmount = typeof step === 'number' && step > 0 ? step : 1
   const { value, handleChange, handleBlur, handleIncrement, handleDecrement } = useNumberInputState(
     { defaultValue, min, max, stepAmount }
   )
 
   return (
-    <span
-      className="inline-flex items-center gap-2"
+    <div
+      className={computeInputGroupRootClasses()}
+      data-slot="field"
       data-component="number-input-island"
     >
-      {label !== undefined && (
-        <NumberInputLabel
-          htmlFor={id}
-          label={label}
-        />
-      )}
-      <span className={computeNumberInputWrapperClasses()}>
-        {showStepper && (
+      <NumberInputLabel
+        htmlFor={id}
+        label={label}
+      />
+      <div
+        role="group"
+        data-slot="input-group"
+        className={computeInputGroupClasses({ fit: true })}
+      >
+        {steppers && (
           <StepperButton
             direction="decrement"
             onClick={handleDecrement}
-            disabled={disabled}
+            disabled={disabled || atBound(value, min, -1)}
           />
         )}
         <input
@@ -142,16 +147,17 @@ export default function NumberInputIsland({
           value={Number.isNaN(value) ? '' : value}
           onChange={handleChange}
           onBlur={handleBlur}
-          className={computeNumberInputFieldClasses()}
+          data-slot="input-group-control"
+          className={`${computeInputGroupFieldClasses({ fit: true })} ${NUMBER_FIELD}`}
         />
-        {showStepper && (
+        {steppers && (
           <StepperButton
             direction="increment"
             onClick={handleIncrement}
-            disabled={disabled}
+            disabled={disabled || atBound(value, max, 1)}
           />
         )}
-      </span>
-    </span>
+      </div>
+    </div>
   )
 }

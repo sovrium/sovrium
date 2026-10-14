@@ -6,6 +6,7 @@
  */
 
 import { generateClickAnimationCSS } from '@/infrastructure/css/styles/click-animations'
+import { generateEntranceAnimationCSS } from '@/infrastructure/css/styles/entrance-animations'
 
 /**
  * Component-layer class builders.
@@ -84,9 +85,9 @@ export function buildInputClasses(): string {
     'text-foreground',
     'placeholder:text-foreground-subtle',
     'transition-colors',
-    'focus:border-focus-ring',
+    'focus:border-ring',
     'focus:ring-2',
-    'focus:ring-focus-ring',
+    'focus:ring-ring',
     'focus:ring-offset-2',
     // The offset takes the page ground. Left without a colour it falls back to
     // Tailwind's literal `#fff` — invisible on a light page and a white halo on
@@ -135,7 +136,7 @@ function buildFormShellRules(): string {
         @apply mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-10 sm:px-6 md:py-16;
       }
       .form-page > form {
-        @apply rounded-lg border border-border bg-background-raised p-6 shadow-sm sm:p-8;
+        @apply rounded-lg border border-border bg-card p-6 shadow-sm sm:p-8;
       }
       /* The standalone form's title is that page's h1, so it takes the h1 rung
          (30px) — and the description under it takes the lead rung (18px), the
@@ -161,7 +162,7 @@ function buildFormShellRules(): string {
         @apply text-4xl;
       }
       .form-description {
-        @apply text-foreground-muted max-w-prose text-xl;
+        @apply text-muted-foreground max-w-prose text-xl;
       }
       /* The negative top margin tightens the title→description pair against the
          standalone shell's \`gap-6\` flex rhythm. It is scoped to \`.form-page\`
@@ -228,6 +229,11 @@ export const SELECT_CHEVRON_DATA_URI =
  * select, classed or bare, from one rule rather than from a `pr-9` each call
  * site would have to remember.
  *
+ * A `native-select` (`data-slot="native-select"`) is left out: it is drawn on
+ * shadcn/ui's anatomy, which turns native drawing off in its own recipe and
+ * paints its chevron as a sibling glyph, so a second chevron here would double
+ * it and the inset would fight the recipe's own.
+ *
  * A COMPACT select — the 24px pager page-size control, the comment sort, the
  * select inside an editable grid cell — opts into a smaller chevron and a
  * proportionate inset with the plain marker class `select-compact`. That is
@@ -239,7 +245,7 @@ export const SELECT_CHEVRON_DATA_URI =
  */
 function buildSelectRules(): string {
   return `
-      select:not([multiple]):not([size]) {
+      select:not([multiple]):not([size]):not([data-slot='native-select']) {
         appearance: none;
         background-image: ${SELECT_CHEVRON_DATA_URI};
         background-repeat: no-repeat;
@@ -247,7 +253,7 @@ function buildSelectRules(): string {
         background-size: 1rem;
         padding-inline-end: 2.25rem;
       }
-      select:not([multiple]):not([size]):dir(rtl) { background-position: left 0.75rem center; }
+      select:not([multiple]):not([size]):not([data-slot='native-select']):dir(rtl) { background-position: left 0.75rem center; }
       select.select-compact:not([multiple]):not([size]) {
         background-position: right 0.375rem center;
         background-size: 0.75rem;
@@ -263,13 +269,13 @@ function buildSelectRules(): string {
  * field renders in) that hold ONE line of text: every `<input>` but the ones
  * that draw a mark, a slider, a swatch or a button, and a dropdown `<select>`.
  *
- * They take the `input` component's height (`h-9`, 36px — the canvas `.input`
- * and `density.controlH`), so a form's controls and an input written as a
- * component beside it are one size. The shared padding alone drew them at
- * 33px. A `<textarea>` and a list-box select grow with their content and keep
- * no fixed height. Scoped to the form field rather than every bare element:
- * the compact controls islands draw (a pager's page box, a grid cell editor)
- * carry their own padding and no height, and must not grow to 36px.
+ * They take the `input` component's height (`h-8`, 32px — shadcn/ui's
+ * base-nova `Input`), so a form's controls and an input written as a
+ * component beside it are one size. A `<textarea>` and a list-box select grow
+ * with their content and keep no fixed height. Scoped to the form field rather
+ * than every bare element: the compact controls islands draw (a pager's page
+ * box, a grid cell editor) carry their own padding and no height, and must not
+ * grow to 32px.
  */
 const SINGLE_LINE_CONTROL_SELECTOR = [
   '.form-field input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="image"]):not([type="submit"]):not([type="button"]):not([type="reset"])',
@@ -294,7 +300,7 @@ export const BARE_CONTROL_SELECTOR =
 function generateElementRules(): string {
   return `
       ${BARE_CONTROL_SELECTOR} { @apply ${buildInputClasses()}; }
-      ${SINGLE_LINE_CONTROL_SELECTOR} { @apply h-9; }
+      ${SINGLE_LINE_CONTROL_SELECTOR} { @apply h-8; }
 ${buildFormShellRules()}`
 }
 
@@ -323,6 +329,9 @@ ${generateElementRules()}
  * // => '@layer utilities { .text-balance { ... } ... }'
  */
 export function generateUtilitiesLayer(): string {
+  // Entrance before click: both set `animation`, and a click's feedback has to
+  // win over the entrance an element carries for the rest of its life.
+  const entranceAnimations = generateEntranceAnimationCSS()
   const clickAnimations = generateClickAnimationCSS()
 
   return `@layer utilities {
@@ -340,6 +349,8 @@ export function generateUtilitiesLayer(): string {
         box-shadow: none !important;
       }
 ${buildSelectRules()}
+
+      ${entranceAnimations}
 
       ${clickAnimations}
     }`

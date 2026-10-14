@@ -19,6 +19,35 @@ import {
 import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
+/**
+ * The other ways in, each drawn only when the app offers it. The rule above
+ * them disappears with them when none is offered.
+ */
+const otherWaysIn = (p: ReturnType<typeof param>, onSuccess: { readonly navigate: string }) => ({
+  type: 'flex',
+  props: {
+    className: 'flex flex-col gap-3 border-t border-border pt-6 empty:hidden [&_button]:w-full',
+  },
+  children: [
+    ifDeclared('auth.passkeys', {
+      type: 'form',
+      action: { type: 'auth', method: 'login', strategy: 'passkey', onSuccess },
+    }),
+    ifDeclared('auth.oauth', {
+      type: 'form',
+      action: {
+        type: 'auth',
+        method: 'login',
+        strategy: 'oauth',
+        provider: p('provider'),
+        onSuccess,
+      },
+    }),
+    ifDeclared('auth.magicLink', alternativeLink('Email me a sign-in link', p('magicLinkPath'))),
+    ifDeclared('auth.sso', alternativeLink('Use single sign-on', p('ssoPath'))),
+  ],
+})
+
 /** The sign-in screen: email and password first, then every other way in the app offers. */
 export const entry = defineLibraryEntry({
   kind: 'block',
@@ -82,33 +111,7 @@ export const entry = defineLibraryEntry({
         // Drawn only when the app has a page that sends the reset link, so it
         // never leads to a page that is not there.
         ifDeclared('auth.passwordReset', quietLink('Forgot password?', p('resetPath'))),
-        {
-          // The other ways in, each drawn only when the app offers it. The
-          // rule above them disappears with them when none is offered.
-          type: 'flex',
-          props: { className: 'flex flex-col gap-3 border-t border-border pt-6 empty:hidden' },
-          children: [
-            ifDeclared('auth.passkeys', {
-              type: 'form',
-              action: { type: 'auth', method: 'login', strategy: 'passkey', onSuccess },
-            }),
-            ifDeclared('auth.oauth', {
-              type: 'form',
-              action: {
-                type: 'auth',
-                method: 'login',
-                strategy: 'oauth',
-                provider: p('provider'),
-                onSuccess,
-              },
-            }),
-            ifDeclared(
-              'auth.magicLink',
-              alternativeLink('Email me a sign-in link', p('magicLinkPath'))
-            ),
-            ifDeclared('auth.sso', alternativeLink('Use single sign-on', p('ssoPath'))),
-          ],
-        },
+        otherWaysIn(p, onSuccess),
         ifDeclared('auth.signUp', footerLink('No account yet?', 'Create one', p('signUpPath'))),
       ])
     )

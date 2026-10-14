@@ -42,7 +42,7 @@ export const GalleryCardSchema = Schema.Struct({
       Schema.check(Schema.isMinLength(1))
     )
   ),
-  /** What a click on the card does — `navigate` or `openDrawer`, as on a board card */
+  /** What a click on the card does — `navigate` or `openSheet`, as on a board card */
   onClick: Schema.optional(CardClickActionSchema),
   hoverOverlay: Schema.optional(
     Schema.Struct({

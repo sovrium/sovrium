@@ -8,7 +8,6 @@
 import { cn } from '@/presentation/design/class-merge'
 import {
   LIST_TEXT_COLUMN_CLASSES,
-  computeListDividerClasses,
   computeListItemClasses,
   computeListMetaClasses,
   computeListShellClasses,
@@ -53,12 +52,7 @@ export const listRowClasses = ({
 } = {}): ListRowClasses => {
   const stacked = itemLayout === 'stacked'
   return {
-    item: cn(
-      computeListItemClasses(),
-      computeListDividerClasses(),
-      stacked && STACKED.item,
-      parts?.['item']
-    ),
+    item: cn(computeListItemClasses(), stacked && STACKED.item, parts?.['item']),
     textColumn: cn(LIST_TEXT_COLUMN_CLASSES, stacked && STACKED.textColumn),
     title: cn(computeListTitleClasses(), stacked && STACKED.title, parts?.['title']),
     subtitle: cn(computeListSubtitleClasses(), stacked && STACKED.subtitle, parts?.['subtitle']),

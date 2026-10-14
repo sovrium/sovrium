@@ -54,7 +54,7 @@ agent and never to Sovrium's defaults.
 - Read `design.principles` first: they are the author's reasons, and they outrank any rule in this skill.
 - Read `design.colorRoles` before using a colour: it says what each colour is _for_.
 - Read `design.voice` before writing a word (see `copy.md`).
-- Read `design.zones` if present: a zone may carry its own accent budget and voice departures.
+- Read `design.zones` if present: a zone may carry its own voice departures.
 - When the design block is empty or thin, use the platform defaults as they are. Do not invent a brand the author never asked for.
 - When the plan needs a token the app does not have, propose adding it to `design`, with the reason, rather than hard-coding a value on one component.
 - Token categories and their options: `sovrium docs theming/design`.
@@ -69,6 +69,7 @@ Hierarchy by subtraction: decide what matters by removing, not by adding emphasi
 - De-emphasise the tertiary before emphasising the primary: lighter weight, smaller step, muted colour role.
 - Remove a label when the value is self-explanatory (an email address needs no "Email:" prefix).
 - Group by proximity before reaching for borders, cards or dividers.
+- A `card` is shadcn/ui's Card: it already paints its own ground, draws a faint ring rather than a border, rounds its corners and pads all four sides. Add no border or padding on top of it: `sovrium docs components/layout-components`.
 - A section that exists only to fill space is deleted, not decorated.
 
 ## 4. Type
@@ -100,7 +101,8 @@ Type carries most of the hierarchy on a restrained page, so it is planned explic
 - Design the smallest width first; widen only when the content asks for it.
 - Place breakpoints where the content breaks, not at device names. The app's `design.breakpoints` names them.
 - Prefer fluid values for type and spacing on Persuade and Read surfaces: a size that scales between a minimum and a maximum across the viewport (`clamp()`) instead of jumping at each breakpoint.
-- Compose layouts from layout components (`container`, `flex`, `grid`, `split-pane`, `sidebar`): `sovrium docs components/layout-components`.
+- Compose layouts from layout components (`container`, `flex`, `grid`, `resizable`, `sidebar`): `sovrium docs components/layout-components`.
+- A `sidebar` is shadcn/ui's Sidebar, in the form that does not collapse: the app's sidebar ground, the current entry marked by the sidebar accent, nested entries indented behind a left rule. Declare its groups rather than hand-building rows: `sovrium docs components/sidebar-navigation`.
 - There is no "hero" component type. A hero is a composition: a heading, a sentence, one action and, if earned, an image.
 - Responsive options: `sovrium docs theming/responsive-design`.
 

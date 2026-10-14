@@ -10,10 +10,10 @@
  *
  * ─── ONE `<kbd>` PER KEY, AND THE SEPARATOR IS NEVER ONE ───────────────────
  *
- * `keys` is an array because each cap is its own element: the box, the border
- * and the thicker bottom edge are per key. Joining the chord into one box is
- * what a naive renderer produces, and it is the failure the array shape exists
- * to prevent.
+ * `keys` is an array because each key is its own element: shadcn/ui's `Kbd`
+ * (`data-slot="kbd"`) is one chip per key, held in a `KbdGroup`
+ * (`data-slot="kbd-group"`). Joining the chord into one chip is what a naive
+ * renderer produces, and it is the failure the array shape exists to prevent.
  *
  * `separator` prints as PLAIN TEXT between the caps and never gets a box of its
  * own. That is the distinction a reader has to make at a glance — `+` is a
@@ -53,6 +53,7 @@ const renderKeys = (
     const cap = (
       <kbd
         key={`key-${String(index)}`}
+        data-slot="kbd"
         className={computeKbdCapClasses()}
       >
         {key}
@@ -91,6 +92,7 @@ export const kbdComponent: ComponentRenderer = ({ elementPropsWithSpacing, compo
   return (
     <span
       {...rest}
+      data-slot="kbd-group"
       className={mergePrestyle(computeKbdChordClasses(), authorClassName as string | undefined)}
     >
       {renderKeys(keys, separator)}

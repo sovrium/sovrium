@@ -17,7 +17,6 @@
  * grid is next door in `table-shell-default-classes.ts`.
  */
 
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 import type { RowHeight } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -79,13 +78,11 @@ export const computeTableCellClasses = ({ rowHeight }: { readonly rowHeight: Row
  * the same string out, which is five places to miss when the surface tone or
  * the row separator changes — and this module exists to have exactly one.
  *
- * It keeps the role alias spelling (`bg-background-raised`, `divide-border`)
- * that the five literals carried rather than the `v(…)` form its neighbours
- * use. Both resolve through the same variables — `--color-background-raised` is
- * declared as `var(--sv-bg-raised)` — so this is a move, not a redraw; picking
- * the vocabulary is a separate decision from having one place to make it.
+ * The body sits on the card surface, the one background every part of the grid
+ * shares in both modes (shadcn/ui's `Table` inherits it): the frozen cells, the
+ * shell and the body are one tone, and only the row states below step off it.
  */
-export const computeTableBodyClasses = (): string => 'divide-border bg-background-raised divide-y'
+export const computeTableBodyClasses = (): string => 'divide-border bg-card divide-y'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ROW — `<tr>` state
@@ -102,22 +99,15 @@ export const computeTableBodyClasses = (): string => 'divide-border bg-backgroun
  */
 export type TableRowState = 'default' | 'striped' | 'selected' | 'filled'
 
-// Hover is the only chrome every row shares. It lands on `sv-bg-subtle` — the
-// canvas' `#f4f4f4` well, one step below the shell's raised surface.
-const TABLE_ROW_BASE = `transition-colors hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`
+// The row states are base-nova's `TableRow`: hover and the selected row land on
+// the `muted` well (`hover:bg-muted/50`, `data-[state=selected]:bg-muted`), so a
+// brand `primary` never washes a whole row. Striping is a reading aid, a lighter
+// step of the same well, and stays distinct from the hover above it.
+const TABLE_ROW_BASE = 'transition-colors hover:bg-muted/50'
 
-// Odd rows on GROUND (`#fafafa`), one step lighter than the `#f4f4f4` that
-// shipped. Striping is a reading aid, not a division: at the old tone the
-// alternation was as strong as the selection tint next to it and the grid read
-// as banded rather than as a list.
-const TABLE_ROW_STRIPED = `bg-[${v('sv-bg', T.bg)}]`
+const TABLE_ROW_STRIPED = 'bg-muted/30'
 
-// Selection is a NEUTRAL well, not a primary tint. `sv-primary-subtle` and
-// `sv-bg-subtle` resolve to the same lightness today, so this is a rename
-// rather than a repaint — and that is the point: under the old key an app that
-// overrode `primary` to a saturated brand hue got its whole selected row washed
-// in it, which is a chrome surface taking a colour that belongs to controls.
-const TABLE_ROW_SELECTED = `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`
+const TABLE_ROW_SELECTED = 'bg-muted'
 
 /**
  * Compute the default className for a body row.
@@ -168,26 +158,12 @@ export const computeTableRowClasses = ({
  * and clipped by its neighbours — while an inset ring paints inside the cell's
  * own paint area, the one region guaranteed to be visible.
  *
- * ## Why `inset-ring-*` and not `shadow-[inset_0_0_0_2px_…]`
- * The two compile to the same declaration; only one of them can REACH the
- * stylesheet. A composed arbitrary value is invisible to both of the
- * compiler's candidate channels: the literal source scan cannot see through
- * the `${…}` interpolation, and `arbitrary-var-safelist.ts` matches
- * `prop-[${v(…)}]` where the interpolation is the WHOLE bracket, which
- * `inset_0_0_0_2px_${v(…)}` is not. Measured before this was written: the
- * safelist contained zero entries matching `inset_0_0_0_2px`, so the composed
- * spelling would have shipped a cursor that paints nothing — reproducing the
- * exact defect this recipe exists to fix.
- *
- * `inset-ring-2` is a plain literal the source scan picks up, and
- * `inset-ring-[${v(…)}]` is the safelist's canonical shape. It composes rather
- * than collides, too: Tailwind v4 assembles `box-shadow` from separate
- * `--tw-inset-ring-shadow` and `--tw-shadow` slots, so a cursor sitting on a
- * FROZEN cell keeps both its ring and that cell's edge shadow, where two raw
- * `shadow-[…]` utilities would have overwritten each other.
+ * `inset-ring-*` rather than a composed `shadow-[inset_…]`: Tailwind v4 assembles
+ * `box-shadow` from separate `--tw-inset-ring-shadow` and `--tw-shadow` slots, so
+ * a cursor sitting on a FROZEN cell keeps both its ring and that cell's edge
+ * shadow, where two raw `shadow-[…]` utilities would overwrite each other.
  */
-export const computeTableCellCursorClasses = (): string =>
-  `inset-ring-2 inset-ring-[${v('sv-primary', T.primary)}]`
+export const computeTableCellCursorClasses = (): string => 'inset-ring-2 inset-ring-primary'
 
 /**
  * Compute the className a cell inside the fill-drag preview range carries.
@@ -206,10 +182,7 @@ export const computeTableCellCursorClasses = (): string =>
  * on {@link computeTableCellCursorClasses}.
  */
 export const computeTableFillPreviewClasses = (): string =>
-  [
-    `inset-ring-1 inset-ring-[${v('sv-primary', T.primary)}]`,
-    `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  ].join(' ')
+  ['inset-ring-1 inset-ring-primary', 'bg-muted'].join(' ')
 
 /**
  * Compute the default className for the fill handle — the small square on the
@@ -220,10 +193,7 @@ export const computeTableFillPreviewClasses = (): string =>
  * through `position: sticky`).
  */
 export const computeTableFillHandleClasses = (): string =>
-  [
-    'absolute right-0 bottom-0 z-10 h-1.5 w-1.5 cursor-crosshair',
-    `bg-[${v('sv-primary', T.primary)}]`,
-  ].join(' ')
+  ['absolute right-0 bottom-0 z-10 h-1.5 w-1.5 cursor-crosshair', 'bg-primary'].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // FROZEN CELL — a pinned column's surface and edge shadow
@@ -243,7 +213,7 @@ export const computeTableFillHandleClasses = (): string =>
 // means this.
 const TABLE_FROZEN_CELL = [
   'relative z-[1]',
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
+  'bg-card',
   'shadow-[4px_0_8px_-4px_rgb(0_0_0_/_0.14)]',
 ].join(' ')
 
@@ -272,26 +242,26 @@ export const computeTableFrozenCellClasses = (): string => TABLE_FROZEN_CELL
  * make `1` narrower than `8`, so a run of row numbers wanders horizontally
  * down the left edge of the grid.
  *
- * Replaces a hard-coded `text-[var(--sv-fg-muted,oklch(0.445_0_0))]` — the
- * literal was already the right VALUE, and being written out by hand is exactly
- * how a value stops being the right one.
+ * Muted, like every secondary readout in the grid.
  */
-export const computeTableRowNumberClasses = (): string =>
-  `tabular-nums text-[${v('sv-fg-muted', T.fgMuted)}]`
+export const computeTableRowNumberClasses = (): string => 'tabular-nums text-muted-foreground'
 
 /**
  * Compute the default className for the em-dash a cell shows when it holds
  * nothing.
  *
- * Tone ONLY — no `tabular-nums`, which the row number needs and a placeholder
- * does not. It replaces a hand-written `text-[var(--sv-fg-muted,oklch(…))]`
- * that had been copied into two cell-renderer modules and drifted between
- * them: one em-dash fell back to `oklch(0.445 0 0)` and the other to
- * `oklch(0.445 0.012 55)`, so two adjacent empty cells in the same row could
- * render in two different colours — and the chromatic one was a survivor of
- * the `--sv-warmth-*` ramp [internal ref] D5 deleted.
+ * Tone ONLY: no `tabular-nums`, which the row number needs and a placeholder
+ * does not.
  */
-export const computeTableEmptyValueClasses = (): string => `text-[${v('sv-fg-muted', T.fgMuted)}]`
+export const computeTableEmptyValueClasses = (): string => 'text-muted-foreground'
+
+/**
+ * The inline text editor, laid OVER its cell rather than inside its flow: the
+ * cell is its containing block, so opening the editor neither grows the row
+ * nor widens the column. A primary rule says which cell is being written.
+ */
+export const computeTableCellEditorClasses = (): string =>
+  'absolute inset-0 z-10 m-0 size-full min-w-0 rounded-sm border-2 border-primary bg-background px-2 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CHECKBOX — the selection column's `<th>` / `<td>`, and every tick inside one
@@ -304,53 +274,36 @@ export const computeTableEmptyValueClasses = (): string => `text-[${v('sv-fg-mut
  * nothing else, and any wider it reads as an empty first column rather than as
  * a gutter.
  *
- * ## Not yet wired on the island, by design rather than by omission
- * The selection column's `<th>` and `<td>` are rendered by the GENERIC header
- * and cell paths from a column definition, and `DataTableColumnMeta` carries no
- * class channel — so attaching this would mean adding one, which is a contract
- * change rather than a repaint. The computer ships now so the part is
- * addressable and so the SSR side can spend it; the island wiring waits for
- * whoever owns that interface.
+ * The island reaches it through the selection column's `meta.selection`
+ * (`columnPlacementClass`), on both the `<th>` and the `<td>`. No right padding,
+ * as base-nova's `TableHead` / `TableCell` drop it beside a checkbox.
  */
-export const computeTableCheckboxCellClasses = (): string => 'w-8 px-2 align-middle'
+export const computeTableCheckboxCellClasses = (): string => 'w-8 pr-0 pl-2 align-middle'
 
 /**
- * Compute the default className for a native checkbox `<input>` the grid draws —
- * the header's select-all, a row's selection tick, the columns menu's visibility
- * toggle, the add row's checkbox widget, and an editable cell's.
- *
- * ## Four sites drew it four ways, and two of them drew nothing
- * Measured live on one bound row: the row-selection checkbox rendered at 19x13px
- * with `accent-color: auto` — the user agent's own control, in system blue —
- * while the editor for a checkbox field, beside it in the same row, rendered at
- * 16x16 with `accent-color: oklch(0.205 0 0)`. Two controls that mean the same
- * thing and are ticked the same way, one column apart, in two sizes and two
- * hues, one of which is not a Sovrium colour at all. The columns menu had the
- * same gap.
- *
- * The two sites that WERE styled each carried the string as a literal, so a
- * fifth site was a coin flip between copying one of them and copying nothing.
- * This is the one place.
- *
- * `h-4 w-4` is the canvas' 16px control and `accent-primary` paints the ticked
- * box in the platform's own ink. Both are exactly what the two styled sites
- * shipped — a move plus two repairs, not a redraw. Nothing that was already
- * right changes.
- *
- * ## `interactive` is about the CLICK TARGET, not about being enabled
- * It adds `cursor-pointer`, which only a control the reader clicks DIRECTLY
- * needs. The columns menu's toggle sits inside a `<label>` that spans the whole
- * row and already carries the pointer, and `cursor` inherits — asking for it
- * again would be a second claim on a decision that label has made. The add
- * row's checkbox belongs to a keyboard-driven draft in the same way.
- *
- * The `<td>` AROUND a selection checkbox is
- * {@link computeTableCheckboxCellClasses} — a separate part, separately
- * unwired; see its note.
+ * shadcn/ui's `Checkbox` box (base-nova), drawn on a native input: the
+ * user agent's drawing turned off, a muted-foreground outline that holds 3:1
+ * against the page while unticked, and the primary fill once ticked or partly
+ * ticked. The mark is {@link computeTableCheckboxIndicatorClasses}.
+ */
+const TABLE_CHECKBOX_BOX =
+  'peer m-0 size-4 shrink-0 appearance-none rounded-[4px] border border-muted-foreground bg-transparent outline-none transition-colors checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30 dark:checked:bg-primary dark:indeterminate:bg-primary'
+
+/**
+ * The box of every checkbox the grid draws — the header's select-all, a row's
+ * selection tick, the add row's checkbox widget and an editable cell's — one
+ * recipe, so the four read as the same control. `interactive` adds the pointer
+ * for a box the reader clicks directly.
  */
 export const computeTableCheckboxControlClasses = ({
   interactive = false,
 }: {
   readonly interactive?: boolean
-} = {}): string =>
-  interactive ? 'accent-primary h-4 w-4 cursor-pointer' : 'accent-primary h-4 w-4'
+} = {}): string => `${TABLE_CHECKBOX_BOX}${interactive ? ' cursor-pointer' : ''}`
+
+/**
+ * The mark inside a grid checkbox (`checkbox-indicator`): drawn over the box,
+ * shown once the box is ticked or partly ticked, in the primary's foreground.
+ */
+export const computeTableCheckboxIndicatorClasses = (): string =>
+  'pointer-events-none invisible absolute inset-0 grid place-content-center text-primary-foreground peer-checked:visible peer-indeterminate:visible [&>svg]:size-3.5'

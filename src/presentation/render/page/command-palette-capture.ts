@@ -36,29 +36,18 @@ function someComponent(
 }
 
 /**
- * True when the page's ⌘K palette is hosted by an ISLAND — the search mode,
- * reached either by an authored `search` block or by the console's builder-set
- * `props.adminSearch` flag.
+ * True when the page carries a ⌘K palette, in either mode.
  *
- * The gate is island-hosting and not "has a palette". A React island's ⌘K
+ * Both modes are islands now, and both need the capture: the search mode's
  * listener attaches only once it has mounted, so a keypress landing before
- * hydration — the ordinary case right after an in-app navigation — is lost
- * without the capture. The BUILT-IN mode needs no capture at all: its listener
- * is attached by a synchronous inline script that is already live at parse
- * time, so emitting one would duplicate a live listener.
+ * hydration — the ordinary case right after an in-app navigation — would be
+ * lost; and the built-in mode does not mount at all until the capture asks for
+ * it on the first open.
  */
 export function hasCommandPaletteHost(
   components: ReadonlyArray<Component | string> | undefined
 ): boolean {
-  return someComponent(components, (component) => {
-    if (component.type !== 'command-palette') return false
-    const { search, props } = component as {
-      readonly search?: unknown
-      readonly props?: Record<string, unknown>
-    }
-    if (search !== undefined) return true
-    return props?.['adminSearch'] === true
-  })
+  return someComponent(components, (component) => component.type === 'command')
 }
 
 /**
@@ -80,18 +69,26 @@ export function hasDrawerSidebar(
 }
 
 /**
- * Synchronous inline open-capture for the ⌘K command palette
- * Emitted in `<head>` so it runs during HTML parse —
- * BEFORE `islands.js` downloads — and captures a `⌘K` / `Ctrl+K` press (or a
- * search-affordance click) that lands before the palette island hydrates
- * (e.g. right after an in-app navigation). It records the intent in
- * `window.__sovriumOpenCommandPalette` and dispatches `sovrium:open-command-palette`,
- * which the island replays on mount and subscribes to thereafter — so no early
- * open intent is lost.
+ * Synchronous inline open-capture for the ⌘K command palette.
+ *
+ * Emitted in `<head>` so it runs during HTML parse, before the island runtime
+ * downloads, and captures a `⌘K` / `Ctrl+K` press (or a
+ * `[data-command-palette-trigger]` click). It records the intent in
+ * `window.__sovriumOpenCommandPalette` and dispatches
+ * `sovrium:open-command-palette`, which the island replays on mount and
+ * subscribes to thereafter, so no early open intent is lost.
+ *
+ * It is also what brings the BUILT-IN palette to life. That palette's host is
+ * rendered as `data-island-deferred="command"` so no page pays for it before a
+ * reader asks for it: on the first open the capture turns the marker into a
+ * `data-island`, then either loads the island runtime (a page with no other
+ * island names its entry in an inert `<template data-island-entry>`) or asks
+ * the already-running one to mount it (`sovrium:mount-islands`).
  */
 export const COMMAND_PALETTE_CAPTURE_SCRIPT = `(function(){
 "use strict";
-function open(){window.__sovriumOpenCommandPalette=true;document.dispatchEvent(new CustomEvent("sovrium:open-command-palette"))}
+function wake(){var h=document.querySelector("[data-island-deferred]");if(!h)return;h.setAttribute("data-island",h.getAttribute("data-island-deferred"));h.removeAttribute("data-island-deferred");var t=document.querySelector("template[data-island-entry]");if(t){var s=document.createElement("script");s.type="module";s.src=t.getAttribute("data-island-entry");t.remove();document.head.appendChild(s)}else{document.dispatchEvent(new CustomEvent("sovrium:mount-islands"))}}
+function open(){window.__sovriumOpenCommandPalette=true;wake();document.dispatchEvent(new CustomEvent("sovrium:open-command-palette"))}
 document.addEventListener("keydown",function(e){if((e.metaKey||e.ctrlKey)&&e.key&&e.key.toLowerCase()==="k"){e.preventDefault();open()}},true);
 document.addEventListener("click",function(e){var t=e.target;if(t&&t.closest&&t.closest('[data-command-palette-trigger]')){e.preventDefault();open()}},true);
 })();`
@@ -112,7 +109,7 @@ document.addEventListener("click",function(e){var t=e.target;if(t&&t.closest&&t.
 export const SIDEBAR_DRAWER_TOGGLE_SCRIPT = `(function(){
 "use strict";
 var __svDrawerClasses=["fixed","inset-y-0","left-0","z-40","flex","shadow-lg"];
-function __svBackdrop(){var b=document.getElementById("sv-sidebar-backdrop");if(b)return b;b=document.createElement("div");b.id="sv-sidebar-backdrop";b.className="fixed inset-0 z-30 bg-scrim/50 md:hidden";b.addEventListener("click",__svCloseDrawer);document.body.appendChild(b);return b}
+function __svBackdrop(){var b=document.getElementById("sv-sidebar-backdrop");if(b)return b;b=document.createElement("div");b.id="sv-sidebar-backdrop";b.className="fixed inset-0 z-30 bg-black/10 supports-backdrop-filter:backdrop-blur-xs md:hidden";b.addEventListener("click",__svCloseDrawer);document.body.appendChild(b);return b}
 function __svOpenDrawer(a){a.classList.remove("hidden");__svDrawerClasses.forEach(function(c){a.classList.add(c)});a.setAttribute("data-mobile-open","true");__svBackdrop()}
 function __svCloseDrawer(){var a=document.querySelector('[data-dashboard-aside]');if(a){__svDrawerClasses.forEach(function(c){a.classList.remove(c)});a.classList.add("hidden");a.removeAttribute("data-mobile-open")}var b=document.getElementById("sv-sidebar-backdrop");if(b)b.remove()}
 document.addEventListener("click",function(e){var t=e.target;if(!t||!t.closest)return;if(t.closest('[data-dashboard-burger]')){e.preventDefault();var a=document.querySelector('[data-dashboard-aside]');if(!a)return;if(a.getAttribute("data-mobile-open")==="true"){__svCloseDrawer()}else{__svOpenDrawer(a)}}},true);

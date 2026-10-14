@@ -177,20 +177,6 @@ export function validateBrowserRuns(config: unknown): readonly string[] {
   })
 }
 
-/**
- * The variables a `goto` address of the app reads that are declared
- * `secret: false` — the only ones it may read, so their values are shown in a
- * run's record as the address they are part of, never masked.
- */
-export function gotoAddressVariables(config: unknown): ReadonlySet<string> {
-  const { plain } = envDeclarationsOf(config)
-  return new Set(
-    browserRunsOfConfig(config)
-      .flatMap((at) => stepsOf(at.action).flatMap(gotoEnvReads))
-      .filter((name) => plain.has(name))
-  )
-}
-
 /** The hold a `confirm` asks for, in milliseconds, or `undefined` when it names none. */
 const confirmHoldMs = (step: RawRecord): number | undefined => {
   const confirm = isRecord(step['confirm']) ? step['confirm'] : undefined

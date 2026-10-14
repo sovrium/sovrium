@@ -1,4 +1,5 @@
-# sovrium-library: block/header-centered@0.30.0
+# sovrium-library: block/header-centered@0.37.0
+# sovrium-library-params: eyebrow=%5BSection%20name%5D&headline=Name%20the%20page%20in%20a%20few%20words&subheadline=One%20sentence%20on%20what%20the%20reader%20will%20find%20below%2C%20and%20who%20it%20is%20for.
 name: header-centered
 type: container
 element: section
@@ -19,7 +20,7 @@ children:
           - type: text
             element: span
             props:
-              className: font-mono text-sm text-foreground-subtle
+              className: font-mono text-sm text-muted-foreground
             content: '[Section name]'
       - type: text
         element: h1
@@ -29,5 +30,5 @@ children:
       - type: text
         element: p
         props:
-          className: text-lg text-pretty text-foreground-muted sm:text-xl
+          className: text-lg text-pretty text-muted-foreground sm:text-xl
         content: 'One sentence on what the reader will find below, and who it is for.'

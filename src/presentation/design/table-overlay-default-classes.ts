@@ -7,8 +7,7 @@
 
 /**
  * Prestyled-by-default class computers for everything the `table` grid opens IN
- * FRONT of itself — the menu a toolbar button drops, the popover an inline cell
- * edit opens in, the dialogs it puts over the page, and the toast that reports
+ * FRONT of itself — the popover an inline cell edit opens in, the dialogs it puts over the page, and the toast that reports
  * what a write did.
  *
  * ## Why this is a separate file
@@ -22,14 +21,13 @@
  * and the answer is a question about the element rather than about line counts:
  * does it paint the surface the reader is looking at, or something drawn on top
  * of it that a gesture will dismiss? A toolbar PANEL is a band inside the grid's
- * own frame and stays there; a toolbar MENU floats over the rows and lives here.
+ * own frame and stays there. A toolbar MENU is the platform's dropdown menu
+ * (`overlays/menu-default-classes.ts`), drawn on shadcn's anatomy.
  *
  * Elevation is the reason that line is real rather than tidy. Everything in this
  * file makes a claim about how far off the page it floats and reads it against
- * its neighbours — a menu takes `shadow-md` because it is anchored to the button
- * that opened it, a cell editor and a dialog take `shadow-lg` because they cover
- * what they act on. Those are three decisions in one conversation, and splitting
- * them across two files is how the conversation stops happening.
+ * its neighbours — a cell editor and a dialog take `shadow-lg` because they cover
+ * what they act on.
  *
  * Do not import this module directly from a component. Import
  * `table-default-classes.ts`, which re-exports every name below, so a caller
@@ -50,19 +48,14 @@
  * Parts covered:
  *
  *   - CELL EDITOR   — the popover an inline edit opens in, and its parts
- *   - MENU          — every toolbar dropdown, its items and its separators
  *   - DIALOG        — the centring layer, the panel and the type inside it
  *   - DROP ZONE     — the import dialog's drag-and-drop target
  *   - PREVIEW GRID  — the import / paste preview tables
  *   - TOAST         — the floating strip that reports a write's outcome
  *
  * ## What is NOT here
- * The dialog SCRIM stays the platform's `overlay-default-classes.ts`, which the
- * grid's dialogs call directly. This module is a `presentation-util` and that one
- * is a `presentation-island`, which `[internal ref]` forbids it from
- * importing; see the note on {@link computeTableDialogPanelClasses} for why that
- * boundary is not the only reason, and why the panel and its centring layer are
- * expressed here rather than delegated.
+ * The dialog SCRIM is shadcn's `dialog-overlay`, from `dialog-default-classes.ts`,
+ * which the grid's dialogs call directly.
  */
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
@@ -90,8 +83,8 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 const TABLE_EDITOR_POPOVER = [
   'absolute z-20 flex flex-col overflow-hidden border text-sm',
   `rounded-[${v('radius-md', T.radiusMd)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `border-[${v('sv-border', T.border)}]`,
+  `bg-card`,
+  `border-border`,
   `shadow-[${v('shadow-lg', T.shadowLg)}]`,
 ].join(' ')
 
@@ -152,7 +145,7 @@ export const TABLE_EDITOR_PROSE_WIDTH = 'w-72'
  * must not compete with the values the reader is there to choose between.
  */
 export const computeTableEditorLabelClasses = (): string =>
-  `text-xs font-medium text-[${v('sv-fg-muted', T.fgMuted)}]`
+  `text-xs font-medium text-muted-foreground`
 
 /**
  * Compute the className for the scrolling list inside a cell-editor popover.
@@ -184,13 +177,7 @@ export const computeTableEditorListRowClasses = ({
   active = false,
 }: {
   readonly active?: boolean
-} = {}): string =>
-  [
-    TABLE_EDITOR_LIST_ROW,
-    active
-      ? `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`
-      : `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  ].join(' ')
+} = {}): string => [TABLE_EDITOR_LIST_ROW, active ? `bg-muted` : `hover:bg-muted`].join(' ')
 
 /**
  * Compute the className for the RULE above a full-width strip stacked under a
@@ -208,7 +195,7 @@ export const computeTableEditorListRowClasses = ({
  * token. The popover's own border does not cascade into its children.
  */
 export const computeTableEditorStripClasses = (): string =>
-  ['w-full border-t', `border-[${v('sv-border', T.border)}]`].join(' ')
+  ['w-full border-t', `border-border`].join(' ')
 
 /**
  * Compute the className for a cell editor's action row — Cancel then Save.
@@ -220,148 +207,30 @@ export const computeTableEditorStripClasses = (): string =>
 export const computeTableEditorFooterClasses = (): string => 'flex justify-end gap-1.5'
 
 // ──────────────────────────────────────────────────────────────────────────────
-// MENU — every toolbar dropdown, its items and its separators
-// ──────────────────────────────────────────────────────────────────────────────
-
-// Canvas: `border:1px solid #e3e3e3; border-radius:6px; background:#fefefe;
-// box-shadow:0 4px 12px rgb(0 0 0 /0.06)` (= `shadow-md`), `padding:4px; gap:1px`.
-//
-// `shadow-md` where the menus shipped `shadow-lg`. Elevation is a claim about
-// how far off the page a surface floats, and a 150px dropdown anchored to the
-// button that opened it floats less far than a modal dialog. Spending the
-// dialog's shadow on it made every menu read as a window.
-const TABLE_MENU = [
-  'z-50 flex flex-col gap-px border p-1',
-  `rounded-[${v('radius-md', T.radiusMd)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `border-[${v('sv-border', T.border)}]`,
-  `shadow-[${v('shadow-md', T.shadowMd)}]`,
-].join(' ')
-
-/**
- * Compute the default className for a toolbar dropdown's popup.
- *
- * Chrome and stacking only. POSITION stays with the caller — `absolute
- * top-full right-0 mt-1` for the plain-`<div>` dropdowns, nothing at all for
- * the Base UI menus, which are anchored by a portalled positioner — because
- * where a popup opens is a property of its trigger, not of the design.
- *
- * The surface is a real, non-transparent colour and must remain one: five
- * shipped assertions open a menu and read `getComputedStyle(...)
- * .backgroundColor` against a transparent sentinel.
- */
-export const computeTableMenuClasses = (): string => TABLE_MENU
-
-// Canvas: `padding:6px 8px; border-radius:4px; font-size:12px`; active
-// `background:#f4f4f4`.
-//
-// The item gains its OWN radius, inside the popup's 4px padding — which is what
-// the padding is for. Without it a hovered first or last row painted a square
-// corner into the popup's rounded one.
-const TABLE_MENU_ITEM = [
-  'w-full px-2 py-1.5 text-left text-sm',
-  `rounded-[${v('radius-base', T.radiusBase)}]`,
-].join(' ')
-
-/**
- * Compute the default className for one row of a toolbar dropdown.
- *
- * `active` marks the row that is CURRENTLY chosen — this grid's density, its
- * grouping field — and takes the well outright rather than on hover, so the
- * current setting is legible without the reader pointing at it. A non-active
- * row takes the same well on hover, which is what makes the two states read as
- * one vocabulary: the well always means "this one".
- *
- * Weight is deliberately NOT part of it. The menus mark their current entry
- * with `font-medium` at the call site, and folding that in here would make
- * every hovered row bolden as the pointer crossed it.
- */
-export const computeTableMenuItemClasses = ({
-  active = false,
-}: { readonly active?: boolean } = {}): string =>
-  [
-    TABLE_MENU_ITEM,
-    active
-      ? `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`
-      : `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  ].join(' ')
-
-/**
- * Compute the default className for a menu separator.
- *
- * A 1px BLOCK on the border tone, not a `border-t` on a zero-height element:
- * inside a `flex flex-col` popup a bordered empty div collapses to nothing in
- * some engines and to one pixel in others, while an `h-px` element has a real
- * box in every one of them.
- *
- * `mx-1` insets it from the popup's padding so the rule stops short of the
- * items' rounded corners rather than running edge to edge under them.
- */
-export const computeTableMenuSeparatorClasses = (): string =>
-  `mx-1 my-[3px] h-px bg-[${v('sv-border', T.border)}]`
-
-/**
- * Compute the default className for the drag handle on a columns-menu row.
- *
- * Muted, because it is an affordance rather than content: the row's subject is
- * the column's name and its checkbox, and a full-ink grip beside them competes
- * with both. `cursor-grab` flipping to `active:cursor-grabbing` is the only
- * feedback a drag has before it starts moving anything.
- */
-export const computeTableMenuDragHandleClasses = (): string =>
-  [
-    'cursor-grab px-1 select-none active:cursor-grabbing',
-    `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  ].join(' ')
-// ──────────────────────────────────────────────────────────────────────────────
 // DIALOG — the type treatment inside the grid's own modals
 // ──────────────────────────────────────────────────────────────────────────────
 
-// Canvas `dlg` panel: `width:340px; background:#fefefe; border-radius:6px;
-// box-shadow:0 8px 24px rgb(0 0 0 /0.12)` (= `shadow-lg`); `padding:12px; gap:8px`.
-//
-// ## Why this is not `computeDialogPopupClasses`
-// Two reasons, and the second is the load-bearing one.
-//
-// The boundary: that recipe is a `presentation-island` module and this file is a
-// `presentation-util`, which `[internal ref]` forbids from
-// importing it. That alone would be an argument for putting this computer on the
-// island side instead.
-//
-// The SHAPE: the platform computer is the popup ITSELF — it carries
-// `fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2` and centres itself.
-// The grid's four dialogs centre a card inside a full-screen `Dialog.Popup`
-// instead, which is what makes a click beside the card land on the popup and
-// dismiss it. So there is no element in these trees that the platform recipe
-// describes, and adopting it would mean collapsing the two elements into one and
-// changing what an outside click does.
-//
-// What IS shared is the vocabulary — `radius-md`, `shadow-lg`, the raised
-// surface — so the two read as the same object even though neither string can
-// be written in terms of the other. If the overlay wave gives the platform
-// dialog a positionless variant, this becomes a one-line delegation.
-//
-// `p-3` and 340px are the grid's own density, and they are the two values that
-// still differ from the platform dialog's `p-6` / `max-w-md`. A dialog opened
-// from a 44px row to confirm a mechanical step is not a page-level modal.
-const TABLE_DIALOG_PANEL = [
-  'flex w-full flex-col gap-2 border p-3',
-  `rounded-[${v('radius-md', T.radiusMd)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `border-[${v('sv-border', T.border)}]`,
-  `shadow-[${v('shadow-lg', T.shadowLg)}]`,
-].join(' ')
+// shadcn/ui's `dialog-content` surface (base-nova): `rounded-xl`, the popover
+// fill, a 1px foreground ring at 10 % rather than a border or a shadow, `p-4`
+// and a `gap-4` rhythm. The card is centred by a full-screen layer rather than
+// centring itself, so a click beside it lands on that layer and dismisses it.
+const TABLE_DIALOG_PANEL =
+  'flex w-full flex-col gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10'
 
-// TWO widths, because these dialogs do two different things. A `confirm` asks a
-// question in a sentence and takes the drawings' 340px. A `grid` holds a preview
-// of rows that are about to become table rows, and a reader checking a mapping
-// against the columns behind the dialog needs the columns to still be columns —
-// the import dialog and the paste dialog had drifted to `max-w-2xl` and
-// `max-w-3xl` doing the identical job, so they now share the wider of the two.
+// TWO widths: a `confirm` asks a question in a sentence and takes base-nova's
+// `max-w-sm`; a `grid` holds a preview of rows about to become table rows, and
+// the columns behind it must still read as columns.
 const TABLE_DIALOG_WIDTH: Record<'confirm' | 'grid', string> = {
-  confirm: 'max-w-[340px]',
+  confirm: 'max-w-sm',
   grid: 'max-w-3xl',
 }
+
+/**
+ * The create-record form: base-nova's `dialog-content`, centring itself, a
+ * column so its field list scrolls under a pinned title and reachable actions.
+ */
+export const computeTableFormDialogClasses = (): string =>
+  'fixed top-1/2 left-1/2 z-50 flex max-h-dvh w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none duration-100 sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95'
 
 /**
  * Compute the className for the card inside one of the grid's own dialogs —
@@ -401,25 +270,8 @@ export const computeTableDialogPanelClasses = ({
 export const computeTableDialogPositionerClasses = (): string =>
   'fixed inset-0 z-50 flex items-center justify-center p-4'
 
-/**
- * Compute the className for a grid dialog's title.
- *
- * 13px semibold, where these shipped at `text-xl` (18px). A grid dialog names a
- * mechanical step — Import CSV, Table settings, Save view — over a surface whose
- * densest type is 11px, and an 18px heading on it reads as a page title rather
- * than as the caption of a box the reader opened deliberately and will close in
- * a moment.
- *
- * The SHELL those titles sit in stays the platform's `computeDialogPopupClasses`
- * / `computeOverlayBackdropClasses`; only the type is the grid's own. Composing
- * the shell here is not possible in either direction — this module is a
- * `presentation-util` and the overlay recipes are `presentation-island`, which
- * `[internal ref]` forbids it from importing — and forking the
- * shell to work around that would put a second dialog surface in the codebase to
- * change one padding.
- */
-export const computeTableDialogTitleClasses = (): string =>
-  `text-base font-semibold text-[${v('sv-fg', T.fg)}]`
+/** A grid dialog's title: base-nova's `dialog-title`. */
+export const computeTableDialogTitleClasses = (): string => 'text-base leading-none font-medium'
 
 /**
  * Compute the className for a grid dialog's supporting line.
@@ -428,8 +280,7 @@ export const computeTableDialogTitleClasses = (): string =>
  * draws, so a dialog's body copy and a panel's caption are recognisably the same
  * kind of sentence.
  */
-export const computeTableDialogBodyClasses = (): string =>
-  `text-sm text-[${v('sv-fg-muted', T.fgMuted)}]`
+export const computeTableDialogBodyClasses = (): string => `text-sm text-muted-foreground`
 
 // Canvas `dropZone`: `border:1px dashed #a1a1a1; border-radius:6px; padding:18px;
 // flex-col; align-items:center; gap:8px; font-size:12px; color:#707070`.
@@ -443,8 +294,8 @@ export const computeTableDialogBodyClasses = (): string =>
 const TABLE_DROP_ZONE = [
   'flex flex-col items-center gap-2 border border-dashed p-4 text-center text-sm',
   `rounded-[${v('radius-md', T.radiusMd)}]`,
-  `border-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
+  `border-muted-foreground`,
+  `text-muted-foreground`,
 ].join(' ')
 
 /** Compute the className for the drag-and-drop target in the import dialog. */
@@ -453,10 +304,10 @@ export const computeTableDropZoneClasses = (): string => TABLE_DROP_ZONE
 const TABLE_PREVIEW_GRID_CELL: Record<'header' | 'data', string> = {
   header: [
     'px-2 py-1 text-left text-xs font-medium border-b',
-    `border-[${v('sv-border-strong', T.borderStrong)}]`,
-    `text-[${v('sv-fg-muted', T.fgMuted)}]`,
+    `border-input`,
+    `text-muted-foreground`,
   ].join(' '),
-  data: ['px-2 py-1 text-sm border-b', `border-[${v('sv-border', T.border)}]`].join(' '),
+  data: ['px-2 py-1 text-sm border-b', `border-border`].join(' '),
 }
 
 /**
@@ -486,14 +337,8 @@ const TABLE_TOAST_BASE = [
 ].join(' ')
 
 const TABLE_TOAST_TONE: Record<'neutral' | 'error', string> = {
-  neutral: [`bg-[${v('sv-bg-raised', T.bgRaised)}]`, `border-[${v('sv-border', T.border)}]`].join(
-    ' '
-  ),
-  error: [
-    `bg-[${v('sv-error-bg', T.errorBg)}]`,
-    `border-[${v('sv-error-border', T.errorBorder)}]`,
-    `text-[${v('sv-error-fg', T.errorFg)}]`,
-  ].join(' '),
+  neutral: [`bg-card`, `border-border`].join(' '),
+  error: [`bg-destructive/10`, `border-destructive/50`, `text-destructive`].join(' '),
 }
 
 /**

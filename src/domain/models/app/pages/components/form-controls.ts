@@ -62,16 +62,10 @@ export const InputTypeSchema = Schema.Literals([
   'tel',
   'url',
   'search',
-  // Maps to `autocomplete="one-time-code"` and a numeric inputmode, which is
-  // what lets a phone offer the code from the SMS or mail it just received.
-  // The server half has shipped since the emailOTP plugin landed; this is the
-  // control that was missing, and it is an input TYPE rather than a component
-  // type because that is all it is.
-  'one-time-code',
 ]).annotate({
   title: 'Input Type',
   description:
-    'HTML input type attribute for the input component. `one-time-code` renders a verification-code entry that a device can autofill.',
+    'HTML input type attribute for the input component. A verification-code entry is its own type, `input-otp` (shadcn/ui Input OTP).',
 })
 
 // ---------------------------------------------------------------------------
@@ -95,7 +89,7 @@ export const SkeletonVariantSchema = Schema.Literals(['text', 'circular', 'recta
  */
 export const DrawerSideSchema = Schema.Literals(['left', 'right', 'top', 'bottom']).annotate({
   title: 'Drawer Side',
-  description: 'Edge of the screen the drawer slides in from',
+  description: 'Edge of the screen the sheet slides in from',
 })
 
 /**
@@ -103,7 +97,7 @@ export const DrawerSideSchema = Schema.Literals(['left', 'right', 'top', 'bottom
  */
 export const DrawerSizeSchema = Schema.Literals(['sm', 'md', 'lg', 'full']).annotate({
   title: 'Drawer Size',
-  description: 'Width/height preset for the drawer panel',
+  description: 'Width/height preset for the sheet panel',
 })
 
 // ---------------------------------------------------------------------------

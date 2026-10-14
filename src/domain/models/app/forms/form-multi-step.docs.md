@@ -96,6 +96,8 @@ forms:
 
 `submitLabel` defaults to "Submit" and accepts a translation key, as every user-facing string here does.
 
+While a submission is on its way, the submit button is disabled, draws a spinner in place of any icon, and reads `pendingLabel` — "Sending…" by default, in the page language ("Envoi…" in French). A second press, or Enter in a field, sends nothing more. If the server refuses the submission, the button comes back as it was, each field it names shows its error, focus moves to the first of those fields (or back to the button when none is named), and `onError` follows. A multi-step form's Next does the same while its step is checked, always with the built-in word; `pendingLabel` applies to the final submit.
+
 The progress bar is **not** configurable: `multi-step` and `one-question` always render one, and `single-page` has no step boundary to advance through, so it never does. Field layout is likewise fixed at a single column.
 
 ```yaml

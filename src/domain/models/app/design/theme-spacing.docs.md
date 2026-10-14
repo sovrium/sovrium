@@ -39,7 +39,7 @@ design:
 
 The two names Sovrium's own recipes read are `base` and `md`, so declaring those two restyles the shipped components; any other name is yours to use from a `className`.
 
-**`DEFAULT` is refused by name.** It was the one name that did not become `--radius-{name}`: it emitted the bare `--radius`, which no shipped rule reads, so a corner declared there was never drawn. Because that failure was silent — the config validated, the variable was emitted, and nothing rounded — the key is rejected rather than left accepted. Declare `base` instead.
+**`DEFAULT` is refused by name.** It was the one name that did not become `--radius-{name}`: it emitted the bare `--radius`, which no shipped rule read at the time, so a corner declared there was never drawn. The key stays refused. Today the default theme sets `--radius` itself (`0.625rem`, shadcn/ui's) and derives its `sm` to `4xl` steps from it. Declare `base` or a named step instead.
 
 ## `elevation`
 
@@ -60,7 +60,7 @@ The syntax-highlighting theme applied to markdown fenced code — on markdown pa
 
 <!-- sovrium:options CodeBlockConfigSchema -->
 
-Omit `darkTheme` and the one theme governs both colour schemes; the pair is declared rather than derived from the light theme's name. Any theme Shiki ships can be named as `darkTheme`: the dark scheme paints that theme's own colours, each held to 4.5:1 against the block as described below.
+Name neither and code blocks use `github-light` in the light scheme and `github-dark` in the dark one. Name a `theme` and omit `darkTheme`, and that one theme governs both colour schemes; the pair is declared rather than derived from the light theme's name. Any theme Shiki ships can be named as `darkTheme`: the dark scheme paints that theme's own colours, each held to 4.5:1 against the block as described below.
 
 ```yaml
 design:

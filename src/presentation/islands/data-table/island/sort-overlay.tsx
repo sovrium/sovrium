@@ -16,6 +16,8 @@ import {
   computeTablePanelRemoveClasses,
   computeTableToolbarPrimaryButtonClasses,
 } from '@/presentation/design/table-default-classes'
+import { useGridString } from './grid-strings'
+import { labelOfField, type FieldLabels } from './panel-field-labels'
 import type { SortRow } from './use-ui-state'
 
 /**
@@ -42,6 +44,7 @@ import type { SortRow } from './use-ui-state'
  */
 interface SortOverlayProps {
   readonly tableFields: readonly string[]
+  readonly fieldLabels?: FieldLabels
   readonly activeSorts: readonly SortRow[]
   readonly onAddSort: (row: Omit<SortRow, 'id'>) => void
   readonly onRemoveSort: (id: string) => void
@@ -55,13 +58,25 @@ interface SortOverlayProps {
 
 interface ActiveSortChipProps {
   readonly row: SortRow
+  /** The field in the words the builder offered it in. */
+  readonly fieldWords: string
+  /** The direction in words. */
+  readonly directionWords: string
   readonly index: number
   readonly total: number
   readonly onRemove: (id: string) => void
   readonly onReorder: (id: string, toIndex: number) => void
 }
 
-function ActiveSortChip({ row, index, total, onRemove, onReorder }: ActiveSortChipProps) {
+function ActiveSortChip({
+  row,
+  fieldWords,
+  directionWords,
+  index,
+  total,
+  onRemove,
+  onReorder,
+}: ActiveSortChipProps) {
   const handleRemove = useCallback(() => onRemove(row.id), [row.id, onRemove])
   const handleMoveUp = useCallback(() => onReorder(row.id, index - 1), [row.id, index, onReorder])
   const handleMoveDown = useCallback(() => onReorder(row.id, index + 1), [row.id, index, onReorder])
@@ -77,7 +92,7 @@ function ActiveSortChip({ row, index, total, onRemove, onReorder }: ActiveSortCh
           order, which is information about the chip rather than part of it. */}
       <span className={computeTablePanelCaptionClasses()}>{index + 1}</span>
       <span>
-        {row.field} <span className={computeTableChipValueClasses()}>{row.direction}</span>
+        {fieldWords} <span className={computeTableChipValueClasses()}>{directionWords}</span>
       </span>
       <button
         type="button"
@@ -119,6 +134,7 @@ function ActiveSortChip({ row, index, total, onRemove, onReorder }: ActiveSortCh
 // eslint-disable-next-line max-lines-per-function -- single-screen panel with 3 native form controls + chip list; further extraction would just split a single visual unit across files (mirrors FilterOverlay)
 export function SortOverlay({
   tableFields,
+  fieldLabels,
   activeSorts,
   onAddSort,
   onRemoveSort,
@@ -127,6 +143,10 @@ export function SortOverlay({
 }: SortOverlayProps) {
   // Draft row state — what the user is currently authoring before clicking
   // "Add sort". The committed state lives in the parent's `activeSorts`.
+  const directionWords = {
+    asc: useGridString('datatable.sort.ascending', 'Ascending'),
+    desc: useGridString('datatable.sort.descending', 'Descending'),
+  }
   const initialField = tableFields[0] ?? ''
   const [field, setField] = useState<string>(initialField)
   const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
@@ -173,6 +193,8 @@ export function SortOverlay({
             <ActiveSortChip
               key={row.id}
               row={row}
+              fieldWords={labelOfField(fieldLabels, row.field)}
+              directionWords={directionWords[row.direction]}
               index={index}
               total={activeSorts.length}
               onRemove={onRemoveSort}
@@ -200,7 +222,7 @@ export function SortOverlay({
               key={f}
               value={f}
             >
-              {f}
+              {labelOfField(fieldLabels, f)}
             </option>
           ))}
         </select>
@@ -217,8 +239,8 @@ export function SortOverlay({
           onChange={handleDirectionChange}
           className={computeTablePanelControlClasses()}
         >
-          <option value="asc">asc</option>
-          <option value="desc">desc</option>
+          <option value="asc">{directionWords.asc}</option>
+          <option value="desc">{directionWords.desc}</option>
         </select>
         <button
           type="button"

@@ -48,8 +48,7 @@ export interface DatePickerState {
   readonly containerRef: RefObject<HTMLSpanElement | null>
   readonly toggleOpen: () => void
   readonly handleDayClick: (day: Date) => void
-  readonly handlePrevMonth: () => void
-  readonly handleNextMonth: () => void
+  readonly handleMonthChange: (month: Date) => void
 }
 
 interface DisplayInput {
@@ -113,8 +112,7 @@ function useDatePickerCallbacks({
 }: CallbacksInput): {
   readonly toggleOpen: () => void
   readonly handleDayClick: (day: Date) => void
-  readonly handlePrevMonth: () => void
-  readonly handleNextMonth: () => void
+  readonly handleMonthChange: (month: Date) => void
 } {
   const toggleOpen = useCallback(() => {
     if (disabled) return
@@ -138,14 +136,12 @@ function useDatePickerCallbacks({
     [datePickerMode, minDateObj, maxDateObj, setOpen, setRangeValue, setSingleValue]
   )
 
-  const handlePrevMonth = useCallback(() => {
-    setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))
-  }, [setViewMonth])
-  const handleNextMonth = useCallback(() => {
-    setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))
-  }, [setViewMonth])
+  const handleMonthChange = useCallback(
+    (month: Date) => setViewMonth(new Date(month.getFullYear(), month.getMonth(), 1)),
+    [setViewMonth]
+  )
 
-  return { toggleOpen, handleDayClick, handlePrevMonth, handleNextMonth }
+  return { toggleOpen, handleDayClick, handleMonthChange }
 }
 
 /**

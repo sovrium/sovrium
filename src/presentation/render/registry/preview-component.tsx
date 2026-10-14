@@ -50,7 +50,7 @@ import {
   computePreviewRootClasses,
   computePreviewStageClasses,
   computePreviewValueClasses,
-} from '../../design/specialty-ssr-default-classes'
+} from '../../design/preview-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'

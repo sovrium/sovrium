@@ -375,7 +375,7 @@ const projectVoice = (
  * base minus `personality`, which is optional here.
  *
  * `pattern` and `zone` are required by `DesignZoneSchema` and spread
- * unconditionally; `accentBudget` and `voice` go through {@link optional} for
+ * unconditionally; `voice` goes through {@link optional} for
  * the reason stated there.
  */
 const projectZones = (
@@ -384,7 +384,6 @@ const projectZones = (
   zones.map((entry) => ({
     pattern: entry.pattern,
     zone: entry.zone,
-    ...optional('accentBudget', entry.accentBudget),
     ...optional('voice', entry.voice ? projectVoice(entry.voice) : undefined),
   }))
 

@@ -63,7 +63,7 @@ body:
   summary: 'Contact {{steps.lookup.record.name}} scores {{steps.lookup.record.score}}' # a string
 ```
 
-A whole record carries every field the step read, so name the fields to return when some of them are not the caller's to see.
+A whole record carries every field the step read, so name the fields to return when some of them are not the caller's to see. A write-only field reads `***` in the answer unless the trigger names it in `revealWriteOnly`, which only a webhook authenticating a machine may declare.
 
 `trigger.response` shapes the answer too, but its `body` and `headers` templates see `{{run.id}}` and `{{trigger.data.*}}` only. A `{{steps.*}}` path is not in their reach and renders empty, so step data goes through the `webhook/response` action, which wins when both are present. Setting `trigger.response.status` also keeps that status when a step fails, instead of the `500`. With `respondImmediately: true` the caller gets `202` and `{ "id", "runId" }`, both the run's id, and nothing else.
 

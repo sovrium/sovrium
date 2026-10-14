@@ -128,57 +128,11 @@ export const selectFields = {
       description: 'Allow multiple option selections (select)',
     })
   ),
-  /**
-   * Render the browser's OWN control instead of the themed listbox.
-   *
-   * The default `select` hydrates into a Base UI trigger plus a portalled
-   * listbox. That is the right control for a marketing surface — it is themed,
-   * it paints a per-option icon, and it can grow a type-ahead field. It is the
-   * wrong one for a dense operator surface, for three reasons that are
-   * properties of the control rather than of any one page:
-   *
-   *  1. It costs a hydration. The server ALREADY renders a real element with
-   *     real choices inside it (`renderSsrSelectOptions`) and disables it only
-   *     because an island is about to replace it. `native: true` is that same
-   *     element left enabled, so a filter bar that offers a list and reads a
-   *     value back ships no component code for it at all.
-   *  2. The platform control is the accessible one wherever the platform has
-   *     one. A phone draws its own picker; assistive technology and the
-   *     browser's own type-ahead work with nothing of ours in the path; and it
-   *     survives a page with no scripting, which a portalled listbox does not.
-   *  3. It is the element the ecosystem addresses. A test driver's
-   *     "choose this option" verb, a password manager, a translation extension
-   *     and form autofill all key off the element rather than off a role.
-   *
-   * DELIBERATELY A SIBLING BOOLEAN rather than a `control` enum. `searchable`
-   * already selects a different control through a boolean, and it is shipped
-   * and documented; adding an enum beside it would leave two disagreeing ways
-   * to say which control renders. Three booleans naming three controls, with a
-   * rule saying at most one, is one contract — see
-   * `select-native-validation.ts`, which refuses the combinations that would
-   * otherwise decode into a control unable to honour every key it carries.
-   */
-  native: Schema.optional(
+  /** Draw a clear control once a value is chosen */
+  clearable: Schema.optional(
     Schema.Boolean.annotate({
       description:
-        "Render the browser's own select element instead of the themed listbox. Refuses `searchable`, `allowCustomValue`, and a per-option icon — none of which the platform control can honour.",
-    })
-  ),
-  searchable: Schema.optional(
-    Schema.Boolean.annotate({
-      description: 'Enable type-ahead search filtering in the list',
-    })
-  ),
-  searchPlaceholder: Schema.optional(
-    Schema.String.annotate({
-      description:
-        'Placeholder text shown inside the combobox search input (only meaningful when `searchable: true`)',
-    })
-  ),
-  allowCustomValue: Schema.optional(
-    Schema.Boolean.annotate({
-      description:
-        'When `searchable: true`, accept a typed value that does not match any option (free-form input).',
+        'Draw a clear control beside the chosen value, which returns the select to its placeholder (default: false)',
     })
   ),
   // REMOVED (deliberate): the top-level `valueField` / `displayField` pair.

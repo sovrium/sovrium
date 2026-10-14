@@ -307,6 +307,9 @@ export default {
   'admin.automations.runs.detail.field.finished': 'Terminée',
   'admin.automations.runs.detail.field.duration': 'Durée (ms)',
   'admin.automations.runs.detail.field.attempt': 'Tentative',
+  'admin.automations.runs.detail.facts.title': 'Exécution',
+  'admin.automations.runs.detail.facts.description':
+    'Ce qui l’a lancée, comment elle s’est terminée et combien de temps elle a pris.',
   'admin.automations.runs.detail.failure': 'Échec',
   'admin.automations.runs.detail.log': 'Journal',
   'admin.automations.runs.detail.dataIn': 'Données en entrée',

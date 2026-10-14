@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { email, looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import { transformed } from '@/domain/models/api/combinators/transform'
 import { isIssuedAvatarUrl } from '@/domain/models/app/auth/avatar-url'
 import { timestampSchema } from '../combinators/common'
@@ -213,6 +214,181 @@ export const accountExportAuditEntrySchema = Schema.Struct({
 }).annotate({ identifier: 'AccountExportAuditEntry' })
 
 /**
+ * Account export — one file the caller attached to a chat
+ *
+ * One `system.ai_chat_attachments` row the caller uploaded: its name, size,
+ * type, and the conversation it was sent in (`null` when it was never sent).
+ * The bytes are not inlined; the caller downloads each file from
+ * `GET /api/ai/chat/attachments/{id}` while it exists.
+ */
+export const accountExportChatAttachmentSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Attachment identifier' }),
+  name: Schema.String.annotate({ description: 'The file name as uploaded' }),
+  size: Schema.Int.annotate({ description: 'Size of the file in bytes' }),
+  mimeType: Schema.String.annotate({ description: 'The media type read from the file content' }),
+  sessionId: Schema.NullOr(
+    Schema.String.annotate({ description: 'The conversation the file was sent in' })
+  ),
+  uploadedAt: looseIsoDateTime({ description: 'ISO 8601 timestamp the file was uploaded' }),
+}).annotate({ identifier: 'AccountExportChatAttachment' })
+
+/**
+ * Account export — one tool call an assistant turn asked for, by reference
+ *
+ * The call's correlation id and the tool's name. Its arguments are left out:
+ * the model wrote them from the conversation, and they routinely name the
+ * people and rows the caller asked about, which are somebody else's data. The
+ * caller's own words are already in the message `content` they typed.
+ */
+export const accountExportAiToolCallRefSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Correlation id the model gave the tool call' }),
+  name: Schema.String.annotate({ description: 'Name of the tool the assistant asked to run' }),
+}).annotate({ identifier: 'AccountExportAiToolCallRef' })
+
+/**
+ * Account export — one message of one of the caller's AI conversations
+ *
+ * A `system.ai_messages` row, in the order it was written. The text is
+ * exported verbatim, whoever wrote it: what the caller typed and what the
+ * assistant answered them are both part of the conversation they had.
+ */
+export const accountExportAiMessageSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Message identifier' }),
+  role: Schema.String.annotate({
+    description: 'Who wrote the message: `user`, `assistant`, or `tool`',
+  }),
+  content: Schema.String.annotate({
+    description: 'The message text, verbatim — empty for a turn that only called tools',
+  }),
+  status: Schema.String.annotate({
+    description:
+      '`complete`, or `incomplete` for an answer whose stream was interrupted before it finished',
+  }),
+  model: Schema.NullOr(
+    Schema.String.annotate({ description: 'The model that wrote an assistant message' })
+  ),
+  toolCalls: Schema.NullOr(
+    Schema.Array(accountExportAiToolCallRefSchema).annotate({
+      description:
+        'The tools an assistant turn asked to run, by name — arguments and results left out',
+    })
+  ),
+  sentAt: looseIsoDateTime({ description: 'ISO 8601 timestamp the message was recorded' }),
+}).annotate({ identifier: 'AccountExportAiMessage' })
+
+/**
+ * Account export — one AI conversation the caller held
+ *
+ * A `system.ai_conversations` row whose `user_id` is the caller, with every
+ * message in it, oldest first. The files sent in it are listed by id in
+ * `attachmentIds`; each one is described in the export's `aiChatAttachments`.
+ * The row's `metadata` is the store's own bookkeeping and is left out.
+ */
+export const accountExportAiConversationSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Conversation identifier' }),
+  sessionId: Schema.NullOr(
+    Schema.String.annotate({ description: 'The session key the chat used for this conversation' })
+  ),
+  agentName: Schema.NullOr(
+    Schema.String.annotate({
+      description: 'The agent the caller talked to, when one drove the chat',
+    })
+  ),
+  title: Schema.NullOr(Schema.String.annotate({ description: 'The conversation title' })),
+  startedAt: looseIsoDateTime({ description: 'ISO 8601 timestamp the conversation was opened' }),
+  lastActivityAt: looseIsoDateTime({
+    description: 'ISO 8601 timestamp of the last message in the conversation',
+  }),
+  attachmentIds: Schema.Array(Schema.String).annotate({
+    description: 'Ids of the files sent in this conversation, as listed in `aiChatAttachments`',
+  }),
+  messages: Schema.Array(accountExportAiMessageSchema).annotate({
+    description: 'Every message of the conversation, oldest first',
+  }),
+}).annotate({ identifier: 'AccountExportAiConversation' })
+
+/**
+ * Account export — one fact an agent remembers about the caller
+ *
+ * A `system.ai_facts` row whose `user_id` is the caller: the long-term memory
+ * an agent inferred about them, which is personal data by construction. The
+ * row's `metadata` is the store's own bookkeeping and is left out.
+ */
+export const accountExportAiFactSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Fact identifier' }),
+  namespace: Schema.String.annotate({
+    description: 'The memory namespace the agent keeps the fact in',
+  }),
+  agentName: Schema.String.annotate({ description: 'The agent that remembers the fact' }),
+  fact: Schema.String.annotate({ description: 'The fact, as the agent stored it' }),
+  learnedAt: looseIsoDateTime({ description: 'ISO 8601 timestamp the fact was stored' }),
+}).annotate({ identifier: 'AccountExportAiFact' })
+
+/**
+ * Account export — one entry of the AI activity feed that names the caller
+ *
+ * A `system.ai_activity_logs` row that names the caller — as its actor, by user
+ * id or by address, or as the person an agent acted for (`user_email`): the
+ * same rows erasure deletes. The caller's id and address are left out, since
+ * every listed row names them; when an agent acted, its name is kept so the
+ * caller can tell who did it. The projection is explicit: a column
+ * the feed gains later reaches the export only when it is added here, so a new
+ * column never breaks the export and never leaks into it unreviewed.
+ */
+export const accountExportAiActivityEntrySchema = Schema.Struct({
+  action: Schema.String.annotate({
+    description: 'What happened, as an activity action name (e.g. "ai.chat.message")',
+  }),
+  targetTable: Schema.NullOr(
+    Schema.String.annotate({ description: 'The table the action touched, when it touched one' })
+  ),
+  agentName: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        "The agent that acted on the caller's behalf, or null when the caller acted themselves",
+    })
+  ),
+  surface: optionalField(
+    Schema.NullOr(
+      Schema.String.annotate({
+        description:
+          'Where the agent ran (a chat, an automation, a schedule), when the feed recorded it',
+      })
+    )
+  ),
+  occurredAt: looseIsoDateTime({ description: 'ISO 8601 timestamp the entry was recorded' }),
+}).annotate({ identifier: 'AccountExportAiActivityEntry' })
+
+/**
+ * Account export — one AI tool call the caller made
+ *
+ * A `system.ai_tool_calls` row recorded under the caller's user id. What ran,
+ * when, through which door and how it ended — not what it carried. `input`,
+ * `output` and the error text are left out: they hold the record payloads the
+ * tool read or wrote, which belong to the people those records describe, and
+ * a copy frozen at call time would hand the caller rows their role may no
+ * longer let them read. The records themselves stay reachable, under today's
+ * permissions, through the records API.
+ */
+export const accountExportAiToolCallSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Tool-call identifier' }),
+  toolName: Schema.String.annotate({ description: 'Name of the tool that ran' }),
+  callerRole: Schema.String.annotate({ description: 'The role the caller held when it ran' }),
+  transport: Schema.String.annotate({ description: 'How the call arrived (e.g. "http")' }),
+  sessionId: Schema.NullOr(
+    Schema.String.annotate({ description: 'The client session the call belonged to' })
+  ),
+  outcome: Schema.Literals(['success', 'error']).annotate({
+    description: '`error` when the tool answered with an error, `success` otherwise',
+  }),
+  errorCode: Schema.NullOr(
+    Schema.Int.annotate({ description: 'The error code of a failed call, or null' })
+  ),
+  latencyMs: Schema.Int.annotate({ description: 'How long the call took, in milliseconds' }),
+  calledAt: looseIsoDateTime({ description: 'ISO 8601 timestamp the call was recorded' }),
+}).annotate({ identifier: 'AccountExportAiToolCall' })
+
+/**
  * Account export response schema
  *
  * The complete personal-data footprint of the authenticated caller, returned by
@@ -243,6 +419,22 @@ export const accountExportResponseSchema = Schema.Struct({
   auditTrail: Schema.Array(accountExportAuditEntrySchema).annotate({
     description:
       'Every admin audit-log entry the caller made, newest first — the acts only, without their metadata. Empty for an account that never performed an audited act.',
+  }),
+  aiChatAttachments: Schema.Array(accountExportChatAttachmentSchema).annotate({
+    description: 'Every file the caller attached to a chat, oldest first',
+  }),
+  aiConversations: Schema.Array(accountExportAiConversationSchema).annotate({
+    description: 'Every AI conversation the caller held, with its messages, newest first',
+  }),
+  aiFacts: Schema.Array(accountExportAiFactSchema).annotate({
+    description: 'Every fact an agent remembers about the caller, newest first',
+  }),
+  aiActivity: Schema.Array(accountExportAiActivityEntrySchema).annotate({
+    description:
+      'Every AI activity-feed entry naming the caller, as its actor or as the person an agent acted for, newest first',
+  }),
+  aiToolCalls: Schema.Array(accountExportAiToolCallSchema).annotate({
+    description: 'Every AI tool call the caller made, newest first — without what it read or wrote',
   }),
 }).annotate({ identifier: 'AccountExportResponse' })
 

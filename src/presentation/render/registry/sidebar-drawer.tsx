@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useId, type ReactElement, type ReactNode } from 'react'
+import { useId, type CSSProperties, type ReactElement, type ReactNode } from 'react'
 import {
   computeSidebarDrawerBodyClasses,
   computeSidebarDrawerPanelClasses,
@@ -35,6 +35,8 @@ interface SidebarDrawerFrameProps {
   readonly children: ReactNode
   /** The author's classes for the menu button, after its recipe (the docs `menuButton` part). */
   readonly triggerClassName?: string
+  /** Where a shell menu button sits along its corner, when another holds the first place. */
+  readonly triggerStyle?: CSSProperties
 }
 
 /**
@@ -77,31 +79,36 @@ export function SidebarDrawerFrame({
   label,
   children,
   triggerClassName,
+  triggerStyle,
 }: SidebarDrawerFrameProps): ReactElement {
   // `useId` spells a string that is not a valid CSS identifier in every React
   // version; the id only has to be unique and stable, so it keeps the safe part.
   const id = `sidebar-drawer${useId().replace(/[^A-Za-z0-9_-]/g, '-')}`
-  const MenuIcon = resolveLucideIcon('menu')
+  const MenuIcon = resolveLucideIcon('panel-left')
   return (
     <>
       <span
         data-island="sidebar-drawer"
         data-island-props="{}"
-        data-component-type="drawer"
+        data-component-type="sheet"
       />
       <button
         type="button"
         disabled
         data-component-type="button"
+        data-slot="sidebar-trigger"
         data-sidebar-drawer-trigger=""
         aria-haspopup="dialog"
         aria-expanded="false"
         aria-controls={id}
         className={cn(computeSidebarDrawerTriggerClasses(below), triggerClassName)}
+        style={triggerStyle}
       >
         {MenuIcon !== undefined && (
           <MenuIcon
             aria-hidden="true"
+            data-icon="inline-start"
+            className="rtl:rotate-180"
             size={16}
             strokeWidth={2}
           />

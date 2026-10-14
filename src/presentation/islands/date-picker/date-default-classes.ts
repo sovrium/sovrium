@@ -18,136 +18,43 @@
  *
  * The recipe mirrors the buttons + inputs + selects + toggles + numeric slices
  * (commits 02b2f35f3 + 571ae53ce + 5527660bc + 000f835d7 + 386e9dc35):
- * layout / spacing classes stay as raw Tailwind utilities; only color /
- * radius / shadow / motion / focus classes go through {@link withVarFallback}
- * so `app.design.*` overrides still win at the CSS cascade layer (var lookups
- * resolve `--sv-*` first, fall back to the inline OKLCH literal).
+ * layout / spacing classes stay as raw Tailwind utilities; colours are the
+ * shadcn role utilities (`bg-card`, `border-ring`), and radius / shadow go
+ * through {@link withVarFallback} so `app.design.*` overrides still win at the
+ * CSS cascade layer (the variable first, the inline literal as its fallback).
  *
- * Sovrium's date-picker is a CUSTOM popover-anchored calendar (not
- * `react-day-picker`). It owns its grid structure (`<table role="grid">` with
- * one `<button>` per day) split across `date-picker-island.tsx` (trigger +
- * hydration plumbing), `date-picker-popup.tsx` (popup chrome + month nav),
- * and `date-grid.tsx` (the 7-column day matrix). One island handles both
+ * The calendar inside the popup is the shared react-day-picker wrapper
+ * (`islands/parts/day-picker.tsx`), which carries its own classes; this file
+ * styles only what surrounds it: `date-picker-island.tsx` (trigger + hydration
+ * plumbing) and `date-picker-popup.tsx` (the popup). One island handles both
  * `single` and `range` selection modes via the `datePickerMode` schema prop —
  * Sovrium does NOT ship separate datetime or time-only variants under the
  * `ui-kit-date` cluster (the `time-picker` schema lives in `specialty/` and
  * renders as a native `<input type="time">`, outside this slice).
  *
- * Subparts covered (matches the existing DOM layering):
- *   - TRIGGER       — closed-state button that opens the popup
+ * Subparts covered:
+ *   - TRIGGER       — closed-state button that opens the popup (re-exported
+ *                     from `design/date-trigger-default-classes.ts`)
  *   - POPUP         — floating `<div role="dialog">` panel with elevation
- *   - NAV BUTTON    — prev/next month chevrons (direction-aware aria-label)
- *   - CAPTION       — current month/year label
- *   - WEEKDAY CELL  — Su/Mo/Tu/... header column
- *   - DAY CELL      — individual day button inside the grid; state axis
- *                     `default | selected | today | outside | disabled |
- *                      range-start | range-end | range-middle`
  *
  * Helper file lives in `src/presentation/islands/` (alongside the islands that
  * consume it) because the date-picker hydrates entirely client-side via the
  * island registry — the `presentation-component → presentation-island` layer
  * boundary disallows island imports from `ui/sections/`. Mirrors the location
- * chosen for `select-default-classes.ts`, `toggle-default-classes.ts`, and
- * `numeric-default-classes.ts`.
+ * chosen for `select-default-classes.ts` and `toggle-default-classes.ts`.
  */
 
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
-import {
-  FOCUS_VISIBLE_RING,
-  MOTION_COLORS,
-  POPUP_SURFACE,
-  RADIUS_MD,
-} from '../../design/shared-tokens-default-classes'
+import { POPUP_SURFACE } from '../../design/shared-tokens-default-classes'
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Shared building blocks
-// ──────────────────────────────────────────────────────────────────────────────
-
-type TriggerState = 'default' | 'open' | 'disabled'
-type NavDirection = 'previous' | 'next'
-type DayCellState =
-  | 'default'
-  | 'selected'
-  | 'today'
-  | 'outside'
-  | 'disabled'
-  | 'range-start'
-  | 'range-end'
-  | 'range-middle'
+/**
+ * The TRIGGER recipe lives in `design/date-trigger-default-classes.ts`, because
+ * the server-rendered placeholder paints from it too and the SSR tree cannot
+ * import an island. Re-exported here so the islands keep one import site.
+ */
+export { computeDateTriggerClasses } from '@/presentation/design/date-trigger-default-classes'
 
 const RADIUS_LG = `rounded-[${v('radius-lg', T.radiusLg)}]`
-
-const DISABLED = 'disabled:cursor-not-allowed disabled:opacity-50'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// TRIGGER (closed-state button that opens the popup)
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * The trigger's box.
- *
- * `w-full` and NO minimum. The `min-w-[12rem]` this carried was a floor of
- * exactly 192px, propped there because the island's root used to shrink to fit,
- * which left `w-full` resolving against nothing — so without the floor the
- * control was only as wide as its caption. Both date roots are full-width
- * blocks now, which is what makes `w-full` mean the container; the floor then
- * stopped being a safety net and became the thing overflowing a narrower
- * column. Measured on a two-column form: 192px of control in a 178.5px column,
- * 13.5px out into the gutter.
- */
-const TRIGGER_LAYOUT =
-  'inline-flex h-9 w-full items-center justify-between gap-2 px-3 py-2 text-base'
-
-const TRIGGER_SURFACE = [
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-].join(' ')
-
-const TRIGGER_OPEN = [
-  `aria-expanded:border-[${v('sv-focus-ring', T.focusRing)}]`,
-  `aria-expanded:ring-1`,
-  `aria-expanded:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-].join(' ')
-
-const TRIGGER_MOTION = 'transition-[box-shadow,border-color,background-color] duration-150'
-
-/**
- * Compute the default className for the closed-state date-picker trigger
- * button — the `aria-haspopup="dialog"` control that opens the calendar
- * popup. Mirrors the select trigger shape (bordered raised surface, focus
- * ring) so a row of date-pickers and selects reads as one cohesive form.
- * Open state lights up the border via the `aria-expanded` attribute that the
- * island already wires.
- *
- * The trigger casts NO shadow. Its border already separates it from the page,
- * and doubling a border with an elevation reads as two competing signals for
- * one edge — so the bound is the border alone.
- *
- * The `state` parameter is reserved for forward compatibility — current Base
- * UI plumbing exposes open / disabled via `aria-expanded` and `:disabled`
- * directly, so the recipe handles those branches without an explicit branch
- * at call time.
- */
-export const computeDateTriggerClasses = ({
-  state = 'default',
-}: {
-  state?: TriggerState
-} = {}): string =>
-  [
-    TRIGGER_LAYOUT,
-    RADIUS_MD,
-    TRIGGER_SURFACE,
-    TRIGGER_MOTION,
-    FOCUS_VISIBLE_RING,
-    TRIGGER_OPEN,
-    DISABLED,
-    state === 'disabled' ? 'cursor-not-allowed opacity-50' : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // POPUP (floating calendar dialog)
@@ -165,10 +72,10 @@ export const computeDateTriggerClasses = ({
  *
  * It is a LAST resort, not the mechanism: a panel whose contents still want
  * more than the cap allows is clipped by it. The contents adapt first — see
- * `range-panel.tsx`, which stacks its preset column and drops its second month
+ * `range-panel.tsx`, which stacks its preset column and hides its second month
  * below `md` so the cap is never the thing doing the work.
  */
-const POPUP_LAYOUT = 'absolute left-0 top-full z-50 mt-1 max-w-[calc(100vw-2rem)] p-3'
+const POPUP_LAYOUT = 'absolute left-0 top-full z-50 mt-1 max-w-[calc(100vw-2rem)] p-1'
 
 /**
  * The same panel, drawn IN FLOW — the layout a still DEPICTION of the open
@@ -185,7 +92,7 @@ const POPUP_LAYOUT = 'absolute left-0 top-full z-50 mt-1 max-w-[calc(100vw-2rem)
  * This is the layout half of why `open` is filed as `depicted` rather than
  * `rendered`: the appearance is real markup and the POSITION is the console's.
  */
-const POPUP_LAYOUT_DEPICTED = 'relative mt-1 max-w-[calc(100vw-2rem)] p-3'
+const POPUP_LAYOUT_DEPICTED = 'relative mt-1 max-w-[calc(100vw-2rem)] p-1'
 
 const POPUP_SHADOW = `shadow-[${v('shadow-lg', T.shadowLg)}]`
 
@@ -204,149 +111,3 @@ export const computeDatePopupClasses = ({
   [depicted ? POPUP_LAYOUT_DEPICTED : POPUP_LAYOUT, RADIUS_LG, POPUP_SURFACE, POPUP_SHADOW].join(
     ' '
   )
-
-// ──────────────────────────────────────────────────────────────────────────────
-// NAV BUTTON (prev / next month chevrons)
-// ──────────────────────────────────────────────────────────────────────────────
-
-const NAV_BUTTON_LAYOUT = 'inline-flex h-7 w-7 items-center justify-center text-base'
-
-const NAV_BUTTON_SURFACE = [
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `hover:text-[${v('sv-fg', T.fg)}]`,
-].join(' ')
-
-/**
- * Compute the default className for a calendar-popup month-navigation button
- * (the `‹` / `›` controls flanking the caption). Both directions share the
- * same recipe; the `direction` parameter is accepted for forward
- * compatibility (e.g. to tighten one side's border-radius for a date-range
- * picker that hosts two stacked grids — not the current Sovrium layout).
- * Hover lights up with the bg-subtle surface, matching the select item
- * highlight tone so navigation feels like one design vocabulary.
- */
-export const computeDateNavButtonClasses = ({
-  direction: _direction,
-}: {
-  direction: NavDirection
-}): string =>
-  [NAV_BUTTON_LAYOUT, RADIUS_MD, NAV_BUTTON_SURFACE, MOTION_COLORS, FOCUS_VISIBLE_RING, DISABLED]
-    .filter(Boolean)
-    .join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// CAPTION (current month / year label)
-// ──────────────────────────────────────────────────────────────────────────────
-
-const CAPTION_LAYOUT = 'text-base font-medium'
-
-const CAPTION_SURFACE = `text-[${v('sv-fg', T.fg)}]`
-
-/**
- * Compute the default className for the calendar caption (the centred
- * "Month Year" label between the prev/next nav buttons). Uses the strong
- * foreground tone so it anchors visually against the muted weekday header
- * row below it.
- */
-export const computeDateCaptionClasses = (): string => [CAPTION_LAYOUT, CAPTION_SURFACE].join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// WEEKDAY HEADER CELL (Su Mo Tu We Th Fr Sa)
-// ──────────────────────────────────────────────────────────────────────────────
-
-const WEEKDAY_LAYOUT = 'h-8 w-8 px-1 py-1 text-center text-xs font-normal'
-
-const WEEKDAY_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
-
-/**
- * Compute the default className for a weekday header cell (the `<th>`
- * column heading inside the calendar `<thead>`). Muted foreground tone +
- * smaller size so the header reads as orientation, not as selectable
- * content — the eye is drawn to the strong day-cell numbers below.
- */
-export const computeDateWeekdayClasses = (): string => [WEEKDAY_LAYOUT, WEEKDAY_SURFACE].join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// DAY CELL (individual day button inside the grid)
-// ──────────────────────────────────────────────────────────────────────────────
-
-const DAY_LAYOUT = 'inline-flex h-8 w-8 items-center justify-center text-sm'
-
-const DAY_DEFAULT = [
-  `text-[${v('sv-fg', T.fg)}]`,
-  `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-].join(' ')
-
-const DAY_SELECTED = [
-  `bg-[${v('sv-primary', T.primary)}]`,
-  `text-[${v('sv-primary-fg', T.primaryFg)}]`,
-  `hover:bg-[${v('sv-primary-hover', T.primaryHover)}]`,
-].join(' ')
-
-const DAY_TODAY = [
-  `text-[${v('sv-fg', T.fg)}]`,
-  `font-semibold`,
-  `ring-1`,
-  `ring-[${v('sv-border-strong', T.borderStrong)}]`,
-  `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-].join(' ')
-
-const DAY_OUTSIDE = [
-  `text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-  `hover:bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-].join(' ')
-
-const DAY_DISABLED = [`text-[${v('sv-fg-disabled', T.fgDisabled)}]`, 'cursor-not-allowed'].join(' ')
-
-const DAY_RANGE_MIDDLE = [
-  `bg-[${v('sv-primary-subtle', T.primarySubtle)}]`,
-  `text-[${v('sv-primary-subtle-fg', T.primarySubtleFg)}]`,
-  'rounded-none',
-].join(' ')
-
-const DAY_RANGE_START = [
-  `bg-[${v('sv-primary', T.primary)}]`,
-  `text-[${v('sv-primary-fg', T.primaryFg)}]`,
-].join(' ')
-
-const DAY_RANGE_END = DAY_RANGE_START
-
-const DAY_STATE_MAP: Record<DayCellState, string> = {
-  default: DAY_DEFAULT,
-  selected: DAY_SELECTED,
-  today: DAY_TODAY,
-  outside: DAY_OUTSIDE,
-  disabled: DAY_DISABLED,
-  'range-start': DAY_RANGE_START,
-  'range-end': DAY_RANGE_END,
-  'range-middle': DAY_RANGE_MIDDLE,
-}
-
-/**
- * Compute the default className for an individual day-cell `<button>` inside
- * the calendar grid. The `state` axis covers every variant the day cell can
- * enter: `default` (unselected weekday in the current month), `selected`
- * (single-mode picked day), `today` (current date with a subtle ring),
- * `outside` (back-fill from previous/next month, muted), `disabled`
- * (out-of-bounds via minDate/maxDate), plus the three range-selection
- * variants. Radius defaults to md; range-middle drops it so consecutive
- * middle cells fuse into a continuous selection bar.
- */
-export const computeDateDayClasses = ({
-  state = 'default',
-}: {
-  state?: DayCellState
-} = {}): string =>
-  [
-    DAY_LAYOUT,
-    state === 'range-middle' ? '' : RADIUS_MD,
-    DAY_STATE_MAP[state],
-    MOTION_COLORS,
-    FOCUS_VISIBLE_RING,
-    DISABLED,
-  ]
-    .filter(Boolean)
-    .join(' ')

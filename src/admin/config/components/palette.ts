@@ -5,7 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// The console's ⌘K command palette, as config.
+// sovrium-library: block/command@0.37.0#11d80c9163ba
+
+// The console's ⌘K command palette, INSTALLED from the library's `command`
+// block. The copy keeps the block's shape; its one binding is `search`, which
+// replaces the block's demo `groups` with cross-entity search over
+// `/api/admin/search` (a literal here, because a block copy is read as a
+// literal, as every copy is read).
 //
 // ─── WHY IT IS DECLARED RATHER THAN INHERITED ──────────────────────────────
 //
@@ -33,9 +39,9 @@
 // swap would unmount the listener and ⌘K would stop working after the first
 // in-console navigation.
 
-import { SEARCH_ENDPOINT } from '../system-sources'
-
-export default {
-  type: 'command-palette',
-  search: { endpoint: SEARCH_ENDPOINT },
+const paletteCopy = {
+  type: 'command',
+  search: { endpoint: '/api/admin/search' },
 } as const
+
+export default paletteCopy

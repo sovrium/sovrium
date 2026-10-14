@@ -31,6 +31,7 @@
 // pure DATA console; connections are declared in the config file).
 
 import { pageHeading } from '../../components/data-page'
+import { dataTable, STATUS_BADGE } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -54,26 +55,6 @@ const oauthAuthorizeAction = {
   url: '/api/admin/connections/$record.id/authorize',
   redirectKey: 'authorizationUrl',
   callbackPath: '/api/admin/connections/$record.name/callback',
-} as const
-
-/**
- * The status chip, drawn on the cell's inner `<span>` only.
- *
- * `cellStyle.className` is applied TWICE by the grid — to the `<td>` and again
- * to the `<span>` wrapping the value — so a pill written plainly paints a
- * second, cell-sized rounded bar that fills the row height. Every class below
- * is scoped with the `[&:is(span)]:` variant, which matches the inner span and
- * never the cell, so the chip hugs its label like every other badge in the
- * console. Literal strings, not composed: the build-time class harvest reads
- * this file as text.
- */
-const STATUS_PILL = {
-  positive:
-    '[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:rounded-full [&:is(span)]:px-2 [&:is(span)]:py-0.5 [&:is(span)]:text-sm [&:is(span)]:font-medium [&:is(span)]:bg-success-bg [&:is(span)]:text-success-fg',
-  caution:
-    '[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:rounded-full [&:is(span)]:px-2 [&:is(span)]:py-0.5 [&:is(span)]:text-sm [&:is(span)]:font-medium [&:is(span)]:bg-warning-bg [&:is(span)]:text-warning-fg',
-  consequence:
-    '[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:rounded-full [&:is(span)]:px-2 [&:is(span)]:py-0.5 [&:is(span)]:text-sm [&:is(span)]:font-medium [&:is(span)]:bg-error-bg [&:is(span)]:text-error-fg',
 } as const
 
 /**
@@ -116,15 +97,15 @@ const CONNECTIONS_COLUMNS = [
       'reconnect-needed': '$t:admin.connections.status.reconnectNeeded',
     },
     cellStyle: [
-      { when: { eq: 'active' }, className: STATUS_PILL.positive },
-      { when: { eq: 'expiring-soon' }, className: STATUS_PILL.caution },
-      { when: { eq: 'expired' }, className: STATUS_PILL.consequence },
+      { when: { eq: 'active' }, className: STATUS_BADGE.positive },
+      { when: { eq: 'expiring-soon' }, className: STATUS_BADGE.caution },
+      { when: { eq: 'expired' }, className: STATUS_BADGE.destructive },
       // A token the provider gave no refresh token for (LinkedIn, Meta): it
       // lapses and nothing but a new authorization restores it. That is the
       // one status that is ALWAYS a call to action — `expired` heals itself on
       // the next call — so it takes the consequence tone, and the row offers
       // Reconnect (`rowAction === 'reconnect'`).
-      { when: { eq: 'reconnect-needed' }, className: STATUS_PILL.consequence },
+      { when: { eq: 'reconnect-needed' }, className: STATUS_BADGE.destructive },
     ],
   },
   {
@@ -175,18 +156,20 @@ const CONNECTIONS_COLUMNS = [
     actions: [
       {
         label: '$t:admin.connections.action.connect',
+        icon: 'plug',
         visibleWhen: { field: 'rowAction', eq: 'connect' },
         action: oauthAuthorizeAction,
       },
       {
         label: '$t:admin.connections.action.reconnect',
-        variant: 'ghost',
+        icon: 'refresh-cw',
         visibleWhen: { field: 'rowAction', eq: 'reconnect' },
         action: oauthAuthorizeAction,
       },
       {
         label: '$t:admin.connections.action.disconnect',
-        variant: 'ghost',
+        icon: 'unplug',
+        variant: 'destructive',
         visibleWhen: { field: 'rowAction', in: ['disconnect', 'reconnect'] },
         confirm: '$t:admin.connections.action.disconnectConfirm',
         action: {
@@ -207,39 +190,16 @@ export default withShell(
     meta: { title: '$t:admin.meta.connections', lang: 'en-US' },
     components: [
       pageHeading('$t:admin.connections.heading', '$t:admin.connections.blurb'),
-      {
-        type: 'table',
+      dataTable({
         props: { id: 'admin-connections-grid', 'aria-label': '$t:admin.connections.region' },
         dataSource: {
           system: { endpoint: '/api/admin/connections', rowsKey: 'connections', idKey: 'id' },
         },
         columns: CONNECTIONS_COLUMNS,
-        // The search box needs NO server parameter here, and that is what makes
-        // it honest. The endpoint takes no arguments and returns the WHOLE list
-        // (connections are bounded by the config, not by the data), so the
-        // in-memory filter sees every row — the condition that made the
-        // paginated grids lie is simply absent.
-        //
-        // The second half of that argument is the projection: both fields an
-        // operator searches by, `name` and `provider`, are RENDERED columns, so
-        // the filter can actually match them. (The users directory failed
-        // exactly there: `name` matched server-side but was never a column.)
-        // The endpoint omits `appliedQuery`, which is precisely the tri-state
-        // contract's "this endpoint does not search; filter client-side".
         search: { enabled: true, placeholder: '$t:admin.connections.search' },
         noMatchMessage: '$t:admin.connections.noMatch',
-        // No toolbar `sort` button: every column header already sorts, and the
-        // toolbar button's caption is drawn in English by the grid whatever the
-        // console's language — so on this one-screen list it duplicated a
-        // control and broke the French page. Header sort stays.
-        // NO `pagination` block, deliberately — one here produced a pager that
-        // lied. The endpoint takes no paging parameters and returns every row,
-        // while the island sets `manualPagination: true` unconditionally, so the
-        // client never slices what it receives: `pageSize: 25` against 30
-        // connections rendered all 30 rows under a pager reading "1–25 of 30".
-        // One screen is the honest presentation until the endpoint paginates.
         emptyMessage: '$t:admin.connections.empty',
-      },
+      }),
     ],
   } as PageConfig,
   { breadcrumb: { connections: '$t:admin.crumb.connections' } }

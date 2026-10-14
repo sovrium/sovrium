@@ -89,7 +89,7 @@ export const entry = defineLibraryEntry({
                           props: { className: 'text-md font-semibold text-foreground' },
                           content: p('title'),
                         },
-                        span(p('subtitle'), 'text-sm text-foreground-subtle'),
+                        span(p('subtitle'), 'text-sm text-muted-foreground'),
                       ],
                       'gap-0.5'
                     ),

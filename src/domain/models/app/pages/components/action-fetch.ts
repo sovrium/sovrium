@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { formAddressCheck } from '../../forms/form-address-validation'
 
 /**
  * Fetch Toast Response Schema
@@ -54,6 +55,14 @@ export const FetchToastResponseSchema = Schema.Struct({
     Schema.String.annotate({
       description:
         'URL invoked (POST) when the toast action button is clicked. Required with actionLabel.',
+    })
+  ),
+  /** The loading toast shown while the request is open, which then turns into this toast. */
+  loadingMessage: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "Text of a loading toast shown while the request is in flight. When the answer arrives that same toast turns into the onSuccess or onError message: one toast, never two. shadcn/ui's Sonner promise toast.",
+      examples: ['Sending the invoice…', 'Saving…'],
     })
   ),
 }).annotate({
@@ -180,11 +189,62 @@ const FetchSuccessReloadSchema = Schema.Boolean.annotate({
 })
 
 /**
+ * Close the overlay the control sits in once the request succeeds.
+ *
+ * ─── ONE EVENT, EVERY OVERLAY ──────────────────────────────────────────────
+ *
+ * A dialog, an alert dialog, a drawer (side sheets included), a record drawer
+ * and a popover each close when the control that asked sits inside them, and
+ * only the innermost of two nested overlays closes — the one the reader was
+ * looking at. A control that sits in no overlay has nothing to close, and the
+ * key does nothing there rather than failing: whether a component ends up in an
+ * overlay is decided by the page tree, references included, and a check that
+ * stopped at a reference would refuse valid configs.
+ *
+ * Refused beside `reload`, which replaces the page the overlay is drawn on.
+ */
+const FetchSuccessCloseSchema = Schema.Boolean.annotate({
+  title: 'Fetch Success Close',
+  description:
+    'When true, closes the dialog, sheet or popover the control sits in once the request succeeds; when two are nested, only the innermost closes. A control that sits in no overlay has nothing to close, and the key does nothing there. Refused beside reload, which replaces the page the overlay is drawn on.',
+  examples: [true],
+})
+
+/**
+ * Leave for another address once the request succeeds.
+ *
+ * ─── THE SAME ADDRESS RULE AS EVERY OTHER NAVIGATION ───────────────────────
+ *
+ * A path on this site, checked when the config is read: the schema refuses a
+ * script or protocol-relative address, and the page's action-placement rules
+ * refuse another site's address, which the redirect check would drop at run
+ * time (`action-placement-validation.ts`). The address may carry
+ * `$response.<path>` (a field of the JSON body this request returned, the same
+ * resolver `status.message` uses), a `$record.<field>` where the control knows
+ * its record, and a `$t:` key.
+ *
+ * ─── WHY IT IS REFUSED BESIDE THE SAME-PAGE EFFECTS ────────────────────────
+ *
+ * `status` writes into this page, `refetch` re-reads part of it and `reload`
+ * re-reads all of it; a navigation leaves it. Declared together they are two
+ * answers to one question, so each pairing is refused with a message naming
+ * both keys. The toast and `close` are not refused: both run before the page is
+ * left, in that order, although a toast shown just before an immediate
+ * navigation is gone with the page.
+ */
+const FetchSuccessNavigateSchema = Schema.String.annotate({
+  title: 'Fetch Success Navigate',
+  description:
+    'Address the browser goes to once the request succeeds. Supports $response.<field> (a dot path into the JSON body the request returned; absent resolves to empty), $record.<field> where the control has a record, and a $t: key. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so an `http://` or `https://` address is refused — use a link to send the reader to another site. Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read. Refused beside reload, status and refetch, and on a fetch action whose mode is not fetch.',
+  examples: ['/invoices/$response.id', '/orders/$record.id/receipt'],
+}).pipe(Schema.check(formAddressCheck))
+
+/**
  * The fields of {@link FetchSuccessResponseSchema}, before its check. Exported so
  * a success slot that sits somewhere the fetch action does not can add effects
- * only it can honour — the endpoint form's `close` and `reset` — without the
- * fetch action, the file upload and every other consumer of the shared slot
- * gaining keys they would leave inert.
+ * only it can honour — the endpoint form's `reset` — without the fetch action,
+ * the file upload and every other consumer of the shared slot gaining keys they
+ * would leave inert.
  */
 export const fetchSuccessResponseFields = {
   ...FetchToastResponseSchema.fields,
@@ -194,35 +254,61 @@ export const fetchSuccessResponseFields = {
   refetch: Schema.optional(FetchSuccessRefetchSchema),
   /** Reload the whole page on success so the server recomposes it. */
   reload: Schema.optional(FetchSuccessReloadSchema),
+  /** Close the dialog, drawer or popover the control sits in on success. */
+  close: Schema.optional(FetchSuccessCloseSchema),
+  /** Go to another address on success. */
+  navigate: Schema.optional(FetchSuccessNavigateSchema),
 } as const
 
 /**
- * The reason a success slot declaring `reload` beside a same-page effect is
- * refused, or `true` when it is not. Shared by every slot built on
- * {@link fetchSuccessResponseFields}, so the refusal reads the same wherever an
- * author meets it.
+ * The reason a success slot declaring two ways of leaving — or a way of leaving
+ * beside an effect on the page it leaves — is refused, or `true` when it is not.
+ * Shared by every slot built on {@link fetchSuccessResponseFields}, so the
+ * refusal reads the same wherever an author meets it.
+ *
+ * `reload` replaces the document and `navigate` leaves it, so neither can sit
+ * beside `status` or `refetch`, nor beside each other; `close` cannot sit beside
+ * `reload`, which redraws the page the overlay was on. `close` beside `navigate`
+ * is accepted: the overlay closes, then the page is left.
  */
-export const fetchSuccessReloadConflict = (response: {
+export const fetchSuccessExitConflict = (response: {
   readonly reload?: boolean | undefined
   readonly status?: unknown
   readonly refetch?: unknown
+  readonly close?: boolean | undefined
+  readonly navigate?: string | undefined
 }): true | string => {
-  if (response.reload !== true) return true
+  if (response.reload === true) {
+    if (response.status !== undefined) {
+      return "onSuccess declares both 'reload' and 'status' — the reload replaces the document the status region lives in, so the message would be destroyed before anyone read it. Keep one: 'reload' to recompose the page server-side, or 'status' to write a persistent inline message into the page that stays."
+    }
+    if (response.refetch !== undefined) {
+      return "onSuccess declares both 'reload' and 'refetch' — a reload re-reads the whole page, so the narrower per-region re-query is subsumed and its read would run twice. Keep one: 'reload' when a server-read value changed, or 'refetch' when only one named region needs re-querying."
+    }
+    if (response.close !== undefined) {
+      return "onSuccess declares both 'reload' and 'close' — the reload replaces the page the dialog is drawn on, so there is nothing left to close. Keep one: 'reload' to recompose the page server-side, or 'close' to close the dialog and stay on the page."
+    }
+    if (response.navigate !== undefined) {
+      return "onSuccess declares both 'reload' and 'navigate' — both leave the page, one for itself and one for another address, so only one of them could happen. Keep one: 'reload' to recompose this page, or 'navigate' to go to the other address."
+    }
+    return true
+  }
+  if (response.navigate === undefined) return true
   if (response.status !== undefined) {
-    return "onSuccess declares both 'reload' and 'status' — the reload replaces the document the status region lives in, so the message would be destroyed before anyone read it. Keep one: 'reload' to recompose the page server-side, or 'status' to write a persistent inline message into the page that stays."
+    return "onSuccess declares both 'navigate' and 'status' — the navigation leaves the page the status region lives in, so the message would be gone before anyone read it. Keep one: 'navigate' to go to the other address, or 'status' to write a persistent inline message and stay."
   }
   if (response.refetch !== undefined) {
-    return "onSuccess declares both 'reload' and 'refetch' — a reload re-reads the whole page, so the narrower per-region re-query is subsumed and its read would run twice. Keep one: 'reload' when a server-read value changed, or 'refetch' when only one named region needs re-querying."
+    return "onSuccess declares both 'navigate' and 'refetch' — the navigation leaves the page whose region would be re-read, so the read would be wasted. Keep one: 'navigate' to go to the other address, or 'refetch' to refresh the region and stay."
   }
   return true
 }
 
 /**
  * Success response for a `fetch` action — the toast slot PLUS the additive
- * client-state effects (`status`, `refetch`, `reload`).
+ * effects (`status`, `refetch`, `reload`, `close`, `navigate`).
  *
  * Re-uses every `FetchToastResponseSchema` field (so existing toast-only `onSuccess`
- * configs validate unchanged), then layers three effects on top:
+ * configs validate unchanged), then layers five effects on top:
  *  - `status`: write a PERSISTENT inline `role="status"` region (distinct from the
  *    transient toast) — the "Export généré" badge;
  *  - `refetch`: re-query sibling data-bound component(s) by `props.id` — so a
@@ -230,18 +316,25 @@ export const fetchSuccessReloadConflict = (response: {
  *  - `reload`: recompose the WHOLE page server-side — see
  *    {@link FetchSuccessReloadSchema} for why the narrow effect above does not
  *    cover a server-read value, and for what the reload costs.
+ *  - `close`: close the dialog, drawer or popover the control sits in — see
+ *    {@link FetchSuccessCloseSchema};
+ *  - `navigate`: go to another address — see {@link FetchSuccessNavigateSchema}.
  *
  * `type` + `message` stay required (the toast slot is unchanged); `status` / `refetch`
  * ride ALONGSIDE the toast (a brief success toast can coexist with the persistent
  * status badge and the list refresh).
  *
- * ─── THE ONE COMBINATION THAT IS REFUSED ───────────────────────────────────
+ * ─── THE COMBINATIONS THAT ARE REFUSED ─────────────────────────────────────
  *
- * `reload` XOR (`status` | `refetch`). Both of those write into, or re-read part
- * of, the document the reload is about to replace, so declaring either beside it
- * is two answers to one question with no defensible precedence — the same shape
- * as the `options` / `optionsSource` refusal one file over, and the same shape as
- * `link.to` / `link.targets`.
+ * `reload` XOR (`status` | `refetch` | `close` | `navigate`), and `navigate` XOR
+ * (`status` | `refetch`). A reload replaces the document and a navigation leaves
+ * it, so an effect written into, or re-read from, that document is two answers to
+ * one question with no defensible precedence — the same shape as the `options` /
+ * `optionsSource` refusal one file over, and the same shape as `link.to` /
+ * `link.targets`. See {@link fetchSuccessExitConflict}.
+ *
+ * The effects that remain run in one order: toast, `status` / `refetch`,
+ * `close`, then `navigate` or `reload`.
  *
  * The check is piped AFTER the annotation and never before it: a trailing
  * `.annotate(...)` on a checked node lands on the CHECK rather than on the node,
@@ -253,9 +346,9 @@ export const FetchSuccessResponseSchema = Schema.Struct(fetchSuccessResponseFiel
   Schema.annotate({
     title: 'Fetch Success Response',
     description:
-      'Success handler for a fetch action: the toast slot plus optional client-state effects — a persistent inline status region (status), a sibling data-bound refetch (refetch), and a full-page reload (reload) that recomposes the page server-side. reload is mutually exclusive with status and refetch.',
+      'Success handler for a fetch action: the toast slot plus optional effects — a persistent inline status region (status), a sibling data-bound refetch (refetch), a full-page reload (reload) that recomposes the page server-side, closing the overlay the control sits in (close), and going to another address (navigate). They run in that order: toast, status and refetch, close, then the page is left. reload is mutually exclusive with status, refetch, close and navigate; navigate is mutually exclusive with status and refetch.',
   }),
-  Schema.check(Schema.makeFilter(fetchSuccessReloadConflict))
+  Schema.check(Schema.makeFilter(fetchSuccessExitConflict))
 )
 
 /**
@@ -503,6 +596,31 @@ export const FetchActionSchema = Schema.Struct({
    */
   responseEnvelope: Schema.optional(FetchResponseEnvelopeSchema),
   /**
+   * Text the button shows, beside a spinner, while the request is in flight.
+   * The button is disabled for that time, so a second press sends nothing.
+   * When omitted, the built-in word is used in the page language
+   * (`Sending…`). Supports a `$t:key` translation reference. Meaningless for
+   * `mode: navigate` and `mode: download`, which leave the page or save a
+   * file rather than wait for an answer.
+   *
+   * @example
+   * ```yaml
+   * action:
+   *   type: fetch
+   *   url: /api/auth/admin/ban-user
+   *   method: POST
+   *   pendingLabel: Banning…
+   * ```
+   */
+  pendingLabel: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Text the button shows, beside a spinner, while the request is in flight. The button is disabled for that time, so a second press sends nothing; when the success reloads the page it stays so until the page has reloaded. Not used by `mode: navigate` or `mode: download`. Accepts a `$t:` key.',
+      defaultNote: 'Sending…, in the page language',
+      examples: ['Banning…', 'Bannissement…', '$t:users.banning'],
+    })
+  ),
+  /**
    * Success handler when the fetch resolves with a 2xx response. The toast slot
    * (back-compat) PLUS optional client-state effects: a persistent inline
    * `role="status"` region (`status`) and a sibling data-bound `refetch`.
@@ -520,8 +638,11 @@ export const FetchActionSchema = Schema.Struct({
   // the check, and the struct's title/description would vanish from app.json.
   Schema.check(
     Schema.makeFilter((action) => {
-      if (action.openInNewTab === undefined) return true
       const mode = action.mode ?? 'fetch'
+      if (action.onSuccess?.navigate !== undefined && mode !== 'fetch') {
+        return `'onSuccess.navigate' only applies to a fetch action in mode 'fetch' — this action's mode is '${mode}', which ${mode === 'download' ? 'saves a file' : 'leaves the page itself'} rather than waiting for an answer to navigate from. Set mode: fetch, or remove onSuccess.navigate.`
+      }
+      if (action.openInNewTab === undefined) return true
       if (mode === 'navigate') return true
       return `'openInNewTab' only applies to a fetch action in mode 'navigate' — this action's mode is '${mode}', which opens no page. Set mode: navigate, or remove openInNewTab.`
     })

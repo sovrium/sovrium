@@ -3,7 +3,7 @@ name: record-history
 type: container
 element: section
 props:
-  className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5
+  className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:p-5
   aria-label: History
 children:
   - type: text
@@ -111,5 +111,5 @@ children:
           - type: record-field
             props:
               field: createdAt
-              className: shrink-0 text-sm text-foreground-muted
+              className: shrink-0 text-sm text-muted-foreground
             format: relative-date

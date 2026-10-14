@@ -1,4 +1,5 @@
-# sovrium-library: block/team-list@0.30.0
+# sovrium-library: block/team-list@0.37.0
+# sovrium-library-params: headline=%5BWho%20you%20will%20work%20with%5D&subheadline=The%20people%20a%20client%20actually%20talks%20to.
 name: team-list
 type: container
 element: section
@@ -25,7 +26,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-lg text-pretty text-foreground-muted sm:text-xl
+                  className: text-lg text-pretty text-muted-foreground sm:text-xl
                 content: The people a client actually talks to.
           - type: flex
             props:
@@ -42,7 +43,7 @@ children:
                       - type: avatar
                         label: '[Full name]'
                         initials: AB
-                        size: md
+                        size: default
                       - type: flex
                         props:
                           className: flex flex-col gap-0.5 text-left
@@ -55,13 +56,13 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-sm text-foreground-subtle
+                              className: text-sm text-muted-foreground
                             content: '[Role]'
                   - type: link
                     props:
                       href: '#member-1'
                       aria-label: Profile of team member 1
-                      className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+                      className: inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground
                     children:
                       - type: icon
                         props:
@@ -78,7 +79,7 @@ children:
                       - type: avatar
                         label: '[Full name]'
                         initials: AB
-                        size: md
+                        size: default
                       - type: flex
                         props:
                           className: flex flex-col gap-0.5 text-left
@@ -91,13 +92,13 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-sm text-foreground-subtle
+                              className: text-sm text-muted-foreground
                             content: '[Role]'
                   - type: link
                     props:
                       href: '#member-2'
                       aria-label: Profile of team member 2
-                      className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+                      className: inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground
                     children:
                       - type: icon
                         props:
@@ -114,7 +115,7 @@ children:
                       - type: avatar
                         label: '[Full name]'
                         initials: AB
-                        size: md
+                        size: default
                       - type: flex
                         props:
                           className: flex flex-col gap-0.5 text-left
@@ -127,13 +128,13 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-sm text-foreground-subtle
+                              className: text-sm text-muted-foreground
                             content: '[Role]'
                   - type: link
                     props:
                       href: '#member-3'
                       aria-label: Profile of team member 3
-                      className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+                      className: inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground
                     children:
                       - type: icon
                         props:
@@ -150,7 +151,7 @@ children:
                       - type: avatar
                         label: '[Full name]'
                         initials: AB
-                        size: md
+                        size: default
                       - type: flex
                         props:
                           className: flex flex-col gap-0.5 text-left
@@ -163,13 +164,13 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-sm text-foreground-subtle
+                              className: text-sm text-muted-foreground
                             content: '[Role]'
                   - type: link
                     props:
                       href: '#member-4'
                       aria-label: Profile of team member 4
-                      className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+                      className: inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground
                     children:
                       - type: icon
                         props:
@@ -186,7 +187,7 @@ children:
                       - type: avatar
                         label: '[Full name]'
                         initials: AB
-                        size: md
+                        size: default
                       - type: flex
                         props:
                           className: flex flex-col gap-0.5 text-left
@@ -199,13 +200,13 @@ children:
                           - type: text
                             element: span
                             props:
-                              className: text-sm text-foreground-subtle
+                              className: text-sm text-muted-foreground
                             content: '[Role]'
                   - type: link
                     props:
                       href: '#member-5'
                       aria-label: Profile of team member 5
-                      className: inline-flex size-9 items-center justify-center rounded-md text-foreground-subtle hover:bg-background-subtle hover:text-foreground
+                      className: inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground
                     children:
                       - type: icon
                         props:

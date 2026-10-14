@@ -152,7 +152,7 @@ function kpiForReader(component: Bag, isHidden: IsHidden): Bag | 'withheld' {
 const FOR_READER: Readonly<Record<string, (c: Bag, isHidden: IsHidden) => Bag | 'withheld'>> = {
   kpi: kpiForReader,
   kanban: kanbanForReader,
-  calendar: calendarForReader,
+  'event-calendar': calendarForReader,
   timeline: timelineForReader,
   chart: chartForReader,
 }

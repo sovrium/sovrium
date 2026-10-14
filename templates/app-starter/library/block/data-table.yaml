@@ -1,0 +1,62 @@
+# sovrium-library: block/data-table@0.37.0
+# sovrium-library-params: amountField=budget&clientField=client&dateField=due_date&emptyMessage=No%20record%20yet.%20Create%20one%20to%20see%20it%20here.&headline=Projects&noMatchMessage=Nothing%20matches.%20Clear%20the%20search%20or%20remove%20a%20filter%20to%20widen%20it.&referenceField=title&statusField=status&table=projects
+name: data-table
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: Projects
+      - type: table
+        dataSource:
+          table: projects
+          sort:
+            - field: due_date
+              direction: desc
+        columns:
+          - field: title
+            label: Project
+          - field: client
+            label: Client
+          - field: status
+            label: Status
+          - field: budget
+            label: Budget
+          - field: due_date
+            label: Due
+        toolbar:
+          search: true
+          filters: true
+          export: true
+        selection:
+          mode: multiple
+        bulkActions:
+          - label: Delete
+            icon: trash-2
+            action:
+              type: crud
+              operation: delete
+              table: projects
+            confirm:
+              message: 'Delete {count} records? This cannot be undone.'
+              confirmLabel: Delete
+        pagination:
+          pageSize: 10
+          pageSizeOptions:
+            - 10
+            - 25
+            - 50
+        emptyMessage: No record yet. Create one to see it here.
+        noMatchMessage: Nothing matches. Clear the search or remove a filter to widen it.

@@ -30,6 +30,7 @@ export const entry = defineLibraryEntry({
     DATA_NOTE,
     "The form is installed into `forms:` under the block's name and placed in the dialog with `formRef`, so it adds the record through that form. Its submissions do not reach the Submissions inbox; set `submitTo.storeSubmission: true` on it to keep them there.",
     'Focus moves into the dialog when it opens and stays there until it closes. The dialog is named after the installed block, so two copies on one page open their own dialogs.',
+    'The dialog adds a Cancel beside the submit button, and shows one title: its own.',
     THEME_NOTE,
   ],
   params: [
@@ -44,6 +45,7 @@ export const entry = defineLibraryEntry({
       'One sentence under the title.',
       'They receive an email with a link to join. The link expires after seven days.'
     ),
+    stringParam('submitLabel', 'The text of the button that sends the form.', 'Send invitation'),
     stringParam('table', 'The table the form creates a record in.', 'members'),
     stringParam('nameField', 'A text field.', 'name'),
     stringParam('emailField', 'An email field.', 'email'),
@@ -70,6 +72,7 @@ export const entry = defineLibraryEntry({
       {
         name,
         title: p('title'),
+        display: { submitLabel: p('submitLabel') },
         submitTo: { table: p('table') },
         fields: [
           { kind: 'table-field', column: p('nameField'), label: '[Name]' },

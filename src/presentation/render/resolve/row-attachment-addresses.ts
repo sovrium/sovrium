@@ -12,8 +12,14 @@
  * `file-preview` and the records API mint, valid an hour); on a public bucket,
  * the bucket's plain files address. Its parts read what the column recorded:
  * `.key` the storage key, `.url` the same address, `.name`, `.size` and
- * `.mimeType` what was stored with the file, empty otherwise. A
- * `multiple-attachments` column answers for its first file.
+ * `.mimeType` what was stored with the file, empty otherwise, and `.raw` the
+ * stored value as written. A `multiple-attachments` column answers for its
+ * first file. A file a hosted form stored carries no `key`, only the `url` it
+ * was filed under: its key is read from that url's files path.
+ *
+ * The same grammar holds wherever `$record.` names ONE record — a page bound
+ * in single mode, a collection page, a component bound in single mode — so a
+ * token means one thing in every binding.
  *
  * Only the rows the page already read for this reader are addressed — the row
  * read applied the row-level rules and dropped every column she may not read —
@@ -29,6 +35,7 @@
  */
 
 import { parseJsonArrayCell, parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
+import { parseBucketFileUrl } from '@/domain/kernel/url/bucket-file-url'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
@@ -42,12 +49,12 @@ const ATTACHMENT_TYPES: ReadonlySet<string> = new Set([
   'attachment',
 ])
 
-const PARTS = ['url', 'key', 'name', 'size', 'mimeType'] as const
+const PARTS = ['url', 'key', 'name', 'size', 'mimeType', 'raw'] as const
 type Part = (typeof PARTS)[number]
 
 /** One `$record.<field>` token, with an optional attachment part. A static literal. */
 const ATTACHMENT_TOKEN =
-  /(?<!\\)\$record\.([a-zA-Z0-9_]+)(?:\.(key|url|name|size|mimeType)(?![a-zA-Z0-9_]))?/g
+  /(?<!\\)\$record\.([a-zA-Z0-9_]+)(?:\.(key|url|name|size|mimeType|raw)(?![a-zA-Z0-9_]))?/g
 
 /** The hidden field one part of one column is carried under. */
 const partField = (field: string, part: Part): string => `_attachment_${part}_${field}`
@@ -81,10 +88,24 @@ interface StoredFile {
   readonly mimeType?: unknown
 }
 
-/** The recorded details of an object-shaped file, or none without a key. */
+/**
+ * The storage key a bucket download address names — how a file a hosted form
+ * stored (`{ url, name, size, mimeType }`, no `key`) is found again.
+ *
+ * Read by `parseBucketFileUrl`, the parser the record write's reference check
+ * uses, and by no other: the stored `url` is data a writer shaped, and a key
+ * this module signs must be one that check has judged. A looser reading (any
+ * `/files/` path, an external host) would sign, for every reader, a key the
+ * write never confined to a file its writer may download.
+ */
+export const keyFromUrl = (url: unknown): string | undefined =>
+  typeof url === 'string' ? parseBucketFileUrl(url)?.key : undefined
+
+/** The recorded details of an object-shaped file, or none without a key or a files url. */
 const fileFromObject = (file: Readonly<Record<string, unknown>>): StoredFile | undefined => {
-  const { key } = file
-  if (typeof key !== 'string' || key === '') return undefined
+  const key =
+    typeof file['key'] === 'string' && file['key'] !== '' ? file['key'] : keyFromUrl(file['url'])
+  if (key === undefined || key === '') return undefined
   return {
     key,
     name: file['name'] ?? file['filename'],
@@ -121,12 +142,14 @@ const rowParts = async (
   const url = column.isPublic
     ? `/api/buckets/${column.bucket}/files/${file.key}`
     : await sign(column.bucket, file.key, 'record')
+  const stored = row[column.field]
   const values: Readonly<Record<Part, unknown>> = {
     url: url ?? '',
     key: file.key,
     name: file.name,
     size: file.size,
     mimeType: file.mimeType,
+    raw: typeof stored === 'string' ? stored : JSON.stringify(stored),
   }
   return Object.fromEntries(PARTS.map((part) => [partField(column.field, part), values[part]]))
 }
@@ -138,6 +161,78 @@ const namedColumns = (template: unknown, columns: ReadonlySet<string>): Readonly
       .map((token) => token.slice('$record.'.length).split('.')[0] ?? '')
       .filter((field) => columns.has(field))
   )
+
+/** How one binding's attachment tokens become addresses: its tree rewritten, its records given the parts. */
+interface AttachmentAddressing {
+  readonly rewrite: <T>(tree: T) => T
+  readonly address: (record: Readonly<Record<string, unknown>>) => Promise<Record<string, unknown>>
+}
+
+/**
+ * The tree bound to the record with its attachment tokens rewritten. A bound
+ * component's own `children` are its template, so only its `dataSource` is
+ * left alone; a nested binding's children are, as in a row template.
+ */
+const rewriteBound = (tree: unknown, columns: ReadonlySet<string>): unknown =>
+  typeof tree !== 'object' || tree === null || Array.isArray(tree)
+    ? rewriteTemplate(tree, columns)
+    : Object.fromEntries(
+        Object.entries(tree).map(([key, child]) => [
+          key,
+          key === 'dataSource' ? child : rewriteTemplate(child, columns),
+        ])
+      )
+
+/**
+ * The addressing of `template`'s tokens over `tableName`'s attachment columns,
+ * or `undefined` when it names none or the render carries no signer — then the
+ * tree and its records are used as they are.
+ */
+export function attachmentAddressing(input: {
+  readonly template: unknown
+  readonly app: App
+  readonly tableName: string
+  readonly sign: SignFileUrl | undefined
+}): AttachmentAddressing | undefined {
+  const { template, app, tableName, sign } = input
+  const fields = app.tables?.find((table) => table.name === tableName)?.fields ?? []
+  const attachments = new Set(fields.filter((f) => ATTACHMENT_TYPES.has(f.type)).map((f) => f.name))
+  const names = namedColumns(template, attachments)
+  if (sign === undefined || names.size === 0) return undefined
+  const { defaultPublic } = resolveStoragePublicAccess()
+  const columns: readonly ColumnAddress[] = [...names].map((field) => {
+    const bucket = resolveFieldBucket(app, tableName, field) ?? SYSTEM_BUCKET_NAME
+    const declared = app.buckets?.find((candidate) => candidate.name === bucket)
+    return { field, bucket, isPublic: defaultPublic || declared?.public === true }
+  })
+  return {
+    rewrite: <T>(tree: T): T => rewriteBound(tree, names) as T,
+    address: async (row) => {
+      const parts = await Promise.all(columns.map((column) => rowParts(row, column, sign)))
+      return Object.assign({}, row, ...parts) as Record<string, unknown>
+    },
+  }
+}
+
+/** A tree bound to ONE record and that record, its attachment tokens addressed. */
+export type AddressBoundRecord = <T>(
+  tree: T,
+  record: Readonly<Record<string, unknown>>,
+  tableName: string
+) => Promise<{ readonly tree: T; readonly record: Readonly<Record<string, unknown>> }>
+
+/**
+ * The addresser of a page bound to one record — a page `dataSource` in single
+ * mode, or a component bound in single mode: its tokens rewritten, its record
+ * carrying the parts, exactly as a list row does.
+ */
+export const recordAddresser =
+  (app: App, sign: SignFileUrl | undefined): AddressBoundRecord =>
+  async (tree, record, tableName) => {
+    const addressing = attachmentAddressing({ template: tree, app, tableName, sign })
+    if (addressing === undefined) return { tree, record }
+    return { tree: addressing.rewrite(tree), record: await addressing.address(record) }
+  }
 
 /**
  * The list's row template and rows, each attachment token of the bound table
@@ -152,27 +247,10 @@ export async function addressRowAttachments(input: {
   readonly sign: SignFileUrl | undefined
 }): Promise<{ readonly component: Component; readonly rows: readonly Record<string, unknown>[] }> {
   const { component, rows, app, tableName, sign } = input
-  const fields = app.tables?.find((table) => table.name === tableName)?.fields ?? []
-  const attachments = new Set(fields.filter((f) => ATTACHMENT_TYPES.has(f.type)).map((f) => f.name))
-  const names = namedColumns(component.children, attachments)
-  if (sign === undefined || names.size === 0) return { component, rows }
-  const { defaultPublic } = resolveStoragePublicAccess()
-  const columns: readonly ColumnAddress[] = [...names].map((field) => {
-    const bucket = resolveFieldBucket(app, tableName, field) ?? SYSTEM_BUCKET_NAME
-    const declared = app.buckets?.find((candidate) => candidate.name === bucket)
-    return { field, bucket, isPublic: defaultPublic || declared?.public === true }
-  })
-  const addressed = await Promise.all(
-    rows.map(async (row) => {
-      const parts = await Promise.all(columns.map((column) => rowParts(row, column, sign)))
-      return Object.assign({}, row, ...parts) as Record<string, unknown>
-    })
-  )
+  const addressing = attachmentAddressing({ template: component.children, app, tableName, sign })
+  if (addressing === undefined) return { component, rows }
   return {
-    component: {
-      ...component,
-      children: rewriteTemplate(component.children, names) as Component['children'],
-    },
-    rows: addressed,
+    component: { ...component, children: addressing.rewrite(component.children) },
+    rows: await Promise.all(rows.map((row) => addressing.address(row))),
   }
 }

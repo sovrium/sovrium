@@ -45,21 +45,8 @@ function extractCalendarProps(
   }
 }
 
-/** One pulsing bone of the skeleton. */
-const BONE = 'bg-background-subtle animate-pulse rounded'
-
-/**
- * The faint inner grid rule, spelled as an arbitrary value rather than
- * `border-border`.
- *
- * The calendar draws TWO rule weights and collapsing them is the most visible
- * way to get a calendar wrong: `sv-border` closes the surface and separates the
- * weekday header, while the rules BETWEEN day cells are the much fainter
- * `sv-bg-subtle`. The skeleton has to make the same distinction or the grid
- * visibly darkens for the length of the Suspense window and then lightens as the
- * real calendar mounts.
- */
-const WELL_RULE = 'border-[var(--sv-bg-subtle,oklch(0.965_0_0))]'
+/** One pulsing bone of the skeleton: shadcn/ui's `Skeleton`. */
+const BONE = 'bg-muted animate-pulse rounded-md'
 
 /**
  * The skeleton the reader sees while the FullCalendar bundle loads.
@@ -87,13 +74,13 @@ function renderCalendarSkeleton(): ReactElement {
     >
       <div className={computeCalendarToolbarClasses()}>
         <div className={`${BONE} h-7 w-14`} />
-        <div className={`${BONE} h-7 w-12`} />
+        <div className={`${BONE} h-7 w-14`} />
         <div className="flex min-w-0 flex-1 justify-center">
           <div className={`${BONE} h-4 w-32`} />
         </div>
         <div className={`${BONE} h-7 w-40`} />
       </div>
-      <div className="border-border bg-background-raised border">
+      <div className="border-border bg-card border">
         <div className="border-border grid grid-cols-7 border-b">
           {Array.from({ length: 7 }).map((_, i) => (
             <div
@@ -108,7 +95,7 @@ function renderCalendarSkeleton(): ReactElement {
           {Array.from({ length: 35 }).map((_, i) => (
             <div
               key={`calendar-skeleton-${String(i)}`}
-              className={`h-9 border-b border-l p-1 ${WELL_RULE}`}
+              className="border-border h-9 border-b border-l p-1"
             >
               <div className={`${BONE} h-2 w-3`} />
             </div>
@@ -127,7 +114,7 @@ const calendarView = (defaultView: unknown): string =>
   typeof defaultView === 'string' ? defaultView : 'month'
 
 /**
- * SSR placeholder for the calendar island. Renders the Sovrium toolbar row and
+ * SSR placeholder for the calendar island. Renders the toolbar row and
  * a 5x7 day-grid skeleton preserved as a Suspense fallback while the
  * FullCalendar bundle loads — at the geometry the mounted calendar paints, so
  * the grid does not resize under the reader as the island hydrates.
@@ -143,9 +130,9 @@ export const islandCalendarComponent: ComponentRenderer = ({
 
   return (
     <div
-      data-island="calendar"
+      data-island="event-calendar"
       data-island-props={propsJson}
-      {...namedHost('calendar', { 'data-view': calendarView(elementProps.defaultView) })}
+      {...namedHost('event-calendar', { 'data-view': calendarView(elementProps.defaultView) })}
       data-testid={elementProps['data-testid'] as string | undefined}
       className={hostClassName(elementProps)}
       {...calendarDayFloorAttributes(elementProps.dayMinHeight)}

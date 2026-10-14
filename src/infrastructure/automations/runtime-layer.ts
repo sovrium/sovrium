@@ -106,6 +106,9 @@ import { AutomationFiberBridgeLive } from './automation-fiber-bridge-live'
  * repositories, extend this merged layer rather than spreading
  * infrastructure imports across each entry point.
  */
+/** Storage, built once for the runtime and handed to the AI service below. See its row for `orDie`. */
+const RuntimeStorageLive = Layer.orDie(StorageServiceLive)
+
 export const AutomationRuntimeLayer = Layer.mergeAll(
   TableLive,
   AutomationRepositoryLive,
@@ -153,7 +156,8 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // `OAuthClientRegistrar` — the sign-in client steps (`auth/*OAuthClient*`),
   // over the app's own OAuth provider; loads the engine lazily like the above.
   OAuthClientRegistrarLive,
-  AiServiceLive,
+  // `AiService`, reading the files a chat turn carries from the storage below.
+  AiServiceLive.pipe(Layer.provide(RuntimeStorageLive)),
   // `SpeechService` — the `ai/transcribe` handler's speech endpoint (`STT_*`).
   // Its construction reads env only and cannot fail; an unset `STT_PROVIDER`
   // yields an inert service whose transcriptions fail with a readable reason.
@@ -182,7 +186,7 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // bytea one is pinned as a BOOT FAILURE by shipped specs
   // (`[internal ref]…`, 5 assertions on
   // `Bytea storage initialization failed (DATABASE_URL)`).
-  Layer.orDie(StorageServiceLive),
+  RuntimeStorageLive,
   ImageTransformServiceLive,
   // `DocumentRenderer` — HTML → PDF / image for the `document/*` steps
   // (`RENDERER_*`, [internal ref]). Building it starts no browser: Chrome is spawned

@@ -39,5 +39,5 @@ children:
           - type: link
             props:
               href: /sign-in
-              className: inline-flex h-8 items-center rounded-md border border-border bg-background-raised px-3.5 font-medium whitespace-nowrap text-foreground hover:bg-background-subtle
+              className: inline-flex h-8 items-center rounded-md border border-border bg-card px-3.5 font-medium whitespace-nowrap text-foreground hover:bg-muted
             content: Sign in

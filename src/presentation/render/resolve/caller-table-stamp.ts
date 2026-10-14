@@ -177,7 +177,7 @@ export async function withCallerTableView(
   const stampCtx = { app: ctx.app, session: ctx.session, read }
   if (component.type === 'table') return stampGrid(component, stampCtx)
   if (component.type === 'form') return stampRecordForm(component, stampCtx)
-  if (component.type === 'drawer') {
+  if (component.type === 'sheet') {
     return stampRelatedSections(await stampOwnTable(component, stampCtx), stampCtx)
   }
   const throughView =

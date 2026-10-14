@@ -73,7 +73,7 @@ export function SaveBar({
     >
       <span
         role="status"
-        className="text-foreground-muted mr-auto font-mono text-sm"
+        className="text-muted-foreground mr-auto font-mono text-sm"
       >
         {changesText(bar.changes)}
       </span>

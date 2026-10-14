@@ -13,7 +13,7 @@ components:
     children:
       - $ref: ./_site-header.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: mx-auto flex w-full max-w-[620px] flex-1 flex-col gap-5 px-6 pt-12 pb-12 max-md:px-4 max-md:pt-8
         children:
@@ -22,6 +22,6 @@ components:
           - type: link
             props:
               href: /
-              className: text-xs text-foreground-muted hover:text-foreground
+              className: text-xs text-muted-foreground hover:text-foreground
             content: See every event
       - $ref: ./_site-footer.yaml

@@ -9,7 +9,7 @@
  * Inline JS source for the `recordAudio` recorder of the standalone form
  * runtime, concatenated into the IIFE right after the file-input fragment
  * (`form-runtime-file-handlers.ts`), whose locals it reuses:
- *   - `form` (HTMLFormElement), `removeIfPresent`
+ *   - `form` (HTMLFormElement), `removeIfPresent`, `S` (`form.stopRecording`)
  *   - `processSelectedFiles(input, files)`: the SAME validation, chip and
  *     submission path a picked file takes. A finished recording is handed to
  *     it as a `File`, so it is uploaded with `{ url, name, size, mimeType }`
@@ -105,7 +105,7 @@ export const FORM_RUNTIME_AUDIO_RECORDER_SCRIPT = `
       // the server), with its own marker class in place of the Record one.
       stopBtn.className = recordBtn.className.replace('form-audio-record', 'form-audio-stop')
       stopBtn.setAttribute('data-testid', 'stop-recording-' + name)
-      stopBtn.textContent = 'Stop recording'
+      stopBtn.textContent = S['form.stopRecording'] || 'Stop recording'
       stopBtn.addEventListener('click', finish)
       var elapsed = document.createElement('span')
       elapsed.className = 'form-audio-elapsed'

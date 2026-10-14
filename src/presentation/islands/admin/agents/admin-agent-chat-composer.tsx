@@ -8,9 +8,16 @@
 /**
  * The shared agent-chat composer — the conversation `log` + the message input
  * row, driven by {@link useAgentChat}. Mounted by the Conversations page's
- * "New conversation" flow (`admin-agent-conversations` island, [internal ref]
- * item M), which mounts the composer in its thread column when an operator
- * starts a fresh conversation.
+ * "New conversation" flow (`admin-agent-conversations` island), which mounts
+ * the composer in its thread column when an operator starts a fresh
+ * conversation.
+ *
+ * Drawn with the same anatomy as the public `ai-chat`: a `message-scroller`
+ * frame holding `message` turns whose surface is a `bubble`, and shadcn's
+ * `input-group` composer with the send control in a `block-end` addon. The
+ * classes come from the shared composed recipe
+ * (`ai-chat-composition-classes`), so the console's chat and the public chat
+ * cannot drift apart.
  *
  * The surface carries the conversation `log` ("Conversation") — assistant
  * replies render as `article` landmarks ("Agent reply") — plus the
@@ -19,55 +26,111 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import {
-  computeAiChatContainerClasses,
-  computeAiChatInputClasses,
-  computeAiChatInputRowClasses,
-  computeAiChatMessageBubbleClasses,
-  computeAiChatMessageListClasses,
-} from '@/presentation/design/ai-chat-default-classes'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+  AI_CHAT_TRANSCRIPT_FIT,
+  computeAiChatBubbleClasses,
+  computeAiChatBubbleContentClasses,
+  computeAiChatComposerButtonClasses,
+  computeAiChatComposerClasses,
+  computeAiChatPanelClasses,
+  computeAiChatTextareaClasses,
+} from '@/presentation/design/ai-chat-composition-classes'
+import {
+  computeInputGroupAddonClasses,
+  computeInputGroupClasses,
+} from '@/presentation/design/input-group-default-classes'
+import {
+  computeMessageClasses,
+  computeMessageContentClasses,
+} from '@/presentation/design/message-default-classes'
+import { computeMessageScrollerClasses } from '@/presentation/design/message-scroller-default-classes'
 import { ChatTurnActions, type ChatTurnAction } from './admin-agent-chat-actions'
 import { useAgentChat, type AgentChatTurn } from './admin-agent-chat-data'
 
 /** Shared empty-actions reference — a fresh `[]` per render would remount the list. */
 const NO_ACTIONS: ReadonlyArray<ChatTurnAction> = []
 
-/** Send is the ordinary small primary button, as it is in every chat surface. */
-const SEND_BUTTON = computeButtonDefaultClasses({ size: 'sm' })
+/** Send is the input group's primary control, pushed to the end of its addon. */
+const SEND_BUTTON = `${computeAiChatComposerButtonClasses('default')} ms-auto`
 
-/** A single conversation turn — assistant replies are `article` landmarks. */
+/** Enter sends; Shift+Enter, or Enter while an IME is composing, is a new line. */
+const submitOnEnter = (e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+  if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return
+  e.preventDefault()
+  e.currentTarget.form?.requestSubmit()
+}
+
+/** The turn's words, in a `bubble` on its own side of the transcript. */
+function Bubble({ turn }: { readonly turn: AgentChatTurn }): ReactElement {
+  const role = turn.role === 'assistant' ? 'assistant' : 'user'
+  return (
+    <div
+      data-slot="bubble"
+      data-align={role === 'user' ? 'end' : 'start'}
+      className={computeAiChatBubbleClasses()}
+    >
+      <div
+        data-slot="bubble-content"
+        className={computeAiChatBubbleContentClasses(role)}
+      >
+        {turn.content}
+      </div>
+    </div>
+  )
+}
+
+/** A single conversation turn — a `message`; assistant replies are `article` landmarks. */
 function ChatTurn({ turn }: { readonly turn: AgentChatTurn }): ReactElement {
-  const isAssistant = turn.role === 'assistant'
-  const bubble = computeAiChatMessageBubbleClasses({ role: isAssistant ? 'assistant' : 'user' })
-  if (isAssistant) {
+  if (turn.role === 'assistant') {
     return (
       <article
         aria-label="Agent reply"
-        className={bubble}
+        data-slot="message"
+        data-align="start"
+        className={computeMessageClasses()}
       >
-        {turn.content}
-        {/* What the turn actually DID, under the words it said. Renders nothing
-            when the turn took no actions — see `ChatTurnActions`. */}
-        <ChatTurnActions actions={turn.actions ?? NO_ACTIONS} />
+        <div
+          data-slot="message-content"
+          className={computeMessageContentClasses()}
+        >
+          <Bubble turn={turn} />
+          {/* What the turn actually DID, under the words it said. Renders nothing
+              when the turn took no actions — see `ChatTurnActions`. */}
+          <ChatTurnActions actions={turn.actions ?? NO_ACTIONS} />
+        </div>
       </article>
     )
   }
-  return <div className={bubble}>{turn.content}</div>
+  return (
+    <div
+      data-slot="message"
+      data-align="end"
+      className={computeMessageClasses()}
+    >
+      <div
+        data-slot="message-content"
+        className={computeMessageContentClasses()}
+      >
+        <Bubble turn={turn} />
+      </div>
+    </div>
+  )
 }
 
-/** The conversation thread — a `log` landmark named "Conversation". */
+/** The conversation thread — a `message-scroller` `log` landmark named "Conversation". */
 function Conversation({ turns }: { readonly turns: ReadonlyArray<AgentChatTurn> }): ReactElement {
-  const endRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const node = endRef.current
-    if (node !== null) node.scrollIntoView({ block: 'end' })
+    const frame = frameRef.current
+    if (frame !== null) frame.scrollTo({ top: frame.scrollHeight })
   }, [turns])
   return (
     <div
+      ref={frameRef}
+      data-slot="message-scroller"
       role="log"
       aria-label="Conversation"
       aria-live="polite"
-      className={computeAiChatMessageListClasses()}
+      className={`${computeMessageScrollerClasses()} ${AI_CHAT_TRANSCRIPT_FIT}`}
     >
       {turns.map((turn) => (
         <ChatTurn
@@ -75,12 +138,32 @@ function Conversation({ turns }: { readonly turns: ReadonlyArray<AgentChatTurn> 
           turn={turn}
         />
       ))}
-      <div ref={endRef} />
     </div>
   )
 }
 
-/** The message input row — the `textbox` "Message the agent" + the "Send" button. */
+/** The composer's `block-end` addon, holding the send control. */
+function SendAddon({ disabled }: { readonly disabled: boolean }): ReactElement {
+  return (
+    <div
+      role="group"
+      data-slot="input-group-addon"
+      data-align="block-end"
+      className={computeInputGroupAddonClasses({ align: 'block-end' })}
+    >
+      <button
+        type="submit"
+        data-slot="input-group-button"
+        disabled={disabled}
+        className={SEND_BUTTON}
+      >
+        Send
+      </button>
+    </div>
+  )
+}
+
+/** The `input-group` composer — the `textbox` "Message the agent" + the "Send" button. */
 function InputRow({
   isSending,
   onSend,
@@ -99,30 +182,32 @@ function InputRow({
     [draft, isSending, onSend]
   )
   const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => setDraft(e.target.value),
     []
   )
   return (
     <form
       onSubmit={handleSubmit}
-      className={computeAiChatInputRowClasses()}
+      className={computeAiChatComposerClasses()}
     >
-      <input
-        type="text"
-        aria-label="Message the agent"
-        value={draft}
-        onChange={handleChange}
-        disabled={isSending}
-        placeholder="Message the agent…"
-        className={computeAiChatInputClasses()}
-      />
-      <button
-        type="submit"
-        disabled={draft.trim().length === 0 || isSending}
-        className={SEND_BUTTON}
+      <div
+        data-slot="input-group"
+        role="group"
+        className={computeInputGroupClasses()}
       >
-        Send
-      </button>
+        <textarea
+          rows={1}
+          aria-label="Message the agent"
+          data-slot="input-group-control"
+          value={draft}
+          onChange={handleChange}
+          onKeyDown={submitOnEnter}
+          disabled={isSending}
+          placeholder="Message the agent…"
+          className={computeAiChatTextareaClasses()}
+        />
+        <SendAddon disabled={draft.trim().length === 0 || isSending} />
+      </div>
     </form>
   )
 }
@@ -136,7 +221,7 @@ function InputRow({
 export function ChatComposer({ agentSlug }: { readonly agentSlug: string }): ReactElement {
   const { turns, status, send } = useAgentChat(agentSlug)
   return (
-    <div className={computeAiChatContainerClasses()}>
+    <div className={computeAiChatPanelClasses()}>
       <Conversation turns={turns} />
       <InputRow
         isSending={status === 'sending'}

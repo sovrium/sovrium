@@ -13,39 +13,11 @@ import {
 } from '@/domain/models/app/tables/select-option'
 import { resolveCellEditor, usesSelectEditor } from './editors/editor-registry'
 import { TextEditor } from './text-cell-editor'
+import type { EditableCellProps } from './editing/editable-cell-types'
 import type { CellEditorProps } from './editors/editor-contract'
 import type { TabDirection } from './island/tab-target'
 import type { FieldMeta, FieldWriteValue } from '../hooks/use-inline-editing'
 import type { ReactElement } from 'react'
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
-export interface EditableCellProps {
-  readonly value: unknown
-  readonly fieldMeta?: FieldMeta
-  readonly onSave: (newValue: unknown) => void | Promise<void>
-  readonly onCancel: () => void
-  readonly tableName?: string
-  readonly recordId?: string | number
-  readonly fieldName?: string
-  /** When true, edits persist automatically (debounced) without an Enter keypress. */
-  readonly autoSave?: boolean
-  /** Debounce delay (ms) for auto-save. Only used when `autoSave` is true. */
-  readonly autoSaveDebounceMs?: number
-  /**
-   * When true, edits persist when the field loses focus (Notion-like) instead
-   * of on every debounced keystroke. Used by `saveMode: 'onBlur'`.
-   */
-  readonly saveOnBlur?: boolean
-  /** Persists the in-progress edit without exiting edit mode (auto-save). */
-  readonly onAutoSave?: (newValue: unknown) => void | Promise<void>
-  /** Records the latest un-persisted value so a cell switch can flush it. */
-  readonly onTrackValue?: (newValue: unknown) => void
-  /** Saves the current value and moves the editor to the next editable cell. */
-  readonly onTabNext?: (newValue: unknown, direction: TabDirection) => void
-}
 
 // ---------------------------------------------------------------------------
 // Select editor (for single-select / status fields)
@@ -99,7 +71,7 @@ function SelectEditor({
       defaultValue={String(value ?? '')}
       onChange={(e) => onSave(e.target.value)}
       onKeyDown={handleKeyDown}
-      className="select-compact border-primary focus:ring-focus-ring text-md w-full rounded border px-1 py-0.5 focus:ring-1 focus:outline-none"
+      className="select-compact border-primary focus:ring-ring text-md w-full rounded border px-1 py-0.5 focus:ring-1 focus:outline-none"
     >
       {options.map((opt) => (
         <option

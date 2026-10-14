@@ -12,7 +12,7 @@ children:
       interactions:
         click:
           modal: drawer-form-drawer
-  - type: drawer
+  - type: sheet
     props:
       id: drawer-form-drawer
       title: '[New reminder]'

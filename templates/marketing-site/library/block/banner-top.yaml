@@ -8,7 +8,7 @@ props:
   className: w-full justify-center text-md
   style:
     backgroundColor: var(--color-primary)
-    color: var(--color-primary-fg)
+    color: var(--color-primary-foreground)
     borderColor: var(--color-primary)
     borderRadius: '0'
     borderWidth: '0'

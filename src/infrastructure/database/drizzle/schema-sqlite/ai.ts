@@ -70,15 +70,12 @@ export const aiMessages = systemTable(
     conversationId: text('conversation_id')
       .notNull()
       .references(() => aiConversations.id, { onDelete: 'cascade' }),
+    parentId: text('parent_id'), // previous message in its branch (conversation-branch-service)
     role: text('role').notNull(),
     content: text('content').notNull(),
-    /**
-     * Delivery status of the message. `complete` for buffered (non-streaming)
-     * turns and fully-streamed responses; `incomplete` when a streamed
-     * assistant response was interrupted before the terminal `[DONE]` marker
-     * User messages are always `complete`.
-     */
+    // `incomplete`: a streamed answer interrupted before its end; else `complete`.
     status: text('status').notNull().default('complete'),
+    parts: text('parts', { mode: 'json' }), // a user message sent as parts: references only
     toolCalls: text('tool_calls', { mode: 'json' }),
     tokenCount: integer('token_count'),
     model: text('model'),
@@ -89,6 +86,34 @@ export const aiMessages = systemTable(
   (table) => [
     index('ai_messages_conversationId_idx').on(table.conversationId),
     index('ai_messages_createdAt_idx').on(table.createdAt),
+  ]
+)
+
+/**
+ * AI Chat Attachments Table — mirror of the PostgreSQL definition, which
+ * documents why the row exists and how it is erased.
+ */
+export const aiChatAttachments = systemTable(
+  'ai_chat_attachments',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    chatId: text('chat_id').notNull(),
+    sessionId: text('session_id'),
+    bucket: text('bucket').notNull(),
+    storageKey: text('storage_key').notNull(),
+    name: text('name').notNull(),
+    size: integer('size').notNull(),
+    mimeType: text('mime_type').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index('ai_chat_attachments_userId_idx').on(table.userId),
+    index('ai_chat_attachments_sessionId_idx').on(table.userId, table.sessionId),
   ]
 )
 
@@ -325,6 +350,8 @@ export const aiActivityLogs = systemTable(
     action: text('action').notNull(),
     targetTable: text('target_table'),
     userEmail: text('user_email'),
+    /** The surface that started the agent turn: `chat`, `automation` or `schedule`. */
+    surface: text('surface'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .$defaultFn(() => new Date()),

@@ -5,8 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Menu } from '@base-ui/react/menu'
 import { useCallback } from 'react'
-import { computeTableToolbarButtonClasses } from '@/presentation/design/table-default-classes'
+import {
+  TABLE_TOOLBAR_BUTTON_PART,
+  computeTableToolbarButtonClasses,
+} from '@/presentation/design/table-default-classes'
 import { saveBlob } from '../../../runtime/save-blob'
 import {
   buildSelectionCsvDownload,
@@ -28,9 +32,6 @@ interface ExportControlProps {
   readonly tableName: string
   readonly table: DataTableInstance
   readonly activeFilter: ActiveFilter | undefined
-  readonly exportMenuOpen: boolean
-  readonly onToggleExportMenu: () => void
-  readonly onCloseExportMenu: () => void
 }
 
 /**
@@ -54,9 +55,6 @@ export function ExportControl({
   tableName,
   table,
   activeFilter,
-  exportMenuOpen,
-  onToggleExportMenu,
-  onCloseExportMenu,
 }: ExportControlProps) {
   const exportLabel = useGridString('datatable.export', 'Export')
   const onSystemExportClick = useCallback(() => {
@@ -69,6 +67,7 @@ export function ExportControl({
     return (
       <button
         type="button"
+        {...TABLE_TOOLBAR_BUTTON_PART}
         className={computeTableToolbarButtonClasses()}
         aria-label={exportLabel}
         onClick={onSystemExportClick}
@@ -79,26 +78,21 @@ export function ExportControl({
   }
 
   return (
-    <div className="relative">
-      <button
-        type="button"
-        className={computeTableToolbarButtonClasses({ active: exportMenuOpen })}
+    <Menu.Root modal={false}>
+      <Menu.Trigger
+        {...TABLE_TOOLBAR_BUTTON_PART}
+        data-slot="dropdown-menu-trigger"
+        className={computeTableToolbarButtonClasses()}
         aria-label={exportLabel}
-        aria-haspopup="true"
-        aria-expanded={exportMenuOpen}
-        onClick={onToggleExportMenu}
       >
         {exportLabel}
-      </button>
-      {exportMenuOpen && (
-        <ExportMenu
-          tableName={tableName}
-          table={table}
-          activeFilter={activeFilter}
-          onClose={onCloseExportMenu}
-        />
-      )}
-    </div>
+      </Menu.Trigger>
+      <ExportMenu
+        tableName={tableName}
+        table={table}
+        activeFilter={activeFilter}
+      />
+    </Menu.Root>
   )
 }
 
@@ -161,7 +155,8 @@ export function ExportSelectedButton({
   return (
     <button
       type="button"
-      className={computeTableToolbarButtonClasses({ disabled: selectedCount === 0 })}
+      {...TABLE_TOOLBAR_BUTTON_PART}
+      className={computeTableToolbarButtonClasses()}
       aria-label={exportSelectedLabel}
       disabled={selectedCount === 0}
       onClick={onExportSelectedClick}

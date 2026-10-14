@@ -5,17 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { LucideGlyph } from '@/presentation/design/lucide-glyph'
 import { computeSidebarSubEntryClasses } from '@/presentation/design/sidebar-default-classes'
-import { TOGGLE_CLASS, LIST_CLASS, STATE_CLASS } from './sidebar-disclosure-classes'
-import { ChildBadge, Chevron, ToggleRow } from './sidebar-disclosure-parts'
+import {
+  computeSidebarMenuSkeletonClasses,
+  computeSidebarMenuSkeletonTextClasses,
+} from '@/presentation/design/sidebar-shell-classes'
+import { AuthoredChildren } from './sidebar-disclosure-authored'
+import {
+  TOGGLE_CLASS,
+  STATE_CLASS,
+  SUB_ITEM,
+  SUB_LIST,
+  subButtonAttributes,
+} from './sidebar-disclosure-classes'
+import { Chevron, ToggleRow } from './sidebar-disclosure-parts'
 import { useSidebarDisclosure, type FetchState } from './use-sidebar-disclosure'
-import type {
-  DisclosureSource,
-  LeafItem,
-  SidebarDisclosureIslandProps,
-  SubItem,
-} from './sidebar-disclosure-props'
+import type { DisclosureSource, SidebarDisclosureIslandProps } from './sidebar-disclosure-props'
 import type { ProjectedEntry } from './sidebar-entry-projection'
 
 /**
@@ -56,6 +61,7 @@ function DisclosureToggle({
       aria-expanded={expanded}
       aria-label={name.replaceAll('{label}', label)}
       className={TOGGLE_CLASS}
+      data-slot="sidebar-menu-action"
       onClick={onToggle}
       type="button"
     >
@@ -64,79 +70,27 @@ function DisclosureToggle({
   )
 }
 
-/** One authored row, with the icon geometry the server resolved for it. */
-function AuthoredChild({
-  item,
-  isCurrent,
-  rail,
-}: {
-  readonly item: LeafItem
-  readonly isCurrent: boolean
-  readonly rail: boolean | undefined
-}) {
+/** shadcn/ui `SidebarMenuSkeleton`: three placeholder rows while the list loads. */
+function MenuSkeleton() {
   return (
-    // Authored bag first, so the renderer-owned attributes written after it
-    // cannot be displaced — the same ordering the SSR half uses.
-    <a
-      {...(item.props ?? {})}
-      href={item.href}
-      className={computeSidebarSubEntryClasses(isCurrent)}
-      {...(isCurrent ? { 'aria-current': 'page' as const } : {})}
-      {...(rail !== true || item.props?.['title'] !== undefined ? {} : { title: item.label })}
-    >
-      {item.iconNode !== undefined && (
-        <LucideGlyph
-          iconNode={item.iconNode}
-          size={16}
-        />
-      )}
-      <span>{item.label}</span>
-      <ChildBadge badge={item.badge} />
-    </a>
+    <>
+      {SKELETON_ROWS.map((width) => (
+        <li
+          key={width}
+          data-sidebar="menu-skeleton"
+          data-slot="sidebar-menu-skeleton"
+          aria-hidden="true"
+          className={computeSidebarMenuSkeletonClasses()}
+        >
+          <span className={`${computeSidebarMenuSkeletonTextClasses()} ${width}`} />
+        </li>
+      ))}
+    </>
   )
 }
 
-/**
- * A sub-entry's OWN list: the third level, always open and carrying no toggle.
- *
- * The hydrated twin of `renderNestedList` in the SSR half. It exists here
- * because the level-2 disclosure IS an island: this component re-renders the
- * whole list from its props, so a version that stopped at the leaves would
- * DELETE the third level the server drew — correct with JavaScript off and
- * broken with it on, which is the failure mode nobody looks for.
- *
- * `LIST_CLASS` is reused for the reason the server half reuses its recipe: the
- * indent is relative to its container, so nesting the same classes inside a list
- * that already carries them steps in once more, with nothing to keep in step.
- */
-function NestedList({
-  item,
-  isCurrent,
-  rail,
-}: {
-  readonly item: SubItem
-  readonly isCurrent: (leaf: LeafItem) => boolean
-  readonly rail: boolean | undefined
-}) {
-  const { subItems } = item
-  if (subItems === undefined || subItems.length === 0) return undefined
-  return (
-    <ul
-      className={LIST_CLASS}
-      {...(item.childrenProps ?? {})}
-    >
-      {subItems.map((leaf) => (
-        <li key={leaf.href}>
-          <AuthoredChild
-            isCurrent={isCurrent(leaf)}
-            item={leaf}
-            rail={rail}
-          />
-        </li>
-      ))}
-    </ul>
-  )
-}
+/** The placeholder bars' widths, varied as shadcn's random widths vary them. */
+const SKELETON_ROWS = ['max-w-[70%]', 'max-w-[55%]', 'max-w-[85%]'] as const
 
 /**
  * The fetched list, or the ONE line saying which of its three states it is in.
@@ -160,14 +114,22 @@ function FetchedChildren({
   readonly rail: boolean | undefined
 }) {
   if (status === 'error') return <li className={STATE_CLASS}>{source?.errorLabel}</li>
-  if (status !== 'ready') return <li className={STATE_CLASS}>{source?.loadingLabel}</li>
+  if (status !== 'ready')
+    return source?.loading === 'skeleton' ? (
+      <MenuSkeleton />
+    ) : (
+      <li className={STATE_CLASS}>{source?.loadingLabel}</li>
+    )
   if (entries.length === 0) return <li className={STATE_CLASS}>{source?.emptyLabel}</li>
   return (
     <>
       {entries.map((entry) => {
         const current = isCurrent(entry)
         return (
-          <li key={entry.href}>
+          <li
+            key={entry.href}
+            {...SUB_ITEM}
+          >
             {/* Authored bag first, so the renderer-owned attributes written
                 after it cannot be displaced — the ordering both other entry
                 renderers use. */}
@@ -175,7 +137,7 @@ function FetchedChildren({
               {...(entry.props ?? {})}
               href={entry.href}
               className={computeSidebarSubEntryClasses(current)}
-              {...(current ? { 'aria-current': 'page' as const } : {})}
+              {...subButtonAttributes(current)}
               {...(rail !== true || entry.props?.['title'] !== undefined
                 ? {}
                 : { title: entry.label })}
@@ -215,7 +177,7 @@ export default function SidebarDisclosureIsland(props: SidebarDisclosureIslandPr
       )}
       {expanded && (
         <ul
-          className={LIST_CLASS}
+          {...SUB_LIST}
           id={listId}
           {...(childrenProps ?? {})}
         >
@@ -228,20 +190,11 @@ export default function SidebarDisclosureIsland(props: SidebarDisclosureIslandPr
               status={status}
             />
           ) : (
-            subItems.map((item) => (
-              <li key={item.href}>
-                <AuthoredChild
-                  isCurrent={isChildCurrent(item)}
-                  item={item}
-                  rail={rail}
-                />
-                <NestedList
-                  isCurrent={isChildCurrent}
-                  item={item}
-                  rail={rail}
-                />
-              </li>
-            ))
+            <AuthoredChildren
+              isCurrent={isChildCurrent}
+              items={subItems}
+              rail={rail}
+            />
           )}
         </ul>
       )}

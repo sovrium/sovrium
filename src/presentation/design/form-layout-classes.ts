@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/**
+ * Adapted from shadcn/ui label (https://ui.shadcn.com), registry commit 30a58d4498f270af1c1e981a7d78a15cf5740841.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
+ */
+
 import { type CSSProperties } from 'react'
 import { TOKENS } from './css-var'
 
@@ -49,7 +54,7 @@ import { TOKENS } from './css-var'
  * which inverts the hierarchy the field exists to express.
  *
  * All classes are STRUCTURE/SPACING + theme-token utilities (`text-foreground`,
- * `text-foreground-muted`) — never raw colors — so `app.design.*` overrides still
+ * `text-muted-foreground`) — never raw colors — so `app.design.*` overrides still
  * win at the CSS cascade. That also keeps this module out of `RECIPE_DIRS`
  * territory: every class here is a NAMED utility, so it needs no arbitrary-value
  * safelist entry to reach the stylesheet.
@@ -148,7 +153,7 @@ export const computeFormFieldLabelClasses = (): string =>
  * control). Muted foreground + `text-xs` (11px) so it reads as accessory chrome,
  * not a primary label.
  */
-export const computeFormHelpTextClasses = (): string => 'text-foreground-muted text-xs'
+export const computeFormHelpTextClasses = (): string => 'text-muted-foreground text-xs'
 
 /**
  * Typography className for a field's validation message — the same 11px rung as
@@ -163,12 +168,21 @@ export const computeFormFieldErrorClasses = (): string => 'text-error-fg text-xs
 /**
  * Typography className for the required marker appended to a label.
  *
- * `text-error-solid` (`#c13520`), not the softer `error-fg` the message uses:
- * `spec-form.mjs:21` draws the asterisk on the solid tone because it is a mark
+ * The destructive tone, not the softer `error-fg` a form's own field message
+ * uses (the `field` component's error, on shadcn/ui's anatomy, is destructive
+ * too): `spec-form.mjs:21` draws the asterisk on the solid tone because it is a mark
  * rather than a sentence — a single glyph needs the stronger value to register
  * at 12px, while a whole line of text at that value would shout.
  */
-export const computeFormRequiredMarkClasses = (): string => 'text-error-solid'
+export const computeFormRequiredMarkClasses = (): string => 'text-destructive'
+
+/**
+ * shadcn/ui's Label (`data-slot="label"`), base-nova's own string: the `label`
+ * component type draws its text with it, and its required mark with
+ * {@link computeFormRequiredMarkClasses}.
+ */
+export const computeLabelClasses = (): string =>
+  'flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // AUTH FEEDBACK BANNER — the form-level result region (`<div data-error>`)
@@ -260,4 +274,4 @@ export const computeFormGroupClasses = (): string => 'flex flex-col gap-3.5'
  * little air above it without needing a second gap value in the stack.
  */
 export const computeFormGroupLabelClasses = (): string =>
-  'text-foreground-muted pt-1 text-xs font-medium tracking-[0.04em] uppercase'
+  'text-muted-foreground pt-1 text-xs font-medium tracking-[0.04em] uppercase'

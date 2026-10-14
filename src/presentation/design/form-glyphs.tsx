@@ -63,31 +63,6 @@ export function UploadGlyph({ size = 18, className }: GlyphProps): ReactElement 
   )
 }
 
-/**
- * The magnifier on a search field. `chrome.mjs:114` (`ic.searchS`), drawn at
- * 16px inside a control and 13px in dense chrome.
- */
-export function SearchGlyph({ size = 16, className }: GlyphProps): ReactElement {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden="true"
-      className={className}
-    >
-      <path
-        d="M11.2 7A4.2 4.2 0 1 1 2.8 7a4.2 4.2 0 0 1 8.4 0Zm-.9 3.3 3.2 3.2"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 // A DISMISS cross belongs here too — `chrome.mjs:117` draws one at 13px — but
 // nothing in the forms cluster removes anything yet, so it would be a glyph with
 // no call site. It goes in beside the control that needs it.

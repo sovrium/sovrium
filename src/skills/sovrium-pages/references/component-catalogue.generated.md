@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every component type a page can place (96), by category, with what it is for. Reach for the type whose purpose matches the job before composing one out of smaller parts; the article named under each category lists its options.
+Every component type a page can place (111), by category, with what it is for. Reach for the type whose purpose matches the job before composing one out of smaller parts; the article named under each category lists its options.
 
 ## Contents
 
@@ -27,10 +27,10 @@ Read: `sovrium docs components/interactive-components`
 
 | Type | What it is for |
 | --- | --- |
-| `alert` | A message the reader must see before going on: what changed, what it costs, what to do. |
-| `badge` | A short status word pinned to a thing, never a sentence. |
+| `alert` | A message the reader must see before going on, set in an alert: what changed, what it costs, what to do. |
+| `badge` | A Badge: a short status word pinned to a thing, never a sentence. |
 | `button` | One action, stated as a verb. A link when href is set, a button otherwise. |
-| `button-group` | Several exclusive actions of equal weight, joined so they read as one control. |
+| `button-group` | A Button Group: several exclusive actions of equal weight, joined so they read as one control. |
 | `link` | Navigation inside a run of text, underlined so it reads as a link at a glance. |
 | `theme-toggle` | The one control that flips the colour scheme and remembers the choice. |
 
@@ -40,24 +40,29 @@ Read: `sovrium docs form-controls`
 
 | Type | What it is for |
 | --- | --- |
-| `checkbox` | A yes or no the reader sets, with room for several in a list. |
+| `calendar` | A calendar: a month of days to pick one date, a range, or several, inline on the page. |
+| `checkbox` | A yes or no the reader sets in a checkbox, with room for several in a list. |
 | `code-editor` | Source text the reader edits, highlighted by language and indented to your width. |
-| `date-picker` | A calendar date, typed or picked, in the reader's locale. |
+| `combobox` | One choice found by typing into a combobox, from a list that narrows with each keystroke. |
+| `date-picker` | A Date Picker: a calendar date, typed or picked, in the reader's locale. |
 | `date-range-picker` | A period rather than a date: two months side by side, and presets that resolve against today. |
-| `field` | A labelled control with its help and its error, laid out the same way everywhere. |
-| `input` | A single line of text, typed by the reader. |
-| `input-group` | One input with a fixed prefix, suffix or action fused to its edge. |
-| `radio-group` | One choice among a few, all visible at once. |
+| `field` | A labelled control with its help and its error, laid out the same way in every field. |
+| `input` | A single line of text, typed by the reader into an input. |
+| `input-group` | One input with a fixed prefix, suffix or action fused to its edge, in one input group. |
+| `input-otp` | A short verification code typed into an input OTP, one character per box, pasted or autofilled. |
+| `label` | The label of one form control, wired to it so a click on the name focuses the control. |
+| `native-select` | One choice in a native select, the browser's own dropdown, with no script to load. |
+| `radio-group` | One choice among a few in a radio group, all visible at once. |
 | `rating` | A row of stars that reads a rating, and writes a whole one inside a form. |
 | `record-picker` | One row of another table, found by typing its name and linked. |
 | `rich-text-editor` | Formatted prose, written in place, with only the marks you allow. |
-| `select` | One choice among many, folded until opened. |
+| `select` | One choice among many in a select, folded until opened. |
 | `signature-pad` | A well to sign in, or a typed name, stored once with the statement agreed to. |
-| `slider` | A number in a range, dragged rather than typed. |
-| `switch` | A setting that applies as soon as it flips. |
-| `textarea` | Several lines of text, growing with what is written. |
-| `toggle` | A pressed or released button that holds its state. |
-| `toggle-group` | A row of toggles where one, or several, stay pressed. |
+| `slider` | A number in a range, dragged along a slider rather than typed. |
+| `switch` | A setting that applies as soon as its switch flips. |
+| `textarea` | Several lines of text in a textarea, growing with what is written. |
+| `toggle` | A pressed or released toggle that holds its state. |
+| `toggle-group` | A toggle group: a row of toggles where one, or several, stay pressed. |
 
 ## Data
 
@@ -65,8 +70,9 @@ Read: `sovrium docs data-components`
 
 | Type | What it is for |
 | --- | --- |
-| `calendar` | Records on a month or week grid, placed by their date field. |
-| `chart` | A figure over rows: bars, lines, areas or a donut, one series per colour. |
+| `carousel` | A Carousel: slides on one track, moved through one at a time with arrows, dots or a swipe. |
+| `chart` | A Chart over rows: bars, lines, areas or a donut, one series per colour. |
+| `event-calendar` | Records on a month or week grid, placed by their date field. |
 | `filter-bar` | One set of conditions, published to every data component bound to the same channel. |
 | `form` | The fields you declare, written to the table it binds or posted to an endpoint you name. |
 | `gallery` | Records as cards with an image, in a responsive grid. |
@@ -76,7 +82,8 @@ Read: `sovrium docs data-components`
 | `list` | Records as rows with a title, a subtitle and a trailing value. |
 | `map` | Records placed as pins at their location, with a list twin a keyboard can use. |
 | `matrix` | Two sets of things crossed, each intersection a glyph rather than a word: rows and columns are nodes of the graph `dataSource` names, and a cell is the edge between them. |
-| `table` | The records of a table as a grid — sorting, filtering, grouping, selection, paging — or the rows you write in the config. |
+| `questionnaire` | A questionnaire: one question per screen, answered by choosing, with a count of how many remain. |
+| `table` | A Data Table: the records of a table as a grid — sorting, filtering, grouping, selection, paging — or the rows you write in the config. |
 | `tree` | The records of one table nested under their parents, opened branch by branch. |
 
 ## Layout
@@ -85,12 +92,14 @@ Read: `sovrium docs components/layout-components`
 
 | Type | What it is for |
 | --- | --- |
-| `card` | A bounded surface for one thing, on the page background. |
+| `aspect-ratio` | An aspect ratio frame: one image, video or map held at a fixed width-to-height shape, whatever the screen. |
+| `card` | A Card: a bounded surface for one thing, on the page background. |
 | `container` | A box that gives its children padding and a width. |
 | `flex` | Children in a row or a column, spaced by one gap. |
 | `grid` | Children in equal columns, collapsing to one on a narrow screen. |
-| `sidebar` | The left rail: grouped navigation with an active entry. |
-| `split-pane` | Two panels side by side with a draggable divider. |
+| `message-scroller` | A message scroller: the scroll frame of a conversation, opening at the latest turn and keeping its place. |
+| `resizable` | Resizable panels: two side by side, with a draggable handle between them. |
+| `sidebar` | The Sidebar: the left rail of grouped navigation, with an active entry. |
 
 ## Content
 
@@ -98,16 +107,17 @@ Read: `sovrium docs components/content-components`
 
 | Type | What it is for |
 | --- | --- |
+| `attachment` | An attachment chip: one file drawn by its icon or thumbnail, its name and size, and a way to open it. |
 | `audio` | An audio file with play, progress and duration. |
 | `code` | Source text in a monospace block, highlighted by language. |
 | `file-preview` | A stored file shown inline: a PDF in its viewer, an image with zoom, else a download. |
 | `icon` | One glyph from the app's icon set, sized and coloured by the text around it. |
 | `iframe` | Another page embedded at a fixed height. |
 | `image` | A picture with its alt text, lazy unless it is above the fold. |
-| `kbd` | The keys a reader is meant to press, drawn as keycaps. |
+| `kbd` | The keys a reader is meant to press, drawn as Kbd keycaps. |
 | `qr-code` | A value drawn as a scannable code. |
 | `search-input` | Search within the page, or filter a bound list as you type. |
-| `text` | A run of prose at one step of the type scale. |
+| `text` | Typography: a run of prose at one step of the type scale. |
 | `toc` | The headings of the page as a list that follows the reader. |
 | `video` | A video file with a poster, play and progress. |
 
@@ -117,17 +127,21 @@ Read: `sovrium docs components/display-components`
 
 | Type | What it is for |
 | --- | --- |
-| `accordion` | Stacked sections that open one at a time. |
-| `avatar` | A person or a thing as a small round mark: a picture, initials, or nothing at all. |
+| `accordion` | An Accordion: stacked sections that open one at a time. |
+| `avatar` | An Avatar: a person or a thing as a small round mark — a picture, initials, or nothing at all. |
+| `bubble` | A Bubble: the surface of one chat turn, set to its side of the thread. |
+| `collapsible` | A collapsible region behind one trigger, shown or hidden in place, with no siblings to close. |
 | `description-list` | Pairs of a term and its detail, read down rather than across. |
-| `empty-state` | What a view says when it has nothing to show, and what to do about it. |
-| `list-item` | One row of a list: a leading mark, a title, a subtitle, a trailing value. |
+| `empty` | An Empty state: what a view says when it has nothing to show, and what to do about it. |
+| `item` | An Item: one row of a list — a leading mark, a title, a subtitle, a trailing value. |
+| `marker` | A marker line inside a thread or a list: a status, a system note, a labelled break. |
 | `marquee` | A strip of logos or words that scrolls sideways. |
+| `message` | A message: one turn of a conversation — who said it, when, on which side — around the bubble that holds it. |
 | `record-field` | One field of one record, drawn read-only in its own format. |
-| `scroll-area` | A region that scrolls inside the page with a thin scrollbar. |
+| `scroll-area` | A Scroll Area: a region that scrolls inside the page with a thin scrollbar. |
 | `stepper` | One task split into ordered steps, each a body of its own, with a rail that shows progress. |
 | `swatch` | One colour drawn as a filled square with its value and its name. |
-| `tabs` | A short list of views, one visible at a time. |
+| `tabs` | Tabs: a short list of views, one visible at a time. |
 | `timeline` | Events on a line: declared in the config, or every record of a table between two dates. |
 
 ## Navigation
@@ -136,13 +150,13 @@ Read: `sovrium docs components/navigation-components`
 
 | Type | What it is for |
 | --- | --- |
-| `breadcrumb` | Where the reader is, as a path they can climb back up. |
-| `command-palette` | Search everything from anywhere, opened with a keyboard shortcut. |
-| `context-menu` | Actions on the thing under the pointer, on right click. |
-| `dropdown-menu` | Actions gathered behind one button, opened on click. |
-| `menubar` | A row of menus, as in a desktop application. |
-| `navigation-menu` | The top navigation of a site, with menus that open on hover. |
-| `pagination` | Move between pages of a long list. |
+| `breadcrumb` | A Breadcrumb: where the reader is, as a path they can climb back up. |
+| `command` | A Command palette: search everything from anywhere, opened with a keyboard shortcut. |
+| `context-menu` | A Context Menu of actions on the thing under the pointer, opened on right click. |
+| `dropdown-menu` | A Dropdown Menu of actions gathered behind one button, opened on click. |
+| `menubar` | A Menubar: a row of menus, as in a desktop application. |
+| `navigation-menu` | A Navigation Menu: the top navigation of a site, with menus that open on hover. |
+| `pagination` | Pagination: move between the pages of a long list. |
 
 ## Overlays
 
@@ -150,13 +164,14 @@ Read: `sovrium docs components/overlay-components`
 
 | Type | What it is for |
 | --- | --- |
-| `alert-dialog` | A confirmation for an action that loses data. |
-| `dialog` | A focused task over the page, dismissed by the overlay or a button. |
-| `drawer` | A panel that slides in from an edge and keeps the page visible behind it. |
-| `hover-card` | A preview that opens when the pointer rests on a name. |
-| `popover` | A small panel anchored to its trigger. |
-| `toast` | A short confirmation that leaves on its own. |
-| `tooltip` | One line of help on hover or focus. |
+| `alert-dialog` | An Alert Dialog asking the reader to confirm an action that loses data. |
+| `dialog` | A Dialog holding a focused task over the page, dismissed by the overlay or a button. |
+| `drawer` | A drawer: a panel that rises from the bottom edge and is dragged down to dismiss. |
+| `hover-card` | A Hover Card: a preview that opens when the pointer rests on a name. |
+| `popover` | A Popover: a small panel anchored to its trigger, opened on click. |
+| `sheet` | A Sheet: a panel that slides in from an edge and keeps the page visible behind it. |
+| `toast` | A Toast, drawn by Sonner: a short confirmation that leaves on its own. |
+| `tooltip` | A Tooltip: one line of help on hover or focus. |
 
 ## Feedback
 
@@ -164,9 +179,9 @@ Read: `sovrium docs components/feedback-components`
 
 | Type | What it is for |
 | --- | --- |
-| `progress` | How far a known task has run. |
-| `skeleton` | The shape of content that is still loading. |
-| `spinner` | Waiting, when nothing else can be shown. |
+| `progress` | A Progress bar: how far a known task has run. |
+| `skeleton` | A Skeleton: the shape of content that is still loading. |
+| `spinner` | A Spinner: waiting, when nothing else can be shown. |
 
 ## Structural
 
@@ -174,7 +189,7 @@ Read: `sovrium docs components/structural-components`
 
 | Type | What it is for |
 | --- | --- |
-| `divider` | A hairline between two things that are not the same thing. |
+| `separator` | A Separator: a hairline between two things that are not the same thing. |
 | `spacer` | Empty room, sized from the spacing ladder. |
 
 ## Specialty

@@ -17,12 +17,7 @@ import { Schema } from 'effect'
  * The Brand page draws these as a table, and they are the last block of it that
  * had no read: `design.zones[]` is an array of objects nested one level below a
  * `voice` override, so a page binding it could reach the pattern but not say
- * which budget it carries without an `if`.
- *
- * `accentBudget` is REQUIRED here where the config leaves it optional, and the
- * fallback is the fail-closed one `Brand Zone Drift` already enforces: a zone
- * that declares no budget is `product`. Publishing the resolved value rather
- * than the declared one is the whole point — a page cannot apply a default.
+ * which fields it inherits without a join.
  */
 export const designZoneRowSchema = Schema.Struct({
   pattern: Schema.String.annotate({
@@ -32,10 +27,6 @@ export const designZoneRowSchema = Schema.Struct({
   zone: Schema.String.annotate({
     description: 'The zone this pattern belongs to',
     examples: ['marketing', 'product'],
-  }),
-  accentBudget: Schema.Literals(['public', 'product']).annotate({
-    description:
-      'Which accent budget the zone carries, RESOLVED. A zone declaring none is `product` — the fail-closed fallback the drift gate enforces — because a page cannot apply a default.',
   }),
   hasVoiceOverride: Schema.Boolean.annotate({
     description:

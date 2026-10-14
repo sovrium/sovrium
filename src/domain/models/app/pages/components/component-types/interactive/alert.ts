@@ -22,4 +22,10 @@ export const alertFields = {
   ...actionFields,
   ...i18nFields,
   alertVariant: Schema.optional(AlertVariantSchema),
+  title: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Short heading drawn above the message, in bold, so the reader gets the gist before the detail. Leave it out for a one-line alert.',
+    })
+  ),
 } as const

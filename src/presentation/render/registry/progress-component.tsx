@@ -12,7 +12,7 @@
  * the `aria-valuenow` / `aria-valuemin` / `aria-valuemax` attributes screen
  * readers expect. Two variants:
  *  - `linear` (default): a horizontal bar whose fill width is the percentage;
- *    `size` (sm/md/lg) controls the bar height so thinner/thicker bars are
+ *    `size` (sm/default/lg) controls the bar height so thinner/thicker bars are
  *    visually and dimensionally distinct.
  *  - `circle`: an SVG ring whose stroke dash offset encodes the percentage.
  *
@@ -20,6 +20,11 @@
  * variant, inline beside the bar for the linear variant. The author-declared
  * `props.id` is placed on the progressbar element so layout assertions can
  * resolve it via `#id`, and `props.label` becomes the `aria-label`.
+ *
+ * The parts carry shadcn/ui's `data-slot` names — `progress`, `progress-track`,
+ * `progress-indicator`, `progress-value` — beside the `data-component` and
+ * `data-progress-variant` hooks. `role="progressbar"` stays on the track of the
+ * linear variant, where the author's `id` and `label` have always landed.
  *
  * This is a pure SSR component (no interactivity), so no island is required.
  */
@@ -41,11 +46,11 @@ import type { ReactElement } from 'react'
 /** Default maximum when `progressMax` is unset. */
 const DEFAULT_MAX = 100
 
-/** Bar heights (px) per size token — `sm` thinner than `md` thinner than `lg`. */
-const BAR_HEIGHT_PX: Readonly<Record<string, number>> = { sm: 4, md: 8, lg: 12 }
+/** Bar heights (px) per size token — `sm` thinner than `default` thinner than `lg`. */
+const BAR_HEIGHT_PX: Readonly<Record<string, number>> = { sm: 4, default: 8, lg: 12 }
 
 /** Circle pixel diameters per size token. */
-const CIRCLE_SIZE_PX: Readonly<Record<string, number>> = { sm: 48, md: 72, lg: 96 }
+const CIRCLE_SIZE_PX: Readonly<Record<string, number>> = { sm: 48, default: 72, lg: 96 }
 
 interface ProgressFields {
   readonly value: number
@@ -90,7 +95,7 @@ function resolveProgressFields(
     percent,
     variant: resolveVariant(c.progressVariant),
     showLabel: c.showLabel === true,
-    size: typeof c.size === 'string' ? c.size : 'md',
+    size: typeof c.size === 'string' ? c.size : 'default',
     id: typeof props.id === 'string' ? props.id : undefined,
     label: typeof props.label === 'string' ? props.label : undefined,
     steps: resolveSteps(c.steps),
@@ -122,7 +127,7 @@ function resolveVariant(declared: unknown): 'linear' | 'circle' | 'steps' {
 
 /** Render the circular (SVG ring) progress variant. */
 function renderCircle(f: ProgressFields): ReactElement {
-  const diameter = CIRCLE_SIZE_PX[f.size] ?? CIRCLE_SIZE_PX.md ?? 72
+  const diameter = CIRCLE_SIZE_PX[f.size] ?? CIRCLE_SIZE_PX.default ?? 72
   const stroke = 6
   const radius = (diameter - stroke) / 2
   const circumference = 2 * Math.PI * radius
@@ -136,6 +141,7 @@ function renderCircle(f: ProgressFields): ReactElement {
       aria-valuenow={f.value}
       aria-valuemin={0}
       aria-valuemax={f.max}
+      data-slot="progress"
       data-component="progress"
       data-component-type={f.componentType}
       data-progress-variant="circle"
@@ -168,7 +174,12 @@ function renderCircle(f: ProgressFields): ReactElement {
         />
       </svg>
       {f.showLabel && (
-        <span className={`absolute ${computeProgressLabelClasses()}`}>{f.percent}%</span>
+        <span
+          data-slot="progress-value"
+          className={`absolute ${computeProgressLabelClasses()}`}
+        >
+          {f.percent}%
+        </span>
       )}
     </div>
   )
@@ -176,9 +187,10 @@ function renderCircle(f: ProgressFields): ReactElement {
 
 /** Render the linear (horizontal bar) progress variant. */
 function renderLinear(f: ProgressFields): ReactElement {
-  const height = BAR_HEIGHT_PX[f.size] ?? BAR_HEIGHT_PX.md ?? 8
+  const height = BAR_HEIGHT_PX[f.size] ?? BAR_HEIGHT_PX.default ?? 8
   return (
     <div
+      data-slot="progress"
       className="flex items-center gap-2"
       data-component-type={f.componentType}
     >
@@ -189,17 +201,26 @@ function renderLinear(f: ProgressFields): ReactElement {
         aria-valuenow={f.value}
         aria-valuemin={0}
         aria-valuemax={f.max}
+        data-slot="progress-track"
         data-component="progress"
         data-progress-variant="linear"
         className={computeProgressTrackClasses()}
         style={{ height }}
       >
         <div
+          data-slot="progress-indicator"
           className={computeProgressBarClasses()}
           style={{ width: `${f.percent}%` }}
         />
       </div>
-      {f.showLabel && <span className={computeProgressLabelClasses()}>{f.percent}%</span>}
+      {f.showLabel && (
+        <span
+          data-slot="progress-value"
+          className={computeProgressLabelClasses()}
+        >
+          {f.percent}%
+        </span>
+      )}
     </div>
   )
 }

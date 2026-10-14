@@ -101,7 +101,7 @@ function resolveBadgeInputs(
 ): Pick<ListIslandInputs, 'badgePaints' | 'badgeField'> {
   const badgeField = badgeFieldOf(list.listDisplay?.itemTemplate?.badge)
   if (badgeField === undefined) return {}
-  const badgePaints = resolveOptionBadgePaints(table, badgeField, app.design?.badgeForm)
+  const badgePaints = resolveOptionBadgePaints(table, badgeField, app.design?.badgeForm, 'grid')
   return badgePaints === undefined ? {} : { badgePaints, badgeField }
 }
 

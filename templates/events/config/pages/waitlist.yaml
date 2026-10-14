@@ -18,7 +18,7 @@ components:
     children:
       - $ref: ./_site-header.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: mx-auto flex w-full max-w-[1100px] flex-1 items-start gap-10 px-6 pt-12 pb-16 max-md:flex-col-reverse max-md:gap-6 max-md:px-4 max-md:pt-6
         children:
@@ -57,7 +57,7 @@ components:
           - type: card
             props:
               aria-label: The event
-              className: flex w-[300px] flex-none flex-col gap-2.5 rounded-lg border border-border bg-background-raised p-4 text-left max-md:w-full
+              className: flex w-[300px] flex-none flex-col gap-2.5 rounded-lg border border-border bg-card p-4 text-left max-md:w-full
             children:
               - type: container
                 props:
@@ -82,6 +82,6 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-sm text-foreground-muted
+                  className: text-sm text-muted-foreground
                 content: $record.card_when · $record.place
       - $ref: ./_site-footer.yaml

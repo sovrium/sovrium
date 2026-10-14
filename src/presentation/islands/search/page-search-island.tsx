@@ -7,6 +7,19 @@
 
 import { useCallback, useMemo } from 'react'
 import { cn } from '@/presentation/design/class-merge'
+import { SearchLucideGlyph } from '@/presentation/design/control-glyphs'
+import {
+  computeInputGroupAddonClasses,
+  computeInputGroupClasses,
+  computeInputGroupFieldClasses,
+} from '@/presentation/design/input-group-default-classes'
+import {
+  computeSearchInputItemClasses,
+  computeSearchInputItemExcerptClasses,
+  computeSearchInputItemTitleClasses,
+  computeSearchInputResultsClasses,
+  computeSearchInputRootClasses,
+} from '@/presentation/design/search-input-default-classes'
 import { usePageSearch } from '../page-search/use-page-search'
 import type { SearchResult } from '../page-search/matcher'
 import type { MouseEvent, ReactElement } from 'react'
@@ -24,6 +37,11 @@ import type { MouseEvent, ReactElement } from 'react'
  * first result; outside-click collapses (preserving the query). Each option
  * shows the page `title` (bold) followed by the body `excerpt`, both rendered
  * as plain-text React children — never `dangerouslySetInnerHTML`.
+ *
+ * Drawn on shadcn/ui's anatomy: the box is one `InputGroup` with a magnifier
+ * in an addon at its start (the same box the server drew), and the results
+ * open under it on the popover surface as command-style rows
+ * (`search-input-default-classes.ts`).
  */
 interface PageSearchIslandProps {
   readonly placeholder?: string
@@ -33,71 +51,6 @@ interface PageSearchIslandProps {
   readonly id?: string
   readonly className?: string
   readonly 'data-testid'?: string
-}
-
-interface PanelInlineStyles {
-  readonly container: React.CSSProperties
-  readonly input: React.CSSProperties
-  readonly panel: React.CSSProperties
-  readonly option: React.CSSProperties
-  readonly optionTitle: React.CSSProperties
-  readonly optionExcerpt: React.CSSProperties
-}
-
-// Inline styles (not Tailwind) so the island renders correctly even on host
-// pages that don't ship Sovrium's compiled CSS. Colors reference the DS theme
-// CSS variables with literal fallbacks — `var(--color-X, <fallback>)` — so the
-// surface is theme-aware when Sovrium's CSS is present (a `theme.colors`
-// override recolors it) yet still paints a sensible default on a bare host
-// page. Same SSR-safe pattern the chart island uses for its SVG strokes.
-// Operators can further override via plain CSS targeting
-// `[data-island="search-input"]` selectors.
-const STYLES: PanelInlineStyles = {
-  container: { position: 'relative', width: '100%' },
-  input: {
-    width: '100%',
-    padding: '0.5rem',
-    boxSizing: 'border-box',
-    background: 'var(--color-background, white)',
-    color: 'var(--color-foreground, inherit)',
-    border: '1px solid var(--color-border, rgba(0, 0, 0, 0.12))',
-    borderRadius: '0.25rem',
-  },
-  panel: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    margin: 0,
-    padding: 0,
-    listStyle: 'none',
-    background: 'var(--color-background-raised, white)',
-    border: '1px solid var(--color-border, rgba(0, 0, 0, 0.12))',
-    borderRadius: '0.25rem',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-    maxHeight: '24rem',
-    overflowY: 'auto',
-    zIndex: 50,
-  },
-  option: {
-    padding: '0.5rem 0.75rem',
-    cursor: 'pointer',
-    borderBottom: '1px solid var(--color-border, rgba(0, 0, 0, 0.06))',
-  },
-  optionTitle: {
-    display: 'block',
-    fontWeight: 600,
-    marginBottom: '0.125rem',
-    color: 'var(--color-foreground, inherit)',
-  },
-  optionExcerpt: {
-    display: '-webkit-box',
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical',
-    overflow: 'hidden',
-    fontSize: '0.875rem',
-    color: 'var(--color-foreground-muted, rgba(0, 0, 0, 0.65))',
-  },
 }
 
 // ── Results panel + option subcomponents ─────────────────────────────────────
@@ -115,7 +68,8 @@ function PageSearchResultsPanel({
     <ul
       id="page-search-listbox"
       role="listbox"
-      style={STYLES.panel}
+      data-slot="search-input-results"
+      className={computeSearchInputResultsClasses()}
     >
       {results.map((result) => (
         <PageSearchResultOption
@@ -147,16 +101,31 @@ function PageSearchResultOption({ result, onNavigate }: PageSearchResultOptionPr
       role="option"
       aria-selected={false}
       onClick={handleClick}
-      style={STYLES.option}
+      data-slot="search-input-item"
+      className={computeSearchInputItemClasses()}
     >
       <a
         href={result.url}
         onClick={handleClick}
+        className="contents"
       >
-        <span style={STYLES.optionTitle}>{result.title}</span>
-        <span style={STYLES.optionExcerpt}>{result.excerpt}</span>
+        <span className={computeSearchInputItemTitleClasses()}>{result.title}</span>
+        <span className={computeSearchInputItemExcerptClasses()}>{result.excerpt}</span>
       </a>
     </li>
+  )
+}
+
+/** The magnifier in an addon at the group's start, hidden from assistive technology. */
+function SearchMark(): ReactElement {
+  return (
+    <div
+      data-slot="input-group-addon"
+      data-align="inline-start"
+      className={computeInputGroupAddonClasses({ align: 'inline-start' })}
+    >
+      <SearchLucideGlyph />
+    </div>
   )
 }
 
@@ -185,22 +154,29 @@ export default function PageSearchIsland({
     <div
       ref={containerRef}
       id={id}
-      className={cn(className)}
+      className={cn(computeSearchInputRootClasses(), className)}
       data-testid={testId}
-      style={STYLES.container}
     >
-      <input
-        type="search"
-        value={query}
-        onChange={onChange}
-        onKeyDown={onKeyDown}
-        placeholder={effectivePlaceholder}
-        aria-label={effectivePlaceholder}
-        aria-autocomplete="list"
-        aria-controls={isOpen ? 'page-search-listbox' : undefined}
-        aria-expanded={isOpen}
-        style={STYLES.input}
-      />
+      <div
+        role="group"
+        data-slot="input-group"
+        className={computeInputGroupClasses()}
+      >
+        <input
+          type="search"
+          value={query}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          placeholder={effectivePlaceholder}
+          aria-label={effectivePlaceholder}
+          aria-autocomplete="list"
+          aria-controls={isOpen ? 'page-search-listbox' : undefined}
+          aria-expanded={isOpen}
+          data-slot="input-group-control"
+          className={computeInputGroupFieldClasses()}
+        />
+        <SearchMark />
+      </div>
       {isOpen && results.length > 0 && (
         <PageSearchResultsPanel
           results={results}

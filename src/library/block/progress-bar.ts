@@ -35,7 +35,7 @@ export const entry = defineLibraryEntry({
             flex(
               [
                 span('Importing clients', 'text-md font-medium text-foreground'),
-                span('312 / 480', 'font-mono text-sm text-foreground-subtle'),
+                span('312 / 480', 'font-mono text-sm text-muted-foreground'),
               ],
               'items-center justify-between gap-4'
             ),
@@ -47,10 +47,7 @@ export const entry = defineLibraryEntry({
               size: 'sm',
               props: { label: 'Importing clients' },
             },
-            para(
-              'About 2 minutes left. You can leave this page.',
-              'text-sm text-foreground-subtle'
-            ),
+            para('About 2 minutes left. You can leave this page.', 'text-sm text-muted-foreground'),
           ],
           'max-w-xl gap-2'
         ),

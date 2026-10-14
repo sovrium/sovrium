@@ -24,10 +24,11 @@
  *
  * The recipe mirrors the rest of the prestyled-default islands
  * (date-default-classes, disclosure-default-classes, etc.): layout / spacing
- * stay raw Tailwind utilities; only color / radius / shadow / motion / focus
- * classes thread through {@link withVarFallback} so `app.design.*` overrides
- * still win at the CSS cascade (var lookups resolve `--sv-*` first, fall back
- * to the inline OKLCH literal).
+ * stay raw Tailwind utilities; a colour with a shadcn twin is its role utility
+ * (`bg-card`, `text-muted-foreground`), and radius plus the roles shadcn does
+ * not declare (the warning, error and disabled tones) thread through
+ * {@link withVarFallback} so `app.design.*` overrides still win at the CSS
+ * cascade (the variable first, the inline literal as its fallback).
  *
  * Helper file lives in `src/presentation/islands/` (alongside the islands that
  * consume it) because the affordances hydrate client-side inside CRUD form +
@@ -36,6 +37,7 @@
  * chosen for the sibling `*-default-classes` helpers.
  */
 
+import { cva } from 'class-variance-authority'
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 import { FOCUS_VISIBLE_RING, MOTION_COLORS, RADIUS_MD } from './shared-tokens-default-classes'
 
@@ -56,11 +58,9 @@ const DISABLED = 'disabled:cursor-not-allowed disabled:opacity-50'
 // RATING — star row container
 // ──────────────────────────────────────────────────────────────────────────────
 
-const RATING_SIZE_GAP: Record<Size, string> = {
-  sm: 'gap-0.5',
-  md: 'gap-1',
-  lg: 'gap-1.5',
-}
+const RATING_SIZE_GAP = cva('', {
+  variants: { size: { sm: 'gap-0.5', md: 'gap-1', lg: 'gap-1.5' } },
+})
 
 /**
  * Compute the default className for the rating-field outer container —
@@ -69,7 +69,7 @@ const RATING_SIZE_GAP: Record<Size, string> = {
  * `md` / `lg`. Layout only; foreground tone comes from the per-star helper.
  */
 export const computeRatingContainerClasses = ({ size = 'md' }: { size?: Size } = {}): string =>
-  ['inline-flex items-center', RATING_SIZE_GAP[size]].join(' ')
+  ['inline-flex items-center', RATING_SIZE_GAP({ size: size })].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // RATING — single star (filled / empty, interactive / static)
@@ -138,12 +138,12 @@ const CURRENCY_CONTAINER_LAYOUT = 'relative inline-flex w-full items-center'
 
 const CURRENCY_CONTAINER_SURFACE = [
   'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `focus-within:border-[${v('sv-focus-ring', T.focusRing)}]`,
-  `focus-within:ring-1`,
-  `focus-within:ring-[${v('sv-focus-ring', T.focusRing)}]`,
+  'border-border',
+  'bg-card',
+  'text-foreground',
+  'focus-within:border-ring',
+  'focus-within:ring-1',
+  'focus-within:ring-ring',
 ].join(' ')
 
 /**
@@ -163,7 +163,7 @@ export const computeCurrencyInputContainerClasses = (): string =>
 const CURRENCY_SYMBOL_LAYOUT =
   'pointer-events-none inline-flex h-full items-center justify-center px-2 select-none'
 
-const CURRENCY_SYMBOL_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
+const CURRENCY_SYMBOL_SURFACE = 'text-muted-foreground'
 
 /**
  * Compute the default className for the leading currency symbol. Uses the
@@ -183,7 +183,7 @@ export const computeCurrencySymbolClasses = (): string =>
 
 const CURRENCY_DISPLAY_LAYOUT = 'inline-block tabular-nums'
 
-const CURRENCY_DISPLAY_SURFACE = `text-[${v('sv-fg', T.fg)}]`
+const CURRENCY_DISPLAY_SURFACE = 'text-foreground'
 
 /**
  * Compute the default className for a readonly currency value rendering
@@ -226,11 +226,9 @@ export const computePercentageSuffixClasses = (): string =>
 // COLOR — circular swatch trigger
 // ──────────────────────────────────────────────────────────────────────────────
 
-const SWATCH_SIZE_MAP: Record<Size, string> = {
-  sm: 'h-5 w-5',
-  md: 'h-7 w-7',
-  lg: 'h-9 w-9',
-}
+const SWATCH_SIZE_MAP = cva('', {
+  variants: { size: { sm: 'h-5 w-5', md: 'h-7 w-7', lg: 'h-9 w-9' } },
+})
 
 const SWATCH_LAYOUT = 'inline-flex items-center justify-center'
 
@@ -243,10 +241,7 @@ const SWATCH_MOTION = 'transition-[box-shadow,border-color] duration-150'
 // The border change is the whole hover affordance. A chip that also LIFTS on
 // hover claims to float, and nothing in this system floats on hover — elevation
 // is reserved for a surface that is genuinely above the page.
-const SWATCH_INTERACTIVE = [
-  'cursor-pointer',
-  `hover:border-[${v('sv-focus-ring', T.focusRing)}]`,
-].join(' ')
+const SWATCH_INTERACTIVE = ['cursor-pointer', 'hover:border-ring'].join(' ')
 
 /**
  * Compute the default className for the color-field swatch button — the
@@ -261,7 +256,7 @@ const SWATCH_INTERACTIVE = [
 export const computeColorSwatchClasses = ({ size = 'md' }: { size?: Size } = {}): string =>
   [
     SWATCH_LAYOUT,
-    SWATCH_SIZE_MAP[size],
+    SWATCH_SIZE_MAP({ size: size }),
     RADIUS_FULL,
     SWATCH_SURFACE,
     SWATCH_MOTION,
@@ -278,9 +273,9 @@ const COLOR_POPUP_LAYOUT = 'absolute left-0 top-full z-50 mt-1 p-3 min-w-[12rem]
 
 const COLOR_POPUP_SURFACE = [
   'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-overlay', T.bgOverlay)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
+  'border-border',
+  'bg-popover',
+  'text-foreground',
   `shadow-[${v('shadow-lg', T.shadowLg)}]`,
 ].join(' ')
 
@@ -300,16 +295,12 @@ export const computeColorPickerPopupClasses = (): string =>
 const TILE_LAYOUT = 'relative inline-flex h-24 w-24 flex-col items-stretch overflow-hidden'
 
 // Bordered, unelevated: an attachment tile sits IN the form, not above it.
-const TILE_DEFAULT = [
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-].join(' ')
+const TILE_DEFAULT = ['border', 'border-border', 'bg-muted'].join(' ')
 
 const TILE_UPLOADING = [
   'border-2 border-dashed',
   `border-[${v('sv-border-strong', T.borderStrong)}]`,
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
+  'bg-muted',
   'animate-pulse',
 ].join(' ')
 
@@ -357,7 +348,7 @@ export const computeAttachmentTileImageClasses = (): string => 'h-16 w-full obje
 // ATTACHMENT — file-icon fallback (non-image attachments)
 // ──────────────────────────────────────────────────────────────────────────────
 
-const ATTACHMENT_ICON_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
+const ATTACHMENT_ICON_SURFACE = 'text-muted-foreground'
 
 /**
  * Compute the default className for the file-icon placeholder shown when an
@@ -373,7 +364,7 @@ export const computeAttachmentTileFileIconClasses = (): string =>
 
 const FILENAME_LAYOUT = 'truncate px-1 py-0.5 text-center text-xs'
 
-const FILENAME_SURFACE = `text-[${v('sv-fg-muted', T.fgMuted)}]`
+const FILENAME_SURFACE = 'text-muted-foreground'
 
 /**
  * Compute the default className for the filename label that sits under the
@@ -392,12 +383,7 @@ export const computeAttachmentTileFilenameClasses = (): string =>
 const REMOVE_LAYOUT =
   'absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center text-xs leading-none'
 
-const REMOVE_SURFACE = [
-  `bg-[${v('sv-bg-overlay', T.bgOverlay)}]`,
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-].join(' ')
+const REMOVE_SURFACE = ['bg-popover', 'text-muted-foreground', 'border', 'border-border'].join(' ')
 
 const REMOVE_HOVER = [
   `hover:bg-[${v('sv-error-bg', T.errorBg)}]`,

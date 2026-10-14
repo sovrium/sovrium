@@ -24,8 +24,8 @@ import {
   sqliteTransactionLike,
 } from '../sql/dialect-ddl'
 import { postgresTransactionLike } from '../sql/sql-execution'
+import { storedConstraintsCurrent } from '../table-operations/live-unique-shape'
 import { sqliteLegacyDateValuesQuery } from '../table-operations/sqlite-date-normalisation'
-import { sqliteConstraintsCurrent } from '../table-operations/unique-constraint-drift'
 import { storedFormulaEngineCurrent, type StoredChecksumRow } from './formula-engine-recompute'
 import { logRollbackOperation } from './migration-audit-trail'
 import { findStaleViewDefinition } from './view-definition-drift'
@@ -484,7 +484,7 @@ const storedDataCurrent = async (
     (await viewDefinitionsCurrent(quick, tables)) &&
     (await formulaColumnTypesCurrent(quick, tables)) &&
     (await sqliteDateValuesStored(quick, tables)) &&
-    (!quick.isSqlite || (await sqliteConstraintsCurrent(quick.tx, tables)))
+    (await storedConstraintsCurrent(quick.tx, quick.isSqlite, tables))
   if (current) {
     logDebug('[schema] checksum matches and tables verified — skipping migration (fast path)')
   }

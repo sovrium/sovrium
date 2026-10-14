@@ -85,13 +85,13 @@ const ops = (category: string, list: string): PageComponent =>
         type: 'text',
         element: 'p',
         content: category,
-        props: { className: 'text-foreground text-[11px] font-medium' },
+        props: { className: 'text-foreground text-xs font-medium' },
       },
       {
         type: 'text',
         element: 'p',
         content: list,
-        props: { className: 'text-foreground-subtle font-mono text-[11px]' },
+        props: { className: 'text-muted-foreground font-mono text-xs' },
       },
     ],
   }) as PageComponent

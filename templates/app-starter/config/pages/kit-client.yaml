@@ -25,7 +25,7 @@ components:
       - type: text
         element: p
         props:
-          className: text-md text-foreground-muted
+          className: text-md text-muted-foreground
         content: 'The client’s facts, by type, and its discussion.'
   - component: dl-rows
   - component: dl-stacked

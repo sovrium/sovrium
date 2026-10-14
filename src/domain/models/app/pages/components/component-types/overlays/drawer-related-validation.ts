@@ -11,7 +11,7 @@
  * Every rule here refuses a config whose section would otherwise list NOTHING
  * in silence: a `field` that is not a relationship back to the drawer's table
  * filters on a column that can never hold the opened record's id, a `columns`
- * entry naming no field draws an empty column, and an `openDrawer` target bound
+ * entry naming no field draws an empty column, and an `openSheet` target bound
  * to another table opens on an id that belongs to a different table.
  *
  * WHY NOT A `Schema.check` ON THE ENTRY SCHEMA. Each rule needs the config's
@@ -63,7 +63,7 @@ function indexTables(config: unknown): TableIndex {
 function collectDrawers(node: unknown): readonly RawRecord[] {
   if (Array.isArray(node)) return node.flatMap(collectDrawers)
   if (!isRecord(node)) return []
-  const self = node['type'] === 'drawer' ? [node] : []
+  const self = node['type'] === 'sheet' ? [node] : []
   return [...self, ...Object.values(node).flatMap(collectDrawers)]
 }
 
@@ -76,7 +76,7 @@ function boundTable(drawer: RawRecord): string | undefined {
 
 /** How a message names the drawer: by its `id` when it has one. */
 function drawerLabel(drawer: RawRecord): string {
-  return typeof drawer['id'] === 'string' ? `drawer '${drawer['id']}'` : 'drawer'
+  return typeof drawer['id'] === 'string' ? `drawer '${drawer['id']}'` : 'sheet'
 }
 
 /** Everything one entry's rules need to decide and to report. */
@@ -129,14 +129,14 @@ function fieldListViolations(
   })
 }
 
-/** An `openDrawer` target must be a drawer on the same page bound to `table`. */
+/** An `openSheet` target must be a drawer on the same page bound to `table`. */
 function rowClickViolations(
   entry: RawRecord,
   ctx: EntryContext,
   pageDrawers: readonly RawRecord[]
 ): readonly string[] {
   const { onRowClick } = entry
-  if (!isRecord(onRowClick) || onRowClick['action'] !== 'openDrawer') return []
+  if (!isRecord(onRowClick) || onRowClick['action'] !== 'openSheet') return []
   const target = onRowClick['component']
   if (typeof target !== 'string') return []
   const drawer = pageDrawers.find((candidate) => candidate['id'] === target)

@@ -58,7 +58,7 @@ export const entry = defineLibraryEntry({
         [
           stack(
             [
-              span('404', 'font-mono text-md text-foreground-subtle'),
+              span('404', 'font-mono text-md text-muted-foreground'),
               h1(p('headline')),
               lead(p('subheadline'), 'max-w-md'),
               actions(
@@ -75,7 +75,7 @@ export const entry = defineLibraryEntry({
             'mx-auto max-w-2xl items-center gap-4 text-center'
           ),
         ],
-        { element: 'main', className: 'flex min-h-[70vh] items-center justify-center' }
+        { element: 'div', className: 'flex min-h-[70vh] items-center justify-center' }
       )
     )
   },

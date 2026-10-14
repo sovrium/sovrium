@@ -1,0 +1,72 @@
+# sovrium-library: block/record-sheet@0.37.0
+# sovrium-library-params: childLabel=Tasks&childTable=tasks&emptyMessage=No%20record%20yet.%20Create%20one%20to%20see%20it%20here.&fullPagePath=%2Fprojects%2F%24record.id&headline=Projects&parentField=project&statusField=status&table=projects&titleField=title
+name: record-sheet
+type: container
+element: section
+props:
+  className: px-4 py-6 sm:px-8 sm:py-8
+children:
+  - type: flex
+    props:
+      className: flex flex-col gap-4
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-1
+        children:
+          - type: text
+            element: h3
+            props:
+              className: text-xl font-semibold text-foreground text-lg
+            content: Projects
+      - type: table
+        dataSource:
+          table: projects
+        columns:
+          - field: title
+            label: Name
+            editable: false
+          - field: status
+            label: Status
+            editable: false
+        onRowClick:
+          action: openSheet
+          component: record-sheet-detail
+        phoneLayout: rows
+        emptyMessage: No record yet. Create one to see it here.
+      - type: sheet
+        id: record-sheet-detail
+        props:
+          title: $record.title
+        drawerSide: right
+        drawerSize: md
+        dataSource:
+          table: projects
+        canEdit: true
+        recordFields:
+          - name: title
+            type: single-line-text
+            label: Name
+          - name: status
+            type: status
+            label: Status
+        related:
+          - label: Tasks
+            table: tasks
+            field: project
+            limit: 3
+            emptyMessage: Nothing linked yet.
+        navigation:
+          siblings: true
+          fullPage: /projects/$record.id
+        actions:
+          - label: Delete
+            variant: destructive
+            action:
+              type: crud
+              operation: delete
+              table: projects
+            confirm:
+              title: Delete $record.title?
+              message: The record and what links only to it are deleted. This cannot be undone.
+              confirmLabel: Delete

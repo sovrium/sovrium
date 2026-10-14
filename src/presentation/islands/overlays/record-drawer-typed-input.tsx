@@ -78,7 +78,7 @@ function BoxField({ field, label, value, disabled, onChange, children }: TypedFi
   const input = boxInputOf(field.type, value)
   return (
     <label className="text-md flex flex-col gap-1">
-      <span className="text-foreground-muted">{label}</span>
+      <span className="text-muted-foreground">{label}</span>
       <input
         type={input.type}
         data-component-type={inputComponentTypeOf(input.type)}
@@ -100,7 +100,7 @@ function BoxField({ field, label, value, disabled, onChange, children }: TypedFi
 function TextAreaField({ field, label, value, disabled, onChange, children }: TypedFieldProps) {
   return (
     <label className="text-md flex flex-col gap-1">
-      <span className="text-foreground-muted">{label}</span>
+      <span className="text-muted-foreground">{label}</span>
       <textarea
         data-component-type="textarea"
         aria-label={label}
@@ -131,7 +131,7 @@ function CheckboxField({ field, label, value, disabled, onChange, children }: Ty
           className="accent-primary h-4 w-4 disabled:cursor-not-allowed"
           {...fieldDescribedBy(field)}
         />
-        <span className="text-foreground-muted">{label}</span>
+        <span className="text-muted-foreground">{label}</span>
       </label>
       {children}
     </div>

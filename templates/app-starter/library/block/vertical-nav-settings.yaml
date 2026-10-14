@@ -1,4 +1,4 @@
-# sovrium-library: block/vertical-nav-settings@0.30.0
+# sovrium-library: block/vertical-nav-settings@0.37.0
 name: vertical-nav-settings
 type: container
 props:
@@ -44,64 +44,64 @@ children:
           - type: link
             props:
               href: /settings?section=general
-              className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+              className: inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline
             activeWhen:
               value: $query.section
               equals: general
             activeProps:
               aria-current: page
-              className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+              className: inline-flex h-8 items-center justify-start rounded-lg bg-muted px-2.5 text-sm font-medium whitespace-nowrap text-foreground no-underline hover:bg-muted hover:no-underline
             content: General
           - type: link
             props:
               href: /settings/members?section=members
-              className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+              className: inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline
             activeWhen:
               value: $query.section
               equals: members
             activeProps:
               aria-current: page
-              className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+              className: inline-flex h-8 items-center justify-start rounded-lg bg-muted px-2.5 text-sm font-medium whitespace-nowrap text-foreground no-underline hover:bg-muted hover:no-underline
             content: Members
           - type: link
             props:
               href: /settings/billing?section=billing
-              className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+              className: inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline
             activeWhen:
               value: $query.section
               equals: billing
             activeProps:
               aria-current: page
-              className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+              className: inline-flex h-8 items-center justify-start rounded-lg bg-muted px-2.5 text-sm font-medium whitespace-nowrap text-foreground no-underline hover:bg-muted hover:no-underline
             content: Billing
           - type: link
             props:
               href: /settings/notifications?section=notifications
-              className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+              className: inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline
             activeWhen:
               value: $query.section
               equals: notifications
             activeProps:
               aria-current: page
-              className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+              className: inline-flex h-8 items-center justify-start rounded-lg bg-muted px-2.5 text-sm font-medium whitespace-nowrap text-foreground no-underline hover:bg-muted hover:no-underline
             content: Notifications
           - type: link
             props:
               href: /settings/danger?section=danger
-              className: whitespace-nowrap rounded-md px-3 py-2 text-md text-foreground-muted hover:bg-background-subtle hover:text-foreground
+              className: inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline
             activeWhen:
               value: $query.section
               equals: danger
             activeProps:
               aria-current: page
-              className: whitespace-nowrap rounded-md bg-background-subtle px-3 py-2 text-md font-medium text-foreground
+              className: inline-flex h-8 items-center justify-start rounded-lg bg-muted px-2.5 text-sm font-medium whitespace-nowrap text-foreground no-underline hover:bg-muted hover:no-underline
             content: Danger zone
       - type: container
         props:
-          className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle h-80 min-w-0 flex-1
+          className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-muted h-80 min-w-0 flex-1
         children:
           - type: text
             element: span
             props:
-              className: font-mono text-sm text-foreground-subtle
+              className: font-mono text-sm text-muted-foreground
             content: '[Settings panel]'

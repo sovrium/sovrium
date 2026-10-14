@@ -31,7 +31,9 @@ import {
   computeFormFieldLabelClasses,
   computeFormLayoutClasses,
 } from '@/presentation/design/form-layout-classes'
+import { pendingControlProps } from '@/presentation/design/pending-state'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
 import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
 import {
   ACCOUNT_SUCCESS_MESSAGES,
@@ -162,6 +164,7 @@ function useAccountSubmit(props: AccountMethodFormProps) {
   }
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
+    if (pressWhilePending(event)) return
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const values = Object.fromEntries(fields.map((f) => [f.name, String(form.get(f.name) ?? '')]))
@@ -266,6 +269,7 @@ export function AccountMethodForm(props: AccountMethodFormProps): ReactElement {
       <AuthErrorSummary
         fields={fields}
         errors={errors}
+        sentence={props.uiStrings?.['auth.fixErrors']}
       />
       {fields.map((field) => (
         <AuthFieldRow
@@ -290,7 +294,7 @@ export function AccountMethodForm(props: AccountMethodFormProps): ReactElement {
       <button
         type="submit"
         data-component-type="button"
-        disabled={pending}
+        {...pendingControlProps(pending)}
         className={`${computeSubmitButtonClasses(props.submitVariant)} w-full`}
       >
         {pending ? props.pendingLabel : props.submitLabel}

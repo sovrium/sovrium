@@ -55,8 +55,13 @@ export default function SidebarCurrentIsland() {
           entry.getAttribute('data-active-match'),
           path
         )
-        if (isCurrent) entry.setAttribute('aria-current', 'page')
-        else entry.removeAttribute('aria-current')
+        if (isCurrent) {
+          entry.setAttribute('aria-current', 'page')
+          entry.setAttribute('data-active', '')
+        } else {
+          entry.removeAttribute('aria-current')
+          entry.removeAttribute('data-active')
+        }
         entry.setAttribute('class', computeSidebarEntryClasses(isCurrent))
       })
     }

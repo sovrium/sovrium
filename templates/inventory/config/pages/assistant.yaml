@@ -17,7 +17,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -33,7 +33,7 @@ components:
               - type: text
                 element: span
                 props:
-                  className: text-xs text-foreground-muted
+                  className: text-xs text-muted-foreground
                 content: Reads products, stock, orders and suppliers
           - type: container
             props:

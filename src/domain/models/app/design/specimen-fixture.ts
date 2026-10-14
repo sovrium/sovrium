@@ -203,6 +203,63 @@ const SPECIMEN_DESCRIPTIONS: readonly string[] = [
   'Patented the frequency-hopping scheme the radio layer uses.',
 ]
 
+/**
+ * One place per row, row-aligned with {@link SPECIMEN_SEEDS}, written `lat,lng`
+ * the way a `map` reads a text location.
+ *
+ * Every pin is distinct and spread over three continents: a fixture whose rows
+ * shared a pin would draw one marker for several records and leave a map's
+ * clustering and its list twin documenting nothing.
+ */
+const SPECIMEN_PLACES: readonly string[] = [
+  '51.5072,-0.1276',
+  '40.7128,-74.006',
+  '53.4808,-2.2426',
+  '37.0299,-76.3452',
+  '42.3601,-71.0589',
+  '34.0522,-118.2437',
+  '37.4275,-122.1697',
+  '47.6062,-122.3321',
+  '51.9244,4.4777',
+  '42.6526,-73.7562',
+  '46.2044,6.1432',
+  '52.2053,0.1218',
+  '38.9072,-77.0369',
+  '39.9526,-75.1652',
+  '32.0853,34.7818',
+  '47.674,-122.1215',
+  '41.8781,-87.6298',
+  '29.9511,-90.0715',
+  '37.4419,-122.143',
+  '56.1629,10.2039',
+  '29.7604,-95.3698',
+  '42.1015,-72.5898',
+  '25.7617,-80.1918',
+  '55.6761,12.5683',
+  '38.627,-90.1994',
+  '40.4406,-79.9959',
+  '53.8008,-1.5491',
+  '35.994,-78.8986',
+  '39.7392,-104.9903',
+  '48.2082,16.3738',
+]
+
+/** How many rows the forest has at its root: one per `category`. */
+const SPECIMEN_ROOT_COUNT = 3
+
+/**
+ * The index of the row a row nests under, or `undefined` for a root.
+ *
+ * A three-way heap over the row order: rows 4-6 nest under row 1, rows 7-9
+ * under row 2, and so on, so thirty rows reach three levels below their roots
+ * and the parent always precedes the child, which is what makes a loop
+ * impossible rather than merely absent.
+ */
+const parentIndexOf = (index: number): number | undefined =>
+  index < SPECIMEN_ROOT_COUNT
+    ? undefined
+    : Math.floor((index - SPECIMEN_ROOT_COUNT) / SPECIMEN_ROOT_COUNT)
+
 /** How many rows the fixture holds. Pinned by the unit suite. */
 export const SPECIMEN_ROW_COUNT = SPECIMEN_SEEDS.length
 
@@ -258,6 +315,7 @@ export function specimenRows(now: Readonly<Date>): readonly SpecimenRow[] {
   return SPECIMEN_SEEDS.map(
     ([name, role, category, amount, share, views, size, startDay], index) => {
       const [hour, minute] = SCHEDULE[index % SCHEDULE.length] ?? [0, 0]
+      const parentIndex = parentIndexOf(index)
       return {
         id: `specimen-${index + 1}`,
         name,
@@ -276,6 +334,8 @@ export function specimenRows(now: Readonly<Date>): readonly SpecimenRow[] {
         endsAt: onDay(startDay + (END_OFFSETS[index % END_OFFSETS.length] ?? 1)),
         scheduledAt: new Date(Date.UTC(year, month, startDay, hour, minute)).toISOString(),
         allDay: hour === 0,
+        location: SPECIMEN_PLACES[index] ?? '',
+        ...(parentIndex === undefined ? {} : { parentId: `specimen-${parentIndex + 1}` }),
       }
     }
   )

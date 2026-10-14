@@ -68,7 +68,7 @@ children:
               - type: link
                 props:
                   href: /contact
-                  className: 'max-md:hidden inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+                  className: 'max-md:hidden inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground h-10 px-4 text-md'
                 content: $t:cta.primary
           - type: button
             variant: ghost
@@ -105,22 +105,22 @@ children:
               - type: link
                 props:
                   href: /product/one
-                  className: block border-b border-border py-3 pl-4 text-md text-foreground-muted
+                  className: block border-b border-border py-3 pl-4 text-md text-muted-foreground
                 content: $t:nav.item
               - type: link
                 props:
                   href: /product/two
-                  className: block border-b border-border py-3 pl-4 text-md text-foreground-muted
+                  className: block border-b border-border py-3 pl-4 text-md text-muted-foreground
                 content: $t:nav.item
               - type: link
                 props:
                   href: /product/three
-                  className: block border-b border-border py-3 pl-4 text-md text-foreground-muted
+                  className: block border-b border-border py-3 pl-4 text-md text-muted-foreground
                 content: $t:nav.item
               - type: link
                 props:
                   href: /product/four
-                  className: block border-b border-border py-3 pl-4 text-md text-foreground-muted
+                  className: block border-b border-border py-3 pl-4 text-md text-muted-foreground
                 content: $t:nav.item
               - type: link
                 props:
@@ -139,5 +139,5 @@ children:
               - type: link
                 props:
                   href: /contact
-                  className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-10 px-4 text-md'
+                  className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground h-10 px-4 text-md'
                 content: $t:cta.primary

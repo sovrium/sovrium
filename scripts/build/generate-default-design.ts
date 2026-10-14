@@ -7,7 +7,7 @@
 
 /**
  * Generate every derivation of Sovrium's default design system from the ONE
- * hand-written source at {@link SOURCE_PATH}.
+ * source at {@link SOURCE_PATH}: shadcn/ui's registry, pinned as a snapshot.
  *
  * ## What this replaced
  *
@@ -23,8 +23,8 @@
  *
  * | File | What it carries |
  * |---|---|
- * | `default-design.generated.ts` | flat `--sv-*` light values, `COLOR_TO_SV_TOKEN`, role names |
- * | `default-theme-layer.generated.ts` | the CSS blocks, byte-identical to the hand-written originals |
+ * | `default-design.generated.ts` | flat shadcn and extension `--sv-*` values, `DESIGN_COLOR_VARS`, `COLOR_TO_SV_TOKEN`, role names |
+ * | `default-theme-layer.generated.ts` | the CSS blocks |
  * | `tokens.generated.ts` | the `TOKENS` island fallback catalogue |
  * | `inherited-tokens.generated.ts` | the console's inherited-token projection |
  * | `desktop/src/tokens.generated.css` | the desktop shell's light + dark custom properties |
@@ -43,10 +43,11 @@
  *
  * ## Three things that are load-bearing, and why
  *
- * 1. **`SOURCE_PATH` is ONE constant.** Jalon 6.1 flipped it to
- *    `src/admin/config/design.ts` and deleted the temporary source in `src/`.
- *    Keeping the read behind a single name is what made that a one-line change
- *    rather than a second source of truth — do not inline the path.
+ * 1. **`SOURCE_PATH` is ONE constant.** It moved twice, each time a one-line
+ *    change: from a temporary source in `src/` to the console's design file,
+ *    then to the shadcn/ui snapshot manifest. Keeping the read behind a single
+ *    name is what made each move a flip rather than a second source of truth —
+ *    do not inline the path.
  * 2. **The emitted CSS keeps its spellings.** `V1_ROOT_LIGHT`, `V1_ROOT_DARK`,
  *    `ROLE_TOKEN_BRIDGE`, `V1_ROOT_DENSITY`, `V1_TOKEN_LAYER`,
  *    `NEUTRAL_FLOOR_LAYER` and friends are named by importers, by
@@ -69,29 +70,30 @@ import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as prettier from 'prettier'
-import {
-  DEFAULT_DESIGN_SOURCE,
-  type BlockItem,
-  type CatalogueItem,
-  type OrderedScale,
-  type Scale,
-  type TokenBlock,
-  type ValueSpec,
-} from '@/admin/config/design'
+import { RETIRED_SV_ROLE_TWINS, defaultDesignSource } from './shadcn-registry-to-design-source'
+import type {
+  BlockItem,
+  CatalogueItem,
+  OrderedScale,
+  Scale,
+  TokenBlock,
+  ValueSpec,
+} from './design-source-types'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
 
 /**
- * The ONE place the source is named. Jalon 6.1 repointed it here from
- * `src/domain/models/app/design/default-design.source.ts`, and that was the
- * whole flip: one constant and one import specifier, because the read was
- * behind a single name from the start.
- *
- * The source now lives in `src/admin/config/design.ts` — the reference
- * identity's own config — beside the small `DesignConfig` that app declares for
- * itself. See that file's docstring for why the two are separate exports.
+ * The ONE place the source is named: the manifest of the pinned shadcn/ui
+ * registry snapshot ([internal ref] D1). `shadcn-registry-to-design-source.ts` reads
+ * the snapshot it describes and completes it with the Sovrium remainder
+ * (`sovrium-design-remainder.ts`); nothing in the default is typed by hand
+ * that the snapshot declares. A default changes by re-pulling the snapshot at
+ * a new `shadcn` version, never by editing a value here.
  */
-export const SOURCE_PATH = 'src/admin/config/design.ts'
+export const SOURCE_PATH = 'scripts/baselines/shadcn-registry/manifest.json'
+
+/** The source object, read once per run. */
+const SOURCE = defaultDesignSource(REPO_ROOT)
 
 /** Where each derivation lands. Mirrored by `ALWAYS_ON_ASSETS` in the drift gate. */
 export const OUTPUT_PATHS = {
@@ -124,12 +126,7 @@ const banner = (what: string): string => `${COPYRIGHT}
 /** Render a {@link ValueSpec} into the CSS text it stands for. */
 export const renderValue = (value: ValueSpec): string => {
   if (typeof value === 'string') return value
-  if ('ref' in value) return `var(--sv-${value.ref})`
-  const fallback =
-    typeof value.fallback === 'string' ? value.fallback : `var(--sv-${value.fallback.ref})`
-  const inner =
-    value.legacyName === undefined ? fallback : `var(--${value.legacyName}, ${fallback})`
-  return `var(--${value.authorKey}, ${inner})`
+  return 'ref' in value ? `var(--sv-${value.ref})` : `var(--${value.alias})`
 }
 
 /** Render one block's items at the layer's four-space declaration indent. */
@@ -199,40 +196,93 @@ const camelToKebab = (camel: string): string =>
 const declsOf = (block: TokenBlock) =>
   block.items.filter((item): item is Extract<BlockItem, { kind: 'decl' }> => item.kind === 'decl')
 
-/**
- * The LIGHT-mode `--sv-*` map: the v1 ramps, then the role bridge, then the
- * density root. Later wins, exactly as the cascade does — the bridge is the
- * role-level layer above the ramps.
- */
-export const lightSvValues = (): ReadonlyMap<
-  string,
-  { raw: ValueSpec; islandFallback?: string }
-> => {
-  const out = new Map<string, { raw: ValueSpec; islandFallback?: string }>()
-  for (const block of [
-    DEFAULT_DESIGN_SOURCE.v1.light,
-    DEFAULT_DESIGN_SOURCE.roleBridge,
-    DEFAULT_DESIGN_SOURCE.density.root,
-  ]) {
-    for (const decl of declsOf(block)) {
-      if (!decl.property.startsWith('--sv-')) continue
-      out.set(decl.property.slice('--sv-'.length), {
-        raw: decl.value,
-        ...(decl.islandFallback === undefined ? {} : { islandFallback: decl.islandFallback }),
-      })
-    }
-  }
-  return out
+/** One declaration as the resolver keeps it. */
+interface DeclEntry {
+  readonly raw: ValueSpec
+  readonly islandFallback?: string
 }
 
-/** Every non-colour scale flattened to its emitted `--<name>` spelling. */
+/** Every declaration of `blocks`, keyed by full property; later wins, as the cascade does. */
+const declMap = (blocks: readonly TokenBlock[]): ReadonlyMap<string, DeclEntry> =>
+  new Map(
+    blocks.flatMap((block) =>
+      declsOf(block).map(
+        (decl) =>
+          [
+            decl.property,
+            {
+              raw: decl.value,
+              ...(decl.islandFallback === undefined ? {} : { islandFallback: decl.islandFallback }),
+            },
+          ] as const
+      )
+    )
+  )
+
+/**
+ * The LIGHT-mode declarations: the v1 block (ramps and the shadcn variables),
+ * then the role bridge, then the density root.
+ */
+export const lightDecls = (): ReadonlyMap<string, DeclEntry> =>
+  declMap([SOURCE.v1.light, SOURCE.roleBridge, SOURCE.density.root])
+
+/** The DARK-mode declarations: the light ones, overlaid by the dark block. */
+export const darkDecls = (): ReadonlyMap<string, DeclEntry> =>
+  new Map([...lightDecls(), ...declMap([SOURCE.v1.dark])])
+
+/**
+ * Resolve a value spec down to the literal it computes to, against `decls`.
+ * A `{ ref }` reads `--sv-<ref>`, an `{ alias }` reads `--<alias>`.
+ */
+export const resolveIn = (
+  spec: ValueSpec,
+  decls: ReadonlyMap<string, DeclEntry>,
+  depth = 0
+): string => {
+  if (depth > 12) throw new Error(`token reference cycle at depth ${depth}`)
+  if (typeof spec === 'string') return spec
+  const property = 'ref' in spec ? `--sv-${spec.ref}` : `--${spec.alias}`
+  const next = decls.get(property)
+  if (next === undefined) throw new Error(`${property} is referenced but never declared`)
+  return resolveIn(next.raw, decls, depth + 1)
+}
+
+/** The extension `--sv-*` light map, keyed without the prefix. */
+export const lightSvValues = (): ReadonlyMap<string, DeclEntry> =>
+  new Map(
+    [...lightDecls()]
+      .filter(([property]) => property.startsWith('--sv-'))
+      .map(([property, entry]) => [property.slice('--sv-'.length), entry] as const)
+  )
+
+/** A shadcn variable's resolved value in `decls`. */
+const shadcnValue = (name: string, decls: ReadonlyMap<string, DeclEntry>): string =>
+  resolveIn({ alias: name }, decls)
+
+/**
+ * A scale value with the radius base substituted and the product computed:
+ * `calc(var(--radius, 0.625rem) * 0.8)` becomes `0.5rem`, so a flat view (the
+ * island catalogue, the console projection, the desktop shell) carries a
+ * literal a parser reads.
+ */
+const literalScale = (value: string): string =>
+  value
+    .replace(/var\(--radius(?:,\s*[^)]+)?\)/g, shadcnValue('radius', lightDecls()))
+    .replace(
+      /^calc\(\s*([\d.]+)([a-z]+)\s*\*\s*([\d.]+)\s*\)$/,
+      (_match, size: string, unit: string, factor: string) =>
+        `${Number((Number(size) * Number(factor)).toFixed(4))}${unit}`
+    )
+
+/** Every non-colour scale flattened to its emitted `--<name>` spelling, literal. */
 export const scaleValues = (): ReadonlyMap<string, string> => {
-  const { scales } = DEFAULT_DESIGN_SOURCE
+  const { scales } = SOURCE
   const out = new Map<string, string>()
   for (const [key, { family }] of Object.entries(scales.fontFamilies))
     out.set(`font-${key}`, family)
   const add = (prefix: string, scale: Scale) => {
-    for (const [key, value] of Object.entries(scale)) out.set(`${prefix}${key}`, value)
+    for (const [key, value] of Object.entries(scale))
+      out.set(`${prefix}${key}`, literalScale(value))
   }
   add('text-', scales.fontSizes)
   for (const [key, value] of Object.entries(scales.fontSizeLeadings)) {
@@ -250,38 +300,29 @@ export const scaleValues = (): ReadonlyMap<string, string> => {
 }
 
 /**
- * Resolve a value spec down to the literal it computes to in light mode.
- *
- * A ROLE spec resolves through its FALLBACK, never through its author key: the
- * author key is an override hook that is undefined by construction in the
- * zero-config default, which is exactly the value an island has to inline.
+ * The declaration a Sovrium role name reads: its own `--sv-<role>` extension
+ * token, or, for a role retired in P10, the shadcn variable that replaced it
+ * (`bg-raised` → `--card`).
  */
-export const resolveLight = (
-  spec: ValueSpec,
-  light: ReadonlyMap<string, { raw: ValueSpec }>,
-  depth = 0
-): string => {
-  if (depth > 12) throw new Error(`token reference cycle at depth ${depth}`)
-  if (typeof spec === 'string') return spec
-  if ('ref' in spec) {
-    const next = light.get(spec.ref)
-    if (next === undefined) throw new Error(`--sv-${spec.ref} is referenced but never declared`)
-    return resolveLight(next.raw, light, depth + 1)
-  }
-  return resolveLight(spec.fallback, light, depth + 1)
+const roleDecl = (role: string, decls: ReadonlyMap<string, DeclEntry>): DeclEntry | undefined => {
+  const twin = RETIRED_SV_ROLE_TWINS[role]
+  return twin === undefined ? decls.get(`--sv-${role}`) : decls.get(`--${twin}`)
 }
 
-/** The island fallback catalogue, keyed by its camelCase `TOKENS` name. */
+/**
+ * The island fallback catalogue, keyed by its camelCase `TOKENS` name: an
+ * extension `--sv-*` role, else a shadcn variable, else a scale.
+ */
 export const tokenCatalogueValues = (): ReadonlyMap<string, string> => {
-  const light = lightSvValues()
+  const light = lightDecls()
   const scales = scaleValues()
   const out = new Map<string, string>()
-  for (const item of DEFAULT_DESIGN_SOURCE.tokenCatalogue) {
+  for (const item of SOURCE.tokenCatalogue) {
     if (item.kind !== 'token') continue
     const kebab = camelToKebab(item.key)
-    const sv = light.get(kebab)
-    if (sv !== undefined) {
-      out.set(item.key, sv.islandFallback ?? resolveLight(sv.raw, light))
+    const entry = light.get(`--sv-${kebab}`) ?? light.get(`--${kebab}`)
+    if (entry !== undefined) {
+      out.set(item.key, entry.islandFallback ?? literalScale(resolveIn(entry.raw, light)))
       continue
     }
     const scale = scales.get(kebab)
@@ -310,7 +351,7 @@ export const tokenCatalogueValues = (): ReadonlyMap<string, string> => {
 const tsString = (value: string): string => JSON.stringify(value)
 
 const themeLayerFile = (): string => {
-  const s = DEFAULT_DESIGN_SOURCE
+  const s = SOURCE
   const colorSafelist = renderSafelist(s.safelist.colorUtilities)
   const fontSafelist = renderSafelist(s.safelist.fontUtilities)
 
@@ -427,7 +468,7 @@ export const NEUTRAL_FLOOR_LAYER = \`@source inline("\${CANONICAL_COLOR_UTILITIE
 
 const tokensFile = (): string => {
   const values = tokenCatalogueValues()
-  const body = DEFAULT_DESIGN_SOURCE.tokenCatalogue
+  const body = SOURCE.tokenCatalogue
     .map((item: CatalogueItem) => {
       if (item.kind === 'blank') return ''
       if (item.kind === 'comment') return item.text
@@ -455,15 +496,15 @@ const record = (entries: readonly (readonly [string, string])[]): string =>
   entries.map(([key, value]) => `  ${tsString(key)}: ${tsString(value)},`).join('\n')
 
 const inheritedFile = (): string => {
-  const s = DEFAULT_DESIGN_SOURCE
-  const light = lightSvValues()
+  const s = SOURCE
+  const light = lightDecls()
 
   const colorEntries = s.inherited.colorRoleNames.map((role) => {
     const sv = s.legacyAliases[role] ?? role
-    const entry = light.get(sv)
+    const entry = roleDecl(sv, light)
     if (entry === undefined)
-      throw new Error(`inherited role \`${role}\` maps to unknown --sv-${sv}`)
-    return [role, entry.islandFallback ?? resolveLight(entry.raw, light)] as const
+      throw new Error(`inherited role \`${role}\` maps to unknown --sv-${sv} (and no shadcn twin)`)
+    return [role, entry.islandFallback ?? resolveIn(entry.raw, light)] as const
   })
 
   const shadowEntries = Object.entries(s.scales.shadows).filter(([key]) => key !== 'none')
@@ -480,7 +521,7 @@ ${record(colorEntries)}
 }
 
 export const INHERITED_RADIUS_TOKENS: Readonly<Record<string, string>> = {
-${record(Object.entries(s.scales.radii))}
+${record(Object.entries(s.scales.radii).map(([k, v]) => [k, literalScale(v)] as const))}
 }
 
 export const INHERITED_DURATION_TOKENS: Readonly<Record<string, string>> = {
@@ -518,11 +559,17 @@ ${record(Object.entries(s.inherited.roleColorProperty))}
 /* ───────────────────────────── file: design ─────────────────────────────── */
 
 const designFile = (): string => {
-  const s = DEFAULT_DESIGN_SOURCE
-  const light = lightSvValues()
-  const flat = [...light.keys()]
-    .sort()
-    .map((name) => [name, resolveLight(light.get(name)!.raw, light)] as const)
+  const s = SOURCE
+  const light = lightDecls()
+  const dark = darkDecls()
+  const flat = [...lightSvValues().entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([name, entry]) => [name, resolveIn(entry.raw, light)] as const)
+  const shadcnIn = (decls: typeof light) =>
+    s.shadcnNames
+      .filter((name) => decls.has(`--${name}`))
+      .map((name) => [name, resolveIn({ alias: name }, decls)] as const)
+  const chart = shadcnIn(light).filter(([name]) => /^chart-\d+$/.test(name))
 
   return `${banner('Flat, resolved views over the default design — the shapes other modules and gates read.')}
 
@@ -533,6 +580,37 @@ const designFile = (): string => {
  */
 export const DEFAULT_SV_LIGHT_VALUES: Readonly<Record<string, string>> = {
 ${record(flat)}
+}
+
+/**
+ * Every shadcn/ui variable the snapshot declares and its LIGHT literal, chart
+ * hues as \`#rrggbb\`. The value layer the engine speaks (ADR-045 D12).
+ */
+export const DEFAULT_SHADCN_LIGHT_VALUES: Readonly<Record<string, string>> = {
+${record(shadcnIn(light))}
+}
+
+/** The same variables in the DARK scheme. */
+export const DEFAULT_SHADCN_DARK_VALUES: Readonly<Record<string, string>> = {
+${record(shadcnIn(dark))}
+}
+
+/**
+ * The chart series palette, slot by slot — the snapshot's \`--chart-1\` …
+ * \`--chart-5\` as six-digit hex, the spelling \`deriveOptionChipColors\` parses
+ * and \`Chart Palette Drift\` compares.
+ */
+export const DEFAULT_CHART_COLORS: Readonly<Record<string, string>> = {
+${record(chart)}
+}
+
+/**
+ * \`design.colors\` key → the shadcn/ui variable it repaints. Each shadcn
+ * colour name maps to itself; a Sovrium author key with a shadcn twin maps to
+ * the twin (\`background-raised\` → \`card\`).
+ */
+export const DESIGN_COLOR_VARS: Readonly<Record<string, string>> = {
+${record(Object.entries(s.designColorVars))}
 }
 
 /**
@@ -549,7 +627,7 @@ export const DEFAULT_ISLAND_FALLBACKS: Readonly<Record<string, string>> = {
 ${record(
   [...lightSvValues().entries()]
     .filter(([, v]) => v.islandFallback !== undefined)
-    .map(([k, v]) => [k, v.islandFallback!] as const)
+    .flatMap(([k, v]) => (v.islandFallback === undefined ? [] : [[k, v.islandFallback] as const]))
     .sort(([a], [b]) => (a < b ? -1 : 1))
 )}
 }
@@ -566,14 +644,16 @@ ${record([...scaleValues().entries()].sort(([a], [b]) => (a < b ? -1 : 1)))}
 }
 
 /**
- * The author-key -> \`--sv-*\` role map.
- *
- * \`scripts/drift/check-brand-identity-drift.ts\` AST-parses this literal for its T2
- * lock and THROWS rather than proceeding with a shrunken map, so the object
- * shape here is load-bearing — keep it a plain inline object literal.
+ * The author-key -> Sovrium EXTENSION-token map: a \`design.colors\` key with
+ * no shadcn twin and the \`--sv-*\` role it repaints (\`primary-hover\`,
+ * \`success\`, \`destructive-foreground\` …). It is no longer an alias bridge:
+ * a key with a shadcn twin repaints the shadcn variable through
+ * {@link DESIGN_COLOR_VARS}, and the \`--sv-*\` alias layer left in P10
+ * (plan §6.5). Keep it a plain inline object literal, which is what the gates
+ * that read it parse.
  */
 export const COLOR_TO_SV_TOKEN: Readonly<Record<string, string>> = {
-${record(Object.entries(s.legacyAliases))}
+${record(Object.entries(s.legacyAliases).filter(([, role]) => RETIRED_SV_ROLE_TWINS[role] === undefined))}
 }
 
 /** The colour roles the console publishes, in order. */
@@ -585,38 +665,35 @@ ${s.inherited.colorRoleNames.map((n) => `  ${tsString(n)},`).join('\n')}
 
 /* ─────────────────────────── file: desktop tokens ───────────────────────── */
 
-/**
- * The DARK-mode `--sv-*` overrides, as raw specs.
- *
- * Only the tokens the dark block actually redeclares — 41 of them against the
- * light side's 40 plus the bridge's 45 — because a dark block that restated
- * every role would be a second source rather than an override layer. The ramps
- * themselves are mode-independent, which is what lets a dark value like
- * `{ ref: 'neutral-950' }` resolve against the light map.
- */
-export const darkSvValues = (): ReadonlyMap<string, ValueSpec> => {
-  const out = new Map<string, ValueSpec>()
-  for (const decl of declsOf(DEFAULT_DESIGN_SOURCE.v1.dark)) {
-    if (!decl.property.startsWith('--sv-')) continue
-    out.set(decl.property.slice('--sv-'.length), decl.value)
-  }
-  return out
-}
+/** The properties the dark block redeclares: the overrides, not a second source. */
+const darkOverrides = (): readonly string[] =>
+  [...new Set(declsOf(SOURCE.v1.dark).map((decl) => decl.property))].filter((property) =>
+    property.startsWith('--')
+  )
+
+/** Sort entries by name. */
+const byName = ([a]: readonly [string, unknown], [b]: readonly [string, unknown]): number =>
+  a < b ? -1 : 1
+
+/** A custom property, as opposed to a plain declaration like `color-scheme`. */
+const isVariable = (property: string): boolean => property.startsWith('--')
 
 /**
- * The desktop shell's custom properties: every role token resolved to a
- * literal, in both modes, plus the mode-independent scales.
+ * The desktop shell's custom properties: the shadcn variables and the
+ * extension `--sv-*` roles resolved to literals, in both modes, plus the
+ * mode-independent scales.
  *
  * Three decisions worth stating, because each is the kind that gets "tidied"
  * later:
  *
- * 1. **The spellings are the ENGINE's**, not a desktop namespace. Roles are
- *    `--sv-*`; scales keep the `--text-*` / `--spacing-*` / `--font-*` /
- *    `--radius-*` names Tailwind registers them under. The shell and the app it
- *    frames therefore address the same variable by the same name, which is the
- *    whole point of shipping this file.
+ * 1. **The spellings are the ENGINE's**, not a desktop namespace: shadcn's
+ *    variable names (`--background`, `--primary` …), the extension `--sv-*`
+ *    roles, and the `--text-*` / `--spacing-*` / `--font-*` / `--radius-*`
+ *    scale names Tailwind registers. The shell and the app it frames address
+ *    the same variable by the same name, which is the whole point of shipping
+ *    this file.
  * 2. **Values are RESOLVED to literals**, not emitted as `var()` chains. The
- *    engine's chains exist so an operator's `app.theme` can override a rung at
+ *    engine's chains exist so an operator's `app.design` can override a rung at
  *    runtime; the shell has no such surface — its settings page is machine
  *    settings, never app config — so a chain here would only be an indirection
  *    with nothing at the other end.
@@ -626,27 +703,30 @@ export const darkSvValues = (): ReadonlyMap<string, ValueSpec> => {
  *    disagrees with the desktop around it looks broken.
  */
 const desktopTokensFile = (): string => {
-  const light = lightSvValues()
-  const dark = darkSvValues()
+  const light = lightDecls()
+  const dark = darkDecls()
   const scales = scaleValues()
 
   // Resolution happens OUTSIDE the template literals below. A non-null
   // assertion inside one reads as an exclamation mark in emitted text to the
   // terminal-language scan, which cannot tell a type-level `!` from a shouted
   // sentence — and the fix it wants is the one that is better code anyway.
-  const lightDecls = [...light.entries()]
-    .sort(([a], [b]) => (a < b ? -1 : 1))
-    .map(([name, entry]) => `  --sv-${name}: ${resolveLight(entry.raw, light)};`)
+  const lightLines = [...light.entries()]
+    .filter(([property]) => isVariable(property))
+    .sort(byName)
+    .map(([property, entry]) => `  ${property}: ${literalScale(resolveIn(entry.raw, light))};`)
     .join('\n')
 
-  const scaleDecls = [...scales.entries()]
-    .sort(([a], [b]) => (a < b ? -1 : 1))
+  const scaleLines = [...scales.entries()]
+    .sort(byName)
     .map(([name, value]) => `  --${name}: ${value};`)
     .join('\n')
 
-  const darkDecls = [...dark.entries()]
-    .sort(([a], [b]) => (a < b ? -1 : 1))
-    .map(([name, spec]) => `    --sv-${name}: ${resolveLight(spec, light)};`)
+  const darkLines = darkOverrides()
+    .map((property) => [property, dark.get(property)] as const)
+    .flatMap(([property, entry]) => (entry === undefined ? [] : [[property, entry] as const]))
+    .sort(byName)
+    .map(([property, entry]) => `    ${property}: ${resolveIn(entry.raw, dark)};`)
     .join('\n')
 
   return `/*
@@ -670,9 +750,9 @@ const desktopTokensFile = (): string => {
 :root {
   color-scheme: light;
 
-${lightDecls}
+${lightLines}
 
-${scaleDecls}
+${scaleLines}
 }
 
 /*
@@ -684,7 +764,7 @@ ${scaleDecls}
   :root {
     color-scheme: dark;
 
-${darkDecls}
+${darkLines}
   }
 }
 `

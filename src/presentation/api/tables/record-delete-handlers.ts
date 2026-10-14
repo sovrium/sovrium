@@ -14,7 +14,7 @@ import {
 import { restoreRecordWithSideEffects } from '@/application/use-cases/tables/record-restore-orchestration'
 import { deleteRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
-import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
+import { resolveRedirectAgainst } from '@/domain/kernel/url/redirect-resolution'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
@@ -203,11 +203,11 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
     return notFound(c)
   }
 
-  // The path arrives in the request body, so it is only honoured once proven
-  // same-origin — otherwise it is an open redirect off this site.
-  if (isSafeRedirectPath(redirectPath)) {
-    return c.redirect(redirectPath, 302)
-  }
+  // The address arrives in the request body — a relative one resolved against
+  // the page that posted it — so it is only honoured once proven same-origin:
+  // otherwise it is an open redirect off this site.
+  const target = resolveRedirectAgainst(redirectPath, c.req.header('referer'))
+  if (target !== undefined) return c.redirect(target, 302)
 
   return c.body(null, 204)
 }

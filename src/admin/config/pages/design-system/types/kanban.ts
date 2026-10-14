@@ -60,7 +60,7 @@ const cardTitle = (): readonly PageComponent[] => [
     type: 'text',
     element: 'p',
     content: '$record.name',
-    props: { className: 'text-foreground text-[11px] font-medium' },
+    props: { className: 'text-foreground text-xs font-medium' },
   } as PageComponent,
 ]
 
@@ -207,7 +207,7 @@ const kanban: TypePageBody = {
                     type: 'text',
                     element: 'p',
                     content: '$record.role',
-                    props: { className: 'text-foreground-subtle text-[11px]' },
+                    props: { className: 'text-muted-foreground text-xs' },
                   },
                 ],
               },
@@ -323,7 +323,7 @@ const kanban: TypePageBody = {
                 {
                   type: 'text',
                   element: 'p',
-                  props: { className: 'text-foreground-subtle text-[11px]' },
+                  props: { className: 'text-muted-foreground text-xs' },
                   content: 'You can read this board but not move cards on it.',
                 },
               ],
@@ -344,19 +344,19 @@ const kanban: TypePageBody = {
               type: 'container',
               element: 'div',
               props: {
-                className: 'bg-background-subtle flex w-56 flex-col gap-2 rounded-md px-3 py-3',
+                className: 'bg-muted flex w-56 flex-col gap-2 rounded-md px-3 py-3',
               },
               children: [
                 {
                   type: 'text',
                   element: 'p',
-                  props: { className: 'text-foreground text-[11px] font-medium uppercase' },
+                  props: { className: 'text-foreground text-xs font-medium uppercase' },
                   content: 'Closed',
                 },
                 {
                   type: 'text',
                   element: 'p',
-                  props: { className: 'text-foreground-subtle py-6 text-center text-[11px]' },
+                  props: { className: 'text-muted-foreground py-6 text-center text-xs' },
                   content: 'No specimen rows',
                 },
               ],

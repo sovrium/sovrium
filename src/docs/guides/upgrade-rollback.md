@@ -30,6 +30,98 @@ sovrium stop && sovrium start app.yaml
 
 A refusal names the place in the config and, in most cases, what to write instead. Fix it, validate again, then restart. Environment variables are read when the server starts rather than by `validate`, so an invalid one surfaces at `start`, before the app serves traffic. Then read the breaking changes between your version and the new one — `sovrium changelog --since <the version you run>` gathers them in one list.
 
+## Upgrading from 0.37 to 0.38
+
+0.38 takes the names shadcn/ui gives its components, keys and tokens. Run `sovrium validate` with 0.38 before you restart: it refuses every old type, key, value and action in the table below, naming the place and the new spelling. Two names come back with shadcn's meaning: `type: drawer` is now the panel that rises from the bottom edge, and `type: calendar` a month of days to pick a date from. A bare one is the new component; one still carrying the old component's keys — a side panel's `drawerSide` or `drawerSize`, an event view's `dataSource` or `dateField` — is refused key by key, naming `sheet` or `event-calendar`. The utility classes are not refused, and the last two rows answer the two default changes listed first under the behaviour changes below, which apply without a config change. Then read the behaviours below that your app relies on.
+
+### What to rename
+
+| Removed                                                                       | Replace with                                                                                                                                                                                                                       |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type: divider`                                                               | `type: separator`                                                                                                                                                                                                                  |
+| `type: empty-state`                                                           | `type: empty`                                                                                                                                                                                                                      |
+| `type: list-item`                                                             | `type: item`                                                                                                                                                                                                                       |
+| `type: split-pane`                                                            | `type: resizable`                                                                                                                                                                                                                  |
+| `type: command-palette`                                                       | `type: command`                                                                                                                                                                                                                    |
+| `type: drawer`                                                                | `type: sheet`, when it carries `drawerSide`, `drawerSize` or another side-panel key; every key carries over. A bare `type: drawer` is now the panel that rises from the bottom edge                                                |
+| `type: calendar`                                                              | `type: event-calendar`, when it carries `dataSource`, `dateField` or another event-view key; every key carries over. A bare `type: calendar` is now a month of days to pick a date from                                            |
+| `design.components.<one of the seven names above>`                            | `design.components.<its new name>`, for example `design.components.separator`; `command-palette` never took an entry, and `design.components.drawer` and `design.components.calendar` now style the new bottom drawer and day grid |
+| `action: openDrawer`                                                          | `action: openSheet`                                                                                                                                                                                                                |
+| `native: true` on a `select`                                                  | `type: native-select`                                                                                                                                                                                                              |
+| `searchable`, `searchPlaceholder` or `allowCustomValue` on a `select`         | `type: combobox`, which keeps `searchPlaceholder` and `allowCustomValue`                                                                                                                                                           |
+| `inputType: one-time-code` on an `input`                                      | `type: input-otp`                                                                                                                                                                                                                  |
+| `layout: carousel` on a `gallery`                                             | `type: carousel`                                                                                                                                                                                                                   |
+| `variant: bubble` on a `card`                                                 | `type: bubble`                                                                                                                                                                                                                     |
+| `side` on a `card` (`left` or `right`)                                        | `align` on a `bubble` (`start` or `end`)                                                                                                                                                                                           |
+| `size: md` on a `button`, `toggle`, `toggle-group`, `progress` or `avatar`    | `size: default`                                                                                                                                                                                                                    |
+| `accentBudget` on a `design.zones[]` entry                                    | Nothing: delete the key. A zone is `pattern`, `zone` and `voice`                                                                                                                                                                   |
+| `text-foreground-muted`                                                       | `text-muted-foreground`                                                                                                                                                                                                            |
+| `bg-background-raised`                                                        | `bg-card`                                                                                                                                                                                                                          |
+| `bg-background-subtle`                                                        | `bg-muted`                                                                                                                                                                                                                         |
+| `bg-background-overlay`                                                       | `bg-popover`                                                                                                                                                                                                                       |
+| `ring-focus-ring` and `border-focus-ring`                                     | `ring-ring` and `border-ring`                                                                                                                                                                                                      |
+| `text-primary-fg`                                                             | `text-primary-foreground`                                                                                                                                                                                                          |
+| `bg-error-solid`                                                              | `bg-destructive`                                                                                                                                                                                                                   |
+| `design.colorScheme` left out, on an app meant to stay light                  | `design.colorScheme: light`                                                                                                                                                                                                        |
+| `design.codeBlock` left out, on an app that wants dark code blocks everywhere | `design.codeBlock.theme: github-dark`                                                                                                                                                                                              |
+
+The seven type renames change nothing but the name: every key the old type took, the new one takes. In a page addressed by its old name — a spec or a stylesheet reading `data-component-type="drawer"` — read `sheet` instead, since `drawer` now marks the bottom drawer; a sidebar folded into a menu on a phone now names that panel `sheet` too. See [Component Model](/en/docs/components-overview), [Overlays](/en/docs/overlay-components) and [Form Controls](/en/docs/form-controls).
+
+**The seven utility spellings are not refused.** A class is free text, so `sovrium validate` cannot tell an engine token from a class of your own; an old spelling now draws nothing. Search your config, your templates and any stylesheet for the left-hand names in the table and replace them. Your own colour tokens are untouched: a `design.colors` entry still mints its own `bg-` and `text-` utilities.
+
+**A `swatch` and a contrast `badge` name a colour token the way your stylesheet does.** The documentation gave `--sv-color-primary` and `--sv-color-background` as the form of `swatch.token`, `swatch.contrastAgainst` and a contrast badge's `foreground` and `background`. Those names never resolved: a swatch naming one drew an empty chip, and a badge reported the pair unmeasurable. The documented form is now shadcn's name, such as `--primary`, `--background`, `--foreground`, `--muted-foreground` or `--chart-1`, which resolves to your `design.colors` value for that role. A ramp step such as `brand-500` is unchanged. See [Display Components](/en/docs/display-components) and [Interactive Components](/en/docs/interactive-components).
+
+**The sixteen `--sv-*` aliases of shadcn's colour variables are removed.** Each one was a second name for a variable shadcn/ui already declares, and the stylesheet now declares only the shadcn name. A stylesheet, an arbitrary-value class such as `bg-[var(--sv-bg)]`, or any other place that reads one of them now reads nothing. Replace each with its shadcn variable:
+
+| Removed                          | Replace with               |
+| -------------------------------- | -------------------------- |
+| `--sv-bg`                        | `--background`             |
+| `--sv-fg`                        | `--foreground`             |
+| `--sv-bg-raised`                 | `--card`                   |
+| `--sv-bg-overlay`                | `--popover`                |
+| `--sv-primary`                   | `--primary`                |
+| `--sv-primary-fg`                | `--primary-foreground`     |
+| `--sv-bg-subtle`                 | `--muted`                  |
+| `--sv-fg-muted`                  | `--muted-foreground`       |
+| `--sv-error-solid`               | `--destructive`            |
+| `--sv-border`                    | `--border`                 |
+| `--sv-focus-ring`                | `--ring`                   |
+| `--sv-chart-1` to `--sv-chart-5` | `--chart-1` to `--chart-5` |
+
+A `swatch` naming one of them in `token` or `contrastAgainst`, or a contrast `badge` naming one in `foreground` or `background`, is refused by `sovrium validate` and at startup, with the message naming its replacement. The other `--sv-*` variables stay: they are Sovrium's extensions of shadcn's variable set, for what shadcn does not name — the density steps (`--sv-density-*`), the primary colour's hover, active and subtle states, the error, warning, info and success families, the strong and inverse borders, the disabled, subtle and inverse text colours, the inset surface and the neutral ladder.
+
+### Behaviour that changes without a config change
+
+- **Every app follows the visitor's colour scheme unless it says otherwise.** With no `design.colorScheme`, an app used to stay light unless it declared `darkColors`; it now follows the operating system in every case, and an app that declares no `darkColors` is drawn on the default dark palette of the prebuilt components. To keep an app light, declare `design.colorScheme: light`. A visitor's stored choice from a `theme-toggle` still wins. See [Baseline & Dark Mode](/en/docs/theme-dark-mode).
+- **Code blocks come in a light and a dark theme by default.** An app that names no `design.codeBlock.theme` used to draw every fenced code block with `github-dark`; it now draws them with `github-light` in the light scheme and `github-dark` in the dark one. An app that names a `theme` and no `darkTheme` keeps that one theme in both schemes, as before; one that wants dark code blocks everywhere names `theme: github-dark`. See [Spacing, Radius & Elevation](/en/docs/theme-spacing).
+- **A `context-menu` opens on a right click over its `children`.** It used to draw a button labelled Menu that opened on a left click; it now draws its `children` and opens where the reader right-clicks them, or after a long press on a touch screen, as the documentation described. A `context-menu` with no `children` draws nothing a reader can open: give it the element the menu belongs to as its `children`. See [Navigation Components](/en/docs/navigation-components).
+- **A `navigation-menu` panel is a list of links, not a menu.** An entry with `children` used to open a menu, whose rows a screen reader announced as menu items; it is now a button that discloses its panel, announced as expanded or collapsed, and the rows are links. Nothing changes on screen, and a click, `openOnHover` and Escape behave as before. A test or a script that looked the rows up as `menuitem` looks them up as links, and one that waited for a `menu` checks the entry's `aria-expanded` instead. See [Navigation Components](/en/docs/navigation-components).
+- **A table reads a value by its field type when the column names no `format`.** A `currency` cell prints the amount in the field's currency, a `percentage` cell prints it at the field's precision (`25%`), a `created-at`, `updated-at` or `deleted-at` cell prints a date and time in the page language where it printed the stored instant, and an `email` or `phone-number` value is a link. A column that names a `format` keeps it. Page text reads a `deleted-at` field the same way. See [Data Components](/en/docs/data-components).
+- **A table's quantities sit on the right.** A `number`, `integer`, `decimal`, `currency`, `percentage`, `autonumber`, `count` or `duration` column aligns its header and its cells to the right, and quantities, dates and times are set in tabular figures. Give the column `align: left` to keep it on the left.
+- **A table's option chip with no colour is filled.** A `status`, `single-select` or `multi-select` value whose option declares no `color` is drawn as a grey filled badge where it was an outline. Give the column `badgeForm: outline` to keep the outline.
+- **A table's row action asks for confirmation in a dialog over the page.** An action with `confirm` opens a modal alert dialog named by its question, where it used to swap its button for a question inside the row; the row no longer changes size while the question is open, and the page behind the dialog cannot be used until it is answered. A test or a script that read the question inside the row reads it from the page instead. See [Data Components](/en/docs/data-components).
+- **`dataSource.pagination.style: infinite` loads as the reader scrolls.** A `gallery` and a `kanban` board that declared `infinite` paged like `numbered` or not at all, and a `list` declaring `loadMore: infinite` showed only its first page; each now draws its first page and loads the next one when the reader scrolls to its end, with a Load more button kept for the keyboard. Declare `numbered` to keep page controls. See [Data Binding](/en/docs/pages-data-binding).
+- **Integer options in the published JSON Schema and OpenAPI document carry their range.** Every integer node in the schema `sovrium schema` writes, and in the document `/api/openapi.json` serves, now states `minimum: -9007199254740991` and `maximum: 9007199254740991`, the range an integer keeps exactly in JavaScript, unless the option declares a tighter bound of its own, which it keeps. Validation does not change: the engine already refused an integer outside that range. A tool that compares the schema or the document byte for byte, or a client generated from them, sees the new keywords; regenerate it. See [Validation & Schema Generation](/en/docs/cli-validate) and [OpenAPI](/en/docs/openapi).
+- **The migration adds one table, for chat attachments.** The boot-time migration creates `ai_chat_attachments`, which records each file a reader attaches in an `ai-chat` that declares `attachments`; the file itself is stored in the bucket that block names. It stays empty until a chat with an `attachments` block receives a file, it is included in `sovrium backup`, and a rollback that restores the pre-upgrade backup removes it. The files themselves live in the bucket, not in the table: with local storage, `sovrium restore --force` replaces the data directory and they go with it, but with S3 storage a backup lists the bucket's objects without copying them, so a file attached after the upgrade stays in the bucket after a rollback, with nothing pointing at it. Before rolling back an app on S3, note the time of the upgrade and delete the objects under `ai-chat/` written since then. See [AI Chat Component](/en/docs/ai-chat-component).
+- **Run history shows the values of variables declared `secret: false`, and no longer masks a short secret inside other text.** A `secret: false` variable set by the environment used to read `***` in step outputs and errors; it now reads as it is, as it already did when its `default` was in force. A value a secret variable also holds stays masked. A secret shorter than six characters is no longer masked inside other text, so a variable holding `3` no longer turns `browser step 3` or a run id into `***`; a value that is exactly a short secret is still masked, and a secret is masked whole even when another secret's value is part of it. Keep real credentials six characters or longer. See [Automation Environment Variables](/en/docs/automation-env-vars).
+- **A browser step inside a `path` or a `loop` now fills in its values.** A `browser/run` placed in a `path` branch or a `loop` typed its templates and `$env` references as written; it now fills them in when each step is reached, exactly as at the top level, and `{{loop.item}}` reads the item. A config that worked around this by calling another automation keeps working. See [Browser Actions](/en/docs/automation-browser-actions).
+- **A `fill` that cannot set its field now fails instead of reporting `ok`.** A `fill` on a time, date, date-and-time, month or week field now sets the value, where it used to leave the field empty while reporting success. Every `fill` reads its field back, and a field that does not hold the value given — one that keeps fewer characters, or reformats what is typed — fails the step. That includes a site that reformats what is typed, such as a phone mask or a field that upper-cases its input. A run that relied on such a step passing now stops there: check the field on the site.
+- **A record write answers before its record automations finish.** A create, update, delete or restore through the records API, a form submission, a form's edit link, the MCP tools and the AI chat now answer as soon as the row is written, and the record automations they start run in the background, where they used to hold the answer until every run had finished — a slow run could end in a `504` although the record was saved. A form's `onSuccess` fires right after the write, and its ledger row reads `processing` until its automations end. A client that read an automation's effect, or the run itself, right after its write must now poll the run history. See [Record & Comment Triggers](/en/docs/trigger-record-comment).
+- **An AI action's error now fails its step.** A `generate`, `extract` or `agent` step that met an error — a rate limit, a rejected key, a timeout, a reply `extract` could not parse, a refused tool call — was recorded as completed with the error in its output, and the run went on with empty data; it now fails, so the run stops there, a `retry` policy attempts it again when the error is worth it, and a synchronous webhook answers `500`. To keep a flow that went on after such an error, add `continueOnError: true` to the step and branch on `{{steps.<name>.status}}`. See [AI Actions](/en/docs/automation-ai-actions).
+- **A success toast now follows the move it announces.** When a button, row action, menu item, edit form or hosted form shows a success toast and then navigates to another page of your app, the page the reader lands on shows that toast once as it loads; a reload does not show it again. A message you placed on the landing page to make up for the lost toast can go. See [Interactions & Auto-Save](/en/docs/interactions).
+- **An edit form in a dialog closes the dialog on every save.** A save that went through the page script, such as one showing a toast beside a `navigate`, used to leave its dialog open; it now closes it, as a plain save always did. Write `onSuccess.close: false` to keep the dialog open. See [Interactions & Auto-Save](/en/docs/interactions).
+- **`sovrium validate` refuses an off-site address after an action.** An `onSuccess.navigate` on a button, row action, menu item, endpoint form, file upload or edit form, and a success page `redirect`, written as an `http://`, `https://` or `//` address, is now refused: it was never followed. Use a path on your site, or a link to send the reader elsewhere. See [Validation & Schema Generation](/en/docs/cli-validate).
+- **A delete button is shown to the readers the table lets delete.** A `crud` delete button was hidden from everyone as soon as its table declared a `permissions.delete` rule; it is now shown to the signed-in readers that rule admits, and to admins. Check that the rule names only the readers you want to offer it to. See [Table Permissions](/en/docs/table-permissions).
+- **A `unique` field ignores the records in the trash.** A value held only by a deleted record can be used again. The first boot of 0.38 replaces each single-field unique constraint with a unique index over the records that are not in the trash: the config does not change and every row is kept. Restoring a deleted record whose value a live record now holds is refused with `409`, naming the field, and the record stays in the trash. An upsert no longer matches a deleted record: it creates a new one. A composite top-level `unique` follows the same rule, while a unique index you declare under `indexes` keeps the shape you wrote, and a key that a `foreignKeys` entry references still counts deleted records. See [Validation](/en/docs/table-validation) and [Soft Delete and Restore](/en/docs/records-soft-delete).
+- **An embedded form's title is an `<h2>`.** A form placed on a page with `formRef` titled itself with an `<h1>` unless `props.headingLevel` said otherwise, so a page with its own title had two. It now renders as an `<h2>`, whatever the form's layout; a form on its own `/forms/<name>` page keeps its `<h1>`. Write `props.headingLevel: h1` on the placement to keep the old heading. See [The Form Component](/en/docs/data-components-forms).
+- **`$record.<attachment>` is the file's address on a page bound to one record.** On a page whose `dataSource` reads one record, on a `collection` page and in a component bound in single mode, the token printed the stored value; it is now the address that serves the file, as it already was in a list's rows, with the `.key`, `.url`, `.name`, `.size` and `.mimeType` parts. A template that printed the stored value on purpose writes `$record.<attachment>.raw`. In a list's rows, `$record.<attachment>.raw` now prints the stored value where it used to print the file's address. See [Data Binding](/en/docs/pages-data-binding).
+- **Engine words and the default auth emails follow the app's language.** On an app whose language is not English, the recorder button and file checks of an attachment field, an empty grid, an auth form's default labels, submit and error summary, a multi-step form's navigation, the file preview toolbar and the close control of a zero-JS dialog now read that language, and the default invitation, password reset, email verification and magic-link emails are written in the recipient's chosen language, else the app's default. An app that declares no languages reads exactly what it read before. Each word can be renamed under `languages.translations.<lang>.sovrium.<key>`; a custom `auth.emailTemplates` entry is unchanged. See [Languages](/en/docs/languages).
+- **`noindex: true` now wins over `robots`.** A page that sets both renders `noindex` followed by its other directives, so `robots: follow` reads `noindex, follow`, as the sitemap already treated it. A config with `noindex: true` beside a `robots` string that asks for indexing (`index` or `all`) is refused by `sovrium validate` and at start-up, naming both keys. See [SEO & Metadata](/en/docs/seo-meta).
+- **A form submission or an automation press sent twice with the same idempotency key is answered once.** A hosted form and a form placed on a page now carry a hidden `_idempotency` field, and a page's automation buttons send an `Idempotency-Key` header with each press. Within five minutes, a repeat of a successful request from the same caller, with the same key and values, receives the first answer with `Idempotency-Replayed: true` and stores or runs nothing; the same key with other values is refused with `422` `IDEMPOTENCY_MISMATCH`. A request with no key is processed as before. A client of your own that reuses one key for different submissions must now send a new key for each. See [Form Submissions](/en/docs/form-submissions) and [Interactions & Auto-Save](/en/docs/interactions).
+- **`sovrium reload` applies the whole edit, on a server started with or without `--watch`.** It used to refresh the `X-Sovrium-Config` header and print `Configuration reloaded` while an edited automation, table or page kept running as before. It now does what `--watch` does with a save: a change to pages or copy is swapped in place, and a change to `tables`, `automations`, `auth`, `agents`, `connections`, `env`, `analytics` or `buckets` restarts the server on the same port, closing open connections. The command waits for the server's verdict and prints it, exits `1` when the server refused the configuration or could not boot it, and the status file records every reload. A script that ran `reload` after editing a restart-class key and then restarted anyway can drop the restart. See [Server Lifecycle](/en/docs/cli-lifecycle).
+- **`sovrium bundle` and `sovrium deploy` carry the files declared under `assets`.** They travel as `project/<path>` in the archive, listed in its manifest, so a deployed app that reads an email template or a document model boots. A host running an engine older than 0.38 refuses a bundle that carries an asset; one without assets is unchanged. See [Bundle an App](/en/docs/bundle).
+- **`sovrium library add` follows your sign-in page, and re-adding a block with new parameters updates it.** The auth blocks now link to the page `auth.loginPage` names instead of `/sign-in` when you set no path, and a block another one requires takes the parameters they share (the password-reset screens share their app mark). A fragment installed with 0.38 records its parameters on a second header line; adding it again with other `--set` values rewrites it while you have not edited it, instead of refusing. A fragment installed before 0.38 counts as unedited when it is what its block writes today with the default parameters, whatever version its first line names; it used to be refused as edited after any upgrade. See [The Library](/en/docs/cli-library).
+
 ## Upgrading from 0.34 to 0.35
 
 Run `sovrium validate` with 0.35 before you restart, then read the behaviours below that your app relies on.
@@ -170,136 +262,6 @@ On 0.32 a `user` field on a record a `record/list` or `record/read` step returne
 | The whole output, handed to a `code` step's `inputData` or answered by a `webhook/response` | `"<account id>"` | `{ "id", "name", "email" }`         |
 
 A template that renders the field keeps rendering the id. Before you restart, look for a `code` step or a webhook answer that treats a listed record's user field as a string, and read its `id`.
-
-## Upgrading from 0.30 to 0.31
-
-The view and form removals below are refused on 0.31 without a release in which they first warned: they were decided before Sovrium started giving one release of notice for a removal. From the next release on, a user-facing key that is going away first keeps validating for one release — `sovrium validate` and `sovrium start` print a warning naming its replacement and the release that will refuse it — and is refused only after that. For these two, run `sovrium validate` with 0.31 before you restart, and rewrite each key it refuses with the `Removed | Replace with` tables of the two sections below.
-
-### Views belong to the table, and every data component binds to one or to the table
-
-**A way of looking at a table is configuration declared on the table, never a feature of a page component and never something a reader saves.** A data component — `table`, `kanban`, `calendar`, `gallery`, `list`, `chart`, `kpi` — binds either to one of the table's `views[]` with `dataSource: { table, view }`, or directly to the table with `dataSource: { table }`. A board, a calendar and a grid of the same records are three components, each with its own binding. See [Views](/en/docs/table-views) and [Tables & Filter Bars](/en/docs/data-components).
-
-Each of these validated on 0.30 and is refused by `sovrium validate` and at startup on 0.31, with a message naming the replacement:
-
-| Removed                                                               | Replace with                                                                                                    |
-| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `views` on a `table` (the grid / board / calendar / gallery switcher) | A `kanban`, `calendar` or `gallery` component beside the grid, each with its own `dataSource`                   |
-| `viewLabels` on a `table`                                             | Nothing — there is no switcher to label; give each component its own heading                                    |
-| `kanbanGroupBy` on a `table`                                          | `kanbanGroupBy` on a `kanban` component bound to the same table or view                                         |
-| `dateField` on a `table`                                              | `dateField` on a `calendar` component bound to the same table or view                                           |
-| `groupBy` on a `table`                                                | `groupBy` on one of the table's `views[]` (it now takes `thenBy` and `collapsed`), bound with `dataSource.view` |
-| `toolbar.viewSwitcher`                                                | Separate `kanban`, `calendar` or `gallery` components                                                           |
-| `toolbar.views` (the saved-views menu)                                | One of the table's `views[]`, bound with `dataSource.view`                                                      |
-| `toolbar.columnToggle`                                                | The grid's `columns`, or the `fields` of the view it binds                                                      |
-| `toolbar.density`                                                     | The grid's `rowHeight`                                                                                          |
-| `toolbar.groupBy` (the runtime group-by picker)                       | `groupBy` on one of the table's `views[]`                                                                       |
-
-A `dataSource.filter`, `dataSource.sort` or `dataSource.fields` written beside `dataSource.view` is refused too, naming the view: the view owns the filter, the sort, the grouping and the visible fields. Keep them on a component bound directly to the table. To move a grid's grouping, declare it on a view and point the grid at that view:
-
-```yaml
-# 0.30
-- type: table
-  dataSource: { table: deals }
-  groupBy: { field: stage, thenBy: [{ field: owner }] }
-
-# 0.31
-tables:
-  - name: deals
-    views:
-      - id: deals_by_stage
-        name: Deals by stage
-        groupBy: { field: stage, thenBy: [{ field: owner }] }
-pages:
-  - components:
-      - type: table
-        dataSource: { table: deals, view: deals_by_stage }
-```
-
-**Readers' saved views are gone, with their data.** The saved-views menu, sharing a saved view by link, and the per-reader table preferences (column widths, row density) are removed, together with their API routes under `/api/tables/:table/user-views`, `/api/shared-views/:id` and `/api/tables/:table/user-preferences`, and their two database tables, which the first start of 0.31 drops. Export anything a reader saved there before upgrading if you need to keep it; nothing reads it afterwards. A reader's search, filters and sort from a grid's toolbar still work and last for the visit: they are stored nowhere, neither on the server nor in the browser. **A grid bound to a view is editable by a reader the table lets write.** It reads through the view and writes to the table's records, on the fields the view shows; a reader without write access, and a visitor on a public view, still get a read-only grid. Export stays off on a view-bound grid.
-
-### Two form surfaces, one job each: the page `form` no longer creates records
-
-**A top-level `forms[]` entry takes something in; the page `form` component works on data already inside the app.** To let someone add a record from inside an app page — on the page, in a dialog, in a tab — declare the form in `forms[]` with `submitTo.table` and place it with `formRef`. The page `form` keeps editing the record a page shows (`dataSource` in `mode: single` with a `crud` update action), posting to an `endpoint` of your own, the sign-in and sign-up forms, `formRef` itself, `layout`, and per-field `label`, `description`, `placeholder`, `readOnly`, `disabled`, `hidden`, `defaultValue`, `control`, `options` and `optionsSource`. See [Forms Overview](/en/docs/forms-overview) and [The Form Component](/en/docs/data-components-forms).
-
-Each of these validated on 0.30 and is refused by `sovrium validate` and at startup on 0.31, with a message naming the replacement:
-
-| Removed from the page `form`                                             | Replace with                                                                           |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `action: { type: crud, operation: create }` on a `form`                  | A `forms[]` entry with `submitTo.table`, placed with `formRef`                         |
-| `onSuccess.type: reset` and `onSuccess.type: successPage` of that create | `forms[].onSuccess` with `type: reset` or `type: successPage`                          |
-| `wizard`                                                                 | `forms[].layout: multi-step` with `steps[]`                                            |
-| `fieldGroups`                                                            | `forms[].fieldGroups`                                                                  |
-| `fields[].visibleWhen`, `fields[].requiredWhen`, `fields[].disabledWhen` | The same keys on `forms[].fields[]`                                                    |
-| `fields[].accept`, `fields[].dropZone`, `fields[].maxFiles`              | An attachment field of a `forms[]` entry, with the same keys                           |
-| `inlinePrefill` on a form declared in place (one without `formRef`)      | `inlinePrefill` on the `form` component that places the `forms[]` entry with `formRef` |
-
-An attachment column on an edit form still draws its default upload control; only the upload options moved. To move a create form, lift its fields into a `forms[]` entry and leave a `formRef` where it was:
-
-```yaml
-# 0.30
-pages:
-  - name: Project
-    path: /projects/:id
-    dataSource: { table: projects, mode: single, param: id }
-    components:
-      - type: form
-        dataSource: { table: tasks }
-        fields:
-          - { field: title }
-          - { field: project }
-        inlinePrefill: { prefill: { project: $parent.id }, lockPrefill: true }
-        action:
-          type: crud
-          operation: create
-          table: tasks
-          onSuccess: { toast: { message: Task added, variant: success } }
-
-# 0.31
-forms:
-  - id: 1
-    name: new-task
-    title: New task
-    submitTo: { table: tasks }
-    fields:
-      - { kind: table-field, column: title }
-      - { kind: table-field, column: project }
-    onSuccess: { type: toast, variant: success, message: Task added }
-pages:
-  - name: Project
-    path: /projects/:id
-    dataSource: { table: projects, mode: single, param: id }
-    components:
-      - type: form
-        formRef: new-task
-        inlinePrefill: { prefill: { project: $parent.id }, lockPrefill: true }
-```
-
-**A submission made through a `formRef` embed no longer lands in the Submissions inbox.** On 0.30 every submission wrote a row to the built-in submission ledger, wherever it was made. On 0.31 a submission made through a `formRef` embed on an app page writes its table row and runs its automation, but writes no ledger row unless the form declares `submitTo.storeSubmission: true`. The form's own route still stores by default, and `storeSubmission: false` stores on neither. A form with `availability.maxSubmissions` keeps writing its row on every surface, because the cap is counted in the ledger. Where no row is written, `$submission.id` is empty in the success message and redirect. Add `storeSubmission: true` to any embedded form whose submissions you triage in the inbox. The OpenAPI document no longer lists `GET /forms/{formSlug}/embed`. That route had served nothing since the iframe embed was removed; a form is placed on a page with `formRef`.
-
-### Values from requests and records are encoded where an automation places them
-
-No config key changes and every config that validated on 0.30 still validates. What changes is the text an automation builds from data it did not write — a webhook body, a form submission, a record:
-
-| Where the value lands                           | On 0.30                              | On 0.31                                                                               |
-| ----------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------- |
-| `email/send` `to`, `cc`, `bcc`, `replyTo`       | Sent as written, separators included | Exactly one address per value or list item, else the step fails and nothing is sent   |
-| `email/send` `from`                             | Any template                         | Written in the config or `$env.`; a value from run data fails the step                |
-| `email/send` `body`                             | Inserted as markup                   | Shown as text; rich text through `{{{safeHtml value}}}`                               |
-| An `http/*` or `webhook/send` `url`             | Inserted as it is                    | One path segment or one query value; a multi-segment path through `{{urlPath value}}` |
-| A string body sent as JSON                      | Inserted as it is                    | Escaped as the content of a JSON string                                               |
-| A `webhook/response` or `trigger.response` body | `<`, `>`, `&` sent as is             | Written as `\u003c`, `\u003e`, `\u0026` — the same value to a JSON parser             |
-
-Before you restart, look for automations that place markup from data in an email body on purpose (wrap the value in `safeHtml`) or a nested path in a URL (use `urlPath`, a `query` object, or a URL that is a single template).
-
-### A component's translation and prop keys are reported by name
-
-A key under a component's `i18n` must be a language code (`fr`, `fr-FR`), and a key under its `props` a camelCase property name or a kebab-case `data-*` or `aria-*` attribute. Such a mistake already stopped `sovrium validate` and startup on 0.30, but was reported as an unknown property with an empty list of accepted keys. On 0.31 each mistyped key is named with the spelling it must match, all of them in the same run:
-
-```text
-Language code must be two lowercase letters, optionally followed by a hyphen and a two-letter uppercase region (pattern ^[a-z]{2}(-[A-Z]{2})?$, e.g. fr, fr-FR)
-```
-
-The same holds for every other map whose keys follow a rule: the language codes and keys of `languages.translations`, a page's `meta.i18n` languages and the attribute names of its `meta.customElements`, its `scripts.features` flags, a component's breakpoint `responsive.<size>.props` and a reused block's `vars`, and the face names of `design.typeScale.families`. Each mistyped key is refused as `Key '<key>' is not accepted`, followed by the rule it breaks, at its own path. A config that validated on 0.30 is unaffected. A program that decodes a component outside the CLI, through the published JSON Schema, now sees the key pattern as `propertyNames` instead of `patternProperties`, so a mistyped key fails there too rather than passing unchecked.
 
 ## Roll back
 

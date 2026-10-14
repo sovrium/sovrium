@@ -1,4 +1,5 @@
-# sovrium-library: block/feature-list-icons@0.30.0
+# sovrium-library: block/feature-list-icons@0.37.0
+# sovrium-library-params: ctaHref=%2Fcontact&ctaLabel=%5BPrimary%20action%5D&eyebrow=%5BEyebrow%5D&headline=A%20heading%20that%20the%20four%20items%20prove&subheadline=Keep%20the%20argument%20on%20the%20left%20and%20the%20evidence%20on%20the%20right.
 name: feature-list-icons
 type: container
 element: section
@@ -31,7 +32,7 @@ children:
                       - type: text
                         element: span
                         props:
-                          className: font-mono text-sm text-foreground-subtle
+                          className: font-mono text-sm text-muted-foreground
                         content: '[Eyebrow]'
                   - type: text
                     element: h2
@@ -41,7 +42,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-lg text-pretty text-foreground-muted sm:text-xl
+                      className: text-lg text-pretty text-muted-foreground sm:text-xl
                     content: Keep the argument on the left and the evidence on the right.
               - type: flex
                 props:
@@ -50,7 +51,7 @@ children:
                   - type: link
                     props:
                       href: /contact
-                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-10 px-4 text-md'
+                      className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-card text-foreground hover:bg-muted hover:text-foreground h-10 px-4 text-md'
                     content: '[Primary action]'
           - type: flex
             props:
@@ -62,7 +63,7 @@ children:
                 children:
                   - type: container
                     props:
-                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-background-raised text-foreground
+                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-card text-foreground
                     children:
                       - type: icon
                         props:
@@ -81,7 +82,7 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                          className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                         content: 'One line on what the reader does, one on what they get.'
               - type: flex
                 props:
@@ -89,7 +90,7 @@ children:
                 children:
                   - type: container
                     props:
-                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-background-raised text-foreground
+                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-card text-foreground
                     children:
                       - type: icon
                         props:
@@ -108,7 +109,7 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                          className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                         content: 'Name the role and the rule, not the security jargon.'
               - type: flex
                 props:
@@ -116,7 +117,7 @@ children:
                 children:
                   - type: container
                     props:
-                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-background-raised text-foreground
+                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-card text-foreground
                     children:
                       - type: icon
                         props:
@@ -135,7 +136,7 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                          className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                         content: 'Say which numbers, and who reads them.'
               - type: flex
                 props:
@@ -143,7 +144,7 @@ children:
                 children:
                   - type: container
                     props:
-                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-background-raised text-foreground
+                      className: flex size-10 flex-none items-center justify-center rounded-md border border-border bg-card text-foreground
                     children:
                       - type: icon
                         props:
@@ -162,5 +163,5 @@ children:
                       - type: text
                         element: p
                         props:
-                          className: text-md leading-relaxed text-pretty text-foreground-muted text-sm sm:text-md
+                          className: text-md leading-relaxed text-pretty text-muted-foreground text-sm sm:text-md
                         content: 'Export format and effort, stated plainly.'

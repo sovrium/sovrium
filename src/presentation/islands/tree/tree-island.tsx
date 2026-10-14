@@ -19,6 +19,9 @@
  */
 
 import { useRef, type ReactElement } from 'react'
+import { computeInputGroupFieldClasses } from '@/presentation/design/input-group-field-classes'
+import { computeInputGroupClasses } from '@/presentation/design/input-group-root-classes'
+import { computeTreeClasses } from '@/presentation/design/tree-default-classes'
 import { useRecordsQuery, type RecordsDataSource } from '../hooks/use-records-query'
 import { TreeItem } from './tree-item'
 import { useTreeKeyboard } from './use-tree-keyboard'
@@ -86,29 +89,41 @@ function TreeList({
       ref={treeRef}
       role="tree"
       aria-label={label}
+      data-slot="tree"
       onKeyDown={onKeyDown}
-      className="flex flex-col"
+      className={computeTreeClasses()}
     >
       {forest.rootIds.filter(isKept).map(renderNode)}
     </ul>
   )
 }
 
-/** The filter box above the tree. */
+/**
+ * The filter box above the tree: an input group holding the search control.
+ * No glyph addon: the field's own name and placeholder say what it does, and
+ * the island's mount budget has no room for an inline icon.
+ */
 function TreeFilter(props: {
   readonly label: string
   readonly value: string
   readonly onChange: (value: string) => void
 }): ReactElement {
   return (
-    <input
-      type="search"
-      aria-label={`Filter ${props.label.toLocaleLowerCase()}`}
-      placeholder="Filter"
-      value={props.value}
-      onChange={(event) => props.onChange(event.target.value)}
-      className="border-border h-9 rounded-md border px-3 text-sm"
-    />
+    <div
+      role="group"
+      data-slot="input-group"
+      className={computeInputGroupClasses()}
+    >
+      <input
+        type="search"
+        data-slot="input-group-control"
+        aria-label={`Filter ${props.label.toLocaleLowerCase()}`}
+        placeholder="Filter"
+        value={props.value}
+        onChange={(event) => props.onChange(event.target.value)}
+        className={computeInputGroupFieldClasses()}
+      />
+    </div>
   )
 }
 

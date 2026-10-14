@@ -3,6 +3,1175 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.38.0",
+      "date": "2026-10-14",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.37.0...v0.38.0",
+      "sections": [
+        {
+          "kind": "breaking",
+          "heading": "BREAKING CHANGES",
+          "entries": [
+            {
+              "scope": "components",
+              "text": "shadcn names are canonical"
+            },
+            {
+              "scope": "design",
+              "text": "shadcn/ui's registry is the default theme; the engine speaks shadcn's variable names"
+            }
+          ]
+        },
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "library",
+              "text": "add the sidebar-09 block"
+            },
+            {
+              "scope": "cli",
+              "text": "warn when a translation override names a retired engine key"
+            },
+            {
+              "scope": "ai",
+              "text": "switch, edit and regenerate chat conversations from the chat window"
+            },
+            {
+              "scope": "ai",
+              "text": "a streamed answer cites its knowledge sources"
+            },
+            {
+              "scope": "ai",
+              "text": "files and images picked in a chat reach the agent"
+            },
+            {
+              "scope": "mcp",
+              "text": "an MCP server can ask the person chatting a question through the agent"
+            },
+            {
+              "scope": "library",
+              "text": "add a questionnaire block"
+            },
+            {
+              "scope": "ai",
+              "text": "an agent can ask the person chatting a short set of questions and wait for the answer"
+            },
+            {
+              "scope": "ai",
+              "text": "a replayed chat answer carries its rendered Markdown"
+            },
+            {
+              "scope": "ai",
+              "text": "edit, regenerate and branch a chat conversation"
+            },
+            {
+              "scope": "ai",
+              "text": "the agent cites the knowledge passages it used"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve repeat tokens in a copy's title, description and link and media props"
+            },
+            {
+              "scope": "pages",
+              "text": "let two sidebars on one page fold into phone drawers side by side"
+            },
+            {
+              "scope": "design-system",
+              "text": "name a button's part as base-nova does"
+            },
+            {
+              "scope": "agents",
+              "text": "an agent reads its skills when it needs them"
+            },
+            {
+              "scope": "cli",
+              "text": "validate refuses an agent skill the server would refuse to load"
+            },
+            {
+              "scope": "ai",
+              "text": "the chat streams its answer, can be stopped, and asks before an agent acts"
+            },
+            {
+              "scope": "ai",
+              "text": "a chat turn paused for approval can be approved or denied from the chat"
+            },
+            {
+              "scope": "admin",
+              "text": "the run page states its facts in a card"
+            },
+            {
+              "scope": "admin",
+              "text": "the foundations page lists its breakpoints as a data table"
+            },
+            {
+              "scope": "mcp",
+              "text": "agents call the tools of the MCP servers they name"
+            },
+            {
+              "scope": "admin",
+              "text": "the voice page lists its zones as a data table"
+            },
+            {
+              "scope": "admin",
+              "text": "the brand page lists its zones as a data table"
+            },
+            {
+              "scope": "account",
+              "text": "include AI conversations, facts, activity and tool calls in the data export"
+            },
+            {
+              "scope": "display",
+              "text": "resolve shadcn custom-property names on swatch and contrast badge"
+            },
+            {
+              "scope": "agents",
+              "text": "declare skills for an agent and refuse a missing skill at boot"
+            },
+            {
+              "scope": "admin",
+              "text": "put the changelog's raw configuration in a facts card"
+            },
+            {
+              "scope": "admin",
+              "text": "draw the table page's rating cells with the rating glyphs"
+            },
+            {
+              "scope": "admin",
+              "text": "draw the data pages' figures as dashboard-01 section cards"
+            },
+            {
+              "scope": "admin",
+              "text": "install the page header, line tabs and specimen frame blocks"
+            },
+            {
+              "scope": "library",
+              "text": "add page-header, tabs-line and kit-specimen-frame blocks"
+            },
+            {
+              "scope": "library",
+              "text": "add a static table block"
+            },
+            {
+              "scope": "library",
+              "text": "label the data-table, row-actions and record-sheet columns from parameters"
+            },
+            {
+              "scope": "ai",
+              "text": "declare chat attachments on the ai-chat component"
+            },
+            {
+              "scope": "ai",
+              "text": "stream typed chat events and let the user stop a turn"
+            },
+            {
+              "scope": "ai",
+              "text": "upload files picked in a chat and send them with the question"
+            },
+            {
+              "scope": "ai",
+              "text": "store chat attachments in an operator-named bucket"
+            },
+            {
+              "scope": "admin",
+              "text": "sign in under Sovrium's own mark on the login-03 card"
+            },
+            {
+              "scope": "chart",
+              "text": "draw the declared tooltip on radar and radial charts, and read pie slices through its format"
+            },
+            {
+              "scope": "mcp",
+              "text": "declare external MCP servers by name and choose them per agent"
+            },
+            {
+              "scope": "admin",
+              "text": "set the API and MCP pages' sections in the dl-rows block's card"
+            },
+            {
+              "scope": "admin",
+              "text": "show the environment's variables in the dl-rows block's card"
+            },
+            {
+              "scope": "admin",
+              "text": "open console records in the record-sheet block's drawer"
+            },
+            {
+              "scope": "admin",
+              "text": "rebuild the console's data grids on the row-actions block"
+            },
+            {
+              "scope": "admin",
+              "text": "rebuild the Welcome page from dashboard-01's section cards"
+            },
+            {
+              "scope": "library",
+              "text": "data blocks on the shadcn anatomy, and sidebar-11's file tree"
+            },
+            {
+              "scope": "ai-chat",
+              "text": "recompose the chat on the message, scroller and attachment types"
+            },
+            {
+              "scope": "admin",
+              "text": "rebuild sign-in and password reset from the login-03 block"
+            },
+            {
+              "scope": "library",
+              "text": "add --update re-installs a block copy in place"
+            },
+            {
+              "scope": "admin",
+              "text": "rebuild the console shell from the console-shell block"
+            },
+            {
+              "scope": "library",
+              "text": "add the console-shell block"
+            },
+            {
+              "scope": "admin",
+              "text": "the data and editor type pages draw on shadcn's role utilities"
+            },
+            {
+              "scope": "table",
+              "text": "close a finished CSV import with Done, and name the import dialog's content and title"
+            },
+            {
+              "scope": "table",
+              "text": "name fields in the filter and sort builders and the row panel as the column header does"
+            },
+            {
+              "scope": "table",
+              "text": "draw the grid's checkboxes as shadcn's Checkbox, the select-all box partly ticked when some rows are"
+            },
+            {
+              "scope": "table",
+              "text": "send the reader's filters and facets with every table request, so the pager and summary count the narrowed set"
+            },
+            {
+              "scope": "file-upload",
+              "text": "redesign file-upload to the shadcn anatomy"
+            },
+            {
+              "scope": "record-field",
+              "text": "write an empty value as a muted em dash"
+            },
+            {
+              "scope": "forms",
+              "text": "draw the table-bound form on the shadcn field anatomy"
+            },
+            {
+              "scope": "api-keys",
+              "text": "redesign the API key manager on the shadcn anatomy"
+            },
+            {
+              "scope": "form-controls",
+              "text": "redesign the rich-text and code editors to the shadcn anatomy"
+            },
+            {
+              "scope": "map",
+              "text": "place the list twin by the map's own width"
+            },
+            {
+              "scope": "calendar",
+              "text": "mark today by its number alone, with no wash on the day"
+            },
+            {
+              "scope": "comments",
+              "text": "redesign comments to the shadcn anatomy"
+            },
+            {
+              "scope": "alert",
+              "text": "port alert to the shadcn anatomy"
+            },
+            {
+              "scope": "map",
+              "text": "redesign map to the shadcn anatomy"
+            },
+            {
+              "scope": "tree",
+              "text": "redesign tree to the shadcn anatomy"
+            },
+            {
+              "scope": "matrix",
+              "text": "redesign matrix to the shadcn anatomy"
+            },
+            {
+              "scope": "graph",
+              "text": "redesign graph to the shadcn anatomy"
+            },
+            {
+              "scope": "admin",
+              "text": "the rating type page draws the real component"
+            },
+            {
+              "scope": "kanban",
+              "text": "redesign kanban to the shadcn anatomy"
+            },
+            {
+              "scope": "table",
+              "text": "the faceted filter's own words in the page language"
+            },
+            {
+              "scope": "admin",
+              "text": "the map type page pins every specimen row in its resting drawing"
+            },
+            {
+              "scope": "library",
+              "text": "add resolves a bare shadcn block id"
+            },
+            {
+              "scope": "gallery",
+              "text": "redesign gallery to the shadcn anatomy"
+            },
+            {
+              "scope": "admin",
+              "text": "graph, matrix, map and tree type pages draw the real component"
+            },
+            {
+              "scope": "filter-bar",
+              "text": "redesign filter-bar to the shadcn anatomy"
+            },
+            {
+              "scope": "calendar",
+              "text": "redesign event-calendar to the shadcn anatomy"
+            },
+            {
+              "scope": "design-system",
+              "text": "the design system serves a specimen graph, and specimen rows carry a place and a parent"
+            },
+            {
+              "scope": "library",
+              "text": "command, sheet-form, item and empty blocks; sidebar-02/04/05/07/08/12/14/15; dashboard-01; the calendar subset (calendar-01/03/04/13)"
+            },
+            {
+              "scope": "list",
+              "text": "redesign list to the shadcn anatomy"
+            },
+            {
+              "scope": "kpi",
+              "text": "redesign kpi to the shadcn anatomy"
+            },
+            {
+              "scope": "table",
+              "text": "draw the loading grid on the table anatomy instead of fixed bars"
+            },
+            {
+              "scope": "table",
+              "text": "open the inline text editor over its cell, so the row and column keep their size"
+            },
+            {
+              "scope": "table",
+              "text": "name the selection bar, group rows and state rows on the shadcn table anatomy"
+            },
+            {
+              "scope": "sheet",
+              "text": "a heading, a footer, an optional close button, and buttons that open it"
+            },
+            {
+              "scope": "pages",
+              "text": "open the record drawer as a shadcn sheet"
+            },
+            {
+              "scope": "table",
+              "text": "draw the grid's import, paste and create dialogs on the shadcn dialog anatomy"
+            },
+            {
+              "scope": "command",
+              "text": "authored groups of commands with icons, shortcuts, links and actions"
+            },
+            {
+              "scope": "pagination",
+              "text": "simple and icon pagers, and labels for previous and next"
+            },
+            {
+              "scope": "breadcrumb",
+              "text": "collapse a long trail behind an ellipsis or a menu"
+            },
+            {
+              "scope": "table",
+              "text": "faceted filters in the table toolbar"
+            },
+            {
+              "scope": "sidebar",
+              "text": "fold, place and frame the sidebar, with header, footer, actions and a loading skeleton"
+            },
+            {
+              "scope": "table",
+              "text": "draw the table toolbar on the shadcn anatomy"
+            },
+            {
+              "scope": "input-group",
+              "text": "addons on every side, a textarea control and a styled action"
+            },
+            {
+              "scope": "library",
+              "text": "content and description blocks on the shadcn anatomy"
+            },
+            {
+              "scope": "combobox",
+              "text": "several choices found by typing, drawn as removable chips"
+            },
+            {
+              "scope": "card",
+              "text": "a header with a title, a description and an action, a footer, and a small size"
+            },
+            {
+              "scope": "select",
+              "text": "option groups and a clear control"
+            },
+            {
+              "scope": "chart",
+              "text": "radar and radial charts, series icons and per-scheme colours, and shadcn's tooltip options"
+            },
+            {
+              "scope": "rating",
+              "text": "unearned stars read in the muted foreground"
+            },
+            {
+              "scope": "number-input",
+              "text": "the stepper group keeps to its value"
+            },
+            {
+              "scope": "toggle",
+              "text": "the outline variant, and spacing for toggle groups"
+            },
+            {
+              "scope": "admin",
+              "text": "audio and icon type pages draw the real component"
+            },
+            {
+              "scope": "toast",
+              "text": "loading toasts that turn into their outcome, and placed toasts with a tone, a duration and an action"
+            },
+            {
+              "scope": "button-group",
+              "text": "vertical button groups"
+            },
+            {
+              "scope": "timeline",
+              "text": "the today badge no longer covers an axis date"
+            },
+            {
+              "scope": "media",
+              "text": "the QR code keeps to its symbol inside a column"
+            },
+            {
+              "scope": "separator",
+              "text": "vertical separators and a label option"
+            },
+            {
+              "scope": "language-switcher",
+              "text": "redesign language-switcher to the shadcn anatomy"
+            },
+            {
+              "scope": "field",
+              "text": "orientation, error lists, legends and titled choice controls"
+            },
+            {
+              "scope": "description-list",
+              "text": "redesign description-list to the shadcn anatomy"
+            },
+            {
+              "scope": "search-input",
+              "text": "redesign search-input to the shadcn anatomy"
+            },
+            {
+              "scope": "spacer",
+              "text": "name the spacer on the shadcn anatomy"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the neutral outline of an uncoloured option under the outline-and-dot badge form on every surface"
+            },
+            {
+              "scope": "toc",
+              "text": "redesign the table of contents to the shadcn anatomy"
+            },
+            {
+              "scope": "item",
+              "text": "media, title, description, actions, header and footer slots"
+            },
+            {
+              "scope": "reorderable-list",
+              "text": "redesign reorderable-list to the shadcn anatomy"
+            },
+            {
+              "scope": "signature-pad",
+              "text": "redesign signature-pad to the shadcn anatomy"
+            },
+            {
+              "scope": "rating",
+              "text": "redesign rating to the shadcn anatomy"
+            },
+            {
+              "scope": "empty",
+              "text": "the icon above the title, framed in a tile or bare"
+            },
+            {
+              "scope": "code-block",
+              "text": "redesign the framed code block to the shadcn anatomy"
+            },
+            {
+              "scope": "presence",
+              "text": "draw the presence indicator as an avatar group"
+            },
+            {
+              "scope": "menus",
+              "text": "radio rows and group headings in every menu"
+            },
+            {
+              "scope": "timeline",
+              "text": "redesign timeline to the shadcn anatomy"
+            },
+            {
+              "scope": "file-preview",
+              "text": "redesign file-preview to the shadcn anatomy"
+            },
+            {
+              "scope": "table",
+              "text": "set a row's destructive action apart in its actions menu"
+            },
+            {
+              "scope": "tabs",
+              "text": "the line variant of the tab list"
+            },
+            {
+              "scope": "alert-dialog",
+              "text": "a small size and an icon tile above the title"
+            },
+            {
+              "scope": "number-input",
+              "text": "redesign number-input to the shadcn anatomy"
+            },
+            {
+              "scope": "media",
+              "text": "redesign image, video, audio, iframe, qr-code and icon to the shadcn anatomy"
+            },
+            {
+              "scope": "dialog",
+              "text": "a footer for the dialog's actions, and an optional close button"
+            },
+            {
+              "scope": "time-picker",
+              "text": "redesign time-picker to the shadcn anatomy"
+            },
+            {
+              "scope": "stepper",
+              "text": "redesign stepper to the shadcn anatomy"
+            },
+            {
+              "scope": "button",
+              "text": "shadcn's size scale, square icon-only buttons and an icon key"
+            },
+            {
+              "scope": "badge",
+              "text": "ghost and link tones, and a badge that is a link"
+            },
+            {
+              "scope": "library",
+              "text": "data-table, row-actions and record-sheet blocks"
+            },
+            {
+              "scope": "table",
+              "text": "step a numbered table pager to its first and last page"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the badges of lists, galleries and boards as the table draws its chips"
+            },
+            {
+              "scope": "calendar",
+              "text": "a month of days to pick a date, a range or several"
+            },
+            {
+              "scope": "drawer",
+              "text": "a panel that rises from the bottom edge and is swiped away"
+            },
+            {
+              "scope": "questionnaire",
+              "text": "one question per screen, submitted once through a form"
+            },
+            {
+              "scope": "kanban",
+              "text": "draw a footer option badge as the table draws the same value"
+            },
+            {
+              "scope": "pages",
+              "text": "load galleries, lists and boards as the reader scrolls"
+            },
+            {
+              "scope": "table",
+              "text": "row actions in a per-row menu, confirmations in a dialog, and infinite scroll"
+            },
+            {
+              "scope": "message-scroller",
+              "text": "the scroll frame of a conversation"
+            },
+            {
+              "scope": "admin",
+              "text": "navigation type pages on the shadcn anatomy"
+            },
+            {
+              "scope": "library",
+              "text": "navigation blocks on the shadcn anatomy"
+            },
+            {
+              "scope": "message",
+              "text": "one turn of a conversation, by speaker, side and time"
+            },
+            {
+              "scope": "input-otp",
+              "text": "draw one box per character"
+            },
+            {
+              "scope": "carousel",
+              "text": "walk the carousel track through Embla"
+            },
+            {
+              "scope": "resizable",
+              "text": "resize panels through react-resizable-panels"
+            },
+            {
+              "scope": "command",
+              "text": "render the command palette through cmdk"
+            },
+            {
+              "scope": "attachment",
+              "text": "a file shown as a chip with its icon, name and size"
+            },
+            {
+              "scope": "marker",
+              "text": "an inline note inside a thread or a list"
+            },
+            {
+              "scope": "collapsible",
+              "text": "one region behind one trigger, with or without a script"
+            },
+            {
+              "scope": "table",
+              "text": "read table values by field type and draw the grid on the shadcn table anatomy"
+            },
+            {
+              "scope": "label",
+              "text": "name one form control and focus it on a click"
+            },
+            {
+              "scope": "aspect-ratio",
+              "text": "hold one medium at a fixed width-to-height ratio"
+            },
+            {
+              "scope": "date-picker",
+              "text": "draw the day grid through react-day-picker"
+            },
+            {
+              "scope": "navigation",
+              "text": "open the navigation menu panel and draw its badges as shadcn/ui does"
+            },
+            {
+              "scope": "card",
+              "text": "draw the card on the shadcn/ui anatomy"
+            },
+            {
+              "scope": "navigation",
+              "text": "draw the sidebar on the shadcn/ui anatomy"
+            },
+            {
+              "scope": "navigation",
+              "text": "draw the navigation menu on the shadcn/ui anatomy"
+            },
+            {
+              "scope": "navigation",
+              "text": "draw the breadcrumb and the pagination on the shadcn/ui anatomy"
+            },
+            {
+              "scope": "form-controls",
+              "text": "a native select draws one chevron"
+            },
+            {
+              "scope": "admin",
+              "text": "form-controls type pages on the shadcn anatomy"
+            },
+            {
+              "scope": "admin",
+              "text": "overlays type pages on the shadcn anatomy"
+            },
+            {
+              "scope": "form-controls",
+              "text": "ported controls keep their light colours when the design layer is off"
+            },
+            {
+              "scope": "library",
+              "text": "overlays blocks on the shadcn anatomy"
+            },
+            {
+              "scope": "library",
+              "text": "form-controls blocks on the shadcn anatomy"
+            },
+            {
+              "scope": "library",
+              "text": "display blocks on the shadcn anatomy"
+            },
+            {
+              "scope": "library",
+              "text": "the chart subset blocks"
+            },
+            {
+              "scope": "form-controls",
+              "text": "draw the form controls on the shadcn/ui anatomy"
+            },
+            {
+              "scope": "overlays",
+              "text": "port dialogs, sheets, popovers and menus to the shadcn anatomy"
+            },
+            {
+              "scope": "chart",
+              "text": "render through recharts and ChartConfig"
+            },
+            {
+              "scope": "display",
+              "text": "port avatar, badge, empty, item, kbd, progress, skeleton, spinner, separator and the static table to the shadcn/ui anatomy"
+            },
+            {
+              "scope": "components",
+              "text": "`bubble`, the surface of one chat turn, as its own type"
+            },
+            {
+              "scope": "components",
+              "text": "`carousel`, a track of records, as its own type"
+            },
+            {
+              "scope": "desktop",
+              "text": "the desktop window ships the Geist typefaces"
+            },
+            {
+              "scope": "components",
+              "text": "`input-otp`, the one-time-code box, as its own type"
+            },
+            {
+              "scope": "components",
+              "text": "`combobox`, one choice found by typing, as its own type"
+            },
+            {
+              "scope": "components",
+              "text": "`native-select`, the browser's own select, as its own type"
+            },
+            {
+              "scope": "desktop",
+              "text": "the desktop window draws in shadcn/ui's neutral look"
+            },
+            {
+              "scope": "design",
+              "text": "emit the theme roles under shadcn/ui's variable names"
+            },
+            {
+              "scope": "forms",
+              "text": "a form's onSuccess can add a toast and close its dialog beside its redirect, reset or message"
+            },
+            {
+              "scope": "pages",
+              "text": "an action's onSuccess can close the dialog, drawer or popover it sits in, and a fetch action can navigate after it succeeds"
+            },
+            {
+              "scope": "pages",
+              "text": "show a pending state on action buttons, record forms and row actions; fire-and-forget automations toast once the start is accepted"
+            },
+            {
+              "scope": "forms",
+              "text": "show a pending state while a form submits and accept a pendingLabel"
+            },
+            {
+              "scope": "automations",
+              "text": "let a machine-authenticated webhook answer named write-only fields"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "keep the date control's size when it becomes interactive"
+            },
+            {
+              "scope": "ai",
+              "text": "chat decisions settle when the server no longer waits, and the window speaks the page language"
+            },
+            {
+              "scope": "ai",
+              "text": "a knowledge passage cannot close its own quotation"
+            },
+            {
+              "scope": "ai",
+              "text": "the streamed chat counts against the same per-person rate limit"
+            },
+            {
+              "scope": "pages",
+              "text": "move between a menubar's menus with the arrow keys"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the navigation menu as a disclosure of links"
+            },
+            {
+              "scope": "pages",
+              "text": "open the context menu on a right click over its children"
+            },
+            {
+              "scope": "pages",
+              "text": "close an alert dialog on Escape"
+            },
+            {
+              "scope": "tables",
+              "text": "let a link inside a clickable row follow the link alone"
+            },
+            {
+              "scope": "pages",
+              "text": "show a record drawer's related sections in an app without auth"
+            },
+            {
+              "scope": "pages",
+              "text": "stop the field component's parts triggering React key warnings"
+            },
+            {
+              "scope": "ai",
+              "text": "a streamed chat turn runs the conversation retention sweep"
+            },
+            {
+              "scope": "ai",
+              "text": "bound the file text a chat quotes, and answer edits and regenerations with their files"
+            },
+            {
+              "scope": "buttons",
+              "text": "name the variant and size on the grid toolbar and code copy buttons"
+            },
+            {
+              "scope": "config",
+              "text": "name the value when it fits no member of a value union"
+            },
+            {
+              "scope": "ai",
+              "text": "quote retrieved knowledge to the model as data, not instructions"
+            },
+            {
+              "scope": "ai",
+              "text": "an edited question honours the chat's message length cap"
+            },
+            {
+              "scope": "ai",
+              "text": "keep an upgraded conversation's questions before their answers"
+            },
+            {
+              "scope": "overlays",
+              "text": "stop a tooltip from nesting its trigger button around the wrapped control"
+            },
+            {
+              "scope": "ai",
+              "text": "bound an agent's question and its answer, and check only the question's own fields"
+            },
+            {
+              "scope": "admin",
+              "text": "summarise the running configuration instead of printing it whole"
+            },
+            {
+              "scope": "account",
+              "text": "erasure deletes the agent activity that names the user"
+            },
+            {
+              "scope": "ai",
+              "text": "a refused agent action is not reported as executed"
+            },
+            {
+              "scope": "agents",
+              "text": "count a manually triggered scheduled run's actions once"
+            },
+            {
+              "scope": "ai",
+              "text": "stop retrying a chat call twice and log a failed later step"
+            },
+            {
+              "scope": "agents",
+              "text": "an agent in a chat acts within the permissions of the person chatting"
+            },
+            {
+              "scope": "cli",
+              "text": "write library fragments that Prettier leaves unchanged"
+            },
+            {
+              "scope": "buckets",
+              "text": "never serve a chat upload through the bucket file routes"
+            },
+            {
+              "scope": "pages",
+              "text": "colour a KPI read from a system endpoint by its thresholds"
+            },
+            {
+              "scope": "pages",
+              "text": "load the client script for a console surface reached by in-page navigation"
+            },
+            {
+              "scope": "agents",
+              "text": "run the tools an agent calls instead of acknowledging them"
+            },
+            {
+              "scope": "mcp",
+              "text": "only an admin can read the external MCP status and tool catalogue"
+            },
+            {
+              "scope": "pages",
+              "text": "a rating input repaints its stars as the reader picks, drawn as star icons"
+            },
+            {
+              "scope": "mcp",
+              "text": "connect to external MCP servers and list the tools they really offer"
+            },
+            {
+              "scope": "config",
+              "text": "refuse a deeply nested invalid config in bounded time"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve page record and session values inside component slots"
+            },
+            {
+              "scope": "table",
+              "text": "write summary figures in their column's format and under their column's alignment"
+            },
+            {
+              "scope": "admin",
+              "text": "the alert type page reads true under every tone"
+            },
+            {
+              "scope": "gallery",
+              "text": "fill the carousel slide with its card"
+            },
+            {
+              "scope": "kanban",
+              "text": "draw a board's cards from the first frame its read lands, with no empty columns in between"
+            },
+            {
+              "scope": "overlays",
+              "text": "a highlighted menu row shows its accent fill without the page focus ring"
+            },
+            {
+              "scope": "display",
+              "text": "a written table fills its container"
+            },
+            {
+              "scope": "interactions",
+              "text": "play entrance and scroll animations"
+            },
+            {
+              "scope": "pages",
+              "text": "apply per-breakpoint grid column counts"
+            },
+            {
+              "scope": "components",
+              "text": "combobox, native-select and carousel follow the rules of the controls they came from"
+            },
+            {
+              "scope": "forms",
+              "text": "the badge on a hosted form page follows the app's language"
+            },
+            {
+              "scope": "forms",
+              "text": "later steps of a multi-step form keep the reader's language"
+            },
+            {
+              "scope": "pages",
+              "text": "file-preview plays a file that a form stored without a storage key"
+            },
+            {
+              "scope": "forms",
+              "text": "a form submission or automation press sent twice is stored and run once"
+            },
+            {
+              "scope": "pages",
+              "text": "focus returns to the row action after its table refetches"
+            },
+            {
+              "scope": "pages",
+              "text": "revoking an API key and creating a related record from the drawer show their pending state"
+            },
+            {
+              "scope": "pages",
+              "text": "the record drawer, button fields and endpoint forms show their pending word in the page language"
+            },
+            {
+              "scope": "pages",
+              "text": "an attachment on a one-record page feeds src, href and text, and file-preview plays sound and video"
+            },
+            {
+              "scope": "pages",
+              "text": "built-in words and default emails follow the app's language"
+            },
+            {
+              "scope": "pages",
+              "text": "the toast region sits above the Built with Sovrium badge"
+            },
+            {
+              "scope": "pages",
+              "text": "a popover's trigger renders as the button it was declared as"
+            },
+            {
+              "scope": "pages",
+              "text": "a busy control shows a progress cursor and every overlay closes with the same control"
+            },
+            {
+              "scope": "auth",
+              "text": "the sign-in form announces errors only when there are some"
+            },
+            {
+              "scope": "forms",
+              "text": "an embedded form's title is a second-level heading"
+            },
+            {
+              "scope": "forms",
+              "text": "the multi-step form's Previous and Next sit on one row and speak the page language"
+            },
+            {
+              "scope": "cli",
+              "text": "library add no longer reads a fragment an older version installed as edited"
+            },
+            {
+              "scope": "forms",
+              "text": "a hosted form's field error reads in the error style"
+            },
+            {
+              "scope": "forms",
+              "text": "a submission whose automations stop early no longer stays processing"
+            },
+            {
+              "scope": "automations",
+              "text": "an AI step whose provider call times out is retried under a retry policy"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium reload applies the edit like watch mode and reports what the server did"
+            },
+            {
+              "scope": "cli",
+              "text": "library add keeps a block's parameters, passes shared ones to its requirements and follows auth.loginPage"
+            },
+            {
+              "scope": "cli",
+              "text": "a bundle carries the files declared under assets"
+            },
+            {
+              "scope": "automations",
+              "text": "a record write answers once the row is committed and its automations run in the background"
+            },
+            {
+              "scope": "pages",
+              "text": "refuse a protocol-relative address after an action as well"
+            },
+            {
+              "scope": "pages",
+              "text": "show a carried success toast on every page, palette or not"
+            },
+            {
+              "scope": "automations",
+              "text": "an AI action error fails its step so retry and continueOnError apply"
+            },
+            {
+              "scope": "ai",
+              "text": "whisper.cpp transcripts no longer break words across lines"
+            },
+            {
+              "scope": "tables",
+              "text": "restoring or upserting over a live duplicate is refused or ignored"
+            },
+            {
+              "scope": "tables",
+              "text": "a unique field ignores records in the trash and converts existing constraints on boot"
+            },
+            {
+              "scope": "automations",
+              "text": "run history still masks a value that is exactly a short secret"
+            },
+            {
+              "scope": "auth",
+              "text": "an expired two-factor page drops the recovery section and its toggle whatever else the section holds"
+            },
+            {
+              "scope": "pages",
+              "text": "noindex wins over the robots string in the robots tag"
+            },
+            {
+              "scope": "pages",
+              "text": "a file upload backed by a fetch action shows its toast and fills $response"
+            },
+            {
+              "scope": "pages",
+              "text": "an edit form in a dialog closes it after a script save"
+            },
+            {
+              "scope": "pages",
+              "text": "a crud form's redirect resolves a relative address like every other navigate"
+            },
+            {
+              "scope": "pages",
+              "text": "a crud row action follows its onSuccess navigate"
+            },
+            {
+              "scope": "pages",
+              "text": "a row action confirmed through a form closes the overlay around its table"
+            },
+            {
+              "scope": "pages",
+              "text": "a delete button is shown to the readers the table's permissions allow"
+            },
+            {
+              "scope": "pages",
+              "text": "a success toast follows its navigate to the landing page"
+            },
+            {
+              "scope": "automations",
+              "text": "run history keeps secret: false values readable and masks whole secrets only"
+            },
+            {
+              "scope": "automations",
+              "text": "hold an idempotency key only once the irreversible click's element is found"
+            },
+            {
+              "scope": "automations",
+              "text": "render browser step values inside a path branch or a loop"
+            },
+            {
+              "scope": "automations",
+              "text": "fill a date or time field by value and fail a fill the site does not keep"
+            },
+            {
+              "scope": "automations",
+              "text": "render the key of a press step when it is reached"
+            },
+            {
+              "scope": "pages",
+              "text": "refuse an action's onSuccess.navigate to another site when the config is validated"
+            },
+            {
+              "scope": "pages",
+              "text": "row actions, menu items and edit forms close the overlay around them, and a fetch success runs its effects in the documented order"
+            },
+            {
+              "scope": "pages",
+              "text": "automation buttons, row actions and menu items follow their onSuccess navigate, and CRUD forms show their onError toast"
+            },
+            {
+              "scope": "pages",
+              "text": "an overlay waits for its pending action before Escape or a backdrop click closes it"
+            },
+            {
+              "scope": "forms",
+              "text": "keep a form's submit busy until its redirect leaves the page"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.37.0",
       "date": "2026-10-11",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.36.0...v0.37.0",

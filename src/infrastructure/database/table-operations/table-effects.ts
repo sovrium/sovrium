@@ -263,7 +263,7 @@ export const migrateExistingTableEffect = (
     yield* reconcileTableStructure({ tx, table, existingColumns, previousSchema, inputs })
 
     // Always add/update unique constraints for existing tables
-    yield* syncUniqueConstraints(tx, table, previousSchema, physicalTableName)
+    yield* syncUniqueConstraints(tx, table, physicalTableName)
 
     // Always sync foreign key constraints to ensure referential actions are up-to-date
     yield* syncForeignKeyConstraints(tx, table, tableUsesView, physicalTableName)

@@ -26,7 +26,7 @@ Every verb the `sovrium` binary dispatches (30), with its usage line and what it
 | `login` | `sovrium login [options]` | Sign the CLI in to a Sovrium cloud |
 | `mcp` | `sovrium mcp [--project <dir>]` | Serve the config read tools to an AI client over stdio |
 | `migrate` | `sovrium migrate [config] [options]` | Bring the database schema forward, without booting |
-| `reload` | `sovrium reload [options]` | Hot-reload config without downtime |
+| `reload` | `sovrium reload [options]` | Apply the edited config to the running server |
 | `render` | `sovrium render <asset> [options]` | Render a template asset offline, with its sample data or yours |
 | `restart` | `sovrium restart [config]` | Restart the running server |
 | `restore` | `sovrium restore <file> [options]` | Put a backup back (never over a running server) |

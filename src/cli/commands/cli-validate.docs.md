@@ -17,7 +17,7 @@ sovrium validate app.yaml
 sovrium validate app.yaml || exit 1
 ```
 
-**One validation, three commands.** `validate`, `start` and `build` read your config through the same pipeline: the same authoring shorthands are accepted, and the same cross-field rules are enforced. A config `sovrium validate` accepts is a config `sovrium start` boots.
+**One validation, three commands.** `validate`, `start` and `build` read your config through the same pipeline: the same authoring shorthands are accepted, and the same cross-field rules are enforced. A config `sovrium validate` accepts is a config `sovrium start` boots. That includes the files a config points to and the boot reads: the skill directories an agent lists are checked as the server checks them, resolved beside the config file, and a missing `SKILL.md` or one without a `name` or a `description` is a problem in the report, naming the agent and the file.
 
 ### Every mistake, in one report
 
@@ -125,7 +125,7 @@ What survives is always enough to act on: the path, the complaint, and the shape
 
 ### Notices
 
-A notice is something worth telling you that is not worth failing over. The config is valid and ships: `valid` stays `true` and the exit code stays `0`, so a deploy gate never trips on one. In prose mode notices print to **stderr** ahead of the verdict, which keeps stdout parseable; under `--json` they arrive in the `notices` array. Today four exist — a superseded design key, a field whose id is left implicit, an engine interface string overridden under its bare name, and a prose part (`paragraph`, `heading2`, `list` …) spaced with the `my-*` shorthand, which paints nothing there: the notice names the token, the part and the `mt-*` / `mb-*` spelling that does. A **deprecated key** is told the same way: it is still accepted for one release, and `sovrium validate`, `sovrium start` and `sovrium build` each print one `Warning:` line per occurrence on **stderr** — naming the key, its path, the release that will refuse it and what to write instead — without changing the verdict or the exit code. The same `Warning:` line flags a bare attachment token inside a files address in a row template (`/files/$record.<attachment>`, an address nested in an address), naming its place and the `$record.<attachment>.key` spelling; the page data-binding article says what each spelling resolves to.
+A notice is something worth telling you that is not worth failing over. The config is valid and ships: `valid` stays `true` and the exit code stays `0`, so a deploy gate never trips on one. In prose mode notices print to **stderr** ahead of the verdict, which keeps stdout parseable; under `--json` they arrive in the `notices` array. Today five exist — a superseded design key, a field whose id is left implicit, an engine interface string overridden under its bare name, an override of engine interface text the engine no longer draws, and a prose part (`paragraph`, `heading2`, `list` …) spaced with the `my-*` shorthand, which paints nothing there: the notice names the token, the part and the `mt-*` / `mb-*` spelling that does. A **deprecated key** is told the same way: it is still accepted for one release, and `sovrium validate`, `sovrium start` and `sovrium build` each print one `Warning:` line per occurrence on **stderr** — naming the key, its path, the release that will refuse it and what to write instead — without changing the verdict or the exit code. The same `Warning:` line flags a bare attachment token inside a files address in a row template (`/files/$record.<attachment>`, an address nested in an address), naming its place and the `$record.<attachment>.key` spelling; the page data-binding article says what each spelling resolves to.
 
 #### `field-id-implicit`
 
@@ -175,7 +175,7 @@ Notice:
 Valid configuration: crm
 ```
 
-One notice for the whole config, listing every occurrence with its prefixed spelling. The server prints the same notice once when it starts. A bare key that is not one of the ten earns nothing: it is your own vocabulary, and it never renames engine chrome.
+One notice for the whole config, listing every occurrence with its prefixed spelling. The server prints the same notice once when it starts. A bare key that is not one of the ten earns nothing: it is your own vocabulary, and it never renames engine chrome. Its sibling, `engine-key-retired`, reports an override of an engine key the engine no longer draws anywhere — today `sovrium.filePreview.cannotShow`. The key stays accepted for one release, so the config is still valid, but the override changes nothing: `engine-key-retired: languages.translations.fr['sovrium.filePreview.cannotShow'] overrides engine interface text that is no longer drawn anywhere, so it changes nothing — delete it; the key is removed in the next release.` It is one notice for the whole config, the server prints it once when it starts too, and the bare spelling `filePreview.cannotShow` earns nothing.
 
 ## Validating from inside a config
 

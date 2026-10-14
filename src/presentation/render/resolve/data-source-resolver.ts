@@ -84,7 +84,7 @@ function readsThroughDeclaredView(component: Component, matchedTable: unknown): 
     matchedTable !== undefined &&
     component.dataSource?.view !== undefined &&
     (component.type === 'table' ||
-      (component.type !== 'drawer' && isWithheldOverUnreadableTable(component)))
+      (component.type !== 'sheet' && isWithheldOverUnreadableTable(component)))
   )
 }
 
@@ -172,7 +172,7 @@ async function resolveComponent(
   // system sibling, deliberately: a table binding names a declared table, so
   // "table not found", the read-permission gate and the field check all still
   // apply. Only the per-record resolution is skipped.
-  if (component.type === 'drawer') return withCallerTableView(component, ctx)
+  if (component.type === 'sheet') return withCallerTableView(component, ctx)
 
   // Z-1 / P-6: `$currentUser.*` filters were resolved for the whole tree
   // before this walk began (`resolveCurrentUserFiltersInTree`), so the
@@ -240,7 +240,7 @@ function drawsRowsOnServer(node: Component, ctx: ResolveContext): boolean {
   const children = node.children as readonly unknown[] | undefined
   return (
     node.type !== 'table' &&
-    node.type !== 'drawer' &&
+    node.type !== 'sheet' &&
     (binding.mode === undefined || binding.mode === 'list') &&
     typeof binding.table === 'string' &&
     children !== undefined &&

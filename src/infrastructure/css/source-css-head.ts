@@ -138,19 +138,21 @@ const LAYOUT_UTILITY_SAFELIST = [
   'z-30',
   'z-40',
   'shadow-xl',
-  'bg-scrim/50',
+  // The burger drawer's backdrop: base-nova's overlay, as its `dialog.tsx` spells it
+  'bg-black/10',
+  'supports-backdrop-filter:backdrop-blur-xs',
 ].join(' ')
 
 /**
  * Runtime-template-literal arbitrary-value safelist.
  *
- * Islands compose classes like `` `bg-[${v('sv-primary', T.primary)}]` `` whose
- * resolved literal (`bg-[var(--sv-primary,oklch(0.205_0.008_40))]`) is invisible
+ * Islands compose classes like `` `rounded-[${v('radius-md', T.radiusMd)}]` `` whose
+ * resolved literal (`rounded-[var(--radius-md,0.5rem)]`) is invisible
  * to Tailwind's content scanner — it only sees the template SOURCE, not the
  * value. Without this safelist those classes never reach the compiled CSS and
  * elements render transparent on the dedicated Linux runner. The generator
  * source-scans `src/presentation/islands/*-default-classes.ts` and resolves
- * each `v('sv-X', T.Y)` against `css-var.ts`'s `TOKENS` map; the result is
+ * each `v('X', T.Y)` against `css-var.ts`'s `TOKENS` map; the result is
  * empty in compiled-binary mode (where the JS bundle already contains the
  * resolved literals and Tailwind picks them up natively).
  *
@@ -167,6 +169,11 @@ const ARBITRARY_VAR_SAFELIST_DIRECTIVE = ARBITRARY_VAR_CLASS_SAFELIST
  */
 export const STATIC_IMPORTS = `@import 'tailwindcss';
     @import 'tw-animate-css';
+    /* shadcn's own stylesheet (ADR-045): its custom variants, keyframes,
+       utilities and their @property registrations. None of it paints until
+       a class names one. (Utility names are not spelled in this comment: the
+       candidate scan reads comments, and naming one here would emit it.) */
+    @import 'shadcn/tailwind.css';
     /* Tailwind v4 registers JS plugins via the @plugin directive in the CSS
        input (no tailwind.config.js in Sovrium's programmatic compiler). The
        typography plugin mints the \`prose\` family (\`prose\`, \`prose-invert\`,

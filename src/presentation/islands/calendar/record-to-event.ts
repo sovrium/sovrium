@@ -55,19 +55,19 @@ export interface CalendarEvent {
  * the mapping is stable across renders and independent of which other records
  * happen to be in view.
  *
- * These are LITERAL hexes rather than `var(--sv-chart-N)`, and that is forced
+ * These are LITERAL hexes rather than `var(--chart-N)`, and that is forced
  * rather than chosen: every entry is fed to `deriveOptionChipColors`, which
  * computes a WCAG-AA foreground and a border by parsing the value as
  * `#RRGGBB`. It returns `undefined` for anything it cannot parse, so a `var()`
  * here would not fall back to the token — it would silently drop the colour
- * from every event. Keep these in step with `--sv-chart-1..5`.
+ * from every event. Keep these in step with `--chart-1..5`.
  */
 const COLOR_PALETTE: readonly string[] = [
-  '#398ad6', // blue
-  '#cd5f62', // red
-  '#479c4d', // green
-  '#b67700', // amber
-  '#9470cd', // violet
+  '#d4d4d4', // chart-1
+  '#737373', // chart-2
+  '#525252', // chart-3
+  '#404040', // chart-4
+  '#262626', // chart-5
 ] as const
 
 /**

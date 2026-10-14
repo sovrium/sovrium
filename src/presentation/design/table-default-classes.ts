@@ -70,6 +70,8 @@ export {
   computeTableRowNumberClasses,
   computeTableEmptyValueClasses,
   computeTableCheckboxControlClasses,
+  computeTableCheckboxIndicatorClasses,
+  computeTableCellEditorClasses,
 } from './table-body-default-classes'
 
 export {
@@ -90,8 +92,11 @@ export {
   computeTableToolbarClasses,
   computeTableToolbarButtonClasses,
   computeTableToolbarPrimaryButtonClasses,
+  computeTableToolbarCountClasses,
   computeTableSearchClasses,
   computeTableSearchHitClasses,
+  TABLE_TOOLBAR_BUTTON_PART,
+  TABLE_TOOLBAR_PRIMARY_BUTTON_PART,
 } from './table-toolbar-default-classes'
 
 export {
@@ -122,6 +127,7 @@ export {
   computeTableDialogPanelClasses,
   computeTableDialogPositionerClasses,
   computeTableDialogTitleClasses,
+  computeTableFormDialogClasses,
   computeTableDropZoneClasses,
   computeTableEditorFooterClasses,
   computeTableEditorLabelClasses,
@@ -129,10 +135,6 @@ export {
   computeTableEditorListRowClasses,
   computeTableEditorPopoverClasses,
   computeTableEditorStripClasses,
-  computeTableMenuClasses,
-  computeTableMenuDragHandleClasses,
-  computeTableMenuItemClasses,
-  computeTableMenuSeparatorClasses,
   computeTablePreviewGridCellClasses,
   computeTableToastClasses,
 } from './table-overlay-default-classes'

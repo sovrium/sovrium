@@ -16,11 +16,8 @@
  * a config corpus that drifts into using whichever the author saw last. So the
  * old literal is DELETED from the union and the author is told where it went.
  *
- * That trade only pays if the message names the remedy. Without this table a
- * retired type falls through to the generic unknown-discriminant report, which
- * prints every legal value on one line — a list of ninety names that says
- * `responsive-grid` is not among them and nothing about `grid` being the thing
- * it became. The author has to know the answer to find it.
+ * That trade only pays if the message names the remedy: the generic report
+ * prints every legal value on one line and nothing about what the old name became.
  *
  * ## The sibling table, and why they are separate
  *
@@ -49,6 +46,7 @@
  * unmigrated config under `sovrium start --watch` reads this in the dev journal
  * at the moment they can act on it.
  */
+import { RENAMED_COMPONENT_TYPES } from './renamed-types'
 
 /** One retired type: where it went, and what to tell the author. */
 interface Retirement {
@@ -78,6 +76,7 @@ interface Retirement {
  * to. Saying so plainly is the whole point — an author who reads "removed" and
  * an author who reads "renamed" have to do different things.
  */
+
 const RETIRED_COMPONENT_TYPES: ReadonlyMap<string, Retirement> = new Map<string, Retirement>([
   [
     'responsive-grid',
@@ -141,30 +140,30 @@ const RETIRED_COMPONENT_TYPES: ReadonlyMap<string, Retirement> = new Map<string,
   [
     'speech-bubble',
     {
-      replacement: 'card',
+      replacement: 'bubble',
       message: [
-        '`speech-bubble` is now `card` with `variant: bubble`.',
+        '`speech-bubble` is now `bubble`, the surface of one chat turn.',
         '',
-        'It was a card with a tail and nothing else, so the tail became a variant. `content`,',
-        '`children` and `side` carry over unchanged — `side: right` still flips the tail to the',
-        'receiver, and omitting it still leaves it on the sender.',
+        'It was a card with a tail and nothing else. `content` and `children` carry over',
+        'unchanged; `side` becomes `align`: `side: right` is `align: end`, and omitting it',
+        'still leaves the tail on the sender, `align: start`.',
       ].join('\n'),
     },
   ],
   [
     'record-drawer',
     {
-      replacement: 'drawer',
+      replacement: 'sheet',
       message: [
-        '`record-drawer` is now `drawer` with a `dataSource`.',
+        '`record-drawer` is now `sheet` with a `dataSource`.',
         '',
-        'It was a drawer bound to one record, so its keys became keys on `drawer`: `dataSource`,',
+        'It was a side panel bound to one record, so its keys became keys on `sheet`: `dataSource`,',
         '`recordFields`, `canEdit`, `actions`, `role` and `id` all carry over unchanged, and a',
-        '`drawer` still takes `drawerSide` and `drawerSize` besides.',
+        '`sheet` still takes `drawerSide` and `drawerSize` besides.',
         '',
-        'Migration: rename the `type` to `drawer` and change nothing else. The `dataSource` is',
-        'what makes it record-bound, so a drawer that has one still mounts the record island and',
-        'still answers the table’s openDrawer dispatch.',
+        'Migration: rename the `type` to `sheet` and change nothing else. The `dataSource` is',
+        'what makes it record-bound, so a sheet that has one still mounts the record island and',
+        'still answers the table’s openSheet dispatch.',
       ].join('\n'),
     },
   ],
@@ -347,6 +346,7 @@ const RETIRED_COMPONENT_TYPES: ReadonlyMap<string, Retirement> = new Map<string,
       ].join('\n'),
     },
   ],
+  ...RENAMED_COMPONENT_TYPES,
   ...(
     [
       ['schema-json-editor', 'a JSON config editor'],

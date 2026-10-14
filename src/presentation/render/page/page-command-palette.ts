@@ -104,7 +104,7 @@ export const buildCommandPaletteComponent = (
   // A table this caller may not read is not named at all, nor its fields.
   const hiddenTables = unreadableTables(app, session)
   return {
-    type: 'command-palette',
+    type: 'command',
     props: {
       pages: navigablePages,
       ...(Object.keys(unreadableFields).length === 0
@@ -131,7 +131,7 @@ export const hasAuthoredPalette = (
   return items.some((item) => {
     if (typeof item === 'string') return false
     if ('component' in item || '$ref' in item) return false
-    if ((item as { readonly type?: string }).type === 'command-palette') return true
+    if ((item as { readonly type?: string }).type === 'command') return true
     const { children } = item as { readonly children?: ReadonlyArray<Component | string> }
     return hasAuthoredPalette(children)
   })
@@ -162,7 +162,7 @@ export const withNavigablePages = (
       readonly props?: Record<string, unknown>
       readonly children?: ReadonlyArray<Component | string>
     }
-    if (node.type === 'command-palette') {
+    if (node.type === 'command') {
       if (node.search !== undefined) return item
       const injected = (synthesized as { readonly props?: Record<string, unknown> }).props ?? {}
       const authored = node.props ?? {}

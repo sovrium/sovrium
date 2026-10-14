@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeFormFieldErrorClasses } from '@/presentation/design/form-layout-classes'
+
 /**
  * Inline JS source for the field errors of the standalone form runtime,
  * concatenated into the IIFE, whose `form`, `formName` and `removeIfPresent`
@@ -67,9 +69,10 @@ export const FORM_RUNTIME_FIELD_ERRORS_SCRIPT = `
     err.id = errId
     err.setAttribute('data-field-error', input.name || '')
     err.setAttribute('role', 'alert')
-    // The page node's 'error' part, carried on the form since this element is made here.
+    // The page node's 'error' part, carried on the form since this element is
+    // made here; without one, the error recipe every other form draws with.
     var errorPart = form.getAttribute('data-error-class')
-    err.className = errorPart ? 'field-error ' + errorPart : 'field-error'
+    err.className = 'field-error ' + (errorPart || '${computeFormFieldErrorClasses()}')
     // A server reason leads with the column name; the visitor reads the label.
     err.textContent =
       input.name && message.indexOf(input.name + ' ') === 0

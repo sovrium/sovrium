@@ -10,7 +10,9 @@ import {
   computeTableFillScrollClasses,
 } from '@/presentation/design/table-default-classes'
 import { resolvePageLocale } from '../../runtime/page-locale'
-import { TableBodyRows, TableHeader, TableSummaryFooter } from '../body'
+import { TableBodyRows } from '../body'
+import { TableHeader } from '../body-header'
+import { TableSummaryFooter } from '../body-summary'
 import { columnFieldName, useFrozenPinning } from './table-frozen-columns'
 import {
   resolveTableAria,
@@ -22,7 +24,7 @@ import { WARNING_STRIP_CLASS } from './warning-strip'
 import type { useFillHandle } from './use-fill-handle'
 import type { useGridCursor } from './use-grid-cursor'
 import type { AddRowConfig } from '../add-row'
-import type { InlineAutoSave } from '../body'
+import type { InlineAutoSave } from '../data-row-types'
 import type { GroupSummaryContext } from '../group-summary'
 import type { TableContentProps } from './table-content-types'
 import type { DataTableCell, DataTableRow } from './table-features'
@@ -100,7 +102,7 @@ function FillRefusals({
       <button
         type="button"
         onClick={onDismiss}
-        className="hover:bg-background-subtle rounded px-2 font-medium"
+        className="hover:bg-muted rounded px-2 font-medium"
       >
         Dismiss
       </button>
@@ -132,6 +134,12 @@ function fillProps(
     canFillFrom: canFillFromCell,
   }
 }
+
+/** Whether the rows are loading, and whether a further page is on its way. */
+const loadingProps = (props: TableContentProps) => ({
+  isLoading: props.isLoading,
+  ...(props.loadingMore === true && { loadingMore: true }),
+})
 
 interface BodyRowsSlotProps {
   readonly props: TableContentProps
@@ -177,7 +185,7 @@ function BodyRowsSlot({
       range={cursor.range}
       rows={rows}
       allColumns={props.allColumns}
-      isLoading={props.isLoading}
+      {...loadingProps(props)}
       cellClass={cellClass}
       borderClass={props.borderClass}
       striped={striped}
@@ -214,6 +222,10 @@ function BodyRowsSlot({
   )
 }
 
+/** The scroll region's classes: sideways always, and vertically under `layout: fill`. */
+const scrollRegionClass = (fills: boolean, rowHeight: string): string =>
+  fills ? `overflow-x-auto ${computeTableFillScrollClasses({ rowHeight })}` : 'overflow-x-auto'
+
 /**
  * The grid's scroll region and the `<table>` inside it.
  *
@@ -237,18 +249,19 @@ export function TableContent(props: TableContentProps) {
   // prettier-ignore
   const { rows, cursor, fill, canFillFromCell, autoSave, addRow, handleEditSave, handleEditCancel } = useGridInteractions(props, tableRef, navigable)
   const fills = props.layout === 'fill'
-  const fillScroll = fills
-    ? ` ${computeTableFillScrollClasses({ rowHeight: currentRowHeight })}`
-    : ''
 
   return (
-    <div className={`overflow-x-auto${fillScroll}`}>
+    <div
+      data-slot="table-container"
+      className={scrollRegionClass(fills, currentRowHeight)}
+    >
       <FillRefusals
         refusals={fill.refusals}
         onDismiss={fill.dismissRefusals}
       />
       <table
         ref={tableRef}
+        data-slot="table"
         {...gridAttributes({
           gridRole,
           navigable,

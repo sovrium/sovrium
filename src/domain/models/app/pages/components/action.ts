@@ -13,7 +13,7 @@
  *
  * - `action-response.ts`   — the shared post-action vocabulary (toast, onSuccess/onError)
  * - `action-operations.ts` — auth, crud, automation (engine operations)
- * - `action-client.ts`     — filter, navigate, toast, openDrawer, fill (resolved in the page)
+ * - `action-client.ts`     — filter, navigate, toast, openSheet, fill (resolved in the page)
  * - `action-fetch.ts`      — fetch and its response envelope family
  */
 
@@ -40,7 +40,7 @@ export {
   FetchResponseEnvelopeSchema,
   FetchSuccessResponseSchema,
   FetchToastResponseSchema,
-  fetchSuccessReloadConflict,
+  fetchSuccessExitConflict,
   fetchSuccessResponseFields,
 } from './action-fetch'
 export type {
@@ -85,7 +85,7 @@ export const actionWithoutFill = (
     identifier,
     title,
     description,
-    message: `${slot} accepts an auth, crud, automation, filter, navigate, toast, fetch or openDrawer action. A fill action runs only from a button, a list item click (onRowClick) or a board drop hook (drag.onDrop).`,
+    message: `${slot} accepts an auth, crud, automation, filter, navigate, toast, fetch or openSheet action. A fill action runs only from a button, a list item click (onRowClick) or a board drop hook (drag.onDrop).`,
   })
 
 /**
@@ -102,7 +102,7 @@ export const actionWithoutFill = (
  * - **toast**: Show a transient toast notification
  * - **fetch**: Client-side fetch with toast response
  * - **fill**: Write a value into a form control on the same page
- * - **openDrawer**: Open a drawer component — discriminated on `action`, NOT on
+ * - **openSheet**: Open a drawer component — discriminated on `action`, NOT on
  *   `type`, which is why it is easy to miss when counting this union. The union
  *   has NINE members; a list of eight here has already been read as
  *   authoritative by downstream comments that then undercounted it.
@@ -166,7 +166,7 @@ export const ActionSchema = Schema.Union([...NON_FILL_ACTION_MEMBERS, FillAction
     identifier: 'Action',
     title: 'Action',
     description:
-      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), filter (cross-component filtering), navigate (pure URL navigation), toast (transient notification), fetch (client-side HTTP with toast response), fill (write a value into a form control on the same page). Open-drawer is discriminated by `action: openDrawer` instead of `type` (PG-04 quick-edit drawer pattern).',
+      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), filter (cross-component filtering), navigate (pure URL navigation), toast (transient notification), fetch (client-side HTTP with toast response), fill (write a value into a form control on the same page). Open-drawer is discriminated by `action: openSheet` instead of `type` (PG-04 quick-edit drawer pattern).',
   })
 )
 
@@ -176,9 +176,9 @@ export const ActionSchema = Schema.Union([...NON_FILL_ACTION_MEMBERS, FillAction
  * The subset of {@link ActionSchema} a data-table row click actually honours.
  *
  * The row-click handler implements exactly two variants — `navigate` and
- * `openDrawer` — and returns `undefined` for everything else
+ * `openSheet` — and returns `undefined` for everything else
  * (`resolveRowClickAction` in
- * `src/presentation/islands/data-table/island/index.tsx`). Typing `onRowClick`
+ * `src/presentation/islands/data-table/island/data-table-island.tsx`). Typing `onRowClick`
  * as the full nine-member `ActionSchema` therefore accepted seven variants that
  * validate and then do nothing: a config declaring
  * `onRowClick: { type: 'fetch', … }` passed validation, shipped, and silently
@@ -203,7 +203,7 @@ export const ActionSchema = Schema.Union([...NON_FILL_ACTION_MEMBERS, FillAction
  *
  * # Open a sibling drawer component (PG-04 quick-edit pattern)
  * onRowClick:
- *   action: openDrawer
+ *   action: openSheet
  *   component: record-detail
  * ```
  */
@@ -215,7 +215,7 @@ export const RowClickActionSchema = Schema.Union([
     identifier: 'RowClickAction',
     title: 'Row Click Action',
     description:
-      'Action triggered by a table row click. Only two variants are honoured at runtime: `navigate` (pure URL navigation, discriminated by `type: navigate`, `path` supports `$record.X` substitution) and `openDrawer` (opens a sibling drawer component, discriminated by `action: openDrawer`). The remaining Action variants (auth, crud, automation, filter, toast, fetch, fill) are rejected here because the row-click handler ignores them — put richer behaviour on the footer actions of the referenced drawer component instead.',
+      'Action triggered by a table row click. Only two variants are honoured at runtime: `navigate` (pure URL navigation, discriminated by `type: navigate`, `path` supports `$record.X` substitution) and `openSheet` (opens a sibling drawer component, discriminated by `action: openSheet`). The remaining Action variants (auth, crud, automation, filter, toast, fetch, fill) are rejected here because the row-click handler ignores them — put richer behaviour on the footer actions of the referenced drawer component instead.',
   })
 )
 
@@ -227,7 +227,7 @@ export const RowClickActionSchema = Schema.Union([
  * a list item take, and no others.
  *
  * Both handlers only ever read a navigate path, so accepting the full
- * nine-member {@link ActionSchema} would let `{ action: 'openDrawer',
+ * nine-member {@link ActionSchema} would let `{ action: 'openSheet',
  * component }` — the shape a grid's `onRowClick` takes — validate on a card
  * and then do nothing, and a `{ type: 'crud' }` or `{ type: 'fetch' }`
  * validate just as quietly. Narrowing the union turns that runtime silence
@@ -247,7 +247,7 @@ export const CardClickActionSchema = Schema.Union([
   identifier: 'CardClickAction',
   title: 'Card Click Action',
   description:
-    'What a click on a card does: `navigate` follows a path, with `$record.*` read from the card record and `$param.*` from the page address; `openDrawer` opens that record in the named drawer on the page, as a grid row click does. Any other action is refused — put richer behaviour on the drawer footer actions instead.',
+    'What a click on a card does: `navigate` follows a path, with `$record.*` read from the card record and `$param.*` from the page address; `openSheet` opens that record in the named drawer on the page, as a grid row click does. Any other action is refused — put richer behaviour on the drawer footer actions instead.',
 })
 
 /**
@@ -258,7 +258,7 @@ export const CardClickActionSchema = Schema.Union([
  * and a click on one writes its text into the message box.
  *
  * A separate node rather than a widened {@link RowClickActionSchema}: the grid's
- * row-click handler implements `navigate` and `openDrawer` only, and widening
+ * row-click handler implements `navigate` and `openSheet` only, and widening
  * the shared union would let `fill` validate on a grid and then do nothing — the
  * exact silence the narrowed unions exist to remove.
  *
@@ -279,7 +279,7 @@ export const ListRowClickActionSchema = Schema.Union([
   identifier: 'ListRowClickAction',
   title: 'List Row Click Action',
   description:
-    'What a click on a list item does: `navigate` follows a path filled with the item values, `openDrawer` opens the item in the named drawer on the page, and `fill` writes a value from the item into a form control on the same page. Any other action is refused.',
+    'What a click on a list item does: `navigate` follows a path filled with the item values, `openSheet` opens the item in the named drawer on the page, and `fill` writes a value from the item into a form control on the same page. Any other action is refused.',
 })
 
 /** @public */

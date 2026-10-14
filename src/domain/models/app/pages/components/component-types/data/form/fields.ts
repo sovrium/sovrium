@@ -11,7 +11,7 @@ import { FormNameSchema } from '../../../../../forms/name'
 import {
   FetchResponseEnvelopeSchema,
   FetchToastResponseSchema,
-  fetchSuccessReloadConflict,
+  fetchSuccessExitConflict,
   fetchSuccessResponseFields,
 } from '../../../action'
 import { DataSourceSchema } from '../../../data-source'
@@ -123,39 +123,29 @@ export const InlinePrefillSchema = Schema.Struct({
 })
 
 /**
- * Success handler of an endpoint form — the fetch success slot, plus the two
- * effects only a FORM can honour.
+ * Success handler of an endpoint form — the fetch success slot, plus the one
+ * effect only a FORM can honour.
  *
  * ─── WHY THE FORM GETS ITS OWN SLOT ────────────────────────────────────────
  *
  * The success slot of a `fetch` action is shared with the file upload and every
- * standalone button, and none of those has fields to clear or a dialog it was
- * opened in. So `close` and `reset` live HERE, on the one surface that has
- * both, rather than on the shared slot where they would validate and do
- * nothing for every other consumer. A table-bound form already closes the
- * dialog it sits in after a write and resets through `FormOnSuccess`'s `reset`
- * variant; an endpoint form had neither, so a dialog that invites a member or
- * creates an API key stayed open over the values just sent.
+ * standalone button. `close` and `navigate` belong to that shared slot, since
+ * any of those controls can sit in a dialog or lead somewhere; `reset` does
+ * not, because none of them has fields to clear. So `reset` lives HERE, on the
+ * one surface that has fields, rather than on the shared slot where it would
+ * validate and do nothing for every other consumer.
  *
- * ─── THE SAME REFUSAL AS THE SHARED SLOT, WIDENED ──────────────────────────
+ * ─── THE SAME REFUSALS AS THE SHARED SLOT, WIDENED ─────────────────────────
  *
- * `reload` replaces the document, so the dialog and the fields it would close or
- * clear are gone before either effect could run: declaring `close` or `reset`
- * beside it is refused, exactly as `status` and `refetch` are.
+ * `reload` replaces the document, so the fields `reset` would clear are gone
+ * before it could run: declaring it beside `reload` is refused, exactly as
+ * `status`, `refetch`, `close` and `navigate` are by the shared slot.
  *
  * The check is piped after the annotation, for the reason given on
  * `FetchSuccessResponseSchema`.
  */
 export const FormEndpointSuccessResponseSchema = Schema.Struct({
   ...fetchSuccessResponseFields,
-  /** Close the dialog or sheet the form sits in once the request succeeds. */
-  close: Schema.optional(
-    Schema.Boolean.annotate({
-      description:
-        'When true, closes the dialog or sheet the form sits in once the request succeeds, the way a dialog closes after a table write. A form that sits in no dialog has nothing to close.',
-      examples: [true],
-    })
-  ),
   /** Clear the form back to its defaults once the request succeeds. */
   reset: Schema.optional(
     Schema.Boolean.annotate({
@@ -168,15 +158,12 @@ export const FormEndpointSuccessResponseSchema = Schema.Struct({
   Schema.annotate({
     title: 'Form Endpoint Success Response',
     description:
-      'Success handler for an endpoint form: the fetch success slot (toast, status, refetch, reload) plus close, which closes the dialog the form sits in, and reset, which clears the fields. reload is mutually exclusive with status, refetch, close and reset.',
+      'Success handler for an endpoint form: the fetch success slot (toast, status, refetch, reload, close, navigate) plus reset, which clears the fields. reload is mutually exclusive with status, refetch, close, navigate and reset; navigate is mutually exclusive with status and refetch.',
   }),
   Schema.check(
     Schema.makeFilter((response) => {
-      const shared = fetchSuccessReloadConflict(response)
+      const shared = fetchSuccessExitConflict(response)
       if (shared !== true || response.reload !== true) return shared
-      if (response.close !== undefined) {
-        return "onSuccess declares both 'reload' and 'close' — the reload replaces the page the dialog is drawn on, so there is nothing left to close. Keep one: 'reload' to recompose the page server-side, or 'close' to close the dialog and stay on the page."
-      }
       if (response.reset !== undefined) {
         return "onSuccess declares both 'reload' and 'reset' — the reload replaces the form along with the page, so its fields come back empty anyway. Keep one: 'reload' to recompose the page server-side, or 'reset' to clear the fields and stay on the page."
       }
@@ -302,8 +289,9 @@ export const FormEndpointSchema = Schema.Struct({
   /**
    * Success handler on a 2xx submit. The toast slot PLUS the shipped client-state
    * effects — a persistent inline `status` region and a sibling `refetch` (so a
-   * sibling directory grid refreshes after the create) — and the two only a form
-   * honours: `close` the dialog it sits in, `reset` its fields. See
+   * sibling directory grid refreshes after the create), `close` the dialog it sits
+   * in, `navigate` elsewhere — and the one only a form honours: `reset` its
+   * fields. See
    * {@link FormEndpointSuccessResponseSchema}.
    */
   onSuccess: Schema.optional(FormEndpointSuccessResponseSchema),

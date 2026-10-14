@@ -18,7 +18,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -87,7 +87,7 @@ components:
                     - type: text
                       element: p
                       props:
-                        className: text-xs text-foreground-muted
+                        className: text-xs text-muted-foreground
                       content: $record.company
                   footer:
                     - { field: value, format: currency }
@@ -95,11 +95,11 @@ components:
                     - { field: close_date, format: short-date }
                     - { field: owner, format: avatar }
                   onClick:
-                    action: openDrawer
+                    action: openSheet
                     component: deal-detail
               # One deal, opened over the board. `/sales?record=<id>` opens it
               # too, so a deal can be linked to directly.
-              - type: drawer
+              - type: sheet
                 id: deal-detail
                 drawerSide: right
                 drawerSize: md

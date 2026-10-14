@@ -23,7 +23,7 @@ children:
               - type: text
                 element: span
                 props:
-                  className: font-mono text-sm text-foreground-subtle
+                  className: font-mono text-sm text-muted-foreground
                 content: $t:header.section
           - type: text
             element: h1
@@ -33,7 +33,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-lg text-pretty text-foreground-muted sm:text-xl max-w-2xl
+              className: text-lg text-pretty text-muted-foreground sm:text-xl max-w-2xl
             content: $t:header.lead
           - type: flex
             props:
@@ -42,7 +42,7 @@ children:
               - type: link
                 props:
                   href: '#topic-one'
-                  className: inline-flex items-center gap-2 text-md text-foreground-muted hover:text-foreground
+                  className: inline-flex items-center gap-2 text-md text-muted-foreground hover:text-foreground
                 children:
                   - type: text
                     element: span
@@ -54,7 +54,7 @@ children:
               - type: link
                 props:
                   href: '#topic-two'
-                  className: inline-flex items-center gap-2 text-md text-foreground-muted hover:text-foreground
+                  className: inline-flex items-center gap-2 text-md text-muted-foreground hover:text-foreground
                 children:
                   - type: text
                     element: span
@@ -66,7 +66,7 @@ children:
               - type: link
                 props:
                   href: '#topic-three'
-                  className: inline-flex items-center gap-2 text-md text-foreground-muted hover:text-foreground
+                  className: inline-flex items-center gap-2 text-md text-muted-foreground hover:text-foreground
                 children:
                   - type: text
                     element: span
@@ -78,7 +78,7 @@ children:
               - type: link
                 props:
                   href: '#topic-four'
-                  className: inline-flex items-center gap-2 text-md text-foreground-muted hover:text-foreground
+                  className: inline-flex items-center gap-2 text-md text-muted-foreground hover:text-foreground
                 children:
                   - type: text
                     element: span

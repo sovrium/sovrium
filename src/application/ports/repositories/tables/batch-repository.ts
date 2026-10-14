@@ -7,8 +7,16 @@
 
 import { Context } from 'effect'
 import type { UserSession } from '@/application/ports/contracts/user-session'
-import type { NotFoundError, DatabaseError, ValidationError } from '@/domain/errors'
+import type {
+  NotFoundError,
+  DatabaseError,
+  UniqueConstraintViolationError,
+  ValidationError,
+} from '@/domain/errors'
 import type { Effect } from 'effect'
+
+/** Why a batch restore fails: a missing id, a unique value a live record holds, or the database. */
+export type BatchRestoreError = DatabaseError | NotFoundError | UniqueConstraintViolationError
 
 /**
  * Batch validation error interface
@@ -90,7 +98,7 @@ export class BatchRepository extends Context.Service<
       session: Readonly<UserSession>,
       tableName: string,
       recordIds: readonly string[]
-    ) => Effect.Effect<number, DatabaseError | NotFoundError>
+    ) => Effect.Effect<number, BatchRestoreError>
 
     readonly upsert: (
       session: Readonly<UserSession>,

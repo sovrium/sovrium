@@ -15,19 +15,20 @@
  * trail (which records `userId`/`tableName`/`recordId` tuples for
  * human-initiated record changes).
  *
- * Persistence runs through the shared `recordActivityLogRow` writer in
- * `ai/chat-activity-log.ts`, which fronts the `recordAiActivity` application
- * use-case. Agent actions write `actor_type = 'agent'` rows. All writes are
- * best-effort — a DB failure must never break the agent runtime.
+ * Persistence runs through the `recordAiActivity` application use-case, the
+ * same one the agent runtime writes each tool step with. Agent actions write
+ * `actor_type = 'agent'` rows. All writes are best-effort — a DB failure must
+ * never break the agent runtime.
  */
 
-import { recordActivityLogRow } from '@/presentation/api/ai/chat-activity-log'
+import { Effect } from 'effect'
+import { recordAiActivity } from '@/application/use-cases/ai/record-ai-activity'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /**
  * A single agent-action entry to persist to the `activity_log` table.
  *
- * Named `AgentActivityLogEntry` to distinguish it from `approval-store.ts`'s
+ * Named `AgentActivityLogEntry` to distinguish it from `agent-approval-store.ts`'s
  * in-memory `AgentActivityEntry` — the two carry different shapes (DB row
  * vs. `GET /api/activity` feed entry) and previously shared a name.
  */
@@ -35,6 +36,8 @@ export interface AgentActivityLogEntry {
   readonly actorName: string
   readonly action: string
   readonly targetTable: string | undefined
+  /** The surface that started the agent turn, when the action belongs to one. */
+  readonly surface?: 'chat' | 'automation' | 'schedule' | undefined
 }
 
 /**
@@ -45,9 +48,12 @@ export const recordAgentActivity = async (
   services: DomainContext,
   entry: AgentActivityLogEntry
 ): Promise<void> =>
-  recordActivityLogRow(services, {
-    actorType: 'agent',
-    actorName: entry.actorName,
-    action: entry.action,
-    targetTable: entry.targetTable,
-  })
+  Effect.runPromise(
+    recordAiActivity({
+      actorType: 'agent',
+      actorName: entry.actorName,
+      action: entry.action,
+      targetTable: entry.targetTable,
+      surface: entry.surface,
+    }).pipe(Effect.result, Effect.asVoid, Effect.provide(services))
+  )

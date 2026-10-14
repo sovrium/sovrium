@@ -8,15 +8,13 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { cn } from '@/presentation/design/class-merge'
+import { computeSheetOverlayClasses } from '@/presentation/design/dialog-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { bindRecordToDrawerForms } from './drawer-record-binding'
-import { SIDE_CLASSES, getSizeClass, getSizeInlineStyle } from './drawer-size'
-import { useLiveInjectedMarkup } from './live-injected-markup'
-import {
-  computeDrawerHeaderClasses,
-  computeDrawerPopupClasses,
-  computeOverlayBackdropClasses,
-} from './overlay-default-classes'
+import { getSizeClass, getSizeInlineStyle } from './drawer-size'
+import { useOverlayPending } from './overlay-pending'
+import { computeSheetContentClasses } from './sheet-default-classes'
+import { DrawerPopupBody } from './sheet-parts'
 import { hasExternalTrigger, useExternalOpenTrigger } from './use-external-open-trigger'
 import type { OpenDrawerDetail } from '@/presentation/islands/runtime/event-bus'
 import type { ReactElement } from 'react'
@@ -29,6 +27,8 @@ interface DrawerIslandProps {
   readonly drawerSide?: 'left' | 'right' | 'top' | 'bottom'
   readonly drawerSize?: 'sm' | 'md' | 'lg' | 'full'
   readonly childrenHtml?: string
+  readonly footerHtml?: string
+  readonly showCloseButton?: boolean
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
@@ -36,99 +36,11 @@ interface DrawerIslandProps {
    * Initial open state. Defaults to `true` to preserve the legacy
    * pre-hydration trigger contract (any `data-click-modal="<id>"` click fired
    * before hydration would otherwise be lost). PG-04 quick-edit drawers
-   * referenced by an `onRowClick.action === 'openDrawer'` dispatch override
+   * referenced by an `onRowClick.action === 'openSheet'` dispatch override
    * this to `false` — the drawer remains hidden until a row click fires the
    * `sovrium:open-drawer` custom event (see {@link useExternalOpenTrigger}).
    */
   readonly defaultOpen?: boolean
-}
-
-function DrawerHeader({
-  title,
-  description,
-}: {
-  readonly title?: string
-  readonly description?: string
-}): ReactElement | undefined {
-  if (!title && !description) return undefined
-  return (
-    <div className={computeDrawerHeaderClasses()}>
-      {title && (
-        <Dialog.Title className="text-foreground text-xl font-semibold">{title}</Dialog.Title>
-      )}
-      {description && (
-        <Dialog.Description className="text-foreground-muted text-md mt-1">
-          {description}
-        </Dialog.Description>
-      )}
-    </div>
-  )
-}
-
-interface DrawerPopupBodyProps {
-  readonly title?: string
-  readonly description?: string
-  readonly closeLabel: string
-  readonly childrenHtml?: string
-  readonly onInjected?: (container: HTMLElement) => void
-}
-
-/**
- * The drawer's body markup, brought to life: injected when the popup opens, its
- * scripts run and its island markers mounted — so a form placed in a drawer
- * submits through its action — and unmounted when the popup closes, so a
- * reopened drawer holds exactly one live copy.
- *
- * `onInjected` runs after injection and before the islands mount; the quick-
- * edit drawer binds the dispatched record to its form there.
- *
- * SECURITY: `html` is server-rendered from the app's configuration, not user
- * input.
- */
-function DrawerChildren({
-  html,
-  onInjected,
-}: {
-  readonly html: string
-  readonly onInjected?: (container: HTMLElement) => void
-}): ReactElement {
-  const ref = useLiveInjectedMarkup(html, onInjected)
-  return <div ref={ref} />
-}
-
-/**
- * Renders the contents of the drawer popup. Extracted so the parent
- * island stays under the `max-lines-per-function` ESLint cap.
- */
-function DrawerPopupBody({
-  title,
-  description,
-  closeLabel,
-  childrenHtml,
-  onInjected,
-}: DrawerPopupBodyProps): ReactElement {
-  return (
-    <div className="flex h-full flex-col">
-      <DrawerHeader
-        title={title}
-        description={description}
-      />
-      <div className="flex-1 overflow-auto p-4">
-        {childrenHtml && (
-          <DrawerChildren
-            html={childrenHtml}
-            onInjected={onInjected}
-          />
-        )}
-      </div>
-      <Dialog.Close
-        aria-label={closeLabel}
-        className="text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4 transition-colors"
-      >
-        <span aria-hidden="true">✕</span>
-      </Dialog.Close>
-    </div>
-  )
 }
 
 /**
@@ -139,7 +51,7 @@ function DrawerPopupBody({
 function useDrawerController(id: string | undefined, defaultOpen: boolean) {
   // Default `open=true` matches the legacy hydration contract: a pre-hydration
   // `data-click-modal` click would otherwise be lost on a non-portal placeholder.
-  // PG-04 quick-edit drawers (referenced by an openDrawer dispatch) opt out via
+  // PG-04 quick-edit drawers (referenced by an openSheet dispatch) opt out via
   // `defaultOpen={false}` so the drawer stays hidden until the dispatch fires.
   // `useExternalOpenTrigger` additionally re-opens after Escape/backdrop dismissal.
   //
@@ -155,7 +67,7 @@ function useDrawerController(id: string | undefined, defaultOpen: boolean) {
   // re-render, so the new popup body mounts with the record already in hand.
   const dispatchedRecordRef = useRef<OpenDrawerDetail | null>(null)
   // PG-04: only quick-edit drawers (those
-  // referenced by an `onRowClick.action === 'openDrawer'` dispatch, which
+  // referenced by an `onRowClick.action === 'openSheet'` dispatch, which
   // pass `defaultOpen={false}` to opt out of legacy auto-open) should close
   // themselves on `sovrium:crud-success`. Legacy `data-click-modal` drawers
   // (`defaultOpen={true}`) keep their own open lifecycle so a sibling form
@@ -182,12 +94,16 @@ export default function DrawerIsland({
   drawerSide = 'right',
   drawerSize = 'md',
   childrenHtml,
+  footerHtml,
+  showCloseButton,
   className,
   id,
   defaultOpen = true,
   'data-testid': testId,
 }: DrawerIslandProps): ReactElement {
   const { open, setOpen, handleBodyInjected } = useDrawerController(id, defaultOpen)
+  // A pending control inside holds the reader's dismissals (overlay-pending.ts).
+  const { panelRef, onOpenChange } = useOverlayPending(setOpen)
   const sizeClass = getSizeClass(drawerSide, drawerSize)
   // Memoize to avoid creating a new style object every render (react-perf rule).
   const sizeInlineStyle = useMemo(
@@ -199,19 +115,18 @@ export default function DrawerIsland({
     <Dialog.Root
       modal
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={onOpenChange}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className={computeOverlayBackdropClasses()} />
+        <Dialog.Backdrop
+          data-slot="sheet-overlay"
+          className={computeSheetOverlayClasses()}
+        />
         <Dialog.Popup
-          className={resolveClasses(
-            cn(
-              computeDrawerPopupClasses({ side: drawerSide }),
-              SIDE_CLASSES[drawerSide],
-              sizeClass
-            ),
-            className
-          )}
+          ref={panelRef}
+          data-slot="sheet-content"
+          data-side={drawerSide}
+          className={resolveClasses(cn(computeSheetContentClasses(), sizeClass), className)}
           style={sizeInlineStyle}
           id={id}
           data-testid={testId}
@@ -221,6 +136,8 @@ export default function DrawerIsland({
             description={description}
             closeLabel={closeLabel}
             childrenHtml={childrenHtml}
+            footerHtml={footerHtml}
+            showCloseButton={showCloseButton}
             onInjected={handleBodyInjected}
           />
         </Dialog.Popup>

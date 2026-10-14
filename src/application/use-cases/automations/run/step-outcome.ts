@@ -21,7 +21,7 @@
 import { type ActionOutcome } from '../action-handlers'
 import { laterResponse } from '../action-handlers/response-precedence'
 import { parkedAt } from '../action-handlers/run-park'
-import { redactSecretsForApp } from '../redact-secrets'
+import { redactSecretsForRunHistory } from '../redact-secrets'
 import { withMetadataOf } from './step-metadata'
 import { buildStep, maskRunSecrets, redactString, withDuration } from './step-record'
 import { type RunAccumulator, type StepContext } from './types'
@@ -254,7 +254,7 @@ const suspendedOrCancelled = (input: {
   const parked = parkedAt(outcome.park, stepName, index)
   // A loop frame holds its item's value: redacted like every stored output,
   // so the cursor keeps no secret and matches the outputs it is restored with.
-  const frames = redactSecretsForApp(
+  const frames = redactSecretsForRunHistory(
     parked.frames,
     ctx.app.env,
     ctx.processEnv,

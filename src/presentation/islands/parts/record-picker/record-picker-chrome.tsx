@@ -68,7 +68,7 @@ export function PickerSearchRow({
         onFocus={onOpen}
       />
       {!hasDisplayField && (
-        <span className="text-foreground-muted text-sm">{SEARCH_BY_ID_LABEL}</span>
+        <span className="text-muted-foreground text-sm">{SEARCH_BY_ID_LABEL}</span>
       )}
     </>
   )
@@ -103,7 +103,7 @@ export function CandidateFooter({
         // not close the suggestions before the click lands on this button.
         onMouseDown={(event) => event.preventDefault()}
         onClick={onLoadMore}
-        className="border-border bg-background-raised text-foreground-muted hover:bg-background-subtle -mt-px w-full border-x border-b py-1 text-center text-sm"
+        className="border-border bg-card text-muted-foreground hover:bg-muted -mt-px w-full border-x border-b py-1 text-center text-sm"
       >
         {loadMoreCountLabel(remaining ?? shown)}
       </button>
@@ -111,7 +111,7 @@ export function CandidateFooter({
   }
   if (total === undefined) return undefined
   return (
-    <span className="text-foreground-muted block py-1 text-sm">
+    <span className="text-muted-foreground block py-1 text-sm">
       {candidateCountLabel(shown, total)}
     </span>
   )
@@ -125,7 +125,7 @@ export function LinkCountStrip({
   readonly linked: number
   readonly maxLinked: number
 }): ReactElement {
-  return <span className="text-foreground-muted text-sm">{linkCountLabel(linked, maxLinked)}</span>
+  return <span className="text-muted-foreground text-sm">{linkCountLabel(linked, maxLinked)}</span>
 }
 
 /**

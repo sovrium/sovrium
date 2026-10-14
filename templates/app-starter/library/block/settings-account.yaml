@@ -17,7 +17,7 @@ children:
       - type: text
         element: p
         props:
-          className: text-md text-foreground-muted
+          className: text-md text-muted-foreground
         content: 'Your name, how you sign in, and your account itself.'
   - type: container
     element: section
@@ -40,11 +40,11 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: How you appear to the people you work with.
       - type: container
         props:
-          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+          className: flex flex-col divide-y rounded-lg border bg-card divide-border border-border
         children:
           - type: flex
             props:
@@ -62,7 +62,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-sm text-foreground-muted
+                      className: text-sm text-muted-foreground
                     content: Shown on your comments and activity.
               - type: container
                 props:
@@ -111,11 +111,11 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: Where sign-in links and notifications go.
       - type: container
         props:
-          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+          className: flex flex-col divide-y rounded-lg border bg-card divide-border border-border
         children:
           - type: flex
             props:
@@ -133,7 +133,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-sm text-foreground-muted
+                      className: text-sm text-muted-foreground
                     content: We send a link to the new address; it changes once you open it.
               - type: container
                 props:
@@ -182,11 +182,11 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: Use one you do not use anywhere else.
       - type: container
         props:
-          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+          className: flex flex-col divide-y rounded-lg border bg-card divide-border border-border
         children:
           - type: flex
             props:
@@ -204,7 +204,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-sm text-foreground-muted
+                      className: text-sm text-muted-foreground
                     content: Your other devices stay signed in.
               - type: container
                 props:
@@ -255,11 +255,11 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: This removes your account and everything only you can see. It cannot be undone.
       - type: container
         props:
-          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-error-border border-error-border
+          className: flex flex-col divide-y rounded-lg border bg-card divide-error-border border-error-border
         children:
           - type: flex
             props:
@@ -277,7 +277,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-sm text-foreground-muted
+                      className: text-sm text-muted-foreground
                     content: 'You are signed out everywhere, at once.'
               - type: container
                 props:

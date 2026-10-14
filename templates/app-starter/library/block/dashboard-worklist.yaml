@@ -21,7 +21,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-md text-foreground-muted
+              className: text-md text-muted-foreground
             content: What needs doing next.
       - type: button
         props:
@@ -94,7 +94,7 @@ children:
                     format: currency
                     editable: false
                 onRowClick:
-                  action: openDrawer
+                  action: openSheet
                   component: dashboard-worklist-detail
                 phoneLayout: rows
                 pagination:
@@ -105,7 +105,7 @@ children:
                   table: projects
                 columns: *columns
                 onRowClick:
-                  action: openDrawer
+                  action: openSheet
                   component: dashboard-worklist-detail
                 phoneLayout: rows
                 pagination:
@@ -114,7 +114,7 @@ children:
       - type: container
         element: section
         props:
-          className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5 lg:col-span-4
+          className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:p-5 lg:col-span-4
         children:
           - type: text
             element: h2
@@ -139,7 +139,7 @@ children:
                     format: relative-date
                     className: font-mono
               emptyMessage: No activity yet. Changes people make show up here.
-  - type: drawer
+  - type: sheet
     id: dashboard-worklist-detail
     props:
       title: 'Project'

@@ -107,7 +107,7 @@ export default function CommentCountIsland({
       data-comment-count-table={tableName}
       data-comment-count-record-id={recordId}
       data-testid={testId}
-      className="comment-count text-foreground-muted text-xs"
+      className="comment-count text-muted-foreground text-xs"
     >
       {label}
     </span>

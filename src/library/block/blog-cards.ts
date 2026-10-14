@@ -39,7 +39,7 @@ const postsGallery = (p: (key: string) => string): Readonly<Record<string, unkno
       {
         type: 'text',
         element: 'span',
-        props: { className: 'font-mono text-sm text-foreground-subtle' },
+        props: { className: 'font-mono text-sm text-muted-foreground' },
         content: `$record.${p('dateField')}`,
       },
       {
@@ -51,7 +51,7 @@ const postsGallery = (p: (key: string) => string): Readonly<Record<string, unkno
       {
         type: 'text',
         element: 'p',
-        props: { className: 'line-clamp-2 text-md text-foreground-muted' },
+        props: { className: 'line-clamp-2 text-md text-muted-foreground' },
         content: `$record.${p('excerptField')}`,
       },
     ],

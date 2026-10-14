@@ -2,7 +2,7 @@
 
 > The `sidebar` layout component — declarative navigation groups, fetched entries, expanding sections, the current-entry mark, and the icon rail. Moving between pages without a reload has its own article.
 
-A vertical navigation panel, usually paired with a `container` main region to form an app shell. Compose it statically from `children`, or declare its shape with `groups` and let it render as one navigation landmark of real links.
+A vertical navigation panel, usually paired with a `container` main region to form an app shell. Reference: shadcn/ui Sidebar, as a sidebar that does not collapse: it paints the `sidebar` colour, each entry takes the `sidebar-accent` colour on hover, and the current entry keeps it. Compose it statically from `children`, or declare its shape with `groups` and let it render as one navigation landmark of real links.
 
 <!-- sovrium:options type:sidebar depth=6 -->
 
@@ -48,7 +48,7 @@ design:
   components:
     sidebar:
       parts:
-        link: h-8 gap-2.5 rounded-md px-2.5 text-foreground-muted
+        link: h-8 gap-2.5 rounded-md px-2.5 text-muted-foreground
         groupLabel: px-2.5 pb-1.5 pt-3.5 font-mono text-xs uppercase tracking-wider text-foreground-subtle
         badge: bg-transparent px-0 font-mono text-xs
       states:
@@ -93,7 +93,7 @@ Four shapes are refused at startup:
 
 ### A group with no label
 
-Omit `label` and the group states no category name at all: it contributes neither a heading nor a landmark, and its entries render straight into the navigation root, above the first named group. A console's landing row is the way back out of every section rather than a section of its own.
+Omit `label` and the group states no category name at all: it contributes neither a heading nor a landmark, and its entries render in an unnamed group at the top of the navigation root, above the first named group. A console's landing row is the way back out of every section rather than a section of its own.
 
 Write it as a group rather than as an authored `link` child, for two reasons. Groups render **before** every authored child, so a child lands below the whole navigation and never above it. And everything the row needs is inherited from the navigation root: the shared entry styling, the current-entry mark with its `aria-current`, the rail's row rules, and the tracker that re-marks the current entry after a same-document navigation. A hand-written anchor outside that root gets none of it — in a rail it keeps a full-width label inside a 56px column.
 
@@ -147,6 +147,12 @@ A gated entry is **removed from the document**, not hidden. A navigation that sh
 
 Two options change what happens when a reader follows one of the sidebar's links: `clientSideNavigation` swaps only the page's content region instead of loading a new document, and `trackNavigation` keeps the current-entry mark true when something else does the swapping. Both have their own article, **Client-side Navigation**.
 
+## Folding, placing and framing the sidebar
+
+`collapsible: icon` folds the sidebar to a strip of its entries' icons, whose links keep their names; `collapsible: offcanvas` moves it off the page and gives its width to the content beside it; `none`, the default, never folds. A folding sidebar draws its `trigger` (`{ label, shortcut }`), and Control or Command with B folds it too unless `shortcut: false`; `railHandle: true` adds a thin rail along its inner edge that folds it when pressed. The fold is remembered in the `sidebar_state` cookie and the page is served already folded after a reload; `persist: none` forgets it. `side: right` places the sidebar after the content, and `variant` frames it as the default `sidebar`, a `floating` panel standing off the page edge, or an `inset` one. A sidebar that folds, stands on the right or is framed as a panel sits beside the content written next to it.
+
+`header` and `footer` are component lists drawn above the first group and at the foot of the sidebar, such as a workspace switcher and the account menu. A group's `action` and an entry's `menuAction` (`{ icon, label, href }`) draw a named icon control at the end of the heading row or the entry row. A disclosure's `source.loading: skeleton` draws placeholder rows while the list loads, instead of its `loadingLabel` line.
+
 ## `rail` — an icon rail on a narrow screen
 
 A sidebar wide enough to read costs a laptop roughly a quarter of its width, and the surface beside it is usually the one the reader came for. `rail` keeps the navigation present at that width while giving the column back.
@@ -179,5 +185,7 @@ Below the breakpoint the sidebar takes a fixed 56px width, every entry centres i
 ```
 
 **A rail and a drawer compose.** The rail keeps the navigation in the layout as icons; the drawer takes it out. The example above is a full sidebar on a desktop, a rail on a laptop and a drawer on a phone. The drawer must own the narrower range: a `drawer.below` at or above `rail.below` would hide every width the rail was declared for, so validation refuses it. Documentation pages built with `layout: docs` fold their navigation into the same drawer below `lg`, with nothing to configure.
+
+**Two drawers on one page each keep their button.** A sidebar that folds, stands on the right or is framed draws its menu button at the top corner of its side. When a page carries two such sidebars folding into drawers, such as an app sidebar beside a page's own section sidebar, a right-hand one takes the right corner, and a second one on the same side sits beside the first rather than over it. Each button opens its own drawer, holding only its own sidebar's groups.
 
 Omitting `rail` and `drawer` keeps today's rendering at every width.

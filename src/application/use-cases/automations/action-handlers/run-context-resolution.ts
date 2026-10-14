@@ -13,7 +13,11 @@ import {
   lookupPath,
   resolveTriggerInString,
 } from '../resolve-trigger-data'
-import { renderActionProps, type RenderedActionProps } from '../run/render-action-props'
+import {
+  handlerFilledPropsFor,
+  renderActionProps,
+  type RenderedActionProps,
+} from '../run/render-action-props'
 import { loopScopeRoots } from './loop-scope'
 import type { ActionRunContext } from './shared'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
@@ -181,17 +185,23 @@ export const renderNestedActionProps = (
   action: Readonly<Record<string, unknown>>,
   context: Readonly<Record<string, unknown>>,
   templates: TemplateRenderer
-): RenderedActionProps => ({
-  ...renderActionProps({
-    type: String(action['type'] ?? ''),
-    operator: String(action['operator'] ?? ''),
-    authored: action['props'] ?? {},
-    context,
-    templates,
-    renderValue: (value) => resolveRunContextValue(value, context, templates),
-  }),
-  ...nestedTemplateVars(action, (vars) => resolveRunContextValue(vars, context, templates)),
-})
+): RenderedActionProps => {
+  const type = String(action['type'] ?? '')
+  const operator = String(action['operator'] ?? '')
+  return {
+    ...renderActionProps({
+      type,
+      operator,
+      authored: action['props'] ?? {},
+      context,
+      templates,
+      renderValue: (value) => resolveRunContextValue(value, context, templates),
+    }),
+    ...nestedTemplateVars(action, (vars) => resolveRunContextValue(vars, context, templates)),
+    // A browser action's `steps` / `credentials` were kept as written: it fills them itself.
+    ...(handlerFilledPropsFor(type, operator).length > 0 ? { handlerFills: true as const } : {}),
+  }
+}
 
 /** Whether a nested action is a container — a `loop` or a `path` — that fills its own body. */
 const isContainer = (action: Readonly<Record<string, unknown>>): boolean =>

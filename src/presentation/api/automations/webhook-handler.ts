@@ -19,6 +19,7 @@ import {
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import { presentsApiKeyOnly } from '@/presentation/api/middleware/request-credential'
 import { headersToRecord, recordedHeaders, runWebhookAuth } from './webhook-auth'
 import { resolveWebhookCaller, sessionWebhookRefuses } from './webhook-caller'
 import { checkAndRecordDedup } from './webhook-dedup'
@@ -282,10 +283,8 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
   // The scheduler persists the run row synchronously at queue time and
   // exposes the resulting DB-generated UUID via the `onPersisted` callback.
   // We park here on a Promise that resolves the moment that callback fires
-  // so the 202 response carries the SAME id the cancel endpoint can find
-  // Fallback to a synthetic id if the engine
-  // never invokes the callback (e.g. an unexpected rejection before
-  // persistQueuedRun runs).
+  // so the 202 response carries the SAME id the cancel endpoint can find, or
+  // a synthetic one if the engine never invokes the callback.
   let resolveRunId: ((id: string) => void) | undefined
   const runIdPromise = new Promise<string>((resolve) => {
     resolveRunId = resolve
@@ -367,16 +366,17 @@ const dispatchSync = async (
     result: result.success,
     triggerData: input.triggerData,
     templates: await readTemplateEngine(c),
+    apiKeyOnly: presentsApiKeyOnly(c),
   })
-  // A failed run answers 500: the side effects the caller expected did not
-  // happen, and monitoring reads automation health off HTTP status. Not when
-  // the operator set `trigger.response.status` (they shaped the answer), nor
-  // when an error `flow/stop` ended the run — the automation chose that failure
-  // and its answer (the stop's, or an earlier `webhook/response`) stands.
+  // A failed or exhausted run answers 500: the side effects the caller expected
+  // did not happen, and monitoring reads automation health off HTTP status. Not
+  // when the operator set `trigger.response.status`, nor when an error
+  // `flow/stop` ended the run — the automation chose that failure and answer.
   const cfg = input.trigger.response
   const operatorOverrodeStatus = cfg?.status !== undefined || cfg?.statusCode !== undefined
   const chosen = operatorOverrodeStatus || result.success.stopped === true
-  const finalStatus = result.success.status === 'failure' && !chosen ? 500 : status
+  const failed = ['failure', 'exhausted'].includes(result.success.status)
+  const finalStatus = failed && !chosen ? 500 : status
   return webhookJson(c, respBody, finalStatus, headers)
 }
 

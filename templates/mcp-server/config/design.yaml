@@ -8,9 +8,9 @@
 # lists. Tool names, commands and JSON are the content, which is why the
 # headings are set in mono.
 #
-# Type stays on the two faces the platform self-hosts (IBM Plex Sans and
-# JetBrains Mono): a face pulled from a font CDN would hand every visitor's
-# address to a third party.
+# Type stays on the two faces the platform self-hosts (Geist and Geist Mono):
+# a face pulled from a font CDN would hand every visitor's address to a third
+# party.
 baseline: extend
 
 # Follow the visitor's operating system: light by day, dark by night.
@@ -73,17 +73,16 @@ darkColors:
   error: oklch(0.72 0.14 25)
   destructive-foreground: oklch(0.16 0.006 199)
 
-# Mono-forward: JetBrains Mono for the display, the headings, captions and the
+# Mono-forward: Geist Mono for the display, the headings, captions and the
 # overline, because a tool name or a body of JSON is never set in a sans face;
-# IBM Plex Sans for sentences. Sizes are compact — a tool list is scanned, not
-# read.
+# Geist for sentences. A step's `font` names a face declared under `families`,
+# so the mono face is declared here even though the platform already serves
+# it. Sizes are compact — a tool list is scanned, not read.
 typeScale:
   families:
-    sans:
-      family: IBM Plex Sans Variable
-      fallback: "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
     mono:
-      family: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
+      family: Geist Mono Variable
+      fallback: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace"
   steps:
     display: { size: 2rem, lineHeight: 1.1, weight: 600, letterSpacing: -0.03em, font: mono }
     h1: { size: 1.375rem, lineHeight: 1.2, weight: 600, letterSpacing: -0.02em, font: mono }

@@ -6,6 +6,7 @@
  */
 
 import { useState, type FormEvent } from 'react'
+import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
 import {
   submitAuthForm,
   type AuthMethod,
@@ -77,6 +78,7 @@ export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult
   }
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>): void => {
+    if (pressWhilePending(e)) return
     e.preventDefault()
     // The inputs are uncontrolled, so the form's `FormData` is always the
     // authoritative source of the current values — no stale-state race.
@@ -100,6 +102,7 @@ export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult
       pendingSignIn: input.pendingSignIn,
       twoFactorPath: input.twoFactorPath,
       setState,
+      form: e.currentTarget,
     })
   }
 

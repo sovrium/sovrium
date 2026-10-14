@@ -230,15 +230,24 @@ export async function shedGrantIssuerIdentifier(
 /**
  * Delete the erased user's rows from the AI-interaction activity feed.
  *
- * `system.ai_activity_logs` names the acting person TWICE, in two bare `TEXT`
- * columns with no foreign key on either dialect:
+ * `system.ai_activity_logs` names a person in two bare `TEXT` columns with no
+ * foreign key on either dialect:
  *
- *   - `user_email` — the address, written on mutation turns.
- *   - `actor_name` — the raw USER ID on a plain chat turn (the chat route builds
- *     it as `session?.userId`), the address on a mutation turn.
+ *   - `actor_name` — on a row the person wrote (`actor_type = 'user'`), their
+ *     raw USER ID on a plain chat turn (the chat route builds it as
+ *     `session?.userId`) and their address on a mutation turn. On an agent's
+ *     row it is the agent's name.
+ *   - `user_email` — the address of the person the row was written for: the
+ *     caller on a mutation turn, and the person an agent acted for on an
+ *     agent's row.
  *
- * Both are matched, because clearing only the email would leave every plain-turn
- * row still naming the person by id.
+ * Both are matched, because clearing only one would leave rows still naming
+ * the person. The `actor_name` match stays scoped to `actor_type = 'user'`, so
+ * an agent whose name happens to equal an erased id or address is never swept
+ * by it. The `user_email` match is not scoped: an agent's action done for the
+ * person keeps naming them by address after their account is gone, which is
+ * retained personal data, and the column holds an address, never an actor
+ * name, so no agent can collide with it.
  *
  * These rows are DELETED rather than shed, unlike the authorship stamps, for two
  * reasons. `actor_name` is `NOT NULL`, so there is nothing to shed it to short of
@@ -247,10 +256,6 @@ export async function shedGrantIssuerIdentifier(
  * `('user', ?, 'ai.chat.mutation', 'contacts', T)`: somebody, at some point, did
  * something. That is the `comment_read_state` shape — strip the user and nothing
  * meaningful is left — not the shape of a record that belongs to anybody else.
- *
- * Scoped to `actor_type = 'user'` so agent-initiated rows, whose `actor_name` is
- * the agent's name, can never be swept by an id or address that happens to
- * collide with one.
  *
  * @param tx - the open erasure transaction.
  * @param userId - the user being erased.
@@ -273,7 +278,7 @@ export async function deleteAiActivityRows(
   await executeRaw(
     tx,
     sql`DELETE FROM ${systemTableRef('ai_activity_logs')}
-        WHERE actor_type = 'user' AND (actor_name = ${erasedEmail} OR user_email = ${erasedEmail})`
+        WHERE (actor_type = 'user' AND actor_name = ${erasedEmail}) OR user_email = ${erasedEmail}`
   )
 }
 

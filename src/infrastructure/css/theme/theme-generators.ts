@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { COLOR_TO_SV_TOKEN } from '@/domain/models/app/design/default-design.generated'
+import {
+  COLOR_TO_SV_TOKEN,
+  DESIGN_COLOR_VARS,
+} from '@/domain/models/app/design/default-design.generated'
 import { DENSITY_STEPS, type Density, type DensityStep } from '@/domain/models/app/design/density'
 import { TYPE_SCALE_STEPS, type TypeScaleSteps } from '@/domain/models/app/design/type-scale'
 import type { DesignBreakpoints } from '@/domain/models/app/design/breakpoints'
@@ -36,45 +39,26 @@ const COLORS_NEEDING_FOREGROUND = [
 ] as const
 
 /**
- * Mapping from `app.design.colors` author key → canonical `--sv-*` role token
- * the prestyled-by-default islands consume.
+ * The variable declarations an authored colour writes, beside its `--color-*`
+ * utility registration: the shadcn/ui variable it repaints
+ * (`DESIGN_COLOR_VARS`: `primary` → `--primary`, `background-raised` →
+ * `--card`), and — for a Sovrium extension role base-nova does not declare
+ * (`primary-hover`, `success`, …) — its `--sv-*` token (`COLOR_TO_SV_TOKEN`).
+ * Both maps are generated from the default design source, so they cannot drift.
  *
- * Phase 5 follow-up (the prestyled-islands rule, ROLE_TOKEN_BRIDGE wiring): the islands emit
- * `bg-[var(--sv-X, oklch(...))]` arbitrary-value classes that resolve the
- * `--sv-*` channel first and fall through to the inline OKLCH literal only
- * if unset. The prior architecture bridged `--sv-*` from the canonical
- * `--color-*` author keys via `ROLE_TOKEN_BRIDGE` for *some* tokens, but
- * `--sv-primary` (and several siblings) was DELIBERATELY left direct (no
- * bridge through `--color-primary`) to avoid a `--color-primary ↔ --sv-primary`
- * cascade cycle that left `bg-primary` transparent in zero-config (the
- * canonical `--color-primary` is registered as `var(--sv-primary)` inside the
- * `@theme` block — see V1_THEME_COLOR_REGISTRATIONS).
- *
- * Without a bridge, tenant overrides of `app.design.colors.primary = '#c45d3f'`
- * reached `--color-primary` (and the legacy `bg-primary` utility) but NOT
- * `--sv-primary` (and the prestyled `bg-[var(--sv-primary,...)]` channel).
- * The result: tenant terracotta showed up on `.btn`-tagged buttons via the
- * legacy component layer, but the prestyled island channel still rendered the
- * neutral-900 OKLCH baseline. The `contract-tenant-override` smoke test
- * documented this gap in its docstring as the "right outcome for the wrong
- * reason" — the prestyled channel was decorative; the legacy channel did the
- * actual override work.
- *
- * Fix: emit `--sv-X: value` directly in a `:root` block (separate from
- * `@theme static`) for each authored color that maps to a v1 role token. The
- * tenant `:root` block emits AFTER `ROLE_TOKEN_BRIDGE` in the pipeline, so its
- * `--sv-X` declaration beats the bridge's neutral fallback by ordinary
- * cascade order (same specificity, later wins). This bypasses the
- * `--color-X ↔ --sv-X` cycle entirely.
- *
- * The mapping mirrors the inverse of ROLE_TOKEN_BRIDGE's `var(--color-X, …)`
- * chain. Author keys without a direct `--sv-*` equivalent (e.g.
- * `secondary`, `accent`) emit only `--color-*` because they have no role
- * slot in v1.
- *
- * The map itself now lives in `default-design.generated.ts`, emitted from the
- * same source as the bridge it inverts — so the two cannot drift.
+ * Writing the role directly, rather than through a `var(--color-X, …)` rung in
+ * the default layer, is what avoids the `--color-X ↔ --X` cycle that once left
+ * `bg-primary` transparent; the block lands AFTER the default layer, so the
+ * authored value wins by source order at equal specificity.
  */
+const authorVarLines = (name: string, value: string, indent: string): readonly string[] => {
+  const shadcn = DESIGN_COLOR_VARS[name]
+  const sv = COLOR_TO_SV_TOKEN[name]
+  return [
+    ...(shadcn === undefined ? [] : [`${indent}--${shadcn}: ${value};`]),
+    ...(sv === undefined ? [] : [`${indent}--sv-${sv}: ${value};`]),
+  ]
+}
 
 /**
  * The selector the platform's own dark cascade uses, and the default for
@@ -108,20 +92,19 @@ export function generateThemeColors(colors?: DesignColors): string {
 }
 
 /**
- * Generate a `:root` block of `--sv-X: value` declarations for each authored
- * color that maps to a v1 role token (the prestyled-islands rule / Phase 5 follow-up).
+ * Generate a `:root` block of the variable declarations each authored colour
+ * writes (see {@link authorVarLines}): the shadcn variable it repaints, and the
+ * `--sv-*` extension token for a role shadcn does not declare.
  *
- * Emitted in a separate `:root` block (NOT inside `@theme static`) because the
- * `--sv-*` tokens are not Tailwind theme tokens — they're the canonical role
- * vars consumed by the prestyled-by-default islands via `withVarFallback`.
- * Going through `:root` keeps the engine from misinterpreting them as
- * utility-minting tokens.
+ * Emitted in a separate `:root` block (NOT inside `@theme static`) because
+ * neither is a Tailwind theme token — they are the role variables the
+ * registrations and the prestyled islands read. Going through `:root` keeps
+ * the engine from misinterpreting them as utility-minting tokens.
  *
  * The cascade contract: this `:root` block is concatenated AFTER
- * `ROLE_TOKEN_BRIDGE` in `compiler.ts`, so a tenant `--sv-primary: #c45d3f`
- * declaration beats `ROLE_TOKEN_BRIDGE`'s `--sv-primary: var(--sv-neutral-900)`
- * fallback by ordinary cascade order (same specificity, later wins). The
- * `--color-X: value` declarations stay in `@theme static` so existing
+ * `ROLE_TOKEN_BRIDGE` in `compiler.ts`, so a tenant `--primary: #c45d3f`
+ * declaration beats the default layer's `--primary` by ordinary cascade order
+ * (same specificity, later wins). The `--color-X: value` declarations stay in `@theme static` so existing
  * `bg-X` / `text-X` utilities continue to resolve through the registration
  * chain — the two channels stay independent and each picks up the tenant
  * override directly.
@@ -136,13 +119,11 @@ export function generateThemeColors(colors?: DesignColors): string {
 export function generateAuthorSvBridge(colors?: DesignColors, selector = ':root'): string {
   if (!colors || Object.keys(colors).length === 0) return ''
 
-  const svBridgeEntries = Object.entries(colors).flatMap(([name, value]) => {
-    const svKey = COLOR_TO_SV_TOKEN[name]
-    if (!svKey) return []
-    return [`    --sv-${svKey}: ${value};`]
-  })
+  const svBridgeEntries = Object.entries(colors).flatMap(([name, value]) =>
+    authorVarLines(name, String(value), '    ')
+  )
 
-  // Derived companion: the `border-strong` role (a darker step of `border`,
+  // Derived companion: the `border-strong` extension role (a darker step of `border`,
   // consumed by the scroll-area thumb via `--sv-border-strong`) is not a
   // standalone author key, so an author `design.colors.border` override would
   // otherwise leave the thumb stuck on the zero-config neutral fallback. Mirror
@@ -154,7 +135,7 @@ export function generateAuthorSvBridge(colors?: DesignColors, selector = ':root'
       ? [`    --sv-border-strong: ${colors['border']};`]
       : []
 
-  // NOTE: `--sv-chart-1` is deliberately NOT derived from the authored primary.
+  // NOTE: `--chart-1` is deliberately NOT derived from the authored primary.
   // The series is five hues held at one lightness and one chroma, which is the
   // only reason they read as peers rather than as a ranking; substituting an
   // arbitrary brand colour into slot 1 pulls one series off that plane and the
@@ -163,9 +144,9 @@ export function generateAuthorSvBridge(colors?: DesignColors, selector = ':root'
   // primary was better than nothing; it is not better than a designed set.
   //
   // Not derived does NOT mean not authorable. All five `chart-N` keys are in
-  // COLOR_TO_SV_TOKEN, so `design.colors['chart-1']` reaches `--sv-chart-1`
-  // through the same bridge as every other role, and the charts read exactly
-  // that var (see islands/chart/chart-series-shared.ts). An author who wants a
+  // DESIGN_COLOR_VARS, so `design.colors['chart-1']` reaches `--chart-1`
+  // through the same block as every other role, and the charts read exactly
+  // that var (see islands/chart/chart-config.ts). An author who wants a
   // brand hue in the series names it; what this block declines to do is guess
   // one on their behalf from `primary`.
   const allEntries = [...svBridgeEntries, ...derivedBorderStrong]
@@ -180,9 +161,10 @@ export function generateAuthorSvBridge(colors?: DesignColors, selector = ':root'
  * `design.colors` feeds TWO independent channels (see {@link generateThemeColors}
  * and {@link generateAuthorSvBridge}), so a dark palette has to re-point both or
  * the two disagree at runtime: the `bg-X` utility would keep its light value
- * while a prestyled island reading `--sv-X` follows the platform's dark ramp.
- * One block therefore emits `--color-*` (utility channel) AND `--sv-*` (role
- * channel) for every authored dark key.
+ * while a reader of the role variable follows the platform's dark ramp. One
+ * block therefore emits `--color-*` (utility channel) AND the role variables
+ * (the shadcn variable, or the `--sv-*` extension token) for every authored
+ * dark key.
  *
  * ## Selector
  *
@@ -193,8 +175,8 @@ export function generateAuthorSvBridge(colors?: DesignColors, selector = ':root'
  *   land in `:root` via `@theme static`, and Tailwind emits further `:root`
  *   blocks AFTER this one, so a (0,1,0) selector here would be masked by
  *   source order and the override would silently do nothing.
- * - It ties with `V1_ROOT_DARK` (also (0,1,1)), which re-points every `--sv-*`
- *   role var. This block is concatenated AFTER the default theme layer in
+ * - It ties with `V1_ROOT_DARK` (also (0,1,1)), which re-points every role
+ *   variable. This block is concatenated AFTER the default theme layer in
  *   `buildSourceCSS`, so the authored value wins on "later wins" cascade order.
  *
  * ## Deliberately NOT mirrored from the light path
@@ -229,11 +211,9 @@ export function generateDarkColorOverrides(
     ([name, value]) => `    --color-${name}: ${value};`
   )
 
-  const svBridgeEntries = Object.entries(darkColors).flatMap(([name, value]) => {
-    const svKey = COLOR_TO_SV_TOKEN[name]
-    if (!svKey) return []
-    return [`    --sv-${svKey}: ${value};`]
-  })
+  const svBridgeEntries = Object.entries(darkColors).flatMap(([name, value]) =>
+    authorVarLines(name, String(value), '    ')
+  )
 
   // Mirrors the light bridge's `border-strong` companion so an authored dark
   // `border` also shifts the scroll-area thumb instead of leaving it on the

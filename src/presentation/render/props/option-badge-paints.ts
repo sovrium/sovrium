@@ -108,7 +108,9 @@ function withFooterBadgePaints(
   const badges = new Set(footer.filter((item) => item.format === 'badge').map((i) => i.field))
   return Object.fromEntries(
     Object.entries(fieldMeta).map(([field, meta]) => {
-      const paints = badges.has(field) ? resolveOptionBadgePaints(table, field, form) : undefined
+      const paints = badges.has(field)
+        ? resolveOptionBadgePaints(table, field, form, 'grid')
+        : undefined
       return [field, paints === undefined ? meta : { ...(meta as object), paints }]
     })
   )

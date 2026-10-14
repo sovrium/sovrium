@@ -16,7 +16,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -52,7 +52,7 @@ components:
                   className: md:hidden
                 classes:
                   parts:
-                    item: rounded-lg border border-error/40 bg-background-raised
+                    item: rounded-lg border border-error/40 bg-card
                     title: text-[13px] leading-[var(--text-base--line-height)]
                 dataSource:
                   table: content
@@ -97,7 +97,7 @@ components:
               - type: container
                 element: div
                 props:
-                  className: flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-foreground-muted
+                  className: flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-muted-foreground
                 children:
                   - type: text
                     element: span
@@ -131,10 +131,10 @@ components:
               # the left: the calendar paints the channel's colour as the
               # chip's border, and the event part below keeps only its left side,
               # so a month of pieces reads as text, not as a wall of colour.
-              - type: calendar
+              - type: event-calendar
                 classes:
                   parts:
-                    event: '!border-l-[3px] !border-t-border !border-r-border !border-b-border !bg-background-raised !text-foreground'
+                    event: '!border-l-[3px] !border-t-border !border-r-border !border-b-border !bg-card !text-foreground'
                     day: h-[90px] max-md:h-auto
                     dayNumber: font-mono
                     columnHeader: font-mono

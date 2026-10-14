@@ -54,9 +54,9 @@ export const listFields = {
   listDisplay: Schema.optional(ListDisplaySchema),
   /**
    * What clicking an item does — the two verbs a grid row takes
-   * (`navigate` / `openDrawer`), so a list of records can open the one a reader
+   * (`navigate` / `openSheet`), so a list of records can open the one a reader
    * picks, plus `fill`, which writes a value from the item into a form control
-   * on the same page (a composer's reusable scripts). `openDrawer` also writes
+   * on the same page (a composer's reusable scripts). `openSheet` also writes
    * `?record=<id>` into the address, as the grid does, so the opened record is a
    * link.
    */

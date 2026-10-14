@@ -58,7 +58,7 @@ interface FoundEmptyOptionSelect {
 }
 
 const isEmptyOptionSelect = (record: Readonly<Record<string, unknown>>): boolean => {
-  if (record['type'] !== 'select') return false
+  if (!['select', 'combobox', 'native-select'].includes(String(record['type']))) return false
   const declaration = record['emptyOption']
   return declaration !== null && typeof declaration === 'object'
 }

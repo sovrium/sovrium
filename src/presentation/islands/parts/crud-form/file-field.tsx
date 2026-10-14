@@ -85,7 +85,7 @@ function FileUploadProgress({ uploading }: FileUploadProgressProps) {
       aria-valuemax={100}
       aria-valuenow={uploading ? 50 : 100}
     >
-      {uploading ? 'Uploading...' : 'Upload complete'}
+      {uploading ? 'Uploading…' : 'Upload complete'}
     </div>
   )
 }

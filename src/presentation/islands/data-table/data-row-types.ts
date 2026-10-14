@@ -48,7 +48,7 @@ export interface InlineAutoSave {
  * - `navigate` — the `path` template can contain `$record.<field>` tokens that
  *   are replaced with the clicked row's field values at click time
  *   (e.g. `/deals/$record.id` → `/deals/42`).
- * - `openDrawer` — PG-04 quick-edit drawer dispatch. Fires a
+ * - `openSheet` — PG-04 quick-edit drawer dispatch. Fires a
  *   `sovrium:open-drawer` CustomEvent with `detail: { id, record }` so the
  *   matching drawer island (`{ type: 'drawer', id: <component> }`) toggles
  *   open. The clicked row's record is attached to `detail.record` for the
@@ -63,7 +63,7 @@ export interface InlineAutoSave {
  */
 export type DataTableRowClickAction =
   | { readonly type: 'navigate'; readonly path: string; readonly openInNewTab?: boolean }
-  | { readonly type: 'openDrawer'; readonly component: string }
+  | { readonly type: 'openSheet'; readonly component: string }
 
 /**
  * Persists ONE cell without first entering edit mode.

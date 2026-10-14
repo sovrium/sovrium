@@ -74,8 +74,8 @@ type Parts = DocsSidebarNavProps['parts']
 
 const ENTRY_BASE_CLASS =
   'block rounded-md px-3 py-1.5 text-md transition-colors duration-150 border-l-2'
-const ENTRY_ACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-border-strong bg-background-overlay font-medium text-foreground`
-const ENTRY_INACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-transparent text-foreground-muted hover:bg-background-overlay/60 hover:text-foreground`
+const ENTRY_ACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-border-strong bg-popover font-medium text-foreground`
+const ENTRY_INACTIVE_CLASS = `${ENTRY_BASE_CLASS} border-transparent text-muted-foreground hover:bg-popover/60 hover:text-foreground`
 
 const renderEntry = (entry: CollectionNavEntry, parts: Parts): Readonly<ReactElement> => (
   <li

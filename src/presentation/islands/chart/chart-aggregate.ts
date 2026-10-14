@@ -7,7 +7,8 @@
 
 import { type AggregateFunction, reduceAggregate } from '../runtime/aggregate-functions'
 import { readDisplayText } from '../runtime/record-display-label'
-import { seriesColor, type ChartSeriesConfig } from './chart-series-shared'
+import { resolveSeriesColor } from './chart-config'
+import type { ChartSeriesConfig } from './chart-series-shared'
 import type { TableRecord } from '../runtime/types'
 
 /**
@@ -269,6 +270,6 @@ export const paintEvery = <T extends object>(
 ): readonly T[] => {
   const styling = series?.[0]
   if (styling === undefined) return data
-  const color = seriesColor(styling, 0)
+  const color = resolveSeriesColor(styling.color, 0)
   return data.map((datum) => ({ ...datum, color }))
 }

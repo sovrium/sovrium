@@ -49,7 +49,7 @@ export const entry = defineLibraryEntry({
       name,
       appRegion([
         {
-          type: 'empty-state',
+          type: 'empty',
           emptyIcon: p('icon'),
           emptyTitle: p('title'),
           emptyDescription: p('description'),

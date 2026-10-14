@@ -35,6 +35,8 @@
  * the item goes on the line below, exactly as under a bare `key:`.
  */
 
+import { printConstDeclaration } from './library-ts-literal'
+
 /** The outcome of planning one insertion into a YAML root. */
 export type YamlWirePlan =
   | { readonly kind: 'insert'; readonly text: string; readonly line: string }
@@ -48,25 +50,53 @@ export const libraryArticleAddress = (id: string): string => `library/${id.repla
 export const provenanceHeader = (id: string, version: string): string =>
   `sovrium-library: ${id}@${version}`
 
+/** The header lines, one comment each: the provenance, then the parameters when recorded. */
+const headerLines = (header: string | readonly string[], marker: string): string =>
+  (typeof header === 'string' ? [header] : header).map((line) => `${marker} ${line}\n`).join('')
+
 /**
- * A YAML fragment: the provenance comment, then the item, block-style.
- *
- * `Bun.YAML.stringify` leaves a trailing space after every key whose value is a
- * nested block (`props: `); those are trimmed so the file an operator opens is
- * clean. The trim cannot change meaning — a trailing space after a colon is
- * never part of a value.
+ * A value that ends a line as one double-quoted scalar whose only escapes are
+ * double quotes: the scalar Prettier rewrites in single quotes.
  */
-export const renderYamlFragment = (header: string, value: unknown): string => {
-  const body = Bun.YAML.stringify(value, null, 2)
+const DOUBLE_QUOTED_TAIL = /^(.*?)"((?:[^"\\']|\\")*\\"(?:[^"\\']|\\")*)"$/
+
+/**
+ * A YAML fragment: the provenance comments, then the item, block-style, as
+ * Prettier writes it at its default options.
+ *
+ * - The value is copied through JSON first: `Bun.YAML.stringify` writes an
+ *   object the item reaches twice as an anchor and an alias, which an operator
+ *   reading the file should not meet, and which Prettier moves.
+ * - `Bun.YAML.stringify` leaves a trailing space after every key whose value is
+ *   a nested block (`props: `); those are trimmed. The trim cannot change
+ *   meaning — a trailing space after a colon is never part of a value.
+ * - A double-quoted scalar escaping double quotes, and holding no single one,
+ *   is written in single quotes, where a double quote needs no escape.
+ */
+export const renderYamlFragment = (header: string | readonly string[], value: unknown): string => {
+  const body = Bun.YAML.stringify(JSON.parse(JSON.stringify(value) ?? 'null'), null, 2)
     .split('\n')
     .map((line) => line.trimEnd())
+    .map((line) => {
+      const match = DOUBLE_QUOTED_TAIL.exec(line)
+      if (match === null) return line
+      const [, head = '', body = ''] = match
+      return `${head}'${body.replaceAll('\\"', '"')}'`
+    })
     .join('\n')
-  return `# ${header}\n${body.endsWith('\n') ? body : `${body}\n`}`
+  return `${headerLines(header, '#')}${body.endsWith('\n') ? body : `${body}\n`}`
 }
 
-/** A TypeScript fragment: the provenance comment, then a default export. */
-export const renderTsFragment = (header: string, binding: string, value: unknown): string =>
-  `// ${header}\n\nconst ${binding} = ${JSON.stringify(value, null, 2)}\n\nexport default ${binding}\n`
+/**
+ * A TypeScript fragment: the provenance comments, then a default export, laid
+ * out as Prettier writes it at its default options (`library-ts-literal.ts`).
+ */
+export const renderTsFragment = (
+  header: string | readonly string[],
+  binding: string,
+  value: unknown
+): string =>
+  `${headerLines(header, '//')}\n${printConstDeclaration(binding, value)}\n\nexport default ${binding};\n`
 
 /** `hero-home` → `heroHome`: the binding a TypeScript fragment exports. */
 export const bindingName = (name: string): string =>

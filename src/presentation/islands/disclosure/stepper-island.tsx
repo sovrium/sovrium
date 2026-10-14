@@ -95,7 +95,10 @@ function paint(parts: StepperParts, index: number): void {
   const last = parts.panels.length - 1
   parts.panels.forEach((panel, i) => panel.toggleAttribute('hidden', i !== index))
   parts.items.forEach((item, i) => {
-    item.setAttribute('data-state', stateOf(i, index))
+    const state = stateOf(i, index)
+    item.setAttribute('data-state', state)
+    // A done step shows its check alone: the number leaves the disc, not just the view.
+    item.querySelector('[data-stepper-digit]')?.replaceChildren(state === 'done' ? '' : `${i + 1}`)
     if (i === index) item.setAttribute('aria-current', 'step')
     else item.removeAttribute('aria-current')
   })

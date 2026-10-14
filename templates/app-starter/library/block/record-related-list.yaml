@@ -3,7 +3,7 @@ name: record-related-list
 type: container
 element: section
 props:
-  className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-background-raised p-4 sm:p-5
+  className: flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:p-5
 children:
   - type: flex
     props:

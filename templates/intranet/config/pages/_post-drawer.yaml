@@ -1,7 +1,7 @@
 # One announcement, opened over the page from its title or from
 # `?record=<id>`: who wrote it and when, what it asks of you, how many of the
 # company have acknowledged it, and the full text.
-type: drawer
+type: sheet
 id: post-detail
 drawerSide: right
 drawerSize: md

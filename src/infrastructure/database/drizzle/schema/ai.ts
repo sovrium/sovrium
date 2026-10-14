@@ -68,15 +68,12 @@ export const aiMessages = systemSchema.table(
     conversationId: text('conversation_id')
       .notNull()
       .references(() => aiConversations.id, { onDelete: 'cascade' }),
+    parentId: text('parent_id'), // previous message in its branch (conversation-branch-service)
     role: text('role').notNull(),
     content: text('content').notNull(),
-    /**
-     * Delivery status of the message. `complete` for buffered (non-streaming)
-     * turns and fully-streamed responses; `incomplete` when a streamed
-     * assistant response was interrupted before the terminal `[DONE]` marker
-     * User messages are always `complete`.
-     */
+    // `incomplete`: a streamed answer interrupted before its end; else `complete`.
     status: text('status').notNull().default('complete'),
+    parts: jsonb('parts'), // a user message sent as parts: references only, never file text
     toolCalls: jsonb('tool_calls'),
     tokenCount: integer('token_count'),
     model: text('model'),
@@ -85,6 +82,39 @@ export const aiMessages = systemSchema.table(
   (table) => [
     index('ai_messages_conversationId_idx').on(table.conversationId),
     index('ai_messages_createdAt_idx').on(table.createdAt),
+  ]
+)
+
+/**
+ * AI Chat Attachments Table
+ *
+ * One row per file a user attached through a chat's `attachments` block. The
+ * bytes live in the operator-named bucket, under `storage_key`, through the
+ * ordinary storage catalog; this row is what makes the file the uploader's
+ * alone (`GET /api/ai/chat/attachments/:id` answers no one else) and ties it
+ * to the conversation it was sent in (`session_id`, set when a message carries
+ * it). Deleting that conversation, or erasing the account, hard-deletes the row
+ * and the bytes.
+ */
+export const aiChatAttachments = systemSchema.table(
+  'ai_chat_attachments',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    chatId: text('chat_id').notNull(),
+    sessionId: text('session_id'),
+    bucket: text('bucket').notNull(),
+    storageKey: text('storage_key').notNull(),
+    name: text('name').notNull(),
+    size: integer('size').notNull(),
+    mimeType: text('mime_type').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('ai_chat_attachments_userId_idx').on(table.userId),
+    index('ai_chat_attachments_sessionId_idx').on(table.userId, table.sessionId),
   ]
 )
 
@@ -300,6 +330,8 @@ export const aiActivityLogs = systemSchema.table(
     action: text('action').notNull(),
     targetTable: text('target_table'),
     userEmail: text('user_email'),
+    /** The surface that started the agent turn: `chat`, `automation` or `schedule`. */
+    surface: text('surface'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -351,6 +383,7 @@ export type AiComputeStatus = typeof aiComputeStatus.$inferSelect
 export type NewAiComputeStatus = typeof aiComputeStatus.$inferInsert
 export type AiMessage = typeof aiMessages.$inferSelect
 export type NewAiMessage = typeof aiMessages.$inferInsert
+export type AiChatAttachment = typeof aiChatAttachments.$inferSelect
 export type AiFact = typeof aiFacts.$inferSelect
 export type NewAiFact = typeof aiFacts.$inferInsert
 export type AiEmbedding = typeof aiEmbeddings.$inferSelect

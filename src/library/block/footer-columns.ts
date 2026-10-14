@@ -30,14 +30,14 @@ const column = (heading: string): BlockNode =>
       {
         type: 'text',
         element: 'h3',
-        props: { className: 'font-mono text-sm font-normal text-foreground-subtle' },
+        props: { className: 'font-mono text-sm font-normal text-muted-foreground' },
         content: heading,
       },
       ...[1, 2, 3, 4].map((index) => ({
         type: 'link',
         props: {
           href: `/${heading.toLowerCase()}-${index}`,
-          className: 'text-md text-foreground-muted hover:text-foreground',
+          className: 'text-md text-muted-foreground hover:text-foreground',
         },
         content: `[Link ${index}]`,
       })),

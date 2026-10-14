@@ -28,16 +28,34 @@ const partHeading = (content: string): BlockNode => ({
   content,
 })
 
+/** shadcn/ui's documentation column: a small title over the page's own headings. */
+const onThisPage: BlockNode = {
+  type: 'container',
+  element: 'aside',
+  props: { className: 'hidden lg:sticky lg:top-8 lg:flex lg:flex-col lg:gap-3 lg:self-start' },
+  children: [
+    {
+      type: 'text',
+      element: 'p',
+      props: { className: 'text-xs font-medium text-foreground' },
+      content: 'On this page',
+    },
+    { type: 'toc' },
+  ],
+}
+
 /** A guide with a sticky table of contents built from its own headings. */
 export const entry = defineLibraryEntry({
   kind: 'block',
   slug: 'content-with-toc',
+  shadcnBlock: null,
   title: 'Guide with a table of contents',
   category: 'marketing',
   tags: ['content', 'guide', 'documentation', 'table of contents'],
   description:
-    'A guide in one column beside a table of contents that is built from the page’s headings, stays in view while scrolling and marks the section being read.',
+    'A guide in one column beside a table of contents that is built from the page’s headings, stays in view while scrolling.',
   notes: [
+    'No shadcn counterpart: shadcn/ui ships no documentation block, so this one draws the `toc` type the way shadcn/ui’s own documentation lays out its "On this page" column — a small title over muted links, the deeper headings indented.',
     PLACE_NOTE,
     THEME_NOTE,
     'The table of contents is a `toc` component: it reads the headings on the page, so it needs no list of its own. It is hidden below the large breakpoint, where the guide takes the full width.',
@@ -61,17 +79,7 @@ export const entry = defineLibraryEntry({
         wrap([
           grid(
             [
-              {
-                type: 'container',
-                element: 'aside',
-                props: { className: 'hidden lg:block' },
-                children: [
-                  {
-                    type: 'toc',
-                    props: { sticky: true, className: 'lg:top-8 text-sm' },
-                  },
-                ],
-              },
+              onThisPage,
               {
                 type: 'container',
                 element: 'article',

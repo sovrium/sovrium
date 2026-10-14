@@ -11,7 +11,17 @@ import {
   type AiMemoryConversationSummary,
   type AiMemoryDatabaseError,
   type AiMemoryMessage,
+  type AiMemoryThread,
+  type AiMessagePart,
+  type AiMessageElicitation,
 } from '@/application/ports/repositories/ai/ai-memory-repository'
+import { deleteConversationAttachments } from '@/application/use-cases/ai/chat-attachments'
+import { currentBranch } from '@/domain/models/app/agents/conversation-branch-service'
+import type {
+  ChatAttachmentDatabaseError,
+  ChatAttachmentRepository,
+} from '@/application/ports/repositories/ai/chat-attachment-repository'
+import type { StorageError, StorageService } from '@/application/ports/services/storage-service'
 
 /**
  * Application use-cases for durable AI chat memory.
@@ -24,7 +34,9 @@ import {
 
 /**
  * Persist a completed user/assistant chat exchange to durable storage,
- * upserting the conversation thread for `(userId, sessionId)`.
+ * upserting the conversation thread for `(userId, sessionId)`: below
+ * `parentId` when the turn names the message it follows, else at the end of
+ * the current branch.
  */
 export const persistChatTurn = (input: {
   readonly userId: string
@@ -33,6 +45,10 @@ export const persistChatTurn = (input: {
   readonly assistantReply: string
   readonly agentName?: string
   readonly model?: string
+  readonly assistantElicitation?: AiMessageElicitation
+  readonly parentId?: string | undefined
+  readonly ids?: { readonly question: string; readonly answer: string } | undefined
+  readonly userParts?: ReadonlyArray<AiMessagePart>
 }): Effect.Effect<void, AiMemoryDatabaseError, AiMemoryRepository> =>
   Effect.gen(function* () {
     const repo = yield* AiMemoryRepository
@@ -40,10 +56,10 @@ export const persistChatTurn = (input: {
   }).pipe(Effect.withSpan('ai.persist-chat-turn'))
 
 /**
- * Load the persisted message history for a `(userId, sessionId)` thread, in
- * chronological order. Drives both the context-injection of prior turns
- * and the `GET /api/ai/conversations/:sessionId`
- * endpoint.
+ * Load the CURRENT branch of a `(userId, sessionId)` thread, in chronological
+ * order: the history replayed to the model as prior turns. An edited question
+ * or a regenerated answer has replaced what it was written in place of, so the
+ * model never reads both.
  */
 export const loadChatHistory = (input: {
   readonly userId: string
@@ -51,17 +67,59 @@ export const loadChatHistory = (input: {
 }): Effect.Effect<ReadonlyArray<AiMemoryMessage>, AiMemoryDatabaseError, AiMemoryRepository> =>
   Effect.gen(function* () {
     const repo = yield* AiMemoryRepository
-    return yield* repo.getHistory(input)
+    const thread = yield* repo.getThread(input)
+    return thread === undefined ? [] : currentBranch(thread.messages)
   }).pipe(Effect.withSpan('ai.load-chat-history'))
 
 /**
+ * Load a `(userId, sessionId)` thread with EVERY message, every branch: what
+ * the conversation routes read a branch, its siblings, or the message being
+ * edited from. `undefined` when the caller owns no thread by that id.
+ */
+export const loadConversationTree = (input: {
+  readonly userId: string
+  readonly sessionId: string
+}): Effect.Effect<AiMemoryThread | undefined, AiMemoryDatabaseError, AiMemoryRepository> =>
+  Effect.gen(function* () {
+    const repo = yield* AiMemoryRepository
+    return yield* repo.getThread(input)
+  }).pipe(Effect.withSpan('ai.load-conversation-tree'))
+
+/**
+ * Write a new branch of a thread: `messages` below `parentId`, each following
+ * the one before. An edited question is written below the edited message's
+ * parent with its answer; a regenerated answer below its question. Answers the
+ * ids written — none when the caller owns no thread by that id.
+ */
+export const recordConversationBranch = (input: {
+  readonly userId: string
+  readonly sessionId: string
+  readonly parentId: string | null
+  readonly messages: ReadonlyArray<{
+    readonly role: 'user' | 'assistant'
+    readonly content: string
+    readonly parts?: ReadonlyArray<AiMessagePart> | undefined
+  }>
+}): Effect.Effect<ReadonlyArray<string>, AiMemoryDatabaseError, AiMemoryRepository> =>
+  Effect.gen(function* () {
+    const repo = yield* AiMemoryRepository
+    return yield* repo.appendBranch(input)
+  }).pipe(Effect.withSpan('ai.record-conversation-branch'))
+
+/**
  * List the conversation threads owned by a user, most-recently-updated
- * first (an AI memory spec).
+ * first, optionally one agent's only, one page at a time.
  */
 export const listUserConversations = (input: {
   readonly userId: string
+  readonly agentName?: string
+  readonly limit: number
+  readonly offset: number
 }): Effect.Effect<
-  ReadonlyArray<AiMemoryConversationSummary>,
+  {
+    readonly conversations: ReadonlyArray<AiMemoryConversationSummary>
+    readonly total: number
+  },
   AiMemoryDatabaseError,
   AiMemoryRepository
 > =>
@@ -86,14 +144,28 @@ export const deleteUserConversation = (input: {
 
 /**
  * Apply the retention policy: delete every conversation owned by `userId`
- * whose `updatedAt` is older than `maxAgeDays` days.
+ * whose `updatedAt` is older than `maxAgeDays` days, with the files sent in it
+ * — their stored bytes and their rows, hard-deleted, as deleting the
+ * conversation by hand does (S5). The files go first: a store that refuses a
+ * delete fails the sweep before any conversation is removed, so the next sweep
+ * asks again rather than leaving files no conversation holds.
  * Returns the number of threads removed.
  */
 export const enforceRetentionPolicy = (input: {
   readonly userId: string
   readonly maxAgeDays: number
-}): Effect.Effect<number, AiMemoryDatabaseError, AiMemoryRepository> =>
+}): Effect.Effect<
+  number,
+  AiMemoryDatabaseError | ChatAttachmentDatabaseError | StorageError,
+  AiMemoryRepository | ChatAttachmentRepository | StorageService
+> =>
   Effect.gen(function* () {
     const repo = yield* AiMemoryRepository
+    const expired = yield* repo.listExpired(input)
+    yield* Effect.forEach(
+      expired,
+      (sessionId) => deleteConversationAttachments({ userId: input.userId, sessionId }),
+      { discard: true }
+    )
     return yield* repo.purgeExpired(input)
   }).pipe(Effect.withSpan('ai.enforce-retention-policy'))

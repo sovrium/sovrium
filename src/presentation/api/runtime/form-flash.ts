@@ -145,7 +145,7 @@ const escapeHtml = (text: string): string =>
     .replace(/'/g, '&#39;')
 
 const TOASTER_STYLE =
-  'position:fixed;bottom:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px'
+  'position:fixed;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px'
 
 /**
  * The page with the toast drawn in it: inside the page's own toast container

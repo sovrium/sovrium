@@ -23,7 +23,7 @@ const slot = (label: string, current = false): PageComponent =>
     element: 'span',
     props: {
       className: current
-        ? 'bg-background-subtle text-foreground rounded px-2 py-1 text-sm font-medium'
+        ? 'bg-muted text-foreground rounded px-2 py-1 text-sm font-medium'
         : 'text-foreground rounded px-2 py-1 text-sm',
     },
     content: label,

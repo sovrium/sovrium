@@ -34,7 +34,7 @@ import type { RowHeight } from '@/domain/models/app/pages/components/component-t
 //
 // `bg-raised`, NOT `bg`. The canvas frame is `#fefefe` on a `#fafafa` page, so
 // the grid is a surface LIFTED off the ground rather than a region of it. The
-// SSR recipe this supersedes said `sv-bg`, which painted the frame at exactly
+// SSR recipe this supersedes said `background`, which painted the frame at exactly
 // the page's own tone and left the border doing all the work of separating
 // them — the thing a raised surface exists not to need.
 //
@@ -43,9 +43,9 @@ import type { RowHeight } from '@/domain/models/app/pages/components/component-t
 // the rounded corners.
 const TABLE_SHELL = [
   'overflow-hidden',
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
+  `bg-card`,
   'border',
-  `border-[${v('sv-border', T.border)}]`,
+  `border-border`,
   `rounded-[${v('radius-md', T.radiusMd)}]`,
 ].join(' ')
 
@@ -105,10 +105,9 @@ export const computeTableElementClasses = (): string => TABLE_ELEMENT
  * Compute the default className for `<thead>` — deliberately EMPTY.
  *
  * The header carries no background fill. Its separation from the body is the
- * header cell's own bottom rule, which is drawn in `sv-border-strong` against
- * the body's `sv-border` and is a stronger signal than a tint at a fraction of
- * the ink. `<thead>` shipped as `bg-background-subtle`, which put a filled band
- * across the top of a surface whose whole point is to be read as one plane.
+ * header cell's own bottom rule, base-nova's `TableHeader` `border-b` in the
+ * `border` role, the same line every body row draws. A tint would put a filled
+ * band across the top of a surface whose whole point is to be read as one plane.
  *
  * Exported as an empty-string computer anyway, rather than dropped: the part
  * has to stay addressable from `design.components.table.parts.headerRow` so an
@@ -318,7 +317,7 @@ export const computeTableFillScrollClasses = ({
 // no elevation token means a hairline.
 const TABLE_STICKY_HEADER = [
   'sticky top-0 z-10',
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
+  `bg-card`,
   'shadow-[inset_0_-1px_0_rgb(0_0_0_/_0.12)]',
 ].join(' ')
 
@@ -365,8 +364,8 @@ const TABLE_HEADER_CELL_CHROME = [
   TABLE_HEADER_TYPE,
   'text-left',
   'border-b',
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
+  'border-border',
+  'text-foreground',
   'overflow-hidden text-ellipsis whitespace-nowrap',
 ].join(' ')
 
@@ -408,10 +407,7 @@ const TABLE_SORT_GLYPH = 'ml-1 inline-flex items-center'
  * columnheader's accessible name stable.
  */
 export const computeTableSortGlyphClasses = ({ active }: { readonly active: boolean }): string =>
-  [
-    TABLE_SORT_GLYPH,
-    active ? `text-[${v('sv-fg', T.fg)}]` : `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  ].join(' ')
+  [TABLE_SORT_GLYPH, active ? `text-foreground` : `text-muted-foreground`].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // RESIZE HANDLE — the column-width drag affordance
@@ -433,8 +429,8 @@ const TABLE_RESIZE_HANDLE = [
   'resize-handle absolute top-0 right-0 h-full w-1',
   'cursor-col-resize touch-none select-none',
   'opacity-0 hover:opacity-100',
-  `bg-[${v('sv-border-strong', T.borderStrong)}]`,
-  `hover:bg-[${v('sv-primary', T.primary)}]`,
+  `bg-input`,
+  `hover:bg-primary`,
 ].join(' ')
 
 /**

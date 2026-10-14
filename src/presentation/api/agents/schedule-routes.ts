@@ -50,14 +50,23 @@
 
 import { Cron, DateTime, Result } from 'effect'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { resolveAgentLimits } from '@/domain/models/app/agents/agent-gate-validation'
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
 import { requireDomainContext } from '@/infrastructure/logging/request-effect'
+import {
+  isTokenBudgetExhausted,
+  releaseConcurrencySlot,
+} from '@/infrastructure/process/agent-limits'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { checkTriggerPermission } from '@/presentation/api/agents/agent-trigger-guard'
 import { agentNotFound, findAgent } from '@/presentation/api/runtime/agent-lookup'
 import { errorBody } from '@/presentation/api/runtime/auth-helpers'
-import { checkExecutionGates, checkLimitGates, tokenBudgetExhausted } from './agent-execution-gates'
-import { isTokenBudgetExhausted, releaseConcurrencySlot, resolveAgentLimits } from './agent-limits'
+import {
+  chargeRun,
+  checkExecutionGates,
+  checkLimitGates,
+  tokenBudgetExhausted,
+} from './agent-execution-gates'
 import { runScheduledAgentTask } from './agent-schedule-runner'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
@@ -134,9 +143,12 @@ const handleGetSchedule =
 const triggerWithinSlot = async (
   c: Context,
   agent: Agent,
-  taskPrompt: string
+  run: { readonly taskPrompt: string; readonly app: App | undefined }
 ): Promise<Response> => {
-  const outcome = await runScheduledAgentTask(agent, taskPrompt, requireDomainContext(c))
+  const { taskPrompt, app } = run
+  const outcome = await runScheduledAgentTask(agent, taskPrompt, requireDomainContext(c), app)
+  // The gates only asked; a run whose actions charged nothing is charged once.
+  if (outcome.actionsCharged === 0) chargeRun(agent)
   const limits = resolveAgentLimits(agent.limits)
   if (isTokenBudgetExhausted(agent.name, limits.maxTokensPerDay)) {
     return tokenBudgetExhausted(c, agent.name)
@@ -177,16 +189,19 @@ const handleTriggerSchedule =
     }
 
     // Disabled → 403 (SCHEDULE-007); action rate limit → 429 (SCHEDULE-010).
-    const gateResponse = checkExecutionGates(c, agent)
+    // Both gates ASK without counting: each action the run takes is charged as
+    // it passes the agent's own gates, and an action-less run is charged once
+    // after it (`chargeRun`) — so a run's first action is never counted twice.
+    const gateResponse = checkExecutionGates(c, agent, { record: false })
     if (gateResponse) return gateResponse
 
     // Operational budget → 202 `queued` (SCHEDULE-011). Claims a concurrency
     // slot when it lets the run through.
-    const limitGate = checkLimitGates(c, agent)
+    const limitGate = checkLimitGates(c, agent, { record: false })
     if (limitGate) return limitGate
 
     try {
-      return await triggerWithinSlot(c, agent, schedule.taskPrompt)
+      return await triggerWithinSlot(c, agent, { taskPrompt: schedule.taskPrompt, app })
     } finally {
       releaseConcurrencySlot(agent.name)
     }

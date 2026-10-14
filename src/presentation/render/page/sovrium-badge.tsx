@@ -11,7 +11,7 @@ import type { BadgePlacement } from './badge-placement'
 
 /** The pill's look, shared by both placements; only the positioning differs. */
 const PILL_CLASSES =
-  'border-border bg-background-raised text-foreground-muted hover:text-foreground rounded-full border px-3 py-1.5 text-sm font-medium no-underline shadow-sm transition-colors'
+  'border-border bg-card text-muted-foreground hover:text-foreground rounded-full border px-3 py-1.5 text-sm font-medium no-underline shadow-sm transition-colors'
 
 /**
  * The "Built with Sovrium" badge — a small static link pill shown on every
@@ -51,6 +51,8 @@ export function SovriumBadge({
       target="_blank"
       rel="noopener"
       data-testid="sovrium-badge"
+      // The toast region reads it to rise clear of a floating badge.
+      data-sovrium-badge={isFooter ? 'footer' : 'floating'}
       /* Role tokens carry their own dark cascade, so the six hand-written
          `dark:` variants this replaced were duplicating the token system. */
       className={

@@ -18,19 +18,19 @@ import {
   RecordDrawerRoleSchema,
 } from './record-drawer'
 
-export const DrawerTypeLiteral = Schema.Literal('drawer')
+export const DrawerTypeLiteral = Schema.Literal('sheet')
 
 export const drawerFields = {
   ...coreFields,
   ...visibilityFields,
   ...i18nFields,
   /**
-   * Component identifier — referenced by an `onRowClick.action: 'openDrawer'`
+   * Component identifier — referenced by an `onRowClick.action: 'openSheet'`
    * dispatch (PG-04 quick-edit drawer pattern). Authors set `id` at the
    * top level (sibling of `type` / `props`) so the cross-component reference
    * reads naturally:
    *
-   *   { type: 'table', onRowClick: { action: 'openDrawer', component: 'record-detail' } }
+   *   { type: 'table', onRowClick: { action: 'openSheet', component: 'record-detail' } }
    *   { type: 'drawer', id: 'record-detail', children: [...] }
    *
    * The render-time `resolveOpenDrawerDispatches` pass tags any drawer
@@ -39,7 +39,25 @@ export const drawerFields = {
   id: Schema.optional(
     Schema.String.annotate({
       description:
-        "Drawer identifier referenced by `onRowClick: { action: 'openDrawer', component: <id> }` (PG-04).",
+        "Sheet identifier referenced by `onRowClick: { action: 'openSheet', component: <id> }`.",
+    })
+  ),
+  title: Schema.optional(
+    Schema.String.annotate({
+      description: "The sheet's heading, which names it. shadcn/ui's SheetTitle.",
+    })
+  ),
+  description: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "A line under the heading, announced as the sheet's description. shadcn/ui's SheetDescription.",
+    })
+  ),
+  showCloseButton: Schema.optional(
+    Schema.Boolean.annotate({
+      defaultNote: 'true',
+      description:
+        "Draws the close button in the sheet's corner. `false` leaves Escape, the overlay and any button of the `footer` to close it. shadcn/ui's Sheet showCloseButton.",
     })
   ),
   drawerSide: Schema.optional(DrawerSideSchema),
@@ -60,19 +78,19 @@ export const drawerFields = {
     Schema.Union([
       Schema.Struct({
         table: Schema.String.annotate({
-          description: 'Table the drawer loads its record from.',
+          description: 'Table the sheet loads its record from.',
         }),
       }).pipe(Schema.annotate({ identifier: 'RecordDrawerDataSource' })),
       Schema.Struct({
         /** System detail-endpoint binding (mutually exclusive with the DB-table form) */
         system: SystemDetailSourceSchema,
       }).annotate({
-        title: 'Record Drawer System Detail Source',
-        description: 'System detail-endpoint binding for the record-detail drawer',
+        title: 'Record Sheet System Detail Source',
+        description: 'System detail-endpoint binding for the record-detail sheet',
       }),
     ]).annotate({
       identifier: 'RecordDrawerDataSourceBinding',
-      title: 'Record Drawer Data Source',
+      title: 'Record Sheet Data Source',
       description: 'DB-table single-record binding OR a system detail-endpoint binding',
     })
   ),
@@ -80,13 +98,13 @@ export const drawerFields = {
   recordFields: Schema.optional(
     Schema.Array(RecordDrawerFieldSchema).annotate({
       description:
-        'Fields the drawer shows for the record, in order, each with its own label and rendering.',
+        'Fields the sheet shows for the record, in order, each with its own label and rendering.',
     })
   ),
   /** F6 tier read/edit split: `false` renders a read-only record (no save). */
   canEdit: Schema.optional(
     Schema.Boolean.annotate({
-      description: 'Lets the reader change the record from the drawer; `false` makes it read-only.',
+      description: 'Lets the reader change the record from the sheet; `false` makes it read-only.',
     })
   ),
   /**
@@ -98,9 +116,9 @@ export const drawerFields = {
    */
   actions: Schema.optional(
     Schema.Array(RecordDrawerActionSchema).annotate({
-      title: 'Record Drawer Actions',
+      title: 'Record Sheet Actions',
       description:
-        "Footer action buttons rendered below the record body. Each fires against the drawer's loaded record ($record.* resolved at click time) and reuses the button action + confirm dispatch.",
+        "Footer action buttons rendered below the record body. Each fires against the sheet's loaded record ($record.* resolved at click time) and reuses the button action + confirm dispatch.",
     })
   ),
   /**
@@ -118,7 +136,7 @@ export const drawerFields = {
   related: Schema.optional(
     Schema.Array(RecordDrawerRelatedSchema).annotate({
       description:
-        "Lists of records from other tables that point at the record the drawer opened, each drawn as its own section below the record's fields.",
+        "Lists of records from other tables that point at the record the sheet opened, each drawn as its own section below the record's fields.",
     })
   ),
   /**
@@ -135,7 +153,7 @@ export const drawerFields = {
       siblings: Schema.optional(
         Schema.Boolean.annotate({
           description:
-            'Draw Previous and Next, stepping through the rows of the table the drawer was opened from, in its current order, filter and page (default: false)',
+            'Draw Previous and Next, stepping through the rows of the table the sheet was opened from, in its current order, filter and page (default: false)',
         })
       ),
       fullPage: Schema.optional(
@@ -150,9 +168,9 @@ export const drawerFields = {
       ),
     }).annotate({
       identifier: 'RecordDrawerNavigation',
-      title: 'Record Drawer Navigation',
+      title: 'Record Sheet Navigation',
       description:
-        'Previous and Next through the list the drawer was opened from, and a link to the record’s full page',
+        'Previous and Next through the list the sheet was opened from, and a link to the record’s full page',
     })
   ),
 } as const

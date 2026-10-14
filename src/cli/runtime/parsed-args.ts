@@ -199,6 +199,8 @@ export interface ParsedArgs {
   readonly libraryAll?: boolean
   /** `--yes` — confirm an `--all` install above the confirmation threshold. */
   readonly libraryYes?: boolean
+  /** `--update` — replace an installed fragment with what this version writes. */
+  readonly libraryUpdate?: boolean
   /** `--target <value>` — the RAW string; `sovrium skills` owns the refusal. */
   readonly skillsTarget?: string
   /** `--list` — print one line per release (`changelog`). */

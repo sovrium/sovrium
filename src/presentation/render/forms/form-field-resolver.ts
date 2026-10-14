@@ -28,6 +28,7 @@ import {
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
 import { renderInlineMarkdown } from '@/presentation/render/markdown/inline-markdown'
 import { calculationItem } from './form-calculation-item'
+import { withRecorderLabel } from './form-recorder-label'
 import type { ResolvedFormField } from './form-field-elements'
 import type { App } from '@/domain/models/app'
 import type { DensityStepName } from '@/domain/models/app/design'
@@ -62,9 +63,8 @@ function resolveActiveLang(languages: Languages, requestedLang: string | undefin
 }
 
 /**
- * Resolve the document `lang` attribute. Falls back to `'en'` when no
- * `languages` block is configured; otherwise reuses the same active-language
- * resolution as `$t:` (requested wins when supported, else fallback ?? default).
+ * Resolve the document `lang`: `'en'` with no `languages` block, else the
+ * `$t:` active language (requested when supported, else fallback ?? default).
  */
 export function resolveDocumentLang(languages: Languages | undefined, activeLang?: string): string {
   if (!languages) return 'en'
@@ -89,13 +89,9 @@ export function resolveFormDensityStep(
 }
 
 /**
- * Resolve a `$t:key` literal (or pass-through plain string) using the
- * app's `languages` configuration. When `languages` is undefined, returns
- * the input unchanged.
- *
- * `activeLang`, when supplied, selects the catalog language (typically the
- * `?lang=` query parameter). It falls back to `languages.default` when
- * omitted, preserving the legacy single-language behaviour.
+ * Resolve a `$t:key` literal (or pass-through plain string) using the app's
+ * `languages`; unchanged without one. `activeLang` (typically `?lang=`)
+ * selects the catalog language, else `languages.default`.
  */
 function resolveText(
   value: string | undefined,
@@ -545,9 +541,11 @@ export function resolveAllFields(
   return form.fields.flatMap((field, index) => {
     const resolved = resolveField(field, table, app.languages, { activeLang, optionSets, index })
     if (resolved === undefined) return []
-    // Help text is translated first, then rendered: a `$t:` value may itself
-    // carry the markdown.
-    const withHelp = { ...resolved, helpTextHtml: renderInlineMarkdown(resolved.helpText) }
+    // Help text is translated first, then rendered: a `$t:` value may carry markdown.
+    const withHelp = {
+      ...withRecorderLabel(resolved, resolveDocumentLang(app.languages, activeLang), app.languages),
+      helpTextHtml: renderInlineMarkdown(resolved.helpText),
+    }
     return [withConditionState(field, withHelp, values)]
   })
 }

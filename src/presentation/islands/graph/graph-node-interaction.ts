@@ -27,42 +27,39 @@ import type { KeyboardEvent } from 'react'
 export const DIMMED_OPACITY = 0.2
 
 /**
- * The four node class strings, spelled out WHOLE.
- *
- * Deliberately a lookup rather than a composed template literal. The first
- * version of this was
- * `` `${muted ? a : b}${selectable ? ' cursor-pointer' : ''}` ``, and the
- * Prettier Tailwind plugin rewrote the interpolation and ate the leading space
- * — emitting `text-foregroundcursor-pointer`, one class that exists nowhere,
- * silently losing BOTH the colour and the cursor. Nothing catches that: it
- * typechecks, it lints, and Tailwind simply never emits a rule for it.
- *
- * Whole literals are also what the CSS candidate corpus can actually see, since
- * it harvests identifiers from source text rather than evaluating it.
+ * The node's look on shadcn/ui's anatomy: a small card (the card ground, ringed
+ * in the hairline `ring-foreground/10` draws), ringed in the ring colour when
+ * selected. A disabled node is drawn at half opacity rather than in a second
+ * ink, so its name keeps its contrast relative to its own box.
  */
 const NODE_CLASS = {
-  plain: 'text-foreground',
-  plainSelectable: 'text-foreground cursor-pointer',
-  muted: 'text-foreground-subtle',
-  mutedSelectable: 'text-foreground-subtle cursor-pointer',
-} as const
-
-export const nodeClassOf = (muted: boolean, selectable: boolean): string => {
-  if (muted) return selectable ? NODE_CLASS.mutedSelectable : NODE_CLASS.muted
-  return selectable ? NODE_CLASS.plainSelectable : NODE_CLASS.plain
+  plain: 'text-card-foreground',
+  selectable: 'text-card-foreground cursor-pointer',
 }
 
-/**
- * The node's own `data-graph-node-state`, or NOTHING when it carries none.
- *
- * The absence is the whole contract and is why this is a function rather than
- * an inline attribute. `GET /api/admin/organisation/graph` omits `state`
- * entirely when the pause ledger could not be read — precisely so that "this
- * automation is running" and "this read could not tell" do not share a spelling
- * — and a renderer defaulting the attribute to `active` would re-collapse the
- * distinction the producer went out of its way to keep. An operator would then
- * read a healthy lane over an outage.
- */
+/** The class of a node's `<g>`. */
+export const nodeClassOf = (selectable: boolean): string =>
+  selectable ? NODE_CLASS.selectable : NODE_CLASS.plain
+
+/** A node's opacity: dimmed by a selection elsewhere, else halved when disabled. */
+export const nodeOpacityOf = (muted: boolean, dimmed: boolean): number => {
+  if (dimmed) return DIMMED_OPACITY
+  return muted ? 0.5 : 1
+}
+
+/** The node box: the card ground, its edge the hairline or, selected, the ring. */
+export const nodeBoxClassOf = (selected: boolean): string =>
+  selected ? 'fill-card stroke-ring' : 'fill-card stroke-foreground/10'
+
+/** A column heading or a band caption: muted, small, medium weight. */
+export const GRAPH_LABEL_CLASS = 'fill-muted-foreground text-xs font-medium'
+
+/** The edges' stroke: the border colour. */
+export const GRAPH_EDGE_CLASS = 'stroke-border'
+
+/** An edge's width: 1.5 at rest, 2 when a selection reaches it. */
+export const edgeWidthOf = (reached: boolean): number => (reached ? 2 : 1.5)
+
 export const stateMark = (state: string | undefined): Readonly<Record<string, string>> =>
   state === undefined ? {} : { 'data-graph-node-state': state }
 

@@ -6,131 +6,67 @@
  */
 
 /**
- * Prestyled-by-default class computer for the `input` component.
- *
- * Schema authors who write the bare `{ type: 'input', placeholder: 'Email' }`
- * now get a complete, opinionated text input — rounded border, surface fill,
- * muted placeholder color, focus ring with offset, error/disabled/readonly
- * visual states — with zero theme-layer dependency.
- *
- * The recipe mirrors the `uiKitInput` fixture in
- * `[internal ref]`. Keeping the recipe here makes
- * the default design land in the PRODUCTION renderer — the fixture emits
- * bare `{ type: 'input' }` schema and the dispatcher composes the className.
- *
- * This module lives in `presentation/utils/design` (NOT `element-renderers`) on
- * purpose — the same reasoning as `form-layout-classes.ts`: `[internal ref]`
- * lets `presentation-component`, `presentation-rendering`, AND `presentation-island`
- * each import `presentation-util`, but an island may NOT import a
- * `presentation-component`. The hand-rolled auth island
- * (`presentation/islands/auth-form-fields.tsx`) needs this recipe to render its
- * native `<input>` consistently with dispatcher-rendered CRUD inputs, so a
- * util-layer home is the one location reachable by all three render contexts with
- * zero boundary friction. The element-renderers `input-default-classes.ts`
- * re-exports these for the existing renderer/registry import sites.
- *
- * Layout / spacing classes (`h-9 px-3 py-2`) stay as raw Tailwind utilities;
- * only color / radius / type-scale / focus-ring classes go through
- * {@link withVarFallback} so `app.design.*` overrides still win at the CSS
- * cascade layer (var lookups resolve `--sv-*` first, fall back to the inline
- * OKLCH literal).
- *
- * The input schema (`form-controls/input.ts`) does not currently expose a
- * `size` or `state` field — `inputType` is the only schema-level discriminator.
- * Visual state is derived by the dispatcher from native HTML attributes carried
- * inside `props` (`disabled`, `readOnly`, `aria-invalid`), matching the way
- * native `<input>` elements expose their interaction state to the browser.
+ * Adapted from shadcn/ui input and textarea (https://ui.shadcn.com), registry commit 30a58d4498f270af1c1e981a7d78a15cf5740841.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
  */
-
-import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 
 /**
- * Visual state computed by the dispatcher from `props.disabled`,
- * `props.readOnly`, and `props['aria-invalid']`. Mirrors the fixture's
- * historical state vocabulary.
+ * Prestyled-by-default class computer for the `input` and `textarea` components,
+ * drawn on shadcn/ui's anatomy (base-nova): the `Input` and `Textarea` class
+ * recipes, verbatim, rendered with `data-slot="input"` / `data-slot="textarea"`.
+ *
+ * The recipe lives in `presentation/design` because three render contexts read
+ * it: the SSR dispatcher, the auth and CRUD form islands, and the record drawer
+ * inputs. An island may not import a server component, so this is the one home
+ * all of them reach.
+ *
+ * shadcn styles every state from the element's own attributes (`disabled`,
+ * `aria-invalid`), so the base recipe already covers them. The `state` argument
+ * is kept for the callers that draw a state the element does not carry as an
+ * attribute (a specimen, a skeleton): it adds the same look the attribute would.
+ * `readonly` has no look of its own in shadcn's anatomy and draws as `default`.
  */
+
+/** Visual state, derived by the dispatcher from `disabled`, `aria-invalid` and `readOnly`. */
 export type InputState = 'default' | 'error' | 'disabled' | 'readonly'
 
 export interface InputDefaultClassesInput {
   readonly state?: InputState
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Per-state recipes — flat record keeps the entrypoint's cyclomatic complexity
-// at 1 (no branching in `computeInputDefaultClasses`).
-// ──────────────────────────────────────────────────────────────────────────────
+/** shadcn/ui `Input`, base-nova. */
+const INPUT_RECIPE =
+  'h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40'
 
-// A field is RAISED, not ground.
-//
-// The canvas' base stylesheet draws `.input` on `#fafafa` (the page ground) but
-// every per-component drawing overrides it to `#fefefe` — and the drawings are
-// what the surface was designed against. Raised is also the argument that
-// survives being stated: a field lighter than its page reads as a place to type,
-// where a field the same colour as the page reads as a printed label with a box
-// around it. `readonly` and `disabled` deliberately do NOT follow it back up:
-// dropping to the well is how a field says it is not a place to type.
-const STATE_BASE: Record<InputState, string> = {
-  default: [
-    `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-    `text-[${v('sv-fg', T.fg)}]`,
-    `border-[${v('sv-border-strong', T.borderStrong)}]`,
-    `placeholder:text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-    `hover:border-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-  ].join(' '),
-  error: [
-    `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-    `text-[${v('sv-fg', T.fg)}]`,
-    `border-[${v('sv-error-solid', T.errorSolid)}]`,
-    `placeholder:text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-    `ring-1 ring-[${v('sv-error-solid', T.errorSolid)}]`,
-  ].join(' '),
-  disabled: [
-    `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-    `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-    `border-[${v('sv-border', T.border)}]`,
-    `placeholder:text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-    'opacity-60 cursor-not-allowed',
-  ].join(' '),
-  readonly: [
-    `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-    `text-[${v('sv-fg', T.fg)}]`,
-    `border-[${v('sv-border-strong', T.borderStrong)}]`,
-    `placeholder:text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  ].join(' '),
-}
-
-// 36px tall, 8px/12px padding, 13px type — the canvas `.input`, and the height
-// `density.controlH` names. `text-base` IS 13px since the platform ladder moved
-// into `--text-*`; it was spelled `text-[0.8125rem]` while `text-base` still
-// meant Tailwind's 16px.
-const LAYOUT = 'block w-full h-9 px-3 py-2 text-base'
-
-const RADIUS = `rounded-[${v('radius-base', T.radiusBase)}]`
-
-const BORDER_BASE = 'border'
-
-const FOCUS = [
-  'focus-visible:outline-none',
-  'focus-visible:ring-2',
-  'focus-visible:ring-offset-2',
-  `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-  `focus-visible:ring-offset-[${v('sv-bg', T.bg)}]`,
-].join(' ')
-
-const MOTION = 'transition-[box-shadow,border-color] duration-150'
+/** shadcn/ui `Textarea`, base-nova. */
+const TEXTAREA_RECIPE =
+  'flex field-sizing-content min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40'
 
 /**
- * Compute the full default className for an input.
- *
- * Composition order: layout → radius → border → state colors → motion →
- * focus. The input paints FLAT (no shadow): it sits in the content flow rather
- * than floating above it, so its border carries the affordance on its own.
- * Author-supplied `props.className` is appended later by the
- * dispatcher via `resolveClasses` and wins same-property conflicts because
- * tailwind-merge drops the loser, NOT because Tailwind v4 emits utilities in
- * source order.
+ * The look a state's attribute would give, for a caller drawing the state
+ * without the attribute. Same utilities as the attribute variants above.
  */
-export const computeInputDefaultClasses = (input: InputDefaultClassesInput = {}): string => {
-  const state = input.state ?? 'default'
-  return [LAYOUT, RADIUS, BORDER_BASE, STATE_BASE[state], MOTION, FOCUS].join(' ')
+const STATE_LOOK: Record<InputState, string> = {
+  default: '',
+  error:
+    'border-destructive ring-3 ring-destructive/20 dark:border-destructive/50 dark:ring-destructive/40',
+  disabled: 'pointer-events-none cursor-not-allowed bg-input/50 opacity-50 dark:bg-input/80',
+  readonly: '',
 }
+
+const withState = (recipe: string, state: InputState): string =>
+  STATE_LOOK[state] === '' ? recipe : `${recipe} ${STATE_LOOK[state]}`
+
+/**
+ * The default className for an input.
+ *
+ * Author-supplied `props.className` is merged later by the dispatcher through
+ * `resolveClasses`, and wins a same-property conflict because tailwind-merge
+ * drops the loser.
+ */
+export const computeInputDefaultClasses = (input: InputDefaultClassesInput = {}): string =>
+  withState(INPUT_RECIPE, input.state ?? 'default')
+
+/** The default className for a textarea; same state contract as the input. */
+export const computeTextareaDefaultClasses = (input: InputDefaultClassesInput = {}): string =>
+  withState(TEXTAREA_RECIPE, input.state ?? 'default')

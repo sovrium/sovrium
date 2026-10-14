@@ -52,14 +52,8 @@
  * first call and reused for subsequent renders.
  */
 
+import { resolveCodeBlockThemes } from '@/domain/models/app/design/code-block-service'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
-
-/**
- * Default Shiki theme used when `app.design.codeBlock.theme` is unset. Matches
- * the test fixture default (`'github-dark'`) so a pages markdown spec and
- * a pages markdown spec hold without explicit configuration.
- */
-const DEFAULT_THEME = 'github-dark'
 
 /**
  * Encode the verbatim source for use inside the un-highlighted fallback
@@ -336,13 +330,10 @@ const PLACEHOLDER_RE =
  * supplied HTML. Returns the composed HTML — input is returned verbatim when
  * `codeBlocks` is empty (no fenced blocks in the source).
  *
- * The active theme is taken from `design.codeBlock.theme`; an unset value or a
- * missing `design.codeBlock` block defaults to `DEFAULT_THEME` so spec fixtures
- * that omit `design.codeBlock` still get colorisation.
- *
- * `darkTheme` is `design.codeBlock.darkTheme`, and omitting it is an answer
- * rather than a gap: one theme then governs both colour schemes, exactly as
- * before the key existed.
+ * The themes are `design.codeBlock.theme` and `.darkTheme`, resolved by
+ * `resolveCodeBlockThemes`: an app naming no theme gets the engine's
+ * `github-light`/`github-dark` pair, and an app naming one theme without a
+ * `darkTheme` keeps that one theme for both colour schemes.
  */
 export const highlightCodeBlocks = async (
   html: string,
@@ -351,8 +342,8 @@ export const highlightCodeBlocks = async (
   darkTheme?: string
 ): Promise<string> => {
   if (codeBlocks.length === 0) return html
-  const activeTheme = theme && theme.length > 0 ? theme : DEFAULT_THEME
-  const palette = shikiPaletteOptions(activeTheme, darkTheme)
+  const themes = resolveCodeBlockThemes(theme, darkTheme)
+  const palette = shikiPaletteOptions(themes.theme, themes.darkTheme)
   const codeToHtml = await getShikiForTheme(palette.key)
 
   // Highlight every block once up-front so the `replace` callback is sync
@@ -390,8 +381,8 @@ export const highlightCodeToHtml = async (
   theme: string | undefined,
   darkTheme?: string
 ): Promise<string> => {
-  const activeTheme = theme && theme.length > 0 ? theme : DEFAULT_THEME
-  const palette = shikiPaletteOptions(activeTheme, darkTheme)
+  const themes = resolveCodeBlockThemes(theme, darkTheme)
+  const palette = shikiPaletteOptions(themes.theme, themes.darkTheme)
   const codeToHtml = await getShikiForTheme(palette.key)
   return highlightOne(codeToHtml, lang, code, palette)
 }

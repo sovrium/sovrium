@@ -7,7 +7,7 @@
 
 /**
  * A list item opens its record the way a grid row does: the list's
- * `onRowClick` is the grid's — `openDrawer` opens the named drawer on the
+ * `onRowClick` is the grid's — `openSheet` opens the named drawer on the
  * item's record (the drawer then names itself and the record in the address,
  * `?record=<id>&drawer=<id>` — [internal ref]), `navigate` follows a path with the
  * item's `$record.*` values, and `fill` writes one of them into a form control
@@ -49,7 +49,7 @@ function runRowClick(click: RowClick, record: Row, table: string | undefined): v
     fillFromCard(click, record)
     return
   }
-  if (click.action === 'openDrawer' && typeof click.component === 'string') {
+  if (click.action === 'openSheet' && typeof click.component === 'string') {
     openCardDrawer(click.component, record, table)
   }
 }

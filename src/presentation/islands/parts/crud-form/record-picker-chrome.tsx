@@ -5,14 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeBadgeClasses } from '@/presentation/design/badge-default-classes'
+import {
+  computeFieldDescriptionClasses,
+  computeFieldLabelClasses,
+} from '@/presentation/design/field-default-classes'
 import { fieldDescribedBy, fieldDescriptionId } from '@/presentation/design/field-display'
 import {
   computeFormControlClasses,
-  computeFormFieldClasses,
-  computeFormFieldLabelClasses,
   computeFormHelpTextClasses,
 } from '@/presentation/design/form-layout-classes'
-import { computeBadgeClasses } from '@/presentation/design/navbar-default-classes'
 import {
   LOAD_MORE_LABEL,
   RECORD_PICKER_COPY,
@@ -48,7 +50,7 @@ export function LinkedChips(props: {
           <button
             type="button"
             aria-label={`Remove ${props.labelOfId(id)}`}
-            className="text-foreground-muted hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground"
             onClick={() => props.onRemove(id)}
           >
             ×
@@ -59,25 +61,32 @@ export function LinkedChips(props: {
   )
 }
 
-/** The label + control stack every crud-form field shares. */
+/** A field's label, its control and its description, laid into the field that holds them. */
 export function FieldShell(props: {
   readonly field: FieldDef
   readonly inputId: string
   readonly children: ReactNode
 }): ReactElement {
   return (
-    <div className={`${computeFormFieldClasses()} ${computeFormFieldLabelClasses()}`}>
-      <label htmlFor={props.inputId}>{labelOf(props.field)}</label>
+    <>
+      <label
+        data-slot="field-label"
+        htmlFor={props.inputId}
+        className={computeFieldLabelClasses()}
+      >
+        {labelOf(props.field)}
+      </label>
       {props.children}
       {props.field.description !== undefined && (
         <small
           id={fieldDescriptionId(props.field.name)}
-          className={`help-text font-normal ${computeFormHelpTextClasses()}`}
+          data-slot="field-description"
+          className={`help-text ${computeFieldDescriptionClasses()}`}
         >
           {props.field.description}
         </small>
       )}
-    </div>
+    </>
   )
 }
 
@@ -129,7 +138,7 @@ export function SuggestionsPopup(props: {
           // does not close this popup before the click lands on it.
           onMouseDown={(e) => e.preventDefault()}
           onClick={search.loadMore}
-          className="border-border bg-background-raised text-foreground-muted hover:bg-background-subtle -mt-px w-full border-x border-b py-1 text-center text-sm"
+          className="border-border bg-card text-muted-foreground hover:bg-muted -mt-px w-full border-x border-b py-1 text-center text-sm"
         >
           {LOAD_MORE_LABEL}
         </button>

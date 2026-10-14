@@ -137,16 +137,19 @@ const renderRow = ({
   return (
     <div
       key={index}
+      data-slot="description-list-item"
       data-description-row=""
-      className={computeDescriptionRowClasses({ layout })}
+      className={computeDescriptionRowClasses({ layout, dividers })}
     >
-      <dt className={computeDescriptionTermClasses({ layout, dividers })}>{item.term}</dt>
+      <dt
+        data-slot="description-list-term"
+        className={computeDescriptionTermClasses()}
+      >
+        {item.term}
+      </dt>
       <dd
-        className={computeDescriptionDetailClasses({
-          layout,
-          dividers,
-          withAction: item.action !== undefined,
-        })}
+        data-slot="description-list-detail"
+        className={computeDescriptionDetailClasses({ withAction: item.action !== undefined })}
       >
         {detail === undefined ? (
           <span
@@ -160,9 +163,10 @@ const renderRow = ({
         )}
         {item.action === undefined ? undefined : (
           <a
+            data-slot="description-list-action"
             data-description-action=""
             href={item.action.href}
-            className={computeDescriptionActionClasses({ layout, dividers })}
+            className={computeDescriptionActionClasses()}
           >
             {item.action.label}
           </a>
@@ -202,7 +206,10 @@ export const descriptionListComponent: ComponentRenderer = ({
         authorClassName as string | undefined
       )}
     >
-      <dl className={computeDescriptionListClasses({ layout })}>
+      <dl
+        data-slot="description-list"
+        className={computeDescriptionListClasses({ layout })}
+      >
         {items.map((item, index) => renderRow({ item, index, layout, dividers, context }))}
       </dl>
     </div>

@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeTableCheckboxControlClasses } from '@/presentation/design/table-default-classes'
 import { RatingScale } from '../../parts/rating-scale'
 import { readsAsTrue } from '../../runtime/cell-value-semantics'
+import { GridCheckbox } from '../selection/grid-checkbox'
 import type { FieldMeta, FieldWriteValue } from '../../hooks/use-inline-editing'
 import type { ReactElement } from 'react'
 
@@ -37,12 +37,11 @@ export function CheckboxCellControl({
 }): ReactElement {
   const checked = readsAsTrue(value)
   return (
-    <input
-      type="checkbox"
+    <GridCheckbox
+      interactive
       aria-label={label}
       checked={checked}
       onChange={() => commit(!checked)}
-      className={computeTableCheckboxControlClasses({ interactive: true })}
     />
   )
 }

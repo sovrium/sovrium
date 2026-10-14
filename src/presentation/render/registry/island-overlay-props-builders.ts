@@ -12,6 +12,7 @@ import {
 } from '@/domain/models/app/languages/translation-resolver'
 import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
 import { openerProp } from '@/presentation/render/resolve/overlay-triggers'
+import { splitSlots } from '../elements/slot-children'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
@@ -25,6 +26,12 @@ export const overlayCloseLabel = (context: {
   readonly currentLang?: string
   readonly languages?: Languages
 }): string => resolveInterpreterString('dialog.close', context.currentLang, context.languages)
+
+/** The name of an overlay that declares no title, in the page language (`dialog.label`). */
+export const overlayUntitledLabel = (context: {
+  readonly currentLang?: string
+  readonly languages?: Languages
+}): string => resolveInterpreterString('dialog.label', context.currentLang, context.languages)
 
 /**
  * Reads a top-level component field, falling back to the same key in
@@ -102,6 +109,13 @@ export function withResolvedMenuItemIcons(menuItems: unknown): unknown {
 }
 
 /** Builds the props payload for the `alert-dialog` island. */
+/** An alert dialog's size, and its icon as serializable geometry so the island ships no icon set. */
+const alertIconProps = (size: unknown, icon: unknown) => {
+  const iconNode = resolveLucideIconNode(typeof icon === 'string' ? icon : undefined)
+  const sized = { size: size === 'sm' ? 'sm' : 'default' }
+  return iconNode === undefined ? sized : { ...sized, iconNode, iconName: icon as string }
+}
+
 export function buildAlertDialogProps(
   rawProps: Record<string, unknown> | undefined,
   elementProps: Record<string, unknown>,
@@ -127,6 +141,7 @@ export function buildAlertDialogProps(
     action: withBoundRecordId(comp['action'] ?? rawProps?.['action'], rawProps, routeParams),
     // Already substituted (`$record.name`, `$session.email`) by the page pass.
     confirmText: pickAlertField(comp, rawProps, 'confirmText'),
+    ...alertIconProps(comp['size'], comp['icon']),
     className: elementProps['className'],
     id: elementProps['id'],
     'data-testid': elementProps['data-testid'],
@@ -319,6 +334,20 @@ export function buildDropdownMenuProps(
 }
 
 /** Builds the props payload for the `drawer` island. */
+/** A sheet's body and footer, each as markup the island injects. */
+const sheetMarkup = (component: Component | undefined, rendered: readonly ReactElement[]) => {
+  const slots = splitSlots('sheet', component, rendered)
+  const html = (nodes: readonly ReactElement[] | undefined) =>
+    (nodes ?? []).map((node) => renderToStaticMarkup(node)).join('')
+  return { childrenHtml: html(slots['$children']), footerHtml: html(slots['footer']) }
+}
+
+/** The footer and the close-button switch, each only when declared. */
+const sheetChrome = (comp: Record<string, unknown> | undefined, footerHtml: string) => ({
+  ...(footerHtml === '' ? {} : { footerHtml }),
+  ...(comp?.['showCloseButton'] === false ? { showCloseButton: false } : {}),
+})
+
 export function buildDrawerProps(
   rawProps: Record<string, unknown> | undefined,
   elementProps: Record<string, unknown>,
@@ -326,7 +355,7 @@ export function buildDrawerProps(
   renderedChildren: readonly ReactElement[]
 ) {
   const comp = component as Record<string, unknown> | undefined
-  const childrenHtml = renderedChildren.map((c) => renderToStaticMarkup(c)).join('')
+  const { childrenHtml, footerHtml } = sheetMarkup(component, renderedChildren)
   // PG-04: if `resolveOpenDrawerDispatches` tagged this drawer with
   // `_openDrawerDispatchedById`, override the default `open=true` so the
   // hydrated island stays closed until the data-table dispatches a
@@ -347,6 +376,7 @@ export function buildDrawerProps(
     drawerSide: pickCompField<string>(comp, rawProps, 'drawerSide'),
     drawerSize: pickCompField<string>(comp, rawProps, 'drawerSize'),
     childrenHtml,
+    ...sheetChrome(comp, footerHtml),
     ...(defaultOpen !== undefined ? { defaultOpen } : {}),
     className: elementProps['className'],
     id: resolvedId,

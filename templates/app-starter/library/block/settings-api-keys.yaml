@@ -17,7 +17,7 @@ children:
       - type: text
         element: p
         props:
-          className: text-md text-foreground-muted
+          className: text-md text-muted-foreground
         content: Keys let a script or another tool act as you through the API.
   - type: container
     element: section
@@ -40,7 +40,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-md text-foreground-muted
+                  className: text-md text-muted-foreground
                 content: Revoke a key the moment you stop using it.
           - type: button
             props:
@@ -50,7 +50,7 @@ children:
                   modal: settings-api-keys-create
       - type: container
         props:
-          className: flex flex-col divide-y rounded-lg border bg-background-raised divide-border border-border
+          className: flex flex-col divide-y rounded-lg border bg-card divide-border border-border
         children:
           - type: container
             props:

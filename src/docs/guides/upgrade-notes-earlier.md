@@ -4,6 +4,136 @@
 
 [Upgrade and roll back](/en/docs/upgrade-rollback) carries the procedure and the notes for the most recent releases. When you skip versions, read every section between the version you run and the one you move to, newest first, and run `sovrium validate` with the new version before you restart. `sovrium changelog --since <the version you run>` lists the breaking changes of the whole span.
 
+## Upgrading from 0.30 to 0.31
+
+The view and form removals below are refused on 0.31 without a release in which they first warned: they were decided before Sovrium started giving one release of notice for a removal. From the next release on, a user-facing key that is going away first keeps validating for one release — `sovrium validate` and `sovrium start` print a warning naming its replacement and the release that will refuse it — and is refused only after that. For these two, run `sovrium validate` with 0.31 before you restart, and rewrite each key it refuses with the `Removed | Replace with` tables of the two sections below.
+
+### Views belong to the table, and every data component binds to one or to the table
+
+**A way of looking at a table is configuration declared on the table, never a feature of a page component and never something a reader saves.** A data component — `table`, `kanban`, `calendar`, `gallery`, `list`, `chart`, `kpi` — binds either to one of the table's `views[]` with `dataSource: { table, view }`, or directly to the table with `dataSource: { table }`. A board, a calendar and a grid of the same records are three components, each with its own binding. See [Views](/en/docs/table-views) and [Tables & Filter Bars](/en/docs/data-components).
+
+Each of these validated on 0.30 and is refused by `sovrium validate` and at startup on 0.31, with a message naming the replacement:
+
+| Removed                                                               | Replace with                                                                                                    |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `views` on a `table` (the grid / board / calendar / gallery switcher) | A `kanban`, `calendar` or `gallery` component beside the grid, each with its own `dataSource`                   |
+| `viewLabels` on a `table`                                             | Nothing — there is no switcher to label; give each component its own heading                                    |
+| `kanbanGroupBy` on a `table`                                          | `kanbanGroupBy` on a `kanban` component bound to the same table or view                                         |
+| `dateField` on a `table`                                              | `dateField` on a `calendar` component bound to the same table or view                                           |
+| `groupBy` on a `table`                                                | `groupBy` on one of the table's `views[]` (it now takes `thenBy` and `collapsed`), bound with `dataSource.view` |
+| `toolbar.viewSwitcher`                                                | Separate `kanban`, `calendar` or `gallery` components                                                           |
+| `toolbar.views` (the saved-views menu)                                | One of the table's `views[]`, bound with `dataSource.view`                                                      |
+| `toolbar.columnToggle`                                                | The grid's `columns`, or the `fields` of the view it binds                                                      |
+| `toolbar.density`                                                     | The grid's `rowHeight`                                                                                          |
+| `toolbar.groupBy` (the runtime group-by picker)                       | `groupBy` on one of the table's `views[]`                                                                       |
+
+A `dataSource.filter`, `dataSource.sort` or `dataSource.fields` written beside `dataSource.view` is refused too, naming the view: the view owns the filter, the sort, the grouping and the visible fields. Keep them on a component bound directly to the table. To move a grid's grouping, declare it on a view and point the grid at that view:
+
+```yaml
+# 0.30
+- type: table
+  dataSource: { table: deals }
+  groupBy: { field: stage, thenBy: [{ field: owner }] }
+
+# 0.31
+tables:
+  - name: deals
+    views:
+      - id: deals_by_stage
+        name: Deals by stage
+        groupBy: { field: stage, thenBy: [{ field: owner }] }
+pages:
+  - components:
+      - type: table
+        dataSource: { table: deals, view: deals_by_stage }
+```
+
+**Readers' saved views are gone, with their data.** The saved-views menu, sharing a saved view by link, and the per-reader table preferences (column widths, row density) are removed, together with their API routes under `/api/tables/:table/user-views`, `/api/shared-views/:id` and `/api/tables/:table/user-preferences`, and their two database tables, which the first start of 0.31 drops. Export anything a reader saved there before upgrading if you need to keep it; nothing reads it afterwards. A reader's search, filters and sort from a grid's toolbar still work and last for the visit: they are stored nowhere, neither on the server nor in the browser. **A grid bound to a view is editable by a reader the table lets write.** It reads through the view and writes to the table's records, on the fields the view shows; a reader without write access, and a visitor on a public view, still get a read-only grid. Export stays off on a view-bound grid.
+
+### Two form surfaces, one job each: the page `form` no longer creates records
+
+**A top-level `forms[]` entry takes something in; the page `form` component works on data already inside the app.** To let someone add a record from inside an app page — on the page, in a dialog, in a tab — declare the form in `forms[]` with `submitTo.table` and place it with `formRef`. The page `form` keeps editing the record a page shows (`dataSource` in `mode: single` with a `crud` update action), posting to an `endpoint` of your own, the sign-in and sign-up forms, `formRef` itself, `layout`, and per-field `label`, `description`, `placeholder`, `readOnly`, `disabled`, `hidden`, `defaultValue`, `control`, `options` and `optionsSource`. See [Forms Overview](/en/docs/forms-overview) and [The Form Component](/en/docs/data-components-forms).
+
+Each of these validated on 0.30 and is refused by `sovrium validate` and at startup on 0.31, with a message naming the replacement:
+
+| Removed from the page `form`                                             | Replace with                                                                           |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `action: { type: crud, operation: create }` on a `form`                  | A `forms[]` entry with `submitTo.table`, placed with `formRef`                         |
+| `onSuccess.type: reset` and `onSuccess.type: successPage` of that create | `forms[].onSuccess` with `type: reset` or `type: successPage`                          |
+| `wizard`                                                                 | `forms[].layout: multi-step` with `steps[]`                                            |
+| `fieldGroups`                                                            | `forms[].fieldGroups`                                                                  |
+| `fields[].visibleWhen`, `fields[].requiredWhen`, `fields[].disabledWhen` | The same keys on `forms[].fields[]`                                                    |
+| `fields[].accept`, `fields[].dropZone`, `fields[].maxFiles`              | An attachment field of a `forms[]` entry, with the same keys                           |
+| `inlinePrefill` on a form declared in place (one without `formRef`)      | `inlinePrefill` on the `form` component that places the `forms[]` entry with `formRef` |
+
+An attachment column on an edit form still draws its default upload control; only the upload options moved. To move a create form, lift its fields into a `forms[]` entry and leave a `formRef` where it was:
+
+```yaml
+# 0.30
+pages:
+  - name: Project
+    path: /projects/:id
+    dataSource: { table: projects, mode: single, param: id }
+    components:
+      - type: form
+        dataSource: { table: tasks }
+        fields:
+          - { field: title }
+          - { field: project }
+        inlinePrefill: { prefill: { project: $parent.id }, lockPrefill: true }
+        action:
+          type: crud
+          operation: create
+          table: tasks
+          onSuccess: { toast: { message: Task added, variant: success } }
+
+# 0.31
+forms:
+  - id: 1
+    name: new-task
+    title: New task
+    submitTo: { table: tasks }
+    fields:
+      - { kind: table-field, column: title }
+      - { kind: table-field, column: project }
+    onSuccess: { type: toast, variant: success, message: Task added }
+pages:
+  - name: Project
+    path: /projects/:id
+    dataSource: { table: projects, mode: single, param: id }
+    components:
+      - type: form
+        formRef: new-task
+        inlinePrefill: { prefill: { project: $parent.id }, lockPrefill: true }
+```
+
+**A submission made through a `formRef` embed no longer lands in the Submissions inbox.** On 0.30 every submission wrote a row to the built-in submission ledger, wherever it was made. On 0.31 a submission made through a `formRef` embed on an app page writes its table row and runs its automation, but writes no ledger row unless the form declares `submitTo.storeSubmission: true`. The form's own route still stores by default, and `storeSubmission: false` stores on neither. A form with `availability.maxSubmissions` keeps writing its row on every surface, because the cap is counted in the ledger. Where no row is written, `$submission.id` is empty in the success message and redirect. Add `storeSubmission: true` to any embedded form whose submissions you triage in the inbox. The OpenAPI document no longer lists `GET /forms/{formSlug}/embed`. That route had served nothing since the iframe embed was removed; a form is placed on a page with `formRef`.
+
+### Values from requests and records are encoded where an automation places them
+
+No config key changes and every config that validated on 0.30 still validates. What changes is the text an automation builds from data it did not write — a webhook body, a form submission, a record:
+
+| Where the value lands                           | On 0.30                              | On 0.31                                                                               |
+| ----------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------- |
+| `email/send` `to`, `cc`, `bcc`, `replyTo`       | Sent as written, separators included | Exactly one address per value or list item, else the step fails and nothing is sent   |
+| `email/send` `from`                             | Any template                         | Written in the config or `$env.`; a value from run data fails the step                |
+| `email/send` `body`                             | Inserted as markup                   | Shown as text; rich text through `{{{safeHtml value}}}`                               |
+| An `http/*` or `webhook/send` `url`             | Inserted as it is                    | One path segment or one query value; a multi-segment path through `{{urlPath value}}` |
+| A string body sent as JSON                      | Inserted as it is                    | Escaped as the content of a JSON string                                               |
+| A `webhook/response` or `trigger.response` body | `<`, `>`, `&` sent as is             | Written as `\u003c`, `\u003e`, `\u0026` — the same value to a JSON parser             |
+
+Before you restart, look for automations that place markup from data in an email body on purpose (wrap the value in `safeHtml`) or a nested path in a URL (use `urlPath`, a `query` object, or a URL that is a single template).
+
+### A component's translation and prop keys are reported by name
+
+A key under a component's `i18n` must be a language code (`fr`, `fr-FR`), and a key under its `props` a camelCase property name or a kebab-case `data-*` or `aria-*` attribute. Such a mistake already stopped `sovrium validate` and startup on 0.30, but was reported as an unknown property with an empty list of accepted keys. On 0.31 each mistyped key is named with the spelling it must match, all of them in the same run:
+
+```text
+Language code must be two lowercase letters, optionally followed by a hyphen and a two-letter uppercase region (pattern ^[a-z]{2}(-[A-Z]{2})?$, e.g. fr, fr-FR)
+```
+
+The same holds for every other map whose keys follow a rule: the language codes and keys of `languages.translations`, a page's `meta.i18n` languages and the attribute names of its `meta.customElements`, its `scripts.features` flags, a component's breakpoint `responsive.<size>.props` and a reused block's `vars`, and the face names of `design.typeScale.families`. Each mistyped key is refused as `Key '<key>' is not accepted`, followed by the rule it breaks, at its own path. A config that validated on 0.30 is unaffected. A program that decodes a component outside the CLI, through the published JSON Schema, now sees the key pattern as `propertyNames` instead of `patternProperties`, so a mistyped key fails there too rather than passing unchecked.
+
 ## Upgrading from 0.29 to 0.30
 
 ### Public pages in an app with `auth`

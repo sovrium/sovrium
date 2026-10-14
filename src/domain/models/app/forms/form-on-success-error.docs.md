@@ -37,6 +37,28 @@ A union discriminated by `type`.
 
 `delaySeconds` on a redirect defaults to `2`, and `0` navigates immediately.
 
+### A toast and a close beside the type
+
+`type` is the one thing a form does once it has been sent. Beside it, every variant may add a `toast` — a confirmation shown before the redirect leaves and again, once, on the page it lands on — or as the form clears — and `close`, which decides whether the dialog, drawer or popover the form sits in closes. They run in one order: the toast, then the close, then the `type`.
+
+Left unset, `close` keeps the habit a form has: one that writes a table record closes the dialog it sits in, one that writes none leaves it open. `close: true` always closes it, which is what a contact or feedback form in a dialog needs; `close: false` never does, for an "add another" dialog that clears for the next entry:
+
+```yaml
+forms:
+  - name: add-ingredient
+    submitTo: { table: ingredients }
+    fields:
+      - { kind: table-field, column: name, required: true }
+      - { kind: table-field, column: supplier }
+    onSuccess:
+      type: reset
+      preserveFields: [supplier]
+      toast: { message: Ingredient added }
+      close: false
+```
+
+Three pairings are refused when the configuration is read: a `toast` on `type: toast`, which already is one; a `toast` beside a reset's own `message`, which already confirms the reset; and `close: true` beside a success page, which would be closed before anyone read it. A redirect with `delaySeconds: 0` leaves before its toast can be read.
+
 A form sends its visitor to a web page or to this site, and nowhere else. An address is an `http://` or `https://` address, or a path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`); the scheme is written out, never filled in by a template variable, and a `$t:` address is checked in every language. `sovrium validate` refuses any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — naming the field, and a server refuses to start on one. A thank-you page on another site works: write its full `https://` address. The same rule holds for a success-page button's `url`, its `buttonHref`, a closed form's link, and the `navigate` and `redirect` of a page form's or a button's action.
 
 Omit `onSuccess` entirely and the form falls back to a success toast reading "Submitted." — a sane default, and rarely the one you want in production.

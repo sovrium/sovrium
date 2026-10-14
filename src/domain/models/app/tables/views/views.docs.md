@@ -60,7 +60,7 @@ filters:
 
 ## Showing a view on a page
 
-Every data component that reads a table — `table`, `kanban`, `calendar`, `gallery`, `list`, `chart`, `kpi` — binds either to one of the table's views or directly to the table, through `dataSource`:
+Every data component that reads a table — `table`, `kanban`, `event-calendar`, `gallery`, `list`, `chart`, `kpi` — binds either to one of the table's views or directly to the table, through `dataSource`:
 
 ```yaml
 tables:
@@ -81,7 +81,7 @@ pages:
       - type: kanban
         dataSource: { table: tasks, view: open_by_stage }
         kanbanGroupBy: { field: stage }
-      - type: calendar
+      - type: event-calendar
         dataSource: { table: tasks, view: open_by_stage }
         dateField: due_date
 ```

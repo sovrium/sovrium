@@ -167,6 +167,8 @@ export interface DataTableIslandProps {
    */
   readonly saveLabel?: string
   readonly cancelLabel?: string
+  /** How the action column draws its actions; `inline` when absent. */
+  readonly rowActions?: { readonly display?: 'inline' | 'menu' }
   /**
    * The grid's other interface strings (toolbar, pager, search default,
    * add-row), resolved server-side and sent only where they differ from the
@@ -183,7 +185,7 @@ export interface DataTableIslandProps {
    *
    * - `{ type: 'navigate', path }` — the path may contain `$record.<field>`
    *   tokens substituted at click time against the clicked row's data.
-   * - `{ action: 'openDrawer', component }` — dispatches a
+   * - `{ action: 'openSheet', component }` — dispatches a
    *   `sovrium:open-drawer` CustomEvent so the named drawer island opens.
    *   Note: discriminated by `action` (not `type`) per the schema.
    *

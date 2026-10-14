@@ -16,7 +16,8 @@
  * This module compiles the same theme-aware source CSS using Tailwind v4's
  * pure-JavaScript `compile()` engine instead — no native addons at runtime:
  *
- *   - `@import 'tailwindcss'` / `@import 'tw-animate-css'` are resolved from
+ *   - `@import 'tailwindcss'` / `@import 'tw-animate-css'` /
+ *     `@import 'shadcn/tailwind.css'` are resolved from
  *     stylesheet constants embedded at build time (`generated-css-assets.ts`),
  *     since the binary has no node_modules.
  *   - The engine is *candidate-driven*: it only emits a utility's CSS if that
@@ -42,6 +43,7 @@ import {
 } from '@/domain/models/app/design/components'
 import {
   BUILTIN_CSS_CANDIDATES,
+  SHADCN_TAILWIND_CSS,
   TAILWIND_INDEX_CSS,
   TW_ANIMATE_CSS,
 } from '@/infrastructure/css/generated-css-assets'
@@ -66,9 +68,10 @@ img, picture, video, canvas, svg { display: block; max-width: 100%; }
 /**
  * Resolve a stylesheet referenced by an `@import` in the source CSS.
  *
- * `buildSourceCSS` only imports `tailwindcss` and `tw-animate-css`, and both
- * upstream stylesheets are self-contained (no nested `@import`s), so this
- * resolver handles exactly those two ids from embedded constants.
+ * `buildSourceCSS` only imports `tailwindcss`, `tw-animate-css` and
+ * `shadcn/tailwind.css`, and all three upstream stylesheets are self-contained
+ * (no nested `@import`s), so this resolver handles exactly those three ids from
+ * embedded constants.
  */
 const loadStylesheet = (
   id: string
@@ -79,10 +82,13 @@ const loadStylesheet = (
   if (id === 'tw-animate-css') {
     return Promise.resolve({ path: id, base: '/', content: TW_ANIMATE_CSS })
   }
+  if (id === 'shadcn/tailwind.css') {
+    return Promise.resolve({ path: id, base: '/', content: SHADCN_TAILWIND_CSS })
+  }
   return Promise.reject(
     new Error(
       `Native-free CSS compiler cannot resolve @import '${id}'. ` +
-        'Only tailwindcss and tw-animate-css are embedded in the binary.'
+        'Only tailwindcss, tw-animate-css and shadcn/tailwind.css are embedded in the binary.'
     )
   )
 }

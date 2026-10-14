@@ -134,9 +134,9 @@
 // once. The other way round does not work at all.
 //
 // It costs the list view one in-process read of the reflection envelope it does
-// not render (~20ms, measured). It does NOT cost the list view that envelope's
-// bytes: `appJson` only reaches the wire where the code block below actually
-// renders, which is `?view=current&family=overview` and nowhere else.
+// not render (~20ms, measured). It does NOT cost any view that envelope's
+// bytes: no node binds `appJson` — the overview summarises the counts and hands
+// the document over through `Export JSON`, so it reaches the wire nowhere.
 //
 // ─── A LIVE DATA DEFECT THIS PAGE DISPLAYS FAITHFULLY ──────────────────────
 //
@@ -154,11 +154,11 @@ import { withShell } from '../../components/shell'
 import {
   CONFIG_DECLARATIONS_ENDPOINT,
   CONFIG_REFLECTION_ENDPOINT,
-  CONFIG_SCHEMA_ENDPOINT,
   RELEASES_ENDPOINT,
   RELEASE_DETAIL_ENDPOINT,
   RELEASE_DETAIL_ROWS_ENDPOINT,
 } from '../../system-sources'
+import { rawConfigCard } from './changelog-raw-config'
 import type { Page as PageConfig } from '@/domain/models/app'
 
 /** One node of a page's component tree, as the config type expresses it. */
@@ -215,7 +215,7 @@ const card = (children: readonly PageComponent[]): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className: 'border-border bg-background-raised flex flex-col gap-3 rounded-lg border p-5',
+      className: 'border-border bg-card flex flex-col gap-3 rounded-lg border p-5',
     },
     children,
   }) as PageComponent
@@ -282,7 +282,7 @@ const timelineRow = (): PageComponent =>
       href: '/changelog/$record.configHash',
       'data-testid': 'changelog-release-row',
       className:
-        'border-border bg-background-raised hover:bg-background-subtle flex flex-col gap-1 rounded-lg border px-3 py-3 transition-colors',
+        'border-border bg-card hover:bg-muted flex flex-col gap-1 rounded-lg border px-3 py-3 transition-colors',
     },
     children: [
       // The identity line: what booted, when, and whether it is the newest row.
@@ -324,7 +324,7 @@ const timelineRow = (): PageComponent =>
         ],
       } as PageComponent,
       // What changed, in the words the capture generated.
-      text('span', 'text-foreground-muted text-md', '$record.summary'),
+      text('span', 'text-muted-foreground text-md', '$record.summary'),
       // The shape of it: four facts, each a figure beside its own noun.
       //
       // Every fact is TWO spans, never one string. A `$t:` token resolves only
@@ -421,7 +421,7 @@ const currentConfigLink = (): PageComponent =>
     props: {
       href: `/changelog?view=${VIEW_CURRENT}`,
       'data-testid': 'changelog-to-current',
-      className: 'text-foreground-muted hover:text-foreground text-sm underline',
+      className: 'text-muted-foreground hover:text-foreground text-sm underline',
     },
   }) as PageComponent
 
@@ -442,9 +442,9 @@ const ledgerView = (): PageComponent =>
 
 /** The class of an unselected family chip, and of the one being read. */
 const CHIP =
-  'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-foreground-muted transition-colors hover:bg-background-subtle hover:text-foreground'
+  'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
 const CHIP_CURRENT =
-  'flex items-center gap-1.5 rounded-md bg-background-subtle px-2.5 py-1 text-sm font-medium text-foreground'
+  'flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-sm font-medium text-foreground'
 
 /**
  * One family chip: a real LINK to `?view=current&family=<id>`, marked current by
@@ -534,7 +534,7 @@ const provenanceCard = (): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className: 'border-border bg-background-raised flex flex-col gap-1 rounded-lg border p-4',
+      className: 'border-border bg-card flex flex-col gap-1 rounded-lg border p-4',
       'data-testid': 'config-schema-provenance',
     },
     children: [
@@ -546,59 +546,6 @@ const provenanceCard = (): PageComponent =>
       ),
     ],
   }) as PageComponent
-
-/**
- * Save the decoded, redacted configuration as a file.
- *
- * `mode: 'download'` issues a CREDENTIALED fetch and saves the blob, which is
- * what an `/api/admin/*` path needs — a bare `<a download>` routes through the
- * browser's download manager, sends no session cookie, and would save a 404 body
- * under a confident filename.
- *
- * The url is `/api/…`, which the mount walk SKIPS by design, so it is absolute
- * and correct under any base the console is mounted at.
- *
- * It downloads `config/schema` rather than `config/reflection`: the first IS the
- * configuration, the second wraps it in an envelope of counts that belong to this
- * page rather than to the file an operator pastes into a bug report.
- */
-const exportConfigButton = (): PageComponent =>
-  ({
-    type: 'button',
-    // A LITERAL. `button.label` is read out of the component by the renderer
-    // rather than resolved on the translation path, so a `$t:` token here
-    // reaches the DOM as its own text — measured at 375, the control printed
-    // `$t:admin.schema.raw.export`. Same trap as `kpi.label` and a tab caption.
-    label: 'Export JSON',
-    variant: 'secondary',
-    props: { type: 'button', 'data-testid': 'config-schema-export' },
-    action: {
-      type: 'fetch',
-      mode: 'download',
-      url: CONFIG_SCHEMA_ENDPOINT,
-      filename: 'app-config.json',
-    },
-  }) as PageComponent
-
-/**
- * The raw configuration as a first-class code block — monospace, JSON
- * attribution, and the shared copy affordance. What an operator actually does
- * with it is paste it into a bug report or diff it against git by hand.
- */
-const rawConfigCard = (): PageComponent =>
-  card([
-    {
-      type: 'container',
-      element: 'div',
-      props: { className: 'flex flex-wrap items-center justify-between gap-2' },
-      children: [sectionLabel('$t:admin.schema.raw.heading'), exportConfigButton()],
-    } as PageComponent,
-    {
-      type: 'code',
-      props: { language: 'json', 'data-testid': 'config-schema-raw' },
-      content: '$record.appJson',
-    } as PageComponent,
-  ])
 
 /** One declaration row: its identifier, and the parts it is composed of. */
 const declarationRow = (): PageComponent =>
@@ -644,7 +591,7 @@ const familyPane = (): PageComponent =>
         type: 'list',
         props: {
           className:
-            'border-border divide-border bg-background-raised divide-y overflow-hidden rounded-lg border',
+            'border-border divide-border bg-card divide-y overflow-hidden rounded-lg border',
         },
         dataSource: {
           system: {
@@ -674,10 +621,10 @@ const overviewPane = (): PageComponent =>
       provenanceCard(),
       text(
         'p',
-        'text-foreground-muted max-w-2xl text-md leading-relaxed',
+        'text-muted-foreground max-w-2xl text-md leading-relaxed',
         '$t:admin.schema.overview.body'
       ),
-      rawConfigCard(),
+      rawConfigCard(FAMILIES),
     ],
   }) as PageComponent
 
@@ -689,7 +636,7 @@ const backToLedger = (): PageComponent =>
     props: {
       href: '/changelog',
       'data-testid': 'changelog-back',
-      className: 'text-foreground-muted hover:text-foreground text-sm underline',
+      className: 'text-muted-foreground hover:text-foreground text-sm underline',
     },
   }) as PageComponent
 
@@ -817,8 +764,7 @@ const bootRail = (): PageComponent =>
     props: {
       'aria-label': '$t:admin.changelog.boot.region',
       'data-testid': 'changelog-boot-rail',
-      className:
-        'border-border bg-background-raised flex shrink-0 flex-col gap-3 rounded-lg border p-4 lg:w-72',
+      className: 'border-border bg-card flex shrink-0 flex-col gap-3 rounded-lg border p-4 lg:w-72',
     },
     children: [
       {
@@ -917,11 +863,11 @@ const diffSection = (): PageComponent =>
     {
       ...(text(
         'p',
-        'text-foreground-muted max-w-2xl text-md leading-relaxed',
+        'text-muted-foreground max-w-2xl text-md leading-relaxed',
         '$t:admin.changelog.diff.baseline'
       ) as object),
       props: {
-        className: 'text-foreground-muted max-w-2xl text-md leading-relaxed',
+        className: 'text-muted-foreground max-w-2xl text-md leading-relaxed',
         'data-testid': 'changelog-diff-baseline',
       },
       visibility: whereUnset('previousConfigHash'),
@@ -929,7 +875,7 @@ const diffSection = (): PageComponent =>
     {
       ...(text(
         'p',
-        'text-foreground-muted max-w-2xl text-md leading-relaxed',
+        'text-muted-foreground max-w-2xl text-md leading-relaxed',
         '$t:admin.changelog.diff.pruned'
       ) as object),
       visibility: { record: { field: 'previousUnavailable', eq: true } },
@@ -991,11 +937,11 @@ const schemaChangesSection = (): PageComponent =>
     {
       ...(text(
         'p',
-        'text-foreground-muted max-w-2xl text-md leading-relaxed',
+        'text-muted-foreground max-w-2xl text-md leading-relaxed',
         '$t:admin.changelog.ddl.empty'
       ) as object),
       props: {
-        className: 'text-foreground-muted max-w-2xl text-md leading-relaxed',
+        className: 'text-muted-foreground max-w-2xl text-md leading-relaxed',
         'data-testid': 'changelog-schema-changes-empty',
       },
       visibility: whereUnset('schemaChanges'),
@@ -1046,11 +992,11 @@ const engineMigrationsSection = (): PageComponent =>
     {
       ...(text(
         'p',
-        'text-foreground-muted max-w-2xl text-md leading-relaxed',
+        'text-muted-foreground max-w-2xl text-md leading-relaxed',
         '$t:admin.changelog.migrations.empty'
       ) as object),
       props: {
-        className: 'text-foreground-muted max-w-2xl text-md leading-relaxed',
+        className: 'text-muted-foreground max-w-2xl text-md leading-relaxed',
         'data-testid': 'changelog-engine-migrations-empty',
       },
       visibility: whereUnset('engineMigrations'),
@@ -1100,7 +1046,7 @@ const releasePage: PageConfig = withShell(
                 'text-foreground font-mono text-lg font-medium',
                 '$record.version|$record.configHash'
               ),
-              text('span', 'text-foreground-muted text-md', '$record.summary'),
+              text('span', 'text-muted-foreground text-md', '$record.summary'),
             ],
           } as PageComponent,
           {

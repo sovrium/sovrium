@@ -45,7 +45,7 @@ components:
           - type: text
             element: span
             props:
-              className: rounded-sm border border-border px-1.5 py-0.5 font-mono text-[11.5px] font-medium text-foreground-muted
+              className: rounded-sm border border-border px-1.5 py-0.5 font-mono text-[11.5px] font-medium text-muted-foreground
             content: v$app.version
           - type: container
             props:
@@ -75,7 +75,7 @@ components:
           - type: link
             props:
               href: '#connect'
-              className: inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-[11px] text-[13px] font-medium text-primary-foreground hover:bg-primary-hover max-md:size-7 max-md:bg-transparent max-md:px-0 max-md:justify-center max-md:text-foreground-muted
+              className: inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-[11px] text-[13px] font-medium text-primary-foreground hover:bg-primary-hover max-md:size-7 max-md:bg-transparent max-md:px-0 max-md:justify-center max-md:text-muted-foreground
               aria-label: Connect a client
             children:
               - type: icon
@@ -115,7 +115,7 @@ components:
                   - type: text
                     element: p
                     props:
-                      className: max-w-[620px] text-[17px] leading-[1.6] text-foreground-muted max-md:text-[15px]
+                      className: max-w-[620px] text-[17px] leading-[1.6] text-muted-foreground max-md:text-[15px]
                     content: Your runbooks and decisions, readable by the assistant you already use. It reads what the key's owner may read; it writes only if their role allows it.
 
               # 1 · Turn it on. The operator's switch, not the config's: the
@@ -160,7 +160,7 @@ components:
                     element: p
                     props:
                       format: markdown
-                      className: text-[13px] text-foreground-muted
+                      className: text-[13px] text-muted-foreground
                     classes:
                       parts:
                         paragraph: text-[13px]
@@ -200,7 +200,7 @@ components:
                   - type: text
                     element: p
                     props:
-                      className: text-[12px] text-foreground-muted
+                      className: text-[12px] text-muted-foreground
                     content: The server speaks protocol revision 2026-07-28.
 
               # 4 · Ask. The first question the seeded documents answer, and
@@ -209,7 +209,7 @@ components:
                 element: section
                 props:
                   aria-label: A first question
-                  className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                  className: flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3.5
                 children:
                   - type: text
                     element: h2
@@ -227,7 +227,7 @@ components:
                           - type: text
                             element: span
                             props:
-                              className: mt-px shrink-0 rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                              className: mt-px shrink-0 rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-muted-foreground
                             content: you
                           - type: text
                             element: span
@@ -239,12 +239,12 @@ components:
                           - type: text
                             element: span
                             props:
-                              className: mt-px shrink-0 rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                              className: mt-px shrink-0 rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-muted-foreground
                             content: tool
                           - type: text
                             element: span
                             props:
-                              className: min-w-0 font-mono text-[13px] break-words text-foreground-muted
+                              className: min-w-0 font-mono text-[13px] break-words text-muted-foreground
                             content: 'mcp-server-example_documents_list → 7 documents · mcp-server-example_documents_read {"id": "1"}'
                       - type: container
                         props:
@@ -253,7 +253,7 @@ components:
                           - type: text
                             element: span
                             props:
-                              className: mt-px shrink-0 rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                              className: mt-px shrink-0 rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-muted-foreground
                             content: answer
                           - type: text
                             element: span
@@ -276,7 +276,7 @@ components:
               - type: container
                 props:
                   id: tools
-                  className: flex scroll-mt-4 flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5 text-[13px]
+                  className: flex scroll-mt-4 flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3.5 text-[13px]
                 children:
                   - type: text
                     element: h2
@@ -302,7 +302,7 @@ components:
                           - type: text
                             element: span
                             props:
-                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-muted-foreground
                             content: read-only
                       - type: container
                         props:
@@ -317,7 +317,7 @@ components:
                           - type: text
                             element: span
                             props:
-                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-muted-foreground
                             content: read-only
                       - type: container
                         props:
@@ -332,7 +332,7 @@ components:
                           - type: text
                             element: span
                             props:
-                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-muted-foreground
                             content: writes
                       - type: container
                         props:
@@ -347,7 +347,7 @@ components:
                           - type: text
                             element: span
                             props:
-                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-muted-foreground
                             content: read-only
                       - type: container
                         props:
@@ -362,13 +362,13 @@ components:
                           - type: text
                             element: span
                             props:
-                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-foreground-muted
+                              className: rounded-sm border border-border px-1.5 font-mono text-[11px] leading-[18px] text-muted-foreground
                             content: read-only
                   - type: text
                     element: p
                     props:
                       format: markdown
-                      className: text-[12px] text-foreground-muted
+                      className: text-[12px] text-muted-foreground
                     classes:
                       parts:
                         paragraph: text-[12px]
@@ -376,7 +376,7 @@ components:
                     content: Each name carries the app's prefix, `mcp-server-example_`. A viewer's key lists four, and the create tool refuses it.
               - type: container
                 props:
-                  className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5 text-[13px]
+                  className: flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3.5 text-[13px]
                 children:
                   - type: text
                     element: h2
@@ -420,7 +420,7 @@ components:
                         content: or an OAuth token on `Authorization`
               - type: container
                 props:
-                  className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised px-4 py-3.5 text-[13px]
+                  className: flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3.5 text-[13px]
                 children:
                   - type: text
                     element: h2

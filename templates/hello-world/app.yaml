@@ -62,9 +62,7 @@ design:
   codeBlock:
     theme: github-dark
 
-  # Standard corners. There is no `fonts` block on purpose: IBM Plex Sans and
-  # JetBrains Mono ship with Sovrium and already apply, and naming any other
-  # family without a font file drops the page onto the system's default face.
+  # Standard corners.
   radius:
     sm: 0.25rem
     md: 0.5rem
@@ -107,7 +105,7 @@ pages:
       description: A Sovrium app, running. Open app.yaml to change this page.
     components:
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-h-screen items-center justify-center p-10 max-md:items-start max-md:px-[18px] max-md:py-6
         children:
@@ -119,7 +117,7 @@ pages:
               # the line is right on any port and any host.
               - type: container
                 props:
-                  className: inline-flex items-center gap-2 font-mono text-[12.5px] font-medium text-foreground-muted
+                  className: inline-flex items-center gap-2 font-mono text-[12.5px] font-medium text-muted-foreground
                 children:
                   - type: text
                     element: span
@@ -142,7 +140,7 @@ pages:
                   format: markdown
                 classes:
                   parts:
-                    paragraph: '!text-foreground-muted text-[17px] leading-[1.6]'
+                    paragraph: '!text-muted-foreground text-[17px] leading-[1.6]'
                     inlineCode: font-mono text-[1em]
                 content: This page is `app.yaml`. Change the heading there and save — the page reloads on its own.
               # The lines of this file that make the page, trimmed to the one
@@ -177,12 +175,12 @@ pages:
                 element: nav
                 props:
                   aria-label: Next steps
-                  className: flex flex-col overflow-hidden rounded-lg border border-border bg-background-raised
+                  className: flex flex-col overflow-hidden rounded-lg border border-border bg-card
                 children:
                   - type: link
                     props:
                       href: https://sovrium.com/en/docs
-                      className: flex items-center gap-3 border-b border-border px-4 py-3.5 text-[15px] font-medium text-foreground shadow-[inset_3px_0_0_var(--color-primary)] hover:bg-background-subtle
+                      className: flex items-center gap-3 border-b border-border px-4 py-3.5 text-[15px] font-medium text-foreground shadow-[inset_3px_0_0_var(--color-primary)] hover:bg-muted
                     children:
                       - type: icon
                         props:
@@ -198,17 +196,17 @@ pages:
                         props:
                           name: arrow-right
                           size: 16
-                          className: shrink-0 text-foreground-muted
+                          className: shrink-0 text-muted-foreground
                   - type: link
                     props:
                       href: https://sovrium.com/apps
-                      className: flex items-center gap-3 px-4 py-3.5 text-[15px] text-foreground hover:bg-background-subtle
+                      className: flex items-center gap-3 px-4 py-3.5 text-[15px] text-foreground hover:bg-muted
                     children:
                       - type: icon
                         props:
                           name: layers
                           size: 18
-                          className: shrink-0 text-foreground-muted
+                          className: shrink-0 text-muted-foreground
                       - type: text
                         element: span
                         props:
@@ -218,7 +216,7 @@ pages:
                         props:
                           name: arrow-right
                           size: 16
-                          className: shrink-0 text-foreground-muted
+                          className: shrink-0 text-muted-foreground
               - type: text
                 element: p
                 props:
@@ -237,7 +235,7 @@ pages:
       description: No page answers this address yet.
     components:
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-h-screen items-center justify-center p-10 max-md:items-start max-md:px-[18px] max-md:py-6
         children:
@@ -248,7 +246,7 @@ pages:
               - type: text
                 element: p
                 props:
-                  className: font-mono text-[12.5px] font-medium text-foreground-muted
+                  className: font-mono text-[12.5px] font-medium text-muted-foreground
                 content: '404'
               - type: text
                 element: h1
@@ -262,7 +260,7 @@ pages:
                   format: markdown
                 classes:
                   parts:
-                    paragraph: '!text-foreground-muted text-[17px] leading-[1.6]'
+                    paragraph: '!text-muted-foreground text-[17px] leading-[1.6]'
                     inlineCode: font-mono text-[1em]
                 content: Add a page with its `path:` set to this address in `app.yaml`, or go back to the start.
               - type: container
@@ -272,7 +270,7 @@ pages:
                   - type: link
                     props:
                       href: /
-                      className: inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background-raised px-3 text-[14px] font-medium text-foreground hover:bg-background-subtle
+                      className: inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-[14px] font-medium text-foreground hover:bg-muted
                     children:
                       - type: icon
                         props:

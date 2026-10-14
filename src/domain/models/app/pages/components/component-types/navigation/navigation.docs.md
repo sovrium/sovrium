@@ -1,6 +1,6 @@
 # Navigation Components
 
-> The seven types that move a reader around — navigation-menu, dropdown-menu, context-menu, menubar, breadcrumb, command-palette and pagination.
+> The seven types that move a reader around — navigation-menu, dropdown-menu, context-menu, menubar, breadcrumb, command and pagination.
 
 Navigation components carry a reader from one place to another: top-level menus, dropdown and context menus, an application menu bar, a breadcrumb trail, a command palette and pagination controls. All accept the shared `props` bag plus the `visibility` and `responsive` modules.
 
@@ -22,7 +22,7 @@ Two neighbours are documented elsewhere because they belong to another category:
 
 ## `navigation-menu`
 
-A top-level navigation bar supporting nested items and mega-menu layouts.
+A top-level navigation bar supporting nested items and mega-menu layouts. Reference: shadcn/ui Navigation Menu. A top-level entry takes a `muted` ground on hover and while its panel is open. An entry with `children` is a button that discloses a panel of links (`aria-expanded` tells a screen reader whether it is open); it is not a menu, so its rows are links a reader follows like any other, and Escape closes the panel. Without `openOnHover` a panel opens on a click; with it, also when the pointer rests on the entry.
 
 <!-- sovrium:options type:navigation-menu depth=3 -->
 
@@ -30,7 +30,7 @@ Each nav item takes `label`, `href` (omitted on a parent carrying `children`), `
 
 ## `dropdown-menu`
 
-A menu that opens from a trigger button, with optional nested sub-menus.
+A menu that opens from a trigger button, with optional nested sub-menus. Reference: shadcn/ui Dropdown Menu. Its panel paints the `popover` colour (`design.colors.popover`) and draws a faint ring around its edge rather than a border; a `separator` row is a hairline in the `border` colour, and a row under the pointer or the keyboard takes the `accent` colour — a `destructive` row a light tint of `destructive`.
 
 <!-- sovrium:options type:dropdown-menu depth=3 -->
 
@@ -65,9 +65,20 @@ menuItems:
 
 The value is where the switch **starts**, not a binding: the state lives in the reader's browser and nothing is written when they flip it. A toggle row does not run an `action`: one declared beside `toggle` is ignored, so flipping the switch never navigates, submits or calls an automation. `toggle` is inert on a `separator` row — the divider wins.
 
+Rows that share a `radioGroup` name, one after the other, are the radio items of one group: the row whose `toggle` is `checked` starts checked, and choosing another moves the check while the menu stays open. Like a toggle, the choice is a starting position held in the reader's browser. A row with `heading: true` draws its `label` as a group heading above the rows that follow; it is not a menu item, and the keyboard passes over it. Both apply to a `dropdown-menu`, a `context-menu` and a `menubar` alike.
+
+```yaml
+menuItems:
+  - { label: Row density, heading: true }
+  - { label: Compact, radioGroup: density }
+  - { label: Comfortable, radioGroup: density, toggle: checked }
+  - { separator: true }
+  - { label: Export as CSV, icon: download }
+```
+
 ## `context-menu`
 
-A right-click menu, anchored to the pointer position rather than to a trigger button. Its items are the same shape as a dropdown's.
+A right-click menu, anchored to the pointer position rather than to a trigger button. Reference: shadcn/ui Context Menu. Its items are the same shape as a dropdown's, and its panel is drawn like one.
 
 <!-- sovrium:options type:context-menu depth=3 -->
 
@@ -75,17 +86,17 @@ A right-click menu, anchored to the pointer position rather than to a trigger bu
 
 ## `menubar`
 
-A horizontal application menu bar — File, Edit, View — each top-level entry opening a menu of the same item shape.
+A horizontal application menu bar — File, Edit, View — each top-level entry opening a menu of the same item shape. Reference: shadcn/ui Menubar. The bar itself is outlined in the `border` colour; the menus it opens are drawn like a dropdown's. From the keyboard, ArrowRight and ArrowLeft move between its menus, wrapping at either end; with a menu open, they open the neighbouring menu instead.
 
 <!-- sovrium:options type:menubar depth=3 -->
 
 ## `breadcrumb`
 
-A trail of navigation segments.
+A trail of navigation segments. Reference: shadcn/ui Breadcrumb. The trail is drawn in the `muted-foreground` colour, a link lifts to `foreground` on hover, and the current page is `foreground`. Two choices differ from shadcn/ui: the separator is your `separator` string rather than a chevron, and the current crumb is marked `aria-current="page"` without being announced as a disabled link.
 
 <!-- sovrium:options type:breadcrumb depth=3 -->
 
-`separator` defaults to `/`. Each authored item takes `label`, `href` (omitted on the current-page item) and an optional `icon`.
+`separator` defaults to `/`. Each authored item takes `label`, `href` (omitted on the current-page item) and an optional `icon`. `maxItems` (at least 3) shortens a long trail: the first crumb stays, an ellipsis named "More" stands for the middle ones, and the last `maxItems - 1` follow it. With `collapse: menu` the ellipsis is a button opening a menu of the collapsed crumbs, each going where its crumb goes; `ellipsis`, the default, only marks them.
 
 ### Deriving the trail from the path
 
@@ -143,18 +154,20 @@ The last crumb of a derived trail is the page the reader is on, and on a record 
 
 On a page whose path ends in a catch-all segment, such as `/templates/:path*`, everything the catch-all captures is one value, not a set of folders. The trail gives it one crumb, named after its last segment and marked as the current page: `/templates/emails/welcome/body.html` renders **Templates › body.html**, with no crumb for `emails` or `welcome`. `labels` and `unlinked` apply only to the segments before the catch-all; a captured segment is shown as it appears in the URL, even when it shares a name with a labelled one. `currentLabel` still names that last crumb when set, and a request that captures nothing ends the trail at the last segment before the catch-all.
 
-## `command-palette`
+## `command`
 
-The keyboard-first way into everything a page can reach: one overlay, one input, results from the sources the page declares.
+The keyboard-first way into everything a page can reach: one overlay, one input, results from the sources the page declares. Reference: shadcn/ui Command. It was named `command-palette`; a config still writing `type: command-palette` is refused with a message naming `command`, and renaming the `type` is the whole migration.
 
 The palette's "Go to" actions list only the pages the visitor may open. An anonymous visitor is offered pages with no `access`, or an `access` open to everyone; a signed-in reader is also offered the pages that require a session and those whose roles include theirs. A page the visitor cannot open is never named in the palette or in the page that carries it. That holds for a list you write yourself in the palette's `props.pages` too: your list is the set of candidates, and an entry pointing at a page the visitor may not open is dropped for that visitor.
 
-<!-- sovrium:options type:command-palette depth=3 -->
+<!-- sovrium:options type:command depth=3 -->
+
+`groups` replaces the built-in quick actions with your own commands: each group has a `label` and its `items`, and each item a `label`, an optional `icon`, an optional `shortcut` drawn as one keycap per key (`['G', 'I']`), and either an `href` or an `action` (`toast` or `navigate`). Typing narrows the items across groups and hides a group left with no match; choosing an item closes the command, then goes where it points or runs its action. In search mode (`search`), `groups` is not used.
 
 ## `pagination`
 
-Page-navigation controls for a paginated list or table.
+Page-navigation controls for a paginated list or table. Reference: shadcn/ui Pagination. The row is centred; the current page is an outlined square button and the others are quiet ones, with Previous and Next carrying a chevron (their words fold away on a narrow screen, their names do not). Each page is a button rather than a link, and a gap shows `...`.
 
 <!-- sovrium:options type:pagination -->
 
-`totalPages` and `currentPage` state where the reader is, and `siblingCount` decides how many page numbers are drawn on each side of the current one.
+`totalPages` and `currentPage` state where the reader is, and `siblingCount` decides how many page numbers are drawn on each side of the current one. `paginationVariant: simple` draws only Previous and Next, and `icons` draws them as square icon-only controls that keep their names; `default` draws the full row. `previousLabel` and `nextLabel` rename the two controls, such as "Newer articles" and "Older articles".

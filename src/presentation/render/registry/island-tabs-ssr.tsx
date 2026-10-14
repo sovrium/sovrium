@@ -243,7 +243,7 @@ export function renderTabsSsrTriggerStrip(
           item.description !== undefined && item.description.length > 0 ? (
             <>
               <span className="block">{item.label}</span>
-              <span className="text-foreground-muted mt-0.5 block text-sm font-normal">
+              <span className="text-muted-foreground mt-0.5 block text-sm font-normal">
                 {item.description}
               </span>
             </>
@@ -269,9 +269,9 @@ export function renderTabsSsrTriggerStrip(
       })
     ) : (
       <>
-        <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
-        <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
-        <div className="bg-background-subtle h-8 w-20 animate-pulse rounded" />
+        <div className="bg-muted h-8 w-20 animate-pulse rounded" />
+        <div className="bg-muted h-8 w-20 animate-pulse rounded" />
+        <div className="bg-muted h-8 w-20 animate-pulse rounded" />
       </>
     )
 

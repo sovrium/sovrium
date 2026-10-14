@@ -6,12 +6,12 @@ Search is not a feature domain with a configuration block of its own. There is n
 
 ## Four mechanisms, and what each one searches
 
-| Mechanism         | Declared by                                      | Runs                                                                                         | Searches                                 |
-| ----------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| Bound-component   | `dataSource.mode: search` on a data component    | in the browser over the fetched records, or in the database with `searchEngine: fts`         | one table                                |
-| Records endpoint  | `?q=` on `GET /api/tables/<table>/records`       | in the database: by word from an index on `fullTextSearch` fields, else as a substring match | one table                                |
-| Command palette   | ⌘K, on by default; `command-palette` to place it | in the database, over the palette's own full-text index                                      | every table you may read, and your pages |
-| Public-page index | `search-input` with `scope: page`                | in the browser, over a static index built at `build`/`start`                                 | the text of your public pages            |
+| Mechanism         | Declared by                                   | Runs                                                                                         | Searches                                 |
+| ----------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Bound-component   | `dataSource.mode: search` on a data component | in the browser over the fetched records, or in the database with `searchEngine: fts`         | one table                                |
+| Records endpoint  | `?q=` on `GET /api/tables/<table>/records`    | in the database: by word from an index on `fullTextSearch` fields, else as a substring match | one table                                |
+| Command palette   | ⌘K, on by default; `command` to place it      | in the database, over the palette's own full-text index                                      | every table you may read, and your pages |
+| Public-page index | `search-input` with `scope: page`             | in the browser, over a static index built at `build`/`start`                                 | the text of your public pages            |
 
 The first two read RECORDS, the last reads PAGE CONTENT, and the palette reads both. They are different features at different layers, and a visitor cannot tell which one a box in front of them is using — so the choice is yours to make deliberately.
 
@@ -128,4 +128,4 @@ A `search-input` with `scope: page` searches the TEXT OF YOUR PAGES rather than 
 - **Full-Text Search** — what `indexed` and `fullTextSearch` emit, per dialect, and the word-search grammar.
 - **Data Binding** — every `dataSource` property, including the search ones.
 - **Records: Filtering & Sorting** — the `?q=`, `filter` and `sort` query parameters.
-- **Data Components** — `table`, `kanban`, `calendar`, `list` and their toolbars.
+- **Data Components** — `table`, `kanban`, `event-calendar`, `list` and their toolbars.

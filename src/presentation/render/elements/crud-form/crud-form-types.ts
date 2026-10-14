@@ -50,11 +50,16 @@ export type CrudFormAction = {
     readonly actions?: readonly SuccessPageActionConfig[]
     readonly showSummary?: boolean
     readonly redirect?: string
+    readonly close?: boolean
     readonly toast?: {
       readonly message: string
       readonly variant?: string
       readonly duration?: number
     }
+  }
+  /** What a refused save shows: its toast, after the inline error. */
+  readonly onError?: {
+    readonly toast?: { readonly message: string; readonly variant?: string }
   }
   readonly confirm?: boolean
   readonly confirmMessage?: string

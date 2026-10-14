@@ -5,13 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { computeBadgeClasses } from '@/presentation/design/badge-default-classes'
 import {
-  KPI_LABEL_ROW_CLASSES,
-  KPI_TREND_GROUP_CLASSES,
+  KPI_ACTION_CLASSES,
+  KPI_FOOTER_CLASSES,
+  KPI_HEADER_CLASSES,
   KPI_STACK_CLASSES,
   computeKpiIconClasses,
   computeKpiLabelClasses,
-  computeKpiTrendClasses,
   computeKpiValueClasses,
 } from '@/presentation/design/kpi-default-classes'
 import { LucideGlyph } from '@/presentation/design/lucide-glyph'
@@ -63,72 +64,107 @@ interface KpiCardProps {
 const ICON_BOX = 16
 
 /**
- * Canonical role-token text class for a resolved threshold color name.
+ * The theme ink for a resolved threshold color name.
  *
- * The semantic name (`red`/`green`/`yellow`) maps to the matching role token
- * (`error`/`success`/`warning`); `blue` is the brand `primary`, `gray` the
- * muted foreground. The rendered value also carries a `data-threshold`
- * attribute, which is the stable hook specs assert on.
+ * `red` is shadcn/ui's `destructive` and `gray` its muted foreground; `green`
+ * and `yellow`, which shadcn has no token for, are the theme's success and
+ * warning inks, and `blue` the brand `primary`. Every one is a theme role, so
+ * it follows the app's colours and dark mode. The rendered value also carries
+ * a `data-threshold` attribute, which is the stable hook specs assert on.
  */
 const THRESHOLD_COLOR_CLASS: Record<string, string> = {
-  red: 'text-error-fg',
+  red: 'text-destructive',
   green: 'text-success-fg',
   yellow: 'text-warning-fg',
   blue: 'text-primary',
-  gray: 'text-foreground-muted',
+  gray: 'text-muted-foreground',
 }
 
-/** The value's ink: a matching threshold's, else the tone's, else the foreground. */
+/** The value's ink: a matching threshold's, else the tone's; none inherits the card foreground. */
 const valueInk = (thresholdColor: string | undefined, toneClassName: string | undefined): string =>
   thresholdColor === undefined
-    ? (toneClassName ?? 'text-foreground')
-    : (THRESHOLD_COLOR_CLASS[thresholdColor] ?? 'text-foreground')
+    ? (toneClassName ?? '')
+    : (THRESHOLD_COLOR_CLASS[thresholdColor] ?? '')
 
+/** The trend arrow's ink, from the trend's `color`. */
 const TREND_COLOR_CLASS: Record<NonNullable<KpiTrendConfig['color']>, string> = {
-  green: 'text-success-fg',
-  red: 'text-error-fg',
-  yellow: 'text-warning-fg',
-  gray: 'text-foreground-muted',
+  green: THRESHOLD_COLOR_CLASS['green'] ?? '',
+  red: THRESHOLD_COLOR_CLASS['red'] ?? '',
+  yellow: THRESHOLD_COLOR_CLASS['yellow'] ?? '',
+  gray: THRESHOLD_COLOR_CLASS['gray'] ?? '',
 }
 
-const TREND_DIRECTION_ARROW: Record<NonNullable<KpiTrendConfig['direction']>, string> = {
-  up: '↑',
-  down: '↓',
-  flat: '→',
+/** lucide's TrendingUp, TrendingDown and MoveRight geometry. */
+const TREND_GLYPH: Record<NonNullable<KpiTrendConfig['direction']>, unknown> = {
+  up: [
+    ['path', { d: 'M22 7 13.5 15.5 8.5 10.5 2 17' }],
+    ['path', { d: 'M16 7h6v6' }],
+  ],
+  down: [
+    ['path', { d: 'M22 17 13.5 8.5 8.5 13.5 2 7' }],
+    ['path', { d: 'M16 17h6v-6' }],
+  ],
+  flat: [
+    ['path', { d: 'M18 8l4 4-4 4' }],
+    ['path', { d: 'M2 12h20' }],
+  ],
 }
 
 /**
- * Renders the trend indicator (arrow + percentage change).
- *
- * The arrow and the percentage are wrapped as ONE group on the canvas' 2px
- * inner gap, inside the row's 4px outer gap — a glyph and the number it
- * modifies read as a single token, which they do not at the row's spacing.
+ * The trend: an outline badge in the card action, its direction carried by
+ * the arrow glyph, which the trend's `color` paints — the colour adds to the
+ * arrow, it never replaces it.
  */
 function KpiTrend({ trend }: { readonly trend: KpiTrendConfig }): ReactElement {
-  const colorClass = TREND_COLOR_CLASS[trend.color ?? 'gray']
-  const arrow = TREND_DIRECTION_ARROW[trend.direction ?? 'flat']
-
   return (
     <div
-      data-role="kpi-trend"
-      className={`${computeKpiTrendClasses()} ${colorClass}`}
+      data-slot="card-action"
+      className={KPI_ACTION_CLASSES}
     >
-      <span className={KPI_TREND_GROUP_CLASSES}>
-        <span aria-hidden="true">{arrow}</span>
-        <span>{`${String(trend.changePercent)}%`}</span>
+      <span
+        data-slot="badge"
+        data-variant="outline"
+        data-role="kpi-trend"
+        className={computeBadgeClasses({ variant: 'outline' })}
+      >
+        <LucideGlyph
+          iconNode={TREND_GLYPH[trend.direction ?? 'flat']}
+          className={TREND_COLOR_CLASS[trend.color ?? 'gray']}
+          aria-hidden="true"
+        />
+        {`${String(trend.changePercent)}%`}
       </span>
     </div>
   )
 }
 
-/** The line under the value — a ratio's two counts, as `3 / 8`. */
-function KpiCaption({ text }: { readonly text: string }): ReactElement {
+/** The label — the card description, the optional icon before it. */
+function KpiLabel({
+  label,
+  icon,
+  iconNode,
+}: Pick<KpiCardProps, 'label' | 'icon' | 'iconNode'>): ReactElement {
   return (
     <div
-      data-role="kpi-caption"
-      className="text-foreground-muted text-xs tabular-nums"
+      data-slot="card-description"
+      data-role="kpi-label"
+      className={computeKpiLabelClasses()}
     >
-      {text}
+      {iconNode !== undefined && (
+        <span
+          data-role="kpi-icon"
+          className={computeKpiIconClasses()}
+        >
+          <LucideGlyph
+            iconNode={iconNode}
+            name={icon}
+            width={ICON_BOX}
+            height={ICON_BOX}
+            aria-hidden="true"
+          />
+        </span>
+      )}
+      {label}
     </div>
   )
 }
@@ -162,40 +198,36 @@ export function KpiCard({
       ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'ready' })}
       className={KPI_STACK_CLASSES}
     >
-      <div className={KPI_LABEL_ROW_CLASSES}>
-        {iconNode !== undefined && (
-          <span
-            data-role="kpi-icon"
-            className={computeKpiIconClasses()}
-          >
-            <LucideGlyph
-              iconNode={iconNode}
-              name={icon}
-              width={ICON_BOX}
-              height={ICON_BOX}
-              aria-hidden="true"
-            />
-          </span>
-        )}
-        {label && (
-          <span
-            data-role="kpi-label"
-            className={computeKpiLabelClasses()}
-          >
-            {label}
-          </span>
-        )}
-      </div>
       <div
-        data-role="kpi-value"
-        {...(thresholdColor ? { 'data-threshold': thresholdColor } : {})}
-        className={`${valueClassName ?? computeKpiValueClasses()} ${valueInk(thresholdColor, toneClassName)}`}
+        data-slot="card-header"
+        className={KPI_HEADER_CLASSES}
       >
-        {value}
+        {(label || iconNode !== undefined) && (
+          <KpiLabel
+            label={label}
+            icon={icon}
+            iconNode={iconNode}
+          />
+        )}
+        <div
+          data-slot="card-title"
+          data-role="kpi-value"
+          {...(thresholdColor ? { 'data-threshold': thresholdColor } : {})}
+          className={`${valueClassName ?? computeKpiValueClasses()} ${valueInk(thresholdColor, toneClassName)}`}
+        >
+          {value}
+        </div>
+        {trend && <KpiTrend trend={trend} />}
       </div>
-      {caption !== undefined && <KpiCaption text={caption} />}
-      {trend && <KpiTrend trend={trend} />}
       {sparklineSeries && sparklineSeries.length > 0 && <KpiSparkline series={sparklineSeries} />}
+      {caption !== undefined && (
+        <div
+          data-slot="card-footer"
+          className={KPI_FOOTER_CLASSES}
+        >
+          <div data-role="kpi-caption">{caption}</div>
+        </div>
+      )}
     </div>
   )
 }

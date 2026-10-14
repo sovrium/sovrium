@@ -5,40 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
-import type { Components } from '@/domain/models/app/components'
 import type { Design } from '@/domain/models/app/design'
-import type { Page } from '@/domain/models/app/pages'
-
-/**
- * The no-FOUC color-scheme head script is emitted when the page declares a
- * `theme-toggle` component, the app configures `design.colorScheme`, OR the
- * app declares a `design.darkColors` palette. In each case the runtime needs to
- * apply the stored / configured / system scheme before content renders.
- *
- * The `darkColors` trigger is what makes a declared dark palette reachable with
- * no further line: with `colorScheme` omitted the script resolves to `system`,
- * so a visitor whose OS asks for dark gets the palette the author drew for it.
- * An app with a single palette emits no script and stays light — a design never
- * drawn for the dark is never forced into it.
- *
- * Detection walks `children` (a toggle nested inside a container / flex /
- * card is found) AND descends into referenced `app.components` templates so
- * a toggle hosted in a shared site-header template also boots the script.
- */
-export function needsColorSchemeScript(
-  page: Page,
-  design: Design | undefined,
-  components?: Components
-): boolean {
-  if (design?.colorScheme) return true
-  if (design?.darkColors !== undefined && Object.keys(design.darkColors).length > 0) return true
-  return someComponentInTree(
-    page.components as readonly unknown[] | undefined,
-    components,
-    (item) => item['type'] === 'theme-toggle'
-  )
-}
 
 /**
  * Build the no-FOUC color-scheme bootstrap script body.

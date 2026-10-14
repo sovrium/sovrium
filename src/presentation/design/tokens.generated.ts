@@ -8,7 +8,7 @@
 /**
  * The island fallback catalogue — the LITERAL every prestyled island inlines beside its `--sv-*` override hook.
  *
- * AUTO-GENERATED from `src/admin/config/design.ts` — DO NOT EDIT.
+ * AUTO-GENERATED from `[internal ref]` — DO NOT EDIT.
  *
  * Regenerate: `bun run build:default-design`
  */
@@ -28,34 +28,22 @@ export const TOKENS = {
   neutral950: 'oklch(0.14 0 0)',
 
   // ---------- Surface roles ----------
-  bg: 'oklch(0.985 0 0)', // neutral-50
-  bgSubtle: 'oklch(0.965 0 0)', // neutral-100
-  bgRaised: 'oklch(0.995 0 0)',
-  bgOverlay: 'oklch(0.995 0 0)',
   bgInset: 'oklch(0.952 0 0)',
-  scrim: 'oklch(0.14 0 0)', // neutral-950 (mode-invariant)
 
   // ---------- Border roles ----------
-  border: 'oklch(0.92 0 0)', // neutral-200
+  border: 'oklch(0.922 0 0)',
   borderStrong: 'oklch(0.87 0 0)', // neutral-300
   borderInverse: 'oklch(0.205 0 0)', // neutral-900
-  borderControl: 'oklch(0.62 0 0)', // off-ramp: the only border that must reach 3:1 (unchecked control)
 
   // ---------- Foreground roles ----------
-  fg: 'oklch(0.14 0 0)', // neutral-950
-  fgMuted: 'oklch(0.445 0 0)', // neutral-600
   fgSubtle: 'oklch(0.54 0 0)', // off-ramp: neutral-500 (0.56) computes 4.46:1 and fails AA
   fgDisabled: 'oklch(0.71 0 0)', // neutral-400
   fgInverse: 'oklch(0.985 0 0)', // neutral-50
-  primary: 'oklch(0.205 0 0)', // neutral-900
+  primary: 'oklch(0.205 0 0)',
   primaryHover: 'oklch(0.272 0 0)', // neutral-800
   primaryActive: 'oklch(0.14 0 0)', // neutral-950
-  primaryFg: 'oklch(0.985 0 0)', // neutral-50
   primarySubtle: 'oklch(0.965 0 0)', // neutral-100
   primarySubtleFg: 'oklch(0.205 0 0)', // neutral-900
-
-  // ---------- Focus ring ----------
-  focusRing: 'oklch(0.205 0 0)', // neutral-900 by default
 
   // ---------- Warmth accent ----------
 
@@ -97,7 +85,6 @@ export const TOKENS = {
   errorBg: '#fdf5f3',
   errorBorder: '#f0c8bd',
   errorFg: '#a12b1a',
-  errorSolid: '#c13520',
   errorSolidFg: 'oklch(0.985 0.003 75)',
 
   // ---------- Semantic — Info ----------
@@ -116,11 +103,11 @@ export const TOKENS = {
 
   // ---------- Radii ----------
   radiusNone: '0px',
-  radiusSm: '2px',
+  radiusSm: '0.375rem',
   radiusBase: '4px',
-  radiusMd: '6px',
-  radiusLg: '8px',
-  radiusXl: '12px',
+  radiusMd: '0.5rem',
+  radiusLg: '0.625rem',
+  radiusXl: '0.875rem',
   radiusFull: '9999px',
 
   // ---------- Shadows (warm-cast Sovrium elevation) ----------
@@ -140,10 +127,8 @@ export const TOKENS = {
   easeExit: 'cubic-bezier(0.4, 0, 1, 1)',
 
   // ---------- Typography ----------
-  fontSans:
-    "'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
-  fontMono:
-    "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+  fontSans: "'Geist Variable', sans-serif",
+  fontMono: "'Geist Mono Variable', monospace",
   // No `fontSerif`: [internal ref] amendment A2 withdrew the serif grace note, and the
   // theme layer declares no `--font-serif` for a fallback here to pair with. A
   // fallback whose variable is never emitted is not a fallback — it is a
@@ -173,7 +158,7 @@ export const TOKENS = {
   letterSpacingWide: '0.02em',
   letterSpacingCaps: '0.04em',
 
-  // ---------- Density (the `compact` step — the `:root` default) ----------
+  // ---------- Density (the `compact` step, the `:root` default) ----------
   //
   // Mirrors `V1_ROOT_DENSITY` in `default-theme-layer.ts`, and the mirror is
   // ENFORCED: `Design Token Drift` rule 4 compares these four literals against
@@ -181,8 +166,8 @@ export const TOKENS = {
   //
   // Unlike every other entry above, these are NOT consumed through
   // `withVarFallback`. The recipes read them with Tailwind v4's arbitrary
-  // custom-property syntax — `py-(--sv-density-row-y)`, `text-(length:--sv-density-text)`
-  // — which emits a bare `var()` with no inline fallback. The values are held
+  // custom-property syntax (`py-(--sv-density-row-y)`, `text-(length:--sv-density-text)`),
+  // which emits a bare `var()` with no inline fallback. The values are held
   // here for the drift mirror and as the one place a reader can see what the
   // default ladder step is worth without opening the CSS layer.
   densityRowY: '5px',
@@ -190,6 +175,38 @@ export const TOKENS = {
   densityButtonH: '28px',
   densityGap: '7px',
   densityText: '11px',
+
+  // ---------- shadcn/ui variables (base-nova, 4.21.4) ----------
+  background: 'oklch(1 0 0)',
+  foreground: 'oklch(0.145 0 0)',
+  card: 'oklch(1 0 0)',
+  cardForeground: 'oklch(0.145 0 0)',
+  popover: 'oklch(1 0 0)',
+  popoverForeground: 'oklch(0.145 0 0)',
+  primaryForeground: 'oklch(0.985 0 0)',
+  secondary: 'oklch(0.97 0 0)',
+  secondaryForeground: 'oklch(0.205 0 0)',
+  muted: 'oklch(0.97 0 0)',
+  mutedForeground: 'oklch(0.556 0 0)',
+  accent: 'oklch(0.97 0 0)',
+  accentForeground: 'oklch(0.205 0 0)',
+  destructive: 'oklch(0.577 0.245 27.325)',
+  input: 'oklch(0.922 0 0)',
+  ring: 'oklch(0.708 0 0)',
+  chart1: '#d4d4d4',
+  chart2: '#737373',
+  chart3: '#525252',
+  chart4: '#404040',
+  chart5: '#262626',
+  radius: '0.625rem',
+  sidebar: 'oklch(0.985 0 0)',
+  sidebarForeground: 'oklch(0.145 0 0)',
+  sidebarPrimary: 'oklch(0.205 0 0)',
+  sidebarPrimaryForeground: 'oklch(0.985 0 0)',
+  sidebarAccent: 'oklch(0.97 0 0)',
+  sidebarAccentForeground: 'oklch(0.205 0 0)',
+  sidebarBorder: 'oklch(0.922 0 0)',
+  sidebarRing: 'oklch(0.708 0 0)',
 } as const
 
 /** @public Design-token key vocabulary. */

@@ -35,16 +35,28 @@
  */
 
 import { Dialog } from '@base-ui/react/dialog'
+import { useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import {
+  computeDialogCloseClasses,
+  computeSheetOverlayClasses,
+} from '@/presentation/design/dialog-default-classes'
+import { OverlayCloseGlyph } from '@/presentation/design/overlay-close-glyph'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { useHostControls } from './dialog-open-state'
-import { computeDrawerPopupClasses, computeOverlayBackdropClasses } from './overlay-default-classes'
+import { useOverlayPending } from './overlay-pending'
+import {
+  computeSheetClosePositionClasses,
+  computeSheetContentClasses,
+  computeSheetTitleClasses,
+} from './sheet-default-classes'
 import type { ReactElement } from 'react'
 
-const POPUP_CLASS = `${computeDrawerPopupClasses({ side: 'right' })} inset-y-0 right-0 w-[32rem] max-w-full overflow-auto p-6`
-const PANEL_CLASS = 'flex h-full flex-col gap-4'
-const TITLE_CLASS = 'text-foreground text-xl font-semibold'
-const CLOSE_CLASS = 'text-foreground-subtle hover:text-foreground-muted absolute top-4 right-4'
+/** shadcn's `sheet-content` on its right side, at the record drawer's 32rem. */
+const POPUP_CLASS = `${computeSheetContentClasses()} w-[32rem] max-w-full overflow-auto`
+const PANEL_CLASS = 'flex h-full flex-col gap-4 p-4'
+const TITLE_CLASS = `${computeSheetTitleClasses()} pr-8`
+const CLOSE_CLASS = `${computeDialogCloseClasses()} ${computeSheetClosePositionClasses()}`
 
 /** The surface's classes, with the author's `props.className` appended. */
 const popupClass = (className: string | undefined): string =>
@@ -80,19 +92,27 @@ export function RegionSurface({
       id={id}
       role="region"
       aria-label={title}
+      data-slot="sheet-content"
+      data-side="right"
       className={popupClass(className)}
     >
       <div className={PANEL_CLASS}>
-        <h2 className={TITLE_CLASS}>{title}</h2>
+        <h2
+          data-slot="sheet-title"
+          className={TITLE_CLASS}
+        >
+          {title}
+        </h2>
         {body}
         <button
           type="button"
           data-component-type="button"
+          data-slot="sheet-close"
           aria-label={closeLabel}
           onClick={onClose}
           className={CLOSE_CLASS}
         >
-          ✕
+          <OverlayCloseGlyph />
         </button>
       </div>
     </section>,
@@ -103,6 +123,38 @@ export function RegionSurface({
       {anchor}
       {panel}
     </>
+  )
+}
+
+/** The modal sheet's inside: its title, the record body, and its close button. */
+function DialogSheetPanel({
+  title,
+  body,
+  closeLabel,
+}: {
+  readonly title: string
+  readonly body: ReactElement
+  readonly closeLabel: string
+}): ReactElement {
+  return (
+    <div className={PANEL_CLASS}>
+      <Dialog.Title
+        data-slot="sheet-title"
+        className={TITLE_CLASS}
+      >
+        {title}
+      </Dialog.Title>
+      {body}
+      <Dialog.Close
+        data-component-type="button"
+        data-overlay-close=""
+        data-slot="sheet-close"
+        aria-label={closeLabel}
+        className={CLOSE_CLASS}
+      >
+        <OverlayCloseGlyph />
+      </Dialog.Close>
+    </div>
   )
 }
 
@@ -124,31 +176,34 @@ export function DialogSurface({
   readonly className?: string | undefined
 }): ReactElement {
   const { id, anchor } = useHostControls(open, undefined)
+  // A save in flight holds the reader's dismissals; a control inside may close it (overlay-pending.ts).
+  const close = useCallback(() => onOpenChange(false), [onOpenChange])
+  const pending = useOverlayPending(onOpenChange, close)
   return (
     <Dialog.Root
       modal
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={pending.onOpenChange}
     >
       {anchor}
       <Dialog.Portal>
-        <Dialog.Backdrop className={computeOverlayBackdropClasses()} />
+        <Dialog.Backdrop
+          data-slot="sheet-overlay"
+          className={computeSheetOverlayClasses()}
+        />
         <Dialog.Popup
+          ref={pending.panelRef}
           id={id}
+          data-slot="sheet-content"
+          data-side="right"
           className={popupClass(className)}
           aria-label={title}
         >
-          <div className={PANEL_CLASS}>
-            <Dialog.Title className={TITLE_CLASS}>{title}</Dialog.Title>
-            {body}
-            <Dialog.Close
-              data-component-type="button"
-              aria-label={closeLabel}
-              className={CLOSE_CLASS}
-            >
-              ✕
-            </Dialog.Close>
-          </div>
+          <DialogSheetPanel
+            title={title}
+            body={body}
+            closeLabel={closeLabel}
+          />
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

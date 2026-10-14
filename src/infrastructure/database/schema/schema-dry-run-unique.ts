@@ -9,14 +9,13 @@
  * The uniqueness half of an existing table's dry-run plan.
  *
  * The column ALTERs are only part of what the apply path does to an existing
- * table: the unique constraint a field gains (PostgreSQL's constraint sync, a
- * SQLite rebuild) and the duplicate pre-flight that refuses it both happen
+ * table: the live-rows unique index a field gains (the index sync, on both
+ * engines) and the duplicate pre-flight that refuses it both happen
  * after, or before, them. A plan reporting only the ALTERs showed no unique
  * constraint at all, and exited 0 over an edit the apply would refuse.
  */
 
 import { Effect } from 'effect'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { planUniqueChanges, uniquePlanLines } from '../table-operations/unique-constraint-drift'
 import type { TableChange } from './schema-dry-run'
 import type { TransactionLike } from '../sql/sql-execution'
@@ -39,8 +38,6 @@ export const withUniquePlan = (params: {
     Effect.map((plan): TableChange => {
       if (plan.columns.length === 0) return change
       const lines = uniquePlanLines({
-        sqlite: isSqliteRuntime(),
-        tableName: table.name,
         physicalTableName: change.relation ?? table.name,
         columns: plan.columns,
       })

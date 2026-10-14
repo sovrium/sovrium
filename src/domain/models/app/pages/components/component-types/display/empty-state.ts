@@ -12,7 +12,7 @@ import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
 import { visibilityFields } from '../modules/visibility'
 
-export const EmptyStateTypeLiteral = Schema.Literal('empty-state')
+export const EmptyStateTypeLiteral = Schema.Literal('empty')
 
 export const emptyStateFields = {
   ...coreFields,
@@ -21,14 +21,25 @@ export const emptyStateFields = {
   ...actionFields,
   ...i18nFields,
   emptyIcon: Schema.optional(
-    Schema.String.annotate({ description: 'Lucide icon name for empty state illustration' })
+    Schema.String.annotate({
+      description:
+        'A Lucide icon drawn above the title. Decorative: hidden from assistive technology.',
+    })
+  ),
+  emptyMedia: Schema.optional(
+    Schema.Literals(['icon', 'default']).annotate({
+      title: 'Empty Media',
+      defaultNote: 'icon',
+      description:
+        "How the `emptyIcon` is drawn: 'icon' (the default here) frames it in a small tile, 'default' draws it bare. shadcn/ui's EmptyMedia variant, whose own default is 'default'.",
+    })
   ),
   emptyTitle: Schema.optional(
-    Schema.String.annotate({ description: 'Title text displayed in empty state' })
+    Schema.String.annotate({ description: 'Title text displayed in the empty component' })
   ),
   emptyDescription: Schema.optional(
     Schema.String.annotate({
-      description: 'Description text displayed below the empty state title',
+      description: 'Description text displayed below the empty title',
     })
   ),
 } as const

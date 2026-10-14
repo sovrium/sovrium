@@ -36,7 +36,7 @@ function FormSaveBar({ submitLabel }: { readonly submitLabel: string }): ReactEl
       <span
         role="status"
         data-form-changes=""
-        className="text-foreground-muted mr-auto font-mono text-sm"
+        className="text-muted-foreground mr-auto font-mono text-sm"
       >
         No unsaved changes
       </span>

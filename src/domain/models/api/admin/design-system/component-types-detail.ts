@@ -304,7 +304,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   // remembering to edit it.
   styleable: Schema.Boolean.annotate({
     description:
-      'Whether `design.components` has a key for this type — `true` when the engine draws an element that can carry the operator’s classes. `false` for a catalogued type that owns no engine-drawn element, where an entry could only be a no-op and the key does not exist; `command-palette`, whose overlay is built client-side, is the only such type today. NOT the same as `drawable`: a type the catalogue refuses to PREVIEW (`form`) is still styleable. The gate for any surface that offers a reader the key to write — `configured: false` under `styleable: false` is a non-question, not a gap.',
+      'Whether `design.components` has a key for this type — `true` when the engine draws an element that can carry the operator’s classes. `false` for a catalogued type that owns no engine-drawn element, where an entry could only be a no-op and the key does not exist; `command`, whose overlay is built client-side, is the only such type today. NOT the same as `drawable`: a type the catalogue refuses to PREVIEW (`form`) is still styleable. The gate for any surface that offers a reader the key to write — `configured: false` under `styleable: false` is a non-question, not a gap.',
   }),
   // The count is NOT derivable from `routes` for the same reason as above —
   // there is no length operator — and the page prints it as a figure beside the

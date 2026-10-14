@@ -54,7 +54,7 @@ export function buildScrollAttributes(interactions: unknown): Record<string, unk
     ...(scroll.threshold !== undefined && { 'data-scroll-threshold': scroll.threshold }),
     ...(scroll.delay && { 'data-scroll-delay': scroll.delay }),
     ...(scroll.duration && { 'data-scroll-duration': scroll.duration }),
-    ...(scroll.once === true && { 'data-scroll-once': scroll.once }),
+    ...(scroll.once !== false && { 'data-scroll-once': true }),
   }
 }
 

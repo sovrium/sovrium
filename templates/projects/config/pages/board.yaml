@@ -17,7 +17,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -92,18 +92,18 @@ components:
                     - type: text
                       element: p
                       props:
-                        className: text-xs text-foreground-muted
+                        className: text-xs text-muted-foreground
                       content: $record.project
                   footer:
                     - { field: due_date, format: short-date }
                     - { field: priority, format: badge }
                     - { field: assignee, format: avatar }
                   onClick:
-                    action: openDrawer
+                    action: openSheet
                     component: task-detail
               # One task, opened over the board. `/board?record=<id>` opens it
               # too, so a task can be linked to directly.
-              - type: drawer
+              - type: sheet
                 id: task-detail
                 drawerSide: right
                 drawerSize: md

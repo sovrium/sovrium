@@ -30,6 +30,8 @@ export interface FileUploadState {
   /** True while a multipart upload is in flight (drives the disabled state). */
   readonly submitting: boolean
   readonly handleChange: (event: ChangeEvent<HTMLInputElement>) => void
+  /** Validate and (when wired) upload files dropped on `origin`. */
+  readonly handleFiles: (files: FileList | null, origin: Element) => void
 }
 
 /**
@@ -50,9 +52,8 @@ export function useFileUploadState({
   const [fileNames, setFileNames] = useState<readonly string[]>([])
   const [submitting, setSubmitting] = useState(false)
 
-  const handleChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const { files } = event.target
+  const handleFiles = useCallback(
+    (files: FileList | null, origin: Element) => {
       // A `change` event with empty/no files (typical after we clear the
       // input or after a re-trigger fired without a fresh selection) is a
       // no-op — we keep the previous error/filename state visible so the
@@ -71,7 +72,7 @@ export function useFileUploadState({
       // stays a pick-and-validate control (the basic / dropzone-only variant).
       if (uploadAction) {
         setSubmitting(true)
-        void submitUpload(picked, { url: uploadAction, onSuccess, onError }).finally(() =>
+        void submitUpload(picked, { url: uploadAction, onSuccess, onError, origin }).finally(() =>
           setSubmitting(false)
         )
       }
@@ -79,5 +80,10 @@ export function useFileUploadState({
     [maxFiles, maxFileSize, uploadAction, onSuccess, onError]
   )
 
-  return { error, fileNames, submitting, handleChange }
+  const handleChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => handleFiles(event.target.files, event.target),
+    [handleFiles]
+  )
+
+  return { error, fileNames, submitting, handleChange, handleFiles }
 }

@@ -8,6 +8,8 @@
 import { useCallback, useState, type FormEvent } from 'react'
 import { oauthSubmitLabel } from '@/presentation/design/auth-form-types'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { pendingControlProps } from '@/presentation/design/pending-state'
+import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
 import { startSocialSignIn } from './auth-form-submit'
 
 export interface OAuthSignInFormProps {
@@ -48,6 +50,7 @@ export function OAuthSignInForm(props: OAuthSignInFormProps): React.ReactElement
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>): void => {
+      if (pressWhilePending(event)) return
       event.preventDefault()
       setIsPending(true)
       // Better Auth's own client performs the navigation on success (see
@@ -70,7 +73,7 @@ export function OAuthSignInForm(props: OAuthSignInFormProps): React.ReactElement
       <button
         type="submit"
         data-component-type="button"
-        disabled={isPending}
+        {...pendingControlProps(isPending)}
         data-oauth-provider={provider}
         className={computeButtonDefaultClasses({ variant: 'secondary' })}
       >

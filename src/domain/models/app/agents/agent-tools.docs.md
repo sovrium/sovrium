@@ -29,6 +29,8 @@ The order does not matter; the conjunction does. What it buys you is that `tools
 
 So reviewing an agent means reviewing its role: the allowlist cannot smuggle in a capability the role withheld. Row-level and field-level rules apply on top, unchanged.
 
+In a chat there is a third check: the person chatting must be allowed the action herself — a record action on that table, or, for an `auth` action, a role with admin rights — and it then runs as her. A visitor who is not signed in gets neither. An agent's reach is a ceiling on whoever talks to it, never a grant.
+
 Because the gate is a conjunction, **tightening the allowlist is always safe to try**. If the agent still works, the entry was never needed — which is the cheapest way to deal with the drift that puts a delete action there for a one-off cleanup and leaves it.
 
 ## The actions
@@ -57,7 +59,7 @@ Both are gated by the same table read permission, so a role that cannot read a t
 
 ### The three worth pausing over
 
-**State** is a cross-run key-value store, and it is what makes an agent more than a stateless prompt: a scheduled agent can remember what it processed last time without a table to hold it.
+**State** is a cross-run key-value store, and it is what makes an agent more than a stateless prompt: an agent an automation runs can remember what it processed last time without a table to hold it. Its values belong to that automation, so the state actions are available only when an automation runs the agent; in a chat or a scheduled run they are refused, and the model is told why.
 
 **Auth actions** are the sharpest thing on the list. Creating a user, assigning a role or banning somebody means an agent can alter who has access to your app. Grant them only to an agent whose role is itself privileged enough to justify it, and put them behind approval.
 

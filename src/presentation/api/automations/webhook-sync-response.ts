@@ -8,6 +8,7 @@
 import { resolveTriggerInValue } from '@/application/use-cases/automations/resolve-trigger-data'
 import {
   maskValues,
+  revealableWriteOnlyValues,
   writeOnlyValuesOfRun,
 } from '@/application/use-cases/automations/run/write-only-values'
 import type { Trigger } from './webhook-methods'
@@ -31,6 +32,8 @@ interface BuildResponseInput {
   readonly result: RunAutomationResult
   readonly triggerData: TriggerData
   readonly templates: TemplateRenderer
+  /** Whether the request's only credential was an API key (no session cookie). */
+  readonly apiKeyOnly: boolean
 }
 
 /**
@@ -85,11 +88,75 @@ const responseFromAction = (actionResponse: Readonly<Record<string, unknown>>) =
   return { status, body, headers }
 }
 
-/** The write-only values the run's answer must not carry: its own reads and its callees'. */
-const answerSecrets = (input: BuildResponseInput): readonly string[] => [
-  ...writeOnlyValuesOfRun(input.app, input.automationName, input.result.actions),
-  ...(input.result.calledWriteOnly ?? []),
-]
+/**
+ * Whether the trigger's `revealWriteOnly` reaches this caller: a webhook that
+ * authenticated a machine — `bearer` or `apiKey`, or `session` with a
+ * `requiredRole` reached with an API key and no session cookie. A person
+ * signed in to the browser is answered the mask, whatever the trigger names.
+ */
+const answersAMachine = (trigger: WebhookTrigger, apiKeyOnly: boolean): boolean => {
+  const type = trigger.auth?.type
+  if (type === 'bearer' || type === 'apiKey') return true
+  return type === 'session' && trigger.auth?.requiredRole !== undefined && apiKeyOnly
+}
+
+/** The `revealWriteOnly` list in force for this caller, or `undefined` when none is. */
+const revealInForce = (input: BuildResponseInput): readonly string[] | undefined => {
+  const reveal = input.trigger.revealWriteOnly
+  return reveal !== undefined && answersAMachine(input.trigger, input.apiKeyOnly)
+    ? reveal
+    : undefined
+}
+
+/**
+ * The write-only values the run's answer must not carry: its own reads and its
+ * callees', less what the trigger's `revealWriteOnly` hands its machine caller
+ * — only values the run's own record steps read from a named field, never one
+ * a callee returned or an unnamed field also holds. The run history is masked
+ * elsewhere, whatever this answer carries.
+ */
+const answerSecrets = (input: BuildResponseInput): readonly string[] => {
+  const called = input.result.calledWriteOnly ?? []
+  const secrets = [
+    ...writeOnlyValuesOfRun(input.app, input.automationName, input.result.actions),
+    ...called,
+  ]
+  const reveal = revealInForce(input)
+  if (reveal === undefined) return secrets
+  const revealed = revealableWriteOnlyValues(input.app, input.automationName, {
+    actions: input.result.actions,
+    reveal,
+    called,
+  })
+  return secrets.filter((secret) => !revealed.has(secret))
+}
+
+/**
+ * `headers` for an answer that may carry a revealed value: `Cache-Control:
+ * no-store`, replacing any the operator declared. The machine's credential
+ * rides in a header a shared cache does not key on (`x-api-key`, an `apiKey`
+ * header), so a stored GET answer would be served to the next caller of the
+ * URL, whoever it is.
+ */
+const withNoStore = (
+  headers: Readonly<Record<string, string>>
+): Readonly<Record<string, string>> => ({
+  ...Object.fromEntries(
+    Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'cache-control')
+  ),
+  'Cache-Control': 'no-store',
+})
+
+/** A `webhook/response` action's answer, masked for this caller, never stored when it may reveal. */
+const answerFromAction = (
+  input: BuildResponseInput,
+  actionResponse: Readonly<Record<string, unknown>>
+) => {
+  const answer = responseFromAction(maskValues(actionResponse, answerSecrets(input)))
+  return revealInForce(input) === undefined
+    ? answer
+    : { ...answer, headers: withNoStore(answer.headers) }
+}
 
 export const buildSyncResponse = (input: BuildResponseInput) => {
   const { trigger, result, triggerData, templates } = input
@@ -99,10 +166,10 @@ export const buildSyncResponse = (input: BuildResponseInput) => {
   // does that before dispatch), so we just unwrap the override here.
   //
   // Whoever holds the webhook's URL reads that answer, so a write-only value a
-  // step of the run read is masked in it, as in every other answer of a run:
-  // the value leaves the server only on a request the automation itself makes.
+  // step of the run read is masked in it, as in every other answer of a run —
+  // but for the fields the trigger's `revealWriteOnly` names, to a machine.
   if (result.responseOverride !== undefined) {
-    return responseFromAction(maskValues(result.responseOverride, answerSecrets(input)))
+    return answerFromAction(input, result.responseOverride)
   }
   const cfg = trigger.response
   const status = cfg?.status ?? cfg?.statusCode ?? 200

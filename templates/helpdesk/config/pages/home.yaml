@@ -13,7 +13,7 @@ components:
     children:
       - $ref: ./_site-header.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: mx-auto flex w-full max-w-[1100px] flex-1 items-start gap-14 px-6 py-10 max-md:flex-col max-md:gap-8 max-md:px-4 max-md:py-6
         children:
@@ -26,7 +26,7 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-xs text-foreground-muted
+                  className: text-xs text-muted-foreground
                 content: No account needed. We only use your email to answer this ticket.
           # What happens after sending: three steps, and the promise the app
           # keeps — the team sees it straight away, then a person replies.
@@ -49,7 +49,7 @@ components:
                     props:
                       name: mail
                       size: 16
-                      className: box-content flex-none rounded-md border border-border p-2 text-foreground-muted
+                      className: box-content flex-none rounded-md border border-border p-2 text-muted-foreground
                   - type: container
                     props:
                       className: flex flex-col gap-0.5
@@ -62,7 +62,7 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: text-[13px] text-foreground-muted
+                          className: text-[13px] text-muted-foreground
                         content: It lands in the queue the moment you send it.
               - type: container
                 props:
@@ -72,7 +72,7 @@ components:
                     props:
                       name: users
                       size: 16
-                      className: box-content flex-none rounded-md border border-border p-2 text-foreground-muted
+                      className: box-content flex-none rounded-md border border-border p-2 text-muted-foreground
                   - type: container
                     props:
                       className: flex flex-col gap-0.5
@@ -85,7 +85,7 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: text-[13px] text-foreground-muted
+                          className: text-[13px] text-muted-foreground
                         content: Usually within one business day, by email.
               - type: container
                 props:
@@ -95,7 +95,7 @@ components:
                     props:
                       name: circle-check
                       size: 16
-                      className: box-content flex-none rounded-md border border-border p-2 text-foreground-muted
+                      className: box-content flex-none rounded-md border border-border p-2 text-muted-foreground
                   - type: container
                     props:
                       className: flex flex-col gap-0.5
@@ -108,6 +108,6 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: text-[13px] text-foreground-muted
+                          className: text-[13px] text-muted-foreground
                         content: One question once it is resolved.
       - $ref: ./_site-footer.yaml

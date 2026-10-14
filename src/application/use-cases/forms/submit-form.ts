@@ -179,10 +179,10 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       submitterIpHash,
     })
 
-    // Fire form-triggered automations AFTER the bound-table + ledger rows
+    // Start form-triggered automations AFTER the bound-table + ledger rows
     // commit so action templates referencing `{{trigger.data.linkedRecord.id}}`
-    // see a committed row. Errors are absorbed inside the use case so a
-    // failing automation never rolls back the submission writes.
+    // see a committed row. They run in the background: the submission answers
+    // without waiting, and a failing automation never rolls back its writes.
     yield* triggerFormSubmissionAutomations({
       app,
       formName: form.name,

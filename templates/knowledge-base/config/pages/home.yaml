@@ -30,7 +30,7 @@ components:
           - type: text
             element: p
             props:
-              className: max-w-[560px] text-[17px] text-foreground-muted max-md:text-[15px]
+              className: max-w-[560px] text-[17px] text-muted-foreground max-md:text-[15px]
             content: Onboarding, IT and the policies we keep — one handbook, readable by everyone at Corvel once they sign in.
           - type: link
             props:
@@ -51,13 +51,13 @@ components:
         children:
           - type: card
             props:
-              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left shadow-sm
+              className: flex flex-col gap-2 rounded-lg border border-border bg-card p-5 text-left shadow-sm
             children:
               - type: icon
                 props:
                   name: house
                   size: 20
-                  className: text-foreground-muted
+                  className: text-muted-foreground
               - type: text
                 element: h2
                 props:
@@ -66,17 +66,17 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-sm text-foreground-muted
+                  className: text-sm text-muted-foreground
                 content: Your first days, the accounts you need, who to ask.
           - type: card
             props:
-              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left shadow-sm
+              className: flex flex-col gap-2 rounded-lg border border-border bg-card p-5 text-left shadow-sm
             children:
               - type: icon
                 props:
                   name: laptop
                   size: 20
-                  className: text-foreground-muted
+                  className: text-muted-foreground
               - type: text
                 element: h2
                 props:
@@ -85,17 +85,17 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-sm text-foreground-muted
+                  className: text-sm text-muted-foreground
                 content: Hardware, access and the security basics.
           - type: card
             props:
-              className: flex flex-col gap-2 rounded-lg border border-border bg-background-raised p-5 text-left shadow-sm
+              className: flex flex-col gap-2 rounded-lg border border-border bg-card p-5 text-left shadow-sm
             children:
               - type: icon
                 props:
                   name: file-text
                   size: 20
-                  className: text-foreground-muted
+                  className: text-muted-foreground
               - type: text
                 element: h2
                 props:
@@ -104,6 +104,6 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-sm text-foreground-muted
+                  className: text-sm text-muted-foreground
                 content: Expenses, security and the rules we agreed on.
   - $ref: ./_site-footer.yaml

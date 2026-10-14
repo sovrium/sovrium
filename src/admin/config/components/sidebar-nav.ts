@@ -5,15 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// The sidebar's navigation: the Application rows, the System rows and the
-// Design disclosure, composed into the one `sidebar` node the `aside` hosts
-// (see `sidebar.ts`).
+// The sidebar's navigation: the System, Application and Developers groups,
+// which the console shell (`console-shell.ts`, installed from the library's
+// `console-shell` block) takes as its sidebar's `groups` binding.
 
 import { COMPONENT_TYPES_ENDPOINT, DESIGN_USAGE_ENDPOINT } from '../system-sources'
-import type { Page as PageConfig } from '@/domain/models/app'
-
-/** One node of a page's component tree, as the config type expresses it. */
-type PageComponent = NonNullable<PageConfig['components']>[number]
 
 /**
  * One Application destination: a link that is also a disclosure over the objects
@@ -228,210 +224,168 @@ const designSystemChildren: readonly Record<string, unknown>[] = DESIGN_SYSTEM_R
  * of Analytics next, and `redirects[]` does nothing under the mount, so
  * retiring the route early would make that URL simply stop existing.
  */
-export const consoleNav: PageComponent = {
-  type: 'sidebar',
-  trackNavigation: true,
-  // ─── THE RAIL, AND WHY THE BREAKPOINT IS `xl` ────────────────────────────
+export const consoleNavGroups: readonly Readonly<Record<string, unknown>>[] = [
+  // ─── THE HOME ROW, AND WHY IT IS A GROUP WITH NO NAME ────────────────────
   //
-  // Read as a STRICT LOWER BOUND: the rail applies at every width BELOW the
-  // named breakpoint. The console is asked for a rail on a laptop and a full
-  // sidebar on a wide desktop, so the breakpoint is the one at which the
-  // DESKTOP starts (`xl`, 1280px) and not the one at which the laptop does —
-  // naming `lg` would leave 1024 full and rail only the widths where the
-  // drawer has already taken the sidebar away.
+  // Welcome is the way back OUT of every section, and the way out of the
+  // sections is not itself a section. It used to lead System, under that
+  // heading, which filed the console's front page as one more system surface
+  // — and a reader cycling landmarks met it inside "Data".
   //
-  // It composes with the `md` drawer on the frame rather than replacing it:
-  // below `md` the aside leaves the layout behind the burger, and between
-  // `md` and `xl` it is present as 56px of glyphs.
+  // A group with no `label` contributes neither a heading nor a landmark: its
+  // entries render into the navigation root, above the first named group. So
+  // the row sits directly under the search trigger and ahead of the `System`
+  // heading, and the console still publishes exactly three navigations.
   //
-  // `max-xl:w-full` is not decoration. The rail's own box class is
-  // `max-xl:w-14` — 56px, the width of the FRAME — and this element is inside
-  // that frame, past its padding, where 56px overflows a 36px content box that
-  // the frame then clips. The frame carries the width; this fills whatever the
-  // frame leaves.
-  rail: { below: 'xl' },
-  props: {
-    className:
-      // The `button` counter-rules are NOT decoration and not symmetry: since a
-      // top-level entry may omit its `href`, the rail's own rules cover BOTH
-      // element types — the emitted className carries
-      // `max-xl:[&_button]:justify-center max-xl:[&_button>span]:sr-only`
-      // beside the `a` pair. The `Design` row is the console's one such entry,
-      // so with only the anchor counter-rules its label stayed `sr-only`
-      // INSIDE the 256px phone drawer: measured at 375 with the drawer open,
-      // the label span was 1x1 while every sibling link's was full width — a
-      // rail-shaped row in a drawer that is not a rail.
-      'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto max-xl:w-full max-md:[&_a]:justify-start max-md:[&_a>span]:not-sr-only max-md:[&_button]:justify-start max-md:[&_button>span]:not-sr-only max-md:[&_h2]:not-sr-only',
+  // A group rather than a hand-written anchor because everything that makes a
+  // row a NAV row lives in the group render: the shared current-entry
+  // treatment and its `aria-current`, the rail's own row rules, and the
+  // client tracker that re-marks it after an in-app SPA navigation. An
+  // `<a>` placed beside the nav would lose all three.
+  //
+  // `activeMatch: 'exact'` because this row's href is `/`, and `prefix` — the
+  // spelling every other row uses — would make the console's root a prefix of
+  // every console route and mark Welcome current on all thirty of them.
+  //
+  // The testid stays `data-nav-overview` although the row no longer says
+  // Dashboard and no group is called Overview: a testid is an ADDRESS, and
+  // renaming one costs every spec that holds it in exchange for a string no
+  // reader ever sees.
+  {
+    items: [
+      {
+        label: '$t:admin.nav.welcome',
+        href: '/',
+        icon: 'house',
+        activeMatch: 'exact',
+        props: { 'data-testid': 'data-nav-overview' },
+      },
+    ],
   },
-  groups: [
-    // ─── THE HOME ROW, AND WHY IT IS A GROUP WITH NO NAME ────────────────────
-    //
-    // Welcome is the way back OUT of every section, and the way out of the
-    // sections is not itself a section. It used to lead System, under that
-    // heading, which filed the console's front page as one more system surface
-    // — and a reader cycling landmarks met it inside "Data".
-    //
-    // A group with no `label` contributes neither a heading nor a landmark: its
-    // entries render into the navigation root, above the first named group. So
-    // the row sits directly under the search trigger and ahead of the `System`
-    // heading, and the console still publishes exactly three navigations.
-    //
-    // A group rather than a hand-written anchor because everything that makes a
-    // row a NAV row lives in the group render: the shared current-entry
-    // treatment and its `aria-current`, the rail's own row rules, and the
-    // client tracker that re-marks it after an in-app SPA navigation. An
-    // `<a>` placed beside the nav would lose all three.
-    //
-    // `activeMatch: 'exact'` because this row's href is `/`, and `prefix` — the
-    // spelling every other row uses — would make the console's root a prefix of
-    // every console route and mark Welcome current on all thirty of them.
-    //
-    // The testid stays `data-nav-overview` although the row no longer says
-    // Dashboard and no group is called Overview: a testid is an ADDRESS, and
-    // renaming one costs every spec that holds it in exchange for a string no
-    // reader ever sees.
-    {
-      items: [
-        {
-          label: '$t:admin.nav.welcome',
-          href: '/',
-          icon: 'house',
-          activeMatch: 'exact',
-          props: { 'data-testid': 'data-nav-overview' },
-        },
-      ],
-    },
-    {
-      label: '$t:admin.nav.group.system',
-      landmark: '$t:admin.nav.landmark.data',
-      headingLevel: 2,
-      items: [
-        // FIRST in the group, and the position is the argument, as it is for
-        // the row that closes it. Every other row here answers "how much of X
-        // does this app have?"; this one answers "who can reach it" — the
-        // shape rather than the contents, and the question an operator most
-        // often arrives with.
-        //
-        // The `Dashboard` row that used to open this group is gone from here
-        // rather than deleted: it is the `Welcome` home row above, outside any
-        // group, and it kept its `data-nav-overview` testid across the move.
-        systemRow('organisation', '$t:admin.crumb.organisation', 'network'),
-        systemRow('users', '$t:admin.crumb.users', 'users'),
-        // Analytics answers both halves now — the audience at `?tab=pages` and
-        // the instance's footprint at `?tab=footprint`. Footprint had its own
-        // row here and its own document; `/footprint` is still a live address,
-        // but the sidebar names the QUESTION once rather than offering two rows
-        // that lead to two views of the same subject.
-        systemRow('pages', '$t:admin.crumb.pages', 'chart-column'),
-        // A TOGGLE: no `href`, so the whole row opens and shuts its own list
-        // and goes nowhere. It is the ONE disclosure in this sidebar that can
-        // be one, and both halves of that are measured.
-        //
-        // It COSTS nothing, because `/design-system` is the section's overview
-        // and the list's first child already links to it under its own name.
-        // The row used to offer the same page twice — once on the label, once
-        // on `Overview` two pixels below — with only the label taking the
-        // current-page fill, so a reader who clicked the label landed on a
-        // page they had not asked for and watched the list open underneath as
-        // a side effect. `activeMatch` goes with the `href`: a row that is not
-        // a page can never be `aria-current`, and the decode refuses it rather
-        // than ignoring it.
-        //
-        // And it LOSES nothing, because these six children are AUTHORED. The
-        // server can see that one of them is the current page, so the
-        // disclosure still opens on arrival and the current child still takes
-        // the mark — verified on `/design-system/brand`: `aria-expanded=true`,
-        // six children, `aria-current="page"` on `brand`. The four Application
-        // rows fetch their children and therefore cannot do this; see
-        // `objectSection` above for the measurement that kept them links.
-        {
-          label: '$t:admin.nav.design',
-          icon: 'palette',
-          props: { 'data-testid': 'data-nav-design-system' },
-          childrenProps: { 'data-testid': 'design-system-nav-children' },
-          children: designSystemChildren,
-        },
-        // LAST in the group, and that position is the argument: the rows above
-        // are what the app IS, and this one is why it is that way. A reader
-        // reaches it after the thing it explains, not before.
-        //
-        // `prefix`, like every other flat System row, so `/decisions/[internal ref]`
-        // still marks Decisions current — which is the whole reason the
-        // document has no row of its own.
-        systemRow('decisions', '$t:admin.crumb.decisions', 'scroll-text'),
-      ],
-    },
-    {
-      label: '$t:admin.nav.group.application',
-      landmark: '$t:admin.nav.landmark.data',
-      headingLevel: 2,
-      items: [
-        // The ROUTE stays `/automations` while the row, the trail, the heading
-        // and the document title all say Runs. A route is an address other
-        // things already hold — a bookmark, a link out of an alert — and
-        // `redirects[]` does nothing under the mount, so renaming it would
-        // break those for a word nobody reads.
-        systemRow('automations', '$t:admin.crumb.automations', 'zap'),
-        objectSection(
-          'tables',
-          '$t:admin.crumb.tables',
-          'table',
-          '/api/admin/tables/overview',
-          'by_table'
-        ),
-        objectSection(
-          'forms',
-          '$t:admin.crumb.forms',
-          'clipboard-list',
-          '/api/admin/forms',
-          'items'
-        ),
-        objectSection('buckets', '$t:admin.crumb.buckets', 'folder', '/api/admin/buckets', 'items'),
-        // Flat, not an object section: an asset path has slashes in it, and
-        // the derived children's `{name}` href template has one slot for one
-        // segment. The directory page is the picker.
-        systemRow('templates', '$t:admin.crumb.templates', 'file-text'),
-        objectSection(
-          'agents',
-          '$t:admin.crumb.agents',
-          'message-square',
-          '/api/admin/agents',
-          'items'
-        ),
-        systemRow('links', '$t:admin.crumb.links', 'link'),
-      ],
-    },
-    {
-      label: '$t:admin.nav.group.developers',
-      landmark: '$t:admin.nav.group.developers',
-      headingLevel: 2,
-      items: [
-        systemRow('connections', '$t:admin.crumb.connections', 'plug'),
-        {
-          label: '$t:admin.crumb.api',
-          href: '/api',
-          icon: 'code',
-          props: { 'data-testid': 'developer-nav-api' },
-        },
-        {
-          label: '$t:admin.crumb.mcp',
-          href: '/mcp',
-          icon: 'bot',
-          props: { 'data-testid': 'developer-nav-mcp' },
-        },
-        {
-          label: '$t:admin.crumb.changelog',
-          href: '/changelog',
-          icon: 'history',
-          props: { 'data-testid': 'developer-nav-changelog' },
-        },
-        {
-          label: '$t:admin.crumb.env',
-          href: '/env',
-          icon: 'settings',
-          props: { 'data-testid': 'developer-nav-env' },
-        },
-      ],
-    },
-  ],
-} as PageComponent
+  {
+    label: '$t:admin.nav.group.system',
+    landmark: '$t:admin.nav.landmark.data',
+    headingLevel: 2,
+    items: [
+      // FIRST in the group, and the position is the argument, as it is for
+      // the row that closes it. Every other row here answers "how much of X
+      // does this app have?"; this one answers "who can reach it" — the
+      // shape rather than the contents, and the question an operator most
+      // often arrives with.
+      //
+      // The `Dashboard` row that used to open this group is gone from here
+      // rather than deleted: it is the `Welcome` home row above, outside any
+      // group, and it kept its `data-nav-overview` testid across the move.
+      systemRow('organisation', '$t:admin.crumb.organisation', 'network'),
+      systemRow('users', '$t:admin.crumb.users', 'users'),
+      // Analytics answers both halves now — the audience at `?tab=pages` and
+      // the instance's footprint at `?tab=footprint`. Footprint had its own
+      // row here and its own document; `/footprint` is still a live address,
+      // but the sidebar names the QUESTION once rather than offering two rows
+      // that lead to two views of the same subject.
+      systemRow('pages', '$t:admin.crumb.pages', 'chart-column'),
+      // A TOGGLE: no `href`, so the whole row opens and shuts its own list
+      // and goes nowhere. It is the ONE disclosure in this sidebar that can
+      // be one, and both halves of that are measured.
+      //
+      // It COSTS nothing, because `/design-system` is the section's overview
+      // and the list's first child already links to it under its own name.
+      // The row used to offer the same page twice — once on the label, once
+      // on `Overview` two pixels below — with only the label taking the
+      // current-page fill, so a reader who clicked the label landed on a
+      // page they had not asked for and watched the list open underneath as
+      // a side effect. `activeMatch` goes with the `href`: a row that is not
+      // a page can never be `aria-current`, and the decode refuses it rather
+      // than ignoring it.
+      //
+      // And it LOSES nothing, because these six children are AUTHORED. The
+      // server can see that one of them is the current page, so the
+      // disclosure still opens on arrival and the current child still takes
+      // the mark — verified on `/design-system/brand`: `aria-expanded=true`,
+      // six children, `aria-current="page"` on `brand`. The four Application
+      // rows fetch their children and therefore cannot do this; see
+      // `objectSection` above for the measurement that kept them links.
+      {
+        label: '$t:admin.nav.design',
+        icon: 'palette',
+        props: { 'data-testid': 'data-nav-design-system' },
+        childrenProps: { 'data-testid': 'design-system-nav-children' },
+        children: designSystemChildren,
+      },
+      // LAST in the group, and that position is the argument: the rows above
+      // are what the app IS, and this one is why it is that way. A reader
+      // reaches it after the thing it explains, not before.
+      //
+      // `prefix`, like every other flat System row, so `/decisions/[internal ref]`
+      // still marks Decisions current — which is the whole reason the
+      // document has no row of its own.
+      systemRow('decisions', '$t:admin.crumb.decisions', 'scroll-text'),
+    ],
+  },
+  {
+    label: '$t:admin.nav.group.application',
+    landmark: '$t:admin.nav.landmark.data',
+    headingLevel: 2,
+    items: [
+      // The ROUTE stays `/automations` while the row, the trail, the heading
+      // and the document title all say Runs. A route is an address other
+      // things already hold — a bookmark, a link out of an alert — and
+      // `redirects[]` does nothing under the mount, so renaming it would
+      // break those for a word nobody reads.
+      systemRow('automations', '$t:admin.crumb.automations', 'zap'),
+      objectSection(
+        'tables',
+        '$t:admin.crumb.tables',
+        'table',
+        '/api/admin/tables/overview',
+        'by_table'
+      ),
+      objectSection('forms', '$t:admin.crumb.forms', 'clipboard-list', '/api/admin/forms', 'items'),
+      objectSection('buckets', '$t:admin.crumb.buckets', 'folder', '/api/admin/buckets', 'items'),
+      // Flat, not an object section: an asset path has slashes in it, and
+      // the derived children's `{name}` href template has one slot for one
+      // segment. The directory page is the picker.
+      systemRow('templates', '$t:admin.crumb.templates', 'file-text'),
+      objectSection(
+        'agents',
+        '$t:admin.crumb.agents',
+        'message-square',
+        '/api/admin/agents',
+        'items'
+      ),
+      systemRow('links', '$t:admin.crumb.links', 'link'),
+    ],
+  },
+  {
+    label: '$t:admin.nav.group.developers',
+    landmark: '$t:admin.nav.group.developers',
+    headingLevel: 2,
+    items: [
+      systemRow('connections', '$t:admin.crumb.connections', 'plug'),
+      {
+        label: '$t:admin.crumb.api',
+        href: '/api',
+        icon: 'code',
+        props: { 'data-testid': 'developer-nav-api' },
+      },
+      {
+        label: '$t:admin.crumb.mcp',
+        href: '/mcp',
+        icon: 'bot',
+        props: { 'data-testid': 'developer-nav-mcp' },
+      },
+      {
+        label: '$t:admin.crumb.changelog',
+        href: '/changelog',
+        icon: 'history',
+        props: { 'data-testid': 'developer-nav-changelog' },
+      },
+      {
+        label: '$t:admin.crumb.env',
+        href: '/env',
+        icon: 'settings',
+        props: { 'data-testid': 'developer-nav-env' },
+      },
+    ],
+  },
+]

@@ -16,7 +16,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -113,7 +113,7 @@ components:
                   - type: container
                     element: section
                     props:
-                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-card px-4 py-3.5
                     children:
                       - type: text
                         element: h2
@@ -123,7 +123,7 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: -mt-2 text-xs text-foreground-muted
+                          className: -mt-2 text-xs text-muted-foreground
                         content: In the order work moves
                       - type: chart
                         chartType: bar
@@ -139,7 +139,7 @@ components:
                   - type: container
                     element: section
                     props:
-                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-card px-4 py-3.5
                     children:
                       - type: text
                         element: h2
@@ -149,7 +149,7 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: -mt-2 text-xs text-foreground-muted
+                          className: -mt-2 text-xs text-muted-foreground
                         content: Who carries the work
                       - type: chart
                         chartType: bar
@@ -165,7 +165,7 @@ components:
                   - type: container
                     element: section
                     props:
-                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-background-raised px-4 py-3.5
+                      className: flex min-w-0 flex-col gap-2.5 rounded-lg border border-border bg-card px-4 py-3.5
                     children:
                       - type: text
                         element: h2
@@ -175,7 +175,7 @@ components:
                       - type: text
                         element: p
                         props:
-                          className: -mt-2 text-xs text-foreground-muted
+                          className: -mt-2 text-xs text-muted-foreground
                         content: Open tasks past their due date, oldest first
                       - type: list
                         dataSource:

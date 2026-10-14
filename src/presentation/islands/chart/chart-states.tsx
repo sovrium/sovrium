@@ -31,12 +31,12 @@ export function ChartLoading(): ReactElement {
       role="status"
       aria-label="Loading chart..."
     >
-      <div className="bg-background-subtle mb-3 h-4 w-32 animate-pulse rounded" />
+      <div className="bg-muted mb-3 h-4 w-32 animate-pulse rounded" />
       <div className="flex h-48 items-end gap-3">
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={`chart-skeleton-${String(i)}`}
-            className="bg-background-subtle flex-1 animate-pulse rounded-t"
+            className="bg-muted flex-1 animate-pulse rounded-t"
           />
         ))}
       </div>
@@ -85,7 +85,7 @@ export function ChartEmpty({
   if (emptyState) {
     return (
       <section
-        className="border-border bg-background-subtle text-foreground-muted text-md rounded border p-6 text-center"
+        className="border-border bg-muted text-muted-foreground text-md rounded border p-6 text-center"
         data-chart-state="empty"
         role="region"
         aria-label={emptyState.name}
@@ -101,7 +101,7 @@ export function ChartEmpty({
   }
   return (
     <div
-      className="border-border bg-background-subtle text-foreground-muted text-md rounded border p-6 text-center"
+      className="border-border bg-muted text-muted-foreground text-md rounded border p-6 text-center"
       data-chart-state="empty"
     >
       <p>{message ?? 'No data to chart yet.'}</p>

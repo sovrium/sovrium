@@ -81,11 +81,9 @@
  * per-part table instead, under the stricter entry rule documented on it.
  */
 
-import { TOKENS as T, withVarFallback as v } from './css-var'
-
 /**
- * The keyboard focus ring, composed from the SAME `css-var` tokens the recipes
- * compose it from.
+ * The keyboard focus ring, composed from the SAME shadcn role utilities the
+ * recipes compose it from.
  *
  * Not imported from them, and that is a boundary fact rather than a choice: a
  * `presentation-util` may reach neither a `presentation-island`
@@ -106,20 +104,23 @@ const FOCUS_VISIBLE_RING = [
   'focus-visible:outline-none',
   'focus-visible:ring-2',
   'focus-visible:ring-offset-2',
-  `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-  `focus-visible:ring-offset-[${v('sv-bg', T.bg)}]`,
+  'focus-visible:ring-ring',
+  'focus-visible:ring-offset-background',
 ].join(' ')
 
-/** The language switcher's focus ring: the trigger recipe's block, which draws no offset. */
-const SWITCHER_FOCUS_RING = [
-  'focus-visible:outline-none focus-visible:ring-2',
-  `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-].join(' ')
+/**
+ * shadcn/ui's focus affordance on a form control: the border takes the ring
+ * colour and a 3px ring at half its strength draws around it. The block the
+ * input, textarea and select-trigger recipes emit, verbatim — and the button
+ * recipe too, which is why the language switcher's `link` part replays it.
+ */
+const CONTROL_FOCUS_RING =
+  'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 /** A link's focus affordance — an underline, not a ring. Same derivation rule. */
 const LINK_FOCUS_CLASS = [
   'focus-visible:outline-none focus-visible:underline',
-  `focus-visible:decoration-[${v('sv-focus-ring', T.focusRing)}]`,
+  'focus-visible:decoration-ring',
 ].join(' ')
 
 /**
@@ -133,9 +134,10 @@ const ROOT_FLOOR: Readonly<Record<string, string>> = {
   // `<button>` — the recipe's own `FOCUS_CLASS` is byte-identical to the shared
   // island token, which is why one constant serves both.
   button: FOCUS_VISIBLE_RING,
-  // `<input>` / `<textarea>` — `computeInputDefaultClasses`' `FOCUS` block.
-  input: FOCUS_VISIBLE_RING,
-  textarea: FOCUS_VISIBLE_RING,
+  // `<input>` / `<textarea>` — shadcn/ui's control focus block, which
+  // `computeInputDefaultClasses` and `computeTextareaDefaultClasses` emit.
+  input: CONTROL_FOCUS_RING,
+  textarea: CONTROL_FOCUS_RING,
   // `<a>` — an underline rather than a ring; see `LINK_FOCUS_CLASS`.
   link: LINK_FOCUS_CLASS,
 }
@@ -180,7 +182,7 @@ const ROOT_FLOOR: Readonly<Record<string, string>> = {
  *
  * `select.trigger` is the island entry: it is Base UI's
  * `Select.Trigger`, the `role="combobox"` button that `plain-select.tsx`
- * renders and focuses, and whose own recipe emits a byte-identical ring (see
+ * renders and focuses, and whose own recipe emits the same control ring (see
  * `select-default-classes.ts`, pinned by `component-floor.test.ts`).
  *
  * ## Named, not silent: what is still uncovered
@@ -199,10 +201,10 @@ const ROOT_FLOOR: Readonly<Record<string, string>> = {
  * and not before.
  */
 const PART_FLOOR: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  select: { trigger: FOCUS_VISIBLE_RING },
-  // The `toggle` variant's `<a>` — the element that takes focus — whose recipe
-  // is the switcher trigger's, ring without offset.
-  'language-switcher': { link: SWITCHER_FOCUS_RING },
+  select: { trigger: CONTROL_FOCUS_RING },
+  // The `toggle` variant's `<a>` — the element that takes focus — drawn as a
+  // ghost button, whose focus block is the control ring.
+  'language-switcher': { link: CONTROL_FOCUS_RING },
   // The submit of a hosted form and of a page form — both drawn with the
   // button recipe, whose block this is.
   form: { submit: FOCUS_VISIBLE_RING },

@@ -100,7 +100,7 @@ export const section = defineSection({
       slug: 'cli-lifecycle',
       title: 'Lifecycle Commands',
       description:
-        'Run and control a server — start, stop, restart and the zero-downtime reload — plus the lock file that ties the four together and the status file a running instance publishes about itself.',
+        'Run and control a server — start, stop, restart and reload, which applies an edited config to a running server — plus the lock file that ties the four together and the status file a running instance publishes about itself.',
       keywords: [
         'sovrium start',
         'sovrium stop',

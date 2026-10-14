@@ -34,22 +34,22 @@ children:
               - type: link
                 props:
                   href: /
-                  className: text-md text-foreground-muted hover:text-foreground
+                  className: text-md text-muted-foreground hover:text-foreground
                 content: Overview
               - type: link
                 props:
                   href: /invoices
-                  className: text-md text-foreground-muted hover:text-foreground
+                  className: text-md text-muted-foreground hover:text-foreground
                 content: Invoices
               - type: link
                 props:
                   href: /clients
-                  className: text-md text-foreground-muted hover:text-foreground
+                  className: text-md text-muted-foreground hover:text-foreground
                 content: Clients
               - type: link
                 props:
                   href: /reports
-                  className: text-md text-foreground-muted hover:text-foreground
+                  className: text-md text-muted-foreground hover:text-foreground
                 content: Reports
           - type: flex
             props:
@@ -148,10 +148,10 @@ children:
           - type: text
             element: p
             props:
-              className: text-md text-foreground-muted
+              className: text-md text-muted-foreground
             content: 'This week, across every client.'
   - type: container
-    element: main
+    element: div
     props:
       className: px-4 py-8 sm:px-8
     children:
@@ -161,37 +161,37 @@ children:
         children:
           - type: container
             props:
-              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle h-32
+              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-muted h-32
             children:
               - type: text
                 element: span
                 props:
-                  className: font-mono text-sm text-foreground-subtle
+                  className: font-mono text-sm text-muted-foreground
                 content: '[Summary]'
           - type: container
             props:
-              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle h-32
+              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-muted h-32
             children:
               - type: text
                 element: span
                 props:
-                  className: font-mono text-sm text-foreground-subtle
+                  className: font-mono text-sm text-muted-foreground
                 content: '[Summary]'
           - type: container
             props:
-              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle h-32
+              className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-muted h-32
             children:
               - type: text
                 element: span
                 props:
-                  className: font-mono text-sm text-foreground-subtle
+                  className: font-mono text-sm text-muted-foreground
                 content: '[Summary]'
       - type: container
         props:
-          className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-background-subtle mt-6 h-56
+          className: flex w-full items-center justify-center rounded-lg border border-dashed border-border-strong bg-muted mt-6 h-56
         children:
           - type: text
             element: span
             props:
-              className: font-mono text-sm text-foreground-subtle
+              className: font-mono text-sm text-muted-foreground
             content: '[Page content]'

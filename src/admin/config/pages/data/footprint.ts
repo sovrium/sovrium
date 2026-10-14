@@ -56,6 +56,8 @@
 // it does not have. Standing platform gap; until it closes these tables carry
 // the same chrome as every other console table.
 
+import { sectionCard } from '../../components/dashboard-blocks'
+import { dataTable } from '../../components/data-table-blocks'
 import { FOOTPRINT_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -74,12 +76,7 @@ const tile = (
   valuePath: string,
   kpiFormat?: { readonly type: string; readonly options?: Readonly<Record<string, string>> }
 ): PageComponent =>
-  ({
-    type: 'kpi',
-    label,
-    dataSource: { system: { endpoint: FOOTPRINT_ENDPOINT, valuePath } },
-    ...(kpiFormat ? { kpiFormat } : {}),
-  }) as PageComponent
+  sectionCard({ label, endpoint: FOOTPRINT_ENDPOINT, valuePath, kpiFormat: kpiFormat ?? null })
 
 /**
  * The provenance caption closing a region.
@@ -140,16 +137,12 @@ const measuredRegion = (): PageComponent =>
         type: 'container',
         props: { className: 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4' },
         children: [
-          {
-            type: 'kpi',
+          sectionCard({
             label: 'Last graded response',
-            dataSource: {
-              system: {
-                endpoint: FOOTPRINT_ENDPOINT,
-                valueTemplate: '{ecoIndexHeader.currentGrade}',
-              },
-            },
-          },
+            endpoint: FOOTPRINT_ENDPOINT,
+            system: { valueTemplate: '{ecoIndexHeader.currentGrade}' },
+            kpiFormat: null,
+          }),
           tile('Responses graded', 'ecoIndexHeader.graded', { type: 'number' }),
           tile('Mean response size', 'ecoIndexHeader.meanBytes', { type: 'bytes' }),
           tile('Cache hit rate', 'pageCache.hitRate', {
@@ -178,8 +171,7 @@ const storageRegion = (): PageComponent =>
   region(
     '$t:admin.footprint.storage.heading',
     [
-      {
-        type: 'table',
+      dataTable({
         props: { id: 'admin-footprint-storage', 'aria-label': '$t:admin.footprint.storage.region' },
         dataSource: {
           system: { endpoint: FOOTPRINT_ENDPOINT, rowsKey: 'topStorageConsumers', idKey: 'name' },
@@ -204,7 +196,7 @@ const storageRegion = (): PageComponent =>
           },
         ],
         emptyMessage: 'Nothing to size yet',
-      } as PageComponent,
+      }) as PageComponent,
     ],
     '$t:admin.locked.audit.footprint.storageProvenance'
   )
@@ -220,8 +212,7 @@ const configurationRegion = (): PageComponent =>
   region(
     '$t:admin.footprint.configuration.heading',
     [
-      {
-        type: 'table',
+      dataTable({
         props: { id: 'admin-footprint-levers', 'aria-label': '$t:admin.footprint.levers.region' },
         dataSource: { system: { endpoint: FOOTPRINT_ENDPOINT, rowsKey: 'levers', idKey: 'name' } },
         columns: [
@@ -238,7 +229,7 @@ const configurationRegion = (): PageComponent =>
           },
         ],
         emptyMessage: 'No levers',
-      } as PageComponent,
+      }) as PageComponent,
     ],
     '$t:admin.locked.audit.footprint.configurationProvenance'
   )

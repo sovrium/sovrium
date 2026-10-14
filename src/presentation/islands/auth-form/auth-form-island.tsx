@@ -14,10 +14,7 @@ import {
   type AuthFormField,
   type AuthMethod,
 } from '@/presentation/design/auth-form-types'
-import {
-  computeSubmitButtonClasses,
-  type ButtonVariant,
-} from '@/presentation/design/button-default-classes'
+import { type ButtonVariant } from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { AccountLinkBoundary, AccountMethodBoundary } from './account-method-boundary'
@@ -29,7 +26,12 @@ import { SsoSignInForm, type SsoButtonProvider } from './auth-form-sso'
 import { useAuthFormState, type AuthFormStateInput } from './auth-form-state'
 import { type ToastConfig } from './auth-form-submit'
 import { AuthSuccessPage, type AuthSuccessPageConfig } from './auth-form-success-page'
+import { AuthSubmitButton } from './auth-submit-button'
 import type { TwoFactorNotice } from './two-factor-notice'
+
+/** @public Stub consumer (shadcn parity plan §9.1): a lazy edge to input-otp until the two-factor port. */
+// eslint-disable-next-line react-refresh/only-export-components -- a lazy loader, not a component
+export const loadOtpPrimitives = () => import('../parts/otp-primitives')
 
 // ---------------------------------------------------------------------------
 // Types
@@ -160,6 +162,7 @@ function CredentialAuthForm(props: AuthFormIslandProps) {
       <AuthErrorSummary
         fields={fields}
         errors={summaryErrors}
+        sentence={props.uiStrings?.['auth.fixErrors']}
       />
       {fields.map((field) => (
         <AuthFieldRow
@@ -171,14 +174,12 @@ function CredentialAuthForm(props: AuthFormIslandProps) {
         />
       ))}
       <AuthFormFeedback state={state} />
-      <button
-        type="submit"
-        data-component-type="button"
-        disabled={state.isPending}
-        className={`${computeSubmitButtonClasses(props.submitVariant)} w-full`}
-      >
-        {state.isPending ? pendingLabel : submitLabel}
-      </button>
+      <AuthSubmitButton
+        pending={state.isPending}
+        label={submitLabel}
+        pendingLabel={pendingLabel}
+        variant={props.submitVariant}
+      />
     </form>
   )
 }

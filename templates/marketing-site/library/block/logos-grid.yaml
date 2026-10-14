@@ -1,4 +1,5 @@
-# sovrium-library: block/logos-grid@0.30.0
+# sovrium-library: block/logos-grid@0.37.0
+# sovrium-library-params: intro=%5BUsed%20by%20teams%20at%20%E2%80%94%20permission%20required%20for%20each%20logo%5D
 name: logos-grid
 type: container
 element: section
@@ -16,7 +17,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-sm text-foreground-subtle text-md text-foreground-muted
+              className: text-sm text-muted-foreground text-md text-muted-foreground
             content: '[Used by teams at — permission required for each logo]'
           - type: grid
             props:
@@ -29,7 +30,7 @@ children:
                   - type: text
                     element: span
                     props:
-                      className: font-mono text-sm text-foreground-subtle
+                      className: font-mono text-sm text-muted-foreground
                     content: logo 1
               - type: container
                 props:
@@ -38,7 +39,7 @@ children:
                   - type: text
                     element: span
                     props:
-                      className: font-mono text-sm text-foreground-subtle
+                      className: font-mono text-sm text-muted-foreground
                     content: logo 2
               - type: container
                 props:
@@ -47,7 +48,7 @@ children:
                   - type: text
                     element: span
                     props:
-                      className: font-mono text-sm text-foreground-subtle
+                      className: font-mono text-sm text-muted-foreground
                     content: logo 3
               - type: container
                 props:
@@ -56,7 +57,7 @@ children:
                   - type: text
                     element: span
                     props:
-                      className: font-mono text-sm text-foreground-subtle
+                      className: font-mono text-sm text-muted-foreground
                     content: logo 4
               - type: container
                 props:
@@ -65,7 +66,7 @@ children:
                   - type: text
                     element: span
                     props:
-                      className: font-mono text-sm text-foreground-subtle
+                      className: font-mono text-sm text-muted-foreground
                     content: logo 5
               - type: container
                 props:
@@ -74,5 +75,5 @@ children:
                   - type: text
                     element: span
                     props:
-                      className: font-mono text-sm text-foreground-subtle
+                      className: font-mono text-sm text-muted-foreground
                     content: logo 6

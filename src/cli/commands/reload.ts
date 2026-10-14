@@ -5,63 +5,100 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { readFile, writeFile, rm } from 'node:fs/promises'
 import { Effect, Console } from 'effect'
 import { printFailure, printStderr } from '@/infrastructure/logging/cli-output'
-import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
-import {
-  computeConfigHash,
-  getReloadMessageFilePath,
-  isProcessRunning,
-  readLockFile,
-  writeLockFile,
-} from '@/infrastructure/server/lock-file'
-import { lazyImportSchema } from './utils'
+import { isProcessRunning, readLockFile } from '@/infrastructure/server/lock-file'
+import { readStatusDocument } from '@/infrastructure/server/status-file'
+import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
+import type { ServerStatusDocument } from '@/infrastructure/server/status-file'
 
 /**
- * Parsed `sovrium reload` invocation. One scalar flag:
- *   --message "..."   commit message attached to the new version row
- */
-interface ReloadOptions {
-  readonly message: string | undefined
-}
-
-const parseReloadArgs = (argv: readonly string[]): ReloadOptions => {
-  const messageIndex = argv.indexOf('--message')
-  const message =
-    messageIndex >= 0 && argv.length > messageIndex + 1 ? argv[messageIndex + 1] : undefined
-  return { message }
-}
-
-/**
- * Read the config file and resolve its `$ref`s, without throwing.
+ * `sovrium reload` — ask the running server to apply its config file, and
+ * report what the SERVER did.
  *
- * Split out so the decode below can report a REFUSAL distinctly from a file
- * that could not be read or parsed at all — folding both into one `catch` is
- * what let the old gate print a raw `ParseError` stack for a config Sovrium
- * simply declined.
+ * The command decides nothing. It signals the process (SIGUSR1), and the
+ * server runs the reload `--watch` runs on a save: load and decode the config
+ * graph, swap a render-only change into the live listener, restart in place on
+ * the same port for a change to a restart-class key, or refuse and keep
+ * serving. That path publishes its verdict in `status.json`, and the command
+ * waits for it — so what it prints is what happened, never what it asked for.
+ *
+ * `--message` is accepted and does nothing: there is no version ledger for a
+ * note to be recorded in.
  */
-const readAndParseConfig = async (
-  configPath: string
-): Promise<
-  | { readonly ok: true; readonly parsed: unknown; readonly content: string }
-  | { readonly ok: false; readonly error: unknown }
-> => {
-  try {
-    const content = await readFile(configPath, 'utf-8')
-    const { loadSchemaFromFile } = await lazyImportSchema()
-    const parsed = await loadSchemaFromFile(configPath)
-    return { ok: true, parsed, content }
-  } catch (error) {
-    return { ok: false, error }
-  }
-}
+
+/** How long the command waits for the server's verdict. */
+const VERDICT_TIMEOUT_MS = 120_000
+const POLL_INTERVAL_MS = 100
+
+const GUIDANCE = 'Run `sovrium validate <config>` to check it without touching the running server.'
 
 /**
- * Handle the 'reload' command -- send SIGUSR1 to running server to reload config
+ * The record this reload published: written by the same process, after the
+ * one read before the signal, and carrying a verdict that record did not. A
+ * restart-class reload also publishes its new server's boot, which carries the
+ * previous verdict — waiting for a NEW `lastReload` skips it.
  */
-export const handleReloadCommand = async (argv: readonly string[] = []): Promise<void> => {
-  const options = parseReloadArgs(argv)
+const isVerdictOf = (
+  pid: number,
+  before: ServerStatusDocument | undefined,
+  candidate: ServerStatusDocument | undefined
+): candidate is ServerStatusDocument =>
+  candidate !== undefined &&
+  candidate.pid === pid &&
+  candidate.lastReload !== undefined &&
+  candidate.seq > (before?.pid === pid ? before.seq : 0) &&
+  candidate.lastReload.at !== (before?.pid === pid ? before.lastReload?.at : undefined)
+
+/** Wait for the verdict; `undefined` when none came or the process died first. */
+const awaitVerdict = async (
+  pid: number,
+  before: ServerStatusDocument | undefined,
+  deadline: number
+): Promise<ServerStatusDocument | undefined> => {
+  const status = await readStatusDocument()
+  if (isVerdictOf(pid, before, status)) return status
+  if (Date.now() >= deadline || !isProcessRunning(pid)) return undefined
+  await Bun.sleep(POLL_INTERVAL_MS)
+  return awaitVerdict(pid, before, deadline)
+}
+
+const findingLines = (findings: readonly ConfigFinding[]): readonly string[] =>
+  findings.map((finding) =>
+    finding.path === '' ? finding.message : `${finding.path}: ${finding.message}`
+  )
+
+const seconds = (durationMs: number): string => `${(durationMs / 1000).toFixed(1)} s`
+
+/** The line a successful reload prints. */
+const successLine = (status: ServerStatusDocument): string => {
+  const record = status.lastReload
+  if (record?.kind !== 'restart')
+    return `Configuration reloaded in place in ${String(record?.durationMs ?? 0)} ms — open connections were kept.`
+  const where = status.port === undefined ? 'its socket' : `port ${String(status.port)}`
+  const why = record.reason === undefined ? '' : ` (${record.reason} changed)`
+  return `Configuration reloaded — the server restarted on ${where} in ${seconds(record.durationMs)}${why}; open connections were closed.`
+}
+
+/** Print the verdict, exiting 1 for anything but a reload that was applied. */
+const report = (status: ServerStatusDocument): void => {
+  const record = status.lastReload
+  if (record?.outcome === 'success') {
+    Effect.runSync(Console.log(successLine(status)))
+    return
+  }
+  const headline =
+    record?.outcome === 'kept'
+      ? 'Sovrium refused this configuration — nothing was reloaded.'
+      : record?.outcome === 'rolled-back'
+        ? 'The new configuration did not boot, so the server went back to the previous one.'
+        : 'The new configuration did not boot, and the previous one did not either: the server is down.'
+  printFailure({ headline, detail: findingLines(record?.findings ?? []), guidance: GUIDANCE })
+  process.exit(1)
+}
+
+/** Handle `sovrium reload`: signal the running server and print what it did. */
+export const handleReloadCommand = async (): Promise<void> => {
   const lockData = await readLockFile()
   if (!lockData) {
     printStderr('Error: No server is running (lock file not found)')
@@ -73,69 +110,14 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
     process.exit(1)
   }
 
-  // Read and validate the config file before sending the reload signal.
-  //
-  // THE SAME PIPELINE `validate`, `start` AND `build` RUN. Calling
-  // `Schema.decodeUnknownSync(AppSchema)` directly would make this gate a
-  // fourth contract disagreeing with the other three: it decodes with Effect's
-  // default excess-property behaviour, so it accepts — silently strips — a
-  // property AppSchema does not declare and that `start` refuses outright. An
-  // operator reads this gate as "is my config good?", so it has to give the
-  // answer the rest of the CLI gives.
-  if (lockData.configPath) {
-    const parseResult = await readAndParseConfig(lockData.configPath)
-    if (!parseResult.ok) {
-      // `start` and `build` both refuse through formatConfigRejection; reload
-      // hand-rolled a second shape with a spaced hyphen and no next action.
-      // Three commands, one refusal contract.
-
-      printFailure({
-        headline: 'Sovrium refused this configuration — nothing was reloaded.',
-        detail: [formatRuntimeError(parseResult.error)],
-        guidance:
-          'Run `sovrium validate <config>` to check it without touching the running server.',
-      })
-      process.exit(1)
-    }
-
-    const { decodeAppConfigObject } =
-      await import('@/application/use-cases/config/decode-app-config')
-    const decoded = decodeAppConfigObject(parseResult.parsed)
-    if (!decoded.valid) {
-      printFailure({
-        headline: 'Sovrium refused this configuration — nothing was reloaded.',
-        detail: decoded.errors,
-        guidance:
-          'Run `sovrium validate <config>` to check it without touching the running server.',
-      })
-      process.exit(1)
-    }
-
-    // Update lock file with new config hash
-    const newHash = computeConfigHash(parseResult.content)
-    await writeLockFile({ ...lockData, configHash: newHash })
+  if (!lockData.configPath) {
+    printStderr(
+      'Error: The running server was not started from a config file, so there is nothing to reload.'
+    )
+    process.exit(1)
   }
 
-  // Stage the reload-time commit message via a sidecar file (signals carry
-  // no data). The server's SIGUSR1 handler reads-and-deletes it before
-  // appending the new version row. Missing sidecar ⇒ server uses its
-  // default fallback ("Reloaded from app.yaml").
-  if (options.message !== undefined && options.message.length > 0) {
-    try {
-      await writeFile(getReloadMessageFilePath(), options.message, 'utf-8')
-    } catch {
-      // Non-fatal — the reload still happens, just without the message.
-    }
-  } else {
-    // Clear any stale sidecar from a prior reload that crashed mid-handler.
-    try {
-      await rm(getReloadMessageFilePath(), { force: true })
-    } catch {
-      // Ignore.
-    }
-  }
-
-  // Send SIGUSR1 to trigger config reload in running server
+  const before = await readStatusDocument()
   try {
     process.kill(lockData.pid, 'SIGUSR1')
   } catch {
@@ -143,5 +125,14 @@ export const handleReloadCommand = async (argv: readonly string[] = []): Promise
     process.exit(1)
   }
 
-  Effect.runSync(Console.log('Configuration reloaded'))
+  const verdict = await awaitVerdict(lockData.pid, before, Date.now() + VERDICT_TIMEOUT_MS)
+  if (verdict === undefined) {
+    printStderr(
+      isProcessRunning(lockData.pid)
+        ? `Error: The server did not confirm the reload within ${String(VERDICT_TIMEOUT_MS / 1000)} s (PID ${String(lockData.pid)}).`
+        : `Error: The server stopped before it confirmed the reload (PID ${String(lockData.pid)}).`
+    )
+    process.exit(1)
+  }
+  report(verdict)
 }

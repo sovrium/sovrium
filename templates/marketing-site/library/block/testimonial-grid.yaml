@@ -1,4 +1,5 @@
-# sovrium-library: block/testimonial-grid@0.30.0
+# sovrium-library: block/testimonial-grid@0.37.0
+# sovrium-library-params: headline=%5BWhat%20customers%20say%5D
 name: testimonial-grid
 type: container
 element: section
@@ -34,7 +35,7 @@ children:
                   - type: avatar
                     label: '[Full name]'
                     initials: AB
-                    size: md
+                    size: default
                   - type: flex
                     props:
                       className: flex flex-col gap-0.5 text-left
@@ -47,7 +48,7 @@ children:
                       - type: text
                         element: span
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: '[Role, organisation]'
           - type: card
             props:
@@ -65,7 +66,7 @@ children:
                   - type: avatar
                     label: '[Full name]'
                     initials: AB
-                    size: md
+                    size: default
                   - type: flex
                     props:
                       className: flex flex-col gap-0.5 text-left
@@ -78,7 +79,7 @@ children:
                       - type: text
                         element: span
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: '[Role, organisation]'
           - type: card
             props:
@@ -96,7 +97,7 @@ children:
                   - type: avatar
                     label: '[Full name]'
                     initials: AB
-                    size: md
+                    size: default
                   - type: flex
                     props:
                       className: flex flex-col gap-0.5 text-left
@@ -109,5 +110,5 @@ children:
                       - type: text
                         element: span
                         props:
-                          className: text-sm text-foreground-subtle
+                          className: text-sm text-muted-foreground
                         content: '[Role, organisation]'

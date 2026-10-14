@@ -6,6 +6,7 @@
  */
 
 import type { MenuItem, MenuSurface } from './menu-item-types'
+import type { MenuKind } from './menu-slot-context'
 import type { ReactNode } from 'react'
 
 /**
@@ -64,6 +65,12 @@ export interface MenuIslandProps {
    * click/right-click behaviour only.
    */
   readonly openOnHover?: boolean
+  /**
+   * Which menu this island draws, naming its `data-slot`s after shadcn/ui's
+   * part (`context-menu-item` rather than `dropdown-menu-item`). Set by the
+   * server renderer, never authored; `dropdown-menu` when absent.
+   */
+  readonly menuKind?: MenuKind
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string

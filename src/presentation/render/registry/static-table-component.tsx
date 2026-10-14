@@ -8,9 +8,11 @@
 /**
  * A `table` that binds nothing: the STATIC half of the merged type.
  *
- * Prestyled-by-default and purely presentational — no island, no
- * fetch, no hydration. The author ships `tableHeaders` + `tableRows` as inline
- * literal arrays and gets a bordered, rounded table with subtle header chrome.
+ * Purely presentational — no island, no fetch, no hydration. The author ships
+ * `tableHeaders` + `tableRows` as inline literal arrays and gets shadcn/ui's
+ * `Table`: a scrolling `table-container` around the `<table>`, each part named
+ * by its `data-slot` (`table-header`, `table-body`, `table-row`, `table-head`,
+ * `table-cell`, `table-caption`). The author's props stay on the `<table>`.
  *
  * ─── WHY ITS OWN MODULE ────────────────────────────────────────────────────
  *
@@ -30,8 +32,11 @@
 
 import { cn } from '../../design/class-merge'
 import {
+  computeStaticTableBodyClasses,
+  computeStaticTableCaptionClasses,
   computeStaticTableCellClasses,
-  computeStaticTableHeaderRowClasses,
+  computeStaticTableContainerClasses,
+  computeStaticTableRowClasses,
   computeStaticTableShellClasses,
 } from '../../design/display-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
@@ -70,11 +75,15 @@ const staticHead = (
   if (headers.length === 0) return undefined
   const cellClass = computeStaticTableCellClasses({ kind: 'header' })
   return (
-    <thead>
-      <tr className={computeStaticTableHeaderRowClasses()}>
+    <thead data-slot="table-header">
+      <tr
+        data-slot="table-row"
+        className={computeStaticTableRowClasses()}
+      >
         {headers.map((header, i) => (
           <th
             key={i}
+            data-slot="table-head"
             className={cn(cellClass, parts.header, alignOf(columns[i]))}
           >
             {header}
@@ -94,15 +103,20 @@ const staticBody = (
   if (rows.length === 0) return undefined
   const cellClass = computeStaticTableCellClasses({ kind: 'data' })
   return (
-    <tbody>
+    <tbody
+      data-slot="table-body"
+      className={computeStaticTableBodyClasses()}
+    >
       {rows.map((row, ri) => (
         <tr
           key={ri}
-          className={parts.row}
+          data-slot="table-row"
+          className={cn(computeStaticTableRowClasses(), parts.row)}
         >
           {row.map((cell, ci) => (
             <td
               key={ci}
+              data-slot="table-cell"
               className={cn(cellClass, parts.cell, alignOf(columns[ci]), columns[ci]?.className)}
             >
               {cell}
@@ -115,10 +129,14 @@ const staticBody = (
 }
 
 /** The table's `caption` — its accessible name — with the author's `caption` part classes. */
-const STATIC_CAPTION_CLASSES = 'py-2 text-left text-sm text-foreground-muted'
 const staticCaption = (caption: string | undefined, part: string | undefined) =>
   caption === undefined || caption === '' ? undefined : (
-    <caption className={cn(STATIC_CAPTION_CLASSES, part)}>{caption}</caption>
+    <caption
+      data-slot="table-caption"
+      className={cn(computeStaticTableCaptionClasses(), part)}
+    >
+      {caption}
+    </caption>
   )
 
 /** What a written table declares, each list empty when absent. */
@@ -162,14 +180,20 @@ export const staticTableComponent: ComponentRenderer = ({
     authorClassName as string | undefined
   )
   return (
-    <table
-      {...restProps}
-      data-testid={dataTestId as string | undefined}
-      className={mergedClassName}
+    <div
+      data-slot="table-container"
+      className={computeStaticTableContainerClasses()}
     >
-      {staticCaption(caption, parts.caption)}
-      {staticHead(headers, columns, parts)}
-      {staticBody(rows, columns, parts)}
-    </table>
+      <table
+        {...restProps}
+        data-testid={dataTestId as string | undefined}
+        data-slot="table"
+        className={mergedClassName}
+      >
+        {staticCaption(caption, parts.caption)}
+        {staticHead(headers, columns, parts)}
+        {staticBody(rows, columns, parts)}
+      </table>
+    </div>
   )
 }

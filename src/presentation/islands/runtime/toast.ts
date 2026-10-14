@@ -62,7 +62,10 @@ import {
   markToastPoliteness,
   resolveToastDismissLabel,
 } from '@/presentation/islands/runtime/toast-accessibility'
-import { resolveToastDuration } from '@/presentation/islands/runtime/toast-duration'
+import {
+  markToastTiming,
+  resolveToastDuration,
+} from '@/presentation/islands/runtime/toast-duration'
 
 /**
  * Find the shared toaster container, creating it only if the page did not
@@ -77,7 +80,6 @@ function ensureToasterContainer(): Element {
   container.setAttribute('aria-live', 'polite')
   const el = container as HTMLElement
   el.style.position = 'fixed'
-  el.style.bottom = '16px'
   el.style.right = '16px'
   el.style.zIndex = '9999'
   el.style.display = 'flex'
@@ -112,7 +114,7 @@ export function renderToast(message: string, variant?: string, duration?: number
   const container = ensureToasterContainer()
   const toast = document.createElement('div')
   toast.setAttribute('data-toast', '')
-  if (variant) toast.setAttribute('data-variant', variant)
+  markToastTiming(toast, { variant, duration })
   markToastPoliteness(toast, variant)
   appendToastMessage(toast, message)
 

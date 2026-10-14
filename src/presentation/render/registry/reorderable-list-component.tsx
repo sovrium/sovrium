@@ -5,11 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { REORDERABLE_READY_MARK } from '@/presentation/design/runtime-ready-marks'
+import { cn } from '@/presentation/design/class-merge'
+import { GripVerticalGlyph } from '@/presentation/design/control-glyphs'
+import {
+  computeItemClasses,
+  computeItemContentClasses,
+} from '@/presentation/design/item-default-classes'
 import {
   computeReorderableHandleClasses,
   computeReorderableListClasses,
-} from '@/presentation/design/specialty-ssr-default-classes'
+  computeReorderableRowClasses,
+} from '@/presentation/design/reorderable-list-default-classes'
+import { REORDERABLE_READY_MARK } from '@/presentation/design/runtime-ready-marks'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { INLINE_TOAST_POLICY_RUNTIME } from './inline-toast-policy-runtime'
 import { mergePrestyle } from './interactive-prestyle-builders'
@@ -222,22 +229,25 @@ ${INLINE_TOAST_POLICY_RUNTIME}
   }
 })();`
 
-/** A `<span>` drag-handle prepended to every reorderable list item. */
-function dragHandle(key: string): ReactElement {
+/** The grip handle at the start of every row: a ghost icon button drawing a grip. */
+function dragHandle(): ReactElement {
   return (
     <span
-      key={key}
       data-drag-handle="true"
+      data-slot="reorderable-list-handle"
       role="button"
       tabIndex={0}
       aria-label="Drag to reorder"
       aria-pressed="false"
       className={computeReorderableHandleClasses()}
     >
-      {'☰'}
+      <GripVerticalGlyph />
     </span>
   )
 }
+
+/** One row: an outlined small item, its handle at the start and its text in its content. */
+const ROW_CLASSES = cn(computeItemClasses({ variant: 'outline' }), computeReorderableRowClasses())
 
 /** Shape of a raw list-item child read off the component definition. */
 interface RawListChild {
@@ -289,9 +299,18 @@ export const reorderableListComponent: ComponentRenderer = ({ elementProps, comp
       id={child.props?.id}
       role="listitem"
       data-reorderable-item="true"
+      data-slot="item"
+      data-variant="outline"
+      data-size="sm"
+      className={ROW_CLASSES}
     >
-      {dragHandle(`handle-${index}`)}
-      {child.content}
+      {dragHandle()}
+      <div
+        data-slot="item-content"
+        className={computeItemContentClasses()}
+      >
+        {child.content}
+      </div>
     </li>
   ))
 
@@ -317,6 +336,7 @@ export const reorderableListComponent: ComponentRenderer = ({ elementProps, comp
         {...omitInternalMarkers(elementProps)}
         {...toastAttrs}
         data-reorderable-list="true"
+        data-slot="reorderable-list"
         className={listClassName}
       >
         {items}

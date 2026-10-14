@@ -125,6 +125,30 @@ export const breadcrumbFields = {
       description: 'Separator character between breadcrumb items (default: "/")',
     })
   ),
+  /** The most crumbs drawn; the middle ones collapse behind an ellipsis. */
+  maxItems: Schema.optional(
+    Schema.Finite.annotate({
+      description:
+        "The most crumbs the trail draws: the first crumb, then an ellipsis standing for the middle ones, then the last ones. At least 3. shadcn/ui's BreadcrumbEllipsis.",
+      examples: [3, 4],
+    }).pipe(
+      Schema.check(
+        Schema.isInt(),
+        Schema.makeFilter(
+          (value: number) =>
+            value >= 3 ||
+            'maxItems must be at least 3: the first crumb, the ellipsis and the current page'
+        )
+      )
+    )
+  ),
+  /** What the ellipsis does. */
+  collapse: Schema.optional(
+    Schema.Literals(['ellipsis', 'menu']).annotate({
+      description:
+        "What stands for the collapsed crumbs: 'ellipsis' (the default), a mark that names them, or 'menu', a button opening a menu of the collapsed crumbs, each a link. shadcn/ui's Breadcrumb with a DropdownMenu.",
+    })
+  ),
   /**
    * The label of the LAST crumb of a derived trail — the page the reader is on.
    *

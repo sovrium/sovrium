@@ -16,6 +16,8 @@
  * under its line cap.
  */
 
+import { automationPressHeaders } from '../runtime/automation-press-headers'
+
 /**
  * Automation action the alert-dialog's confirm button dispatches. Mirrors the
  * page-button `AutomationAction` shape. Two kinds are wired: an `automation`
@@ -54,7 +56,7 @@ export function dispatchConfirmAction(action: DialogConfirmAction | undefined): 
   const inputData = action.inputData ?? {}
   void fetch(`/api/automations/${encodeURIComponent(action.name)}/form-action`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: automationPressHeaders(),
     body: JSON.stringify({ inputData }),
   }).catch(() => undefined)
 }

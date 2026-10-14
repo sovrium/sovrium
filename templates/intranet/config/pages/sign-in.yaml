@@ -10,7 +10,7 @@ meta:
 components:
   - $ref: ./_site-header.yaml
   - type: container
-    element: main
+    element: div
     props:
       className: flex justify-center px-5 pt-12 pb-16 max-md:pt-8
     children:
@@ -30,11 +30,11 @@ components:
               - type: text
                 element: p
                 props:
-                  className: text-foreground-muted
+                  className: text-muted-foreground
                 content: We email you a link that signs you in.
           - type: container
             props:
-              className: flex flex-col gap-4 rounded-lg border border-border bg-background-raised p-5 shadow-sm
+              className: flex flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm
             children:
               - type: form
                 props:
@@ -48,7 +48,7 @@ components:
                     navigate: /portal
               - type: container
                 props:
-                  className: flex items-center justify-center gap-2 text-sm text-foreground-muted
+                  className: flex items-center justify-center gap-2 text-sm text-muted-foreground
                 children:
                   - type: icon
                     props:
@@ -62,6 +62,6 @@ components:
           - type: text
             element: p
             props:
-              className: text-center text-xs text-foreground-muted
+              className: text-center text-xs text-muted-foreground
             content: Only people with a Halden email can sign in. New here? Ask your manager to add you.
   - $ref: ./_site-footer.yaml

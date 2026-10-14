@@ -3,11 +3,11 @@ name: auth-sign-in
 type: container
 element: section
 props:
-  className: flex min-h-screen justify-center bg-background-subtle px-4 pt-10 pb-12 sm:items-center sm:px-6
+  className: flex min-h-screen justify-center bg-muted px-4 pt-10 pb-12 sm:items-center sm:px-6
 children:
   - type: container
     props:
-      className: flex w-full max-w-96 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-background-raised sm:p-8
+      className: flex w-full max-w-96 flex-col gap-6 self-start sm:self-auto sm:rounded-lg sm:border sm:border-border sm:bg-card sm:p-8
     children:
       - type: flex
         props:
@@ -33,7 +33,7 @@ children:
           - type: text
             element: p
             props:
-              className: text-md text-foreground-muted
+              className: text-md text-muted-foreground
             content: Welcome back. Use the email you signed up with.
       - type: form
         action:
@@ -50,7 +50,7 @@ children:
       - type: link
         props:
           href: /reset-password
-          className: self-start text-md text-foreground-muted underline underline-offset-4
+          className: self-start text-md text-muted-foreground underline underline-offset-4
         content: Forgot password?
         visibility:
           declares: auth.passwordReset
@@ -78,20 +78,20 @@ children:
           - type: link
             props:
               href: /magic-link
-              className: inline-flex h-8 w-full items-center justify-center rounded-md border border-border-strong bg-background-raised text-base font-medium text-foreground hover:bg-background-subtle
+              className: inline-flex h-8 w-full items-center justify-center rounded-md border border-border-strong bg-card text-base font-medium text-foreground hover:bg-muted
             content: Email me a sign-in link
             visibility:
               declares: auth.magicLink
           - type: link
             props:
               href: /sso
-              className: inline-flex h-8 w-full items-center justify-center rounded-md border border-border-strong bg-background-raised text-base font-medium text-foreground hover:bg-background-subtle
+              className: inline-flex h-8 w-full items-center justify-center rounded-md border border-border-strong bg-card text-base font-medium text-foreground hover:bg-muted
             content: Use single sign-on
             visibility:
               declares: auth.sso
       - type: flex
         props:
-          className: flex flex-wrap gap-1 text-md text-foreground-muted
+          className: flex flex-wrap gap-1 text-md text-muted-foreground
         children:
           - type: text
             element: span

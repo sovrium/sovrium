@@ -10,7 +10,10 @@
  * binding, the fetch in flight, or its failure.
  */
 
-import { computeListShellClasses } from '@/presentation/design/list-default-classes'
+import {
+  LIST_SKELETON_CLASSES,
+  computeListShellClasses,
+} from '@/presentation/design/list-default-classes'
 import { isRateLimitedRead, RateLimitedNotice } from '../runtime/read-failure'
 import type { ReactElement } from 'react'
 
@@ -20,7 +23,7 @@ export type ListStrings = Readonly<Record<string, string>> | undefined
 /** Missing-binding fallback — neither `table` nor `system` configured. */
 export function ListMissing(): ReactElement {
   return (
-    <div className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3">
+    <div className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm">
       List is missing required <code>dataSource</code> configuration.
     </div>
   )
@@ -40,12 +43,13 @@ export function ListLoading({ strings }: { readonly strings: ListStrings }): Rea
     <div
       role="status"
       aria-label={strings?.['list.loading'] ?? 'Loading list...'}
-      className={`${computeListShellClasses()} space-y-2 p-2`}
+      className={`${computeListShellClasses()} gap-2 p-2`}
     >
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={`list-loading-row-${String(i)}`}
-          className="bg-background-subtle h-6 w-full animate-pulse rounded"
+          data-slot="skeleton"
+          className={LIST_SKELETON_CLASSES}
         />
       ))}
     </div>
@@ -72,7 +76,7 @@ export function ListError({
   const template = strings?.['list.loadFailed'] ?? 'Failed to load list items: {error}'
   return (
     <p
-      className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
+      className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm"
       role="alert"
     >
       {template.replace('{error}', () => (error instanceof Error ? error.message : String(error)))}

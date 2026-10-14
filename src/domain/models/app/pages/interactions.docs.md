@@ -17,7 +17,7 @@ pages:
           type: crud
           operation: update
           table: settings
-          onSuccess: { type: message, toast: { variant: success, message: 'Saved' } }
+          onSuccess: { toast: { variant: success, message: 'Saved' } }
 ```
 
 ## The `interactions` module
@@ -50,13 +50,13 @@ All hover effects apply together, on one coordinated transition. A `duration` of
 
 <!-- sovrium:options EntranceAnimationSchema -->
 
-`entrance` fires once on load. `stagger` is the delay between sibling animations.
+`entrance` fires once on load. `stagger` is the delay between sibling animations. Both play shadcn/ui's own motion, tw-animate-css's `enter` animation: a `fade…` animation enters from transparent; an `…Up` one also rises from below, a `…Down` one comes down from above, and a `…Left` or `…Right` one comes in from that side; `zoomIn` grows from 95 %. Without a `duration`, an animation runs for tw-animate-css's default of 150 ms.
 
 ## Actions and response handlers
 
 An `action` says what a button or form does — `crud`, `auth`, `navigate`, `fetch`, `automation` or `fill` — and `onSuccess` / `onError` say what happens next.
 
-A `crud` action needs `operation` (`create`, `update`, `delete`) **and** `table`. `confirm` gates it behind a dialog, with `confirmMessage` supplying the wording.
+A `crud` action needs `operation` (`create`, `update`, `delete`) **and** `table`. `confirm` gates it behind a dialog, with `confirmMessage` supplying the wording. A delete button is offered to a signed-in reader whom the table's `permissions.delete` lets delete — by role, by group, or as an admin — and is absent for anyone else, as an edit form is for a reader who may not update; a table that declares no `delete` rule restricts nobody. A delete button with no `content` reads the page language's word for delete.
 
 A form whose `auth` action has `method: logout` is a sign-out control: it renders only its button — `submitLabel` names it — with no email or password to fill, and pressing it ends the session.
 
@@ -77,9 +77,9 @@ An `auth` form's submit is drawn with the primary fill. When a page holds two wh
 
 Every method acting on one item takes `target`, almost always `$record.id` from the row it sits in. An item that is not the reader's own, or a member the reader may not administer, answers exactly like one that does not exist. A form running a method on the reader's own account is not drawn for a visitor who is not signed in, and one acting on another member is not drawn for a reader who may not administer accounts.
 
-A response handler's `type` is `navigate`, `reset`, `message`, `successPage` or `role-landing`. Alongside it, `toast` shows a notification (`variant` is `success`, `error`, `warning` or `info`), `message` and `title` set inline copy, and `actions` renders follow-up buttons on a success page.
+A response handler's `type` is `navigate`, `reset`, `message`, `successPage` or `role-landing`. Alongside it, `toast` shows a notification (`variant` is `success`, `error`, `warning` or `info`), `message` and `title` set inline copy, `actions` renders follow-up buttons on a success page, and `close` decides whether the dialog, drawer or popover the control sits in closes — see [Once the action has answered](/en/docs/interactive-components#once-the-action-has-answered).
 
-A response's `navigate`, a success page's `redirect` and each follow-up button's `url` go to an `http://` or `https://` address or to a path on this site (`/done`, `done`, `?saved=1`, `#top`), on a button as on a form. The scheme is written out, never supplied by a `$record.` variable, and `sovrium validate` refuses any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — naming the field.
+A response's `navigate` and a success page's `redirect` go to a path on this site (`/done`, `done`, `?saved=1`, `#top`), on a button as on a form: an answered action moves the reader within the app, so `sovrium validate` refuses an `http://`, `https://` or `//` address there, naming the page — to send the reader to another site, use a link. Each follow-up button's `url` goes to an `http://` or `https://` address or to a path on this site. The scheme is written out, never supplied by a `$record.` variable, and `sovrium validate` refuses any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — naming the field.
 
 ```yaml
 tables:
@@ -99,12 +99,14 @@ pages:
           confirm: true
           confirmMessage: 'Delete this task? This cannot be undone.'
           onSuccess: { type: navigate, navigate: /tasks }
-          onError: { type: message, toast: { variant: error, message: 'Delete failed' } }
+          onError: { toast: { variant: error, message: 'Delete failed' } }
 ```
 
 ### Before the page's script has run
 
 A button whose `action` is `fetch`, `automation`, `auth` or `toast` is carried out by the page's script, which loads just after the page appears. Until it has run, the button is drawn disabled, then enabled, so a press on a slow connection is never silently lost — no confirm dialog that never opens, no request that never leaves. On a fast connection the window is too short to notice. A button you declare `disabled` stays disabled.
+
+A button whose `action` is `automation`, `fetch` or `crud` shows that it is working from the press until the answer: it is disabled and marked busy, its icon gives way to a spinner, and its text becomes a word naming what it does, in the page language — "Running…" for an automation, "Sending…" for a fetch, "Saving…" or "Deleting…" for a `crud` action. `pendingLabel` replaces that word, and accepts a translation key. A second press, or Enter, while it is busy sends nothing. Only the pressed button is locked: its neighbours, and the same action on other rows of a table, stay usable. Under a reduced-motion preference the spinner stands still. How long it stays busy follows `await`. With `await: true`, the button waits for the automation to finish, and `onSuccess` or `onError` reflects how the run ended. Without it, the button waits only until the run has been accepted, and `onSuccess` shows then: a refused start shows `onError` and never `onSuccess`. When the answer is an error, the button comes back as it was, focus returns to it, and `onError` follows. When the success leaves the page — a move to another page, a redirect or a reload — the button stays busy until the page has gone, so it cannot be pressed again in between; a target that is only an anchor on the same page, or one opened in a new tab, gives it back. A page the browser shows again with its Back button shows the button at rest. A page form posting to an `endpoint` behaves the same way while it sends, reading "Sending…" in the page language; with no `submitLabel`, its submit reads "Submit" in the page language. A `button` field drawn in an edit form reads "Running…" in the page language while its run starts. Every press of a button, row action, menu item, dialog confirm or automation form whose action is `automation` sends a new random `Idempotency-Key` header with its request to `/api/automations/<name>/form-action`. Within five minutes, a request from the same caller with a key already answered with a success and the same `inputData` does not start the automation again: it receives the first answer, with the header `Idempotency-Replayed: true`. The same key with different `inputData` is answered `422` with `code: IDEMPOTENCY_MISMATCH`. A request with no key starts a run every time, as before, and so does a repeat of a press whose answer was larger than 64 KB, which is not kept. A script calling the route directly can send its own key the same way, and keep it for each retry of one press.
 
 ### Showing what came back
 

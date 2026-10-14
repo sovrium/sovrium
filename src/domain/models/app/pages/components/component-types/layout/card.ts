@@ -41,17 +41,10 @@ export const CardTypeLiteral = Schema.Literal('card')
  * A card's mode changes what it draws, not merely how it is painted, which is
  * why omitting it leaves the ordinary card rather than an unstyled one.
  */
-export const CardModeSchema = Schema.Literals(['bubble', 'specimen', 'scoped']).annotate({
+export const CardModeSchema = Schema.Literals(['specimen', 'scoped']).annotate({
   title: 'Card Mode',
   description:
-    "Specialized rendering mode: 'bubble' (a speech bubble with a tail), 'specimen' (a stage presenting a drawn component), 'scoped' (a design boundary)",
-})
-
-/** Which side a `variant: bubble` card's tail sits on. */
-export const CardBubbleSideSchema = Schema.Literals(['left', 'right']).annotate({
-  title: 'Bubble Side',
-  description:
-    "Which side the bubble's tail sits on: 'left' (the sender, default) or 'right' (the receiver)",
+    "Specialized rendering mode: 'specimen' (a stage presenting a drawn component) or 'scoped' (a design boundary). A chat turn's surface is its own type, `bubble` (shadcn/ui's Bubble).",
 })
 
 export const cardFields = {
@@ -64,19 +57,28 @@ export const cardFields = {
   /**
    * Specialized rendering mode. Omit for the ordinary raised card.
    *
-   * `contentFields` and `i18nFields` joined `card` with this: a `bubble` holds
-   * a message, and the type it replaced could carry that message as `content`
+   * `contentFields` and `i18nFields` let a card carry a message as `content`
    * and localize it. Both are optional and inert on a card that does not use
-   * them, so an existing card decodes and renders exactly as it did.
+   * them.
    */
   variant: Schema.optional(CardModeSchema),
-  /**
-   * Which side the tail sits on. Read under `variant: bubble`.
-   *
-   * Inert under the other modes rather than refused, matching every other
-   * mode-specific key in the catalogue: the union of all four shapes is one
-   * open struct, and refusing per-variant would need a per-branch refinement
-   * hook `buildComponentUnion` does not have.
-   */
-  side: Schema.optional(CardBubbleSideSchema),
+  /** shadcn/ui's CardTitle, in the card header. */
+  title: Schema.optional(
+    Schema.String.annotate({
+      description: "The card's title, drawn in its header above the body. shadcn/ui's CardTitle.",
+    })
+  ),
+  /** shadcn/ui's CardDescription, under the title. */
+  description: Schema.optional(
+    Schema.String.annotate({
+      description: "A line under the card's title. shadcn/ui's CardDescription.",
+    })
+  ),
+  /** The card's size; sm draws it tighter. */
+  size: Schema.optional(
+    Schema.Literals(['default', 'sm']).annotate({
+      description:
+        "The card's size: 'default', or 'sm' for a tighter card with a smaller title. shadcn/ui's Card size.",
+    })
+  ),
 } as const

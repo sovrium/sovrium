@@ -36,12 +36,12 @@ import {
 
 /**
  * Legacy `.btn-{variant}` className tokens → schema `ButtonVariant`. The legacy
- * component-layer rule (`.btn-destructive { background: var(--color-error-solid) }`)
+ * component-layer rule (`.btn-destructive { background: var(--color-destructive) }`)
  * lives in `@layer components`, but the prestyled-by-default variant utility
  * (`bg-[var(--sv-…)]`) lands in `@layer utilities`, which wins the cascade in
  * Tailwind v4 (`theme, base, components, utilities`). So an author who styles a
  * button purely via `className: 'btn btn-destructive'` (no `variant` field)
- * would otherwise get the `default` prestyle (`--sv-primary`) painted OVER the
+ * would otherwise get the `default` prestyle (`--primary`) painted OVER the
  * legacy destructive rule. Deriving the variant from the className token keeps
  * the prestyled channel and the legacy class in agreement. `btn-primary` maps
  * to `default` (primary IS the default tone in this system).
@@ -132,20 +132,23 @@ export const buildLinkClassName = (
  * and `tone` against the prestyled vocabularies; unknown values fall back
  * to `computeIconClasses`' own defaults (`md` / `default`).
  *
- * Numeric `props.size` still wins at the cascade — Lucide forwards it as
- * inline `width`/`height` attributes on the SVG, which beat the
- * `w-* h-*` Tailwind classes painted here.
+ * A pixel `props.size` (passed as `pixelSize`) with no `iconSize` drops the
+ * size class, so the author's size is the one drawn.
  */
 export const buildIconClassName = (
   componentRaw: Record<string, unknown>,
-  authorClassName: string | undefined
+  authorClassName: string | undefined,
+  pixelSize?: unknown
 ): string => {
   const rawSize = componentRaw['iconSize']
   const rawTone = componentRaw['tone']
   const size = ICON_SIZES.has(rawSize as IconSize) ? (rawSize as IconSize) : undefined
   const tone = ICON_TONES.has(rawTone as IconTone) ? (rawTone as IconTone) : undefined
+  // A pixel `props.size` with no `iconSize` is drawn at that size: a size
+  // class would beat the SVG's own width/height attributes at the cascade.
+  const sized = size !== undefined || pixelSize === undefined
   return mergePrestyle(
-    computeIconClasses({ ...(size ? { size } : {}), ...(tone ? { tone } : {}) }),
+    computeIconClasses({ ...(size ? { size } : {}), ...(tone ? { tone } : {}), sized }),
     authorClassName
   )
 }

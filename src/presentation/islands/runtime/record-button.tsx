@@ -20,7 +20,9 @@
 
 import { useCallback, useState } from 'react'
 import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-operators'
+import { pendingControlProps } from '@/presentation/design/pending-state'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { renderPendingContent } from '@/presentation/design/spinner-mark'
 import { followAddress } from './follow-address'
 import { BUTTON_REQUEST_FAILED, classifyButtonResponse } from './record-button-outcome'
 import { renderToast } from './toast'
@@ -56,10 +58,18 @@ export interface RecordButtonProps {
    * button never has to assume a query client is in scope.
    */
   readonly onInvoked?: () => void
+  /** The caption while the automation runs, in the page language; English when absent. */
+  readonly pendingLabel?: string
 }
 
 const BASE_CLASS =
   'text-primary hover:bg-primary-subtle rounded px-2 py-1 text-sm disabled:opacity-50'
+
+/**
+ * While its run is in flight the button keeps its full ink: the 50 % fade above
+ * means "cannot be pressed here", which a pending button is not — it is working.
+ */
+const PENDING_CLASS = 'text-primary rounded px-2 py-1 text-sm cursor-progress'
 
 const invokeUrl = (table: string, recordId: string, fieldName: string): string =>
   `/api/tables/${encodeURIComponent(table)}/records/${encodeURIComponent(recordId)}/buttons/${encodeURIComponent(fieldName)}`
@@ -92,7 +102,7 @@ export function RecordButton(props: RecordButtonProps): React.ReactNode {
       if (config.url) followAddress(config.url)
       return
     }
-    if (!table || !recordId) return
+    if (!table || !recordId || pending) return
     setPending(true)
     void fetch(invokeUrl(table, recordId, fieldName), { method: 'POST' })
       .then(classifyButtonResponse)
@@ -107,22 +117,23 @@ export function RecordButton(props: RecordButtonProps): React.ReactNode {
       .finally(() => {
         setPending(false)
       })
-  }, [config.action, config.url, table, recordId, fieldName, onInvoked])
+  }, [config.action, config.url, table, recordId, fieldName, onInvoked, pending])
 
   if (!passesVisibilityGate(props)) return undefined
 
-  const disabled = pending || (config.action === 'automation' && !canInvoke)
+  const disabled = config.action === 'automation' && !canInvoke
 
   return (
     <button
       type="button"
-      className={resolveClasses(BASE_CLASS, className)}
+      className={resolveClasses(pending ? PENDING_CLASS : BASE_CLASS, className)}
       data-button-field={fieldName}
       data-button-action={config.action}
       disabled={disabled}
+      {...pendingControlProps(pending)}
       onClick={onClick}
     >
-      {config.label}
+      {pending ? renderPendingContent(props.pendingLabel ?? 'Running…') : config.label}
     </button>
   )
 }

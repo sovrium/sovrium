@@ -33,6 +33,7 @@ import {
   collectDataTableRowColorBindings,
 } from './table-components-service'
 import { DataTableToolbarSchema } from './toolbar'
+import { validateToolbarFacets } from './toolbar-facet-validation'
 
 // Re-exported through this module — and so through the directory barrel — for
 // the same reason `tableFields` was consolidated here: a data-table's config
@@ -49,6 +50,38 @@ export { DataTableLayoutSchema } from './layout'
 export const RowHeightSchema = Schema.Literals(['short', 'medium', 'tall']).annotate({
   title: 'Row Height',
   description: 'Table row height preset (default: medium)',
+})
+
+// ---------------------------------------------------------------------------
+// Row actions display
+// ---------------------------------------------------------------------------
+
+/**
+ * Where a row's actions are drawn: `inline` (the default) as a row of buttons in
+ * the `type: actions` column, or `menu` as shadcn/ui's `DataTableRowActions` —
+ * one `…` button per row opening a dropdown menu of the same actions. Every key
+ * an action declares (`visibleWhen`, `confirm`, `editSelect`, `variant`,
+ * `onSuccess`) holds in both, so the choice only moves where they are drawn.
+ *
+ * @example
+ * ```yaml
+ * rowActions:
+ *   display: menu
+ * ```
+ */
+export const DataTableRowActionsSchema = Schema.Struct({
+  display: Schema.optional(
+    Schema.Literals(['inline', 'menu']).annotate({
+      title: 'Row Actions Display',
+      description:
+        "How the actions of a `type: actions` column are drawn on each row. `inline` draws them as a row of buttons. `menu` draws shadcn/ui's DataTableRowActions: one `…` button per row, named after its column and its row (the column's header, else Actions, then for and the row's first field value: Actions for Ada Lovelace), opening a dropdown menu that lists the row's actions as menu items; a destructive action is a destructive item, an editSelect action a submenu of choices, and a confirm action asks in a modal alert dialog.",
+      defaultNote: 'inline',
+    })
+  ),
+}).annotate({
+  title: 'Row Actions',
+  description:
+    "How the actions of the table's action column are presented on each row: inline buttons or a per-row dropdown menu.",
 })
 
 // ---------------------------------------------------------------------------
@@ -256,6 +289,11 @@ export const tableFields = {
     })
   ),
   selection: Schema.optional(DataTableSelectionSchema),
+  /**
+   * Inline buttons (default) or one `…` menu per row for the action column —
+   * see {@link DataTableRowActionsSchema}.
+   */
+  rowActions: Schema.optional(DataTableRowActionsSchema),
   pagination: Schema.optional(DataTablePaginationSchema),
   summary: Schema.optional(
     Schema.Array(DataTableSummaryItemSchema).pipe(
@@ -319,7 +357,7 @@ export const tableFields = {
    * Action fired when a row is clicked.
    *
    * Narrowed to the two variants the row-click handler implements
-   * (`navigate` / `openDrawer`) — see `RowClickActionSchema`. Accepting the
+   * (`navigate` / `openSheet`) — see `RowClickActionSchema`. Accepting the
    * full `ActionSchema` would let six variants validate and then silently do
    * nothing at runtime.
    */
@@ -339,7 +377,7 @@ export const tableFields = {
   ),
   /**
    * Expand a row into its full record — the grid's own record panel, replacing
-   * the `onRowClick: openDrawer` + sibling record-bound `drawer` hand-wiring.
+   * the `onRowClick: openSheet` + sibling record-bound `drawer` hand-wiring.
    *
    * `true` derives one control per declared field of the bound table. See
    * `DataTableRowExpandSchema` (`./row-expand.ts`) for what it shows, why the
@@ -589,7 +627,7 @@ function declaredRowExpandFields(dataTable: DataTable): readonly string[] {
  * a panel that fetches the record and shows nothing but a Save button. That is a
  * worse failure than the hand-wiring this key replaces, so it is refused with the
  * escape hatch named: a `drawer` bound to `dataSource.system` plus
- * `onRowClick: openDrawer`, where the author's own `recordFields` describe the
+ * `onRowClick: openSheet`, where the author's own `recordFields` describe the
  * endpoint envelope. Narrowing with `rowExpand.fields` does not rescue it —
  * `fields` carries names only, and a system entry additionally needs its `type`.
  *
@@ -613,7 +651,7 @@ function validateRowExpand(dataTable: DataTable): readonly string[] {
         ]),
     ...(isSystemBound
       ? [
-          'rowExpand is not available on a system-source table — the panel derives its controls from the bound table’s field schema, and a read endpoint has none. Use a `drawer` with `dataSource.system` and its own `recordFields`, opened with `onRowClick: { action: openDrawer, component }`.',
+          'rowExpand is not available on a system-source table — the panel derives its controls from the bound table’s field schema, and a read endpoint has none. Use a `sheet` with `dataSource.system` and its own `recordFields`, opened with `onRowClick: { action: openSheet, component }`.',
         ]
       : []),
   ]
@@ -662,9 +700,9 @@ export function validateDataTableFieldReferences(config: unknown): readonly stri
       (component) =>
         validateDataTableColumns(component as unknown as DataTable, fieldsByTable).errors
     ),
-    // A column's `displayField` names a field of the RELATED table, so it needs
-    // field types and relations this name-only map does not carry.
+    // `displayField` and `toolbar.facets` read field types this name-only map lacks.
     ...validateColumnDisplayFields(config),
+    ...validateToolbarFacets(config),
   ]
 }
 
@@ -725,9 +763,7 @@ export { DataTableToolbarSchema } from './toolbar'
 export { DataTableBulkActionSchema } from './bulk-actions'
 export { collectDataTableRowColorBindings } from './table-components-service'
 
-// ---------------------------------------------------------------------------
-// Type exports
-// ---------------------------------------------------------------------------
+// ── Type exports ───────────────────────────────────────────────────────────────
 
 export type { ColumnFormat, CellStyleCondition, EditSelect, ActionColumnItem } from './columns'
 export type { FieldColumn, ActionColumn, DataTableColumn } from './columns'

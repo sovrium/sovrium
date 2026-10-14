@@ -30,6 +30,9 @@
  *    the commit affordance. See `record-drawer-children.tsx`.
  */
 
+import { useState } from 'react'
+import { pendingControlProps } from '@/presentation/design/pending-state'
+import { renderPendingContent } from '@/presentation/design/spinner-mark'
 import { DrawerActions, type DrawerAction } from './record-drawer-actions'
 import { RecordDrawerChildren } from './record-drawer-children'
 import {
@@ -83,8 +86,8 @@ export interface DrawerContentProps {
    */
   readonly related?: ReactElement
   readonly onChange: (name: string, value: string) => void
-  readonly onSave: () => void
-  /** Close this drawer — a footer `openDrawer` steps aside for the drawer it opens. */
+  readonly onSave: () => Promise<void> | void
+  /** Close this drawer — a footer `openSheet` steps aside for the drawer it opens. */
   readonly onClose: () => void
   /**
    * The bound table's name. Lets an automation button field address its invoke
@@ -97,6 +100,10 @@ export interface DrawerContentProps {
    * `languages.translations` overrides are visible), never a literal here.
    */
   readonly saveLabel: string
+  /** The Save's in-flight word (`form.saving`), resolved by the SSR host like `saveLabel`. */
+  readonly savingLabel?: string
+  /** A button field's in-flight word (`action.running`), resolved by the SSR host. */
+  readonly runningLabel?: string
 }
 
 /**
@@ -110,6 +117,7 @@ function EditableField({
   loading,
   onChange,
   table,
+  runningLabel,
 }: {
   readonly field: RecordDrawerField
   readonly values: Values
@@ -117,6 +125,7 @@ function EditableField({
   readonly loading: boolean
   readonly onChange: (name: string, value: string) => void
   readonly table?: string
+  readonly runningLabel?: string | undefined
 }): ReactElement {
   // A button field is an action, never an input — it precedes both branches
   // below, which would otherwise offer an editor for a field with no value.
@@ -127,6 +136,7 @@ function EditableField({
         config={field.button}
         record={record}
         {...(table === undefined ? {} : { table })}
+        {...(runningLabel === undefined ? {} : { pendingLabel: runningLabel })}
       />
     )
   }
@@ -167,6 +177,7 @@ function DrawerField({
   loading,
   onChange,
   table,
+  runningLabel,
 }: {
   readonly field: RecordDrawerField
   readonly values: Values
@@ -175,6 +186,7 @@ function DrawerField({
   readonly loading: boolean
   readonly onChange: (name: string, value: string) => void
   readonly table?: string
+  readonly runningLabel?: string | undefined
 }): ReactElement {
   if (field.presence !== undefined) {
     return (
@@ -203,6 +215,7 @@ function DrawerField({
       record={record}
       loading={loading}
       onChange={onChange}
+      runningLabel={runningLabel}
       {...(table === undefined ? {} : { table })}
     />
   )
@@ -245,25 +258,39 @@ function DrawerError({ error }: { readonly error: string | undefined }): ReactEl
   )
 }
 
-/** The save affordance: inert, like the fields, until the record has loaded. */
+/**
+ * The save affordance: inert, like the fields, until the record has loaded, and
+ * pending — spinner, the in-flight word, busy — from the press until the save
+ * answers, so a second press saves nothing and the drawer holds the reader's
+ * dismissals meanwhile (`overlay-pending.ts`).
+ */
 function DrawerSaveButton({
   label,
+  savingLabel = 'Saving…',
   loading,
   onSave,
 }: {
   readonly label: string
+  readonly savingLabel?: string | undefined
   readonly loading: boolean
-  readonly onSave: () => void
+  readonly onSave: () => Promise<void> | void
 }): ReactElement {
+  const [pending, setPending] = useState(false)
+  const press = (): void => {
+    if (pending) return
+    setPending(true)
+    void Promise.resolve(onSave()).finally(() => setPending(false))
+  }
   return (
     <button
       type="button"
       data-component-type="button"
-      onClick={onSave}
+      onClick={press}
       disabled={loading}
-      className="bg-primary text-primary-fg text-md mt-2 self-start rounded px-4 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+      {...pendingControlProps(pending)}
+      className="bg-primary text-primary-foreground text-md mt-2 self-start rounded px-4 py-2 disabled:cursor-not-allowed"
     >
-      {label}
+      {pending ? renderPendingContent(savingLabel) : label}
     </button>
   )
 }
@@ -289,6 +316,8 @@ export function DrawerContent({
   onClose,
   table,
   saveLabel,
+  savingLabel,
+  runningLabel,
 }: DrawerContentProps): ReactElement {
   return (
     <>
@@ -303,6 +332,7 @@ export function DrawerContent({
             canEdit={canEdit}
             loading={loading}
             onChange={onChange}
+            runningLabel={runningLabel}
             {...(table === undefined ? {} : { table })}
           />
         ))}
@@ -310,6 +340,7 @@ export function DrawerContent({
       {canEdit && (
         <DrawerSaveButton
           label={saveLabel}
+          savingLabel={savingLabel}
           loading={loading}
           onSave={onSave}
         />

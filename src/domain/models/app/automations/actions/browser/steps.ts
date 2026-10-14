@@ -140,7 +140,7 @@ export const BrowserFillStepSchema = Schema.Struct({
   value: TemplateStringSchema.pipe(
     Schema.annotate({
       description:
-        'What to type. A `$env.NAME` value or `{{totp $env.NAME}}` code is typed without being recorded anywhere; any other value is recorded in the trace unless `sensitive` is set.',
+        'What to type. A `$env.NAME` value or `{{totp $env.NAME}}` code is typed without being recorded anywhere; any other value is recorded in the trace unless `sensitive` is set. The field is read back afterwards, and the step fails when it does not hold this value.',
     })
   ),
   sensitive: Schema.optional(
@@ -275,7 +275,7 @@ export const BrowserPressStepSchema = Schema.Struct({
   key: Schema.String.pipe(
     Schema.annotate({
       description:
-        'The key, by name: "Enter", "Tab", "Escape", "ArrowDown", a character, or a combination such as "Control+A".',
+        'The key, by name: "Enter", "Tab", "Escape", "ArrowDown", a character, or a combination such as "Control+A". Filled in when the step is reached, like every other value, so it can read the trigger and earlier steps.',
     }),
     Schema.check(Schema.isMinLength(1), Schema.isMaxLength(40))
   ),

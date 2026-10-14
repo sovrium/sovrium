@@ -1,4 +1,5 @@
-# sovrium-library: block/contact-split@0.30.0
+# sovrium-library: block/contact-split@0.37.0
+# sovrium-library-params: address=%5BStreet%2C%20city%5D&email=%5Bcontact%40example.com%5D&form=contact&headline=Talk%20to%20%5Ba%20person%5D&phone=%5B%2B33%200%2000%2000%2000%2000%5D&replyTime=%5BReply%20time%5D&subheadline=Say%20who%20answers%20and%20how%20fast.&submitLabel=Send%20message&successMessage=Message%20sent.%20We%20will%20reply%20soon.
 name: contact-split
 type: container
 element: section
@@ -29,7 +30,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-lg text-pretty text-foreground-muted sm:text-xl
+                      className: text-lg text-pretty text-muted-foreground sm:text-xl
                     content: Say who answers and how fast.
               - type: description-list
                 layout: rows
@@ -79,5 +80,5 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-sm text-foreground-subtle
+                  className: text-sm text-muted-foreground
                 content: '[Reply time]'

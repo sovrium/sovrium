@@ -6,13 +6,15 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
-import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
   MENU_TRIGGER_CONTENT_CLASSES,
   MENU_TRIGGER_LAYOUT_CLASSES,
   NavChevronDown,
 } from '@/presentation/design/nav-menu-parts'
-import { computeMenuLabelTriggerClasses } from '@/presentation/design/navigation-default-classes'
+import {
+  computeContextMenuTriggerClasses,
+  computeMenuLabelTriggerClasses,
+} from '@/presentation/design/navigation-default-classes'
 import { isZeroJsDialog } from '@/presentation/render/registry/island-component-types'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import {
@@ -20,6 +22,7 @@ import {
   renderOpenMenuPopup,
 } from '@/presentation/render/resolve/open-specimen-markup'
 import { computeLinkClasses } from '../../design/interactive-content-default-classes'
+import { splitSlots } from '../elements/slot-children'
 import { substitutePropsTranslationTokens } from '../i18n/translation-handler'
 import { renderEnhancerDrivenDialog } from './enhancer-driven-dialog'
 import {
@@ -32,17 +35,33 @@ import {
   overlayCloseLabel,
   withResolvedMenuItemIcons,
 } from './island-overlay-props-builders'
+import { buildPopoverProps } from './popover-props-builder'
 import { renderRecordBoundDrawer } from './record-bound-drawer'
 import type {
   ComponentDispatchConfig,
   ComponentRenderer,
   DispatchableComponentType,
 } from './component-dispatch-config'
-import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
+
+/** Rendered components as one HTML string, for an island to inject. */
+const toHtml = (nodes: readonly ReactElement[] | undefined): string =>
+  (nodes ?? []).map((node) => renderToStaticMarkup(node)).join('')
 
 /** Stable identity for `style={{ display: 'none' }}` placeholder containers. */
 const HIDDEN_STYLE = { display: 'none' } as const
+
+/**
+ * The `title` and `description` an overlay declares beside its `type`, which
+ * the props spelling of the same keys overrides.
+ */
+const headingOf = (component: unknown): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    (['title', 'description'] as const).flatMap((key) => {
+      const value = (component as Readonly<Record<string, unknown>> | undefined)?.[key]
+      return typeof value === 'string' ? [[key, value]] : []
+    })
+  )
 
 /**
  * The overlay's authored props with their `$t:` keys resolved. `rawProps` is the
@@ -53,7 +72,7 @@ const HIDDEN_STYLE = { display: 'none' } as const
 const withTranslatedProps = <T extends ComponentDispatchConfig>(context: T): T => ({
   ...context,
   rawProps: substitutePropsTranslationTokens(
-    context.rawProps,
+    { ...headingOf(context.component), ...context.rawProps },
     context.currentLang,
     context.languages
   ),
@@ -83,32 +102,13 @@ const drawnOpenMenu = (
       })
     : undefined
 
-/** Serializes the popover's rendered children into trigger + content HTML.
- * The first child is the trigger (its label drives the trigger button); the
- * remaining children form the floating content panel. */
-function splitPopoverChildren(
-  component: Component | undefined,
-  renderedChildren: readonly ReactElement[]
-): { readonly triggerLabel: string; readonly triggerId?: string; readonly childrenHtml: string } {
-  const childDefs = (component as { children?: readonly { props?: Record<string, unknown> }[] })
-    ?.children
-  const triggerProps = childDefs?.[0]?.props
-  const triggerLabel =
-    (triggerProps?.['label'] as string | undefined) ??
-    (triggerProps?.['text'] as string | undefined) ??
-    'Open'
-  const triggerId = triggerProps?.['id'] as string | undefined
-  const contentChildren = renderedChildren.slice(1)
-  const childrenHtml = contentChildren.map((c) => renderToStaticMarkup(c)).join('')
-  return { triggerLabel, triggerId, childrenHtml }
-}
-
 /** Overlay and feedback island components: dialog, alert-dialog, modal, tooltip, popover, drawer, dropdown-menu, context-menu */
 export const islandOverlayComponents: Partial<
   Record<DispatchableComponentType, ComponentRenderer>
 > = {
   dialog: (context) => {
-    const { rawProps, elementProps, renderedChildren, component } = withTranslatedProps(context)
+    const translated = withTranslatedProps(context)
+    const { rawProps, elementProps, renderedChildren, component } = translated
     // `formRef` dialogs carry their resolved form-body HTML on a render-time
     // `_formRefHtml` field (stamped by `expandFormRefs` in the page filter
     // pipeline). When present it forms the modal body; otherwise the body is
@@ -123,16 +123,20 @@ export const islandOverlayComponents: Partial<
     if (
       isZeroJsDialog((component ?? {}) as { readonly hydrate?: unknown; readonly type?: string })
     ) {
-      return renderEnhancerDrivenDialog(rawProps, elementProps, renderedChildren, formRefHtml)
+      return renderEnhancerDrivenDialog(translated, formRefHtml)
     }
 
-    const childrenHtml =
-      typeof formRefHtml === 'string'
-        ? formRefHtml
-        : renderedChildren.map((c) => renderToStaticMarkup(c)).join('')
+    const slots = splitSlots('dialog', component, renderedChildren)
+    const childrenHtml = typeof formRefHtml === 'string' ? formRefHtml : toHtml(slots['$children'])
+    const footerHtml = toHtml(slots['footer'])
     const propsJson = JSON.stringify({
       ...buildDialogProps(rawProps, elementProps, childrenHtml, component),
       closeLabel: overlayCloseLabel(context),
+      ...(footerHtml === '' ? {} : { footerHtml }),
+      ...((component as { readonly showCloseButton?: unknown } | undefined)?.showCloseButton ===
+      false
+        ? { showCloseButton: false }
+        : {}),
     })
 
     return (
@@ -198,24 +202,7 @@ export const islandOverlayComponents: Partial<
   },
 
   popover: ({ rawProps, elementProps, component, renderedChildren }) => {
-    const { triggerLabel, triggerId, childrenHtml } = splitPopoverChildren(
-      component,
-      renderedChildren
-    )
-    const comp = component as { floatingSide?: string; floatingAlign?: string } | undefined
-    const props = {
-      title: rawProps?.title,
-      description: rawProps?.description,
-      // `floatingSide`/`floatingAlign` are top-level component fields, not props.
-      floatingSide: comp?.floatingSide,
-      floatingAlign: comp?.floatingAlign,
-      triggerLabel,
-      triggerId,
-      childrenHtml,
-      className: elementProps.className,
-      id: elementProps.id,
-      'data-testid': elementProps['data-testid'],
-    }
+    const props = buildPopoverProps(rawProps, elementProps, component, renderedChildren)
     return (
       <div
         data-island="popover"
@@ -223,13 +210,14 @@ export const islandOverlayComponents: Partial<
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
+        {/* Inert until the island mounts, and drawn as the button it will be. */}
         <button
           type="button"
-          id={triggerId}
+          id={props.triggerId}
           disabled
-          className={computeButtonDefaultClasses({ variant: 'secondary', state: 'disabled' })}
+          className={props.className}
         >
-          {triggerLabel}
+          {props.triggerLabel}
         </button>
       </div>
     )
@@ -271,7 +259,7 @@ export const islandOverlayComponents: Partial<
   // record island keeps its own registry key and its PRIORITY loading: its
   // `sovrium:open-drawer` listener has to be wired before a data-table row
   // click can fire, and that dispatch arrives synchronously.
-  drawer: (untranslated) => {
+  sheet: (untranslated) => {
     const context = withTranslatedProps(untranslated)
     const { rawProps, elementProps, component, renderedChildren } = context
     if ((component as { dataSource?: unknown } | undefined)?.dataSource !== undefined) {
@@ -280,7 +268,7 @@ export const islandOverlayComponents: Partial<
     const props = buildDrawerProps(rawProps, elementProps, component, renderedChildren)
     return (
       <div
-        data-island="drawer"
+        data-island="sheet"
         data-component-type={hostComponentType(elementProps)}
         data-island-props={JSON.stringify({ ...props, closeLabel: overlayCloseLabel(context) })}
         data-testid={elementProps['data-testid'] as string | undefined}
@@ -374,14 +362,19 @@ export const islandOverlayComponents: Partial<
     )
   },
 
-  'context-menu': ({ rawProps, elementProps, component }) => {
+  // The region the menu is attached to IS the author's children: they paint
+  // before hydration exactly as they will after, and the island only adds the
+  // right-click / long-press behaviour over them.
+  'context-menu': ({ rawProps, elementProps, component, renderedChildren }) => {
     const c = (component ?? {}) as Record<string, unknown>
     const menuItems = withResolvedMenuItemIcons(c['menuItems'] ?? rawProps?.menuItems)
+    const childrenHtml = toHtml(renderedChildren)
+    const className = computeContextMenuTriggerClasses(elementProps.className as string | undefined)
     const props = {
       menuItems,
+      childrenHtml,
       className: elementProps.className,
       id: elementProps.id,
-      'data-testid': elementProps['data-testid'],
     }
     return (
       <div
@@ -390,7 +383,13 @@ export const islandOverlayComponents: Partial<
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
-        {/* Context menu trigger is the child area */}
+        <div
+          data-slot="context-menu-trigger"
+          id={elementProps.id as string | undefined}
+          className={className}
+          // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
+          dangerouslySetInnerHTML={{ __html: childrenHtml }}
+        />
       </div>
     )
   },

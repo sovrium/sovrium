@@ -77,6 +77,8 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'datatable.searchLabel': { en: 'Search', fr: 'Rechercher' },
   /** The name field a passkeys list draws on each row to rename a key. */
   'datatable.passkeyName': { en: 'Passkey name', fr: 'Nom de la clé d’accès' },
+  /** An empty grid's message, when the author declares no `emptyMessage`. */
+  'datatable.noRecords': { en: 'No records found', fr: 'Aucun enregistrement' },
 
   // ---- Data table: pager ----
   'datatable.pagination.range': { en: '{from}–{to} of {total}', fr: '{from}–{to} sur {total}' },
@@ -88,13 +90,47 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'datatable.pagination.nextLabel': { en: 'Next page', fr: 'Page suivante' },
   'datatable.pagination.pageSize': { en: '{size} / page', fr: '{size} / page' },
   'datatable.pagination.pageSizeLabel': { en: 'Page size', fr: 'Lignes par page' },
+  'datatable.pagination.firstLabel': { en: 'First page', fr: 'Première page' },
+  'datatable.pagination.lastLabel': { en: 'Last page', fr: 'Dernière page' },
+  /** The polite count an infinite grid keeps, and its keyboard fallback. */
+  'datatable.pagination.loaded': {
+    en: '{loaded} of {total} loaded',
+    fr: '{loaded} sur {total} chargés',
+  },
+  'datatable.pagination.loadMore': { en: 'Load more', fr: 'Charger plus' },
+  /**
+   * The accessible name of a row's `…` actions menu trigger: its column's
+   * header (else `label`) and the row's first field value (else `row`).
+   */
+  'datatable.rowActions.open': { en: '{label} for {row}', fr: '{label} pour {row}' },
+  'datatable.rowActions.label': { en: 'Actions', fr: 'Actions' },
+  'datatable.rowActions.row': { en: 'row {number}', fr: 'ligne {number}' },
+  /** A faceted filter: the count past two checked values, the clear item, the no-match line. */
+  'datatable.facet.selected': { en: 'selected', fr: 'sélectionnés' },
+  'datatable.facet.clear': { en: 'Clear filters', fr: 'Effacer les filtres' },
+  'datatable.facet.empty': { en: 'No results found.', fr: 'Aucun résultat.' },
+  /** The sort builder's two directions, in words. */
+  'datatable.sort.ascending': { en: 'Ascending', fr: 'Croissant' },
+  'datatable.sort.descending': { en: 'Descending', fr: 'Décroissant' },
 
   // ---- Forms ----
   'form.create': { en: 'Create', fr: 'Créer' },
   'form.update': { en: 'Update', fr: 'Mettre à jour' },
   /** A hosted form's submit button when `display.submitLabel` is not declared. */
   'form.submit': { en: 'Submit', fr: 'Envoyer' },
-  'form.saving': { en: 'Saving...', fr: 'Enregistrement…' },
+  /** A record form's submit, and a `crud` update, while its save is in flight. */
+  'form.saving': { en: 'Saving…', fr: 'Enregistrement…' },
+  /**
+   * A hosted form's submit and Next, an endpoint form's submit and a `fetch`
+   * button, while in flight, when no `pendingLabel` is declared.
+   */
+  'form.sending': { en: 'Sending…', fr: 'Envoi…' },
+  /** A `crud` delete button that declares no `content`. */
+  'form.delete': { en: 'Delete', fr: 'Supprimer' },
+  /** A `crud` delete button while in flight, when no `pendingLabel` is declared. */
+  'form.deleting': { en: 'Deleting…', fr: 'Suppression…' },
+  /** An `automation` button while in flight, when no `pendingLabel` is declared. */
+  'action.running': { en: 'Running…', fr: 'Exécution…' },
   'form.required': { en: 'This field is required', fr: 'Ce champ est obligatoire' },
   'form.requiredNamed': { en: '{label} is required', fr: 'Le champ {label} est obligatoire' },
   /** A hosted form's default `onError` message. */
@@ -123,6 +159,26 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   },
   /** The private edit link shown after a submission (`editAfterSubmit`). */
   'form.editAnswers': { en: 'Edit your answers', fr: 'Modifier vos réponses' },
+  /** A multi-step hosted form's step navigation. */
+  'form.previous': { en: 'Previous', fr: 'Précédent' },
+  'form.next': { en: 'Next', fr: 'Suivant' },
+  /** A multi-step hosted form's progress line, updated as the reader moves between steps. */
+  'form.stepOf': { en: 'Step {current} of {total}', fr: 'Étape {current} sur {total}' },
+  /** The progress line's accessible name. */
+  'form.stepProgress': { en: 'Step progress', fr: 'Progression' },
+  /** An attachment field's `recordAudio` control, at rest and while recording. */
+  'form.recordAudio': { en: 'Record audio', fr: 'Enregistrer un audio' },
+  'form.stopRecording': { en: 'Stop recording', fr: 'Arrêter l’enregistrement' },
+  /** A picked file the field's `allowedFileTypes` refuse; `{type}` is its type, or its name. */
+  'form.fileTypeNotAccepted': {
+    en: 'File type not accepted: {type}',
+    fr: 'Type de fichier refusé : {type}',
+  },
+  /** A picked file over the field's `maxFileSize`. */
+  'form.fileTooLarge': {
+    en: 'File size {size} exceeds maximum of {max}',
+    fr: 'Le fichier pèse {size}, au-delà du maximum de {max}',
+  },
 
   // ---- Comments ----
   'comments.write': { en: 'Write a comment', fr: 'Écrire un commentaire' },
@@ -206,6 +262,161 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'dialog.close': { en: 'Close', fr: 'Fermer' },
   /** A dialog holding a form: the Cancel beside the form's submit. */
   'dialog.cancel': { en: 'Cancel', fr: 'Annuler' },
+  /** A dialog with no `title`: its accessible name. */
+  'dialog.label': { en: 'Dialog', fr: 'Boîte de dialogue' },
+
+  // ---- File preview: the toolbar and the fallback line ----
+  /** The toolbar's accessible name; `{name}` is the file name. */
+  'filePreview.toolbar': { en: '{name} tools', fr: 'Outils pour {name}' },
+  'filePreview.download': { en: 'Download', fr: 'Télécharger' },
+  'filePreview.open': { en: 'Open', fr: 'Ouvrir' },
+  'filePreview.zoom': { en: 'Zoom', fr: 'Agrandir' },
+  'filePreview.rotate': { en: 'Rotate', fr: 'Pivoter' },
+  /** A file the stage cannot draw. `{name}` is the file name. */
+  'filePreview.cannotShow': {
+    en: '{name} cannot be shown here. Download it to open it.',
+    fr: '{name} ne peut pas être affiché ici. Téléchargez-le pour l’ouvrir.',
+  },
+
+  // ---- Auth forms: default field labels, submit and in-flight words ----
+  'auth.email': { en: 'Email', fr: 'E-mail' },
+  'auth.password': { en: 'Password', fr: 'Mot de passe' },
+  /** The error summary an auth form inserts above its fields after a refused submit. */
+  'auth.fixErrors': {
+    en: 'Please fix the following errors:',
+    fr: 'Corrigez les erreurs suivantes :',
+  },
+  /** An auth form's submit, per method, when the action declares no `submitLabel`. */
+  'auth.submit.login': { en: 'Sign In', fr: 'Se connecter' },
+  'auth.submit.signup': { en: 'Sign Up', fr: 'Créer un compte' },
+  'auth.submit.logout': { en: 'Log Out', fr: 'Se déconnecter' },
+  'auth.submit.resetPassword': {
+    en: 'Send Reset Link',
+    fr: 'Envoyer le lien de réinitialisation',
+  },
+  'auth.submit.setNewPassword': {
+    en: 'Set New Password',
+    fr: 'Définir le nouveau mot de passe',
+  },
+  'auth.submit.enableTwoFactor': {
+    en: 'Turn on two-step verification',
+    fr: 'Activer la vérification en deux étapes',
+  },
+  'auth.submit.disableTwoFactor': {
+    en: 'Turn off two-step verification',
+    fr: 'Désactiver la vérification en deux étapes',
+  },
+  'auth.submit.regenerateBackupCodes': { en: 'Regenerate codes', fr: 'Régénérer les codes' },
+  'auth.submit.acceptInvitation': { en: 'Accept invitation', fr: 'Accepter l’invitation' },
+  'auth.submit.declineInvitation': { en: 'Decline', fr: 'Refuser' },
+  'auth.submit.createApiKey': { en: 'Create key', fr: 'Créer la clé' },
+  'auth.submit.revokeOtherSessions': {
+    en: 'Sign out of other devices',
+    fr: 'Se déconnecter des autres appareils',
+  },
+  'auth.submit.linkAccount': { en: 'Connect', fr: 'Connecter' },
+  'auth.submit.unlinkAccount': { en: 'Disconnect', fr: 'Déconnecter' },
+  /**
+   * An auth form's submit while in flight, when the action declares no
+   * `pendingLabel`. A reset link reads `form.sending`, a new password
+   * `form.saving`, and a two-step code `auth.pending.verifyTwoFactor`.
+   */
+  'auth.pending.login': { en: 'Signing in…', fr: 'Connexion…' },
+  'auth.pending.signup': { en: 'Creating account…', fr: 'Création du compte…' },
+  'auth.pending.logout': { en: 'Logging out…', fr: 'Déconnexion…' },
+  'auth.pending.verifyTwoFactor': { en: 'Verifying…', fr: 'Vérification…' },
+
+  // ---- Default auth emails (no `auth.emailTemplates` entry) ----
+  // Read in the recipient's stored language, else the app's default language,
+  // else English. `{app}` is the app's name.
+  'email.greeting': { en: 'Hi {name},', fr: 'Bonjour {name},' },
+  'email.greetingAnonymous': { en: 'Hi,', fr: 'Bonjour,' },
+  'email.greetingThere': { en: 'Hi there,', fr: 'Bonjour,' },
+  'email.linkFallback': {
+    en: "If the button doesn't work, copy and paste this link into your browser:",
+    fr: 'Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :',
+  },
+  'email.linkExpires': {
+    en: 'This link will expire in {expiry}.',
+    fr: 'Ce lien expire dans {expiry}.',
+  },
+  'email.expiry.minutes10': { en: '10 minutes', fr: '10 minutes' },
+  'email.expiry.hour1': { en: '1 hour', fr: '1 heure' },
+  'email.expiry.hours24': { en: '24 hours', fr: '24 heures' },
+  'email.requestedNotice': {
+    en: "This email was sent by {app}. If you didn't request this, please ignore this email.",
+    fr: 'Cet e-mail a été envoyé par {app}. Si vous n’êtes pas à l’origine de cette demande, ignorez-le.',
+  },
+  'email.resetPassword.subject': {
+    en: 'Reset your {app} password',
+    fr: 'Réinitialisez votre mot de passe {app}',
+  },
+  'email.resetPassword.intro': {
+    en: 'We received a request to reset your password for your {app} account.',
+    fr: 'Nous avons reçu une demande de réinitialisation du mot de passe de votre compte {app}.',
+  },
+  'email.resetPassword.cta': {
+    en: 'Click the button below to reset your password:',
+    fr: 'Cliquez sur le bouton ci-dessous pour réinitialiser votre mot de passe :',
+  },
+  'email.resetPassword.button': { en: 'Reset Password', fr: 'Réinitialiser le mot de passe' },
+  'email.resetPassword.textCta': {
+    en: 'Reset your password by visiting this link:',
+    fr: 'Réinitialisez votre mot de passe en ouvrant ce lien :',
+  },
+  'email.resetPassword.ignore': {
+    en: "If you didn't request a password reset, you can safely ignore this email.",
+    fr: 'Si vous n’avez pas demandé de réinitialisation, ignorez cet e-mail.',
+  },
+  'email.verification.subject': {
+    en: 'Verify your {app} email address',
+    fr: 'Confirmez votre adresse e-mail {app}',
+  },
+  'email.verification.intro': {
+    en: 'Welcome to {app}! Please verify your email address to complete your registration.',
+    fr: 'Bienvenue sur {app} ! Confirmez votre adresse e-mail pour terminer votre inscription.',
+  },
+  'email.verification.cta': {
+    en: 'Click the button below to verify your email:',
+    fr: 'Cliquez sur le bouton ci-dessous pour confirmer votre adresse :',
+  },
+  'email.verification.button': { en: 'Verify Email', fr: 'Confirmer l’adresse' },
+  'email.verification.textCta': {
+    en: 'Verify your email by visiting this link:',
+    fr: 'Confirmez votre adresse en ouvrant ce lien :',
+  },
+  'email.verification.ignore': {
+    en: "If you didn't create an account with {app}, you can safely ignore this email.",
+    fr: 'Si vous n’avez pas créé de compte sur {app}, ignorez cet e-mail.',
+  },
+  'email.magicLink.subject': { en: 'Sign in to {app}', fr: 'Connexion à {app}' },
+  'email.magicLink.body': {
+    en: 'Click here to sign in to {app}:',
+    fr: 'Cliquez ici pour vous connecter à {app} :',
+  },
+  'email.magicLink.button': { en: 'Sign In', fr: 'Se connecter' },
+  'email.invitation.subject': {
+    en: 'You are invited to join {app}',
+    fr: 'Invitation à rejoindre {app}',
+  },
+  'email.invitation.invited': {
+    en: '{inviter} invited you to join {app}.',
+    fr: '{inviter} vous invite à rejoindre {app}.',
+  },
+  /** The HTML part's call to action; `{link}` is the link, drawn around `email.invitation.here`. */
+  'email.invitation.htmlCta': {
+    en: 'Click {link} to set your password and accept the invitation.',
+    fr: 'Choisissez votre mot de passe et {link}.',
+  },
+  'email.invitation.here': { en: 'here', fr: 'acceptez l’invitation' },
+  'email.invitation.textCta': {
+    en: 'Click the link below to set your password and accept the invitation:',
+    fr: 'Ouvrez le lien ci-dessous pour choisir votre mot de passe et accepter l’invitation :',
+  },
+  'email.invitation.singleUse': {
+    en: 'This link is single-use.',
+    fr: 'Ce lien ne fonctionne qu’une fois.',
+  },
 
   // ---- Two-step enrolment: the scan screen and the recovery codes ----
   'twoFactor.qrTitle': {
@@ -272,6 +483,15 @@ export const LEGACY_BARE_ENGINE_KEYS: readonly string[] = [
   'recordDrawer.close',
   'recordDrawer.relatedCreateFailed',
 ]
+
+/**
+ * Keys the engine no longer draws anywhere, kept in the catalogue for one
+ * release so an override of one still validates. `sovrium validate` and the
+ * server at startup print an `engine-key-retired` notice for each override
+ * written under the prefix; the next release removes the key from the
+ * catalogue and its entry here together.
+ */
+export const RETIRED_ENGINE_KEYS: readonly string[] = ['filePreview.cannotShow']
 
 /** Platform default language for interpreter strings when none is resolved. */
 export const DEFAULT_INTERPRETER_LANG = 'en'

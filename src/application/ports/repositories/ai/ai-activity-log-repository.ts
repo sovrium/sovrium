@@ -31,6 +31,11 @@ export interface AiActivityLogRow {
    * is known (e.g. agent-action rows).
    */
   readonly userEmail?: string | undefined
+  /**
+   * The surface that started the agent turn the row belongs to — `chat`,
+   * `automation` or `schedule`. Omitted for rows outside an agent turn.
+   */
+  readonly surface?: 'chat' | 'automation' | 'schedule' | undefined
 }
 
 /**

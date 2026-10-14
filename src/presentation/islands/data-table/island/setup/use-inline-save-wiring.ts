@@ -11,7 +11,7 @@ import { resolveTabTarget } from '../tab-target'
 import type { SetupContext } from './setup-params'
 import type { GridRecords } from './use-grid-table'
 import type { useInlineEditing } from '../../../hooks/use-inline-editing'
-import type { InlineAutoSave } from '../../body'
+import type { InlineAutoSave } from '../../data-row-types'
 
 export type InlineSaveWiring = ReturnType<typeof useInlineSaveWiring>
 

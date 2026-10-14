@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// sovrium-library: block/login-03@0.37.0#599c3676dc57
+
 // Password-recovery request.
 //
 // Public like `/login` — an operator who cannot sign in must be able to reach
@@ -14,11 +16,168 @@
 //
 // PATHS ARE MOUNT-RELATIVE (`/login`). The mount primitive prefixes them.
 //
-// Mirrors the login page shell one-to-one so it introduces no new CSS candidate:
-// the console renders against the OPERATOR's compiled stylesheet, so a class
-// absent from BUILTIN_CSS_CANDIDATES renders bare.
+// INSTALLED, like `/login`, from the library's `login-03` block: the same muted
+// screen and card, with the field group bound to this step of the reset flow
+// (the form, the way back to sign in, and the one note the step needs).
+// Re-install with `sovrium library add block/login-03 --update`.
 
 import type { Page as PageConfig } from '@/domain/models/app'
+
+export const forgotPasswordCopy = {
+  type: 'container',
+  element: 'section',
+  props: {
+    className:
+      'flex min-h-svh w-full flex-col items-center justify-center gap-6 p-6 md:p-10 bg-muted',
+    'data-admin-base-path': '/',
+  },
+  children: [
+    {
+      type: 'flex',
+      props: {
+        className: 'flex w-full max-w-sm flex-col gap-6',
+      },
+      children: [
+        {
+          type: 'link',
+          props: {
+            href: '/',
+            className: 'flex items-center gap-2 text-sm font-medium text-foreground self-center',
+          },
+          children: [
+            {
+              // Sovrium's own mark, served by the engine at a root path (the
+              // mount does not rewrite it), one ground per colour scheme.
+              type: 'container',
+              props: { className: 'flex size-6 items-center justify-center' },
+              children: [
+                {
+                  type: 'image',
+                  props: {
+                    src: '/assets/brand/sovrium/mark-light-outline.svg',
+                    alt: 'Sovrium',
+                    className: 'block size-6 shrink-0 dark:hidden',
+                  },
+                },
+                {
+                  type: 'image',
+                  props: {
+                    src: '/assets/brand/sovrium/mark-dark-outline.svg',
+                    alt: 'Sovrium',
+                    className: 'hidden size-6 shrink-0 dark:block',
+                  },
+                },
+              ],
+            },
+            {
+              type: 'text',
+              element: 'span',
+              content: '$app.label',
+            },
+          ],
+        },
+        {
+          type: 'card',
+          props: {
+            'data-slot': 'card',
+            className: 'flex flex-col gap-4 overflow-hidden px-0 py-4 text-sm',
+          },
+          children: [
+            {
+              type: 'container',
+              props: {
+                'data-slot': 'card-header',
+                className: 'grid auto-rows-min gap-1 px-4 text-center',
+              },
+              children: [
+                {
+                  type: 'text',
+                  element: 'h1',
+                  props: {
+                    className: 'font-medium leading-snug text-foreground text-xl',
+                    'data-slot': 'card-title',
+                  },
+                  content: '$t:admin.forgotPassword.heading',
+                },
+                {
+                  type: 'text',
+                  element: 'p',
+                  props: {
+                    className: 'text-sm text-muted-foreground',
+                    'data-slot': 'card-description',
+                  },
+                  content: '$t:admin.forgotPassword.blurb',
+                },
+              ],
+            },
+            {
+              type: 'container',
+              props: {
+                'data-slot': 'card-content',
+                className: 'px-4',
+              },
+              children: [
+                {
+                  type: 'flex',
+                  props: {
+                    'data-slot': 'field-group',
+                    className: 'flex w-full flex-col gap-5',
+                  },
+                  children: [
+                    {
+                      type: 'form',
+                      props: {
+                        id: 'admin-forgot-password-form',
+                      },
+                      action: {
+                        type: 'auth',
+                        method: 'resetPassword',
+                        strategy: 'email',
+                        submitLabel: '$t:admin.forgotPassword.submit',
+                        pendingLabel: '$t:admin.forgotPassword.pending',
+                        fields: [
+                          {
+                            name: 'email',
+                            label: '$t:admin.field.email',
+                            placeholder: 'm@example.com',
+                          },
+                        ],
+                        onSuccess: {
+                          toast: {
+                            message:
+                              'If an account exists for that address, a reset link has been sent.',
+                            variant: 'success',
+                          },
+                        },
+                      },
+                    },
+                    {
+                      type: 'link',
+                      props: {
+                        href: '/login',
+                        className: 'text-center text-sm underline-offset-4 hover:underline',
+                      },
+                      content: '$t:admin.auth.backToSignIn',
+                    },
+                    {
+                      type: 'text',
+                      element: 'p',
+                      props: {
+                        className: 'text-center text-sm text-muted-foreground',
+                        'data-slot': 'field-description',
+                      },
+                      content: '$t:admin.forgotPassword.expiry',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+} as const
 
 export default {
   id: 'dashboard-forgot-password',
@@ -28,99 +187,5 @@ export default {
     title: '$t:admin.meta.forgotPassword',
     noindex: true,
   },
-  components: [
-    {
-      type: 'container',
-      element: 'div',
-      props: {
-        // The console root as THIS document sees it, mount-relative like every
-        // other link on the page. The mount primitive rewrites it to the real
-        // base, which is how the client islands on an unauthenticated page —
-        // the sign-in form's password-reset callback above all — learn which
-        // mount they are being served from.
-        'data-admin-base-path': '/',
-        className:
-          'min-h-screen flex flex-col items-center justify-center gap-8 px-6 py-16 bg-background text-foreground',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'flex flex-col items-center gap-3 text-center' },
-          children: [
-            {
-              type: 'text',
-              element: 'span',
-              content: 'S',
-              props: {
-                className:
-                  'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-lg font-semibold',
-              },
-            },
-            {
-              type: 'text',
-              element: 'h1',
-              content: '$t:admin.forgotPassword.heading',
-              props: {
-                className: 'text-3xl font-bold tracking-tight leading-tight text-foreground',
-              },
-            },
-            {
-              type: 'text',
-              element: 'p',
-              content: '$t:admin.forgotPassword.blurb',
-              props: {
-                className: 'text-md leading-relaxed text-foreground-muted max-w-sm',
-              },
-            },
-          ],
-        },
-        // `stripAuthActionsIfUnconfigured` drops TOP-LEVEL auth-action components
-        // when the app declares no `auth:` key — and this config declares none. The
-        // strip is SHALLOW, so the form must stay nested container → card → form.
-        {
-          type: 'card',
-          props: {
-            className: 'w-full max-w-sm bg-background-raised border border-border rounded-lg p-8',
-          },
-          children: [
-            {
-              type: 'form',
-              props: { id: 'admin-forgot-password-form' },
-              action: {
-                type: 'auth',
-                method: 'resetPassword',
-                strategy: 'email',
-                submitLabel: '$t:admin.forgotPassword.submit',
-                pendingLabel: '$t:admin.forgotPassword.pending',
-                fields: [{ name: 'email', label: '$t:admin.field.email' }],
-                onSuccess: {
-                  // Conditional phrasing, deliberately: the endpoint always answers
-                  // 200 so it never confirms whether an address has an account. The
-                  // banner must not assert one exists.
-                  toast: {
-                    message: 'If an account exists for that address, a reset link has been sent.',
-                    variant: 'success',
-                  },
-                },
-              },
-            },
-            {
-              type: 'link',
-              props: {
-                href: '/login',
-                className: 'text-md text-center mt-4 text-foreground-muted',
-              },
-              content: '$t:admin.auth.backToSignIn',
-            },
-          ],
-        },
-        {
-          type: 'text',
-          element: 'p',
-          content: '$t:admin.forgotPassword.expiry',
-          props: { className: 'text-foreground-subtle font-serif text-md italic' },
-        },
-      ],
-    },
-  ],
+  components: [forgotPasswordCopy],
 } satisfies PageConfig

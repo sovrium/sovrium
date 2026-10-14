@@ -11,8 +11,11 @@ import {
   parseConfirmObjectConfig,
   resolveGateLabels,
 } from '@/presentation/islands/runtime/confirm-gate-runtime'
+import { runErrorOutcome } from './action-outcome'
 import { bindActionButtons, parseActionInput } from './client-event-delegate'
 import { showToast } from './client-toast'
+import { fetchSuccessLeaves } from './fetch-action-effects'
+import { withPending } from './pending-control'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 
 /**
@@ -30,16 +33,31 @@ type FetchToastResponse = {
   duration?: number
   actionLabel?: string
   actionUrl?: string
+  loadingMessage?: string
 }
 
-export function dispatchToastResponse(response: FetchToastResponse | undefined): void {
+export function dispatchToastResponse(
+  response: FetchToastResponse | undefined,
+  replacing?: Element
+): void {
   if (!response) return
   showToast(response.message, {
     variant: response.variant,
     duration: response.duration,
     actionLabel: response.actionLabel,
     actionUrl: response.actionUrl,
+    replacing,
   })
+}
+
+/**
+ * The loading toast a fetch shows while its request is open, when its toast
+ * declares a `loadingMessage`; the outcome toast later takes its place.
+ */
+const showLoadingToast = (config: FetchAction): Element | undefined => {
+  const toasts = [config.onSuccess, config.onError] as readonly (FetchToastResponse | undefined)[]
+  const message = toasts.find((toast) => toast?.loadingMessage !== undefined)?.loadingMessage
+  return message === undefined ? undefined : showToast(message, { variant: 'loading' })
 }
 
 /**
@@ -105,8 +123,7 @@ function openFetchConfirmGate(
   dialog.setAttribute('aria-modal', 'false')
   dialog.setAttribute('aria-label', message)
   dialog.setAttribute('data-confirm-dialog', '')
-  dialog.className =
-    'border-border bg-background-raised mt-2 flex items-center gap-2 rounded-md border p-2'
+  dialog.className = 'border-border bg-card mt-2 flex items-center gap-2 rounded-md border p-2'
 
   const messageSpan = document.createElement('span')
   messageSpan.className = 'text-foreground-subtle text-sm'
@@ -132,7 +149,7 @@ function openFetchConfirmGate(
       label: cancelLabel,
       ariaLabel: cancelLabel,
       className:
-        'border-border text-foreground-subtle hover:bg-background-subtle rounded-md border px-2 py-1 text-sm transition-colors',
+        'border-border text-foreground-subtle hover:bg-muted rounded-md border px-2 py-1 text-sm transition-colors',
       onClick: () => dialog.remove(),
     })
   )
@@ -159,9 +176,27 @@ export function setupFetchButtonHandlers(): void {
     // those fields — which the executor's bare `renderToast(message, variant)`
     // would drop — are preserved. The executor itself applies the additive
     // `onSuccess.status` / `onSuccess.refetch` client-state effects on success.
+    //
+    // While the request is open the button is pending (`withPending`) when the
+    // server stamped it an in-flight word — every mode but `navigate` and
+    // `download`, which hand the page to the browser. A refusal gives it back
+    // with the focus on it before `onError` shows.
+    const label = button.getAttribute('data-action-pending-label')
     const dispatch = async (): Promise<void> => {
-      const result = await executeFetchAction(config)
-      if (result) dispatchToastResponse(result.ok ? config.onSuccess : config.onError)
+      const loading = showLoadingToast(config)
+      const send = () =>
+        executeFetchAction(config, {
+          origin: button,
+          successToast: () => dispatchToastResponse(config.onSuccess, loading),
+        })
+      const keepPending = (sent: Awaited<ReturnType<typeof send>>) =>
+        fetchSuccessLeaves(sent, config.onSuccess)
+      const result =
+        label === null ? await send() : await withPending(button, { label, keepPending }, send)
+      if (result && !result.ok)
+        runErrorOutcome(button, () => dispatchToastResponse(config.onError, loading))
+      // An outcome with no toast of its own still ends the loading one.
+      loading?.remove()
     }
 
     // A top-level button `confirm` rides on `data-confirm` (string form) or

@@ -6,6 +6,11 @@
  */
 
 /**
+ * Adapted from shadcn/ui kbd (https://ui.shadcn.com), registry commit 3464245c4513b7998b1d11fa9c67b71cc1534dc7.
+ * Copyright (c) 2023 shadcn. MIT License: licenses/MIT-shadcn-ui.txt
+ */
+
+/**
  * Prestyled-by-default class computers for the remaining `interactive` +
  * `content` schema clusters. Companion to
  * `button-default-classes.ts` (already covers `button`), `feedback-default-
@@ -17,10 +22,10 @@
  * `{ type: 'link', text: '...' }`, …) renders with the Sovrium identity
  * without the author spelling any chrome.
  *
- * Each helper paints color / radius / shadow / motion / tone classes through
- * {@link withVarFallback} so `app.design.*` overrides still win at the CSS
- * cascade layer (`var(--sv-X)` resolves the override first, falling back to
- * the inline OKLCH literal). Structural layout (flex / gap / padding / icon
+ * Each helper paints colour through the shadcn role utilities (`text-primary`,
+ * `text-muted-foreground`), which read the variables `app.design.*` rewrites,
+ * and radius / the roles shadcn does not declare through {@link withVarFallback}
+ * (the variable first, the inline literal as its fallback). Structural layout (flex / gap / padding / icon
  * pixel sizing like `w-4 h-4`) stays raw Tailwind — Tailwind v4 sources
  * spacing through its own cascade that the theme layer overrides separately.
  *
@@ -47,7 +52,7 @@
  *                                 the focus-ring colour. An `aria-disabled`
  *                                 anchor is made inert rather than merely
  *                                 marked. See `LINK_SHARED` for both rulings.
- *   - ICON                      — Lucide-rendered `<svg>` wrapper with a
+ *   - ICON                      — Lucide-rendered `<svg>` with a `shrink-0`
  *                                 size class (`sm` / `md` / `lg` / `xl`)
  *                                 and a tone class (`default` / `muted` /
  *                                 `primary`). Icons inherit color via
@@ -56,52 +61,14 @@
  *                                 whatever fill it lands in — naming one is
  *                                 how a chevron came to stroke black on a
  *                                 black button. See `ICON_TONE`.
- *   - IMAGE                     — block image element with a radius slot
- *                                 (`none` / `sm` / `md` / `lg` / `full`)
- *                                 and an object-fit slot (`cover` /
- *                                 `contain`). The radius defaults to `md`
- *                                 (matches the rest of the surface family);
- *                                 fit defaults to `cover` (the common
- *                                 product-card / hero image use case).
- *   - IFRAME                    — wrapper chrome (`<iframe>` itself) for
- *                                 embedded content. Bordered + sm radius +
- *                                 surface-tinted bg so the embed sits
- *                                 inside the page without floating.
- *   - AUDIO PLAYER              — bordered wrapper around the browser's
- *                                 default `<audio controls>` UI. The native
- *                                 player ships its own widget chrome, so
- *                                 the helper only paints the bounding frame
- *                                 (radius + border + bg-subtle) — keeping
- *                                 the player visually integrated with the
- *                                 surrounding card / list family.
- *   - VIDEO PLAYER              — same bordered-frame idea as audio, but
- *                                 sized for a video aspect ratio. The
- *                                 renderer also auto-converts YouTube /
- *                                 Vimeo URLs to an `<iframe>` embed; the
- *                                 helper applies the same frame chrome in
- *                                 either case so the visual is consistent
- *                                 across direct-video vs embed routes.
- *   - SEARCH INPUT (container)  — the wrapper `<div>` around a generic
- *                                 search input. Matches the input-default
- *                                 surface tone so a `<search-input>` in a
- *                                 toolbar reads as a peer of the regular
- *                                 form `<input>` controls. The SSR `<input
- *                                 type="search">` inside the wrapper keeps
- *                                 its inline placeholder padding so it
- *                                 renders visibly even when the runtime
- *                                 CSS isn't loaded; the helper paints
- *                                 only the outer chrome.
- *   - PAGE SEARCH (SSR shell)   — same outer-chrome philosophy as the
- *                                 generic search input: paints a frame
- *                                 around the SSR `<input type="search">`
- *                                 emitted by `renderPageSearch` so the
- *                                 component reads as a search control on
- *                                 first paint. Once hydrated, the
- *                                 `page-search-island` runtime swaps the
- *                                 SSR shell for a live results panel that
- *                                 ships its own inline styles (so it
- *                                 renders on third-party hosts that don't
- *                                 load Sovrium's CSS).
+ *   - IMAGE                     — `rounded-lg object-cover` for the bare
+ *                                 variant; no border on any variant.
+ *   - IFRAME                    — `rounded-lg border` on the page
+ *                                 background.
+ *   - AUDIO PLAYER              — spans its column, no box: the browser
+ *                                 draws its own transport.
+ *   - VIDEO PLAYER              — spans its column, `rounded-lg` on the
+ *                                 muted ground.
  *
  * Intentionally NOT covered:
  *
@@ -131,6 +98,7 @@
  * `typography-default-classes.ts`.
  */
 
+import { cva } from 'class-variance-authority'
 import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var'
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -140,7 +108,7 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 /**
  * Compute the default className for a `button-group` container — the outer
  * `<div role="group">` wrapping a row of buttons. Paints the focal-ring
- * surface tone (`sv-bg`) + `radius-md` so the group reads as a single
+ * surface tone (`background`) + `radius-md` so the group reads as a single
  * shape; the existing `inline-flex isolate -space-x-px` rhythm (responsible
  * for the segmented-control look) stays in the renderer alongside this
  * className via `${defaults} ${renderer-class}`.
@@ -156,6 +124,18 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 const BUTTON_GROUP_CONTAINER = `rounded-[${v('radius-md', T.radiusMd)}]`
 
 export const computeButtonGroupClasses = (): string => BUTTON_GROUP_CONTAINER
+
+/**
+ * The joining rhythm of a button-group, by orientation: a row whose adjacent
+ * borders overlap by one pixel, or shadcn/ui's vertical Button Group — one
+ * column, each control's inner corners squared so the stack reads as one shape.
+ */
+export const computeButtonGroupOrientationClasses = (
+  orientation: 'horizontal' | 'vertical'
+): string =>
+  orientation === 'vertical'
+    ? 'inline-flex flex-col isolate -space-y-px [&>*:not(:first-child)]:rounded-t-none [&>*:not(:last-child)]:rounded-b-none'
+    : 'inline-flex isolate -space-x-px'
 
 /**
  * Per-item position vocabulary inside a button-group. Drives radius
@@ -199,7 +179,7 @@ export const computeButtonGroupItemClasses = ({
  *
  *   - `'default'`     — the workhorse inline link. Primary tone at rest,
  *     deepening to the primary HOVER tone under the pointer.
- *   - `'subtle'`      — secondary link tone (`sv-fg-muted`) for links
+ *   - `'subtle'`      — secondary link tone (`muted-foreground`) for links
  *     embedded in chrome copy (footer / navigation), resolving to full ink
  *     on hover while the resting state stays quiet.
  *   - `'destructive'` — danger-tone link (`sv-error-fg`) for the rare
@@ -210,17 +190,18 @@ export const computeButtonGroupItemClasses = ({
  */
 export type LinkVariant = 'default' | 'subtle' | 'destructive'
 
-const LINK_VARIANT: Record<LinkVariant, string> = {
-  default: [
-    `text-[${v('sv-primary', T.primary)}]`,
-    `hover:text-[${v('sv-primary-hover', T.primaryHover)}]`,
-  ].join(' '),
-  subtle: [`text-[${v('sv-fg-muted', T.fgMuted)}]`, `hover:text-[${v('sv-fg', T.fg)}]`].join(' '),
-  destructive: [
-    `text-[${v('sv-error-fg', T.errorFg)}]`,
-    `hover:text-[${v('sv-error-700', T.error700)}]`,
-  ].join(' '),
-}
+const LINK_VARIANT = cva('', {
+  variants: {
+    variant: {
+      default: ['text-primary', `hover:text-[${v('sv-primary-hover', T.primaryHover)}]`].join(' '),
+      subtle: ['text-muted-foreground', 'hover:text-foreground'].join(' '),
+      destructive: [
+        `text-[${v('sv-error-fg', T.errorFg)}]`,
+        `hover:text-[${v('sv-error-700', T.error700)}]`,
+      ].join(' '),
+    },
+  },
+})
 
 /**
  * A link's keyboard-focus affordance — an underline in the focus-ring colour
@@ -237,7 +218,7 @@ const LINK_VARIANT: Record<LinkVariant, string> = {
  */
 const LINK_FOCUS_CLASS = [
   'focus-visible:outline-none focus-visible:underline',
-  `focus-visible:decoration-[${v('sv-focus-ring', T.focusRing)}]`,
+  'focus-visible:decoration-ring',
 ].join(' ')
 
 /**
@@ -292,7 +273,7 @@ export const computeLinkClasses = ({
   variant = 'default',
 }: {
   readonly variant?: LinkVariant
-} = {}): string => [LINK_VARIANT[variant], LINK_SHARED].join(' ')
+} = {}): string => [LINK_VARIANT({ variant: variant }), LINK_SHARED].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ICON — Lucide `<svg>` wrapper tone + sizing class
@@ -310,12 +291,8 @@ export const computeLinkClasses = ({
  */
 export type IconSize = 'sm' | 'md' | 'lg' | 'xl'
 
-const ICON_SIZE: Record<IconSize, string> = {
-  sm: 'w-3 h-3',
-  md: 'w-4 h-4',
-  lg: 'w-5 h-5',
-  xl: 'w-6 h-6',
-}
+const SIZES = { sm: 'size-3', md: 'size-4', lg: 'size-5', xl: 'size-6' }
+const ICON_SIZE = cva('', { variants: { size: SIZES } })
 
 /**
  * Icon tone vocabulary. Lucide icons inherit color via `currentColor`, so
@@ -323,47 +300,52 @@ const ICON_SIZE: Record<IconSize, string> = {
  * fill resolve through the inherited color cascade.
  *
  *   - `'default'` — INHERITED. Takes `currentColor` from whatever it sits in.
- *   - `'muted'`   — chrome tone (`sv-fg-muted`). Status / leading affordances.
- *   - `'primary'` — accent tone (`sv-primary`). Brand-call-out icons.
+ *   - `'muted'`   — chrome tone (`muted-foreground`). Status / leading affordances.
+ *   - `'primary'` — accent tone (`primary`). Brand-call-out icons.
  *
  * ─── WHY THE DEFAULT NAMES NO COLOUR AT ALL ────────────────────────────────
  *
- * Not `sv-fg`, which is the right colour on a page and the WRONG one inside a
+ * Not `foreground`, which is the right colour on a page and the WRONG one inside a
  * filled control: it OVERRIDES the fill's own foreground instead of inheriting
  * it. Measured live on the Design System console, on the attached split
- * button: with `sv-fg` the chevron stroked oklch(0.14 0 0) on a button filled
+ * button: with `foreground` the chevron stroked oklch(0.14 0 0) on a button filled
  * oklch(0.205 0 0) — 1.11:1, black on black — while the same button's own
  * `color` was already oklch(0.985 0 0), white. The button had it right and the
  * icon painted over it.
  *
  * Inheriting costs nothing on an ordinary page, where `currentColor` resolves
- * to the body foreground — which is `sv-fg`. An author naming `muted` or
+ * to the body foreground — which is `foreground`. An author naming `muted` or
  * `primary` is choosing a colour on purpose and still gets it; this default is
  * about the case where nobody chose one.
  */
 export type IconTone = 'default' | 'muted' | 'primary'
 
-const ICON_TONE: Record<IconTone, string> = {
-  default: 'text-current',
-  muted: `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-  primary: `text-[${v('sv-primary', T.primary)}]`,
-}
+const TONES = { default: 'text-current', muted: 'text-muted-foreground', primary: 'text-primary' }
+const ICON_TONE = cva('', { variants: { tone: TONES } })
 
 /**
- * Compute the default className for an `icon` component. Paints size +
- * tone so a bare `{ type: 'icon', name: 'check' }` renders the canonical
- * 16px focal-tone Sovrium icon without the author spelling chrome. Specs
- * that override pixel sizes via `props.size` still win because Lucide
- * accepts a numeric `size` prop that paints inline `width` / `height`
- * attributes — those beat the Tailwind `w-* h-*` classes at the cascade.
+ * Compute the default className for an `icon` component: shadcn/ui draws an
+ * icon at `size-4` and never lets a flex row squeeze it (`shrink-0`), so a
+ * bare `{ type: 'icon', name: 'check' }` renders a 16px glyph that keeps its
+ * size beside a long label.
+ *
+ * `sized: false` drops the size class. A class beats the SVG's own
+ * `width`/`height` attributes at the cascade, so an author who passes a pixel
+ * `props.size` (and no `iconSize`) must get no size class, or their size
+ * would be drawn at 16px whatever they wrote.
  */
 export const computeIconClasses = ({
   size = 'md',
   tone = 'default',
+  sized = true,
 }: {
   readonly size?: IconSize
   readonly tone?: IconTone
-} = {}): string => [ICON_SIZE[size], ICON_TONE[tone]].join(' ')
+  readonly sized?: boolean
+} = {}): string =>
+  [sized ? ICON_SIZE({ size: size }) : '', 'shrink-0', ICON_TONE({ tone: tone })]
+    .filter(Boolean)
+    .join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // IMAGE — radius + object-fit slot
@@ -383,10 +365,10 @@ export type ImageRadius = 'none' | 'sm' | 'md' | 'lg' | 'full'
 
 const IMAGE_RADIUS: Record<ImageRadius, string> = {
   none: '',
-  sm: `rounded-[${v('radius-sm', T.radiusSm)}]`,
-  md: `rounded-[${v('radius-md', T.radiusMd)}]`,
-  lg: `rounded-[${v('radius-lg', T.radiusLg)}]`,
-  full: `rounded-[${v('radius-full', T.radiusFull)}]`,
+  sm: 'rounded-sm',
+  md: 'rounded-md',
+  lg: 'rounded-lg',
+  full: 'rounded-full',
 }
 
 /**
@@ -404,15 +386,13 @@ const IMAGE_FIT: Record<ImageFit, string> = {
 
 /**
  * Compute the default className for the `image` component's bare `default`
- * variant. Paints the radius slot + object-fit so a bare
- * `{ type: 'image', src: '...' }` renders with the canonical medium
- * radius + cover fit (the most common product-card / hero use case).
+ * variant: `rounded-lg object-cover`, as shadcn/ui's blocks draw a picture.
  * The renderer's `avatar` / `thumbnail` / `hero` variant branches each
- * apply their own radius (full / md / lg-top) atop the schema, so this
- * helper only owns the BARE `default` variant.
+ * apply their own radius (full / md / xl), so this helper only owns the
+ * BARE `default` variant. No variant draws a border.
  */
 export const computeImageClasses = ({
-  radius = 'md',
+  radius = 'lg',
   fit = 'cover',
 }: {
   readonly radius?: ImageRadius
@@ -423,236 +403,80 @@ export const computeImageClasses = ({
 // IFRAME — bordered embed frame
 // ──────────────────────────────────────────────────────────────────────────────
 
-const IFRAME_FRAME = [
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `rounded-[${v('radius-md', T.radiusMd)}]`,
-].join(' ')
-
 /**
- * Compute the default className for an `iframe` component. Paints a
- * bordered frame around the embed so it sits inside the surrounding
- * layout rather than floating against the page background. The bg
- * (`sv-bg-subtle`) gives the iframe a recognisable surface even before
- * the embed loads (a blank `<iframe>` would otherwise render as a
- * transparent slot with no visual presence).
+ * Compute the default className for an `iframe` component: the frame spans
+ * its column with rounded-lg corners and a border, on the page background,
+ * so a blank frame still has an edge before the embed loads.
  */
-export const computeIframeClasses = (): string => IFRAME_FRAME
+export const computeIframeClasses = (): string => 'w-full rounded-lg border bg-background'
 
 // ──────────────────────────────────────────────────────────────────────────────
-// AUDIO + VIDEO — bordered media-player frames
+// AUDIO + VIDEO — media players
 // ──────────────────────────────────────────────────────────────────────────────
 
-const AUDIO_FRAME = [
-  'block w-full',
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `rounded-[${v('radius-md', T.radiusMd)}]`,
-].join(' ')
+/**
+ * Compute the default className for an `audio` component. The browser draws
+ * its own transport controls; the player only spans its column (`<audio>` is
+ * inline by browser convention, which collapses awkwardly in a flex layout)
+ * and Sovrium draws no box of its own around it.
+ */
+export const computeAudioPlayerClasses = (): string => 'block w-full'
 
 /**
- * Compute the default className for an `audio` component (typically
- * rendered as `<audio controls>`). Paints a bordered frame around the
- * native player widget — the browser still owns the widget chrome, the
- * helper only sets the bounding shape so the player visually integrates
- * with the surrounding card / list family.
- *
- * `block w-full` makes the player fill its column (the default `<audio>`
- * element is inline by browser convention, which collapses awkwardly inside
- * a flex layout).
+ * Compute the default className for a `video` component: it spans its column
+ * with rounded-lg corners on the muted ground, which shows while the poster
+ * or first frame loads.
  */
-export const computeAudioPlayerClasses = (): string => AUDIO_FRAME
-
-const VIDEO_FRAME = [
-  'block w-full',
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-subtle', T.bgSubtle)}]`,
-  `rounded-[${v('radius-md', T.radiusMd)}]`,
-  'overflow-hidden',
-].join(' ')
+export const computeVideoPlayerClasses = (): string => 'block w-full rounded-lg bg-muted'
 
 /**
- * Compute the default className for a `video` component. Identical to the
- * audio frame plus `overflow-hidden` — the renderer auto-converts YouTube
- * / Vimeo URLs to an `<iframe>` embed, and `overflow-hidden` clips the
- * embed's square corners to match the surrounding md radius so the embed
- * reads as a video player rather than a floating iframe.
+ * Compute the default className for a `qr-code` host: it takes only the room
+ * its symbol needs, on a white quiet zone with rounded corners and a faint
+ * ring. The quiet zone stays white in the dark scheme, because a scanner
+ * needs dark modules on a light ground.
+ *
+ * `w-fit` keeps it to its symbol in any parent: an `inline-flex` box is still
+ * stretched to the full width of a `flex-col` column without it.
+ *
+ * A symbol with no `size` carries only a `viewBox`, so it has no width of its
+ * own to hug: the host then takes a default width (`w-44`, a 160px symbol
+ * inside the padding) and the symbol fills it, which leaves an author's own
+ * width class on the host free to size it.
  */
-export const computeVideoPlayerClasses = (): string => VIDEO_FRAME
-
-// ──────────────────────────────────────────────────────────────────────────────
-// SEARCH INPUT + PAGE SEARCH — SSR shell chrome
-// ──────────────────────────────────────────────────────────────────────────────
-
-const SEARCH_CONTAINER = ['relative w-full', `text-[${v('sv-fg', T.fg)}]`].join(' ')
-
-/**
- * The OUTER wrapper of a `search-input` shell, in either scope.
- *
- * `relative` is load-bearing twice over: it anchors the absolutely-positioned
- * results panel the page-search island mounts, and — since R-E — it anchors
- * the leading magnifier, which sits over the field rather than beside it so
- * the control stays a single `<input>` that `#<id> input` still resolves.
- *
- * The wrapper carries no ground and no border; the field ships its own chrome.
- * Splitting the two is what keeps the page-search hydration story working: the
- * island replaces the SSR input with its own panel, and a panel should not
- * inherit a border from the shell it replaced.
- */
-export const computeSearchInputContainerClasses = (): string => SEARCH_CONTAINER
-
-/**
- * The magnifier at the leading edge.
- *
- * Absolutely positioned and `pointer-events-none`, so the whole width of the
- * control is still a click target for the field underneath it. On the disabled
- * foreground — a search glyph is a label for the box, not a control, and
- * painting it at full strength made it compete with the value typed beside it.
- *
- * `variants.mjs:142` draws it at 16px in both scopes but insets it differently,
- * because the two fields are padded differently: the data field carries the
- * `.input` inset of 12px, the page trigger the tighter 10px. The glyph sits at
- * its field's own inset, so the icon and the placeholder beside it start from
- * the same edge in both.
- */
-export const computeSearchInputIconClasses = ({
-  scope,
-}: { readonly scope?: 'data' | 'page' } = {}): string =>
+export const computeQrCodeClasses = ({ sized = true }: { readonly sized?: boolean } = {}): string =>
   [
-    'pointer-events-none absolute top-1/2 -translate-y-1/2',
-    scope === 'page' ? 'left-2.5' : 'left-3',
-    `text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-  ].join(' ')
-
-const SEARCH_FIELD = [
-  'w-full h-9 py-2 pr-3 pl-9 text-base',
-  'border',
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `placeholder:text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-  `rounded-[${v('radius-base', T.radiusBase)}]`,
-  `hover:border-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-  `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-  `focus-visible:ring-offset-[${v('sv-bg', T.bg)}]`,
-  'transition-[box-shadow,border-color] duration-150',
-].join(' ')
-
-/**
- * The `<input type="search">` inside a DATA-scoped shell — one that filters a
- * table, a list, a set of records.
- *
- * This is the ordinary field: 36px tall, 13px, `radius-base`, on the strong
- * border and the raised ground, exactly like every other `input` in the system
- * (`variants.mjs:142`, the `data` variant). It shipped one rung out on every
- * one of those — 33px tall at 12px on `radius-md` and the light border — which
- * made a search box read as a slightly different species from the fields
- * beside it in the same toolbar.
- *
- * `pl-9` is the inset for the magnifier the container positions; `pr-3` keeps
- * the trailing edge on the normal 12px.
- */
-export const computeSearchInputFieldClasses = (): string => SEARCH_FIELD
-
-const PAGE_SEARCH_FIELD = [
-  'w-full py-[7px] pr-9 pl-[34px] text-sm',
-  'border',
-  `border-[${v('sv-border', T.border)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `placeholder:text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-  `rounded-[${v('radius-md', T.radiusMd)}]`,
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-  `focus-visible:ring-[${v('sv-focus-ring', T.focusRing)}]`,
-  `focus-visible:ring-offset-[${v('sv-bg', T.bg)}]`,
-  'transition-[box-shadow,border-color] duration-150',
-].join(' ')
-
-/**
- * The `<input type="search">` inside a PAGE-scoped shell.
- *
- * Deliberately NOT the data-scope field. A page search is a TRIGGER — press
- * `/`, get a panel — where a data search is a filter you type into and watch.
- * `variants.mjs:142` draws them apart on purpose: the trigger is smaller
- * (12px), softer-cornered (`radius-md`), on the light border rather than the
- * strong one, and it carries a key hint the filter has no use for. Treating
- * the two as one control, which is what shipped, made the page search look
- * like an empty filter for a table that was not there.
- *
- * `pl-[34px]` clears the 10px inset, the 16px glyph and the 8px gap after it;
- * `pr-9` reserves the trailing edge for the key hint.
- */
-export const computePageSearchFieldClasses = (): string => PAGE_SEARCH_FIELD
-
-/**
- * The `/` key hint at the trailing edge of a page search.
- *
- * Monospace, because it names a key. On the disabled foreground and
- * `pointer-events-none` for the same reason as the magnifier: it is a label on
- * the box, and it must not eat a click meant for the field.
- */
-export const computePageSearchKeyHintClasses = (): string =>
-  [
-    'pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 font-mono text-sm',
-    `text-[${v('sv-fg-disabled', T.fgDisabled)}]`,
-  ].join(' ')
+    'inline-flex rounded-lg bg-white p-2 ring-1 ring-foreground/10',
+    sized ? 'w-fit' : 'w-44 [&>svg]:w-full',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
-// KBD — the chord, one keycap per key, and the plain text between them
+// KBD — base-nova's `KbdGroup` (the chord) and `Kbd` (one key)
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * The chord's own wrapper.
- *
- * `gap-1` is the resting distance between two adjacent caps — the convention on
- * Apple keyboards and in most modern documentation, and what an author gets
- * when they declare no `separator`. `align-middle` keeps a chord sitting inside
- * a sentence on the sentence's baseline rather than riding above it.
+ * The chord (`data-slot="kbd-group"`). `align-middle` is Sovrium's: it keeps a
+ * chord inside a sentence on the sentence's baseline.
  */
 const KBD_CHORD = 'inline-flex items-center gap-1 align-middle'
 
 /**
- * One keycap.
- *
- * ─── THE BOTTOM EDGE IS THE COMPONENT ──────────────────────────────────────
- *
- * 1px on three sides and 2px underneath. That single asymmetry is the whole
- * difference between something a reader sees as a KEY and something they see as
- * a badge, and it is the value a design system component kbd spec measures —
- * in both colour schemes, because a keycap is a SHAPE and only its colours
- * belong to the scheme.
- *
- * The three widths are spelled per side (`border-x` / `border-t` / `border-b-2`)
- * rather than as `border` plus an override. Both compile; only the explicit
- * form is independent of the order Tailwind happens to emit the shorthand and
- * the side utility in, and a keycap whose bottom edge silently equalised would
- * still pass every assertion about its text.
- *
- * 22px square-ish (`h-[22px] min-w-[22px]`) with 6px of side padding and none
- * vertically: a single letter sits in a square, and `Shift` grows sideways only.
+ * One key (`data-slot="kbd"`), base-nova's string unchanged: a muted chip,
+ * borderless, in the sans face. Inside a tooltip it inverts onto the tooltip's
+ * ground, which is what the `in-data-[slot=tooltip-content]` variants say.
  */
-const KBD_CAP = [
-  'inline-flex h-[22px] min-w-[22px] items-center justify-center px-1.5 py-0',
-  'border-x border-t border-b-2',
-  `rounded-[${v('radius-base', T.radiusBase)}]`,
-  'font-mono text-xs leading-none font-medium',
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-].join(' ')
+const KBD_CAP =
+  "pointer-events-none inline-flex h-5 w-fit min-w-5 items-center justify-center gap-1 rounded-sm bg-muted px-1 font-sans text-xs font-medium text-muted-foreground select-none in-data-[slot=tooltip-content]:bg-background/20 in-data-[slot=tooltip-content]:text-background dark:in-data-[slot=tooltip-content]:bg-background/10 [&_svg:not([class*='size-'])]:size-3"
 
-/** The text printed between two caps — never itself a cap. */
-const KBD_SEPARATOR = ['text-xs select-none', `text-[${v('sv-fg-muted', T.fgMuted)}]`].join(' ')
+/** The text printed between two keys — never itself a key. */
+const KBD_SEPARATOR = 'text-xs text-muted-foreground select-none'
 
 /** Compute the className for a `kbd` chord's wrapper. */
 export const computeKbdChordClasses = (): string => KBD_CHORD
 
-/** Compute the className for one `<kbd>` keycap. */
+/** Compute the className for one `<kbd>` key. */
 export const computeKbdCapClasses = (): string => KBD_CAP
 
-/** Compute the className for the plain text between two caps. */
+/** Compute the className for the plain text between two keys. */
 export const computeKbdSeparatorClasses = (): string => KBD_SEPARATOR

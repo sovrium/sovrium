@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { AgentApprovalStore } from '@/application/ports/services/agent-approval-store'
 import { GetActivityById } from '@/application/use-cases/activity/programs'
 import {
   type ActivityLogOutput,
@@ -22,7 +23,6 @@ import {
 import { enrichUserRole } from '@/presentation/api/middleware/table'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/runtime/error-sanitizer'
-import { listActivityEntries } from '../agents/approval-store'
 import {
   activityAdmission,
   admitsActivityEntry,
@@ -32,110 +32,10 @@ import {
   projectEntryActor,
   toWireEntry,
 } from './activity-reader-gate'
+import { buildPaginatedResponse, parsePaginationParams } from './activity-response'
 import type { ActivityLogPageQuery } from '@/application/ports/repositories/analytics/activity-log-repository'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
-
-/**
- * User metadata in activity log API response. `email` is present for an admin
- * reader and on the reader's own entries only.
- */
-interface ActivityLogResponseUser {
-  readonly id: string
-  readonly name: string
-  readonly email?: string
-}
-
-/**
- * Activity log API response type
- *
- * Maps application ActivityLogOutput to API JSON response format.
- * Uses camelCase for all fields per API conventions.
- * user is null for system-logged activities (no user_id).
- */
-interface ActivityLogResponse {
-  readonly id: string
-  readonly createdAt: string
-  readonly userId: string | undefined
-  readonly action: 'create' | 'update' | 'delete' | 'restore' | 'permanent_delete'
-  readonly tableName: string
-  readonly recordId: string
-  readonly user: ActivityLogResponseUser | null
-}
-
-/**
- * Pagination metadata for list responses
- */
-interface PaginationMeta {
-  readonly total: number
-  readonly page: number
-  readonly pageSize: number
-  readonly totalPages: number
-}
-
-/**
- * Parsed and validated pagination parameters
- */
-interface PaginationParams {
-  readonly page: number
-  readonly pageSize: number
-}
-
-/**
- * Map ActivityLogOutput to API response format
- */
-function mapToApiResponse(c: Context, app: App, log: ActivityLogOutput): ActivityLogResponse {
-  return {
-    id: log.id,
-    createdAt: log.createdAt,
-    userId: log.userId,
-    action: log.action,
-    tableName: log.tableName,
-    recordId: log.recordId,
-    user: projectActivityActor(c, app, log.user),
-  }
-}
-
-/**
- * Parse and validate pagination query parameters
- *
- * Returns undefined if parameters are invalid.
- */
-function parsePaginationParams(
-  pageParam: string | undefined,
-  pageSizeParam: string | undefined
-): PaginationParams | undefined {
-  const page = pageParam === undefined ? 1 : parseInt(pageParam, 10)
-  const pageSize = pageSizeParam === undefined ? 50 : parseInt(pageSizeParam, 10)
-
-  if (isNaN(page) || page < 1) return undefined
-  if (isNaN(pageSize) || pageSize < 1 || pageSize > 100) return undefined
-
-  return { page, pageSize }
-}
-
-/**
- * Build the paginated response from one page of activity and the count of
- * every admitted entry the filters match.
- */
-function buildPaginatedResponse(
-  c: Context,
-  app: App,
-  {
-    activities: logs,
-    total,
-  }: { readonly activities: readonly ActivityLogOutput[]; readonly total: number },
-  params: PaginationParams
-): { activities: readonly ActivityLogResponse[]; pagination: PaginationMeta } {
-  const { page, pageSize } = params
-  const pagination: PaginationMeta = {
-    total,
-    page,
-    pageSize,
-    totalPages: Math.ceil(total / pageSize),
-  }
-  return { activities: logs.map((log) => mapToApiResponse(c, app, log)), pagination }
-}
 
 /** The one 404 an activity id answers with: missing and not-yours alike. */
 function activityNotFound(c: Context) {
@@ -365,7 +265,11 @@ async function handleListActivityLogs(c: Context, app: App) {
   // activity-monitoring specs while approval specs read `entries`. A
   // non-admin reads only the entries the audience rule admits, and another
   // user's email in them stays on admin surfaces.
-  const audience = await filterAudienceEntries(c, app, listActivityEntries())
+  const feed = await runDomainPromise(
+    c,
+    Effect.flatMap(Effect.service(AgentApprovalStore), (store) => store.activity)
+  )
+  const audience = await filterAudienceEntries(c, app, feed)
   return c.json(
     {
       ...buildPaginatedResponse(c, app, page, params),

@@ -55,6 +55,8 @@ import { SubmissionRateLimiterLive } from '@/infrastructure/forms/submission-rat
 import { PageRendererLive } from '@/infrastructure/layers/page-renderer-layer'
 import { LoggerLive, logError } from '@/infrastructure/logging/logger'
 import { ContentDirReaderLive } from '@/infrastructure/markdown/content-dir-reader-live'
+import { AgentApprovalStoreLive } from '@/infrastructure/process/agent-approval-store-live'
+import { AgentGuardLive } from '@/infrastructure/process/agent-guard-live'
 import { CronSchedulerLive } from '@/infrastructure/scheduling/cron-scheduler-live'
 import { PageCacheLive } from '@/infrastructure/server/cache/page-cache-live'
 import { ServerFactoryLive } from '@/infrastructure/server/server-factory-live'
@@ -171,7 +173,11 @@ const DatabaseBackedRepositories = Layer.mergeAll(
 //     `ECO_AI_PROVIDER_PRECEDENCE=local-only`.
 //   - `SubmissionRateLimiter` — the public form-submission windows.
 //   - `TemplateEngine` — the console's read-only template preview.
+//   - `AgentGuard` / `AgentApprovalStore` — the agent runtime's limit counters
+//     and its paused turns, process state every agent surface shares.
 const PortAdapters = Layer.mergeAll(
+  AgentApprovalStoreLive,
+  AgentGuardLive,
   AuditLogRepositoryLive,
   EmailSenderLive,
   DatabaseMigratorLive,
@@ -305,8 +311,9 @@ const appLayerWithAuth = (authLayer: Layer.Layer<Auth>) =>
     // configured-but-unreachable `OLLAMA_BASE_URL` would have cost the boot the
     // full 2 s timeout before the listener bound — which is precisely why the
     // three AI-adjacent route runners kept rebuilding it per request. The body
-    // is now pure; the probe happens on the first `chat`/`embed`.
-    AiLive,
+    // is now pure; the probe happens on the first `chat`/`embed`. It reads the
+    // files a chat turn carries from the same storage (one build, memoised).
+    AiLive.pipe(Layer.provide(StorageLive)),
     StorageLive,
     TypeScriptValidatorLive,
     // Currently unused at the AppLayer scope: the only consumer

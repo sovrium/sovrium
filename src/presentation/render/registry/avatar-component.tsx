@@ -28,6 +28,11 @@
  * `swatch` established with `data-token-chip`. A stylesheet or a spec
  * addressing them by class would pin the recipe rather than the anatomy.
  *
+ * Beside them, each part carries shadcn/ui's `data-slot` (`avatar`,
+ * `avatar-image`, `avatar-fallback`, `avatar-badge`, `avatar-group`,
+ * `avatar-group-count`), and each root its rung as `data-size`, which is what
+ * base-nova's recipe sizes the box and the presence dot from.
+ *
  * Source: src/domain/models/app/pages/components/component-types/display/avatar.ts
  * Specs: [internal ref]
  */
@@ -35,6 +40,7 @@
 import { deriveInitials } from '@/presentation/design/avatar-initials'
 import {
   computeAvatarBoxClasses,
+  computeAvatarFallbackClasses,
   computeAvatarGroupClasses,
   computeAvatarImageClasses,
   computeAvatarMemberClasses,
@@ -57,7 +63,7 @@ interface AvatarMember {
   readonly status?: string
 }
 
-const AVATAR_SIZES = new Set<AvatarSize>(['sm', 'md', 'lg'])
+const AVATAR_SIZES = new Set<AvatarSize>(['sm', 'default', 'lg'])
 const AVATAR_STATUSES = new Set<AvatarStatus>(['online', 'away', 'busy', 'offline'])
 
 /** Read one string field off a component definition. */
@@ -69,7 +75,7 @@ const text = (source: Readonly<Record<string, unknown>>, key: string): string | 
 /** The rung of the size ladder this avatar draws at. `md` is the default. */
 const sizeOf = (source: Readonly<Record<string, unknown>>): AvatarSize => {
   const declared = source['size']
-  return AVATAR_SIZES.has(declared as AvatarSize) ? (declared as AvatarSize) : 'md'
+  return AVATAR_SIZES.has(declared as AvatarSize) ? (declared as AvatarSize) : 'default'
 }
 
 /** The corner shape. `circle` is the default — people, rather than records. */
@@ -153,6 +159,7 @@ const renderBody = ({
     return (
       <img
         data-avatar-image=""
+        data-slot="avatar-image"
         src={src}
         // `alt` defaults to the NAME rather than to the empty string: an avatar
         // with no alternative text is a hole in the page for a reader who
@@ -165,7 +172,13 @@ const renderBody = ({
   }
   const letters = initials ?? (label === undefined ? undefined : deriveInitials(label))
   return letters === undefined || letters === '' ? undefined : (
-    <span data-avatar-initials="">{letters}</span>
+    <span
+      data-avatar-initials=""
+      data-slot="avatar-fallback"
+      className={computeAvatarFallbackClasses({ shape })}
+    >
+      {letters}
+    </span>
   )
 }
 
@@ -174,6 +187,7 @@ const renderStatus = (status: AvatarStatus | undefined): ReactElement | undefine
   status === undefined ? undefined : (
     <span
       data-avatar-status={status}
+      data-slot="avatar-badge"
       className={computeAvatarStatusClasses({ status })}
     />
   )
@@ -193,9 +207,11 @@ const renderMember = ({
   <span
     key={index}
     data-avatar-item=""
+    data-slot="avatar"
+    data-size={size}
     role="img"
     aria-label={member.label ?? ''}
-    className={computeAvatarMemberClasses({ size, shape, stacked: index !== 0 })}
+    className={computeAvatarMemberClasses({ size, shape })}
   >
     {renderBody({
       src: member.src,
@@ -215,11 +231,12 @@ const renderMember = ({
  * reader does anyway; `+6` beside three visible faces is a number they would
  * have to correct in their head.
  */
-const renderOverflow = (hidden: number, size: AvatarSize): ReactElement | undefined =>
+const renderOverflow = (hidden: number): ReactElement | undefined =>
   hidden <= 0 ? undefined : (
     <span
       data-avatar-overflow=""
-      className={computeAvatarOverflowClasses({ size })}
+      data-slot="avatar-group-count"
+      className={computeAvatarOverflowClasses()}
     >
       {`+${String(hidden)}`}
     </span>
@@ -255,6 +272,8 @@ export const avatarComponent: ComponentRenderer = ({ elementPropsWithSpacing, co
         {...rest}
         role="img"
         aria-label={unboundValue(label) ?? unboundValue(text(source, 'alt')) ?? ''}
+        data-slot="avatar"
+        data-size={size}
         data-session-avatar={sessionBinding}
         className={mergePrestyle(
           computeAvatarBoxClasses({ size, shape }),
@@ -280,10 +299,11 @@ export const avatarComponent: ComponentRenderer = ({ elementPropsWithSpacing, co
       {...rest}
       role="group"
       aria-label={label ?? ''}
+      data-slot="avatar-group"
       className={mergePrestyle(computeAvatarGroupClasses(), authorClassName as string | undefined)}
     >
       {visible.map((member, index) => renderMember({ member, index, size, shape }))}
-      {renderOverflow(items.length - visible.length, size)}
+      {renderOverflow(items.length - visible.length)}
     </span>
   )
 }

@@ -13,7 +13,7 @@
 type: container
 element: aside
 props:
-  className: flex w-[232px] flex-none flex-col gap-0.5 border-r border-border bg-background-subtle px-2.5 py-3 max-lg:w-auto max-md:contents
+  className: flex w-[232px] flex-none flex-col gap-0.5 border-r border-border bg-muted px-2.5 py-3 max-lg:w-auto max-md:contents
 children:
   - type: container
     props:
@@ -46,7 +46,7 @@ children:
     # count), so the look survives a change to the engine's markup.
     classes:
       parts:
-        link: h-8 gap-2.5 rounded-md px-2.5 text-[13.5px] leading-[var(--text-md--line-height)] text-foreground-muted
+        link: h-8 gap-2.5 rounded-md px-2.5 text-[13.5px] leading-[var(--text-md--line-height)] text-muted-foreground
         groupLabel: px-2.5 pt-0 pb-1.5 font-mono text-[10.5px] leading-[14px] tracking-wider text-foreground-subtle
         badge: bg-transparent px-0 font-mono text-[11.5px]
       states:
@@ -88,7 +88,7 @@ children:
     # count), so the look survives a change to the engine's markup.
     classes:
       parts:
-        link: h-8 gap-2.5 rounded-md px-2.5 text-[13.5px] leading-[var(--text-md--line-height)] text-foreground-muted
+        link: h-8 gap-2.5 rounded-md px-2.5 text-[13.5px] leading-[var(--text-md--line-height)] text-muted-foreground
         badge: bg-transparent px-0 font-mono text-[11.5px]
       states:
         current:
@@ -104,7 +104,7 @@ children:
               valuePath: pagination.total
   - type: container
     props:
-      className: mt-auto flex items-center justify-end gap-2.5 border-t border-border px-2 py-2.5 text-sm text-foreground-muted max-lg:hidden
+      className: mt-auto flex items-center justify-end gap-2.5 border-t border-border px-2 py-2.5 text-sm text-muted-foreground max-lg:hidden
     children:
       - type: button
         variant: ghost

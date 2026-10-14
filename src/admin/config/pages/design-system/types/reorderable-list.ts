@@ -21,7 +21,7 @@ const row = (label: string, dragging = false): PageComponent =>
     element: 'div',
     props: {
       className: dragging
-        ? 'border-foreground bg-background-raised flex items-center gap-3 rounded border px-3 py-2 shadow-md'
+        ? 'border-foreground bg-card flex items-center gap-3 rounded border px-3 py-2 shadow-md'
         : 'border-border flex items-center gap-3 rounded border px-3 py-2',
     },
     children: [
@@ -61,8 +61,7 @@ const reorderableList: TypePageBody = {
               type: 'container',
               element: 'div',
               props: {
-                className:
-                  'border-border bg-background-subtle rounded border border-dashed px-3 py-2',
+                className: 'border-border bg-muted rounded border border-dashed px-3 py-2',
               },
               children: [
                 {

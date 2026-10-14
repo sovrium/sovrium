@@ -6,9 +6,8 @@
  */
 
 import { readFileSync, rmSync } from 'node:fs'
-import { computeConfigHash, getLockFilePath } from '@/infrastructure/server/lock-file'
+import { getLockFilePath } from '@/infrastructure/server/lock-file'
 import { removeStatusFileSync } from '@/infrastructure/server/status-file'
-import type { Hono } from 'hono'
 
 type CleanupSignal = 'SIGTERM' | 'SIGINT' | 'SIGUSR1'
 
@@ -28,19 +27,6 @@ const nodeProcess: CleanupProcess = {
   on: (signal, handler) => {
     process.on(signal, handler)
   },
-}
-
-/**
- * The setter each composed Hono app registers so the reload handler can
- * refresh its `X-Sovrium-Config` header hash (the middleware in
- * `compose-hono-app.ts` closes over the current hash). Keyed weakly by the
- * app, so a replaced app and its setter are collected together.
- */
-const configHashSetters = new WeakMap<object, (hash: string) => void>()
-
-/** Register the setter the reload signal calls for `app`. */
-export const attachConfigHashSetter = (app: object, setter: (hash: string) => void): void => {
-  configHashSetters.set(app, setter)
 }
 
 /**
@@ -80,15 +66,12 @@ export const cleanupLockFileSync = (): void => {
   removeStatusFileSync()
 }
 
-/** The app + config file a reload signal currently applies to. */
-interface ReloadTarget {
-  readonly app: Readonly<Hono>
-  readonly configPath: string
-}
-
 /** A controller owning one process' lock-file and reload signal handlers. */
 export interface LockFileCleanupController {
-  readonly register: (app: Readonly<Hono>, configPath: string) => void
+  /** Install the SIGTERM, SIGINT and SIGUSR1 handlers — once, however often it is called. */
+  readonly register: () => void
+  /** Name what SIGUSR1 runs; a later call replaces the earlier one. */
+  readonly onReloadRequest: (request: () => void) => void
 }
 
 /**
@@ -96,23 +79,22 @@ export interface LockFileCleanupController {
  *
  * Contract, mirroring {@link createShutdownController} in `./lifecycle.ts`:
  *
- * 1. **Register has replace semantics.** `--watch` re-enters `createServer`
- *    on every save and hands over a fresh Hono app; a second `register` swaps
- *    the reload target and installs nothing. Before this, each reload added
- *    three more listeners — and the SIGUSR1 closure captured its app, so
- *    every superseded Hono instance (with its Better Auth instance and route
- *    table) stayed reachable from `process._events` for the life of the
- *    process. Thirteen reloads measured 39 listeners. Bun emits no
- *    `MaxListenersExceededWarning`, so the leak was entirely silent.
- * 2. **The reload handler reads the CURRENT target at signal time**, not the
- *    one captured when it was installed. That is what lets the single
- *    installed listener serve every subsequent reload.
- * 3. **SIGTERM/SIGINT share one function reference.** Deduplication could
- *    also be had with `process.off` before `process.on`, but the install-once
- *    flag covers all three signals uniformly and matches the sibling.
+ * 1. **Handlers are installed once.** A restart-class reload re-enters
+ *    `createServer`, which registers again; a second `register` installs
+ *    nothing. Before this, each reload added three more listeners, every one
+ *    closing over a superseded app that then stayed reachable from
+ *    `process._events` for the life of the process — thirteen reloads
+ *    measured 39 listeners, and Bun emits no `MaxListenersExceededWarning`.
+ * 2. **SIGUSR1 runs the reload path `sovrium start` holds** (see
+ *    `start-watch.ts`), read at signal time, so the one installed listener
+ *    serves every reload. It does nothing else: the header hash, the lock file
+ *    and `status.json` are written by that path once the server has decided,
+ *    so the three always name the configuration that is running. A process
+ *    that holds no reload path (no config file) ignores the signal.
+ * 3. **SIGTERM/SIGINT share one function reference.**
  *
  * @internal Exported for `lock-file-cleanup.test.ts`; use
- * {@link registerLockFileCleanup}.
+ * {@link registerLockFileCleanup} and {@link onReloadRequest}.
  */
 export const createLockFileCleanupController = (
   host: CleanupProcess = nodeProcess
@@ -120,40 +102,28 @@ export const createLockFileCleanupController = (
   // Single-key Maps rather than a mutable record: the repo's idiom for
   // per-process state that has to survive between calls without a `let` or a
   // mutable object type (see `./lifecycle.ts`).
-  const targetState = new Map<'target', ReloadTarget>()
+  const requests = new Map<'reload', () => void>()
   const flags = new Map<'installed', true>()
 
-  // Re-read config and update the X-Sovrium-Config response header hash.
-  // Use the SYNCHRONOUS readFileSync so the setter runs atomically inside the
-  // signal-handler tick — guarantees the new hash is observable to the next
-  // HTTP request without an awaited microtask gap (a CLI server spec was flaky
-  // under load when the async readFile yielded back to the event loop and a
-  // concurrent fetch was serviced with the still-old closure value).
-  //
-  // Config is code-only: the reload's sole effect is refreshing the
-  // X-Sovrium-Config header hash from the file on disk. There is no version
-  // ledger to append to.
   const onReloadSignal = (): void => {
-    const target = targetState.get('target')
-    if (!target || !target.configPath) return
     try {
-      const content = readFileSync(target.configPath, 'utf-8')
-      const newHash = computeConfigHash(content)
-      const setter = configHashSetters.get(target.app)
-      if (setter) setter(newHash)
+      requests.get('reload')?.()
     } catch {
-      // Ignore errors during reload (header refresh is best-effort).
+      // A signal handler must never throw: the reload path reports its own
+      // failures, and the process keeps serving whatever it was serving.
     }
   }
 
   return {
-    register: (app, configPath) => {
-      targetState.set('target', { app, configPath })
+    register: () => {
       if (flags.get('installed') === true) return
       flags.set('installed', true)
       host.on('SIGTERM', cleanupLockFileSync)
       host.on('SIGINT', cleanupLockFileSync)
       host.on('SIGUSR1', onReloadSignal)
+    },
+    onReloadRequest: (request) => {
+      requests.set('reload', request)
     },
   }
 }
@@ -162,10 +132,10 @@ const defaultController = createLockFileCleanupController()
 
 /**
  * Register signal handlers that remove the lock file on graceful shutdown and
- * refresh the config hash on SIGUSR1.
- *
- * Call once per `createServer`. Later calls only swap the app and config path
- * a reload applies to (see {@link createLockFileCleanupController}).
+ * run the reload path on SIGUSR1. Safe to call once per `createServer`.
  */
-export const registerLockFileCleanup = (app: Readonly<Hono>, configPath: string): void =>
-  defaultController.register(app, configPath)
+export const registerLockFileCleanup = (): void => defaultController.register()
+
+/** What SIGUSR1 — `sovrium reload` — runs in this process. */
+export const onReloadRequest = (request: () => void): void =>
+  defaultController.onReloadRequest(request)

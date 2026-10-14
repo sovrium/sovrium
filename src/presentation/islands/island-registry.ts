@@ -130,8 +130,8 @@ export type IslandLoader = () => Promise<{
  */
 
 const loadAdminAgentConversations = () => import('./admin/agents/admin-agent-conversations-island')
-const loadAdminCommandPalette = () => import('./admin/command-palette/admin-command-palette-island')
 const loadAiChat = () => import('./ai-chat-island')
+const loadCommand = () => import('./command/command-island')
 const loadAuthForm = () => import('./auth-form/auth-form-island')
 const loadCrudForm = () => import('./crud-form-island/crud-form-island')
 const loadDatePicker = () => import('./date-picker/date-picker-island')
@@ -139,7 +139,8 @@ const loadSpaNav = () => import('./navigation/spa-nav-island')
 const loadTabs = () => import('./disclosure/tabs-island')
 const loadFileUpload = () => import('./file-upload/file-upload-island')
 const loadNumberInput = () => import('./form-controls/number-input-island')
-const loadSplitPane = () => import('./split-pane-island')
+const loadInputOtp = () => import('./form-controls/input-otp-island')
+const loadResizable = () => import('./resizable/resizable-island')
 const loadStepper = () => import('./disclosure/stepper-island')
 const loadSignaturePad = () => import('./form-controls/signature-pad-island')
 const loadSidebarGroups = () => import('./navigation/sidebar-groups-island')
@@ -166,7 +167,7 @@ const loadPageRecordSystem = () => import('./page-record-system-island')
  * line.
  */
 export const PRIORITY_ISLAND_LOADERS: Readonly<Record<string, IslandLoader>> = {
-  'split-pane': loadSplitPane,
+  resizable: loadResizable,
   // The first gesture on a stepper is Continue, and the SSR button carries no
   // handler — a stepper mounting one Suspense boundary later swallows it.
   stepper: loadStepper,
@@ -195,10 +196,12 @@ export const PRIORITY_ISLAND_LOADERS: Readonly<Record<string, IslandLoader>> = {
   // The same island over an app's own pages (`sidebar.clientSideNavigation`):
   // its click interceptor must be live before the reader's first click.
   'spa-nav': loadSpaNav,
-  'command-palette': loadAdminCommandPalette,
+  command: loadCommand,
   'admin-agent-conversations': loadAdminAgentConversations,
   'file-upload': loadFileUpload,
   'number-input': loadNumberInput,
+  // A code is typed the moment the page shows; the boxes must follow it.
+  'input-otp': loadInputOtp,
   'date-picker': loadDatePicker,
   // The FIRST gesture on a picker is the click that opens its suggestions, and
   // the SSR skeleton it lands on is an inert, disabled box carrying no handler
@@ -227,15 +230,14 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // file-keyed, so renaming the directory would silently reset every one of
   // them. `check-island-drift.ts` asserts `ISLAND_COMPONENT_TYPES ⊆ ISLANDS`,
   // which is what forces the key and not the path.
-  table: lazy(() => import('./data-table/island')),
-  // `split-pane` — resizable two-pane layout enhancement island. Renders
-  // nothing; wires pointer-drag onto the SSR-rendered static structure so the
-  // nested islands inside each pane survive hydration
-  //. PRIORITY (same timing
-  // constraint as file-upload / number-input): the drag must be wired before
-  // the user (or the spec) drags the divider, so it cannot wait for a Suspense
-  // fallback to resolve.
-  'split-pane': lazy(loadSplitPane),
+  table: lazy(() => import('./data-table/island/data-table-island')),
+  // `resizable` — two panels and a handle through react-resizable-panels. It
+  // takes over the SSR-rendered static split by MOVING each pane's nodes into
+  // its panel, so the nested islands inside each pane survive the takeover.
+  // PRIORITY (same timing constraint as file-upload / number-input): the drag
+  // must be live before the user (or the spec) drags the handle, so it cannot
+  // wait for a Suspense fallback to resolve.
+  resizable: lazy(loadResizable),
   // `stepper` — renders nothing; moves between the server-rendered step bodies.
   stepper: lazy(loadStepper),
   'signature-pad': lazy(loadSignaturePad),
@@ -247,8 +249,9 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // keeps each on its own lazy chunk (and all three off the universal island
   // payload).
   kanban: KanbanIslandLazy,
-  calendar: CalendarIslandLazy,
+  'event-calendar': CalendarIslandLazy,
   gallery: GalleryIslandLazy,
+  carousel: GalleryIslandLazy,
   chart: lazy(() => import('./chart/chart-island')),
   // `graph` — the Map lens' drawing. Lazy (eco R2), and unusually CHEAP for a
   // drawing: it fetches nothing (the render path already read the endpoint with
@@ -348,6 +351,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   'alert-dialog': lazy(() => import('./overlays/dialog-island')),
   // Phase 1 — Form Controls & Core
   select: lazy(() => import('./select/select-island')),
+  combobox: lazy(() => import('./select/select-island')),
   // (The `dropdown` key — a "legacy alias for select" — was DELETED, not
   // exempted. Nothing in `src/` emitted `data-island="dropdown"` (only
   // `dropdown-menu`, a different island), and commit 9ea2b7832 had already
@@ -356,6 +360,18 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // and it keys strictly off this object, so no honest exemption could be
   // written for it. Enforced by `[internal ref]`.)
   accordion: lazy(() => import('./disclosure/accordion-island')),
+  // `collapsible` under `hydrate: true` — an enhancement that renders nothing
+  // and wires the server-drawn trigger. Lazy (eco R2): one listener.
+  collapsible: lazy(() => import('./disclosure/collapsible-island')),
+  // `message-scroller` — an enhancement that renders nothing: it places the
+  // server-drawn frame's scroll and follows new turns. Lazy (eco R2).
+  'message-scroller': lazy(() => import('./message-scroller-island')),
+  // `questionnaire` — every screen is drawn here, where the answers are held
+  // until the one submission. Lazy (eco R2).
+  questionnaire: lazy(() => import('./questionnaire-island')),
+  // `calendar` — the day grid drawn inline, through the shared react-day-picker
+  // wrapper the date pickers mount in their popups. Lazy (eco R2).
+  calendar: lazy(() => import('./form-controls/day-calendar-island')),
   // `tabs` — PRIORITY. The per-domain admin dashboards (tables / pages /
   // automations) make the 4-tab frame their PRIMARY content and the specs
   // interact with the tablist immediately after `page.goto` (assert the active
@@ -363,7 +379,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // `tablist` role) survives past the first assertion under worker contention,
   // so the tabs island must be resolved before the mount pass — same "wire
   // before first interaction" rationale as record-drawer / crud-form /
-  // split-pane.
+  // resizable.
   tabs: lazy(loadTabs),
   checkbox: lazy(() => import('./form-controls/checkbox-island')),
   'radio-group': lazy(() => import('./form-controls/radio-island')),
@@ -372,7 +388,9 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   tooltip: lazy(() => import('./overlays/tooltip-island')),
   popover: lazy(() => import('./overlays/popover-island')),
   'hover-card': lazy(() => import('./overlays/hover-card-island')),
-  drawer: lazy(() => import('./overlays/drawer-island')),
+  sheet: lazy(() => import('./overlays/drawer-island')),
+  // `drawer` — the panel rising from the bottom edge, on Base UI's Drawer.
+  drawer: lazy(() => import('./overlays/bottom-drawer-island')),
   // `record-drawer` — record-detail/edit drawer specialization
   //. PRIORITY so its
   // `sovrium:open-drawer` listener is wired before a data-table row click can
@@ -380,7 +398,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // would miss the first event.
   'record-drawer': lazy(loadRecordDrawer),
   'dropdown-menu': lazy(() => import('./overlays/menu-island')),
-  'context-menu': lazy(() => import('./overlays/menu-island')), // Shares menu island
+  'context-menu': lazy(() => import('./overlays/context-menu-island')),
   // `record-picker` — the UNBOUND picker. Lazy: it costs a search
   // hook and a listbox, and a page that declares none should pay for neither.
   'record-picker': lazy(loadRecordPicker),
@@ -398,7 +416,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // the Données surface now renders the record
   // grid via the GENERIC `table` component bound to the operator table by
   // its DB-table data source (`dataSource.table`), reusing the data-table's
-  // record CRUD + typed create modal + `onRowClick: openDrawer` (see
+  // record CRUD + typed create modal + `onRowClick: openSheet` (see
   // `table-data-surface.ts`) instead of a one-off admin island.
   // NOTE: the `admin-overview` bespoke island was retired — the dashboard ROOT
   // "Tableau de bord" overview is now built from the
@@ -465,17 +483,15 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // make it replace the main landmark and serve the app's pages only. PRIORITY
   // for the same reason as the console's.
   'spa-nav': lazy(loadSpaNav),
-  // `command-palette` — the ⌘K search overlay a `command-palette` component in
-  // SEARCH mode hosts ([internal ref],
-  // [internal ref]). Its binding arrives as props: `endpoint`
-  // (queried per keystroke with `?q=`), `placeholder`, and `kindLabels` for the
-  // group headings — the console's own values are the defaults, which is what
-  // let the admin palette become this generic island without a behaviour change.
-  // `⌘K` / `Ctrl+K` (and a `data-command-palette-trigger` click) open the
-  // dialog; selecting a result deep-links to the match. PRIORITY so the
-  // open-intent listener is wired before the first keypress; it renders null
-  // until opened.
-  'command-palette': lazy(loadAdminCommandPalette),
+  // `command` — the ⌘K palette, through cmdk. In SEARCH mode its binding
+  // arrives as props: `endpoint` (queried per keystroke with `?q=`),
+  // `placeholder`, and `kindLabels` for the group headings. With no `endpoint`
+  // it is the BUILT-IN palette, read from the page's
+  // `[data-command-palette-config]` block, whose host is deferred until the
+  // first open (see `COMMAND_PALETTE_CAPTURE_SCRIPT`). `⌘K` / `Ctrl+K` (and a
+  // `data-command-palette-trigger` click) open the dialog. PRIORITY so the
+  // open-intent listener is wired before the first keypress.
+  command: lazy(loadCommand),
   // (The `admin-bucket-metrics` + `admin-bucket-files` bespoke islands were retired:
   // the `/_admin/buckets/:name` file browser is now a generic config surface —
   // a quota `kpi`, an upload `file-upload`, and a file `table` bound via
@@ -498,7 +514,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // kept a lazy chunk in the build no rendered page could mount. The API it
   // spoke to is unchanged, still gated, and still specced.)
   // The two halves of the preview channel (`[internal ref]`, `-055`).
-  // Both are pure enhancers rendering `null`, in the `split-pane` mould: the
+  // Both are pure enhancers rendering `null`, in the enhancer mould: the
   // console-side one drives the SSR-rendered iframe rather than rendering it,
   // because an island that owned the `<iframe>` would re-create it on hydration
   // and load the whole preview a second time. EAGER, unlike the two lazy
@@ -525,6 +541,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // PRIORITY for the same reason as file-upload: the test (or user) typically
   // interacts immediately after `page.goto(...)`.
   'number-input': lazy(loadNumberInput),
+  'input-otp': lazy(loadInputOtp),
   // Date-picker — composes a popover trigger with a react-day-picker
   // calendar grid. Supports `single` / `range` selection modes and
   // `minDate` / `maxDate` constraints. PRIORITY so the trigger button takes

@@ -16,19 +16,19 @@ import {
   renderOpenDatePickerPopup,
 } from '@/presentation/render/resolve/open-specimen-markup'
 import {
-  computeAlertClasses,
   computeBadgeClasses,
   computeStatusBadgeDotClasses,
   computeStatusBadgeWrapperClasses,
-  type AlertVariant,
   type BadgeVariant,
   type StatusDotColor,
 } from '../../design/feedback-default-classes'
 import * as Renderers from '../elements'
 import { overlayButtonSchemaFallbacks } from '../elements/button-action-builders'
+import { alertComponent } from './alert-component'
+import { withSizeAndIcon } from './button-icon-parts'
 import { convertBadgeProps } from './component-registry-helpers'
 import { contrastBadgeComponent } from './design-components'
-import { inputComponent } from './input-component'
+import { inputComponents } from './input-component'
 import { inputGroupComponent } from './input-group-component'
 // prettier-ignore
 import {
@@ -61,63 +61,19 @@ function resolveStatusDotColor(value: unknown): StatusDotColor {
     : 'gray'
 }
 
-const BADGE_VARIANTS = new Set<BadgeVariant>(['default', 'secondary', 'destructive', 'outline'])
-
-/**
- * Build the merged className for a `badge` (the prestyled-islands rule, prestyled-by-default).
- *
- * Defaults come from {@link computeBadgeClasses} — a Tailwind recipe with
- * inline OKLCH var-fallbacks so a schema author who writes the bare
- * `{ type: 'badge', content: 'New' }` gets a complete, opinionated pill —
- * primary-tone surface, rounded-full chrome, leading-none typography — with
- * zero theme-layer dependency. Author-supplied `props.className` is
- * merged through {@link mergePrestyle}, so it beats the recipe on any
- * same-property conflict.
- */
-function buildBadgeClassName(
-  componentRaw: Record<string, unknown>,
-  authorClassName: string | undefined
-): string {
-  const rawVariant = componentRaw['badgeVariant']
-  const variant = BADGE_VARIANTS.has(rawVariant as BadgeVariant)
-    ? (rawVariant as BadgeVariant)
-    : undefined
-  const defaults = computeBadgeClasses({ variant })
-  return mergePrestyle(defaults, authorClassName)
-}
-
-const ALERT_VARIANTS = new Set<AlertVariant>([
+const BADGE_VARIANTS = new Set<BadgeVariant>([
   'default',
+  'secondary',
   'destructive',
-  'warning',
-  'info',
-  'success',
+  'outline',
+  'ghost',
+  'link',
 ])
 
-/**
- * Build the merged className for an `alert` (the prestyled-islands rule, prestyled-by-default).
- *
- * Defaults come from {@link computeAlertClasses} — a Tailwind recipe with
- * inline OKLCH var-fallbacks so a schema author who writes the bare
- * `{ type: 'alert', alertVariant: 'success', content: 'Saved' }` gets a
- * complete, opinionated notification surface — tinted-bg / matching-fg /
- * matching-border tone triple, rounded-md chrome, top-aligned icon slot —
- * with zero theme-layer dependency. Author-supplied `props.className` is
- * merged through {@link mergePrestyle}, so it beats the recipe on any
- * same-property conflict.
- */
-function buildAlertClassName(
-  componentRaw: Record<string, unknown>,
-  authorClassName: string | undefined
-): string {
-  // `alertVariant` is the canonical schema field per `AlertVariantSchema`; the
-  // legacy SSR renderer used `variant` for back-compat, so we honor both.
-  const rawVariant = componentRaw['alertVariant'] ?? componentRaw['variant']
-  const variant = ALERT_VARIANTS.has(rawVariant as AlertVariant)
-    ? (rawVariant as AlertVariant)
-    : undefined
-  const defaults = computeAlertClasses({ variant })
-  return mergePrestyle(defaults, authorClassName)
+/** The tone a badge's `badgeVariant` names; base-nova's `default` when unset or unknown. */
+function resolveBadgeVariant(componentRaw: Record<string, unknown>): BadgeVariant {
+  const rawVariant = componentRaw['badgeVariant']
+  return BADGE_VARIANTS.has(rawVariant as BadgeVariant) ? (rawVariant as BadgeVariant) : 'default'
 }
 
 const BUTTON_VARIANTS = new Set<ButtonVariant>([
@@ -129,7 +85,16 @@ const BUTTON_VARIANTS = new Set<ButtonVariant>([
   'link',
   'fab',
 ])
-const BUTTON_SIZES = new Set<ButtonSize>(['sm', 'md', 'lg'])
+const BUTTON_SIZES = new Set<ButtonSize>([
+  'xs',
+  'sm',
+  'default',
+  'lg',
+  'icon',
+  'icon-xs',
+  'icon-sm',
+  'icon-lg',
+])
 
 /**
  * Build the merged className for a button (the prestyled-islands rule, prestyled-by-default).
@@ -191,7 +156,6 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       renderedChildren,
       interactions,
       action,
-      tables,
       routeParams,
       component,
       currentLang,
@@ -213,13 +177,13 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
         designStyles?.replace
       )
 
+      const sized = withSizeAndIcon(c, propsWithSchemaFallbacks, renderedChildren)
       return Renderers.renderButton({
-        props: { ...propsWithSchemaFallbacks, className: mergedClassName },
-        content,
-        children: renderedChildren,
+        props: { ...sized.props, className: mergedClassName },
+        content: sized.iconOnly ? undefined : content,
+        children: sized.children,
         interactions,
         action,
-        tables,
         routeParams,
         loading,
       })
@@ -234,16 +198,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       return Renderers.renderLink({ ...elementProps, className }, content, renderedChildren)
     },
 
-    alert: ({ elementProps, content, renderedChildren, design, component }) => {
-      const c = (component ?? {}) as Record<string, unknown>
-      const mergedClassName = buildAlertClassName(c, elementProps.className as string | undefined)
-      return Renderers.renderAlert(
-        { ...elementProps, className: mergedClassName },
-        content,
-        renderedChildren,
-        design
-      )
-    },
+    alert: alertComponent,
 
     // One entry for both modes. The dispatch reads `dataSource` off the config
     // to decide whether the form writes a record back to a bound table (the
@@ -260,7 +215,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
     // than about either half.
     'input-group': inputGroupComponent,
 
-    input: inputComponent,
+    ...inputComponents,
 
     // ── Specialty form-controls (SSR-only; pure native HTML, no island) ──────
     //
@@ -372,32 +327,6 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       })
     },
 
-    textarea: ({ elementProps, component, rawProps }) => {
-      // `rows`, `maxLength`, `autoResize` are top-level schema fields per
-      // textarea.ts (siblings of `props`), not inside `props`. Same lookup
-      // contract as the form-control islands — see `pickFromComponent`
-      // doc-comment in `island-form-components.tsx`.
-      //
-      // `props.label` (when present) is translated into `aria-label` so
-      // `getByRole('textbox', { name: ... })` resolves. Same pattern as the
-      // select/checkbox renderers which read `rawProps?.label`.
-      const c = (component ?? {}) as Record<string, unknown>
-      const rows = c['rows'] as number | undefined
-      const maxLength = c['maxLength'] as number | undefined
-      const autoResize = c['autoResize'] as boolean | undefined
-      const label = rawProps?.['label'] as string | undefined
-
-      return Renderers.renderTextarea({
-        props: elementProps,
-        rows,
-        maxLength,
-        label,
-        autoResize,
-        placeholder: rawProps?.['placeholder'] as string | undefined,
-        name: rawProps?.['name'] as string | undefined,
-      })
-    },
-
     field: ({ elementProps, component, renderedChildren }) => {
       // `fieldLabel`, `fieldDescription`, `fieldError`, `required` are top-level
       // schema fields per field.ts (siblings of `props`). The first child's
@@ -409,6 +338,10 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
         fieldLabel: c['fieldLabel'] as string | undefined,
         fieldDescription: c['fieldDescription'] as string | undefined,
         fieldError: c['fieldError'] as string | undefined,
+        errors: c['errors'] as readonly string[] | undefined,
+        orientation: c['orientation'] as 'vertical' | 'horizontal' | 'responsive' | undefined,
+        legend: c['legend'] as string | undefined,
+        fieldTitle: c['fieldTitle'] as string | undefined,
         required: c['required'] as boolean | undefined,
         controlId: Renderers.extractFirstChildId(component),
         children: renderedChildren,
@@ -489,7 +422,8 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
     icon: ({ elementProps, renderedChildren, component }) => {
       const className = buildIconClassName(
         (component ?? {}) as Record<string, unknown>,
-        elementProps['className'] as string | undefined
+        elementProps['className'] as string | undefined,
+        elementProps['size']
       )
       return Renderers.renderIcon({ ...elementProps, className }, renderedChildren)
     },
@@ -531,6 +465,8 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
         const badgePropsForStatus = convertBadgeProps({
           ...elementProps,
           className: mergedWrapperClassName,
+          'data-slot': 'badge',
+          'data-variant': 'secondary',
         })
         const statusLabel = typeof status === 'string' ? status : undefined
         return Renderers.renderStatusBadge({
@@ -540,11 +476,20 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
         })
       }
 
-      // Default badge variant: merge the prestyle defaults (pill chrome + tone
-      // per `badgeVariant`) with any author-supplied className.
-      const mergedClassName = buildBadgeClassName(c, authorClassName)
-      const badgeProps = convertBadgeProps({ ...elementProps, className: mergedClassName })
+      // Default mode: shadcn/ui's badge, its tone named by `badgeVariant` and
+      // stamped as `data-variant`; the author's className beats the recipe.
+      const badgeVariant = resolveBadgeVariant(c)
+      const badgeProps = convertBadgeProps({
+        ...elementProps,
+        className: mergePrestyle(computeBadgeClasses({ variant: badgeVariant }), authorClassName),
+        'data-slot': 'badge',
+        'data-variant': badgeVariant,
+      })
 
+      // With an `href` the badge IS the link (shadcn's `render={<a />}`).
+      if (typeof c['href'] === 'string') {
+        return Renderers.renderLink({ ...badgeProps, href: c['href'] }, content, renderedChildren)
+      }
       return Renderers.renderHTMLElement({
         type: 'span',
         props: badgeProps,

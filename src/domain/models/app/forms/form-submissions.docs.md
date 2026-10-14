@@ -44,7 +44,7 @@ These are the columns a top-level form's submission fills. The table is shared w
 | State        | Meaning                                                                                 | Moves to                |
 | ------------ | --------------------------------------------------------------------------------------- | ----------------------- |
 | `received`   | Accepted and written to the ledger and the bound table                                  | `processing`, or `done` |
-| `processing` | The bound automation is running                                                         | `done`, or `failed`     |
+| `processing` | The bound automation is running, after the submission has been answered                 | `done`, or `failed`     |
 | `done`       | Terminal — every write and the bound automation completed                               | —                       |
 | `spam`       | Terminal — classified as spam and preserved for moderation                              | —                       |
 | `failed`     | Terminal — the bound automation failed, used up its retries, timed out or was cancelled | —                       |
@@ -56,6 +56,8 @@ A spam submission is **kept**, not discarded. A classifier that throws away what
 Where the form names a table, the submission writes one row to that table **and** one ledger row inside a single transaction. If the table write fails — a constraint violation, a type error, a missing foreign key — the ledger row rolls back with it, and the submitter receives an error naming the offending column. No ledger entry is ever left behind promising a record that does not exist.
 
 Where the form names an automation, it is invoked **after** both writes commit. An automation failure does **not** roll the writes back: the submission is recorded, the status moves to `failed`, and the automation's own retry and failure machinery applies.
+
+The submission does not wait for that automation, nor for the record automations of the bound table. It answers as soon as both writes commit, so the form's `onSuccess` — a redirect, a success page — reaches the visitor right after the write, whatever the runs take. When an automation is invoked, the ledger row reads `processing` from the moment the submission answers until the runs end, then `done` or `failed`.
 
 That asymmetry is the point. The writes are one unit because a half-written submission is corruption; the automation is outside it because holding a database transaction open across an HTTP call to somebody else's service is how a form takes an external outage and turns it into a lock.
 
@@ -95,6 +97,33 @@ forms:
 ```
 
 **A capped form always stores.** A form declaring `availability.maxSubmissions` writes its ledger row on every surface, whatever `storeSubmission` says, because the cap is counted by reserving that row: a submission that wrote none could not be counted against it.
+
+## A submission sent twice is stored once
+
+A visitor who presses Submit twice, a script that retries after a timeout, or a browser that resends a post should not leave two submissions behind. A submission may carry an **idempotency key**: the `Idempotency-Key` request header, or a field named `_idempotency` in the submitted body. A form on its own route renders that field for you, with a new random key every time it is drawn. A form placed on a page with `formRef` gets its key from the page's script as the page loads, since a page may be served from a cache, and a new one after each successful submission. The script sends the same key as the header.
+
+Within five minutes of a successful submission, a request from the same caller with the same key and the same values is not processed again: it receives the first answer — the same status, the same body, the same redirect for a native post — with the header `Idempotency-Replayed: true`. Nothing is stored, no row is written, no automation runs, and the duplicate counts against no limit. A duplicate that arrives while the first is still being processed waits for it and receives its answer.
+
+| The request                                           | The answer                                                |
+| ----------------------------------------------------- | --------------------------------------------------------- |
+| No key                                                | Processed as a new submission, every time                 |
+| A key not seen, or seen more than five minutes ago    | Processed as a new submission                             |
+| A key already answered with a success, same values    | The first answer again, with `Idempotency-Replayed: true` |
+| A key already answered with a success, other values   | `422` with `code: IDEMPOTENCY_MISMATCH`; nothing stored   |
+| A key that is not 16 to 128 letters, digits, `-`, `_` | `400`; nothing stored                                     |
+
+Only a success holds a key. A submission refused for a missing field leaves its key free, so the visitor who fills the field in and submits again from the same page is accepted. A key belongs to the caller who sent it: the same key from another signed-in account, or from a visitor who is not signed in and posts from another address, is a different key. The `_idempotency` field is never stored with the submission, written to the table or passed to an automation.
+
+To make your own client safe to retry, send a fresh random key with each new submission and the same key with each retry of it:
+
+```bash
+curl -X POST https://crm.example.com/api/forms/contact/submissions \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: 6f1c2a9e-3b7d-4e0a-9c41-2d5e8f7a1b30' \
+  -d '{"name": "Margot Lefebvre", "email": "margot@atelier-lumen.fr"}'
+```
+
+Keys are kept in the memory of the running server: a restart forgets them, on a deployment running several server processes each process deduplicates its own requests, and once very many are held the oldest are forgotten first. An answer larger than 64 KB is not kept, so a repeat of it is processed again.
 
 ## Bypass the ledger only when you mean it
 

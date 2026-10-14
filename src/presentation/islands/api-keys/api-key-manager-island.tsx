@@ -28,9 +28,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 import {
-  computeFormFieldErrorClasses,
-  computeFormHelpTextClasses,
-} from '@/presentation/design/form-layout-classes'
+  computeFieldDescriptionClasses,
+  computeFieldErrorClasses,
+} from '@/presentation/design/field-default-classes'
 import { READ_ONCE_QUERY_OPTIONS } from '../runtime/query-client'
 import { createApiKey, fetchApiKeys, revokeApiKey, type ApiKeySummary } from './api-key-client'
 import { ApiKeyCreate } from './api-key-create'
@@ -59,14 +59,18 @@ async function fetchApiKeysOrThrow(): Promise<readonly ApiKeySummary[]> {
   return next
 }
 
-/** The keys themselves, and the two operations that change them. */
-function useApiKeys(): {
+interface ApiKeysState {
   readonly keys: readonly ApiKeySummary[]
   readonly load: LoadState
   /** Mint a key and refresh the list; resolves the plaintext value, or `undefined`. */
   readonly create: (name: string) => Promise<string | undefined>
   readonly revoke: (keyId: string) => void
-} {
+  /** The key being revoked, from the confirmation until the list has been read again. */
+  readonly revoking: string | undefined
+}
+
+/** The keys themselves, and the two operations that change them. */
+function useApiKeys(): ApiKeysState {
   const queryClient = useQueryClient()
   const listQuery = useQuery({
     queryKey: API_KEYS_QUERY_KEY,
@@ -118,11 +122,28 @@ function useApiKeys(): {
         ? 'loading'
         : 'ready'
 
-  return { keys: listQuery.data ?? [], load, create, revoke }
+  const revoking = revokeMutation.isPending ? revokeMutation.variables : undefined
+  return { keys: listQuery.data ?? [], load, create, revoke, revoking }
+}
+
+/** What the list area says while it cannot show the list: still reading, or the read failed. */
+function LoadNotice({ load }: { readonly load: LoadState }): ReactElement | undefined {
+  if (load === 'loading') {
+    return <p className={computeFieldDescriptionClasses()}>Loading your keys…</p>
+  }
+  if (load !== 'failed') return undefined
+  return (
+    <p
+      role="alert"
+      className={computeFieldErrorClasses()}
+    >
+      Could not load your API keys. Reload to try again.
+    </p>
+  )
 }
 
 export default function ApiKeyManagerIsland(): ReactElement {
-  const { keys, load, create, revoke } = useApiKeys()
+  const { keys, load, create, revoke, revoking } = useApiKeys()
   const [revealed, setRevealed] = useState('')
   const [pendingRevoke, setPendingRevoke] = useState<ApiKeySummary | undefined>(undefined)
 
@@ -157,16 +178,12 @@ export default function ApiKeyManagerIsland(): ReactElement {
           onDismiss={dismissReveal}
         />
       )}
-      {load === 'loading' && <p className={computeFormHelpTextClasses()}>Loading your keys…</p>}
-      {load === 'failed' && (
-        <p className={computeFormFieldErrorClasses()}>
-          Could not load your API keys. Reload to try again.
-        </p>
-      )}
+      <LoadNotice load={load} />
       {load === 'ready' && (
         <ApiKeyList
           keys={keys}
           onRequestRevoke={setPendingRevoke}
+          revokingId={revoking}
         />
       )}
       {pendingRevoke !== undefined && (

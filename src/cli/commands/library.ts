@@ -43,6 +43,7 @@ import {
   selectsOperations,
   showOperation,
 } from './library-operations'
+import { resolveEntryId } from './library-resolve'
 import { rankEntries, termsOf } from './library-search'
 import { libraryArticleAddress } from './library-wire'
 import { getCurrentVersion } from './update'
@@ -69,6 +70,8 @@ export interface LibraryCommandOptions {
   readonly all?: boolean
   /** `--yes` — confirm an `--all` above the threshold. */
   readonly yes?: boolean
+  /** `--update` — replace the installed fragment with what this version writes. */
+  readonly update?: boolean
 }
 
 type LibraryFormat = 'md' | 'json'
@@ -313,7 +316,7 @@ const renderShow = (catalogue: CatalogueModule, entry: LibraryEntry): string => 
   ].join('\n')
 }
 
-/** The entry an id names, or a refusal pointing at `library search`. */
+/** The entry an id (or a bare shadcn block id) names, or a refusal. */
 export const findEntryOrRefuse = (
   catalogue: CatalogueModule,
   entries: readonly LibraryEntry[],
@@ -322,9 +325,8 @@ export const findEntryOrRefuse = (
 ): LibraryEntry => {
   if (id === undefined)
     return refuse(`Error: ${usage} needs an entry id, e.g. \`block/hero-centered\`.`)
-  const entry = entries.find((candidate) => catalogue.libraryEntryId(candidate) === id)
   return (
-    entry ??
+    resolveEntryId(catalogue, entries, id, refuse) ??
     refuse(
       `Error: No library entry "${id}".\n\n` +
         `  Find the right id with \`sovrium library search ${id.split('/').at(-1) ?? id}\`,\n` +
@@ -356,6 +358,17 @@ const handleShow = async (options: LibraryCommandOptions): Promise<void> => {
 // The verb
 // =============================================================================
 
+/** The `library add` flags every install request carries, and the running version. */
+const addFlags = async ({ sets, as, into, dryRun, noWire, update }: LibraryCommandOptions) => ({
+  sets,
+  as,
+  into,
+  dryRun,
+  noWire,
+  update: update === true,
+  version: await getCurrentVersion(),
+})
+
 /** `library add <provider>/<operation>`, `--tag` or `--all`: its connection, with the operations. */
 const handleAddOperations = async (
   options: LibraryCommandOptions,
@@ -381,12 +394,7 @@ const handleAddOperations = async (
     catalogue,
     entries,
     entry,
-    sets: options.sets,
-    as: options.as,
-    into: options.into,
-    dryRun: options.dryRun,
-    noWire: options.noWire,
-    version: await getCurrentVersion(),
+    ...(await addFlags(options)),
     operations: request,
   })
 }
@@ -407,17 +415,7 @@ const handleAdd = async (options: LibraryCommandOptions): Promise<void> => {
     return handleAddOperations(options, catalogue)
   const entries = await catalogue.loadCatalogue()
   const entry = findEntryOrRefuse(catalogue, entries, options.args[1], '`sovrium library add <id>`')
-  return runLibraryAdd({
-    catalogue,
-    entries,
-    entry,
-    sets: options.sets,
-    as: options.as,
-    into: options.into,
-    dryRun: options.dryRun,
-    noWire: options.noWire,
-    version: await getCurrentVersion(),
-  })
+  return runLibraryAdd({ catalogue, entries, entry, ...(await addFlags(options)) })
 }
 
 /**

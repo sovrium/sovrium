@@ -9,56 +9,44 @@
 //
 // The catalogue refuses to preview it, and the refusal is right: a dialog makes
 // the rest of the document inert while it is open, so drawing a live one here
-// would freeze the page a reader is reading. Each drawing is its panel, at the
-// width the key names, over the ground it would cover. See `overlay-panel.ts`.
+// would freeze the page a reader is reading. Each drawing is its panel over the
+// tinted ground it would cover. See `overlay-panel.ts`.
+//
+// A dialog has no size key: base-nova fixes its width at `sm:max-w-sm`, and an
+// app that wants it wider says so in `props.className`. So the drawings vary
+// what the panel HOLDS — the header and the footer band, a form between them,
+// or the header alone with the corner close — not how wide it is.
 
-import { overPage, panel, panelActions, panelHead } from './overlay-panel'
+import { dialogPanel, overPage } from './overlay-panel'
 import type { TypePageBody } from './body-shape'
 
 const dialog: TypePageBody = {
   drawings: [
     {
-      label: 'sm',
+      label: 'default',
       children: [
-        overPage([
-          panel({
-            width: 'w-72',
-            children: [
-              ...panelHead(
-                'Discard changes?',
-                'The three fields you edited go back to their saved values.'
-              ),
-              panelActions('Keep editing', 'Discard'),
-            ],
-          }),
-        ]),
+        overPage(
+          'dialog',
+          dialogPanel({
+            kind: 'dialog',
+            title: 'Discard changes?',
+            description: 'The three fields you edited go back to their saved values.',
+            cancel: 'Keep editing',
+            confirm: 'Discard',
+          })
+        ),
       ],
     },
     {
-      label: 'lg',
+      label: 'with a form',
       children: [
-        overPage([
-          panel({
-            width: 'w-[28rem]',
-            children: [
-              ...panelHead(
-                'Delete the invoices table?',
-                'This removes 1,284 records and the four automations that write to them. Exports already taken are unaffected. This cannot be undone.'
-              ),
-              panelActions('Cancel', 'Delete table', true),
-            ],
-          }),
-        ]),
-      ],
-    },
-    {
-      label: 'md with form',
-      children: [
-        overPage([
-          panel({
-            width: 'w-96',
-            children: [
-              ...panelHead('Create a share link'),
+        overPage(
+          'dialog',
+          dialogPanel({
+            kind: 'dialog',
+            title: 'Create a share link',
+            description: 'Anyone with the link can read this table.',
+            body: [
               {
                 type: 'field',
                 // `fieldLabel`, not `label`: a field's own keys are
@@ -78,10 +66,24 @@ const dialog: TypePageBody = {
                   },
                 ],
               },
-              panelActions('Cancel', 'Create link'),
             ],
-          }),
-        ]),
+            cancel: 'Cancel',
+            confirm: 'Create link',
+          })
+        ),
+      ],
+    },
+    {
+      label: 'without a footer',
+      children: [
+        overPage(
+          'dialog',
+          dialogPanel({
+            kind: 'dialog',
+            title: 'Keyboard shortcuts',
+            description: 'Press ? anywhere to open this list. Escape closes it.',
+          })
+        ),
       ],
     },
   ],

@@ -18,8 +18,7 @@
 // `container` and two `text` nodes, which no engine type describes.
 
 /** Card frame: bordered, raised, rounded, evenly padded. */
-export const CARD_CLASS =
-  'border-border bg-background-raised flex flex-col gap-3 rounded-md border p-5'
+export const CARD_CLASS = 'border-border bg-card flex flex-col gap-3 rounded-md border p-5'
 
 // `CARD_HEADING` and `CARD_BODY` stood here and were DELETED when the console
 // moved to `src/admin/` and Knip could see the tree for the first time: nothing

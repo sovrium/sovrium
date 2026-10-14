@@ -70,7 +70,7 @@ export const entry = defineLibraryEntry({
           type: 'flex',
           props: {
             className:
-              'flex flex-col gap-1 border-t border-border pt-3 text-sm text-foreground-muted',
+              'flex flex-col gap-1 border-t border-border pt-3 text-sm text-muted-foreground',
           },
           children: [
             { type: 'text', element: 'p', content: 'Created $record.createdAt' },

@@ -99,8 +99,8 @@ const withCommitted = (
 })
 
 /**
- * Check if record exists based on merge fields. A row the caller's row-level
- * read rule hides (`hiddenIds`) is not a match: the record is created instead.
+ * Check if a LIVE record exists based on merge fields. A row in the trash, or one
+ * the caller's row-level read rule hides (`hiddenIds`), is not a match: created.
  */
 function findExistingRecord(
   tx: Readonly<DrizzleTransaction>,
@@ -120,7 +120,7 @@ function findExistingRecord(
       const result = await executeRaw(
         tx,
         sql`SELECT * FROM ${tableIdentifier(tableName)}
-             WHERE ${whereClause}${excludingIds(hiddenIds)} LIMIT 1`
+             WHERE deleted_at IS NULL AND ${whereClause}${excludingIds(hiddenIds)} LIMIT 1`
       )
       return result[0]
     },

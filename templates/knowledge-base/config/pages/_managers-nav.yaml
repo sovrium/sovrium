@@ -32,10 +32,10 @@ children:
           - type: link
             props:
               href: /kb/managers/hiring
-              className: block rounded-md px-2.5 py-1.5 text-[13.5px] text-foreground-muted hover:text-foreground
+              className: block rounded-md px-2.5 py-1.5 text-[13.5px] text-muted-foreground hover:text-foreground
             content: Hiring a colleague
           - type: link
             props:
               href: /kb/managers/pay-reviews
-              className: block rounded-md px-2.5 py-1.5 text-[13.5px] text-foreground-muted hover:text-foreground
+              className: block rounded-md px-2.5 py-1.5 text-[13.5px] text-muted-foreground hover:text-foreground
             content: Pay reviews

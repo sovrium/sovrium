@@ -6,6 +6,8 @@ Authentication emails are the part of a product a user reads before they have ev
 
 Every template is optional: a sensible default ships for each, so an app that sets none still sends working mail. The defaults speak for your app, not for Sovrium: their subjects and greetings use the app's `name` — `Reset your MyApp password`, `Verify your MyApp email address`, `Welcome to MyApp!` — and an invitation reads `You are invited to join <organisation> on MyApp`.
 
+The invitation, password reset, email verification and magic-link defaults are written in their reader's language: the language the account chose, when the app declares it, else the app's `languages.default`, else English. An invitee has chosen no language yet, so the app's default decides. The email declares its language, and each sentence can be renamed per language under the `sovrium.email.*` keys of [Languages](/en/docs/languages). A template you write is sent as you wrote it, in every language.
+
 ```yaml
 auth:
   strategies:

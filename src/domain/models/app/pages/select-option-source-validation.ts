@@ -74,7 +74,7 @@ type FoundSelectBinding =
     }
 
 const isSelectNode = (record: Readonly<Record<string, unknown>>): boolean =>
-  record['type'] === 'select'
+  ['select', 'combobox', 'native-select'].includes(String(record['type']))
 
 /**
  * Recursively collect every `select` that declares a `dataSource`, together

@@ -19,7 +19,7 @@
  *
  * ─── THE PIN IS A RECORD, SO THE CLICK IS A RECORD CLICK ───────────────────
  *
- * `onPinClick` takes the two verbs a card takes (`navigate`, `openDrawer`) and
+ * `onPinClick` takes the two verbs a card takes (`navigate`, `openSheet`) and
  * no others, by reusing {@link CardClickActionSchema}: a pin, a card and a list
  * item are the same thing — one record — so they share one vocabulary.
  *

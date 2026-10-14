@@ -33,7 +33,7 @@ components:
       - type: link
         props:
           href: /kb
-          className: text-foreground-muted underline hover:text-foreground
+          className: text-muted-foreground underline hover:text-foreground
         content: Back to the handbook
 
 meta:

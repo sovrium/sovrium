@@ -30,9 +30,12 @@ const RECORD_BUTTON_CLASSES = computeButtonDefaultClasses({ variant: 'secondary'
 export function AudioRecorderControls({
   fieldName,
   maxSeconds,
+  label = 'Record audio',
 }: {
   readonly fieldName: string
   readonly maxSeconds: number
+  /** `form.recordAudio` in the page language. */
+  readonly label?: string
 }) {
   return (
     <div
@@ -46,7 +49,7 @@ export function AudioRecorderControls({
         data-testid={`record-audio-${fieldName}`}
         data-form-record-audio={fieldName}
       >
-        Record audio
+        {label}
       </button>
     </div>
   )

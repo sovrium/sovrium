@@ -33,6 +33,8 @@ interface TabsIslandProps {
   readonly items?: readonly TabItem[]
   readonly defaultTab?: string
   readonly tabsOrientation?: 'horizontal' | 'vertical'
+  /** shadcn/ui's TabsList variant: `default` or `line`. */
+  readonly tabsVariant?: 'default' | 'line'
   /**
    * How the tab set occupies its parent — `tabs.layout`.
    *
@@ -183,6 +185,12 @@ function useTabsIslandModel(props: TabsIslandProps): {
   }
 }
 
+/**
+ * Every tab activation re-scans for islands: Base UI mounts the newly-selected
+ * panel's DOM (and its nested `data-island` markers) only on activation, so a
+ * marker in an initially-inactive panel must be mounted then. On an addressed
+ * tab set that is also where the panel is asked for.
+ */
 export default function TabsIsland(props: TabsIslandProps): ReactElement {
   const {
     tabsOrientation = 'horizontal',
@@ -205,10 +213,6 @@ export default function TabsIsland(props: TabsIslandProps): ReactElement {
       className={resolveClasses(parts.root, undefined, className)}
       id={id}
       data-testid={testId}
-      // Re-scan on every tab activation: Base UI mounts the newly-selected
-      // panel's DOM (and its nested `data-island` markers) only on activation,
-      // so a marker in an initially-inactive panel must be mounted then. On an
-      // addressed tab set this is also where the panel is asked for.
       onValueChange={lazy.onValueChange}
     >
       <TabStrip
@@ -217,6 +221,7 @@ export default function TabsIsland(props: TabsIslandProps): ReactElement {
         ariaLabel={ariaLabel}
         uid={uid}
         className={parts.list}
+        variant={props.tabsVariant ?? 'default'}
       />
       <TabPanels
         items={items}

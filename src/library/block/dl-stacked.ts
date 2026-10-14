@@ -19,16 +19,17 @@ import { defineLibraryEntry } from '@/library/manifest/define'
 export const entry = defineLibraryEntry({
   kind: 'block',
   slug: 'dl-stacked',
+  shadcnBlock: null,
   title: 'Stacked description list',
   category: 'application',
   tags: ['description list', 'details', 'summary', 'record'],
   description:
-    'Six short facts about one record, each term above its value, flowing as a responsive grid.',
+    'Five short facts about one record, each term above its value, flowing as a responsive grid.',
   notes: [
+    'No shadcn counterpart: shadcn/ui has no description-list component; this block draws the `description-list` type in shadcn/ui’s roles — muted terms, medium-weight values.',
     'Place it on a page that shows one record — a path ending in `/:id` and `dataSource: { table: <your table>, mode: single, param: id }` on the page. Each detail is that record’s field drawn by its type, and an empty one reads "Not set".',
     PLACE_NOTE,
     THEME_NOTE,
-    'The pairs are static text: edit `items` in the installed fragment, or write `$record.<field>` in a `detail` on a page bound to a record.',
   ],
   params: [
     stringParam('table', 'The table the page’s record belongs to.', 'clients'),

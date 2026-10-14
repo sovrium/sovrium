@@ -85,7 +85,11 @@ function KpiSystemTile({
   trend,
   valueClassName,
   toneClassName,
-}: KpiPresentationProps & { readonly system: KpiSystemSource }): ReactElement {
+  thresholds,
+}: KpiPresentationProps & {
+  readonly system: KpiSystemSource
+  readonly thresholds?: readonly KpiThresholdConfig[]
+}): ReactElement {
   const { data } = useKpiSystemValue(system)
   const value =
     data?.kind === 'value'
@@ -103,6 +107,9 @@ function KpiSystemTile({
       trend={trend}
       valueClassName={valueClassName}
       toneClassName={toneClassName}
+      thresholdColor={
+        data?.kind === 'value' ? resolveKpiThresholdColor(data.value, thresholds) : undefined
+      }
     />
   )
 }
@@ -208,6 +215,7 @@ export default function KpiIsland({
         icon={icon}
         iconNode={iconNode}
         trend={trend}
+        thresholds={thresholds}
         valueClassName={valueClassName}
         toneClassName={toneClassName}
       />

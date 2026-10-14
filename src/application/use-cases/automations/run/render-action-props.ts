@@ -43,6 +43,12 @@ export interface RenderedActionProps {
   readonly templateVars?: Readonly<Record<string, unknown>>
   /** The props are the configuration as written: the handler fills them in itself. */
   readonly authored?: true
+  /**
+   * The props are filled in, except those the handler fills itself
+   * ({@link handlerFilledPropsFor}), which were kept as written: the handler
+   * still fills them, when each piece is reached.
+   */
+  readonly handlerFills?: true
 }
 
 const HTTP_OPERATORS: ReadonlySet<string> = new Set([

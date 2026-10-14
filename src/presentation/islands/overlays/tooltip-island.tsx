@@ -6,7 +6,7 @@
  */
 
 import { Tooltip } from '@base-ui/react/tooltip'
-import { computeTooltipPopupClasses } from './overlay-default-classes'
+import { computeTooltipArrowClasses, computeTooltipContentClasses } from './tooltip-default-classes'
 import type { ReactElement } from 'react'
 
 interface TooltipIslandProps {
@@ -19,6 +19,17 @@ interface TooltipIslandProps {
   readonly id?: string
   readonly 'data-testid'?: string
 }
+
+/**
+ * The element the trigger renders AS when the tooltip wraps authored content.
+ * Base UI's Tooltip.Trigger is a `<button>` by default, and the authored child
+ * is usually a control of its own (a button, a link), so the default would nest
+ * a button inside a button. A `<span>` carries the trigger's handlers and ARIA
+ * only, and the authored control keeps its own semantics and focus; its hover
+ * and focus events reach the span by bubbling. Hoisted so its identity is
+ * stable across renders.
+ */
+const AUTHORED_TRIGGER_RENDER = <span />
 
 /**
  * Tooltip island — wraps Base UI Tooltip for hover/focus info popups.
@@ -49,6 +60,8 @@ export default function TooltipIsland({
     >
       <Tooltip.Root disableHoverablePopup>
         <Tooltip.Trigger
+          data-slot="tooltip-trigger"
+          render={childrenHtml ? AUTHORED_TRIGGER_RENDER : undefined}
           className={className}
           id={triggerElementId}
           data-testid={testId}
@@ -63,20 +76,15 @@ export default function TooltipIsland({
         <Tooltip.Portal>
           <Tooltip.Positioner
             side={floatingSide}
-            sideOffset={6}
+            sideOffset={4}
+            className="isolate z-50"
           >
-            <Tooltip.Popup className={computeTooltipPopupClasses()}>
+            <Tooltip.Popup
+              data-slot="tooltip-content"
+              className={computeTooltipContentClasses()}
+            >
               {tooltipContent}
-              <Tooltip.Arrow className="text-foreground">
-                <svg
-                  width="10"
-                  height="5"
-                  viewBox="0 0 10 5"
-                  fill="currentColor"
-                >
-                  <path d="M0 0L5 5L10 0" />
-                </svg>
-              </Tooltip.Arrow>
+              <Tooltip.Arrow className={computeTooltipArrowClasses()} />
             </Tooltip.Popup>
           </Tooltip.Positioner>
         </Tooltip.Portal>

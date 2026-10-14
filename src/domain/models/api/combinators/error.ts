@@ -97,6 +97,11 @@ export const errorResponseSchema = Schema.Struct({
     'METHOD_NOT_ALLOWED',
     'BAD_GATEWAY',
     'GATEWAY_TIMEOUT',
+    // 422 on a form submission or a page form-action that repeats an
+    // idempotency key already answered with a DIFFERENT body. The repair is a
+    // fresh key (a new render of the form), never a retry: retrying the same
+    // key and body is answered with the first response, not this code.
+    'IDEMPOTENCY_MISMATCH',
   ]).annotate({ description: 'Machine-readable error code' }),
   details: optionalField(
     Schema.Array(Schema.String).annotate({ description: 'Optional error details' })
@@ -147,6 +152,7 @@ export const ApiErrorCode = {
   METHOD_NOT_ALLOWED: 'METHOD_NOT_ALLOWED',
   BAD_GATEWAY: 'BAD_GATEWAY',
   GATEWAY_TIMEOUT: 'GATEWAY_TIMEOUT',
+  IDEMPOTENCY_MISMATCH: 'IDEMPOTENCY_MISMATCH',
 } as const
 
 export type ApiErrorCode = (typeof ApiErrorCode)[keyof typeof ApiErrorCode]

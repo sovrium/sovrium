@@ -6,6 +6,8 @@
  */
 
 import { useState } from 'react'
+import { buildFacetControls } from '../faceted-filter/facet-controls'
+import { buildFieldLabels } from './panel-field-labels'
 import { resolveToolbarFlags } from './toolbar/toolbar-flags'
 import type { TableContentProps } from './table-content'
 import type { DisplayControlsProps } from './toolbar/display-controls'
@@ -88,6 +90,14 @@ function buildQueryProps(props: DataTableViewProps, derived: ViewDerived): Query
     // toolbar button and the add-row line do.
     canImport: props.canCreate && !derived.readOnly,
     onOpenImportDialog: props.ui.onOpenImportDialog,
+    facets: buildFacetControls({
+      facets: props.toolbarConfig?.facets,
+      columnConfig: props.columnConfig,
+      fieldMeta: props.fieldMeta,
+      selections: props.ui.facetSelections,
+      onToggle: props.ui.onToggleFacetValue,
+      onClear: props.ui.onClearFacet,
+    }),
     filtersEnabled: derived.flags.filters,
     onOpenFilterOverlay: props.ui.onOpenFilterOverlay,
     activeFilterCount: props.ui.activeFilters.length,
@@ -107,9 +117,6 @@ function buildDisplayProps(props: DataTableViewProps, derived: ViewDerived): Dis
     systemExportEndpoint: props.systemExportEndpoint,
     readOnly: derived.readOnly,
     activeFilter: props.ui.activeFilter,
-    exportMenuOpen: props.ui.exportMenuOpen,
-    onToggleExportMenu: props.ui.onToggleExportMenu,
-    onCloseExportMenu: props.ui.onCloseExportMenu,
     refreshEnabled: derived.flags.refresh,
     onRefresh: props.onRefresh,
   }
@@ -162,6 +169,7 @@ function buildGridProps(props: DataTableViewProps, derived: ViewDerived): TableC
     useGridRole: !derived.readOnly,
     allColumns: props.allColumns,
     isLoading: props.isLoading,
+    loadingMore: props.isLoadingMore === true,
     striped: props.striped,
     rowColorField: props.rowColorField,
     rowColorFieldColors: props.rowColorFieldColors,
@@ -222,6 +230,7 @@ function buildSurfaceProps(props: DataTableViewProps, derived: ViewDerived): Tab
     sortOverlayOpen: props.ui.sortOverlayOpen,
     panels: {
       tableFields: derived.tableFields,
+      fieldLabels: buildFieldLabels(derived.tableFields, props.columnConfig, props.fieldMeta),
       fieldMeta: props.fieldMeta,
       ui: props.ui,
     },

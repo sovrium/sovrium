@@ -20,7 +20,7 @@ components:
     children:
       - $ref: ./_shell.yaml
       - type: container
-        element: main
+        element: div
         props:
           className: flex min-w-0 flex-1 flex-col overflow-y-auto
         children:
@@ -145,12 +145,12 @@ components:
                 pagination:
                   pageSize: 100
                 onRowClick:
-                  action: openDrawer
+                  action: openSheet
                   component: asset-detail
                 emptyMessage: Everything the firm owns appears here with its tag, its holder and its place. Register the first asset, or import a CSV.
           # One asset, opened over the grid: its facts, who has it and until
           # when, every hand-over, and its history.
-          - type: drawer
+          - type: sheet
             id: asset-detail
             drawerSide: right
             drawerSize: md

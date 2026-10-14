@@ -121,6 +121,12 @@ const isTwoFactorCodeForm = (node: Readonly<Record<string, unknown>>): boolean =
   return action?.type === 'auth' && action.method === 'verifyTwoFactor'
 }
 
+/** A sidebar whose fold is read back from the reader's cookie on every request. */
+const isRememberingSidebar = (node: Readonly<Record<string, unknown>>): boolean =>
+  node['type'] === 'sidebar' &&
+  (node['collapsible'] === 'icon' || node['collapsible'] === 'offcanvas') &&
+  node['persist'] !== 'none'
+
 /**
  * Page-level signals that make a page's HTML vary per request — each reads the
  * database or filesystem, enables a real-time feature, gates by session, or
@@ -329,8 +335,8 @@ export interface RenderablePathCacheability {
   readonly readsRecordData: boolean
   /**
    * The page reads the visitor's own cookie (a two-step code form reads the
-   * sign-in waiting for its code): its HTML is never stored anywhere, not even
-   * briefly by a browser. Absent when it does not.
+   * sign-in waiting for its code, a folding sidebar its fold): its HTML is
+   * never stored anywhere, not even briefly by a browser. Absent when it does not.
    */
   readonly perVisit?: true
 }
@@ -367,6 +373,12 @@ export function classifyRenderablePath(app: App, path: string): RenderablePathCa
   return page === undefined ? unmatched(path) : classifyMatchedPage(app, page)
 }
 
+/** The verdict of a page whose fold no sidebar reads: a request-prefilled form makes it dynamic. */
+const prefillVerdict = (app: App, page: Page, placed: Parameters<typeof verdictFor>[1]) =>
+  componentTreeHasRequestPrefillForm(page.components ?? [], app.forms ?? [], placed)
+    ? 'dynamic'
+    : verdictFor(page, placed)
+
 /** {@link classifyRenderablePath} for the page a path matched. */
 function classifyMatchedPage(app: App, page: Page): RenderablePathCacheability {
   // [internal ref] / a forms spec: a page whose form starts from `$query.*` or `$now`
@@ -376,9 +388,9 @@ function classifyMatchedPage(app: App, page: Page): RenderablePathCacheability {
   // request's `?param` values, or freeze `$now` — exclude it.
   const placed = placedTemplatesOf(page.components ?? [], app.components ?? [])
   const readsRecords = readsRecordData(page, placed)
-  const perVisit = someRenderedNode(page.components ?? [], placed, isTwoFactorCodeForm)
-  const verdict = componentTreeHasRequestPrefillForm(page.components ?? [], app.forms ?? [], placed)
-    ? 'dynamic'
-    : verdictFor(page, placed)
+  const remembersFold = someRenderedNode(page.components ?? [], placed, isRememberingSidebar)
+  const perVisit =
+    remembersFold || someRenderedNode(page.components ?? [], placed, isTwoFactorCodeForm)
+  const verdict = remembersFold ? 'dynamic' : prefillVerdict(app, page, placed)
   return { verdict, page, readsRecordData: readsRecords, ...(perVisit && { perVisit: true }) }
 }

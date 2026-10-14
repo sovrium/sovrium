@@ -253,7 +253,10 @@ export function StatusPillCell({
   return (
     <span
       data-component-type="badge"
-      className={cn(computeStatusPillClasses(), displayMeta?.chipClassName)}
+      className={cn(
+        computeStatusPillClasses({ form: displayMeta?.badgeForm }),
+        displayMeta?.chipClassName
+      )}
       style={paint?.style}
     >
       {paint?.dot && (

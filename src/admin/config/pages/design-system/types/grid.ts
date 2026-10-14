@@ -25,7 +25,7 @@ const cell = (n: number): PageComponent =>
     element: 'div',
     props: {
       className:
-        'border-border bg-background-subtle text-foreground-subtle rounded border px-3 py-6 text-center text-[11px]',
+        'border-border bg-muted text-foreground-subtle rounded border px-3 py-6 text-center text-[11px]',
     },
     children: [{ type: 'text', element: 'span', content: String(n) }],
   }) as PageComponent

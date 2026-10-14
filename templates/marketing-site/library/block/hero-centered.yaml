@@ -1,4 +1,5 @@
-# sovrium-library: block/hero-centered@0.30.0
+# sovrium-library: block/hero-centered@0.37.0
+# sovrium-library-params: ctaHref=%2Fcontact&ctaLabel=%5BPrimary%20action%5D&eyebrow=%5BEyebrow%20%E2%80%94%20category%20or%20release%20note%5D&headline=State%20the%20offer%20in%20one%20sentence%20the%20visitor%20can%20repeat&reassurance=%5BReassurance%20line%20%E2%80%94%20what%20the%20visitor%20does%20not%20need%20to%20start%5D&secondaryHref=%2Fabout&secondaryLabel=%5BSecondary%20action%5D&subheadline=A%20second%20line%20names%20who%20it%20is%20for%20and%20what%20changes%20for%20them%20once%20they%20start.%20No%20adjectives%20it%20cannot%20prove.
 name: hero-centered
 type: container
 element: section
@@ -19,7 +20,7 @@ children:
           - type: text
             element: span
             props:
-              className: font-mono text-sm text-foreground-subtle
+              className: font-mono text-sm text-muted-foreground
             content: '[Eyebrow — category or release note]'
       - type: text
         element: h1
@@ -29,7 +30,7 @@ children:
       - type: text
         element: p
         props:
-          className: text-lg text-pretty text-foreground-muted sm:text-xl max-w-2xl
+          className: text-lg text-pretty text-muted-foreground sm:text-xl max-w-2xl
         content: A second line names who it is for and what changes for them once they start. No adjectives it cannot prove.
       - type: flex
         props:
@@ -38,15 +39,15 @@ children:
           - type: link
             props:
               href: /contact
-              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-fg hover:bg-primary-hover hover:text-primary-fg h-12 px-5 text-md'
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground h-12 px-5 text-md'
             content: '[Primary action]'
           - type: link
             props:
               href: /about
-              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-background-raised text-foreground hover:bg-background-subtle hover:text-foreground h-12 px-5 text-md'
+              className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-card text-foreground hover:bg-muted hover:text-foreground h-12 px-5 text-md'
             content: '[Secondary action]'
       - type: text
         element: p
         props:
-          className: text-sm text-foreground-subtle mt-2
+          className: text-sm text-muted-foreground mt-2
         content: '[Reassurance line — what the visitor does not need to start]'

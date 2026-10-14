@@ -1,4 +1,5 @@
-# sovrium-library: block/content-prose@0.30.0
+# sovrium-library: block/content-prose@0.37.0
+# sovrium-library-params: eyebrow=%5BCategory%20%C2%B7%20reading%20time%5D&headline=%5BArticle%20title%5D&imageAlt=Figure%20illustrating%20the%20article&imageSrc=&standfirst=%5BStandfirst%3A%20the%20one%20idea%20the%20article%20defends.%5D
 name: content-prose
 type: container
 element: section
@@ -20,7 +21,7 @@ children:
           - type: text
             element: span
             props:
-              className: font-mono text-sm text-foreground-subtle
+              className: font-mono text-sm text-muted-foreground
             content: '[Category · reading time]'
       - type: text
         element: h1
@@ -30,12 +31,12 @@ children:
       - type: text
         element: p
         props:
-          className: text-lg text-pretty text-foreground-muted sm:text-xl
+          className: text-lg text-pretty text-muted-foreground sm:text-xl
         content: '[Standfirst: the one idea the article defends.]'
       - type: text
         element: p
         props:
-          className: text-md leading-relaxed text-pretty text-foreground-muted text-lg
+          className: text-md leading-relaxed text-pretty text-muted-foreground text-lg
         content: '[Body paragraph. A comfortable measure sits between 60 and 75 characters per line, which this column keeps at every width.]'
       - type: flex
         props:
@@ -50,12 +51,12 @@ children:
               - type: text
                 element: span
                 props:
-                  className: font-mono text-sm text-foreground-subtle
+                  className: font-mono text-sm text-muted-foreground
                 content: figure · 16:9
           - type: text
             element: p
             props:
-              className: text-sm text-foreground-subtle
+              className: text-sm text-muted-foreground
             content: '[Caption]'
       - type: text
         element: h2
@@ -65,7 +66,7 @@ children:
       - type: text
         element: p
         props:
-          className: text-md leading-relaxed text-pretty text-foreground-muted text-lg
+          className: text-md leading-relaxed text-pretty text-muted-foreground text-lg
         content: '[Paragraph.]'
       - type: text
         element: blockquote

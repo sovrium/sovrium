@@ -31,7 +31,7 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 // Canvas: `<tr style="background:#fafafa">` — GROUND, one step lighter than the
 // `#f4f4f4` well that shipped. A group header divides the list; it is not a
 // selected or emphasised row, and at the well's tone it competed with both.
-const TABLE_GROUP_ROW = `bg-[${v('sv-bg', T.bg)}]`
+const TABLE_GROUP_ROW = `bg-background`
 
 /**
  * Compute the default className for a group header `<tr>`.
@@ -46,10 +46,9 @@ export const computeTableGroupRowClasses = (): string => TABLE_GROUP_ROW
 // Fixed, like the header cell and for the same reason — a group label is chrome
 // dividing the data, so it should not inflate when the reader asks for more air
 // around the VALUES — so it does not interpolate the body's density map.
-const TABLE_GROUP_CELL = [
-  'px-2 py-1 text-xs font-medium cursor-pointer',
-  `text-[${v('sv-fg', T.fg)}]`,
-].join(' ')
+const TABLE_GROUP_CELL = ['px-2 py-1 text-xs font-medium cursor-pointer', `text-foreground`].join(
+  ' '
+)
 
 /**
  * Compute the default className for a group header's label cell.
@@ -66,7 +65,7 @@ export const computeTableGroupCellClasses = (): string => TABLE_GROUP_CELL
 // computed ABOUT the group would read as loudly as the group's own name.
 const TABLE_GROUP_SUMMARY_CELL = [
   'px-2 py-1 text-xs font-medium whitespace-nowrap',
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
+  `text-muted-foreground`,
 ].join(' ')
 
 /**
@@ -95,7 +94,7 @@ export const TABLE_GROUP_INDENT_PX = 14
 // SUMMARY ROW — the whole-view footer
 // ──────────────────────────────────────────────────────────────────────────────
 
-const TABLE_SUMMARY_ROW = [`bg-[${v('sv-bg-subtle', T.bgSubtle)}]`, 'font-medium'].join(' ')
+const TABLE_SUMMARY_ROW = [`bg-muted`, 'font-medium'].join(' ')
 
 /**
  * Compute the default className for a summary footer `<tr>`.
@@ -112,7 +111,7 @@ export const computeTableSummaryRowClasses = (): string => TABLE_SUMMARY_ROW
 // and has no reason to grow with the row height the reader picked for the data.
 const TABLE_SUMMARY_CELL = [
   'px-2 py-1.5 text-xs font-medium whitespace-nowrap',
-  `text-[${v('sv-fg', T.fg)}]`,
+  `text-foreground`,
 ].join(' ')
 
 /**
@@ -134,10 +133,7 @@ export const computeTableSummaryCellClasses = (): string => TABLE_SUMMARY_CELL
 // spent as an arbitrary `py-[26px]`. The value is a comfortable centre for a
 // one-line message, not a measured relationship to anything, so a ladder step
 // is worth more than the two pixels.
-const TABLE_EMPTY_STATE = [
-  'py-6 px-2 text-center text-sm',
-  `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-].join(' ')
+const TABLE_EMPTY_STATE = ['py-6 px-2 text-center text-sm', `text-muted-foreground`].join(' ')
 
 /**
  * Compute the default className for the empty-table and no-match cells.
@@ -158,14 +154,14 @@ export const computeTableEmptyStateClasses = (): string => TABLE_EMPTY_STATE
 
 // Canvas: `height:8px; background:#e3e3e3; border-radius:2px`.
 //
-// An 8px bar on `sv-border`, down from a 16px bar on the well. A loading
+// An 8px bar on `border`, down from a 16px bar on the well. A loading
 // placeholder is a hint at where text will be, and at 16px on a filled tone it
 // was heavier than the values it stands in for — so the grid visibly LIGHTENED
 // on hydration, which reads as content failing to arrive.
 const TABLE_SKELETON_BAR = [
   'h-2 animate-pulse',
   `rounded-[${v('radius-sm', T.radiusSm)}]`,
-  `bg-[${v('sv-border', T.border)}]`,
+  `bg-border`,
 ].join(' ')
 
 /**
@@ -184,11 +180,11 @@ export const computeTableSkeletonBarClasses = (): string => TABLE_SKELETON_BAR
 /**
  * Compute the default className for the resting add-row `<tr>`.
  *
- * GROUND (`sv-bg`), the same tone as a group header and a step below the body's
+ * GROUND (`background`), the same tone as a group header and a step below the body's
  * raised surface: the add row is not a record, and painting it at the records'
  * tone made an empty grid look like it held one.
  */
-export const computeTableAddRowClasses = (): string => `bg-[${v('sv-bg', T.bg)}]`
+export const computeTableAddRowClasses = (): string => `bg-background`
 
 /**
  * Compute the default className for the `+ New row` trigger.
@@ -198,11 +194,7 @@ export const computeTableAddRowClasses = (): string => `bg-[${v('sv-bg', T.bg)}]
  * shipped: the trigger sat one step ABOVE the values it adds to.
  */
 export const computeTableAddRowTriggerClasses = (): string =>
-  [
-    'text-sm font-medium',
-    `text-[${v('sv-fg-muted', T.fgMuted)}]`,
-    `hover:text-[${v('sv-fg', T.fg)}]`,
-  ].join(' ')
+  ['text-sm font-medium', `text-muted-foreground`, `hover:text-foreground`].join(' ')
 
 // The canvas draws an in-grid editor as a NARROWED `.input` — 28px tall rather
 // than the platform control height, because it has to sit inside a row without
@@ -210,11 +202,11 @@ export const computeTableAddRowTriggerClasses = (): string =>
 const TABLE_ADD_ROW_INPUT = [
   'h-7 w-full border px-2 py-1 text-sm',
   `rounded-[${v('radius-base', T.radiusBase)}]`,
-  `bg-[${v('sv-bg-raised', T.bgRaised)}]`,
-  `border-[${v('sv-border-strong', T.borderStrong)}]`,
-  `text-[${v('sv-fg', T.fg)}]`,
-  `focus:border-[${v('sv-primary', T.primary)}]`,
-  `focus:ring-1 focus:ring-[${v('sv-focus-ring', T.focusRing)}] focus:outline-none`,
+  `bg-card`,
+  `border-input`,
+  `text-foreground`,
+  `focus:border-primary`,
+  `focus:ring-1 focus:ring-ring focus:outline-none`,
 ].join(' ')
 
 /**

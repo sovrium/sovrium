@@ -351,14 +351,14 @@ const RESTART_HELP_TEXT = [
 const RELOAD_HELP_TEXT = [
   'Usage: sovrium reload [options]',
   '',
-  'Hot-reload the running server config without downtime.',
+  'Apply the edited config to the running server, as --watch does, and print what it did.',
   '',
   'Options:',
-  '  --message <text>              Commit message recorded on the new version row',
+  '  --message <text>              Accepted for compatibility; recorded nowhere',
   '  --help, -h                    Show this help message',
   '',
   'Examples:',
-  '  sovrium reload --message "Add pricing page"',
+  '  sovrium reload',
 ].join('\n')
 
 const SKILLS_HELP_TEXT = [

@@ -280,14 +280,12 @@ const summariseComponentGuidance = (app: App): string =>
   registerTally(app, 'component', COMPONENT_REGISTERS)
 
 /**
- * How the zones split across the two accent budgets, and how many rewrite voice.
+ * How many zones rewrite voice.
  *
- * A zone's budget is the decision it exists to carry — a public zone spends
- * accent where a product zone does not — and the count merges the two. The
- * voice half is published beside it because a zone that overrides the charter
- * is a second charter, which a reader of "six zones" would never suspect.
+ * A zone that overrides the charter is a second charter, which a reader of "six
+ * zones" would never suspect.
  *
- * Falls back to the zone NAMES for a map that declares neither. Both fields are
+ * Falls back to the zone NAMES for a map that rewrites none. The field is
  * optional, so a map of bare `{ pattern, zone }` entries characterised itself as
  * nothing at all — the silence this row exists to break. Which kinds of surface
  * an app has named is the fact every zone carries: a map of `marketing` and
@@ -298,14 +296,8 @@ const summariseComponentGuidance = (app: App): string =>
 const summariseZones = (app: App): string => {
   const zones = app.design?.zones ?? []
   if (zones.length === 0) return ''
-  const withBudget = (budget: string): number =>
-    zones.filter((zone) => zone.accentBudget === budget).length
   const revoiced = zones.filter((zone) => zone.voice !== undefined).length
-  const posture = parts(
-    withBudget('public') > 0 && `${String(withBudget('public'))} public`,
-    withBudget('product') > 0 && `${String(withBudget('product'))} product`,
-    revoiced > 0 && `${String(revoiced)} revoiced`
-  )
+  const posture = parts(revoiced > 0 && `${String(revoiced)} revoiced`)
   return posture === ''
     ? zones
         .map((zone) => zone.zone)

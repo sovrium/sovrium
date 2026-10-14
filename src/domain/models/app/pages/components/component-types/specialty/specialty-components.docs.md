@@ -15,7 +15,7 @@ components:
 
 ## `reorderable-list`
 
-A list whose items can be reordered by drag-and-drop or by keyboard.
+A list whose items can be reordered by drag-and-drop or by keyboard. Reference: shadcn/ui Item, Button. Each row is drawn as an outlined Item with a grip-handle button at its start; a row picked up for moving — Space on its handle, or a drag — paints the muted surface, and the arrow keys move it.
 
 <!-- sovrium:options type:reorderable-list depth=3 -->
 
@@ -27,9 +27,9 @@ A control that switches the active language for an internationalised app.
 
 It declares no schema option of its own: `props` carries the HTML attributes and the display options, such as `className` and the label style. What languages it offers comes from the app's own language declaration, not from the component.
 
-The switcher never prints the app's `fallback` language. When one is declared it is exposed on the switcher as `data-fallback-language`, for a script or a stylesheet to read. The trigger, the popup and each language option are drawn with the design system's own chrome, so the control needs no styling of its own to sit in a header beside the navigation.
+The switcher never prints the app's `fallback` language. When one is declared it is exposed on the switcher as `data-fallback-language`, for a script or a stylesheet to read. Reference: shadcn/ui Dropdown Menu, Button. The default variant is a dropdown menu: an outline trigger showing a globe, the current language and a chevron, and a menu of languages in which the current one shows a check. The arrow keys move through the menu, Enter picks a language and Escape closes it. It needs no styling of its own to sit in a header beside the navigation.
 
-`props.variant: toggle` — for an app with exactly two languages — renders one link to the same page in the other language, reading its code and named by its label.
+`props.variant: toggle` — for an app with exactly two languages — renders one link to the same page in the other language, reading its code and named by its label. The toggle's link is drawn as a ghost button.
 
 Whichever variant it draws, the switcher's outer element carries `data-component-type="language-switcher"` and the HTML attributes given in `props`, `className` among them. No element inside it carries the name.
 
@@ -41,7 +41,7 @@ A file selector with optional drag-and-drop.
 
 <!-- sovrium:options type:file-upload depth=2 -->
 
-`accept` takes MIME types or extensions — `image/*,.pdf`. `maxFiles` caps how many may be selected at once and `maxFileSize` is a size in bytes, with oversized files rejected with an error. `dropZone` renders a drop area with a visual indicator. `uploadAction` performs the upload, and `onSuccess` and `onError` handle its result.
+`accept` takes MIME types or extensions — `image/*,.pdf`. `maxFiles` caps how many may be selected at once and `maxFileSize` is a size in bytes, with oversized files rejected with an error. `dropZone` renders a drop area, drawn as shadcn/ui's Empty with a dashed edge: it names the accepted types and the limits, offers a Browse files button, takes files dropped on it, and is edged in the ring colour while a file is held over it. Reference: shadcn/ui Empty. Each picked file is then listed as an outlined item showing its name. `uploadAction` performs the upload, and `onSuccess` and `onError` handle its result. A successful upload answers as a `fetch` button does: its toast, then `status` and `refetch`, `close`, then `navigate`, which may quote what the upload answered through `$response.<field>` — `navigate: /photos?file=$response.filename` opens a page naming the stored file.
 
 Uploaded files land in a bucket, which is also where the size and type policy is ultimately enforced — `accept` and `maxFileSize` are a client-side courtesy, not the security boundary.
 
@@ -61,7 +61,7 @@ Pointed at `/api/account/avatar`, a `file-upload` sets the signed-in visitor's o
 
 ## `number-input`
 
-A numeric input with stepper buttons.
+A numeric input with stepper buttons. Reference: shadcn/ui Field, Input Group, Button. Its label sits above one bordered group of a decrement button, the number and an increment button; a step button is disabled when the value already sits on the bound it would cross.
 
 <!-- sovrium:options type:number-input -->
 
@@ -71,7 +71,7 @@ Prefer `number-input` over an `input` with `inputType: number` when the value is
 
 ## `time-picker`
 
-A time input.
+A time input. Reference: shadcn/ui Field, Input Group. Its label sits above the control, which is one bordered group: the time input and a clock glyph at its end.
 
 <!-- sovrium:options type:time-picker -->
 

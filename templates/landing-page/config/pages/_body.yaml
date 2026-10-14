@@ -17,7 +17,7 @@
       element: section
       props:
         id: features
-        className: flex scroll-mt-4 flex-col items-center gap-7 bg-background-subtle px-10 py-[72px] text-center max-md:gap-5 max-md:px-4 max-md:py-10
+        className: flex scroll-mt-4 flex-col items-center gap-7 bg-muted px-10 py-[72px] text-center max-md:gap-5 max-md:px-4 max-md:py-10
       children:
         - type: text
           element: h2

@@ -7,7 +7,8 @@
 
 /**
  * The CRUD half of the page render gate: who is offered a create action or a
- * form placed with `formRef`, and who sees an update form they may submit.
+ * form placed with `formRef`, who sees an update form they may submit, and who
+ * is offered a delete button.
  *
  * Extracted from `render-page.tsx` with its auth sibling
  * (`page-access-gating.tsx`). The two halves are separate files because they
@@ -63,7 +64,7 @@ const CRUD_RENDER_GATE_POLICY: PermissionPolicy = {
  */
 function declaredWriteGrant(
   table: Readonly<{ permissions?: Readonly<Record<string, unknown>> }> | undefined,
-  operation: 'create' | 'update'
+  operation: 'create' | 'update' | 'delete'
 ): PermissionValue | undefined {
   const value = toPermissionValue(table?.permissions?.[operation])
   return Array.isArray(value) && value.length === 0 ? undefined : value
@@ -151,6 +152,50 @@ function isCrudUpdateAllowed(
       CRUD_RENDER_GATE_POLICY
     )
   )
+}
+
+/**
+ * Checks if a caller is allowed to delete records in a table: the ladder and
+ * policy of {@link isCrudCreateAllowed}, read off `permissions.delete`.
+ */
+function isCrudDeleteAllowed(
+  tableName: string | undefined,
+  tables: App['tables'],
+  session: SessionInfo | undefined
+): boolean {
+  const table = tables?.find((t) => t.name === tableName)
+  return permits(
+    evaluatePermission(
+      declaredWriteGrant(table, 'delete'),
+      gateCaller(session),
+      CRUD_RENDER_GATE_POLICY
+    )
+  )
+}
+
+/**
+ * Hides, at any depth, every `crud` delete button whose table's
+ * `permissions.delete` does not admit this caller — absent rather than
+ * disabled, as the create and update gates hide theirs: a stranger is not told
+ * the action exists, and the API refuses the delete anyway.
+ */
+export function applyCrudDeletePermissions(
+  components: Page['components'],
+  tables: App['tables'],
+  session: SessionInfo | undefined
+): Page['components'] {
+  if (!components) return components
+  const filterChildren = (children: Page['components']) =>
+    applyCrudDeletePermissions(children, tables, session)
+  return components.map((item) => {
+    if (typeof item !== 'object' || item === null || 'component' in item || '$ref' in item) {
+      return item
+    }
+    const component = withFilteredChildren(item as Component, filterChildren)
+    const action = component.action as { type?: string; operation?: string; table?: string }
+    if (action?.type !== 'crud' || action?.operation !== 'delete') return component
+    return isCrudDeleteAllowed(action.table, tables, session) ? component : hideComponent(component)
+  })
 }
 
 /**

@@ -23,15 +23,15 @@ Start with `extend`. It gets a usable app on screen from a handful of colour tok
 design:
   colors:
     background: '#ffffff'
-    background-raised: '#f8fafc'
+    card: '#f8fafc'
     foreground: '#0f172a'
-    foreground-muted: '#64748b'
+    muted-foreground: '#64748b'
     primary: '#4f46e5'
   darkColors:
     background: '#0f172a'
-    background-raised: '#1e293b'
+    card: '#1e293b'
     foreground: '#f8fafc'
-    foreground-muted: '#94a3b8'
+    muted-foreground: '#94a3b8'
     primary: '#818cf8'
 ```
 
@@ -45,7 +45,12 @@ Only the tokens that need to change have to appear. A token you leave out keeps 
 
 Which palette a first-time visitor gets, before any preference of theirs is known: `light` and `dark` force one regardless of the operating-system setting, and `system` follows whatever the operating system reports.
 
-Leave it out and the answer depends on the palette: an app that declares `darkColors` follows the operating system — `system` is the default — and an app with a single palette stays light. A palette you designed for the dark is shown to the visitors who asked for it; a design you never drew for the dark is never forced into it.
+Leave it out and every app follows the operating system: `system` is the default. An app that declares `darkColors` shows its own dark palette to the visitors who asked for one; an app that declares none is drawn on the engine's default dark palette, the one the prebuilt components ship with. A design meant to stay light declares it:
+
+```yaml
+design:
+  colorScheme: light
+```
 
 A visitor who has since made a choice always overrides this — the stored preference wins on every subsequent visit. `colorScheme` is the default, not the policy.
 
@@ -68,4 +73,4 @@ pages:
           - { type: theme-toggle }
 ```
 
-Omit the toggle and the app follows `colorScheme` forever — a legitimate choice for a single-palette design.
+Omit the toggle and the app follows `colorScheme` forever — a legitimate choice for a single-palette design, which then declares `colorScheme: light` (or `dark`) rather than leaving it to the operating system.

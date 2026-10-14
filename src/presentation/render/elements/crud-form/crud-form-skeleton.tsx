@@ -85,7 +85,7 @@ function renderRichTextSkeleton(field: SkeletonFieldDef): ReactElement {
     >
       <div className="rounded border">
         <div
-          className="text-foreground-muted min-h-[6em] w-full p-3"
+          className="text-muted-foreground min-h-[6em] w-full p-3"
           aria-hidden="true"
         >
           {field.placeholder ?? ''}

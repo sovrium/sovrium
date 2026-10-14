@@ -17,9 +17,13 @@
  * `form-renderer.tsx` reuses it to serialise a single step on demand.
  */
 
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
+import { computeHostedFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { FormFieldElement, type PrefillValue } from './form-field-elements'
 import { stepItems, type resolveAllFields } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
+import { IdempotencyKeyInput } from './form-idempotency-key'
+import { resolveStepNavLabels, type StepNavLabels } from './form-step-nav-labels'
 import type { FormLayoutKeys } from './form-layout-keys'
 import type { SaveForLaterLabels } from './form-save-for-later-labels'
 import type { Form } from '@/domain/models/app/forms'
@@ -82,40 +86,75 @@ export interface FormBodyShared {
    * offers its submit alone.
    */
   readonly cancelLabel?: string
+  /** The step navigation's words in the page language; English when absent. */
+  readonly stepNav?: StepNavLabels
 }
 
-function FormStepProgress({ totalVisible }: { readonly totalVisible: number }) {
+const ENGLISH_STEP_NAV = resolveStepNavLabels(undefined, undefined)
+
+/** `Step {current} of {total}` filled in. */
+const fillStepOf = (template: string, current: number, total: number): string =>
+  template.split('{current}').join(String(current)).split('{total}').join(String(total))
+
+/**
+ * The way on, at the right edge of the step's actions row: `ms-auto` pushes it
+ * there whether or not a way back sits on the left.
+ */
+const WAY_ON_CLASS = 'ms-auto'
+
+function FormStepProgress({
+  totalVisible,
+  labels,
+}: {
+  readonly totalVisible: number
+  readonly labels: StepNavLabels
+}) {
+  // The template rides on the line, so the runtime rewrites it in the page language.
   return (
     <div
       className="form-progress"
       data-form-progress="true"
+      data-step-of={labels.stepOf}
       role="status"
-      aria-label="Step progress"
+      aria-label={labels.stepProgress}
     >
-      {`Step 1 of ${totalVisible}`}
+      {fillStepOf(labels.stepOf, 1, totalVisible)}
     </div>
   )
 }
 
-function FormStepNav({ isFirst, isLast }: { readonly isFirst: boolean; readonly isLast: boolean }) {
+/**
+ * One actions row under the step's fields: the way back on the left, the way
+ * on at the right edge. On the last step the runtime moves the form's submit
+ * into this row, so Previous and the final submit share it too.
+ */
+function FormStepNav({
+  isFirst,
+  isLast,
+  labels,
+}: {
+  readonly isFirst: boolean
+  readonly isLast: boolean
+  readonly labels: StepNavLabels
+}) {
   return (
-    <div className="form-step-nav">
+    <div className="form-step-nav mt-1 flex flex-wrap items-center gap-2">
       {!isFirst && (
         <button
           type="button"
           data-component-type="button"
-          className="step-previous"
+          className={`step-previous ${computeButtonDefaultClasses({ variant: 'secondary' })}`}
         >
-          Previous
+          {labels.previous}
         </button>
       )}
       {!isLast && (
         <button
           type="button"
           data-component-type="button"
-          className="step-next"
+          className={`step-next ${WAY_ON_CLASS} ${computeButtonDefaultClasses()}`}
         >
-          Next
+          {labels.next}
         </button>
       )}
     </div>
@@ -131,6 +170,7 @@ export function FormBodyStep({
   prefillMap,
   lockPrefill,
   descriptionHtml,
+  labels = ENGLISH_STEP_NAV,
 }: {
   readonly step: NonNullable<Form['steps']>[number]
   readonly stepIndex: number
@@ -141,10 +181,11 @@ export function FormBodyStep({
   readonly lockPrefill: boolean
   /** The step description, translated and rendered (`renderInlineMarkdown`); `''` for none. */
   readonly descriptionHtml: string
+  readonly labels?: StepNavLabels
 }) {
   return (
     <div
-      className="form-step"
+      className="form-step flex flex-col gap-3.5"
       data-step={step.id}
       data-step-index={stepIndex}
       data-step-active="true"
@@ -165,6 +206,7 @@ export function FormBodyStep({
       <FormStepNav
         isFirst={isFirst}
         isLast={isLast}
+        labels={labels}
       />
     </div>
   )
@@ -184,13 +226,18 @@ function MultiStepFormElement({
   activeStep,
   isLast,
   stepDescriptionsHtml,
+  embedded,
+  stepNav = ENGLISH_STEP_NAV,
+  layoutKeys,
 }: MultiStepFormProps) {
   return (
     <form
+      className={computeHostedFormLayoutClasses(layoutKeys?.labelPlacement)}
       {...formAttributes}
       data-layout="multi-step"
       data-active-step={activeStep.id}
     >
+      <IdempotencyKeyInput embedded={embedded} />
       <FormBodyStep
         step={activeStep}
         stepIndex={0}
@@ -200,12 +247,14 @@ function MultiStepFormElement({
         prefillMap={prefillMap}
         lockPrefill={lockPrefill}
         descriptionHtml={stepDescriptionsHtml?.[activeStep.id] ?? ''}
+        labels={stepNav}
       />
-      {/* Submit button stays in markup but hidden until the submitter
-          reaches the last step; runtime toggles visibility per step. */}
+      {/* The submit stays in the markup, hidden until the last step, where
+          the runtime moves it into that step's actions row. */}
       <button
         type="submit"
         data-component-type="button"
+        className={`${WAY_ON_CLASS} ${computeButtonDefaultClasses()}`}
         {...(isLast ? {} : { hidden: true })}
       >
         {submitLabel}
@@ -238,7 +287,10 @@ export function FormBodyMultiStep(
         html={descriptionHtml}
         className="form-description"
       />
-      <FormStepProgress totalVisible={steps.length} />
+      <FormStepProgress
+        totalVisible={steps.length}
+        labels={props.stepNav ?? ENGLISH_STEP_NAV}
+      />
       <MultiStepFormElement
         {...props}
         activeStep={activeStep}

@@ -11,7 +11,6 @@ import { revalidateInlinePrefillParent } from '@/application/use-cases/forms/inl
 import { resolveFormOptionSources } from '@/application/use-cases/forms/resolve-form-option-sources'
 import { findFormByName, submitFormProgram } from '@/application/use-cases/forms/submit-form'
 import { evaluateAvailabilityWindow } from '@/domain/models/app/forms/form-availability-flow'
-import { hashAccessToken, issueAccessToken } from '@/infrastructure/forms/access-token'
 import { hashIp, resolveIpHashSalt } from '@/infrastructure/forms/ip-hash'
 import {
   provideDomain,
@@ -24,12 +23,10 @@ import {
   resolveFormOptionVisitor,
 } from '@/presentation/api/forms/access-gate'
 import {
-  editPathOf,
   handleEditSubmission,
   handleGetEditPage,
   handlePostDraft,
   resolveResumeLink,
-  resumeTokenOf,
   type FormLinkState,
 } from '@/presentation/api/forms/access-link-handlers'
 import { checkSubmissionAttachmentReferences } from '@/presentation/api/forms/attachment-reference-guard'
@@ -46,8 +43,10 @@ import {
 } from '@/presentation/api/forms/step-handlers'
 import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { answerOnce, withoutIdempotencyField } from '@/presentation/api/runtime/idempotency'
 import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-permission'
 import { formRecordsAudio } from '@/presentation/render/page/page-microphone-detection'
+import { submissionLinkTokens } from './submission-link-tokens'
 import { formNameRequired, formNotFound } from './submission-refusals'
 import {
   detectJsonClient,
@@ -246,8 +245,12 @@ async function buildPrefillContext(c: Context): Promise<FormPrefillContext> {
  * numeric / date columns triggers a malformed-literal error instead of
  * the desired "treat as undefined" semantics. JSON clients are left
  * untouched because they post explicit values (or omit absent fields).
+ *
+ * The idempotency key field (`_idempotency`) is still in the result: the
+ * submission route reads it, and every other reader takes
+ * {@link readSubmissionBody}.
  */
-async function readSubmissionBody(c: Context): Promise<Record<string, unknown>> {
+async function readSubmissionFields(c: Context): Promise<Record<string, unknown>> {
   const contentType = c.req.header('content-type') ?? ''
   if (contentType.includes('application/json')) {
     const json = await c.req.json().catch(() => undefined)
@@ -278,6 +281,10 @@ async function readSubmissionBody(c: Context): Promise<Record<string, unknown>> 
   )
 }
 
+/** The submitted values without the idempotency key: what a draft or an edit reads. */
+const readSubmissionBody = async (c: Context): Promise<Record<string, unknown>> =>
+  withoutIdempotencyField(await readSubmissionFields(c))
+
 /**
  * `POST /api/forms/:name/submissions` — accept a submission, write to
  * the bound table when configured, then write the ledger row.
@@ -303,8 +310,25 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
   const { decision, session } = await evaluateFormAccessForRequest(c, form)
   const denied = denyFormAccess(c, form.name, decision, 'json')
   if (denied !== undefined) return denied
+  // A duplicate under its idempotency key is answered here, before anything
+  // below — anti-spam, availability and the cap included — counts it.
+  return answerOnce(
+    c,
+    {
+      scope: { kind: 'forms', name, userId: session?.userId },
+      body: await readSubmissionFields(c),
+    },
+    (rawBody) => acceptSubmission({ c, app, form, session, isJsonClient }, rawBody)
+  )
+}
 
-  const rawBody = await readSubmissionBody(c)
+/** A submission past the access gate: uploads, the parent check, then the program. */
+async function acceptSubmission(
+  request: Omit<RunSubmitProgramConfig, 'formName' | 'body'> & { readonly form: Form },
+  rawBody: Record<string, unknown>
+): Promise<Response> {
+  const { c, app, form, session, isJsonClient } = request
+  const { name } = form
   // An attachment value that NAMES a stored file must name one in the column's
   // bucket that the submitter can download. Checked on the raw body — before
   // any multipart file is uploaded, so a refusal orphans nothing — with the
@@ -331,10 +355,8 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
     return respondSubmissionFailure(c, isJsonClient, uploadResult.failure)
   }
 
-  // Y-5: Inline-prefill revalidation runs after the upload step so a
-  // deleted parent record short-circuits the submission AFTER the file
-  // bytes have been persisted (acceptable: the pre-uploaded files become
-  // orphaned but the audit ledger row never lands).
+  // Y-5: Inline-prefill revalidation runs after the upload step: a deleted parent
+  // stops the submission after its files are stored (orphaned; no ledger row).
   const revalidation = await runRequestEffect(
     c,
     provideDomain(
@@ -423,28 +445,6 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
     ...result.success,
     ...links.editUrlFor(result.success.submissionId),
   })
-}
-
-/**
- * The private links a submission touches. A form with `editAfterSubmit` hands
- * each submission an edit link, minted here; a submission sent from a resume
- * link (`?resume=`) consumes that draft. Only digests reach the program; the
- * edit token itself leaves only in the answer, as the link.
- */
-function submissionLinkTokens(c: Context, app: App, formName: string) {
-  const editToken =
-    findFormByName(app, formName)?.editAfterSubmit === undefined ? undefined : issueAccessToken()
-  const resumeToken = resumeTokenOf(c)
-  return {
-    hashes: {
-      ...(editToken === undefined ? {} : { editTokenHash: editToken.hash }),
-      ...(resumeToken === undefined ? {} : { resumeTokenHash: hashAccessToken(resumeToken) }),
-    },
-    editUrlFor: (submissionId: string | null): { readonly editUrl?: string } =>
-      editToken === undefined || submissionId === null
-        ? {}
-        : { editUrl: editPathOf(formName, editToken.token) },
-  }
 }
 
 /**

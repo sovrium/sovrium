@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from 'react'
-import { computeCodeEditorFrameClasses } from '@/presentation/design/code-editor-default-classes'
+import { computeCodeEditorLoadingClasses } from '@/presentation/design/editor-loading-classes'
 import { useDeferredComponent } from '../deferred-component'
 import type { CodeEditorFieldProps } from '../code-editor-field/props'
 import type { ReactElement } from 'react'
@@ -54,7 +54,7 @@ function CodeLoading({
       <div
         role="status"
         aria-busy="true"
-        className={`${computeCodeEditorFrameClasses()} text-foreground-disabled p-3 font-mono text-sm`}
+        className={computeCodeEditorLoadingClasses()}
         style={reservedHeight}
       >
         {value}

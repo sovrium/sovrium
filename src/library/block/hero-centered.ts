@@ -30,7 +30,7 @@ export const entry = defineLibraryEntry({
     'A centered opening section: a short label, a headline, one supporting sentence, a primary and a secondary action, and a reassurance line.',
   notes: [
     'The block is a reusable component. Place it on a page with `component: <name>` under the page `components` list, as many times as you need.',
-    'Colours come from the theme tokens, so the block follows your `theme` without edits. The primary action uses `--color-primary`.',
+    'Colours come from the design tokens, so the block follows your `design` without edits. The primary action uses `--color-primary`.',
     'Set `eyebrow`, `secondaryLabel` or `reassurance` to an empty string to drop that element.',
   ],
   params: [

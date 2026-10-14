@@ -25,7 +25,7 @@ import {
   type BootEnvironmentError,
 } from '@/application/use-cases/server/validate-boot-environment'
 import { countDatabaseListeners } from '@/domain/models/app/app-database-listeners-service'
-import { ENGINE_KEY_UNPREFIXED_TOKEN } from '@/domain/models/app/languages/engine-key-prefix-validation'
+import { ENGINE_KEY_NOTICE_TOKENS } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { prunePagesByRequirements } from '@/domain/models/app/pages/page-requires'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { Logger } from '@/infrastructure/logging/logger'
@@ -92,12 +92,15 @@ const decodeAndValidateApp = (
 
 /**
  * The validate notices the server also prints once as it starts. Only the
- * deprecated bare engine key: the author may never run `sovrium validate`, and
- * the spelling keeps working silently otherwise. The layout notices stay
- * `validate`'s, where they are read before an edit, not on every boot.
+ * engine-key ones — a deprecated bare spelling, an override of a retired key:
+ * the author may never run `sovrium validate`, and the config keeps working
+ * silently otherwise. The layout notices stay `validate`'s, where they are
+ * read before an edit, not on every boot.
  */
 const bootNoticesOf = (notices: readonly string[]): readonly string[] =>
-  notices.filter((notice) => notice.startsWith(`${ENGINE_KEY_UNPREFIXED_TOKEN}:`))
+  notices.filter((notice) =>
+    ENGINE_KEY_NOTICE_TOKENS.some((token) => notice.startsWith(`${token}:`))
+  )
 
 /**
  * Run migrations and bootstrap the admin (env-var or no-config-token).

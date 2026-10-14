@@ -230,20 +230,19 @@ export const DataSortSchema = Schema.Struct({
  * a config that silently hides rows rather than paging them. Every consumer
  * therefore draws a pager unless it was asked for `loadMore`.
  *
- * `infinite` is accepted by this vocabulary and is deliberately NOT implemented
- * — see `src/presentation/islands/list/list-island.tsx`, which states the reason
- * at the point a reader meets it: scroll-triggered paging needs a sentinel row,
- * an intersection observer and a re-entrancy guard, and none of that can be
- * called shipped until something specifies how it behaves at the end of the set.
- * A component declaring it therefore pages exactly as `numbered` does. That
- * fallback is the whole point: the refusal costs the reader a nicer interaction,
- * never a record.
+ * `infinite` loads the next page as the reader scrolls to the end of what is
+ * drawn — an infinite query, in TanStack's term — through the same offset
+ * continuation `loadMore` uses: a sentinel after the last item, a focusable Load
+ * more control kept for the keyboard, the container marked busy while a page is
+ * on its way, and one polite status announcing how many records are loaded. It
+ * stops at the end of the set, where the control is removed rather than disabled.
  */
 export const PaginationStyleSchema = Schema.Literals(['numbered', 'loadMore', 'infinite']).annotate(
   {
     title: 'Pagination Style',
     description:
-      'How pagination controls are displayed (default: numbered). `infinite` is accepted but not implemented and pages as `numbered`.',
+      "How the reader reaches the records past the first page. `numbered` draws page controls. `loadMore` appends the next page when the reader presses Load more. `infinite` appends it as the reader scrolls to the end of the records — TanStack's infinite query driven by scrolling — keeping a focusable Load more control for the keyboard and announcing how many records are loaded.",
+    defaultNote: 'numbered',
   }
 )
 

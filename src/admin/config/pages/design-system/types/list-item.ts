@@ -20,7 +20,7 @@ const listItem: TypePageBody = {
       label: 'default',
       children: [
         {
-          type: 'list-item',
+          type: 'item',
           props: { className: 'w-full' },
           children: [
             {
@@ -50,7 +50,7 @@ const listItem: TypePageBody = {
       label: 'with checkbox',
       children: [
         {
-          type: 'list-item',
+          type: 'item',
           props: { className: 'w-full' },
           children: [
             {

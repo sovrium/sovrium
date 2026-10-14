@@ -20,6 +20,7 @@ export function AuthFormFeedback({ state }: { readonly state: AuthState }) {
   if (state.error) {
     return (
       <div
+        key="error"
         data-error=""
         role="alert"
         className={computeAuthFeedbackBannerClasses()}
@@ -44,8 +45,12 @@ export function AuthFormFeedback({ state }: { readonly state: AuthState }) {
   }
   // No result yet — an empty, hidden slot, out of layout and byte-identical to
   // the SSR skeleton's `<div data-error hidden />` (the banner is client-side only).
+  // Keyed apart from the banner so a result INSERTS a fresh alert rather than
+  // unhiding this slot: an inserted alert is announced, and arrives in order
+  // before the onError toast.
   return (
     <div
+      key="slot"
       data-error=""
       hidden
     />

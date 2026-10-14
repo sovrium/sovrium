@@ -38,7 +38,7 @@ children:
                   - type: text
                     element: p
                     props:
-                      className: text-md leading-relaxed text-pretty text-foreground-muted max-w-xs text-sm sm:text-md
+                      className: text-md leading-relaxed text-pretty text-muted-foreground max-w-xs text-sm sm:text-md
                     content: $t:footer.tagline
               - type: flex
                 props:
@@ -47,27 +47,27 @@ children:
                   - type: text
                     element: h3
                     props:
-                      className: font-mono text-sm font-normal text-foreground-subtle
+                      className: font-mono text-sm font-normal text-muted-foreground
                     content: $t:footer.product
                   - type: link
                     props:
                       href: /product-1
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link1
                   - type: link
                     props:
                       href: /product-2
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link2
                   - type: link
                     props:
                       href: /product-3
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link3
                   - type: link
                     props:
                       href: /product-4
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link4
               - type: flex
                 props:
@@ -76,27 +76,27 @@ children:
                   - type: text
                     element: h3
                     props:
-                      className: font-mono text-sm font-normal text-foreground-subtle
+                      className: font-mono text-sm font-normal text-muted-foreground
                     content: $t:footer.resources
                   - type: link
                     props:
                       href: /resources-1
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link1
                   - type: link
                     props:
                       href: /resources-2
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link2
                   - type: link
                     props:
                       href: /resources-3
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link3
                   - type: link
                     props:
                       href: /resources-4
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link4
               - type: flex
                 props:
@@ -105,27 +105,27 @@ children:
                   - type: text
                     element: h3
                     props:
-                      className: font-mono text-sm font-normal text-foreground-subtle
+                      className: font-mono text-sm font-normal text-muted-foreground
                     content: $t:footer.company
                   - type: link
                     props:
                       href: /company-1
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link1
                   - type: link
                     props:
                       href: /company-2
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link2
                   - type: link
                     props:
                       href: /company-3
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link3
                   - type: link
                     props:
                       href: /company-4
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link4
               - type: flex
                 props:
@@ -134,27 +134,27 @@ children:
                   - type: text
                     element: h3
                     props:
-                      className: font-mono text-sm font-normal text-foreground-subtle
+                      className: font-mono text-sm font-normal text-muted-foreground
                     content: $t:footer.legal
                   - type: link
                     props:
                       href: /legal-1
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link1
                   - type: link
                     props:
                       href: /legal-2
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link2
                   - type: link
                     props:
                       href: /legal-3
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link3
                   - type: link
                     props:
                       href: /legal-4
-                      className: text-md text-foreground-muted hover:text-foreground
+                      className: text-md text-muted-foreground hover:text-foreground
                     content: $t:footer.link4
           - type: flex
             props:
@@ -163,7 +163,7 @@ children:
               - type: text
                 element: p
                 props:
-                  className: text-sm text-foreground-subtle
+                  className: text-sm text-muted-foreground
                 content: $t:footer.copyright
               - type: flex
                 props:

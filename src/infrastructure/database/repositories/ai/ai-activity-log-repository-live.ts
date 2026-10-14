@@ -44,6 +44,7 @@ export const AiActivityLogRepositoryLive = Layer.succeed(AiActivityLogRepository
           action: row.action,
           targetTable: row.targetTable,
           userEmail: row.userEmail,
+          surface: row.surface,
         })
         .then(() => undefined)
     ),

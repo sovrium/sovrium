@@ -40,6 +40,7 @@
 // business: a demonstration that showed data nobody has is a demonstration of
 // nothing.
 
+import { designPageHeader } from '../../components/page-header'
 import { withShell } from '../../components/shell'
 import { SPECIMEN_ROWS_ENDPOINT } from '../../system-sources'
 import { designSystemBreadcrumb } from './chrome'
@@ -566,7 +567,7 @@ const sceneChips = (): PageComponent =>
             props: {
               href: `/design-system/ui-kit/${type}`,
               className:
-                'border-border text-foreground-subtle hover:bg-background-subtle rounded-full border px-2 py-0.5 font-mono text-[11px]',
+                'border-border text-foreground-subtle hover:bg-muted rounded-full border px-2 py-0.5 font-mono text-[11px]',
               'data-design-scene-type': type,
               ...kitType('link'),
             },
@@ -602,19 +603,7 @@ const uiKit: PageConfig = withShell(
       description: 'Every component type the engine can draw, composed into one screen of an app.',
     },
     components: [
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-col gap-2' },
-        children: [
-          {
-            type: 'text',
-            element: 'h1',
-            props: { className: 'text-3xl font-semibold tracking-tight', ...kitType('text') },
-            content: TITLE,
-          },
-        ],
-      },
+      designPageHeader(TITLE),
       {
         type: 'container',
         element: 'div',
@@ -681,6 +670,7 @@ const uiKit: PageConfig = withShell(
   {
     breadcrumb: designSystemBreadcrumb(SLUG, TITLE),
     navColumn: kitNavColumn({ onIndex: true }),
+    navColumnDrawer: true,
   }
 )
 

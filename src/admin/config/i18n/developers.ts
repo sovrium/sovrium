@@ -145,12 +145,13 @@ export default {
   'admin.schema.declared.heading': 'Declared configuration',
   'admin.schema.declared.region': 'Declared configuration',
   'admin.schema.declared.empty': 'This config declares nothing yet.',
-  'admin.schema.raw.heading': 'Raw configuration',
+  'admin.schema.raw.heading': 'Declarations by family',
+  'admin.schema.raw.summary': 'Export the configuration to read or share the whole document.',
   'admin.schema.nav.region': 'Configuration',
   'admin.schema.nav.overview': 'Overview',
   'admin.schema.nav.rootKeys': 'Root keys',
   'admin.schema.overview.body':
-    'What this server booted with, decoded and redacted. Choose a root key to read one family; the whole configuration is below.',
+    'What this server booted with, decoded and redacted. Choose a root key to read one family, or export the whole configuration below.',
 
   'admin.schema.counts.tables': 'Tables',
   'admin.schema.counts.pages': 'Pages',

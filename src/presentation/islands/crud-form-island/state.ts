@@ -70,6 +70,13 @@ function withFieldValue(
   return Object.fromEntries(Object.entries(next).filter(([key]) => key !== clearMarkOf(name)))
 }
 
+/** How a save is answered: `onSuccess.toast`, `onError.toast` on a refusal, and `close`. */
+const answerToasts = ({ successToast, errorToast, close }: CrudFormIslandProps) => ({
+  successToast,
+  errorToast,
+  close,
+})
+
 export function useCrudFormState(props: CrudFormIslandProps) {
   const {
     operation,
@@ -78,7 +85,6 @@ export function useCrudFormState(props: CrudFormIslandProps) {
     record,
     recordId,
     redirectUrl,
-    successToast,
     resetOnSuccess,
     preserveFields,
     successPage,
@@ -106,7 +112,7 @@ export function useCrudFormState(props: CrudFormIslandProps) {
     ...(updatedAt !== undefined && { updatedAt }),
     rememberUpdatedAt,
     redirectUrl,
-    successToast,
+    ...answerToasts(props),
     resetOnSuccess,
     preserveFields,
     successPage,

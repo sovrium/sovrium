@@ -11,6 +11,8 @@ import { omitsEmptyValue } from '@/presentation/design/field-type-behavior'
 import { type FieldDef } from '../parts/crud-form/fields'
 import { showSuccessToast } from '../parts/crud-form/toast'
 import { isMarkedCleared, toWireFields } from '../parts/crud-form/wire-values'
+import { leavesPage, onThisSite, runSuccessOutcome } from '../runtime/action-outcome'
+import { automationPressHeaders } from '../runtime/automation-press-headers'
 import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
 import { formString } from './form-strings'
 import { type FormState, type SubmitContext } from './types'
@@ -72,7 +74,7 @@ async function submitAutomationForm(ctx: SubmitContext): Promise<void> {
   const resolvedInput = resolveFormInputData(ctx.inputData ?? {}, ctx.values)
   const response = await fetch(`/api/automations/${encodeURIComponent(name)}/form-action`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: automationPressHeaders(),
     body: JSON.stringify({ inputData: resolvedInput }),
   })
   if (!response.ok) {
@@ -164,8 +166,9 @@ function handleSuccessPage(ctx: SubmitContext, result: MutationResult): void {
   // Validate AFTER substitution, not before: a template like `/$record.slug`
   // passes any leading-slash test on its own, yet a record field holding
   // `/evil.com` would expand it to the protocol-relative `//evil.com`. The
-  // string actually handed to the browser is the one that must be checked.
-  const target = toSafeRedirectPath(resolved)
+  // string actually handed to the browser is the one that must be checked. A
+  // relative address is resolved against the page first, as every navigate is.
+  const target = toSafeRedirectPath(onThisSite(resolved))
   if (target !== undefined) {
     // Delay redirect so the success page is visible and DB writes propagate.
     setTimeout(() => globalThis.location.assign(target), 800)
@@ -178,17 +181,36 @@ function handleSuccessPage(ctx: SubmitContext, result: MutationResult): void {
  * separately by `handleSuccessPage`.
  */
 function handleDefaultSuccess(ctx: SubmitContext): void {
+  // A relative address (`preview`, `?saved=1`) is resolved against the page.
+  const target = toSafeRedirectPath(onThisSite(ctx.redirectUrl))
+  // A success that moves to another page keeps the submit pending until the
+  // page leaves, so the wait before the move cannot save twice; a page shown
+  // again from the back-forward cache gives it back.
+  if (target !== undefined && leavesPage(target)) {
+    holdUntilLeft(ctx)
+    // Delay redirect to allow DB writes to propagate before external queries
+    setTimeout(() => globalThis.location.assign(target), 500)
+    return
+  }
   ctx.setState(
     ctx.operation === 'delete' ? { isPending: false, deleted: true } : { isPending: false }
   )
   // onSuccess.type: 'reset' — clear the form for rapid repeat entry. Retains
   // any fields listed in preserveFields. Skipped for delete operations.
   if (ctx.resetOnSuccess && ctx.operation !== 'delete') ctx.resetValues()
-  const target = toSafeRedirectPath(ctx.redirectUrl)
-  if (target !== undefined) {
-    // Delay redirect to allow DB writes to propagate before external queries
-    setTimeout(() => globalThis.location.assign(target), 500)
-  }
+  // A move that stays on this page (`#comments`) happens now, the submit given back.
+  if (target !== undefined) globalThis.location.assign(target)
+}
+
+/** Give a submit held pending for a move back when the page is shown again from the cache. */
+function holdUntilLeft(ctx: SubmitContext): void {
+  globalThis.addEventListener(
+    'pageshow',
+    (event) => {
+      if ((event as PageTransitionEvent).persisted) ctx.setState({ isPending: false })
+    },
+    { once: true }
+  )
 }
 
 /**
@@ -216,14 +238,45 @@ function dispatchCrudSuccess(ctx: SubmitContext, result: MutationResult): void {
     table: ctx.tableName,
     operation: ctx.operation,
     ...(recordId !== undefined && { recordId }),
+    ...(ctx.close === false && { close: false }),
   })
 }
 
-function handleMutationSuccess(ctx: SubmitContext, result: MutationResult): void {
-  if (ctx.successToast?.message) {
-    showSuccessToast(ctx.successToast)
+/** Where a saved form moves the reader on: its success page's redirect, else its own. */
+function successMoveAddress(ctx: SubmitContext, result: MutationResult): string | undefined {
+  if (ctx.successPage && ctx.operation !== 'delete') {
+    const { redirect } = ctx.successPage
+    return redirect === undefined
+      ? undefined
+      : substituteRecordVars(redirect, resolveRecordFields(result))
   }
-  dispatchCrudSuccess(ctx, result)
+  return ctx.redirectUrl
+}
+
+/**
+ * Whether a saved form closes the dialog or drawer it sits in: `onSuccess.close`
+ * when written; left unset, a form that wrote a record closes it — through the
+ * script as by a plain page post, which closes it by drawing the page again —
+ * unless it shows a success page, which would be closed before anyone read it.
+ */
+function closesOverlay(ctx: SubmitContext): boolean {
+  if (ctx.close !== undefined) return ctx.close
+  const wroteRecord = typeof ctx.tableName === 'string' && ctx.operation !== 'automation'
+  return wroteRecord && !(ctx.successPage && ctx.operation !== 'delete')
+}
+
+function handleMutationSuccess(ctx: SubmitContext, result: MutationResult): void {
+  // The toast, the write announced, then `onSuccess.close` — the shared order
+  // and close request of every page action (`action-outcome.ts`). The move on
+  // stays below: a form keeps its submit pending until the page leaves.
+  // A toast beside a move to another page is carried to it.
+  const { successToast } = ctx
+  runSuccessOutcome(ctx.origin, {
+    toast: successToast?.message ? () => showSuccessToast(successToast) : undefined,
+    effects: () => dispatchCrudSuccess(ctx, result),
+    close: closesOverlay(ctx),
+    movesTo: successMoveAddress(ctx, result),
+  })
   // onSuccess.type: 'successPage' — replace the form with a success page.
   // Skipped for delete operations (no form to replace).
   if (ctx.successPage && ctx.operation !== 'delete') {
@@ -233,7 +286,13 @@ function handleMutationSuccess(ctx: SubmitContext, result: MutationResult): void
   handleDefaultSuccess(ctx)
 }
 
+/**
+ * A refused save: the inline error and the submit given back (the focus stays
+ * on it), then — once React has drawn that error — the `onError` toast. A
+ * refusal never closes the dialog and never navigates.
+ */
 function handleMutationError(ctx: SubmitContext, err: unknown): void {
+  showErrorToastAfterRender(ctx)
   const error = err as { message?: string; code?: string; field?: string }
   if (error.code === 'VALIDATION_ERROR' && error.field) {
     ctx.setState({
@@ -246,6 +305,12 @@ function handleMutationError(ctx: SubmitContext, err: unknown): void {
       isPending: false,
     })
   }
+}
+
+/** The `onError` toast, shown on the next task so it follows the inline error. */
+function showErrorToastAfterRender(ctx: SubmitContext): void {
+  const toast = ctx.errorToast
+  if (toast?.message) setTimeout(() => showSuccessToast(toast), 0)
 }
 
 /**

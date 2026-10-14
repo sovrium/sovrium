@@ -104,7 +104,7 @@ export default {
       components: [
         {
           type: 'container',
-          element: 'main',
+          element: 'div',
           props: {
             className:
               'flex min-h-screen items-center justify-center p-10 max-md:items-start max-md:px-[18px] max-md:py-6',
@@ -120,7 +120,7 @@ export default {
                   type: 'container',
                   props: {
                     className:
-                      'inline-flex items-center gap-2 font-mono text-[12.5px] font-medium text-foreground-muted',
+                      'inline-flex items-center gap-2 font-mono text-[12.5px] font-medium text-muted-foreground',
                   },
                   children: [
                     {
@@ -156,7 +156,7 @@ export default {
                   },
                   classes: {
                     parts: {
-                      paragraph: '!text-foreground-muted text-[17px] leading-[1.6]',
+                      paragraph: '!text-muted-foreground text-[17px] leading-[1.6]',
                       inlineCode: 'font-mono text-[1em]',
                     },
                   },
@@ -192,7 +192,7 @@ export default {
                   props: {
                     'aria-label': 'Next steps',
                     className:
-                      'flex flex-col overflow-hidden rounded-lg border border-border bg-background-raised',
+                      'flex flex-col overflow-hidden rounded-lg border border-border bg-card',
                   },
                   children: [
                     {
@@ -200,7 +200,7 @@ export default {
                       props: {
                         href: 'https://sovrium.com/en/docs',
                         className:
-                          'flex items-center gap-3 border-b border-border px-4 py-3.5 text-[15px] font-medium text-foreground shadow-[inset_3px_0_0_var(--color-primary)] hover:bg-background-subtle',
+                          'flex items-center gap-3 border-b border-border px-4 py-3.5 text-[15px] font-medium text-foreground shadow-[inset_3px_0_0_var(--color-primary)] hover:bg-muted',
                       },
                       children: [
                         {
@@ -224,7 +224,7 @@ export default {
                           props: {
                             name: 'arrow-right',
                             size: 16,
-                            className: 'shrink-0 text-foreground-muted',
+                            className: 'shrink-0 text-muted-foreground',
                           },
                         },
                       ],
@@ -234,7 +234,7 @@ export default {
                       props: {
                         href: 'https://sovrium.com/apps',
                         className:
-                          'flex items-center gap-3 px-4 py-3.5 text-[15px] text-foreground hover:bg-background-subtle',
+                          'flex items-center gap-3 px-4 py-3.5 text-[15px] text-foreground hover:bg-muted',
                       },
                       children: [
                         {
@@ -242,7 +242,7 @@ export default {
                           props: {
                             name: 'layers',
                             size: 18,
-                            className: 'shrink-0 text-foreground-muted',
+                            className: 'shrink-0 text-muted-foreground',
                           },
                         },
                         {
@@ -259,7 +259,7 @@ export default {
                           props: {
                             name: 'arrow-right',
                             size: 16,
-                            className: 'shrink-0 text-foreground-muted',
+                            className: 'shrink-0 text-muted-foreground',
                           },
                         },
                       ],
@@ -297,7 +297,7 @@ export default {
       components: [
         {
           type: 'container',
-          element: 'main',
+          element: 'div',
           props: {
             className:
               'flex min-h-screen items-center justify-center p-10 max-md:items-start max-md:px-[18px] max-md:py-6',
@@ -313,7 +313,7 @@ export default {
                   type: 'text',
                   element: 'p',
                   props: {
-                    className: 'font-mono text-[12.5px] font-medium text-foreground-muted',
+                    className: 'font-mono text-[12.5px] font-medium text-muted-foreground',
                   },
                   content: '404',
                 },
@@ -335,7 +335,7 @@ export default {
                   },
                   classes: {
                     parts: {
-                      paragraph: '!text-foreground-muted text-[17px] leading-[1.6]',
+                      paragraph: '!text-muted-foreground text-[17px] leading-[1.6]',
                       inlineCode: 'font-mono text-[1em]',
                     },
                   },
@@ -353,7 +353,7 @@ export default {
                       props: {
                         href: '/',
                         className:
-                          'inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background-raised px-3 text-[14px] font-medium text-foreground hover:bg-background-subtle',
+                          'inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-[14px] font-medium text-foreground hover:bg-muted',
                       },
                       children: [
                         {
