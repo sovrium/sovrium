@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { reportCommittedRows } from '@/application/ports/services/record-change-feed'
 import { DatabaseError } from '@/infrastructure/database'
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
+import { confirmBatchAccounts } from '../mutation-helpers/account-confirmation'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import { writeManyToManyLinksInTransaction } from '../mutation-helpers/many-to-many-helpers'
@@ -20,6 +21,7 @@ import {
   insertedRowChanges,
 } from './batch-helpers'
 import type { BatchCreateLink } from '@/application/ports/repositories/tables/batch-repository'
+import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DrizzleTransaction, ValidationError } from '@/infrastructure/database'
 
@@ -126,7 +128,10 @@ export function batchCreateRecords(
   session: Readonly<Session>,
   tableName: string,
   recordsData: readonly Record<string, unknown>[],
-  links?: readonly (readonly BatchCreateLink[])[]
+  written: {
+    readonly links?: readonly (readonly BatchCreateLink[])[] | undefined
+    readonly accounts?: readonly AccountReference[]
+  } = {}
 ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const onFailure = wrapDatabaseErrorWithValidation(batchCreateFailure(tableName))
@@ -138,6 +143,7 @@ export function batchCreateRecords(
               new DatabaseError('Cannot create batch with no records', undefined)
             )
           }
+          yield* confirmBatchAccounts(tx, written.accounts)
 
           // Inject authorship metadata for each record — bounded fan-out, see
           // `injectAuthorshipForBatch`.
@@ -166,7 +172,7 @@ export function batchCreateRecords(
               Effect.tap((record) =>
                 record === undefined
                   ? Effect.void
-                  : linkCreatedRecord(tx, tableName, record, links?.[index] ?? [])
+                  : linkCreatedRecord(tx, tableName, record, written.links?.[index] ?? [])
               )
             )
           )

@@ -27,6 +27,7 @@ import { loadPausedAutomationNames } from './paused-automation-names'
 import { withoutAdminOnlyTriggerFields } from './record-trigger-data-permissions'
 import { anyRecordEntryMayMatch, findMatchingRecordAutomations } from './record-trigger-filters'
 import { reverseCollectionFields, singleRelationshipFields } from './record-trigger-relations'
+import { identifyRequesterIfAny } from './requester-identity'
 import type { TriggerData, TriggerRequester } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
@@ -61,6 +62,8 @@ export interface TriggerRecordEventInput {
   readonly userId?: string
   /** Who made the write, as `{{trigger.user}}`: absent for a guest's write. */
   readonly requester?: TriggerRequester
+  /** `requester` completed with email and name; a batch shares one lookup per person. */
+  readonly identify?: Effect.Effect<TriggerRequester | undefined, never, CommentRepository>
   /**
    * How many automation writes separate this event from a person's write — 0
    * (the default) for a records API write, N+1 for a write by a step of an
@@ -71,17 +74,15 @@ export interface TriggerRecordEventInput {
 
 /**
  * [internal ref]: hydrate single-user `user`-typed fields of the triggering record so
- * `{{trigger.data.record.<userField>.email}}` / `.name` / `.id` resolve to the
- * referenced user rather than the bare id STRING. For each declared single-user
- * field whose record value is a non-empty id, resolve `{ id, email, name }`
- * (via the same `auth.user` lookup the comment trigger uses) and replace the
- * record value with that object. Fields whose user cannot be resolved are left
- * untouched (the raw id remains), so back-compat with the un-hydrated id is
- * preserved on a lookup miss.
+ * `{{trigger.data.record.<userField>.email}}` / `.name` / `.id` resolve to the referenced user
+ * rather than the bare id STRING. For each declared single-user field whose record value is a
+ * non-empty id, resolve `{ id, email, name }` (via the same `auth.user` lookup the comment trigger
+ * uses) and replace the record value with that object. Fields whose user cannot be resolved are
+ * left untouched (the raw id remains), so back-compat with the un-hydrated id is preserved on a
+ * lookup miss.
  *
- * `getUserMetadataById` keys solely on the `userId` argument and ignores the
- * session payload; the synthetic session only satisfies the repository port's
- * declared `UserSession` shape.
+ * `getUserMetadataById` keys solely on the `userId` argument and ignores the session payload; the
+ * synthetic session only satisfies the repository port's declared `UserSession` shape.
  */
 /**
  * GAP-J2 reverse-collection value: the FIRST reverse row's column map (a plain
@@ -208,7 +209,6 @@ const hydrateReverseCollections = (input: {
     if (reverseFields.length === 0) return columns
 
     const dataSource = yield* DataSourceRepository
-
     const overlay = yield* hydrateFields(
       reverseFields,
       ({ field, relatedTable: childTable, reverseFk }) =>
@@ -442,8 +442,8 @@ export const triggerRecordEventAutomations = (
     if (matching.length === 0) return
 
     const rows = withoutAdminOnlyTriggerFields(app, tableName, hydrated)
-    const triggerData =
-      input.requester === undefined ? rows : { ...rows, requester: input.requester }
+    const requester = yield* input.identify ?? identifyRequesterIfAny(input.requester)
+    const triggerData = requester === undefined ? rows : { ...rows, requester }
 
     yield* Effect.forEach(
       matching,

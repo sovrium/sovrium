@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SharedFilterPublisherSchema } from '../../../data-source-publishers'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
 import { i18nFields } from '../../modules/i18n'
@@ -38,6 +39,12 @@ export const kanbanFields = {
       description: 'Field whose values map to colors (kanban cards)',
     })
   ),
+  /**
+   * Publish the card the reader selects on a shared-filter channel: its record
+   * id. Clicking a card selects it, beside whatever `card.onClick` does;
+   * clicking it again clears the selection. The key `tree` and `graph` carry.
+   */
+  publishes: Schema.optional(SharedFilterPublisherSchema),
 } as const
 
 // Re-export all sub-schemas

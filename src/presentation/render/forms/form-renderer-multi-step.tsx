@@ -23,6 +23,7 @@ import { FormFieldElement, type PrefillValue } from './form-field-elements'
 import { stepItems, type resolveAllFields } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
 import { IdempotencyKeyInput } from './form-idempotency-key'
+import { RequiredLegend } from './form-required-legend'
 import { resolveStepNavLabels, type StepNavLabels } from './form-step-nav-labels'
 import type { FormLayoutKeys } from './form-layout-keys'
 import type { SaveForLaterLabels } from './form-save-for-later-labels'
@@ -88,6 +89,10 @@ export interface FormBodyShared {
   readonly cancelLabel?: string
   /** The step navigation's words in the page language; English when absent. */
   readonly stepNav?: StepNavLabels
+  /** The legend explaining the asterisk, in the page language (`form.requiredLegend`). */
+  readonly requiredLegend?: string
+  /** A one-question form's summary heading, in the page language (`form.reviewAnswers`). */
+  readonly reviewAnswersLabel?: string
 }
 
 const ENGLISH_STEP_NAV = resolveStepNavLabels(undefined, undefined)
@@ -229,6 +234,7 @@ function MultiStepFormElement({
   embedded,
   stepNav = ENGLISH_STEP_NAV,
   layoutKeys,
+  requiredLegend,
 }: MultiStepFormProps) {
   return (
     <form
@@ -238,6 +244,10 @@ function MultiStepFormElement({
       data-active-step={activeStep.id}
     >
       <IdempotencyKeyInput embedded={embedded} />
+      <RequiredLegend
+        text={requiredLegend}
+        fields={resolvedFields}
+      />
       <FormBodyStep
         step={activeStep}
         stepIndex={0}

@@ -20,6 +20,7 @@ import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { resolveCurrentUserFilters } from './current-user-filter-pass'
 import { scopeTablesOf } from './current-user-resolver'
 import { UNAUTHORIZED, type DataSourceDb } from './data-source-contracts'
+import { RECORD_DISPLAY_KEY } from './record-display-labels'
 import { bindRouteParams } from './route-param-binding'
 import { readBoundRecordForCaller, type SingleBindingQuery } from './single-record-read'
 import type { App } from '@/domain/models/app'
@@ -133,5 +134,22 @@ export async function resolvePageParentRecord(
     binding,
   })
   if (record === undefined) return { kind: 'not-found' }
-  return { kind: 'record', table: dataSource.table, record }
+  return {
+    kind: 'record',
+    table: dataSource.table,
+    record: await withLabels(record, dataSource.table, reader),
+  }
+}
+
+/**
+ * The record with the labels the records API gives this reader (`_display`), so
+ * a `user` or relationship field of the page's record reads by name, not by id.
+ */
+async function withLabels(
+  record: Readonly<Record<string, unknown>>,
+  tableName: string,
+  reader: PageParentReader
+): Promise<Readonly<Record<string, unknown>>> {
+  const labels = await reader.db.readRecordLabels?.(reader.app, tableName, record, reader.session)
+  return labels === undefined ? record : { ...record, [RECORD_DISPLAY_KEY]: labels }
 }

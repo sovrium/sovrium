@@ -27,7 +27,7 @@ export function getCacheControlHeader(): string {
 }
 
 /** A content-hashed asset: its name changes whenever its bytes do. */
-const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable'
+export const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 
 /**
  * Cache-Control for the client entries, by the kind of name they were asked for.

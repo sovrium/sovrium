@@ -5,63 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useMemo } from 'react'
-import type { SortRow } from '../use-ui-state'
 import type { SetupContext } from './setup-params'
 import type { EffectiveLayout } from './use-effective-layout'
-import type { SortingState } from '@tanstack/react-table'
 
 export type EffectiveQuery = ReturnType<typeof useEffectiveQuery>
 
 /**
- * Resolve the sort the records request will carry from the TWO stores that can
- * express one.
- *
- * The split is deliberate. It was re-measured on 2026-09-03 against a proposal
- * to collapse `activeSorts` into `state.sorting`, and the two stores hold
- * different things:
- *
- * - `headerSorting` (`state.sorting`) is what a column-header click set.
- * - `activeSorts` is what the multi-sort overlay committed.
- *
- * The overlay OVERRIDES the header without ERASING it, so clearing the overlay
- * falls back to the header's own sort rather than to no sort at all. Writing
- * the overlay straight into `state.sorting` would merge the two stores into
- * one, and clearing the overlay would then emit a DIFFERENT server query — an
- * observable behaviour change, not a refactor.
- *
- * The overlay also offers every entry in `tableFields`, not only the rendered
- * columns, so a resolved entry's `id` is not required to name a column. That is
- * legal only because `manualSorting` is hardcoded `true` and the sorted row
- * model short-circuits before it would resolve one — the same reason grouping
- * is not a registered feature (see `table-features.ts`).
- */
-export function resolveEffectiveSorting(
-  activeSorts: readonly SortRow[],
-  headerSorting: SortingState
-): SortingState {
-  return activeSorts.length > 0
-    ? activeSorts.map((s) => ({ id: s.field, desc: s.direction === 'desc' }))
-    : headerSorting
-}
-
-/**
- * The filter and sort the records request will actually carry, once the
- * runtime sort panel has had its say.
+ * The filter and sort the records request will carry: the binding's own
+ * filter, and the sort a column-header click set. The schema's
+ * `dataSource.sort` is the last fallback, applied inside the query hook itself.
  */
 export function useEffectiveQuery(ctx: SetupContext, layout: EffectiveLayout) {
   const { filter } = ctx.params.dataSource
-
-  // The runtime multi-sort panel takes precedence over column-header sort, and
-  // falls back to it when cleared. `resolveEffectiveSorting` owns that rule and
-  // records why the two stores are not merged; the schema's `dataSource.sort`
-  // is the last fallback, applied inside the query hook itself.
-  const { activeSorts } = ctx.ui
-  const headerSorting = layout.tableState.sorting
-  const sorting = useMemo(
-    () => resolveEffectiveSorting(activeSorts, headerSorting),
-    [activeSorts, headerSorting]
-  )
-
-  return { filter, sorting }
+  return { filter, sorting: layout.tableState.sorting }
 }

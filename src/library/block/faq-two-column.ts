@@ -10,7 +10,7 @@ import {
   body,
   grid,
   h2,
-  h4,
+  itemTitle,
   param,
   PLACE_NOTE,
   section,
@@ -74,7 +74,7 @@ export const entry = defineLibraryEntry({
             [1, 2, 3, 4, 5, 6].map((index) =>
               stack(
                 [
-                  h4(`[Question ${index}]`),
+                  itemTitle(`[Question ${index}]`),
                   body('[Answer in two sentences at most.]', 'text-sm sm:text-md'),
                 ],
                 'gap-2'

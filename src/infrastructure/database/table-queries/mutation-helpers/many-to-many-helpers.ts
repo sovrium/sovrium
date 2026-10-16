@@ -230,3 +230,39 @@ export const readManyToMany = (
     )
   )
 }
+
+/** The rows of a many-to-many relationship's source table to look up by their links. */
+export interface ManyToManyHoldersInput {
+  readonly table: string
+  readonly relatedTable: string
+  readonly relatedIds: readonly string[]
+}
+
+/**
+ * The ids of the rows of `table` whose many-to-many relationship to
+ * `relatedTable` links at least one of `relatedIds` — membership, answered
+ * from the link table. Every id is bound (S3); the related key column is read
+ * as text so one comparison serves an integer key and a text key alike, on
+ * both engines.
+ */
+export const readManyToManyHolders = (
+  input: ManyToManyHoldersInput
+): Effect.Effect<readonly (string | number)[], DatabaseError> => {
+  if (input.relatedIds.length === 0) return Effect.succeed([])
+  const junction = generateJunctionTableName(input.table, input.relatedTable)
+  const [srcCol, relCol] = junctionKeyColumns(input.table, input.relatedTable)
+  const ids = sql.join(
+    input.relatedIds.map((id) => sql`${id}`),
+    sql.raw(', ')
+  )
+  return Effect.tryPromise({
+    try: async () => {
+      const rows = await executeRaw(
+        db,
+        sql`SELECT DISTINCT ${sql.identifier(srcCol)} AS src FROM ${sql.identifier(junction)} WHERE CAST(${sql.identifier(relCol)} AS TEXT) IN (${ids})`
+      )
+      return rows.map((row) => row['src'] as string | number)
+    },
+    catch: wrapDatabaseError(`Failed to read many-to-many members of ${input.table}`),
+  })
+}

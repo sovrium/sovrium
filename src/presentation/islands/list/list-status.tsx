@@ -21,10 +21,15 @@ import type { ReactElement } from 'react'
 export type ListStrings = Readonly<Record<string, string>> | undefined
 
 /** Missing-binding fallback — neither `table` nor `system` configured. */
-export function ListMissing(): ReactElement {
+export function ListMissing({ strings }: { readonly strings: ListStrings }): ReactElement {
+  const [before, after] = (
+    strings?.['list.missing'] ?? 'List is missing required {setting} configuration.'
+  ).split('{setting}')
   return (
     <div className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm">
-      List is missing required <code>dataSource</code> configuration.
+      {before}
+      <code>dataSource</code>
+      {after}
     </div>
   )
 }
@@ -42,6 +47,7 @@ export function ListLoading({ strings }: { readonly strings: ListStrings }): Rea
   return (
     <div
       role="status"
+      data-loading-status=""
       aria-label={strings?.['list.loading'] ?? 'Loading list...'}
       className={`${computeListShellClasses()} gap-2 p-2`}
     >

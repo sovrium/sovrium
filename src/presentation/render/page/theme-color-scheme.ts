@@ -15,6 +15,11 @@ import type { Design } from '@/domain/models/app/design'
  * order: stored `localStorage.theme` override → configured `colorScheme`
  * ('dark'/'light') → system `prefers-color-scheme` ('system' or unset).
  *
+ * Under `system` with no stored override it also FOLLOWS the system: a change
+ * of `prefers-color-scheme` while the page is open re-applies the class, so a
+ * page does not stay in the scheme it loaded in until the next navigation. A
+ * stored choice made since (the toggle) stops the follow.
+ *
  * The body deliberately contains no `<` characters before `classList` so the
  * no-FOUC spec regex (`localStorage … classList`) matches.
  */
@@ -33,5 +38,5 @@ export function buildColorSchemeScript(colorScheme: Design['colorScheme']): stri
   // Configured default when there is no stored override: 'dark' | 'light' |
   // 'system'. Anything else (undefined) falls back to system preference.
   const configured = colorScheme === 'dark' || colorScheme === 'light' ? colorScheme : 'system'
-  return `(function(){try{var stored=window.localStorage.getItem('${COLOR_SCHEME_STORAGE_KEY}');var dark;if(stored==='dark'){dark=true}else if(stored==='light'){dark=false}else{var configured='${configured}';if(configured==='dark'){dark=true}else if(configured==='light'){dark=false}else{dark=window.matchMedia('(prefers-color-scheme: dark)').matches}}var root=document.documentElement;if(dark){root.classList.add('dark')}else{root.classList.remove('dark')}}catch(e){}})();`
+  return `(function(){try{var stored=window.localStorage.getItem('${COLOR_SCHEME_STORAGE_KEY}');var dark;if(stored==='dark'){dark=true}else if(stored==='light'){dark=false}else{var configured='${configured}';if(configured==='dark'){dark=true}else if(configured==='light'){dark=false}else{dark=window.matchMedia('(prefers-color-scheme: dark)').matches}}var root=document.documentElement;if(dark){root.classList.add('dark')}else{root.classList.remove('dark')}if(stored!=='dark'&&stored!=='light'&&configured==='system'){window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(event){var now=window.localStorage.getItem('${COLOR_SCHEME_STORAGE_KEY}');if(now!=='dark'&&now!=='light'){root.classList.toggle('dark',event.matches)}})}}catch(e){}})();`
 }

@@ -26,6 +26,7 @@ import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
 import { cn } from '@/presentation/design/class-merge'
+import { newTabName } from '@/presentation/design/new-tab-attributes'
 import { omitInternalMarkers } from '@/presentation/render/props/internal-marker-props'
 import { fileItem } from './file-preview-item'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -48,14 +49,16 @@ const DEFAULT_TOOLBAR: readonly Tool[] = ['download', 'open']
 const TOOL_CLASS = computePartButtonClasses({ variant: 'outline', size: 'sm' })
 
 /** The stage's own words, in the page language (`filePreview.*`, renamed under `sovrium.<key>`). */
-type Words = Readonly<Record<Tool | 'toolbar', string>>
+type Words = Readonly<Record<Tool | 'toolbar' | 'newTab', string>>
 
 const WORD_KEYS: readonly (keyof Words)[] = ['download', 'open', 'zoom', 'rotate', 'toolbar']
 
-const wordsFor = (lang: string | undefined, languages: Languages | undefined): Words =>
-  Object.fromEntries(
+const wordsFor = (lang: string | undefined, languages: Languages | undefined): Words => ({
+  ...(Object.fromEntries(
     WORD_KEYS.map((key) => [key, resolveInterpreterString(`filePreview.${key}`, lang, languages)])
-  ) as Words
+  ) as Omit<Words, 'newTab'>),
+  newTab: resolveInterpreterString('link.opensInNewTab', lang, languages),
+})
 
 /** A word with the file's name in its `{name}` slot. */
 const naming = (template: string, name: string): string => template.split('{name}').join(name)
@@ -98,6 +101,7 @@ function tool(name: Tool, ctx: ToolContext): ReactElement | undefined {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
+        {...newTabName(words.open, words.newTab)}
         className={TOOL_CLASS}
       >
         {words.open}

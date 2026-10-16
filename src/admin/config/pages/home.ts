@@ -45,8 +45,10 @@
 // since the system-value hook keys its query on the endpoint — and the
 // sub-lines are server text beneath them.
 
+import { CARD_SURFACE } from '../components/card'
 import { dashboardContent, sectionCard, sectionCards } from '../components/dashboard-blocks'
-import { withShell } from '../components/shell'
+import { consolePage } from '../components/data-page'
+import { sentence } from '../components/sentence'
 import {
   ADMIN_ROLES_ENDPOINT,
   ATTENTION_ENDPOINT,
@@ -120,7 +122,9 @@ const greeting: PageComponent = {
 const composer: PageComponent = {
   type: 'container',
   element: 'div',
-  visibility: { runtime: 'ai' },
+  // A model to answer, AND a caller allowed to act on what it suggests: a
+  // read-only operator is offered search instead, below.
+  visibility: { runtime: 'ai', capability: 'edit-operations' },
   props: {
     className: 'flex w-full max-w-2xl flex-col gap-4',
     'data-testid': 'welcome-composer',
@@ -129,20 +133,22 @@ const composer: PageComponent = {
     {
       type: 'ai-chat',
       agent: 'system',
-      placeholder: 'Ask about this app…',
+      placeholder: '$t:admin.common.askApp',
+      // The ⌘K palette's « Ask about this app » row lands here with the typed
+      // words in `?q=`: the composer takes them as a draft, focused and unsent.
+      draftParam: 'q',
       chatHeight: 220,
       showHistory: false,
       props: {
-        // Three prompts, drawn under the composer by the suggestion strip. They
-        // are literals rather than `$t:` tokens on purpose: the strip resolves
-        // `suggestions` through the translation table itself, so a key WOULD
-        // resolve — but every prompt here names a CONSOLE noun ("runs",
-        // "submissions") whose translation already lives in the sidebar, and a
-        // fourth spelling of each would be a fourth thing to keep in step.
+        // Three prompts, drawn under the composer by the suggestion strip, which
+        // resolves `suggestions` through the translation table. Keyed, so a
+        // French console offers French prompts: a click sends the prompt as the
+        // operator's own message, and an English one under a French console
+        // reads as the console speaking for them in the wrong language.
         suggestions: [
-          'What failed since this instance started?',
-          'Which required variables are unset?',
-          'Summarise this week’s submissions',
+          '$t:admin.welcome.suggest.failed',
+          '$t:admin.welcome.suggest.unset',
+          '$t:admin.welcome.suggest.submissions',
         ],
       },
     },
@@ -178,45 +184,46 @@ const composer: PageComponent = {
  * `$t:` token on a plain element (the measured table in `i18n/console.ts`), so
  * it is the only one that keeps the name translatable.
  */
-const searchHero: PageComponent = {
-  type: 'container',
-  element: 'div',
-  visibility: { unlessRuntime: 'ai' },
-  props: {
-    className: 'flex w-full max-w-2xl flex-col items-center gap-2',
-    'data-testid': 'welcome-search-hero',
-  },
-  children: [
-    {
-      type: 'button',
-      variant: 'outline',
-      props: {
+const searchHero = (visibility: Readonly<Record<string, unknown>>, note: string): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    visibility,
+    props: {
+      className: 'flex w-full max-w-2xl flex-col items-center gap-2',
+      'data-testid': 'welcome-search-hero',
+    },
+    children: [
+      {
         type: 'button',
-        'aria-label': '$t:admin.welcome.searchHero',
-        'data-command-palette-trigger': 'true',
-        'data-testid': 'welcome-search-trigger',
-        className:
-          'h-10 w-full justify-start gap-2 bg-muted/50 px-3 text-sm font-normal text-muted-foreground shadow-none',
-      },
-      children: [
-        { type: 'icon', props: { name: 'search', size: 16, className: 'shrink-0' } },
-        {
-          type: 'text',
-          element: 'span',
-          props: { className: 'flex-1 text-left' },
-          content: '$t:admin.shell.searchPlaceholder',
+        variant: 'outline',
+        props: {
+          type: 'button',
+          'aria-label': '$t:admin.welcome.searchHero',
+          'data-command-palette-trigger': 'true',
+          'data-testid': 'welcome-search-trigger',
+          className:
+            'h-10 w-full justify-start gap-2 bg-muted/50 px-3 text-sm font-normal text-muted-foreground shadow-none',
         },
-        { type: 'kbd', keys: ['⌘', 'K'] },
-      ],
-    },
-    {
-      type: 'text',
-      element: 'span',
-      props: { className: 'text-xs text-muted-foreground' },
-      content: '$t:admin.welcome.noAi',
-    },
-  ],
-} as PageComponent
+        children: [
+          { type: 'icon', props: { name: 'search', size: 16, className: 'shrink-0' } },
+          {
+            type: 'text',
+            element: 'span',
+            props: { className: 'flex-1 text-left' },
+            content: '$t:admin.shell.searchPlaceholder',
+          },
+          { type: 'kbd', keys: ['⌘', 'K'] },
+        ],
+      },
+      {
+        type: 'text',
+        element: 'span',
+        props: { className: 'text-xs text-muted-foreground' },
+        content: note,
+      },
+    ],
+  }) as PageComponent
 
 const hero: PageComponent = {
   type: 'container',
@@ -225,7 +232,19 @@ const hero: PageComponent = {
     className: 'flex flex-col items-center gap-6 px-4 pt-6 pb-2 lg:px-6',
     'aria-label': '$t:admin.welcome.heroRegion',
   },
-  children: [greeting, composer, searchHero],
+  children: [
+    greeting,
+    composer,
+    searchHero({ unlessRuntime: 'ai' }, '$t:admin.welcome.noAi'),
+    // The same search for the read-only operator on an instance that HAS a
+    // model: the composer is withheld from them, and the hero must not go
+    // blank. `visibility` ANDs its keys, so "no model OR read-only" is two
+    // copies under disjoint gates, and exactly one of the three reaches the page.
+    searchHero(
+      { runtime: 'ai', unlessCapability: 'edit-operations' },
+      '$t:admin.welcome.readOnlySearch'
+    ),
+  ],
 } as PageComponent
 
 // ─────────────────────────────────────────────────────────── the pulse strip
@@ -235,8 +254,9 @@ const hero: PageComponent = {
  * console that answers it.
  *
  * `warn` decides whether a non-zero count is painted red. Three of the six
- * cells name something BROKEN (a failed run, an unset required variable, an
- * expired token); the other three (invitations, submissions, a deliberately
+ * cells name something BROKEN (a failed run, an unset required variable, a
+ * connection to reconnect — expired, unrenewable or never authorised); the
+ * other three (invitations, submissions, a deliberately
  * paused automation) are states of ordinary operation and stay neutral. The
  * figure is a `kpi` with `thresholds` from 1, so the colour follows the value.
  */
@@ -251,6 +271,14 @@ interface PulseCell {
   readonly href: string
   /** Whether a non-zero count is damage rather than news. */
   readonly warn: boolean
+  /** Whether the link names the count itself ("3 findings →"). */
+  readonly countInLink?: boolean
+  /**
+   * The feature the destination page requires, when it requires one. A cell
+   * pointing at a page the host does not serve would lead into a 404, so it is
+   * not drawn at all — the same declaration that prunes the sidebar row.
+   */
+  readonly declares?: 'automations' | 'connections' | 'forms'
 }
 
 const PULSE_CELLS: readonly PulseCell[] = [
@@ -258,8 +286,9 @@ const PULSE_CELLS: readonly PulseCell[] = [
     key: 'failedRuns',
     count: 'failedRuns',
     detail: 'failedRunsDetail',
-    href: '/automations',
+    href: '/runs',
     warn: true,
+    declares: 'automations',
   },
   {
     key: 'variablesUnset',
@@ -274,6 +303,7 @@ const PULSE_CELLS: readonly PulseCell[] = [
     detail: 'tokensExpiredDetail',
     href: '/connections',
     warn: true,
+    declares: 'connections',
   },
   {
     key: 'invitationsPending',
@@ -286,52 +316,91 @@ const PULSE_CELLS: readonly PulseCell[] = [
     key: 'recentSubmissions',
     count: 'recentSubmissions',
     detail: 'recentSubmissionsDetail',
-    href: '/forms',
+    href: '/submissions',
     warn: false,
+    declares: 'forms',
   },
   {
-    key: 'automationsPaused',
-    count: 'automationsPaused',
-    detail: 'automationsPausedDetail',
-    href: '/automations',
+    key: 'findingsCount',
+    count: 'findingsCount',
+    detail: 'findingsDetail',
+    href: '/organisation',
     warn: false,
+    countInLink: true,
   },
 ]
 
+/** A component drawn only when the host declares `feature`, or always when none is named. */
+const withDeclares = (
+  feature: string | undefined,
+  component: PageComponent,
+  record?: Readonly<Record<string, unknown>>
+): PageComponent =>
+  feature === undefined && record === undefined
+    ? component
+    : ({
+        ...(component as Record<string, unknown>),
+        visibility: {
+          ...(feature === undefined ? {} : { declares: feature }),
+          ...(record === undefined ? {} : { record }),
+        },
+      } as PageComponent)
+
 /** One attention card: the figure from the attention read, its detail, the way to fix it. */
 const pulseCard = (cell: PulseCell): PageComponent =>
-  sectionCard({
-    testId: `welcome-pulse-${cell.key}`,
-    label: `$t:admin.welcome.pulse.${cell.key}`,
-    endpoint: ATTENTION_ENDPOINT,
-    valuePath: cell.count,
-    attention: cell.warn,
-    footer: [
-      {
-        // shadcn's section-card footer: a column, the detail over the way to fix it.
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-col items-start gap-1.5 text-sm' },
-        children: [
-          {
-            type: 'text',
-            element: 'p',
-            props: { className: 'text-muted-foreground empty:hidden!' },
-            content: `$record.${cell.detail}`,
-          },
-          {
-            type: 'link',
-            props: {
-              href: cell.href,
-              className:
-                'text-muted-foreground underline-offset-4 hover:text-foreground hover:underline',
+  withDeclares(
+    cell.declares,
+    sectionCard({
+      testId: `welcome-pulse-${cell.key}`,
+      label: `$t:admin.welcome.pulse.${cell.key}`,
+      endpoint: ATTENTION_ENDPOINT,
+      valuePath: cell.count,
+      attention: cell.warn,
+      footer: [
+        {
+          // shadcn's section-card footer: a column, the detail over the way to fix it.
+          type: 'container',
+          element: 'div',
+          props: { className: 'flex flex-col items-start gap-1.5 text-sm' },
+          children: [
+            {
+              type: 'text',
+              element: 'p',
+              props: { className: 'text-muted-foreground empty:hidden!' },
+              content: `$record.${cell.detail}`,
             },
-            content: `$t:admin.welcome.pulse.${cell.key}.where`,
-          },
-        ],
-      },
-    ] as readonly PageComponent[],
-  })
+            {
+              type: 'link',
+              props: {
+                href: cell.href,
+                className:
+                  'text-muted-foreground underline-offset-4 hover:text-foreground hover:underline',
+              },
+              // The findings link names its count ("3 findings →"): a figure
+              // inside a translated sentence does not substitute, so the count
+              // is its own node before the translated words.
+              ...(cell.countInLink === true
+                ? {
+                    children: [
+                      { type: 'text', element: 'span', content: `$record.${cell.count}` },
+                      { type: 'text', element: 'span', content: ' ' },
+                      {
+                        type: 'text',
+                        element: 'span',
+                        content: `$t:admin.welcome.pulse.${cell.key}.where`,
+                      },
+                    ],
+                  }
+                : { content: `$t:admin.welcome.pulse.${cell.key}.where` }),
+            },
+          ],
+        },
+      ] as readonly PageComponent[],
+    }),
+    // Only an item that is not at zero is drawn: a list of zeros buries the
+    // one figure that moved. The page record is the attention read itself.
+    { field: cell.count, gt: 0 }
+  )
 
 /** A section heading over a card grid, on the content column's gutter. */
 const sectionHeading = (content: string): PageComponent =>
@@ -342,12 +411,44 @@ const sectionHeading = (content: string): PageComponent =>
     content,
   }) as PageComponent
 
+/**
+ * The quiet instance: one sentence instead of a row of zeros.
+ *
+ * `attentionItems` is the attention read's own count of the items above zero,
+ * so this and the cards above are mutually exclusive by construction — exactly
+ * one of "nothing to do" and "here is what to do" reaches the page.
+ */
+const allClear: PageComponent = {
+  type: 'container',
+  element: 'div',
+  visibility: { record: { field: 'attentionItems', eq: 0 } },
+  props: {
+    className: `${CARD_SURFACE} mx-4 flex flex-col gap-1 p-4 lg:mx-6`,
+    'data-testid': 'welcome-all-clear',
+  },
+  children: [
+    {
+      type: 'text',
+      element: 'p',
+      props: { className: 'text-foreground text-sm font-medium' },
+      content: '$t:admin.welcome.pulse.allClear',
+    },
+    {
+      type: 'text',
+      element: 'p',
+      props: { className: 'text-muted-foreground text-sm' },
+      content: '$t:admin.welcome.pulse.allClear.body',
+    },
+  ],
+} as PageComponent
+
 const pulse: PageComponent = {
   type: 'container',
   element: 'section',
   props: { className: 'flex flex-col gap-3', 'aria-label': '$t:admin.welcome.pulse.region' },
   children: [
     sectionHeading('$t:admin.welcome.pulse.heading'),
+    allClear,
     sectionCards(PULSE_CELLS.map(pulseCard), { 'data-testid': 'welcome-pulse' }),
   ],
 } as PageComponent
@@ -361,82 +462,124 @@ interface CountTile {
   readonly label: string
   readonly endpoint: string
   readonly valuePath: string
-  readonly sub?: string
+  readonly sub?: readonly string[]
+  /** The feature the tile counts, when the app may not declare it at all. */
+  readonly declares?: 'tables' | 'automations' | 'agents' | 'buckets' | 'forms' | 'links'
 }
 
 const COUNT_TILES: readonly CountTile[] = [
-  { key: 'pages', label: 'Pages', endpoint: CONFIG_REFLECTION_ENDPOINT, valuePath: 'pageCount' },
+  {
+    key: 'pages',
+    label: '$t:admin.common.pages',
+    endpoint: CONFIG_REFLECTION_ENDPOINT,
+    valuePath: 'pageCount',
+  },
   {
     key: 'tables',
-    label: 'Tables',
+    label: '$t:admin.common.tables',
     endpoint: CONFIG_REFLECTION_ENDPOINT,
     valuePath: 'tableCount',
-    sub: '$record.tableFields fields',
+    sub: ['$record.tableFields', ' ', '$t:admin.welcome.sub.fields'],
+    declares: 'tables',
   },
   {
     key: 'automations',
-    label: 'Automations',
+    label: '$t:admin.common.automations',
     endpoint: CONFIG_REFLECTION_ENDPOINT,
     valuePath: 'automationCount',
-    sub: '$record.automationsPaused paused · $record.automationsDisabled disabled',
+    sub: [
+      '$record.automationsPaused',
+      ' ',
+      '$t:admin.welcome.sub.paused',
+      ' · ',
+      '$record.automationsDisabled',
+      ' ',
+      '$t:admin.welcome.sub.disabled',
+    ],
+    declares: 'automations',
   },
   {
     key: 'agents',
-    label: 'Agents',
+    label: '$t:admin.common.agents',
     endpoint: CONFIG_REFLECTION_ENDPOINT,
     valuePath: 'agentCount',
-    sub: '$record.agentsSystem built-in',
+    sub: ['$record.agentsSystem', ' ', '$t:admin.welcome.sub.builtIn'],
+    declares: 'agents',
   },
   {
     key: 'buckets',
-    label: 'Buckets',
+    label: '$t:admin.common.buckets',
     endpoint: CONFIG_REFLECTION_ENDPOINT,
     valuePath: 'bucketCount',
-    sub: '$record.bucketsSystem built-in · $record.bucketsS3 s3 · $record.bucketsLocal local',
+    sub: [
+      '$record.bucketsSystem',
+      ' ',
+      '$t:admin.welcome.sub.builtIn',
+      ' · ',
+      '$record.bucketsS3',
+      ' s3 · ',
+      '$record.bucketsLocal',
+      ' ',
+      '$t:admin.welcome.sub.local',
+    ],
+    declares: 'buckets',
   },
-  { key: 'forms', label: 'Forms', endpoint: CONFIG_REFLECTION_ENDPOINT, valuePath: 'formCount' },
+  {
+    key: 'forms',
+    label: '$t:admin.common.forms',
+    endpoint: CONFIG_REFLECTION_ENDPOINT,
+    valuePath: 'formCount',
+    declares: 'forms',
+  },
   {
     key: 'links',
-    label: 'Links',
+    label: '$t:admin.common.links',
     endpoint: LINKS_ENDPOINT,
     valuePath: 'total',
-    sub: '$record.linksConfig config · $record.linksDb db',
+    sub: [
+      '$record.linksConfig',
+      ' ',
+      '$t:admin.welcome.sub.config',
+      ' · ',
+      '$record.linksDb',
+      ' ',
+      '$t:admin.welcome.sub.db',
+    ],
+    declares: 'links',
   },
   {
     key: 'users',
-    label: 'Users',
+    label: '$t:admin.common.users',
     endpoint: OVERVIEW_ENDPOINT,
     valuePath: 'users.total',
-    sub: '$record.usersBanned banned',
+    sub: ['$record.usersBanned', ' ', '$t:admin.welcome.sub.banned'],
   },
   {
     key: 'roles',
-    label: 'Roles',
+    label: '$t:admin.common.roles',
     endpoint: ADMIN_ROLES_ENDPOINT,
     valuePath: 'total',
-    sub: '$record.teams teams',
+    sub: ['$record.teams', ' ', '$t:admin.welcome.sub.teams'],
   },
 ]
 
 const countCard = (tile: CountTile): PageComponent =>
-  sectionCard({
-    testId: `welcome-tile-${tile.key}`,
-    label: tile.label,
-    endpoint: tile.endpoint,
-    valuePath: tile.valuePath,
-    ...(tile.sub === undefined
-      ? {}
-      : {
-          footer: [
-            {
-              type: 'text',
-              element: 'p',
-              props: { className: 'text-sm text-muted-foreground' },
-              content: tile.sub,
-            },
-          ] as readonly PageComponent[],
-        }),
-  })
+  withDeclares(
+    tile.declares,
+    sectionCard({
+      testId: `welcome-tile-${tile.key}`,
+      label: tile.label,
+      endpoint: tile.endpoint,
+      valuePath: tile.valuePath,
+      ...(tile.sub === undefined
+        ? {}
+        : {
+            footer: [
+              sentence('text-sm text-muted-foreground', tile.sub),
+            ] as readonly PageComponent[],
+          }),
+    })
+  )
 
 const counts: PageComponent = {
   type: 'container',
@@ -448,22 +591,15 @@ const counts: PageComponent = {
   ],
 } as PageComponent
 
-export default withShell(
-  {
-    id: 'dashboard-overview',
-    name: 'dashboard-overview',
-    path: '/',
-    meta: {
-      title: '$t:admin.meta.welcome',
-      // Stated rather than inferred. `languages.default` is the CODE `en`, and
-      // it sits ahead of the renderer's `en-US` fallback — so leaving this off
-      // would silently move `<html lang>` from `en-US` to `en`.
-      lang: 'en-US',
-    },
+export default consolePage({
+  id: 'dashboard-overview',
+  path: '/',
+  title: '$t:admin.meta.welcome',
+  page: {
     // The page RECORD. Every `$record.*` above resolves from this one read,
     // server-side, with no island.
     dataSource: { system: { endpoint: ATTENTION_ENDPOINT } },
-    components: [dashboardContent([hero, pulse, counts])],
-  } as PageConfig,
-  { flush: true }
-) satisfies PageConfig
+  },
+  shell: { flush: true },
+  body: [dashboardContent([hero, pulse, counts])],
+}) satisfies PageConfig

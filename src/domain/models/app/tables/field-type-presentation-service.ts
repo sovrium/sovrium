@@ -32,7 +32,7 @@ const TEXT_FORMAT_BY_FIELD_TYPE: Readonly<Record<string, RecordTextField['format
   'single-select': 'option',
   status: 'option',
   'multi-select': 'options',
-  duration: 'duration',
+  duration: 'duration-clock',
 }
 
 /** The format a field type reads in by default, or `undefined` when it prints as stored. */

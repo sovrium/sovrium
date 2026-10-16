@@ -347,20 +347,22 @@ const runReplaceDeletes = (input: ExecuteSeedPlanInput): Promise<void> =>
     })
 
 /**
- * Run the plan and return the per-table report an operator reads in a journal.
+ * Run the plan and return the per-table report an operator reads in a journal,
+ * with the id of every key it wrote — the accounts' grants are written after.
  *
  * Throws {@link SeedWriteError} on any failure — there is no partial-success
  * outcome, because `demo-reset.service` runs with `Type=oneshot` and the exit
  * code is the only signal the nightly reset produces.
  */
-export const executeSeedPlan = async (input: ExecuteSeedPlanInput): Promise<readonly string[]> => {
+export const executeSeedPlan = async (input: ExecuteSeedPlanInput): Promise<TableOutcome> => {
   if (input.dryRun) {
     // `if-empty` skips a table that holds rows, so its plan says which ones would be skipped.
     const counted = input.mode === 'if-empty' ? input.plan.order : []
     const present = new Map(
       await Promise.all(counted.map(async (n) => [n, await countRows(n)] as const))
     )
-    return [...dryRunLines(input.plan, input.mode, present), '[dry-run] no changes written']
+    const lines = [...dryRunLines(input.plan, input.mode, present), '[dry-run] no changes written']
+    return { value: lines, index: emptyKeyIndex }
   }
 
   const cleared = input.mode === 'replace' ? runReplaceDeletes(input) : Promise.resolve()
@@ -372,17 +374,15 @@ export const executeSeedPlan = async (input: ExecuteSeedPlanInput): Promise<read
   }
 
   return cleared.then(() =>
-    input.plan.order
-      .reduce<Promise<TableOutcome>>(
-        (previous, name) =>
-          previous.then(async (carried) => {
-            const table = input.plan.tables.find((candidate) => candidate.name === name)
-            if (table === undefined) return carried
-            const written = await seedOneTable(input, context, carried.index, table)
-            return { value: [...carried.value, ...written.value], index: written.index }
-          }),
-        Promise.resolve({ value: [], index: emptyKeyIndex })
-      )
-      .then((outcome) => outcome.value)
+    input.plan.order.reduce<Promise<TableOutcome>>(
+      (previous, name) =>
+        previous.then(async (carried) => {
+          const table = input.plan.tables.find((candidate) => candidate.name === name)
+          if (table === undefined) return carried
+          const written = await seedOneTable(input, context, carried.index, table)
+          return { value: [...carried.value, ...written.value], index: written.index }
+        }),
+      Promise.resolve({ value: [], index: emptyKeyIndex })
+    )
   )
 }

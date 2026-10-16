@@ -56,23 +56,38 @@ export type ListEventsQuery = typeof listEventsQuerySchema.Type
 // ============================================================================
 
 /**
- * Single analytics event response schema
+ * Single analytics event response schema.
+ *
+ * The keys are snake_case, matching the `event_type` / `event_name` query
+ * parameters and the stored column names: this is the shape
+ * `GET /api/analytics/events` has always answered, and the reader every
+ * client of it was written against. The handler shapes each event through
+ * this schema, so the documented contract and the wire cannot drift apart.
  */
 export const analyticsEventResponseSchema = Schema.Struct({
   /** Unique event identifier */
   id: uuid({ description: 'Unique event identifier' }),
   /** Application name that recorded the event */
-  appName: Schema.String.annotate({ description: 'Application name that recorded the event' }),
+  app_name: Schema.String.annotate({ description: 'Application name that recorded the event' }),
   /** Event type discriminator */
-  eventType: Schema.String.annotate({ description: 'Event type (page_view or track)' }),
+  event_type: Schema.String.annotate({
+    description: 'Event type: page_view, track, link_click, qr_scan, …',
+  }),
   /** Custom event name (null for page_view events) */
-  eventName: Schema.NullOr(
-    Schema.String.annotate({ description: 'Custom event name (null for page_view events)' })
+  event_name: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'Event name: the tracked name, or the link slug for a link_click. Null for page_view events',
+    })
+  ),
+  /** Optional organization id */
+  org_id: Schema.NullOr(
+    Schema.String.annotate({ description: 'Organization the event was recorded under, if any' })
   ),
   /** SHA-256 hashed visitor identifier */
-  visitorHash: Schema.String.annotate({ description: 'SHA-256 hashed visitor identifier' }),
+  visitor_hash: Schema.String.annotate({ description: 'SHA-256 hashed visitor identifier' }),
   /** SHA-256 hashed session identifier */
-  sessionHash: Schema.String.annotate({ description: 'SHA-256 hashed session identifier' }),
+  session_hash: Schema.String.annotate({ description: 'SHA-256 hashed session identifier' }),
   /** When the event was recorded */
   timestamp: looseIsoDateTime({ description: 'ISO 8601 timestamp of when the event was recorded' }),
   /** Arbitrary event properties */

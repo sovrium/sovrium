@@ -111,7 +111,7 @@ const region = (label: string, body: readonly PageComponent[], provenance: strin
     children: [
       {
         type: 'text',
-        element: 'h3',
+        element: 'h2',
         props: { className: 'pb-4 text-xl font-semibold tracking-tight' },
         content: label,
       },
@@ -138,21 +138,21 @@ const measuredRegion = (): PageComponent =>
         props: { className: 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4' },
         children: [
           sectionCard({
-            label: 'Last graded response',
+            label: '$t:admin.footprint.lastGraded',
             endpoint: FOOTPRINT_ENDPOINT,
             system: { valueTemplate: '{ecoIndexHeader.currentGrade}' },
             kpiFormat: null,
           }),
-          tile('Responses graded', 'ecoIndexHeader.graded', { type: 'number' }),
-          tile('Mean response size', 'ecoIndexHeader.meanBytes', { type: 'bytes' }),
-          tile('Cache hit rate', 'pageCache.hitRate', {
+          tile('$t:admin.footprint.graded', 'ecoIndexHeader.graded', { type: 'number' }),
+          tile('$t:admin.footprint.meanSize', 'ecoIndexHeader.meanBytes', { type: 'bytes' }),
+          tile('$t:admin.footprint.cacheHit', 'pageCache.hitRate', {
             type: 'percentage',
             options: { scale: '100' },
           }),
-          tile('Cache size', 'pageCache.bytes', { type: 'bytes' }),
-          tile('Memory', 'runtime.rssBytes', { type: 'bytes' }),
-          tile('CPU seconds', 'runtime.cpuSeconds', { type: 'number' }),
-          tile('Uptime seconds', 'runtime.uptimeSeconds', { type: 'number' }),
+          tile('$t:admin.footprint.cacheSize', 'pageCache.bytes', { type: 'bytes' }),
+          tile('$t:admin.footprint.memory', 'runtime.rssBytes', { type: 'bytes' }),
+          tile('$t:admin.footprint.cpu', 'runtime.cpuSeconds', { type: 'number' }),
+          tile('$t:admin.footprint.uptime', 'runtime.uptimeSeconds', { type: 'number' }),
         ],
       } as PageComponent,
     ],
@@ -177,25 +177,28 @@ const storageRegion = (): PageComponent =>
           system: { endpoint: FOOTPRINT_ENDPOINT, rowsKey: 'topStorageConsumers', idKey: 'name' },
         },
         columns: [
-          { field: 'name', label: 'Resource' },
+          { field: 'name', label: '$t:admin.footprint.resource' },
           {
             field: 'type',
-            label: 'Type',
-            valueLabels: { table: 'Database table', bucket: 'Object store' },
+            label: '$t:admin.common.type',
+            valueLabels: {
+              table: '$t:admin.footprint.kind.table',
+              bucket: '$t:admin.footprint.kind.bucket',
+            },
           },
-          { field: 'bytes', label: 'Size (bytes)', format: 'compact' },
+          { field: 'bytes', label: '$t:admin.footprint.bytes', format: 'compact' },
           {
             field: 'measurement',
-            label: 'Measured by',
+            label: '$t:admin.footprint.measuredBy',
             valueLabels: {
-              pg_total_relation_size: 'PostgreSQL catalog',
+              pg_total_relation_size: '$t:admin.footprint.by.postgres',
               sqlite_dbstat: 'SQLite dbstat',
-              storage_adapter: 'Storage adapter',
-              unavailable: 'Not available',
+              storage_adapter: '$t:admin.footprint.by.storage',
+              unavailable: '$t:admin.footprint.by.unavailable',
             },
           },
         ],
-        emptyMessage: 'Nothing to size yet',
+        emptyMessage: '$t:admin.footprint.nothing',
       }) as PageComponent,
     ],
     '$t:admin.locked.audit.footprint.storageProvenance'
@@ -216,19 +219,19 @@ const configurationRegion = (): PageComponent =>
         props: { id: 'admin-footprint-levers', 'aria-label': '$t:admin.footprint.levers.region' },
         dataSource: { system: { endpoint: FOOTPRINT_ENDPOINT, rowsKey: 'levers', idKey: 'name' } },
         columns: [
-          { field: 'name', label: 'Lever' },
-          { field: 'effective', label: 'In force' },
+          { field: 'name', label: '$t:admin.footprint.lever' },
+          { field: 'effective', label: '$t:admin.footprint.inForce' },
           {
             field: 'source',
-            label: 'Decided by',
+            label: '$t:admin.footprint.decidedBy',
             valueLabels: {
-              explicit: 'You set it',
+              explicit: '$t:admin.footprint.source.explicit',
               'eco-mode': 'ECO_MODE',
-              default: 'Platform default',
+              default: '$t:admin.footprint.source.default',
             },
           },
         ],
-        emptyMessage: 'No levers',
+        emptyMessage: '$t:admin.footprint.noLevers',
       }) as PageComponent,
     ],
     '$t:admin.locked.audit.footprint.configurationProvenance'

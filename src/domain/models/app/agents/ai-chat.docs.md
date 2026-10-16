@@ -51,6 +51,10 @@ An empty composer is the hardest thing to answer: a reader who does not already 
 
 The chips appear in the order declared; nothing sorts, deduplicates or truncates the list, and a chat declaring none shows no strip at all. Each entry may be a translation key.
 
+### Opening words from a link
+
+`draftParam` names a URL query parameter the chat reads its opening words from. With `draftParam: q`, a page reached at `/ask?q=Which%20invoices%20are%20overdue` opens the chat with "Which invoices are overdue" in its message box and the box focused. **Nothing is sent**: like a chip, the words wait for the reader, because anyone can craft an address. A link carrying the parameter with nothing in it (`/ask?q=`) still focuses the box, empty. A chat that declares no `draftParam` reads nothing from the address. The words travel in the address, so they land in the browser's history like a search.
+
 ## The REST endpoint
 
 It authenticates like every other API route: a session cookie from a browser, or an API key header from a script. A bearer token is not a credential here and answers `401`.

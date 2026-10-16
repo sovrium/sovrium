@@ -45,6 +45,28 @@
  * The token is never written in the file: a template ships its seed folder
  * publicly, and a token everyone can read is an invitation anyone can accept.
  *
+ * ## Access grants
+ *
+ * An app that lists tables in `auth.scopeTables` decides who sees which of
+ * their records through grants. `grants` gives the account its grants, written
+ * with the same `@<table>.<key>` references a table seed file uses, so a demo
+ * portal can be seeded whole — accounts, records, and who sees what:
+ *
+ * ```yaml
+ *   - email: nadia@quayside.example
+ *     name: Nadia Benali
+ *     role: member
+ *     grants:
+ *       - table: projects
+ *         records: ['@projects.harbour-refit', '@projects.quay-lighting']
+ *         role: client
+ * ```
+ *
+ * Each grant names one scope table and the records of THAT table: a reference
+ * into another table is refused here, before any file is resolved, because a
+ * grant over `projects` naming a client is not a typo the database could catch
+ * — record ids are not typed by table.
+ *
  * ## Why the password is optional
  *
  * A template ships its seed folder publicly. A password written in it is a
@@ -55,6 +77,51 @@
  */
 
 import { Schema } from 'effect'
+import { parseSeedReference } from './references'
+
+/** One access grant a seed run gives an account. */
+export const SeedGrantSchema = Schema.Struct({
+  table: Schema.String.pipe(
+    Schema.annotate({
+      description: 'The scope table the grant covers. Must be listed in auth.scopeTables.',
+    }),
+    Schema.check(Schema.isNonEmpty({ message: 'table must not be empty' }))
+  ),
+  records: Schema.Array(
+    Schema.String.pipe(
+      Schema.annotate({
+        description: 'A record of that table, as a seed reference: @<table>.<key>.',
+      })
+    )
+  ).pipe(
+    Schema.annotate({
+      description:
+        'The records the account is given access to, each written @<table>.<key> with the grant table.',
+    }),
+    Schema.check(Schema.isMinLength(1, { message: 'records must name at least one record' }))
+  ),
+  role: Schema.String.pipe(
+    Schema.annotate({
+      description: 'The role the account holds over those records. Must be declared in auth.roles.',
+    }),
+    Schema.check(Schema.isNonEmpty({ message: 'role must not be empty' }))
+  ),
+}).pipe(
+  Schema.annotate({
+    title: 'Seed Grant',
+    description: 'Access to some records of one scope table, under one role.',
+  }),
+  Schema.check(
+    Schema.makeFilter((grant) => {
+      const stray = grant.records.find(
+        (record) => parseSeedReference(record)?.table !== grant.table
+      )
+      return stray === undefined
+        ? true
+        : `"${stray}" is not a record of ${grant.table}: write each record as @${grant.table}.<key>.`
+    })
+  )
+)
 
 /** One account a seed run creates. */
 export const SeedAccountSchema = Schema.Struct({
@@ -95,6 +162,14 @@ export const SeedAccountSchema = Schema.Struct({
           'Email of the account the invitation is from, shown on the invitation page. Only on an invited account.',
       }),
       Schema.check(Schema.isNonEmpty({ message: 'invitedBy must not be empty' }))
+    )
+  ),
+  grants: Schema.optional(
+    Schema.Array(SeedGrantSchema).pipe(
+      Schema.annotate({
+        description:
+          'Access grants the account is given over records of the scope tables, written after those tables are seeded.',
+      })
     )
   ),
 }).pipe(

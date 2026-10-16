@@ -13,6 +13,7 @@ import {
 import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
 import { openerProp } from '@/presentation/render/resolve/overlay-triggers'
 import { splitSlots } from '../elements/slot-children'
+import { typedConfirmPrompt } from './typed-confirm-prompt'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
@@ -26,6 +27,18 @@ export const overlayCloseLabel = (context: {
   readonly currentLang?: string
   readonly languages?: Languages
 }): string => resolveInterpreterString('dialog.close', context.currentLang, context.languages)
+
+/** What a dialog's props are built from beyond its own: its component, and its page's language. */
+type DialogSource = Parameters<typeof overlayCloseLabel>[0] & {
+  readonly component?: Component | undefined
+  readonly routeParams?: Readonly<Record<string, string | undefined>>
+}
+
+/** The Cancel and Continue a dialog draws when its author names neither, in the page language. */
+const dialogButtonWords = (page: DialogSource) => ({
+  cancel: resolveInterpreterString('dialog.cancel', page.currentLang, page.languages),
+  confirm: resolveInterpreterString('dialog.continue', page.currentLang, page.languages),
+})
 
 /** The name of an overlay that declares no title, in the page language (`dialog.label`). */
 export const overlayUntitledLabel = (context: {
@@ -108,7 +121,6 @@ export function withResolvedMenuItemIcons(menuItems: unknown): unknown {
   })
 }
 
-/** Builds the props payload for the `alert-dialog` island. */
 /** An alert dialog's size, and its icon as serializable geometry so the island ships no icon set. */
 const alertIconProps = (size: unknown, icon: unknown) => {
   const iconNode = resolveLucideIconNode(typeof icon === 'string' ? icon : undefined)
@@ -116,13 +128,15 @@ const alertIconProps = (size: unknown, icon: unknown) => {
   return iconNode === undefined ? sized : { ...sized, iconNode, iconName: icon as string }
 }
 
+/** Builds the props payload for the `alert-dialog` island. */
 export function buildAlertDialogProps(
   rawProps: Record<string, unknown> | undefined,
   elementProps: Record<string, unknown>,
-  component: Component | undefined,
-  routeParams?: Readonly<Record<string, string | undefined>>
+  source: DialogSource
 ) {
+  const { component, routeParams } = source
   const comp = (component ?? {}) as Record<string, unknown>
+  const words = dialogButtonWords(source)
   // Prefer top-level `content` (matches authoring convention in specs) and
   // fall back to props.description for the supporting text below the title.
   const contentText = typeof comp['content'] === 'string' ? (comp['content'] as string) : undefined
@@ -133,14 +147,14 @@ export function buildAlertDialogProps(
   return {
     title: rawProps?.['title'],
     description: contentText ?? rawProps?.['description'],
-    cancelLabel: pickAlertField(comp, rawProps, 'cancelLabel', 'Cancel'),
-    confirmLabel: pickAlertField(comp, rawProps, 'confirmLabel', 'Continue'),
+    cancelLabel: pickAlertField(comp, rawProps, 'cancelLabel', words.cancel),
+    confirmLabel: pickAlertField(comp, rawProps, 'confirmLabel', words.confirm),
     variant: rawProps?.['variant'] ?? 'default',
     // The island ignores an `undefined` action (confirm just closes), so always
     // include the key rather than a conditional spread — keeps complexity low.
     action: withBoundRecordId(comp['action'] ?? rawProps?.['action'], rawProps, routeParams),
-    // Already substituted (`$record.name`, `$session.email`) by the page pass.
-    confirmText: pickAlertField(comp, rawProps, 'confirmText'),
+    // Already substituted (`$record.name`, `$session.email`) by the page pass; its label beside it.
+    ...typedConfirmPrompt(source, pickAlertField(comp, rawProps, 'confirmText')),
     ...alertIconProps(comp['size'], comp['icon']),
     className: elementProps['className'],
     id: elementProps['id'],
@@ -177,12 +191,13 @@ export function buildDialogProps(
   rawProps: Record<string, unknown> | undefined,
   elementProps: Record<string, unknown>,
   childrenHtml: string,
-  component: Component | undefined
+  source: DialogSource
 ) {
+  const { component } = source
   return {
     title: rawProps?.['title'],
     description: rawProps?.['description'],
-    cancelLabel: rawProps?.['cancelLabel'],
+    cancelLabel: rawProps?.['cancelLabel'] ?? dialogButtonWords(source).cancel,
     confirmLabel: rawProps?.['confirmLabel'],
     variant: rawProps?.['variant'],
     childrenHtml,

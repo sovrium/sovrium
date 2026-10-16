@@ -23,6 +23,9 @@ components:
             children:
               - type: form
                 formRef: contact-support
+                # The form is this page's main content, so its title is the page heading.
+                props:
+                  headingLevel: h1
               - type: text
                 element: p
                 props:

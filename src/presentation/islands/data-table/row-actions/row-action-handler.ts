@@ -10,8 +10,10 @@ import { runSuccessOutcome } from '../../runtime/action-outcome'
 import { dispatch as dispatchIslandEvent } from '../../runtime/event-bus'
 import { substituteRecord } from '../../runtime/fetch-action-substitution'
 import { renderToast } from '../../runtime/toast'
+import { toastWriteRefusal } from '../../runtime/write-refusal'
 import { runAccountRowAction, type AccountRowAction } from './account-row-actions'
 import { runAutomationRowAction, type AutomationRowAction } from './automation-row-action'
+import { removeRowThenRefreshOnce } from './deleted-row-refresh'
 import type { RowActionHandler } from './row-action-types'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 import type { QueryClient } from '@tanstack/react-query'
@@ -24,6 +26,8 @@ interface CreateRowActionHandlerParams {
    * names it so the drawer binds the row only to that table's update forms.
    */
   readonly tableName?: string
+  /** The page-language strings, for a refusal's toast. */
+  readonly strings?: Readonly<Record<string, string>> | undefined
 }
 
 type CrudAction = {
@@ -48,6 +52,7 @@ interface RowPress {
   readonly queryClient: QueryClient
   readonly queryKey: readonly unknown[]
   readonly origin: Element | undefined
+  readonly strings?: Readonly<Record<string, string>> | undefined
 }
 
 /**
@@ -108,6 +113,30 @@ async function runFetchRowAction(
   if (result?.ok) await press.queryClient.invalidateQueries({ queryKey: press.queryKey })
 }
 
+/** A refused write: rate limit says how long to wait; anything else shows `onError`. */
+const reportCrudFailure = (
+  crudAction: CrudAction,
+  response: Response | undefined,
+  press: RowPress
+): void => {
+  if (response !== undefined && toastWriteRefusal(response, press.strings)) return
+  renderCrudToast(crudAction, 'error')
+}
+
+/**
+ * What the grid re-reads after an accepted write: a delete takes the row out at
+ * once and re-reads once the deletes pause (`deleted-row-refresh.ts`), so a
+ * reader clearing rows one by one does not re-read the page per delete; an
+ * update re-reads now.
+ */
+const refreshAfter = (crudAction: CrudAction, recordId: string, press: RowPress) => {
+  if (crudAction.operation !== 'delete') {
+    return press.queryClient.invalidateQueries({ queryKey: press.queryKey })
+  }
+  removeRowThenRefreshOnce(press.queryClient, press.queryKey, recordId)
+  return Promise.resolve()
+}
+
 /**
  * Issue the configured CRUD operation against the records API, render the
  * success/error toast, and invalidate the table query on success. An accepted
@@ -130,9 +159,9 @@ async function runCrudRowAction(
         close: crudAction.onSuccess?.close,
         navigate: navigate === undefined ? undefined : substituteRecord(navigate, record),
       })
-      await press.queryClient.invalidateQueries({ queryKey: press.queryKey })
+      await refreshAfter(crudAction, recordId, press)
     } else {
-      renderCrudToast(crudAction, 'error')
+      reportCrudFailure(crudAction, response, press)
     }
   } catch {
     renderCrudToast(crudAction, 'error')
@@ -171,9 +200,10 @@ export function createRowActionHandler({
   queryClient,
   queryKey,
   tableName,
+  strings,
 }: CreateRowActionHandlerParams): RowActionHandler {
   return async (action, record, origin) => {
-    const press: RowPress = { queryClient, queryKey, origin }
+    const press: RowPress = { queryClient, queryKey, origin, strings }
     // OpenDrawer action (discriminated by `action: 'openSheet'`, not `type`):
     // fire the shared `sovrium:open-drawer` event so a sibling drawer / detail
     // island opens populated by the clicked row. Used by the automation-runs

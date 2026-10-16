@@ -32,8 +32,8 @@ The summary goes out on `SOVRIUM_NOTIFY_DIGEST_CRON` — Mondays at 08:00 by def
 
 - **Automations** — runs, failures (of which timed out and interrupted), the success rate, the five automations that failed most with each one's last error, summarised, and every paused automation, automatic pauses marked.
 - **Data** — rows per table and the distinct rows written during the week, accounts created, accounts that signed in, form submissions, and files uploaded with their size.
-- **Instance** — the size of the database and of file storage, how many connections are healthy, engine version changes, and error and critical audit entries grouped by action, the five most frequent.
-- **Waiting on you** — unset environment variables, expired connection tokens, pending invitations.
+- **Instance** — the size of the database and of file storage, how many connections are healthy — an OAuth2 connection nobody has authorized yet is not, engine version changes, and error and critical audit entries grouped by action, the five most frequent.
+- **Waiting on you** — unset environment variables, connections to connect or reconnect (an expired token, an OAuth2 connection nobody has authorized, or a token nothing can renew; never one about to be refreshed on its own), pending invitations.
 
 Every summary is kept, so the next one can show row counts and sizes as changes against it. The first summary an instance ever sends covers the seven days before it and is marked as a **baseline week**: there is nothing to compare with yet.
 

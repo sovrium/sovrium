@@ -14,7 +14,8 @@
  * against `tables[]` when the config is read:
  *
  *  - a node entry's `table` must be declared, its `view` declared on it, and
- *    `labelField`, `idField`, `groupField` and `stateField` fields of it;
+ *    `labelField`, `idField`, `groupField`, `stateField` and `flagField`
+ *    fields of it;
  *  - a link-table edge's `table` must be declared, its `fromField` and
  *    `toField` relationship fields of it, and `kindField`, `opsField` and
  *    `flagField` fields of it;
@@ -115,7 +116,7 @@ const checkNode = (
       : []
   return [
     ...viewRefusal,
-    ...missingFields(entry, ['labelField', 'idField', 'groupField', 'stateField'], {
+    ...missingFields(entry, ['labelField', 'idField', 'groupField', 'stateField', 'flagField'], {
       at,
       tableName,
       table,

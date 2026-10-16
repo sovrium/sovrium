@@ -8,16 +8,16 @@
 // The run page of the Runs surface, split out of `automations.ts` so each file
 // holds one page (the list and its tabs there, one run's record here).
 
+import { CARD_LIST_CLASS } from '../../components/card'
 import { factsCard } from '../../components/card-blocks'
-import { toolbarRow } from '../../components/data-page'
-import { withShell } from '../../components/shell'
+import { consolePage, toolbarRow } from '../../components/data-page'
 import { AUTOMATION_RUN_DETAIL_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
 /** One node of a page's component tree, as the config type expresses it. */
 type PageComponent = NonNullable<PageConfig['components']>[number]
 
-// ─── THE RUN PAGE — `/automations/runs/:id` ─────────────────────────────
+// ─── THE RUN PAGE — `/runs/:id` ─────────────────────────────
 //
 // One run, read in full: its header, what it was given, each step with what it
 // was handed, what it returned and what it logged, and the Retry gesture.
@@ -301,7 +301,7 @@ const stepsSection = (): PageComponent =>
         element: 'div',
         repeat: { record: 'steps', as: 'step' },
         props: {
-          className: 'border-border divide-border divide-y overflow-hidden rounded-lg border',
+          className: `${CARD_LIST_CLASS}`,
         },
         children: [stepStation()],
       },
@@ -344,7 +344,7 @@ const backToRuns = (): PageComponent =>
     type: 'link',
     content: '$t:admin.automations.runs.detail.back',
     props: {
-      href: '/automations',
+      href: '/runs',
       className: 'text-muted-foreground hover:text-foreground text-sm underline',
     },
   }) as PageComponent
@@ -380,7 +380,7 @@ const retryButton = (): PageComponent =>
   }) as PageComponent
 
 /**
- * `/automations/runs/:id` — one run, read in full.
+ * `/runs/:id` — one run, read in full.
  *
  * Unlike the object sub-pages whose `h1` names the surface, this one's `h1`
  * names the run's AUTOMATION: a run has no name of its own, and "which
@@ -390,56 +390,51 @@ const retryButton = (): PageComponent =>
  * `meta.title` cannot name the run: the route-param pass walks `components`
  * and `layout`, deliberately not `meta`.
  */
-export const runPage: PageConfig = withShell(
-  {
-    id: 'dashboard-data-automation-run',
-    name: 'dashboard-data-automation-run',
-    path: '/automations/runs/:id',
-    meta: { title: '$t:admin.meta.automationRun', lang: 'en-US' },
+export const runPage: PageConfig = consolePage({
+  id: 'dashboard-data-automation-run',
+  path: '/runs/:id',
+  title: '$t:admin.meta.automationRun',
+  page: {
+    requires: ['automations'],
     dataSource: { system: { endpoint: AUTOMATION_RUN_DETAIL_ENDPOINT, param: 'id' } },
-    components: [
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex min-w-0 flex-col gap-6 pt-2 pb-8' },
-        children: [
-          toolbarRow([backToRuns(), retryButton()]),
-          {
-            type: 'container',
-            element: 'div',
-            props: { className: 'flex flex-col gap-1' },
-            children: [
-              {
-                type: 'text',
-                element: 'h1',
-                props: { className: 'text-foreground font-mono text-lg font-medium' },
-                content: '$record.automationName',
-              },
-              {
-                type: 'text',
-                element: 'p',
-                props: { className: 'sr-only' },
-                content: '$t:admin.automations.runs.detail.blurb',
-              },
-            ],
-          },
-          runFacts(),
-          jsonSection('$t:admin.automations.runs.detail.dataIn', '$record.triggerData'),
-          runFailure(),
-          stepsSection(),
-          configuredInCode(),
-        ],
-      } as PageComponent,
-    ],
-  } as PageConfig,
-  {
-    breadcrumb: {
-      automations: '$t:admin.crumb.automations',
-      runs: '$t:admin.crumb.automationRun',
-    },
-    // Nothing answers at /automations/runs: the history is /automations.
-    breadcrumbUnlinked: ['runs'],
-  }
-)
+  },
+  shell: {
+    breadcrumb: { runs: '$t:admin.crumb.runs' },
+  },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex min-w-0 flex-col gap-6 pt-2 pb-8' },
+      children: [
+        toolbarRow([backToRuns(), retryButton()]),
+        {
+          type: 'container',
+          element: 'div',
+          props: { className: 'flex flex-col gap-1' },
+          children: [
+            {
+              type: 'text',
+              element: 'h1',
+              props: { className: 'text-foreground font-mono text-lg font-medium' },
+              content: '$record.automationName',
+            },
+            {
+              type: 'text',
+              element: 'p',
+              props: { className: 'sr-only' },
+              content: '$t:admin.automations.runs.detail.blurb',
+            },
+          ],
+        },
+        runFacts(),
+        jsonSection('$t:admin.automations.runs.detail.dataIn', '$record.triggerData'),
+        runFailure(),
+        stepsSection(),
+        configuredInCode(),
+      ],
+    } as PageComponent,
+  ],
+})
 
 /** The run history and the one run that reads out of it. */

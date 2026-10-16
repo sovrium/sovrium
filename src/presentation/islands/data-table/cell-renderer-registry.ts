@@ -26,6 +26,17 @@ import {
   type CellRenderer,
 } from './cell-renderers'
 import {
+  AiCategoryCell,
+  AiExtractCell,
+  AiSentimentCell,
+  AiTagsCell,
+  AiTextCell,
+  LongTextCell,
+  SignatureCell,
+  TextCell,
+  UnknownValueCell,
+} from './cells/text-and-ai-cells'
+import {
   CurrencyCell,
   EmailLinkCell,
   PercentCell,
@@ -113,4 +124,27 @@ export const FIELD_TYPE_TO_CELL_RENDERER: Readonly<Record<string, CellRenderer>>
   time: StoredValueCell,
   email: EmailLinkCell,
   'phone-number': PhoneLinkCell,
+  // The text types and a signature: each printed TanStack's passthrough, a
+  // signature as `[object Object]`.
+  'single-line-text': TextCell,
+  'long-text': LongTextCell,
+  signature: SignatureCell,
+  // An AI field reads as the value it outputs, marked as a model's.
+  'ai-summary': AiTextCell,
+  'ai-generate': AiTextCell,
+  'ai-translate': AiTextCell,
+  'ai-categorize': AiCategoryCell,
+  'ai-tag': AiTagsCell,
+  'ai-sentiment': AiSentimentCell,
+  'ai-extract': AiExtractCell,
+}
+
+/**
+ * The read-only cell for a field type: its registered renderer, else — for a
+ * type the schema accepts but does not name (`UnknownFieldSchema`) — its text
+ * or JSON preview. `button` has none: it is an action, drawn elsewhere.
+ */
+export function cellRendererOf(type: string): CellRenderer | undefined {
+  if (type === 'button') return undefined
+  return FIELD_TYPE_TO_CELL_RENDERER[type] ?? UnknownValueCell
 }

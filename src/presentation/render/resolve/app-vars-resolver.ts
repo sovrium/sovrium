@@ -7,6 +7,7 @@
 
 import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
 import { resolveAppVarValues, type AppVarName } from '@/domain/models/app/pages/app-vars'
+import { resolvePageAppMark } from './app-mark-resolver'
 import { withPlainTextPin } from './record-substitution'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
@@ -100,15 +101,20 @@ export function resolvePageAppVars(
     })
   }
 
-  return {
-    ...page,
-    ...(page.components !== undefined
-      ? { components: substituteDeep(page.components, substitute) as Page['components'] }
-      : {}),
-    ...(page.layout !== undefined
-      ? { layout: substituteDeep(page.layout, substitute) as Page['layout'] }
-      : {}),
-  }
+  // The app's mark is the other fact about the serving app a page can ask for
+  // (`data-app-mark`), filled from the same `app` — see `app-mark-resolver.ts`.
+  return resolvePageAppMark(
+    {
+      ...page,
+      ...(page.components !== undefined
+        ? { components: substituteDeep(page.components, substitute) as Page['components'] }
+        : {}),
+      ...(page.layout !== undefined
+        ? { layout: substituteDeep(page.layout, substitute) as Page['layout'] }
+        : {}),
+    },
+    app
+  )
 }
 
 /** Does a `content` string start with markup — the renderer's raw-HTML test? */

@@ -43,12 +43,17 @@ import {
   FieldButton,
   PresenceEntry,
   ReadOnlyDetail,
+  ReadValueEntry,
 } from './record-drawer-entry'
-import { isStructured } from './record-drawer-field'
+import { isStructured, readsAsValue } from './record-drawer-field'
 import type { RecordDrawerField, Values, RawRecord } from './record-drawer-field'
+import type { DrawerBuiltInLabels } from './record-drawer-labels'
 import type { ReactElement, ReactNode } from 'react'
 
 const NO_ACTIONS: ReadonlyArray<DrawerAction> = []
+
+const SAVE_CLASS =
+  'bg-primary text-primary-foreground text-md mt-2 self-start rounded px-4 py-2 disabled:cursor-not-allowed'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CAP-1 — footer action slot
@@ -102,14 +107,33 @@ export interface DrawerContentProps {
   readonly saveLabel: string
   /** The Save's in-flight word (`form.saving`), resolved by the SSR host like `saveLabel`. */
   readonly savingLabel?: string
-  /** A button field's in-flight word (`action.running`), resolved by the SSR host. */
-  readonly runningLabel?: string
+  /** A button field's `action.*` words (in-flight, outcome), where they differ from English. */
+  readonly actionStrings?: Readonly<Record<string, string>>
+  /** The other words the drawer draws on its own, resolved by the SSR host. */
+  readonly labels?: DrawerBuiltInLabels | undefined
+  /** Why each refused value was refused, by field — drawn under its control. */
+  readonly fieldErrors?: Readonly<Record<string, string>> | undefined
+  /** The Save is drawn by the sheet's footer instead (a generic sheet). */
+  readonly hideSave?: boolean
 }
 
 /**
  * One entry of an editable drawer: an action, a structured `renderAs` block, or
  * the field's control followed by its AI refinement status.
  */
+/** What one field entry is drawn from. */
+interface FieldEntryProps {
+  readonly field: RecordDrawerField
+  readonly values: Values
+  readonly record: RawRecord
+  readonly canEdit: boolean
+  readonly loading: boolean
+  readonly onChange: (name: string, value: string) => void
+  readonly table?: string
+  readonly actionStrings?: Readonly<Record<string, string>> | undefined
+  readonly error?: string | undefined
+}
+
 function EditableField({
   field,
   values,
@@ -117,16 +141,9 @@ function EditableField({
   loading,
   onChange,
   table,
-  runningLabel,
-}: {
-  readonly field: RecordDrawerField
-  readonly values: Values
-  readonly record: RawRecord
-  readonly loading: boolean
-  readonly onChange: (name: string, value: string) => void
-  readonly table?: string
-  readonly runningLabel?: string | undefined
-}): ReactElement {
+  actionStrings,
+  error,
+}: Omit<FieldEntryProps, 'canEdit'>): ReactElement {
   // A button field is an action, never an input — it precedes both branches
   // below, which would otherwise offer an editor for a field with no value.
   if (field.button) {
@@ -136,7 +153,7 @@ function EditableField({
         config={field.button}
         record={record}
         {...(table === undefined ? {} : { table })}
-        {...(runningLabel === undefined ? {} : { pendingLabel: runningLabel })}
+        {...(actionStrings === undefined ? {} : { strings: actionStrings })}
       />
     )
   }
@@ -153,8 +170,9 @@ function EditableField({
       <FieldInput
         field={field}
         value={values[field.name] ?? ''}
-        disabled={loading || field.readOnly === true}
+        disabled={loading}
         onChange={onChange}
+        error={error}
       />
       <RefinementStatus
         record={record}
@@ -177,23 +195,24 @@ function DrawerField({
   loading,
   onChange,
   table,
-  runningLabel,
-}: {
-  readonly field: RecordDrawerField
-  readonly values: Values
-  readonly record: RawRecord
-  readonly canEdit: boolean
-  readonly loading: boolean
-  readonly onChange: (name: string, value: string) => void
-  readonly table?: string
-  readonly runningLabel?: string | undefined
-}): ReactElement {
+  actionStrings,
+  error,
+}: FieldEntryProps): ReactElement {
   if (field.presence !== undefined) {
     return (
       <PresenceEntry
         field={field}
         presence={field.presence}
         record={record}
+      />
+    )
+  }
+  if (canEdit && readsAsValue(field)) {
+    return (
+      <ReadValueEntry
+        field={field}
+        record={record}
+        {...(table === undefined ? {} : { table })}
       />
     )
   }
@@ -215,7 +234,8 @@ function DrawerField({
       record={record}
       loading={loading}
       onChange={onChange}
-      runningLabel={runningLabel}
+      actionStrings={actionStrings}
+      error={error}
       {...(table === undefined ? {} : { table })}
     />
   )
@@ -245,12 +265,19 @@ function DrawerFieldList({
 }
 
 /** The inline validation banner, or nothing when there is no error. */
-function DrawerError({ error }: { readonly error: string | undefined }): ReactElement | undefined {
+function DrawerError({
+  error,
+  name = 'Validation error',
+}: {
+  readonly error: string | undefined
+  /** The banner's accessible name, in the page language. */
+  readonly name?: string | undefined
+}): ReactElement | undefined {
   if (!error) return undefined
   return (
     <p
       role="alert"
-      aria-label="Validation error"
+      aria-label={name}
       className="text-error-fg bg-error-bg border-error-border text-md rounded border p-2"
     >
       {error}
@@ -264,16 +291,18 @@ function DrawerError({ error }: { readonly error: string | undefined }): ReactEl
  * answers, so a second press saves nothing and the drawer holds the reader's
  * dismissals meanwhile (`overlay-pending.ts`).
  */
-function DrawerSaveButton({
+export function DrawerSaveButton({
   label,
   savingLabel = 'Saving…',
   loading,
   onSave,
+  className,
 }: {
   readonly label: string
   readonly savingLabel?: string | undefined
   readonly loading: boolean
   readonly onSave: () => Promise<void> | void
+  readonly className?: string
 }): ReactElement {
   const [pending, setPending] = useState(false)
   const press = (): void => {
@@ -288,10 +317,34 @@ function DrawerSaveButton({
       onClick={press}
       disabled={loading}
       {...pendingControlProps(pending)}
-      className="bg-primary text-primary-foreground text-md mt-2 self-start rounded px-4 py-2 disabled:cursor-not-allowed"
+      className={className ?? SAVE_CLASS}
     >
       {pending ? renderPendingContent(savingLabel) : label}
     </button>
+  )
+}
+
+/** Every field of the drawer, each drawn by {@link DrawerField} inside its container. */
+function DrawerFields(props: DrawerContentProps & { readonly loading: boolean }): ReactElement {
+  const { fields, values, record, canEdit, loading, onChange, table, actionStrings } = props
+  const errors = props.fieldErrors ?? {}
+  return (
+    <DrawerFieldList canEdit={canEdit}>
+      {fields.map((field) => (
+        <DrawerField
+          key={field.name}
+          field={field}
+          values={values}
+          record={record}
+          canEdit={canEdit}
+          loading={loading}
+          onChange={onChange}
+          actionStrings={actionStrings}
+          error={errors[field.name]}
+          {...(table === undefined ? {} : { table })}
+        />
+      ))}
+    </DrawerFieldList>
   )
 }
 
@@ -301,48 +354,24 @@ function DrawerSaveButton({
  * title + close). A field with a structured `renderAs` renders a read-only
  * block (never an input); the rest render an editable control.
  */
-export function DrawerContent({
-  fields,
-  values,
-  record,
-  canEdit,
-  loading = false,
-  error,
-  actions = NO_ACTIONS,
-  childrenHtml,
-  related,
-  onChange,
-  onSave,
-  onClose,
-  table,
-  saveLabel,
-  savingLabel,
-  runningLabel,
-}: DrawerContentProps): ReactElement {
+export function DrawerContent(props: DrawerContentProps): ReactElement {
+  const { record, canEdit, loading = false, actions = NO_ACTIONS, childrenHtml, labels } = props
   return (
     <>
-      <DrawerError error={error} />
-      <DrawerFieldList canEdit={canEdit}>
-        {fields.map((field) => (
-          <DrawerField
-            key={field.name}
-            field={field}
-            values={values}
-            record={record}
-            canEdit={canEdit}
-            loading={loading}
-            onChange={onChange}
-            runningLabel={runningLabel}
-            {...(table === undefined ? {} : { table })}
-          />
-        ))}
-      </DrawerFieldList>
-      {canEdit && (
+      <DrawerError
+        error={props.error}
+        name={labels?.validationError}
+      />
+      <DrawerFields
+        {...props}
+        loading={loading}
+      />
+      {canEdit && props.hideSave !== true && (
         <DrawerSaveButton
-          label={saveLabel}
-          savingLabel={savingLabel}
+          label={props.saveLabel}
+          savingLabel={props.savingLabel}
           loading={loading}
-          onSave={onSave}
+          onSave={props.onSave}
         />
       )}
       {childrenHtml !== undefined && (
@@ -351,12 +380,13 @@ export function DrawerContent({
           record={record}
         />
       )}
-      {related}
+      {props.related}
       <DrawerActions
         actions={actions}
         record={record}
         loading={loading}
-        onLeave={onClose}
+        onLeave={props.onClose}
+        words={labels}
       />
     </>
   )

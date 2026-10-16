@@ -16,6 +16,9 @@
  * `admin-bucket-files-data` module's defensive-parse + discriminated-state shape.
  */
 
+import { resolvePageLocale } from '../../runtime/page-locale'
+import { conversationCaptions } from './admin-agent-conversations-captions'
+
 /** One conversation in the list column (mirrors `agentConversationListItemSchema`). */
 export interface ConversationRow {
   readonly id: string
@@ -65,6 +68,9 @@ export interface ThreadState {
   readonly messages: ReadonlyArray<ThreadMessage>
 }
 
+/** No published params — the viewer bound to no channel, or nothing published yet. */
+const NO_SHARED_PARAMS: Readonly<Record<string, string>> = {}
+
 export const LIST_LOADING: ListState = { phase: 'loading', conversations: [] }
 export const THREAD_IDLE: ThreadState = { phase: 'idle', header: undefined, messages: [] }
 export const THREAD_LOADING: ThreadState = { phase: 'loading', header: undefined, messages: [] }
@@ -88,7 +94,10 @@ function toRow(item: Partial<ConversationRow>, agentName: string): ReadonlyArray
     {
       id: item.id,
       agentName,
-      title: typeof item.title === 'string' && item.title.length > 0 ? item.title : 'Untitled',
+      title:
+        typeof item.title === 'string' && item.title.length > 0
+          ? item.title
+          : conversationCaptions().untitled,
       sessionId: typeof item.sessionId === 'string' ? item.sessionId : '',
       messageCount: typeof item.messageCount === 'number' ? item.messageCount : 0,
       lastActivityAt: typeof item.lastActivityAt === 'string' ? item.lastActivityAt : '',
@@ -125,13 +134,23 @@ function toMessage(msg: Partial<ThreadMessage>): ReadonlyArray<ThreadMessage> {
  * instead of "matches among the 200 most recent" — which is the behaviour an
  * operator already believed they had.
  *
+ * `shared` is what the page's composed controls publish on the viewer's
+ * channel (`dataSource.bindTo`), already stripped of empty values — a
+ * Person facet's `userId` narrows the read server-side the same way `q` does.
+ *
  * Returns an `error` phase on a failed fetch so the surface shows a retryable
  * error region rather than a silent empty state (a read failure is an operator
  * observability gap).
  */
-export async function loadConversations(agentName: string, search = ''): Promise<ListState> {
+export async function loadConversations(
+  agentName: string,
+  search = '',
+  shared: Readonly<Record<string, string>> = NO_SHARED_PARAMS
+): Promise<ListState> {
   try {
-    const params = new URLSearchParams({ limit: '200' })
+    // What the page's controls publish (a Person facet's `userId`, a composed
+    // search box's `q`) rides along first; the in-pane search box wins `q`.
+    const params = new URLSearchParams({ ...shared, limit: '200' })
     // Only when non-empty: a bare `?q=` is "no search" server-side anyway, but
     // omitting it keeps the request honest about what was asked.
     if (search.trim().length > 0) params.set('q', search.trim())
@@ -157,19 +176,37 @@ export async function loadConversations(agentName: string, search = ''): Promise
  */
 export async function loadAllConversations(
   agentNames: ReadonlyArray<string>,
-  search = ''
+  search = '',
+  shared: Readonly<Record<string, string>> = NO_SHARED_PARAMS
 ): Promise<ListState> {
   if (agentNames.length === 0) return { phase: 'ready', conversations: [] }
   // `search` is threaded into EVERY per-agent request. Passing it to one call
   // site would search that agent and silently ignore the rest — a partial
   // answer that looks exactly like a complete one.
-  const results = await Promise.all(agentNames.map((name) => loadConversations(name, search)))
+  const results = await Promise.all(
+    agentNames.map((name) => loadConversations(name, search, shared))
+  )
   const allFailed = results.every((r) => r.phase === 'error')
   if (allFailed) return { phase: 'error', conversations: [] }
   const merged = results
     .flatMap((r) => r.conversations)
     .toSorted((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))
   return { phase: 'ready', conversations: merged }
+}
+
+/** Coerce the raw conversation header, `undefined` when it carries no id. */
+function toHeader(header: Partial<ConversationHeader> | undefined): ConversationHeader | undefined {
+  if (header === undefined || typeof header.id !== 'string') return undefined
+  return {
+    id: header.id,
+    title:
+      typeof header.title === 'string' && header.title.length > 0
+        ? header.title
+        : conversationCaptions().untitled,
+    sessionId: typeof header.sessionId === 'string' ? header.sessionId : '',
+    createdAt: typeof header.createdAt === 'string' ? header.createdAt : '',
+    lastActivityAt: typeof header.lastActivityAt === 'string' ? header.lastActivityAt : '',
+  }
 }
 
 /** Load one conversation's message thread (chronological). `error` on failure. */
@@ -183,20 +220,9 @@ export async function loadConversation(
     )
     if (!res.ok) return { phase: 'error', header: undefined, messages: [] }
     const body = (await res.json()) as DetailResponse
-    const header = body.conversation
     return {
       phase: 'ready',
-      header:
-        header && typeof header.id === 'string'
-          ? {
-              id: header.id,
-              title: typeof header.title === 'string' ? header.title : 'Untitled',
-              sessionId: typeof header.sessionId === 'string' ? header.sessionId : '',
-              createdAt: typeof header.createdAt === 'string' ? header.createdAt : '',
-              lastActivityAt:
-                typeof header.lastActivityAt === 'string' ? header.lastActivityAt : '',
-            }
-          : undefined,
+      header: toHeader(body.conversation),
       messages: (body.messages ?? []).flatMap(toMessage),
     }
   } catch {
@@ -204,36 +230,12 @@ export async function loadConversation(
   }
 }
 
-/**
- * Format an ISO timestamp as a compact relative label ("2h ago").
- *
- * English, like the rest of the console: the self-hosted binary ships worldwide,
- * so English is the honest default and French is a locale rather than a
- * hardcode. These two formatters were the last French strings on this surface —
- * an operator reading an otherwise-English thread saw "il y a 2 h" on every row.
- */
-export function formatRelative(iso: string): string {
-  if (!iso) return '—'
-  const date = new Date(iso)
-  const ms = date.getTime()
-  if (Number.isNaN(ms)) return '—'
-  const diff = Date.now() - ms
-  const minutes = Math.round(diff / 60_000)
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.round(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
 /** Format an ISO timestamp as a short date + time for a message ("14 Jun, 09:32"). */
 export function formatDateTime(iso: string): string {
   if (!iso) return '—'
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString('en-US', {
+  return date.toLocaleString(resolvePageLocale(), {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',

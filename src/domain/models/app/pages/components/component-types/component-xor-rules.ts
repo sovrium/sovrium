@@ -26,7 +26,7 @@
  *
  * Everywhere else in this reshape, a key belonging to the other variant is
  * INERT rather than refused: `format` on a comments thread, `maxResults` on a
- * subscriber-scoped search. That is the right default — the union of both
+ * search box that publishes. That is the right default — the union of both
  * shapes is one open struct, and refusing per-variant would need the hook that
  * does not exist.
  *
@@ -95,6 +95,18 @@ const XOR_RULES: readonly KeyPairRule[] = [
     keys: ['tableColumns', 'dataSource'],
     explanation:
       'A table draws EITHER the rows you wrote in the config, OR the records its `dataSource` binds as a grid — never both. `tableColumns` describes how the WRITTEN columns are drawn, so beside a binding it would be dropped without a trace on the page. Remove whichever one you did not mean: drop `dataSource` to keep the written table, or drop `tableColumns` and style the bound grid through its `columns` entries.',
+  },
+  {
+    type: 'filter-bar',
+    keys: ['fields', 'fieldsFrom'],
+    explanation:
+      'Both answer which fields the bar offers: `fields` lists them, `fieldsFrom` derives them from one table. Keep `fieldsFrom` to offer that table’s fields, or `fields` to write them out.',
+  },
+  {
+    type: 'search-input',
+    keys: ['scope', 'publishes'],
+    explanation:
+      'A box searching the pages (`scope: page`) renders its own results and publishes nothing, and `publishes` is how a box narrows the data components on a channel. Drop `scope` to publish, or drop `publishes` to search the pages.',
   },
   {
     type: 'file-preview',
@@ -368,6 +380,41 @@ const brokenArmConflictRulesAt = (
   )
 
 /**
+ * Key pairs of which ONE must be declared, and why neither is refused: a
+ * component that says nothing about what it works on would render and do
+ * nothing. The XOR family above refuses the pair declared together.
+ */
+const ONE_OF_RULES: readonly KeyPairRule[] = [
+  {
+    type: 'filter-bar',
+    keys: ['fields', 'fieldsFrom'],
+    explanation:
+      'A bar with neither offers nothing to filter on. Declare `fieldsFrom: { table }` to offer a table’s fields, or `fields` to write them out.',
+  },
+  {
+    type: 'search-input',
+    keys: ['scope: page', 'publishes'],
+    explanation:
+      'A box with neither searches nothing. Declare `scope: page` to search the pages, or `publishes: { bindTo, param: q }` to narrow the data components on a channel.',
+  },
+]
+
+/** The key a one-of rule names, before any `: value` it spells out. */
+const keyOf = (spelled: string): string => spelled.split(':')[0] ?? spelled
+
+/** Every one-of rule this node breaks, as finished messages. */
+const brokenOneOfRulesAt = (
+  node: Readonly<Record<string, unknown>>,
+  path: string
+): readonly string[] =>
+  ONE_OF_RULES.filter(
+    (rule) => node['type'] === rule.type && rule.keys.every((key) => node[keyOf(key)] === undefined)
+  ).map(
+    (rule) =>
+      `${path}: a \`${rule.type}\` declares neither \`${rule.keys[0]}\` nor \`${rule.keys[1]}\`. ${rule.explanation}`
+  )
+
+/**
  * Walk every node of the config, depth-first, collecting rule breaks.
  *
  * Declared below all five rule families so the file reads in the order it runs:
@@ -388,6 +435,7 @@ const walk = (value: unknown, path: string): readonly string[] => {
     ...brokenOrderRulesAt(value, here),
     ...brokenMembershipRulesAt(value, here),
     ...brokenArmConflictRulesAt(value, here),
+    ...brokenOneOfRulesAt(value, here),
     ...Object.entries(value).flatMap(([key, child]) =>
       walk(child, path === '' ? key : `${path}.${key}`)
     ),
@@ -416,6 +464,9 @@ export const COMPONENT_ORDER_RULES = ORDER_RULES
 
 /** The membership rules, same purpose. */
 export const COMPONENT_MEMBERSHIP_RULES = MEMBERSHIP_RULES
+
+/** The one-of rules, same purpose. */
+export const COMPONENT_ONE_OF_RULES = ONE_OF_RULES
 
 /** The arm-conflict rules, same purpose. */
 export const COMPONENT_ARM_CONFLICT_RULES = ARM_CONFLICT_RULES

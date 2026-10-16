@@ -32,35 +32,43 @@ import type { Context } from 'hono'
 
 /** The items of a batch update whose id could name a record of `table`. */
 export const keyShapedBatchItems = <R extends { readonly id: string | number }>(
+  app: App,
   table: RecordKeyShape | undefined,
   items: readonly R[]
 ): readonly R[] =>
-  table === undefined ? items : items.filter((item) => isRecordKeyShaped(String(item.id), table))
+  table === undefined
+    ? items
+    : items.filter((item) => isRecordKeyShaped(String(item.id), table, app.auth?.scopeTables))
 
 /** The first id of a batch that no key of `table` could hold, or `undefined`. */
 export const firstNonKeyBatchId = (
+  app: App,
   table: RecordKeyShape | undefined,
   ids: readonly (string | number)[]
 ): string | undefined =>
-  table === undefined ? undefined : ids.map(String).find((id) => !isRecordKeyShaped(id, table))
+  table === undefined
+    ? undefined
+    : ids.map(String).find((id) => !isRecordKeyShaped(id, table, app.auth?.scopeTables))
 
 /** A batch delete naming an id no key could hold: refused as a missing id is. */
 export const refuseNonKeyBatchDelete = (
   c: Context,
+  app: App,
   table: RecordKeyShape | undefined,
   ids: readonly (string | number)[]
 ): Response | undefined =>
-  firstNonKeyBatchId(table, ids) === undefined
+  firstNonKeyBatchId(app, table, ids) === undefined
     ? undefined
     : toErrorResponse(c, new NotFoundError('Record not found'))
 
 /** A batch restore naming an id no key could hold: refused as a missing id is. */
 export const refuseNonKeyBatchRestore = (
   c: Context,
+  app: App,
   table: RecordKeyShape | undefined,
   ids: readonly (string | number)[]
 ): Response | undefined => {
-  const nonKeyId = firstNonKeyBatchId(table, ids)
+  const nonKeyId = firstNonKeyBatchId(app, table, ids)
   return nonKeyId === undefined
     ? undefined
     : handleBatchRestoreError(c, new NotFoundError('Record not found', nonKeyId))

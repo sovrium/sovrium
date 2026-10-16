@@ -10,6 +10,7 @@ import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { computeFormulaReadonlyClasses } from '../../design/cell-affordances-default-classes'
 import { resolvePageTimezone } from '../runtime/page-timezone'
 import { EMPTY_VALUE, isMissing } from './cell-empty'
+import { currencyText } from './cells/currency-text'
 import type { CellFieldOptions } from './cell-renderers'
 
 /**
@@ -90,6 +91,23 @@ function formatInstantDay(instant: Date, locale: string, timeZone: string | unde
 }
 
 /**
+ * A formula result as text. A date is a calendar date in the page's language;
+ * a number its author declared `format: currency` is an amount, printed as a
+ * `currency` field prints one; anything else is the value as computed.
+ */
+function formulaText(
+  value: unknown,
+  kind: 'number' | 'text' | 'date' | 'error',
+  fieldOptions: CellFieldOptions | undefined
+): string {
+  if (kind === 'date') return formatFormulaDate(value, fieldOptions)
+  if (kind === 'number' && fieldOptions?.display?.format === 'currency') {
+    return currencyText(value, fieldOptions)
+  }
+  return String(value)
+}
+
+/**
  * Render a formula-field readout. Kind comes from the schema if declared,
  * else inferred from the value shape (numeric / error sigil / Date / else).
  */
@@ -105,7 +123,7 @@ export function FormulaReadonlyCell({
   // A date result arrives over JSON as a STRING, so it is the string that is
   // formatted — as a calendar date in the page's language, never the raw
   // instant and never in the browser's own language.
-  const display = kind === 'date' ? formatFormulaDate(value, fieldOptions) : String(value)
+  const display = formulaText(value, kind, fieldOptions)
   return (
     <span
       data-cell-ink=""

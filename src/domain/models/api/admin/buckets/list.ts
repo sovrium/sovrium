@@ -63,8 +63,10 @@ export const bucketProviderSchema = Schema.Literals(['s3', 'local', 'bytea']).an
  *
  * Field selection follows the principle of least surprise: an operator
  * looking at the dashboard expects to see the bucket's identity, its
- * provider, the optional region (S3 only — null for local/bytea), and the
- * lifecycle timestamps. Per-bucket usage stats (file count, total bytes)
+ * provider, the optional region (S3 only — null for local/bytea), the upload
+ * rules the configuration declares for it (`public`, `maxFileSize`,
+ * `allowedMimeTypes` — what an upload hint states before a file is refused),
+ * and the lifecycle timestamps. Per-bucket usage stats (file count, total bytes)
  * live in `_admin.metadata` because they are admin-only and computed (not
  * persisted on the bucket row).
  */
@@ -85,6 +87,22 @@ export const bucketSchema = Schema.Struct({
     Schema.String.annotate({
       description:
         'AWS region (S3 buckets only — for local and bytea providers this field is `null`).',
+    })
+  ),
+  public: Schema.Boolean.annotate({
+    description:
+      "Whether the bucket's files are served without authentication, as `buckets[].public` declares it. False when undeclared, and always false for the built-in `system` bucket.",
+  }),
+  maxFileSize: Schema.NullOr(
+    Schema.Int.annotate({
+      description:
+        "The bucket's own upload size cap in bytes, as `buckets[].maxFileSize` declares it. Null when the bucket declares none, in which case the instance-wide `STORAGE_MAX_FILE_SIZE` applies.",
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1)))
+  ),
+  allowedMimeTypes: Schema.NullOr(
+    Schema.Array(Schema.String).annotate({
+      description:
+        'The MIME types the bucket accepts, verbatim from `buckets[].allowedMimeTypes`, wildcards such as `image/*` included. Null when the bucket declares none: every type is accepted.',
     })
   ),
   createdAt: looseIsoDateTime({ description: 'ISO 8601 UTC timestamp of bucket creation.' }),

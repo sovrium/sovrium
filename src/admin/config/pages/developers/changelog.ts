@@ -149,8 +149,8 @@
 // NOT compensated for here. A console that hid noisy rows would be a console
 // that hides rows.
 
-import { pageHeading, toolbarRow } from '../../components/data-page'
-import { withShell } from '../../components/shell'
+import { CARD_LIST_CLASS, CARD_SURFACE } from '../../components/card'
+import { consolePage, toolbarRow } from '../../components/data-page'
 import {
   CONFIG_DECLARATIONS_ENDPOINT,
   CONFIG_REFLECTION_ENDPOINT,
@@ -215,7 +215,7 @@ const card = (children: readonly PageComponent[]): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className: 'border-border bg-card flex flex-col gap-3 rounded-lg border p-5',
+      className: `${CARD_SURFACE} flex flex-col gap-3 p-5`,
     },
     children,
   }) as PageComponent
@@ -281,8 +281,7 @@ const timelineRow = (): PageComponent =>
     props: {
       href: '/changelog/$record.configHash',
       'data-testid': 'changelog-release-row',
-      className:
-        'border-border bg-card hover:bg-muted flex flex-col gap-1 rounded-lg border px-3 py-3 transition-colors',
+      className: `${CARD_SURFACE} hover:bg-muted flex flex-col gap-1 px-3 py-3 transition-colors`,
     },
     children: [
       // The identity line: what booted, when, and whether it is the newest row.
@@ -534,7 +533,7 @@ const provenanceCard = (): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className: 'border-border bg-card flex flex-col gap-1 rounded-lg border p-4',
+      className: `${CARD_SURFACE} flex flex-col gap-1 p-4`,
       'data-testid': 'config-schema-provenance',
     },
     children: [
@@ -590,8 +589,7 @@ const familyPane = (): PageComponent =>
       {
         type: 'list',
         props: {
-          className:
-            'border-border divide-border bg-card divide-y overflow-hidden rounded-lg border',
+          className: `${CARD_LIST_CLASS}`,
         },
         dataSource: {
           system: {
@@ -678,12 +676,12 @@ const currentView = (): PageComponent =>
 
 // ─── THE LEDGER PAGE ───────────────────────────────────────────────────────
 
-const ledgerPage: PageConfig = withShell(
-  {
-    id: 'dashboard-changelog',
-    name: 'dashboard-changelog',
-    path: '/changelog',
-    meta: { title: '$t:admin.meta.changelog', lang: 'en-US' },
+const ledgerPage: PageConfig = consolePage({
+  id: 'dashboard-changelog',
+  path: '/changelog',
+  title: '$t:admin.meta.changelog',
+  heading: ['$t:admin.changelog.heading', '$t:admin.changelog.blurb'],
+  page: {
     // Without this block `$query.view` and `$query.family` are left VERBATIM —
     // no gate matches, no chip marks itself current, and the declarations read
     // asks for a family literally called `$query.family`. The `enum` is the
@@ -694,18 +692,17 @@ const ledgerPage: PageConfig = withShell(
       family: { default: OVERVIEW, enum: [OVERVIEW, ...FAMILIES.map((family) => family.id)] },
     },
     dataSource: { system: { endpoint: CONFIG_REFLECTION_ENDPOINT } },
-    components: [
-      pageHeading('$t:admin.changelog.heading', '$t:admin.changelog.blurb'),
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-col gap-6' },
-        children: [ledgerView(), currentView()],
-      } as PageComponent,
-    ],
-  } as PageConfig,
-  { breadcrumb: { changelog: '$t:admin.crumb.changelog' } }
-)
+  },
+  shell: { breadcrumb: { changelog: '$t:admin.crumb.changelog' } },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex flex-col gap-6' },
+      children: [ledgerView(), currentView()],
+    } as PageComponent,
+  ],
+})
 
 // ─── ONE BOOT ──────────────────────────────────────────────────────────────
 
@@ -764,7 +761,7 @@ const bootRail = (): PageComponent =>
     props: {
       'aria-label': '$t:admin.changelog.boot.region',
       'data-testid': 'changelog-boot-rail',
-      className: 'border-border bg-card flex shrink-0 flex-col gap-3 rounded-lg border p-4 lg:w-72',
+      className: `${CARD_SURFACE} flex shrink-0 flex-col gap-3 p-4 lg:w-72`,
     },
     children: [
       {
@@ -836,7 +833,7 @@ const diffSection = (): PageComponent =>
         {
           type: 'button',
           // A LITERAL, for the reason `Export JSON` above carries.
-          label: 'Export diff',
+          label: '$t:admin.changelog.exportDiff',
           variant: 'secondary',
           props: { type: 'button', 'data-testid': 'changelog-export-diff' },
           action: {
@@ -1021,54 +1018,53 @@ const engineMigrationsSection = (): PageComponent =>
  * `meta.title` cannot name the boot: the route-param pass walks `components` and
  * `layout`, deliberately not `meta`.
  */
-const releasePage: PageConfig = withShell(
-  {
-    id: 'dashboard-changelog-release',
-    name: 'dashboard-changelog-release',
-    path: '/changelog/:hash',
-    meta: { title: '$t:admin.meta.release', lang: 'en-US' },
+const releasePage: PageConfig = consolePage({
+  id: 'dashboard-changelog-release',
+  path: '/changelog/:hash',
+  title: '$t:admin.meta.release',
+  heading: ['$t:admin.changelog.one.heading', '$t:admin.changelog.one.blurb'],
+  page: {
     dataSource: { system: { endpoint: RELEASE_DETAIL_ENDPOINT, param: 'hash', idKey: 'id' } },
-    components: [
-      pageHeading('$t:admin.changelog.one.heading', '$t:admin.changelog.one.blurb'),
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-col gap-6 pt-2' },
-        children: [
-          toolbarRow([backToLedger()]),
-          {
-            type: 'container',
-            element: 'div',
-            props: { className: 'flex flex-wrap items-baseline gap-x-3 gap-y-1' },
-            children: [
-              text(
-                'h2',
-                'text-foreground font-mono text-lg font-medium',
-                '$record.version|$record.configHash'
-              ),
-              text('span', 'text-muted-foreground text-md', '$record.summary'),
-            ],
-          } as PageComponent,
-          {
-            type: 'container',
-            element: 'div',
-            props: { className: 'flex flex-col gap-6 lg:flex-row lg:items-start' },
-            children: [
-              {
-                type: 'container',
-                element: 'div',
-                props: { className: 'flex min-w-0 flex-1 flex-col gap-4' },
-                children: [diffSection(), schemaChangesSection(), engineMigrationsSection()],
-              } as PageComponent,
-              bootRail(),
-            ],
-          } as PageComponent,
-        ],
-      } as PageComponent,
-    ],
-  } as PageConfig,
-  { breadcrumb: { changelog: '$t:admin.crumb.changelog' } }
-)
+  },
+  shell: { breadcrumb: { changelog: '$t:admin.crumb.changelog' } },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex flex-col gap-6 pt-2' },
+      children: [
+        toolbarRow([backToLedger()]),
+        {
+          type: 'container',
+          element: 'div',
+          props: { className: 'flex flex-wrap items-baseline gap-x-3 gap-y-1' },
+          children: [
+            text(
+              'h2',
+              'text-foreground font-mono text-lg font-medium',
+              '$record.version|$record.configHash'
+            ),
+            text('span', 'text-muted-foreground text-md', '$record.summary'),
+          ],
+        } as PageComponent,
+        {
+          type: 'container',
+          element: 'div',
+          props: { className: 'flex flex-col gap-6 lg:flex-row lg:items-start' },
+          children: [
+            {
+              type: 'container',
+              element: 'div',
+              props: { className: 'flex min-w-0 flex-1 flex-col gap-4' },
+              children: [diffSection(), schemaChangesSection(), engineMigrationsSection()],
+            } as PageComponent,
+            bootRail(),
+          ],
+        } as PageComponent,
+      ],
+    } as PageComponent,
+  ],
+})
 
 /** The ledger and the one boot that reads out of it. */
 export const changelogPages: readonly PageConfig[] = [ledgerPage, releasePage]

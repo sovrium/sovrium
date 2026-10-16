@@ -121,6 +121,15 @@ export const titleCaseAppName = (name: string): string =>
     .join(' ')
 
 /**
+ * The app's name as people read it: the declared `displayName`, else the
+ * config `name` title-cased — what `$app.label` prints.
+ */
+export const appLabelOf = (app: {
+  readonly name: string
+  readonly displayName?: string | undefined
+}): string => app.displayName ?? titleCaseAppName(app.name)
+
+/**
  * The resolved value of every `$app.*` token this app can answer.
  *
  * A token the app cannot answer is ABSENT from the map rather than empty: the
@@ -193,7 +202,7 @@ export const resolveAppVarValues = (
   const { basePath, engineVersion, path } = serving
   return {
     name: app.name,
-    label: titleCaseAppName(app.name),
+    label: appLabelOf(app),
     version: app.version ?? '',
     ...(origin !== undefined ? { origin } : {}),
     ...(basePath !== undefined ? { basePath } : {}),

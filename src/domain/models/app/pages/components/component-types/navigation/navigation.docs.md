@@ -162,7 +162,9 @@ The palette's "Go to" actions list only the pages the visitor may open. An anony
 
 <!-- sovrium:options type:command depth=3 -->
 
-`groups` replaces the built-in quick actions with your own commands: each group has a `label` and its `items`, and each item a `label`, an optional `icon`, an optional `shortcut` drawn as one keycap per key (`['G', 'I']`), and either an `href` or an `action` (`toast` or `navigate`). Typing narrows the items across groups and hides a group left with no match; choosing an item closes the command, then goes where it points or runs its action. In search mode (`search`), `groups` is not used.
+`groups` replaces the built-in quick actions with your own commands: each group has a `label` and its `items`, and each item a `label`, an optional `icon`, an optional `shortcut` drawn as one keycap per key (`['G', 'I']`), and either an `href` or an `action` (`toast` or `navigate`). Typing narrows the items across groups and hides a group left with no match; choosing an item closes the command, then goes where it points or runs its action. In search mode (`search`), your groups are drawn above the result groups and narrowed by typing the same way; drop `groups` to show the results alone.
+
+A group or an item takes the same `visibility` a component takes — `runtime: ai`, `capability`, `roles`, `when` — and one whose conditions do not hold is left out of the page entirely, not hidden in it. An item's `label` and `href` may carry `$query`, the words typed so far (URL-encoded in `href`): `label: Ask "$query" about this app` with `href: /?q=$query` turns what the reader typed into a question carried to another page. Such an item always matches the words it reads. While nothing is typed it shows its `emptyLabel`, or is not drawn if it has none. Bare `$query` is the palette's own; a page's `$query.<name>` is a different thing.
 
 ## `pagination`
 

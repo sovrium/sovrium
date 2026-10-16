@@ -24,20 +24,18 @@ import {
 } from '@/presentation/design/form-layout-classes'
 import { renderInlineMarkdown } from '@/presentation/render/markdown/inline-markdown'
 import { buildFormAttributes } from './form-attributes'
+import { resolveDocumentLang } from './form-document-lang'
 import { FormFieldElement, type PrefillValue, type ResolvedFormField } from './form-field-elements'
-import {
-  resolveAllFields,
-  resolveDocumentLang,
-  resolveText,
-  stepDescriptionsHtml,
-} from './form-field-resolver'
+import { resolveAllFields, resolveText, stepDescriptionsHtml } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
 import { HoneypotInput } from './form-honeypot'
 import { IdempotencyKeyInput } from './form-idempotency-key'
 import { FlatFormActions } from './form-layout-keys'
+import { formLayoutKeys } from './form-layout-keys-words'
 import { bodyLinkOverrides, type FormBodyLink } from './form-link-answers'
 import { FormBodyMultiStep, type FormBodyShared } from './form-renderer-multi-step'
 import { FormBodyOneQuestion } from './form-renderer-one-question'
+import { RequiredLegend } from './form-required-legend'
 import { FormRuntimeMount } from './form-runtime'
 import { SaveForLater } from './form-save-for-later'
 import { resolveStepNavLabels } from './form-step-nav-labels'
@@ -142,10 +140,12 @@ function buildFormBodyShared({
     prefillMap,
     lockPrefill,
     titleAs: titleAs ?? 'h1',
+    requiredLegend: resolveInterpreterString('form.requiredLegend', lang, languages),
+    reviewAnswersLabel: resolveInterpreterString('form.reviewAnswers', lang, languages),
     formAttributes: buildFormAttributes(form, { embed, embedded, lockPrefill, action }),
     ...offer,
     ...(form.fieldGroups ? { fieldGroups: form.fieldGroups } : {}),
-    layoutKeys: { labelPlacement: form.labelPlacement, stickyActions: form.stickyActions },
+    layoutKeys: formLayoutKeys(form, lang, languages),
     // Defaults are `honeypot: true` when antiSpam is absent.
     ...(effectiveAntiSpam(form).honeypot ? { antiSpamHoneypot: true } : {}),
   }
@@ -344,6 +344,7 @@ function FormBodyFlat({
   cancelLabel,
   saveForLater,
   layoutKeys,
+  requiredLegend,
   formAttributes: { 'data-form-name': formName = '' },
 }: FormBodyShared) {
   const TitleTag = titleAs
@@ -369,6 +370,10 @@ function FormBodyFlat({
       >
         {antiSpamHoneypot && <HoneypotInput />}
         <IdempotencyKeyInput embedded={embedded} />
+        <RequiredLegend
+          text={requiredLegend}
+          fields={resolvedFields}
+        />
         {renderFlatFormFields({ resolvedFields, fieldGroups, prefillMap, lockPrefill })}
         <FlatFormActions
           layoutKeys={layoutKeys}

@@ -16,18 +16,19 @@
  * the pins themselves stay out of both.
  */
 
-import { useMemo, useState, type ReactElement } from 'react'
+import { useMemo, type ReactElement } from 'react'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
-import { computeVerticalButtonGroupClasses } from '@/presentation/design/button-group-default-classes'
-import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
 import { computeListItemClasses } from '@/presentation/design/item-default-classes'
 import { useRecordsQuery, type RecordsDataSource } from '../hooks/use-records-query'
 import { cardPathClick, openCardDrawer } from '../runtime/card-click'
 import { MapCard } from './map-card'
+import { ZoomControls, type MapWords } from './map-chrome'
 import { Basemap, Markers } from './map-layers'
 import { clusterMarkers, readLatLng, toFrame, type LatLng } from './map-projection'
 import { useFrameWidth, useMapView } from './use-map-frame'
+import { useOpenPin } from './use-open-pin'
 import type { MapItem, PinClick } from './map-types'
+import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
 import type { TableRecord } from '../runtime/types'
 
 interface MapIslandProps {
@@ -44,13 +45,10 @@ interface MapIslandProps {
   readonly height?: number
   readonly emptyMessage?: string
   readonly tiles?: { readonly url?: string; readonly attribution?: string }
+  /** The channel the map publishes the pin a reader selects on. */
+  readonly publishes?: SharedFilterPublisherConfig
+  readonly uiStrings?: MapWords
 }
-
-/** A zoom control: base-nova's outline `icon-sm` button. */
-const CONTROL = computePartButtonClasses({ variant: 'outline', size: 'icon-sm' })
-
-/** The zoom pair: a vertical button group in the frame's corner. */
-const ZOOM_GROUP = `absolute bottom-3 left-3 ${computeVerticalButtonGroupClasses()}`
 
 /** The frame: ringed, borderless, its corners clipping the basemap. */
 const FRAME =
@@ -81,44 +79,14 @@ function openItem(click: PinClick | undefined, item: MapItem, table: string | un
   else cardPathClick(substituteRecordVars(click.path, item.record))?.()
 }
 
-/** The zoom controls, the keyboard's way to change the scale. */
-function ZoomControls({ onZoom }: { readonly onZoom: (step: number) => void }): ReactElement {
-  return (
-    <div
-      role="group"
-      data-slot="button-group"
-      data-orientation="vertical"
-      className={ZOOM_GROUP}
-    >
-      <button
-        type="button"
-        aria-label="Zoom in"
-        data-slot="button"
-        data-variant="outline"
-        data-size="icon-sm"
-        className={CONTROL}
-        onClick={() => onZoom(1)}
-      >
-        +
-      </button>
-      <button
-        type="button"
-        aria-label="Zoom out"
-        data-slot="button"
-        data-variant="outline"
-        data-size="icon-sm"
-        className={CONTROL}
-        onClick={() => onZoom(-1)}
-      >
-        −
-      </button>
-    </div>
-  )
-}
-
 /** The corner line naming the tiles' source, or saying there are none. */
-const attributionOf = (tiles: MapIslandProps['tiles']): string =>
-  tiles?.url === undefined ? 'No map tiles configured' : (tiles.attribution ?? 'Map tiles')
+const attributionOf = (
+  tiles: { readonly url?: string; readonly attribution?: string } | undefined,
+  words: MapWords | undefined
+): string =>
+  tiles?.url === undefined
+    ? (words?.['map.noTiles'] ?? 'No map tiles configured')
+    : (tiles.attribution ?? words?.['map.tiles'] ?? 'Map tiles')
 
 /** Everything the map draws, derived from the rows, the frame and the view. */
 function useMapModel(props: MapIslandProps) {
@@ -152,13 +120,6 @@ function useMapModel(props: MapIslandProps) {
   }
 }
 
-/** Close the card and give focus back to the twin entry that opened it. */
-function closeCard(openId: string | undefined, setOpenId: (id: string | undefined) => void): void {
-  setOpenId(undefined)
-  if (openId === undefined) return
-  document.querySelector<HTMLElement>(`[data-map-twin="${CSS.escape(openId)}"]`)?.focus()
-}
-
 /**
  * The map beside its twin, or above it: the switch follows the HOST's width
  * (`@container` on the SSR host), not the viewport's, so a map placed in a
@@ -167,7 +128,7 @@ function closeCard(openId: string | undefined, setOpenId: (id: string | undefine
  */
 export default function MapIsland(props: MapIslandProps): ReactElement {
   const model = useMapModel(props)
-  const [openId, setOpenId] = useState<string | undefined>(undefined)
+  const { openId, choose, close } = useOpenPin(props.publishes)
   const open = model.items.find((item) => item.id === openId)
   return (
     <div className="flex flex-col gap-3 @xl:flex-row">
@@ -185,27 +146,36 @@ export default function MapIsland(props: MapIslandProps): ReactElement {
         {model.frame.width > 0 && (
           <Markers
             markers={model.markers}
-            onPin={(item) => setOpenId(item.id)}
-            onCluster={(marker) => setOpenId(marker.items[0]?.id)}
+            onPin={(item) => choose(item.id)}
+            onCluster={(marker) => choose(marker.items[0]?.id)}
           />
         )}
-        <ZoomControls onZoom={model.zoomBy} />
+        <ZoomControls
+          onZoom={model.zoomBy}
+          words={props.uiStrings}
+        />
         <p className="bg-background/80 text-muted-foreground absolute right-0 bottom-0 px-2 py-0.5 text-[11px]">
-          {attributionOf(props.tiles)}
+          {attributionOf(props.tiles, props.uiStrings)}
         </p>
         {open !== undefined && (
           <MapCard
             item={open}
             canOpen={props.onPinClick !== undefined}
             onOpen={() => openItem(props.onPinClick, open, props.dataSource?.table)}
-            onClose={() => closeCard(openId, setOpenId)}
+            onClose={close}
+            words={props.uiStrings}
           />
         )}
       </div>
       <MapTwin
         items={model.items}
-        empty={model.pending ? undefined : (props.emptyMessage ?? 'No locations to show.')}
-        onChoose={setOpenId}
+        empty={
+          model.pending
+            ? undefined
+            : (props.emptyMessage ?? props.uiStrings?.['map.empty'] ?? 'No locations to show.')
+        }
+        words={props.uiStrings}
+        onChoose={choose}
       />
     </div>
   )
@@ -215,18 +185,21 @@ export default function MapIsland(props: MapIslandProps): ReactElement {
 function MapTwin({
   items,
   empty,
+  words,
   onChoose,
 }: {
   readonly items: readonly MapItem[]
   readonly empty: string | undefined
+  readonly words: MapWords | undefined
   readonly onChoose: (id: string) => void
 }): ReactElement {
   if (items.length === 0) {
-    return <p className="text-muted-foreground text-sm @xl:w-56">{empty ?? 'Loading…'}</p>
+    const loading = words?.['map.loading'] ?? 'Loading…'
+    return <p className="text-muted-foreground text-sm @xl:w-56">{empty ?? loading}</p>
   }
   return (
     <ul
-      aria-label="Locations"
+      aria-label={words?.['map.locations'] ?? 'Locations'}
       data-slot="item-group"
       className="flex flex-col gap-1 @xl:w-56"
     >

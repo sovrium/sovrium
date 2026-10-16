@@ -42,6 +42,7 @@ import {
 } from '@/application/use-cases/admin/admin-read-operation'
 import {
   readSubmission,
+  readSubmissionsList,
   type SubmissionRequest,
 } from '@/application/use-cases/admin/form-submission-reveal'
 import {
@@ -54,7 +55,6 @@ import { FORMS_ANALYTICS_READ_OPERATIONS } from '@/application/use-cases/admin/f
 import {
   BuildFormDetail,
   BuildFormsList,
-  BuildSubmissionsList,
   type SubmissionsListInput,
 } from '@/application/use-cases/admin/forms-overview'
 import {
@@ -164,11 +164,11 @@ const submissionsList = defineAdminRead<SubmissionsListInput>({
   method: 'get',
   path: '/api/admin/forms/:formName/submissions',
   pathParams: ['formName'],
-  queryParams: ['cursor', 'limit', 'status', 'from', 'to', 'include_deleted', 'q'],
+  queryParams: ['cursor', 'limit', 'status', 'from', 'to', 'include_deleted', 'q', 'reveal'],
   tool: {
     suffix: 'form_submissions_list',
     description:
-      "List one form's submissions newest first, without their bodies, as GET /api/admin/forms/:formName/submissions answers them (admin-only, read-only).",
+      "List one form's submissions newest first with their total, bodies only when revealed, as GET /api/admin/forms/:formName/submissions answers them (admin-only, read-only).",
     inputSchema: {
       type: 'object',
       properties: {
@@ -189,6 +189,11 @@ const submissionsList = defineAdminRead<SubmissionsListInput>({
           description: 'Search over the submitter identity and the submission id.',
         },
         include_deleted: { type: 'boolean', description: 'Include deleted submissions.' },
+        reveal: {
+          type: 'boolean',
+          description:
+            "Include each submission's body where the instance allows body capture; one critical audit event per revealed read.",
+        },
         limit: {
           type: 'integer',
           minimum: 1,
@@ -203,8 +208,12 @@ const submissionsList = defineAdminRead<SubmissionsListInput>({
   openapi: {
     summary: "List one form's submissions",
     description:
-      'Cursor-paginated submissions of one form, newest first, never carrying a submitted ' +
-      'body. An undeclared form is answered 404 and writes no audit event. Admin only.',
+      'Cursor-paginated submissions of one form, newest first, with the `total` the filters ' +
+      'match. `reveal=true` adds each submitted `body` for an admin on an instance that sets ' +
+      '`ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true`, writing one critical ' +
+      '`form.submission.bodies.revealed` event; any other caller gets the page without bodies ' +
+      'and `bodiesRevealed: false`. An undeclared form is answered 404 and writes no audit ' +
+      'event. Admin only.',
     operationIdBase: 'listAdminFormSubmissions',
     paramsSchema: formsDetailParamsSchema,
     querySchema: formsSubmissionsListQuerySchema,
@@ -214,7 +223,7 @@ const submissionsList = defineAdminRead<SubmissionsListInput>({
   },
   subject: 'submissions list',
   decode: decodeSubmissionsList,
-  read: (_app, input) => BuildSubmissionsList(input),
+  read: (app, input, caller) => readSubmissionsList(app, input, caller.actorUserId),
   audit: {
     action: AUDIT_ACTIONS.FORM_SUBMISSION_LIST_QUERIED,
     resourceId: (_app, input) => input.formName,
@@ -267,7 +276,7 @@ const submissionRead = defineAdminRead<SubmissionRequest>({
   // The query first, then the form — the route's own order.
   decode: (raw, app) =>
     Option.match(
-      Schema.decodeOption(formSubmissionDetailQuerySchema)({
+      Schema.decodeUnknownOption(formSubmissionDetailQuerySchema)({
         reveal: raw['reveal'],
         audit: raw['audit'],
       }),

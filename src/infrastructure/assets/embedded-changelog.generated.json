@@ -3,6 +3,819 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.39.0",
+      "date": "2026-10-16",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.38.0...v0.39.0",
+      "sections": [
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "admin",
+              "text": "name each connection with its provider on the Connections page"
+            },
+            {
+              "scope": "automations",
+              "text": "say how many steps a run completed on the runs list"
+            },
+            {
+              "scope": "admin",
+              "text": "save profile preferences as they change"
+            },
+            {
+              "scope": "pages",
+              "text": "submit an endpoint form on change when it declares so"
+            },
+            {
+              "scope": "admin",
+              "text": "ask the assistant about the app from the command palette"
+            },
+            {
+              "scope": "admin",
+              "text": "mark the organisation nodes a finding names"
+            },
+            {
+              "scope": "pages",
+              "text": "show a record field or a sheet action only when the record meets a condition"
+            },
+            {
+              "scope": "ai",
+              "text": "open the assistant with the words a link carries"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a command palette's authored rows while searching, gate them, and carry the typed words"
+            },
+            {
+              "scope": "admin",
+              "text": "say on every node of the organisation read whether a finding names it"
+            },
+            {
+              "scope": "pages",
+              "text": "mark the nodes of a graph a field flags"
+            },
+            {
+              "scope": "admin",
+              "text": "filter an agent's conversations by person"
+            },
+            {
+              "scope": "admin",
+              "text": "show each bucket's upload rules and public state on its Files page"
+            },
+            {
+              "scope": "admin",
+              "text": "lead from the Overview to Organisation by the findings count"
+            },
+            {
+              "scope": "admin",
+              "text": "classify each design-system usage row by kind"
+            },
+            {
+              "scope": "admin",
+              "text": "report structural findings and the attention item count on the attention read"
+            },
+            {
+              "scope": "admin",
+              "text": "group the Components gallery by kind"
+            },
+            {
+              "scope": "admin",
+              "text": "show only what needs attention on the Overview, or All clear"
+            },
+            {
+              "scope": "admin",
+              "text": "count only the features an app declares on the Overview"
+            },
+            {
+              "scope": "admin",
+              "text": "copy the $ref that places a reusable component"
+            },
+            {
+              "scope": "admin",
+              "text": "invite a user from a dialog with the least-privileged role chosen"
+            },
+            {
+              "scope": "admin",
+              "text": "answer a missing console page inside the console, and welcome invited operators"
+            },
+            {
+              "scope": "auth",
+              "text": "open invitations on the operator console's own invitation page"
+            },
+            {
+              "scope": "agents",
+              "text": "show each message's model and tool calls in the console conversation viewer"
+            },
+            {
+              "scope": "admin",
+              "text": "count the organisation findings and name the nodes each one concerns"
+            },
+            {
+              "scope": "admin",
+              "text": "reveal a form's answers in its submissions inbox"
+            },
+            {
+              "scope": "admin",
+              "text": "remove the UI kit from the design-system console"
+            },
+            {
+              "scope": "admin",
+              "text": "group the console's navigation by what the operator watches"
+            },
+            {
+              "scope": "pages",
+              "text": "switch views, regroup and act on the selection from the grid's bottom bar"
+            },
+            {
+              "scope": "pages",
+              "text": "draw every field type in the grid and name columns by their label"
+            },
+            {
+              "scope": "automations",
+              "text": "say which record a run concerns and how far it got"
+            },
+            {
+              "scope": "pages",
+              "text": "create a record from the drawer"
+            },
+            {
+              "scope": "pages",
+              "text": "show a record's history, comments, access and linked records in the drawer"
+            },
+            {
+              "scope": "pages",
+              "text": "title a record by its first text field"
+            },
+            {
+              "scope": "pages",
+              "text": "draw every record field with its own control and read computed fields back"
+            },
+            {
+              "scope": "links",
+              "text": "show each link's clicks over the last 30 days in the catalog"
+            },
+            {
+              "scope": "library",
+              "text": "let the console shell and sign-in blocks carry a role badge, a read-only notice and a status line"
+            },
+            {
+              "scope": "agents",
+              "text": "name the person behind each agent conversation"
+            },
+            {
+              "scope": "env",
+              "text": "say where the configuration uses each environment variable"
+            },
+            {
+              "scope": "buckets",
+              "text": "list each bucket's declared upload rules"
+            },
+            {
+              "scope": "admin",
+              "text": "give each assignable role its declared description"
+            },
+            {
+              "scope": "pages",
+              "text": "derive a grid's columns from a form's fields"
+            },
+            {
+              "scope": "forms",
+              "text": "list each submission's answers to an admin who reveals them, with a total"
+            },
+            {
+              "scope": "pages",
+              "text": "narrow every subscriber by each control's condition and publish selections"
+            },
+            {
+              "scope": "pages",
+              "text": "take a select's options from a table field"
+            },
+            {
+              "scope": "pages",
+              "text": "remove the integrated table toolbar and search box; page controls compose them"
+            },
+            {
+              "scope": "pages",
+              "text": "open the CSV import from a button"
+            },
+            {
+              "scope": "tables",
+              "text": "format a duration column"
+            },
+            {
+              "scope": "library",
+              "text": "add the data-table toolbar block"
+            },
+            {
+              "scope": "pages",
+              "text": "publish a search box on a shared channel and derive a filter bar's fields from its table"
+            },
+            {
+              "scope": "automations",
+              "text": "add an inviteUser auth action that sends the invitation email"
+            },
+            {
+              "scope": "app",
+              "text": "declare an optional display name"
+            },
+            {
+              "scope": "pages",
+              "text": "let a select take its options from a table field"
+            },
+            {
+              "scope": "pages",
+              "text": "hide a component or a sidebar row from a caller who holds a capability"
+            },
+            {
+              "scope": "pages",
+              "text": "connect page controls to data components through the shared filter channel"
+            },
+            {
+              "scope": "pages",
+              "text": "gate pages and sidebar rows on one declaration, fold groups, redirect retired paths under a mount"
+            },
+            {
+              "scope": "pages",
+              "text": "compose data controls through the shared filter channel"
+            },
+            {
+              "scope": "tables",
+              "text": "match a text filter on a link by the names of the linked records a member's row rule admits"
+            },
+            {
+              "scope": "tables",
+              "text": "let row rules test membership in user fields holding several people"
+            },
+            {
+              "scope": "tables",
+              "text": "store several people in a user field"
+            },
+            {
+              "scope": "pages",
+              "text": "gate a sheet button and a bound component on the table's scope declaration"
+            },
+            {
+              "scope": "admin",
+              "text": "offer \"Who has access\" only on scope tables"
+            },
+            {
+              "scope": "pages",
+              "text": "add the auth.scopeTables page capability"
+            },
+            {
+              "scope": "tables",
+              "text": "test membership in many-to-many relationships in row rules"
+            },
+            {
+              "scope": "tables",
+              "text": "narrow assignment references to one grant role"
+            },
+            {
+              "scope": "admin",
+              "text": "show who has access to scoped records in the console"
+            },
+            {
+              "scope": "tables",
+              "text": "look up access grants by email, with account and record names"
+            },
+            {
+              "scope": "tables",
+              "text": "show a table's label wherever it is named to a person"
+            },
+            {
+              "scope": "pages",
+              "text": "let a filter bar's select field read its choices from a table"
+            },
+            {
+              "scope": "automations",
+              "text": "grant, revoke and list access to scoped records"
+            },
+            {
+              "scope": "cli",
+              "text": "seed access grants from seed/users.yaml"
+            },
+            {
+              "scope": "tables",
+              "text": "read, change, revoke and look up access grants"
+            },
+            {
+              "scope": "automations",
+              "text": "give trigger.user the acting person's email and name"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "auth",
+              "text": "draw a refused password's reason under its own field"
+            },
+            {
+              "scope": "admin",
+              "text": "count every connection that needs reconnecting on the Overview"
+            },
+            {
+              "scope": "auth",
+              "text": "show the password rule under every password field"
+            },
+            {
+              "scope": "pages",
+              "text": "translate the auth, form, map, palette and control copy that stayed English"
+            },
+            {
+              "scope": "ai",
+              "text": "focus the assistant a link opens even with no words"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a mounted app's home link free of a trailing slash before its query"
+            },
+            {
+              "scope": "admin",
+              "text": "drop search results that point at pages the console no longer has"
+            },
+            {
+              "scope": "pages",
+              "text": "a publishing native-select filters even on a page with no other interactive component"
+            },
+            {
+              "scope": "admin",
+              "text": "count an OAuth2 connection as active only once it is authorized"
+            },
+            {
+              "scope": "admin",
+              "text": "translate the console's conversation list states"
+            },
+            {
+              "scope": "pages",
+              "text": "translate the empty states and the remaining island copy"
+            },
+            {
+              "scope": "pages",
+              "text": "separate the items of a list value with commas"
+            },
+            {
+              "scope": "pages",
+              "text": "title the create drawer with the table's singular label"
+            },
+            {
+              "scope": "tables",
+              "text": "name a clipped cell on keyboard focus as well as hover"
+            },
+            {
+              "scope": "tables",
+              "text": "show the scroll edge of a wide grid in the dark theme"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a sheet footer action in the variant it declares"
+            },
+            {
+              "scope": "pages",
+              "text": "make chart axis labels readable in the dark theme"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a chart inside the height its host declares"
+            },
+            {
+              "scope": "pages",
+              "text": "show the chart's missing-binding message instead of crashing when it has no data source"
+            },
+            {
+              "scope": "pages",
+              "text": "send a dashboard's shared system read once, not once per panel"
+            },
+            {
+              "scope": "library",
+              "text": "install the navbar command block without arbitrary variants"
+            },
+            {
+              "scope": "pages",
+              "text": "translate the filter bar's operators and the islands' error states"
+            },
+            {
+              "scope": "tables",
+              "text": "stop offering a sort control on a button column"
+            },
+            {
+              "scope": "pages",
+              "text": "translate the grid, breadcrumb and skeleton labels the console still showed in English"
+            },
+            {
+              "scope": "pages",
+              "text": "format KPI percentages in the operator's language"
+            },
+            {
+              "scope": "tables",
+              "text": "format a currency formula like a currency field in every grid"
+            },
+            {
+              "scope": "tables",
+              "text": "place the currency symbol where the operator's language puts it when a field declares no position"
+            },
+            {
+              "scope": "design",
+              "text": "darken the default light destructive colour to the WCAG AA contrast minimum"
+            },
+            {
+              "scope": "automations",
+              "text": "mask the person a run acts for the way the record's persons are"
+            },
+            {
+              "scope": "admin",
+              "text": "show the whole operator console in the operator's language"
+            },
+            {
+              "scope": "css",
+              "text": "create the pre-compiled stylesheet's directory from its path, and derive the stamp from the compile key"
+            },
+            {
+              "scope": "tables",
+              "text": "pin the first column and show a scroll edge when a table is wider than its container"
+            },
+            {
+              "scope": "tables",
+              "text": "open a grid row in its drawer on small screens instead of cutting the actions column off"
+            },
+            {
+              "scope": "css",
+              "text": "serve a designed app its own pre-compiled stylesheet and keep the file in the data directory"
+            },
+            {
+              "scope": "forms",
+              "text": "a read-only select with no default submits the option it shows"
+            },
+            {
+              "scope": "pages",
+              "text": "read a percent-encoded route segment as the value it encodes"
+            },
+            {
+              "scope": "css",
+              "text": "ignore a precompiled stylesheet built by another engine or design"
+            },
+            {
+              "scope": "forms",
+              "text": "honour hidden and readOnly fields on endpoint forms"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the record sheet's Activity and Access tabs on the operator console"
+            },
+            {
+              "scope": "admin",
+              "text": "answer a missing console address inside the console shell"
+            },
+            {
+              "scope": "auth",
+              "text": "open the sign-in form with the address a password reset was asked for"
+            },
+            {
+              "scope": "pages",
+              "text": "let an iframe load a page or a file of the same app"
+            },
+            {
+              "scope": "admin",
+              "text": "address a template preview without repeating its folder, and keep scripts out of it"
+            },
+            {
+              "scope": "pages",
+              "text": "name a switch or checkbox by its aria-label or by a label pointing at its id"
+            },
+            {
+              "scope": "theming",
+              "text": "let the sidebar follow the default primary and ring too"
+            },
+            {
+              "scope": "pages",
+              "text": "save an untouched record on a table with every field type"
+            },
+            {
+              "scope": "connections",
+              "text": "report unauthorized OAuth2 connections and return to the starting page"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the sidebar's anatomy inside the phone drawer"
+            },
+            {
+              "scope": "pages",
+              "text": "key search palette rows by kind and id, not by link"
+            },
+            {
+              "scope": "admin",
+              "text": "re-align the console shell and sign-in copies on their blocks"
+            },
+            {
+              "scope": "forms",
+              "text": "parse the submission detail reveal flag strictly"
+            },
+            {
+              "scope": "admin",
+              "text": "mark and name the console after the app it administers"
+            },
+            {
+              "scope": "theming",
+              "text": "follow a system scheme change on a page that is already open"
+            },
+            {
+              "scope": "account",
+              "text": "keep invitations an erased person sent, without her id"
+            },
+            {
+              "scope": "theming",
+              "text": "let the sidebar's primary and ring follow the app's in both schemes"
+            },
+            {
+              "scope": "pages",
+              "text": "show the palette's keys, name a record row's table, and key rows by link"
+            },
+            {
+              "scope": "account",
+              "text": "remove a person's pending verification tokens when erasing them"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a long sidebar's footer in view and give its drawer a close button"
+            },
+            {
+              "scope": "tables",
+              "text": "make a sortable column header a named sort button"
+            },
+            {
+              "scope": "pages",
+              "text": "let a combobox caption label the field the reader types into"
+            },
+            {
+              "scope": "theming",
+              "text": "draw one focus ring on a focused text input"
+            },
+            {
+              "scope": "design",
+              "text": "draw the button component as shadcn's base-nova Button"
+            },
+            {
+              "scope": "pages",
+              "text": "name a select by its aria-label when it has no caption"
+            },
+            {
+              "scope": "pages",
+              "text": "render a page in the active language when it declares none"
+            },
+            {
+              "scope": "pages",
+              "text": "format byte counts for the page locale"
+            },
+            {
+              "scope": "pages",
+              "text": "name a derived filter bar's fields in words"
+            },
+            {
+              "scope": "admin",
+              "text": "compose the console grids' toolbars from the library block"
+            },
+            {
+              "scope": "admin",
+              "text": "keep the page name in the console's phone breadcrumb and make its search an icon"
+            },
+            {
+              "scope": "design",
+              "text": "keep sidebar rows, breadcrumb links, the command input and KPI labels on their shadcn ink and box"
+            },
+            {
+              "scope": "admin",
+              "text": "say what each console write did, and offer only what the operator may do"
+            },
+            {
+              "scope": "pages",
+              "text": "name the item in action toasts, reset forms to the next entry, keep toasts off the focused control"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the console shell when navigation goes offline or the session ends"
+            },
+            {
+              "scope": "pages",
+              "text": "mark a failed upload and offer to retry or remove it"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the new-record dialog open and show field errors when a save is refused"
+            },
+            {
+              "scope": "pages",
+              "text": "show a failed grid read with a retry and never the response body"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the built-in labels of sheets and dialogs in the page language"
+            },
+            {
+              "scope": "pages",
+              "text": "run a record sheet footer's crud delete and update once confirmed"
+            },
+            {
+              "scope": "account",
+              "text": "retry an erasure that meets a concurrent write, and answer a losing write as a conflict"
+            },
+            {
+              "scope": "pages",
+              "text": "give each field control one unique id and keep focus rings on flat designs"
+            },
+            {
+              "scope": "library",
+              "text": "let the browser autofill the contact form blocks"
+            },
+            {
+              "scope": "pages",
+              "text": "name every field control by its label and announce new-tab buttons"
+            },
+            {
+              "scope": "library",
+              "text": "let the browser autofill the account settings block"
+            },
+            {
+              "scope": "admin-console",
+              "text": "let the browser autofill the operator's own name on the profile page"
+            },
+            {
+              "scope": "admin-console",
+              "text": "name the progress specimen and draw the CSV export as an outline button"
+            },
+            {
+              "scope": "pages",
+              "text": "send a failed delete only once and say it failed"
+            },
+            {
+              "scope": "account",
+              "text": "take the account lock first when erasing"
+            },
+            {
+              "scope": "pages",
+              "text": "announce new tabs, keep focus visible and in dialogs, and fix page structure"
+            },
+            {
+              "scope": "library",
+              "text": "keep block headings in order and their text at full contrast"
+            },
+            {
+              "scope": "forms",
+              "text": "explain required fields and speak the page language"
+            },
+            {
+              "scope": "tables",
+              "text": "count each records API request once, against the right budget"
+            },
+            {
+              "scope": "pages",
+              "text": "ask before a delete whose crud action sets confirm in a grid or drawer"
+            },
+            {
+              "scope": "pages",
+              "text": "treat % and \\_ literally in a page filter's contains"
+            },
+            {
+              "scope": "design",
+              "text": "dim an input group only when its field is disabled"
+            },
+            {
+              "scope": "pages",
+              "text": "give every markdown article a document title"
+            },
+            {
+              "scope": "pages",
+              "text": "give the page search box the combobox role its suggestions need"
+            },
+            {
+              "scope": "tables",
+              "text": "put a grouped row's expanded state on its toggle button and name progress cells"
+            },
+            {
+              "scope": "design",
+              "text": "raise the default muted text and field border to the WCAG AA contrast minimum"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a page usable when its deletes are refused for rate limit"
+            },
+            {
+              "scope": "tables",
+              "text": "one write budget per caller for every record write, and room for signed-in reads"
+            },
+            {
+              "scope": "admin-console",
+              "text": "make the Footprint section headings second-level"
+            },
+            {
+              "scope": "css",
+              "text": "change the stylesheet URL when the engine changes"
+            },
+            {
+              "scope": "pages",
+              "text": "judge contains and relationship row rules on pages and hosted forms as the records API does"
+            },
+            {
+              "scope": "cli",
+              "text": "refuse an undeclared literal scope table or role in the access-grant actions at validation"
+            },
+            {
+              "scope": "tables",
+              "text": "confirm the accounts a list of people names inside the write that stores it"
+            },
+            {
+              "scope": "pages",
+              "text": "read contains on a user field holding several people as membership in page and automation filters"
+            },
+            {
+              "scope": "cli",
+              "text": "report an unreadable releases reply in sovrium update with its status and content type"
+            },
+            {
+              "scope": "tables",
+              "text": "match a text filter on a link only against live linked records"
+            },
+            {
+              "scope": "automations",
+              "text": "apply concurrent access grants and revocations without losing any"
+            },
+            {
+              "scope": "tables",
+              "text": "start many-to-many relationships to text-keyed tables on PostgreSQL"
+            },
+            {
+              "scope": "automations",
+              "text": "close live connections when an automation changes a grant"
+            },
+            {
+              "scope": "tables",
+              "text": "never label a granted record with a write-only value"
+            },
+            {
+              "scope": "pages",
+              "text": "name a route-bound grid in the page's language"
+            },
+            {
+              "scope": "tables",
+              "text": "match a text filter on a link by the linked record's name"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a button field placed in a record-field on a record page"
+            },
+            {
+              "scope": "migrations",
+              "text": "keep inserts working on a scope table with a computed field"
+            },
+            {
+              "scope": "pages",
+              "text": "name the bound record in a page's title, trail and field values"
+            },
+            {
+              "scope": "tables",
+              "text": "address scope-table records by their generated text ids"
+            },
+            {
+              "scope": "kanban",
+              "text": "head board columns and lanes with the option label"
+            },
+            {
+              "scope": "cli",
+              "text": "name GitHub's rate limit in sovrium update and find the release anyway"
+            },
+            {
+              "scope": "connections",
+              "text": "pass object and list parameters as values, not text"
+            }
+          ]
+        },
+        {
+          "kind": "performance",
+          "heading": "Performance Improvements",
+          "entries": [
+            {
+              "scope": "css",
+              "text": "compile each app's stylesheet from the components it declares"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the shared filter publisher out of islands that never publish"
+            },
+            {
+              "scope": "css",
+              "text": "serve the default fonts as cached woff2 files"
+            },
+            {
+              "scope": "automations",
+              "text": "read the acting person's account once per batch write"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.38.0",
       "date": "2026-10-14",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.37.0...v0.38.0",

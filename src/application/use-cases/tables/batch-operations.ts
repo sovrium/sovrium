@@ -19,17 +19,21 @@ import {
   buildCreateAuthorshipOverrides,
   buildUpdateAuthorshipOverrides,
   buildCurrentUserDefaults,
-  createdByFieldNames,
 } from '@/domain/models/app/tables/authorship-fields'
-import { normalizeDateValuesIn } from '@/domain/models/app/tables/empty-date-service'
+import { storedValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import { omitFromWriteEchoWhenReturned } from './hidden-lookup-omission'
-import { refuseUnreadableLinkTargets, type LinkTargetWrite } from './link-target-check'
+import {
+  namedAccounts,
+  refuseUnreadableLinkTargets,
+  type LinkTargetWrite,
+} from './link-target-check'
 import { getManyToManyFieldSpecs } from './many-to-many-fields'
 import { announceRecordWrites } from './record-change-announcement'
 import { splitManyToManyFields } from './record-link-enrichment'
 import { transformRecords, type TransformedRecord } from './record-transformer'
 import { refuseSelfLinkCycles } from './self-link-cycle-check'
 import { upsertLinkTargetWrite } from './upsert-link-target-write'
+import { stampUpsertRows } from './upsert-row-stamping'
 import type { LinkReader } from './linked-row-visibility'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -59,22 +63,22 @@ const refuseBatchLinkTargets = (input: {
     )
   )
 
-/** A written row with an empty date read as "no date" (`null`), as a single write does. */
-const emptyDatesAsNull = (
+/** A written row in its stored form (`storedValuesIn`), as a single write stores it. */
+const storedFieldsOf = (
   fields: Readonly<Record<string, unknown>>,
   app: App | undefined,
   tableName: string
-): Readonly<Record<string, unknown>> => normalizeDateValuesIn(app?.tables, tableName, fields)
+): Readonly<Record<string, unknown>> => storedValuesIn(app?.tables, tableName, fields)
 
-/** A batch update entry whose fields read an empty date as `null`. */
-const withDatedFields = <R extends { readonly fields?: Record<string, unknown> }>(
+/** A batch update entry whose fields are in their stored form ({@link storedFieldsOf}). */
+const withStoredFields = <R extends { readonly fields?: Record<string, unknown> }>(
   record: R,
   app: App | undefined,
   tableName: string
 ): R =>
   record.fields === undefined
     ? record
-    : { ...record, fields: { ...emptyDatesAsNull(record.fields, app, tableName) } }
+    : { ...record, fields: { ...storedFieldsOf(record.fields, app, tableName) } }
 
 /**
  * Create the batch's records and write their many-to-many links.
@@ -103,7 +107,10 @@ const createWithManyToManyLinks = (input: {
       session,
       tableName,
       split.map((entry) => entry.baseFields),
-      specs.length === 0 ? undefined : split.map((entry) => entry.links)
+      {
+        links: specs.length === 0 ? undefined : split.map((entry) => entry.links),
+        accounts: namedAccounts(app, tableName, recordsData),
+      }
     )
   }).pipe(Effect.withSpan('tables.batch-create-with-links'))
 
@@ -123,7 +130,7 @@ const stampBatchCreateRows = (
   tableName: string,
   recordsData: readonly Record<string, unknown>[]
 ): readonly Record<string, unknown>[] => {
-  const dated = recordsData.map((fields) => emptyDatesAsNull(fields, app, tableName))
+  const dated = recordsData.map((fields) => storedFieldsOf(fields, app, tableName))
   if (isGuestSession(userId)) return dated
   const overrides = buildCreateAuthorshipOverrides(app?.tables, tableName, userId)
   return dated.map((fields) => ({
@@ -148,7 +155,7 @@ const stampBatchUpdateRows = <R extends { readonly fields?: Record<string, unkno
   tableName: string,
   recordsData: readonly R[]
 ): readonly R[] => {
-  const dated = recordsData.map((record) => withDatedFields(record, app, tableName))
+  const dated = recordsData.map((record) => withStoredFields(record, app, tableName))
   if (isGuestSession(userId)) return dated
   const overrides = buildUpdateAuthorshipOverrides(app?.tables, tableName, userId)
   if (Object.keys(overrides).length === 0) return dated
@@ -245,7 +252,12 @@ export function batchUpdateProgram(config: {
     // No record of the batch may end up its own ancestor, judged as if the whole batch landed.
     yield* refuseSelfLinkCycles({ app, session, tableName, records: recordsData })
     const dated = stampBatchUpdateRows(session.userId, app, tableName, recordsData)
-    const updatedRecords = yield* batch.batchUpdate(session, tableName, dated)
+    const accounts = namedAccounts(
+      app,
+      tableName,
+      recordsData.map((record) => record.fields ?? {})
+    )
+    const updatedRecords = yield* batch.batchUpdate(session, tableName, dated, accounts)
 
     // The records handed back hold no more than the writer's own read of them.
     const echoed = yield* omitFromWriteEchoWhenReturned(returnRecords, {
@@ -294,33 +306,6 @@ export function batchRestoreProgram(
   }).pipe(announceRecordWrites(app), Effect.withSpan('tables.batch-restore-program'))
 }
 
-/**
- * The `$currentUser` defaults an upsert may write as insert-only: those no row
- * of the batch supplies itself. Empty for a guest or the system actor, who is
- * no person.
- *
- * Insert-only is what makes a default fill the rows the upsert CREATES and never
- * the rows it updates, so a matched row keeps the person it already names. A
- * default some row supplies explicitly is left to the rows as written, because
- * insert-only is batch-wide and would drop that row's own value from its update.
- */
-const upsertCurrentUserDefaults = (
-  userId: string,
-  tables: App['tables'],
-  tableName: string,
-  recordsData: readonly Record<string, unknown>[]
-): Readonly<Record<string, string>> => {
-  if (isGuestSession(userId) || userId === SYSTEM_USER_ID) return {}
-  const defaults = buildCurrentUserDefaults(tables, tableName, userId, {})
-  return Object.fromEntries(
-    Object.entries(defaults).filter(([name]) =>
-      recordsData.every(
-        (fields) => fields[name] === undefined || fields[name] === null || fields[name] === ''
-      )
-    )
-  )
-}
-
 /** Judge every link an upsert names, each update branch holding its matched row. */
 const refuseUpsertLinkTargets = (
   session: Readonly<UserSession>,
@@ -344,6 +329,7 @@ const refuseUpsertLinkTargets = (
     })
   })
 
+/** Upsert the batch, its rows stamped by `stampUpsertRows`. */
 export function upsertProgram(
   session: Readonly<UserSession>,
   tableName: string,
@@ -371,29 +357,17 @@ export function upsertProgram(
     // Both branches are judged before either writes; a matched row is held, as on PATCH.
     yield* refuseUpsertLinkTargets(session, tableName, params)
     const { app } = params
-    // Stamp every `created-by`/`updated-by`-typed field BY NAME, as the
-    // single-record create does (`write-record-programs.ts`): the infra only
-    // fills the literal `created_by`/`updated_by` columns, and the create half
-    // of an upsert must satisfy a NOT NULL author column like any other create.
-    // The created-by names, plus the intrinsic `created_at`/`created_by`, are
-    // insert-only: a matched row keeps its original author and creation date.
-    const tables = app?.tables
-    const overrides = isGuestSession(session.userId)
-      ? {}
-      : buildCreateAuthorshipOverrides(tables, tableName, session.userId)
-    const rows = params.recordsData.map((fields) => emptyDatesAsNull(fields, app, tableName))
-    const defaults = upsertCurrentUserDefaults(session.userId, tables, tableName, rows)
-    const recordsData = rows.map((fields) => ({ ...fields, ...overrides, ...defaults }))
-    const insertOnlyFields = [
-      'created_at',
-      'created_by',
-      ...createdByFieldNames(tables, tableName),
-      ...Object.keys(defaults),
-    ]
+    const { recordsData, insertOnlyFields } = stampUpsertRows(
+      session.userId,
+      app,
+      tableName,
+      params.recordsData
+    )
     const result = yield* batch.upsert(session, tableName, recordsData, {
       fieldsToMergeOn: params.fieldsToMergeOn,
       insertOnlyFields,
       hiddenIds: params.hiddenIds ?? [],
+      accounts: namedAccounts(app, tableName, recordsData),
     })
 
     // The records handed back hold no more than the writer's own read of them.

@@ -42,6 +42,7 @@ import {
   zeroJsDialogNeedsNoRuntime,
 } from '@/presentation/render/registry/island-component-types'
 import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
+import { stampPasswordMinLength } from '@/presentation/render/resolve/password-policy-stamp'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
@@ -341,10 +342,11 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
   const html = renderToString(
     <ClientScriptPathsContext.Provider value={clientScriptPaths}>
       <DynamicPage
-        page={page}
+        // Every form states the app's password minimum under a new password.
+        page={stampPasswordMinLength(page, app)}
         badgePlacement={resolveBadge(app.badge)}
         demoNoticeEnabled={!isOperatorConsoleApp(app)}
-        components={appComponents}
+        components={stampPasswordMinLength(appComponents, app)}
         // One position, `app.design`, with no fallback to an alias: the no-FOUC
         // colour-scheme bootstrap reads its tokens from here, and without them
         // the dark cascade — a class on `<html>`, not a media query — would be

@@ -118,6 +118,25 @@ export interface AdminSubmissionsListFilters {
    */
   readonly q?: string | undefined
   readonly limit: number
+  /**
+   * Also select the submitted `data` column, for a page whose bodies the
+   * reveal gate let through. One read either way — never a query per row.
+   */
+  readonly withData?: boolean | undefined
+}
+
+/**
+ * The filters a submissions COUNT honours: every narrowing of the list except
+ * the page itself (cursor, size) and the projection.
+ */
+export type AdminSubmissionsCountFilters = Omit<
+  AdminSubmissionsListFilters,
+  'cursorBefore' | 'limit' | 'withData'
+>
+
+/** A list row; `data` is present only when the read asked for it. */
+export interface AdminFormSubmissionListRow extends AdminFormSubmissionRow {
+  readonly data?: unknown
 }
 
 export class AdminFormsRepository extends Context.Service<
@@ -135,11 +154,20 @@ export class AdminFormsRepository extends Context.Service<
     /**
      * Cursor-paginated submissions read. Fetches `filters.limit + 1` rows
      * ordered `submitted_at DESC`, applying every set filter immutably. The
-     * extra row lets the use case derive `hasMore` / `nextCursor`.
+     * extra row lets the use case derive `hasMore` / `nextCursor`. With
+     * `withData`, each row also carries its submitted `data`.
      */
     readonly listSubmissions: (
       filters: AdminSubmissionsListFilters
-    ) => Effect.Effect<readonly AdminFormSubmissionRow[], AdminFormsDatabaseError>
+    ) => Effect.Effect<readonly AdminFormSubmissionListRow[], AdminFormsDatabaseError>
+
+    /**
+     * How many submissions match the list's filters (status, from, to,
+     * deleted, `q`), the cursor and page size set aside — the pager's total.
+     */
+    readonly countSubmissions: (
+      filters: AdminSubmissionsCountFilters
+    ) => Effect.Effect<number, AdminFormsDatabaseError>
 
     /**
      * Single-submission lookup by (id, formName), including the `data` body

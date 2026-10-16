@@ -12,11 +12,9 @@ import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-s
 import type {
   DataTableColumn,
   DataTablePagination,
-  ComponentSearch,
   DataTableSelection,
   DataTableSummaryItem,
   DataTableSystemSource,
-  DataTableToolbar,
   RowHeight,
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
@@ -61,9 +59,13 @@ export interface IslandSetupParams {
   }
   readonly columnConfig?: readonly DataTableColumn[]
   readonly paginationConfig?: DataTablePagination
-  readonly searchConfig?: ComponentSearch
   readonly selectionConfig?: DataTableSelection
-  readonly toolbarConfig?: DataTableToolbar
+  /**
+   * The grid publishes the row a reader selects (`publishes`). With no
+   * `selection` declared, a row click then selects one row — no checkbox
+   * column — and clicking it again clears it.
+   */
+  readonly publishesSelection: boolean
   readonly initialRowHeight: RowHeight
   readonly searchSourceId: string | undefined
   readonly tableFields: readonly string[] | undefined
@@ -93,6 +95,8 @@ export interface IslandSetupParams {
   readonly cancelLabel: string
   /** How the action column draws its actions: inline buttons, or a `…` menu per row. */
   readonly rowActionsDisplay: RowActionsDisplay
+  /** The page-language strings the server resolved (`rateLimit.*` among them). */
+  readonly uiStrings?: Readonly<Record<string, string>> | undefined
 }
 
 /**

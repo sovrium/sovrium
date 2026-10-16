@@ -147,6 +147,9 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // Body reveal (D7) — same resource type, severity escalates at emit time
   // (handler passes severity: 'critical' to emitAuditEvent).
   'form.submission.body.revealed': 'form.submission',
+  // The same reveal over one page of the list: ONE event per revealed read,
+  // naming the form rather than each submission, at the same critical severity.
+  'form.submission.bodies.revealed': 'form.submission',
   // [internal ref] analytics + export endpoints. Aggregate analytics keys on the
   // singular `form` resource (it's a form-level metric), the CSV export
   // keys on `form.submission` (it returns submission rows).
@@ -339,6 +342,7 @@ export const AUDIT_ACTIONS = {
   FORM_SUBMISSION_DETAIL_QUERIED: 'form.submission.detail.queried',
   FORM_SUBMISSION_BULK_QUERIED: 'form.submission.bulk.queried',
   FORM_SUBMISSION_BODY_REVEALED: 'form.submission.body.revealed',
+  FORM_SUBMISSION_BODIES_REVEALED: 'form.submission.bodies.revealed',
   FORM_ANALYTICS_QUERIED: 'form.analytics.queried',
   FORM_EXPORT_QUERIED: 'form.export.queried',
   USER_OVERVIEW_QUERIED: 'user.overview.queried',

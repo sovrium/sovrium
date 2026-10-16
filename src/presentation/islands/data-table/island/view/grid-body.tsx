@@ -13,6 +13,8 @@ import { usePhoneViewport } from '../../../hooks/use-phone-viewport'
 import { LoadMoreButton } from '../../../parts/load-more-button'
 import { GridInfiniteFooter } from '../../pagination/grid-infinite-footer'
 import { PaginationControls } from '../../pagination/pagination-controls'
+import { SessionControls } from '../../view-options/session-controls'
+import { SelectionBar } from '../bulk-actions'
 import { TableContent } from '../table-content'
 import { PhoneRows } from './phone-rows'
 import type { GridBodyProps } from '../view-props'
@@ -41,20 +43,41 @@ function showsPagerAt(props: GridBodyProps, edge: 'top' | 'bottom'): boolean {
   return position === edge || position === 'both'
 }
 
-/** The pager itself, identical on either edge but for the border it carries. */
-function GridPager({
-  props,
-  edge,
-}: {
-  readonly props: GridBodyProps
-  readonly edge: 'top' | 'bottom'
-}) {
+/** The pager above the rows: the range summary and the steps, nothing else. */
+function GridPager({ props }: { readonly props: GridBodyProps }) {
   return (
     <PaginationControls
       table={props.table}
       total={props.totalRecords}
       pageSizeOptions={props.paginationConfig?.pageSizeOptions}
-      position={edge}
+      position="top"
+    />
+  )
+}
+
+/**
+ * The bottom bar, 36px, under the rows: the range summary on the left — or, once
+ * rows are checked, the selection in its place — and on the right the reader's
+ * session controls, then the page size and the steps when the grid numbers its
+ * pages. It is drawn whenever the grid numbers its pages OR its rows can be
+ * checked, whatever its `layout`: a selectable grid always has somewhere to say
+ * what is selected and what can be done with it.
+ */
+function BottomBar({ props, paged }: { readonly props: GridBodyProps; readonly paged: boolean }) {
+  const { selection } = props
+  return (
+    <PaginationControls
+      table={props.table}
+      total={props.totalRecords}
+      pageSizeOptions={props.paginationConfig?.pageSizeOptions}
+      position="bottom"
+      paged={paged}
+      leading={
+        selection !== undefined && selection.selectedCount > 0 ? (
+          <SelectionBar {...selection} />
+        ) : undefined
+      }
+      trailing={<SessionControls {...props.session} />}
     />
   )
 }
@@ -79,12 +102,7 @@ export function GridBody(props: GridBodyProps) {
   const phoneRows = usePhoneViewport(props.phoneLayout === 'rows')
   return (
     <>
-      {showsPagerAt(props, 'top') && (
-        <GridPager
-          props={props}
-          edge="top"
-        />
-      )}
+      {showsPagerAt(props, 'top') && <GridPager props={props} />}
       {phoneRows ? (
         <PhoneRows
           table={props.grid.table}
@@ -101,17 +119,18 @@ export function GridBody(props: GridBodyProps) {
 const LOAD_MORE_FOOTER_CLASSES = `${computeTablePagerClasses({ position: 'bottom' })} justify-center`
 
 /**
- * The bottom pager, and the continuation control beneath it — for a cursor feed
- * and for a table grid that loads page by page. It is drawn only while more
- * rows exist: at the end there is nothing to offer.
+ * The bottom bar, and the continuation control beneath it — for a cursor feed
+ * and for a table grid that loads page by page. The continuation is drawn only
+ * while more rows exist: at the end there is nothing to offer.
  */
 function GridFooter(props: GridBodyProps) {
+  const paged = showsPagerAt(props, 'bottom')
   return (
     <>
-      {showsPagerAt(props, 'bottom') && (
-        <GridPager
+      {(paged || props.selection !== undefined) && (
+        <BottomBar
           props={props}
-          edge="bottom"
+          paged={paged}
         />
       )}
       {props.onLoadMore && props.paginationConfig?.style === 'infinite' && (

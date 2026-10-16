@@ -26,7 +26,17 @@ export default {
   // avec le nom auquel elle appartient.
   'admin.welcome.heading': 'Bienvenue[, $session.name]',
   'admin.welcome.heroRegion': 'Demander ou chercher',
+  'admin.invitation.heading': 'Rejoindre la console',
+  'admin.invitation.invitedYouTo': 't’invite sur',
+  'admin.invitation.signInAs': 'Tu te connecteras avec',
+  'admin.invitation.submit': 'Choisir un mot de passe et rejoindre',
+  'admin.notFound.heading': 'Page introuvable',
+  'admin.notFound.body':
+    'Rien dans cette console ne répond à cette adresse. La section n’existe peut-être pas dans cette app, ou le lien est périmé.',
+  'admin.notFound.back': 'Aller à la vue d’ensemble',
   'admin.welcome.noAi': 'Aucun fournisseur d’IA configuré — cherche dans l’app à la place.',
+  'admin.welcome.readOnlySearch':
+    'Cherche dans l’app. L’assistant est proposé aux rôles qui peuvent faire des changements.',
   // Le déclencheur de la palette côté héros, nommé À PART de celui de la barre
   // latérale : Bienvenue est la seule surface où les deux sont à l’écran, et
   // ils portaient le même nom. La barre latérale garde le verbe seul — c’est
@@ -43,14 +53,17 @@ export default {
   'admin.welcome.pulse.failedRuns.where': 'Exécutions →',
   'admin.welcome.pulse.variablesUnset': 'Variables requises non définies',
   'admin.welcome.pulse.variablesUnset.where': 'Environnement →',
-  'admin.welcome.pulse.tokensExpired': 'Jetons expirés',
+  'admin.welcome.pulse.tokensExpired': 'Connexions à reconnecter',
   'admin.welcome.pulse.tokensExpired.where': 'Connexions →',
   'admin.welcome.pulse.invitationsPending': 'Invitations en attente',
   'admin.welcome.pulse.invitationsPending.where': 'Utilisateurs →',
   'admin.welcome.pulse.recentSubmissions': 'Nouvelles réponses',
   'admin.welcome.pulse.recentSubmissions.where': 'Réponses →',
-  'admin.welcome.pulse.automationsPaused': 'Automatisations en pause',
-  'admin.welcome.pulse.automationsPaused.where': 'Exécutions →',
+  'admin.welcome.pulse.findingsCount': 'Constats',
+  'admin.welcome.pulse.findingsCount.where': 'constats →',
+  'admin.welcome.pulse.allClear': 'Rien à signaler',
+  'admin.welcome.pulse.allClear.body':
+    'Aucune exécution en échec, aucune variable manquante, aucune connexion à reconnecter, rien en attente.',
 
   'admin.welcome.counts.region': 'Ce que cette app déclare',
   'admin.welcome.counts.heading': 'Ce que cette app déclare',
@@ -97,7 +110,6 @@ export default {
   'admin.profile.language.label': 'Langue',
   'admin.profile.language.hint': 'Suit ton compte sur tous les navigateurs où tu te connectes.',
   'admin.profile.language.formRegion': 'Changer la langue de la console',
-  'admin.profile.language.submit': 'Enregistrer',
   'admin.profile.language.saved': 'Langue enregistrée.',
   'admin.profile.language.savedDetail':
     'Langue enregistrée. La console bascule à ta prochaine page.',
@@ -105,7 +117,6 @@ export default {
 
   'admin.profile.notifications.label': 'Notifications',
   'admin.profile.notifications.hint': 'Chaque e-mail d’alerte renvoie ici, où tu les désactives.',
-  'admin.profile.notifications.submit': 'Enregistrer',
   'admin.profile.notifications.saved': 'Préférence enregistrée.',
   'admin.profile.notifications.failed': 'Impossible d’enregistrer la préférence.',
   'admin.profile.notifications.automationAlerts.label': 'Alertes d’automatisation',
@@ -131,6 +142,7 @@ export default {
   'admin.gdpr.identity.heading': 'Mon identité',
   'admin.gdpr.export.heading': 'Exporter mes données',
   'admin.gdpr.export.submit': 'Générer l’export',
+  'admin.gdpr.export.failed': 'Impossible de générer ton export. Réessaie dans un instant.',
   'admin.gdpr.erase.heading': 'Effacer mon compte',
   'admin.gdpr.erase.submit': 'Demander l’effacement',
   'admin.gdpr.erase.confirm.title': 'Confirmer l’effacement',
@@ -164,6 +176,8 @@ export default {
   'admin.env.callout.heading': 'Les valeurs vivent dans l’environnement de déploiement',
   'admin.env.declared.heading': 'Variables déclarées',
   'admin.env.declared.region': 'Variables d’environnement déclarées',
+  'admin.env.usedBy': 'Utilisée par',
+  'admin.env.unused': 'Inutilisée',
   'admin.env.required': 'Obligatoire',
   'admin.env.optional': 'Facultative',
   'admin.env.set': 'Définie',
@@ -202,6 +216,7 @@ export default {
   // pas dans une valeur traduite.
   'admin.login.heading': 'Connexion',
   'admin.login.blurb': 'La console d’exploitation de ',
+  'admin.login.sessionEnded': 'Ta session a pris fin — connecte-toi pour continuer.',
   'admin.login.submit': 'Se connecter',
   'admin.login.pending': 'Connexion…',
   'admin.login.cloudSignIn': 'Se connecter avec Sovrium Cloud',
@@ -233,5 +248,5 @@ export default {
   'admin.locked.audit.apiKeys.scopeNotice':
     'Identifiants de longue durée pour les scripts et les services qui appellent cette instance en ton nom. Présente-en un dans l’en-tête x-api-key. Une clé porte ton propre rôle — elle ne peut jamais faire plus que toi.',
   'admin.locked.audit.env.secrecyNotice':
-    'Définis une variable là où tu fais tourner cette instance, puis redémarre. La console rapporte ce qui a été résolu ; elle ne stocke ni ne révèle jamais une valeur.',
+    'Définis une variable dans l’environnement où tu fais tourner cette instance, puis redémarre. La console rapporte ce qui a été résolu ; elle ne stocke ni ne révèle jamais une valeur.',
 } as const

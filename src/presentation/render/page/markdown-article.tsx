@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { cn } from '@/presentation/design/class-merge'
 import { renderDocsArticleHeader } from '@/presentation/render/markdown/docs-article-header'
 import {
@@ -156,6 +157,7 @@ function renderArticle(
           issueUrl={markdown.issueUrl}
           contributionNote={markdown.contributionNote}
           labels={labels}
+          lang={markdown.lang}
         />
       )}
     </article>
@@ -201,6 +203,7 @@ function renderDocsLayout(
         <DocsSidebarNav
           nav={markdown.collectionNav}
           menuLabel={labels.menu}
+          closeLabel={resolveInterpreterString('sidebar.drawerClose', markdown.lang)}
           parts={markdown.parts}
         />
         {article}

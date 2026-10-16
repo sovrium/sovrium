@@ -13,6 +13,7 @@ import {
   FILTER_BAR_VALUE_CONTROL_CLASSES,
 } from '@/presentation/design/filter-bar-default-classes'
 import {
+  betweenEnds,
   kindOf,
   labelOf,
   operatorLabel,
@@ -25,8 +26,12 @@ import type {
 } from '@/presentation/design/filter-expression'
 import type { ReactElement } from 'react'
 
+/** The builder's words in the page language (`filterBar.*`); absent on an English page. */
+type Strings = Readonly<Record<string, string>> | undefined
+
 interface ConditionBuilderProps {
   readonly fields: readonly FilterBarField[]
+  readonly strings?: Strings
   readonly onApply: (condition: FilterBarCondition) => void
 }
 
@@ -35,6 +40,42 @@ interface Draft {
   readonly field?: FilterBarField
   readonly operator?: string
   readonly value: string
+}
+
+/** The draft and its four edits — the field, the operator, the value, and applying it. */
+function useDraft(onApply: (condition: FilterBarCondition) => void) {
+  const [draft, setDraft] = useState<Draft>({ value: '' })
+
+  const chooseField = useCallback((field: FilterBarField) => {
+    // The first operator of the field's kind is pre-selected so a reader who
+    // only names a column and a value can apply; picking one explicitly still
+    // overrides it. Leaving it unset would make the commonest condition — `is`
+    // — cost one more click than any other.
+    setDraft({ field, operator: operatorsFor(field)[0], value: '' })
+  }, [])
+
+  const chooseOperator = useCallback((operator: string) => {
+    // A `between` holds two ends and any other operator one, so switching
+    // between the two shapes starts the value again.
+    setDraft((previous) => ({
+      ...previous,
+      operator,
+      value: (operator === 'between') === (previous.operator === 'between') ? previous.value : '',
+    }))
+  }, [])
+
+  const changeValue = useCallback((value: string) => {
+    setDraft((previous) => ({ ...previous, value }))
+  }, [])
+
+  const apply = useCallback(() => {
+    const { field, operator, value } = draft
+    if (!field || operator === undefined || !isComplete(operator, value)) return
+    onApply({ field: field.name, operator, value })
+    setDraft({ value: '' })
+  }, [draft, onApply])
+
+  return { draft, chooseField, chooseOperator, changeValue, apply }
 }
 
 /**
@@ -47,37 +88,17 @@ interface Draft {
  * back-step where this makes it another click on a row already in front of the
  * reader.
  *
- * The field row offers exactly the DECLARED fields. The bar has no table
- * binding — it may drive subscribers over different tables — so there is no
- * schema to introspect and nothing else it could honestly offer. A menu built
- * from a table would also carry that table's `id` and the engine's own system
- * columns, which are not things a reader filters on.
+ * The field row offers exactly the fields the island is given: the declared
+ * `fields`, or those the server derived from `fieldsFrom` — the table's
+ * declared fields the reader may read, never its `id` or the engine's own
+ * system columns, which are not things a reader filters on.
  */
-export function ConditionBuilder({ fields, onApply }: ConditionBuilderProps): ReactElement {
-  const [draft, setDraft] = useState<Draft>({ value: '' })
-
-  const chooseField = useCallback((field: FilterBarField) => {
-    // The first operator of the field's kind is pre-selected so a reader who
-    // only names a column and a value can apply; picking one explicitly still
-    // overrides it. Leaving it unset would make the commonest condition — `is`
-    // — cost one more click than any other.
-    setDraft({ field, operator: operatorsFor(field)[0], value: '' })
-  }, [])
-
-  const chooseOperator = useCallback((operator: string) => {
-    setDraft((previous) => ({ ...previous, operator }))
-  }, [])
-
-  const changeValue = useCallback((value: string) => {
-    setDraft((previous) => ({ ...previous, value }))
-  }, [])
-
-  const apply = useCallback(() => {
-    const { field, operator, value } = draft
-    if (!field || operator === undefined || value === '') return
-    onApply({ field: field.name, operator, value })
-    setDraft({ value: '' })
-  }, [draft, onApply])
+export function ConditionBuilder({
+  fields,
+  strings,
+  onApply,
+}: ConditionBuilderProps): ReactElement {
+  const { draft, chooseField, chooseOperator, changeValue, apply } = useDraft(onApply)
 
   return (
     <div className="flex flex-col gap-2">
@@ -90,13 +111,22 @@ export function ConditionBuilder({ fields, onApply }: ConditionBuilderProps): Re
         <OperatorRow
           field={draft.field}
           selected={draft.operator}
+          strings={strings}
           onChoose={chooseOperator}
         />
       )}
-      {draft.field && (
+      {draft.field && draft.operator === 'between' && (
+        <RangeControl
+          value={draft.value}
+          strings={strings}
+          onChange={changeValue}
+        />
+      )}
+      {draft.field && draft.operator !== 'between' && (
         <ValueControl
           field={draft.field}
           value={draft.value}
+          strings={strings}
           onChange={changeValue}
         />
       )}
@@ -108,9 +138,50 @@ export function ConditionBuilder({ fields, onApply }: ConditionBuilderProps): Re
         data-size="sm"
         className={FILTER_BAR_APPLY_CLASSES}
       >
-        Apply
+        {strings?.['filterBar.apply'] ?? 'Apply'}
       </button>
     </div>
+  )
+}
+
+/** A value a condition can be applied with: both ends for `between`, anything else non-empty. */
+function isComplete(operator: string, value: string): boolean {
+  if (operator !== 'between') return value !== ''
+  const [from, to] = betweenEnds(value)
+  return from !== '' && to !== ''
+}
+
+/**
+ * The two ends of a `between`, named From and To. Held as one `from,to` value
+ * so the draft keeps one shape whatever the operator.
+ */
+function RangeControl({
+  value,
+  strings,
+  onChange,
+}: {
+  readonly value: string
+  readonly strings: Strings
+  readonly onChange: (value: string) => void
+}): ReactElement {
+  const [from, to] = betweenEnds(value)
+  return (
+    <span className={FILTER_BAR_BUILDER_ROW_CLASSES}>
+      <input
+        type="text"
+        aria-label={strings?.['filterBar.from'] ?? 'From'}
+        value={from}
+        onChange={(event) => onChange(`${event.target.value},${to}`)}
+        className={FILTER_BAR_VALUE_CONTROL_CLASSES}
+      />
+      <input
+        type="text"
+        aria-label={strings?.['filterBar.to'] ?? 'To'}
+        value={to}
+        onChange={(event) => onChange(`${from},${event.target.value}`)}
+        className={FILTER_BAR_VALUE_CONTROL_CLASSES}
+      />
+    </span>
   )
 }
 
@@ -161,10 +232,11 @@ function FieldOption({
 interface OperatorRowProps {
   readonly field: FilterBarField
   readonly selected: string | undefined
+  readonly strings: Strings
   readonly onChoose: (operator: string) => void
 }
 
-function OperatorRow({ field, selected, onChoose }: OperatorRowProps): ReactElement {
+function OperatorRow({ field, selected, strings, onChoose }: OperatorRowProps): ReactElement {
   const kind = kindOf(field)
   return (
     <span className={FILTER_BAR_BUILDER_ROW_CLASSES}>
@@ -174,6 +246,7 @@ function OperatorRow({ field, selected, onChoose }: OperatorRowProps): ReactElem
           operator={operator}
           kind={kind}
           active={selected === operator}
+          strings={strings}
           onChoose={onChoose}
         />
       ))}
@@ -185,11 +258,13 @@ function OperatorOption({
   operator,
   kind,
   active,
+  strings,
   onChoose,
 }: {
   readonly operator: string
   readonly kind: FilterFieldKind
   readonly active: boolean
+  readonly strings: Strings
   readonly onChoose: (operator: string) => void
 }): ReactElement {
   const handleClick = useCallback(() => onChoose(operator), [operator, onChoose])
@@ -201,7 +276,7 @@ function OperatorOption({
       onClick={handleClick}
       className={computeFilterBarOptionClasses({ active })}
     >
-      {operatorLabel(operator, kind)}
+      {operatorLabel(operator, kind, strings)}
     </button>
   )
 }
@@ -209,6 +284,7 @@ function OperatorOption({
 interface ValueControlProps {
   readonly field: FilterBarField
   readonly value: string
+  readonly strings: Strings
   readonly onChange: (value: string) => void
 }
 
@@ -221,17 +297,20 @@ interface ValueControlProps {
  * gets a text box — including `number`, whose value is coerced when the
  * expression is built rather than by the control.
  */
-function ValueControl({ field, value, onChange }: ValueControlProps): ReactElement {
+function ValueControl({ field, value, strings, onChange }: ValueControlProps): ReactElement {
   const handleChange = useCallback(
     (event: { readonly target: { readonly value: string } }) => onChange(event.target.value),
     [onChange]
   )
   const { options } = field
+  const valueName = (strings?.['filterBar.value'] ?? '{field} value').replace('{field}', () =>
+    labelOf(field, field.name)
+  )
   if (kindOf(field) === 'select' && options !== undefined && options.length > 0) {
     return (
       <select
         data-filter-value-input
-        aria-label={`${labelOf(field, field.name)} value`}
+        aria-label={valueName}
         value={value}
         onChange={handleChange}
         className={FILTER_BAR_VALUE_CONTROL_CLASSES}
@@ -252,7 +331,7 @@ function ValueControl({ field, value, onChange }: ValueControlProps): ReactEleme
     <input
       type="text"
       data-filter-value-input
-      aria-label={`${labelOf(field, field.name)} value`}
+      aria-label={valueName}
       value={value}
       onChange={handleChange}
       className={FILTER_BAR_VALUE_CONTROL_CLASSES}

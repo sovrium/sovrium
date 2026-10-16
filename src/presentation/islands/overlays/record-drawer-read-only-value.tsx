@@ -44,6 +44,9 @@ const ATTACHMENT_FIELD_TYPES: ReadonlySet<string> = new Set([
 ])
 
 /** Field types whose value is a list of entries, drawn as chips. */
+/** The instants the engine stamps, read as a date-time is. */
+const STAMP_INSTANT_TYPES: ReadonlySet<string> = new Set(['created-at', 'updated-at', 'deleted-at'])
+
 const LIST_FIELD_TYPES: ReadonlySet<string> = new Set(['multi-select', 'array'])
 
 /** Field types whose value is one chosen option, drawn as the grid's badge. */
@@ -86,7 +89,7 @@ const calendarDate = (
 ): string | undefined => {
   const { weekday } = zoned
   if (type === 'date') return formatCalendarDate(value, resolvePageLocale(), weekday)
-  if (type !== 'datetime') return undefined
+  if (type !== 'datetime' && !STAMP_INSTANT_TYPES.has(type)) return undefined
   return formatDateTimeInstant(value, resolvePageLocale(), {
     timeZone: zoned.timeZone ?? resolvePageTimezone(),
     ...(weekday === undefined ? {} : { weekday }),

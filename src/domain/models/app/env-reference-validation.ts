@@ -94,6 +94,23 @@ const referencesUnder = (
   )
 }
 
+/** The configuration minus `app.env`, whose defaults are values, not references. */
+const referencingConfiguration = (app: object): Readonly<Record<string, unknown>> =>
+  Object.fromEntries(Object.entries(app).filter(([key]) => key !== 'env'))
+
+/**
+ * Where the configuration references each variable as `$env.NAME`: per name,
+ * every place, in document order, worded as {@link validateAllEnvReferences}
+ * words a refusal (`Connection 'crm' props.clientSecret`). A place that
+ * references the same name twice is listed once. `app.env` itself is not
+ * walked, and a name nothing references has no entry.
+ */
+export const envReferenceLocations = (app: object): ReadonlyMap<string, readonly string[]> =>
+  referencesUnder(referencingConfiguration(app), [], []).reduce((byName, { name, location }) => {
+    const seen = byName.get(name) ?? []
+    return seen.includes(location) ? byName : new Map([...byName, [name, [...seen, location]]])
+  }, new Map<string, readonly string[]>())
+
 /**
  * A configuration may reference only the variables it declares.
  *
@@ -114,8 +131,7 @@ export const validateAllEnvReferences = (app: AppForEnvReferenceValidation): tru
   const declared = new Set((app.env ?? []).map((variable) => variable.key))
   // The declarations themselves are not references: a `default` is stored as
   // written and never resolved, so `app.env` is the one subtree not walked.
-  const configuration = Object.fromEntries(Object.entries(app).filter(([key]) => key !== 'env'))
-  const refusal = referencesUnder(configuration, [], []).find(
+  const refusal = referencesUnder(referencingConfiguration(app), [], []).find(
     (reference) => !declared.has(reference.name)
   )
   if (refusal === undefined) return true

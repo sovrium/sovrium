@@ -39,3 +39,39 @@ export function withResolvedOptionLabels(
     })
   )
 }
+
+type OptionField = Readonly<{ readonly type?: string; readonly options?: unknown }> | undefined
+
+/**
+ * `value → label` for one option field, each label resolved in `activeLang`
+ * by the reader every surface shares (`readColumnOptions`). `keepIdentical:
+ * false` drops an option whose label reads as its value — what a reader that
+ * falls back to the value itself needs no entry for. Empty for any other field.
+ */
+export function optionLabelsOf(
+  field: OptionField,
+  languages: Languages | undefined,
+  options: { readonly activeLang: string | undefined; readonly keepIdentical: boolean }
+): Readonly<Record<string, string>> {
+  const labelled = readColumnOptions(field, languages, options.activeLang) ?? []
+  return Object.fromEntries(
+    labelled
+      .filter((option) => options.keepIdentical || option.label !== option.value)
+      .map((option) => [option.value, option.label] as const)
+  )
+}
+
+/**
+ * `value → label` for one select or status field, each label resolved in the
+ * page language, or `undefined` when no option reads differently from its
+ * value. What a board's column and lane headers print (`option-labels`): the
+ * island keys every column by the stored value and only READS the label.
+ */
+export function optionLabelMap(
+  field: OptionField,
+  languages: Languages | undefined,
+  activeLang: string | undefined
+): Readonly<Record<string, string>> | undefined {
+  const labels = optionLabelsOf(field, languages, { activeLang, keepIdentical: false })
+  return Object.keys(labels).length === 0 ? undefined : labels
+}

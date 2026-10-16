@@ -29,7 +29,7 @@ colorScheme: system
 # never reads as a link. `info` is the accent: it is the edge of an untyped
 # `::: callout` block, which is guidance, not an outcome.
 colors:
-  primary: oklch(0.52 0.16 175)
+  primary: oklch(0.5 0.155 175)
   primary-hover: oklch(0.46 0.15 175)
   primary-active: oklch(0.42 0.141 175)
   primary-foreground: oklch(0.985 0.003 175)

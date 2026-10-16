@@ -89,14 +89,23 @@ const createInvitationAuthEngine = (authInstance: AuthInstance): InvitationAuthE
  * routes — `undefined` exactly when there is no auth instance, which is when the
  * routes are not mounted at all.
  */
-export function createInvitationServices(authInstance: AuthInstance): InvitationServices
 export function createInvitationServices(
-  authInstance: AuthInstance | undefined
+  authInstance: AuthInstance,
+  linkPages?: InvitationServices['linkPages']
+): InvitationServices
+export function createInvitationServices(
+  authInstance: AuthInstance | undefined,
+  linkPages?: InvitationServices['linkPages']
 ): InvitationServices | undefined
 export function createInvitationServices(
-  authInstance: AuthInstance | undefined
+  authInstance: AuthInstance | undefined,
+  linkPages?: InvitationServices['linkPages']
 ): InvitationServices | undefined {
   return authInstance === undefined
     ? undefined
-    : { store: invitationStore, engine: createInvitationAuthEngine(authInstance) }
+    : {
+        store: invitationStore,
+        engine: createInvitationAuthEngine(authInstance),
+        ...(linkPages === undefined ? {} : { linkPages }),
+      }
 }

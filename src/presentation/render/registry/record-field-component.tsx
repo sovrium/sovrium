@@ -23,10 +23,12 @@
  */
 
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
+import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
 import { computeRecordFieldValueClasses } from '@/presentation/design/display-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
-import { formatRecordValue } from '@/presentation/render/props/record-value-format'
+import { formatRecordValue, storedValueText } from '@/presentation/render/props/record-value-format'
+import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
@@ -203,8 +205,13 @@ function renderRichText(
 function renderRecordFieldSystemIsland(
   chrome: RecordFieldChrome,
   props: Record<string, unknown>,
-  format: ColumnFormat | undefined
+  format: ColumnFormat | undefined,
+  text: {
+    readonly loading: ReturnType<typeof islandLoadingLabel>
+    readonly uiStrings: Readonly<Record<string, string>> | undefined
+  }
 ): ReactElement {
+  const { loading, uiStrings } = text
   const dataSource = JSON.parse((props['_recordFieldDataSource'] as string) ?? '{}') as unknown
   const islandProps = JSON.stringify({
     dataSource,
@@ -215,6 +222,7 @@ function renderRecordFieldSystemIsland(
     // `format` a silent no-op on exactly one of the two binding modes.
     format,
     'data-testid': props['data-testid'] as string | undefined,
+    uiStrings,
   })
   return (
     <div
@@ -230,7 +238,8 @@ function renderRecordFieldSystemIsland(
           non-zero box. The island replaces this host's children on mount. */}
       <span
         role="status"
-        aria-label="Loading field..."
+        data-loading-status=""
+        aria-label={loading.status}
         className="bg-muted inline-block h-4 w-16 animate-pulse rounded"
       />
     </div>
@@ -252,9 +261,7 @@ function renderPlainText(
   value: unknown,
   binding: Parameters<typeof formatRecordValue>[1]
 ): ReactElement {
-  const text =
-    formatRecordValue(value, binding) ??
-    (value === undefined || value === null ? '' : String(value))
+  const text = formatRecordValue(value, binding) ?? storedValueText(value, binding.locale)
   return (
     <div
       id={chrome.id}
@@ -268,32 +275,19 @@ function renderPlainText(
   )
 }
 
-export const recordFieldComponent: ComponentRenderer = ({
-  elementProps,
-  rawProps,
-  tables,
-  component,
-  designStyles,
-  currentLang,
-  languages,
-}): ReactElement => {
-  const props = rawProps ?? {}
-  const format = resolveFormat(component)
-  // `elementProps` and NOT `rawProps` for the class, deliberately: the
-  // dispatcher folds `design.components['record-field']` into
-  // `elementProps.className` before a renderer ever sees it, so reading the raw
-  // bag would honour the author's own class and silently drop the app's.
-  const chrome = resolveChrome(props, elementProps['className'])
-
-  // CAP-2: a record-field that SELF-binds to a system DETAIL endpoint hydrates
-  // the `record-field-system` island (fetches its own single record client-side)
-  // rather than resolving server-side from a host container's bound record.
-  if (props['_recordFieldSystemMode']) return renderRecordFieldSystemIsland(chrome, props, format)
-
+/**
+ * The bound record's own value, drawn by the field's declared type: prose for a
+ * rich-text field, a download link for an attachment, text for everything else.
+ */
+function renderStoredValue(
+  chrome: RecordFieldChrome,
+  props: Record<string, unknown>,
+  config: Parameters<ComponentRenderer>[0] & { readonly format: ColumnFormat | undefined }
+): ReactElement {
+  const { tables, designStyles, currentLang, languages, format } = config
   const fieldName = props['field'] as string | undefined
   const tableName = props['_recordTable'] as string | undefined
   const value = props['_recordValue']
-
   const field = resolveField(tables, tableName, fieldName)
   const fieldType = field?.type
 
@@ -309,4 +303,64 @@ export const recordFieldComponent: ComponentRenderer = ({
     languages,
     tables,
   })
+}
+
+/**
+ * A `record-field` naming a `button` field: the `record-field-button` island
+ * mount, or nothing at all where the server found the button not admitted —
+ * a reader the field's permission leaves out, a record its `visibleWhen`
+ * refuses (`record-button-field-resolver.ts`). `undefined` for any other field.
+ */
+function renderButtonField(
+  chrome: RecordFieldChrome,
+  mount: unknown,
+  uiStrings: Readonly<Record<string, string>> | undefined
+): ReactElement | null | undefined {
+  if (mount === undefined) return undefined
+  if (mount === null) return null
+  return (
+    <div
+      id={chrome.id}
+      className={chrome.className}
+      data-testid={chrome.testId}
+      data-component="record-field"
+      data-component-type="record-field"
+      data-island="record-field-button"
+      data-island-props={JSON.stringify({ ...(mount as object), uiStrings })}
+    />
+  )
+}
+
+export const recordFieldComponent: ComponentRenderer = (config): ReactElement | null => {
+  const { elementProps, rawProps, component, currentLang, languages } = config
+  const props = rawProps ?? {}
+  const format = resolveFormat(component)
+  // `elementProps` and NOT `rawProps` for the class, deliberately: the
+  // dispatcher folds `design.components['record-field']` into
+  // `elementProps.className` before a renderer ever sees it, so reading the raw
+  // bag would honour the author's own class and silently drop the app's.
+  const chrome = resolveChrome(props, elementProps['className'])
+
+  // CAP-2: a record-field that SELF-binds to a system DETAIL endpoint hydrates
+  // the `record-field-system` island (fetches its own single record client-side)
+  // rather than resolving server-side from a host container's bound record.
+  if (props['_recordFieldSystemMode'])
+    return renderRecordFieldSystemIsland(chrome, props, format, {
+      loading: islandLoadingLabel('field.loading', currentLang, languages),
+      uiStrings: islandUiStrings('field', currentLang, languages),
+    })
+  const button = renderButtonField(
+    chrome,
+    props['_recordButton'],
+    resolveInterpreterStringOverrides(['action.'], currentLang, languages)
+  )
+  if (button !== undefined) return button
+
+  // A person or a linked record reads by name, as the grid and the picker name it.
+  const display = props['_recordDisplay']
+  if (typeof display === 'string') {
+    const locale = currentLang ?? DEFAULT_FORMAT_LOCALE
+    return renderPlainText(chrome, display, { table: undefined, fieldName: undefined, locale })
+  }
+  return renderStoredValue(chrome, props, { ...config, format })
 }

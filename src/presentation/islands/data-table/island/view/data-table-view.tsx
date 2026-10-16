@@ -7,11 +7,10 @@
 
 import { computeTableFillShellClasses } from '@/presentation/design/table-default-classes'
 import { ArmedConfirmProvider } from '../../row-actions/armed-confirm-provider'
-import { DataTableToolbarBar } from '../toolbar/toolbar-bar'
 import { useViewProps } from '../use-view-props'
+import { ResultCountAnnouncer } from './result-count-announcer'
 import { StatusBanners } from './status-banners'
 import { TableSurface } from './table-surface'
-import { GridImportDialog, ViewDialogs } from './view-dialogs'
 import type { DataTableViewProps } from '../view-props'
 
 /**
@@ -62,10 +61,13 @@ export function DataTableView(props: DataTableViewProps) {
         data-connection-status={props.connectionStatus}
       >
         <StatusBanners {...regions.banners} />
-        <DataTableToolbarBar {...regions.toolbar} />
-        <ViewDialogs {...regions.dialogs} />
         <TableSurface {...regions.surface} />
-        <GridImportDialog {...regions.dialogs} />
+        <ResultCountAnnouncer
+          subscribed={props.subscribed}
+          narrowed={props.narrowed}
+          isLoading={props.isLoading}
+          count={props.totalRecords}
+        />
       </div>
     </ArmedConfirmProvider>
   )

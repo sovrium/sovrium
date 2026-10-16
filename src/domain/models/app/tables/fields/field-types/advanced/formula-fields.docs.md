@@ -35,6 +35,8 @@ Omit `currency` and the amount renders with the `USD` default — which is how a
 
 The five display properties — `currency`, `precision`, `symbolPosition`, `negativeFormat`, `thousandsSeparator` — are the same ones a `currency` field accepts, and they behave identically here.
 
+With `format: currency` declared, a numeric result reads as an amount in every grid, even one whose column declares no `format` — the grid that derives its columns from the table included — exactly as a `currency` field's cell does, in the page language: `€46 800` on an English page, `46 800 €` on a French one.
+
 ## What is checked, and what is not
 
 `resultType` and `format` are free strings rather than closed vocabularies. The conventional values are `string`, `number`, `boolean` and `date` for the first, and `currency`, `percentage`, `decimal` and `date` for the second, but the schema accepts any string and validates none of them — so a typo passes `sovrium validate` and surfaces later as a rendering surprise rather than as an error.

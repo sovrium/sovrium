@@ -6,6 +6,7 @@
  */
 
 import { Moon, Sun } from 'lucide-react'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { resolveChildTranslation } from '../i18n/translation-handler'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -21,7 +22,7 @@ interface ThemeToggleComponent {
  * Renderer for the `theme-toggle` component.
  *
  * Emits an accessible `<button data-theme-toggle>` whose default accessible
- * name ("Toggle theme") matches the toggle's intent. The click behaviour is
+ * name ("Toggle theme", `theme.toggle` in the page language) matches the toggle's intent. The click behaviour is
  * wired by the body-end theme-toggle runtime (see `PageBodyScripts`): a single
  * delegated handler flips the `dark` class on `<html>` and persists the choice
  * to `localStorage.theme`. The complementary no-FOUC head script (see
@@ -30,7 +31,7 @@ interface ThemeToggleComponent {
  *
  * A `$t:`-prefixed `label` is resolved against the current language (same path
  * as other localizable component fields) so the button text + accessible name
- * are localized; a missing label falls back to the English default.
+ * are localized; a missing label falls back to the catalogue's `theme.toggle`.
  */
 export const themeToggleComponent: ComponentRenderer = ({
   component,
@@ -42,7 +43,7 @@ export const themeToggleComponent: ComponentRenderer = ({
   const label =
     typeof authored.label === 'string' && authored.label.length > 0
       ? resolveChildTranslation(authored.label, currentLang, languages)
-      : 'Toggle theme'
+      : resolveInterpreterString('theme.toggle', currentLang, languages)
 
   const className =
     typeof elementProps['className'] === 'string'

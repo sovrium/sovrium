@@ -10,6 +10,11 @@ import { TableRepository } from '@/application/ports/repositories/tables/table-r
 import { UnknownFilterFieldError } from '@/domain/errors'
 import { isResolvableColumnName } from '@/domain/models/app/tables/system-fields'
 import { buildGuestSession } from '../build-guest-session'
+import {
+  extractIdFromFilter,
+  toQueryFilter,
+  type DeclaredFilterFields,
+} from './record-filter-shape'
 import type { ActionOutcome } from './shared'
 import type {
   QueryFilter,
@@ -31,92 +36,6 @@ import type { DatabaseError } from '@/domain/errors'
  *
  * Pure move — no behaviour change.
  */
-
-interface FilterCondition {
-  readonly field?: string
-  readonly operator?: string
-  readonly value?: unknown
-}
-
-interface FilterGroup {
-  readonly conditions?: readonly FilterCondition[]
-}
-
-const isValidIdEqualsCondition = (condition: FilterCondition): boolean => {
-  if (condition.field !== 'id') return false
-  if (condition.operator !== 'equals') return false
-  if (condition.value === undefined) return false
-  if (condition.value === '') return false
-  return true
-}
-
-/**
- * Extract a single record id from the foundational filter shape:
- * `{ conditions: [{ field: 'id', operator: 'equals', value: <id> }] }`.
- *
- * Returns undefined if the filter is missing, has multiple conditions, or does
- * not match the `id equals` shape — callers then fall back to
- * {@link resolveIdsByFilter}, which handles any ConditionGroup. The fast path
- * exists so single-record writes (the record-event trigger's "update the row
- * that just changed") skip the list query.
- */
-export const extractIdFromFilter = (filter: unknown): string | undefined => {
-  if (!filter || typeof filter !== 'object') return undefined
-  const { conditions } = filter as FilterGroup
-  if (!Array.isArray(conditions) || conditions.length !== 1) return undefined
-  const condition = conditions[0]
-  if (!condition || typeof condition !== 'object') return undefined
-  if (!isValidIdEqualsCondition(condition)) return undefined
-  return String(condition.value)
-}
-
-/**
- * Translate the spec's filter shape (`{ conditions: [{ field, operator,
- * value }] }`) into the repository's `QueryFilter` (`{ and: [...] }`). The two
- * shapes carry the same information; the rename exists because the spec mirrors
- * the records-API public contract while `QueryFilter` is the internal
- * repository protocol.
- *
- * Returns undefined for a filter that compiles to zero usable conditions.
- * Callers MUST treat that as a refusal, never as "match everything" — an
- * all-matching filter on a delete is a mass-deletion.
- */
-export const toQueryFilter = (filter: unknown): QueryFilter | undefined => {
-  if (!filter || typeof filter !== 'object') return undefined
-  const { conditions } = filter as FilterGroup
-  if (!Array.isArray(conditions) || conditions.length === 0) return undefined
-  const and = conditions.flatMap((c) => {
-    if (!c || typeof c !== 'object') return []
-    const { field, operator, value } = c as FilterCondition
-    if (typeof field !== 'string' || typeof operator !== 'string') return []
-    return [{ field, operator, value }] as const
-  })
-  return and.length > 0 ? { and } : undefined
-}
-
-/**
- * The author-declared field names of `tableName`, or undefined when the config
- * declares no such table.
- *
- * Undefined means "cannot adjudicate", NOT "everything is allowed": the only
- * way to reach it is a record action whose `table` prop is itself a `{{...}}`
- * template, since the AppSchema table rule already refuses a literal unknown
- * table at boot. Such an action would fail at the query anyway (no such
- * relation, on both engines), so declining to judge its fields preserves the
- * pre-existing behaviour rather than inventing a second verdict for it.
- */
-export const declaredFieldNames = (
-  app: {
-    readonly tables?: readonly {
-      readonly name: string
-      readonly fields: readonly { readonly name: string }[]
-    }[]
-  },
-  tableName: string
-): ReadonlySet<string> | undefined => {
-  const table = app.tables?.find((t) => t.name === tableName)
-  return table ? new Set(table.fields.map((f) => f.name)) : undefined
-}
 
 /** Every field name a compiled filter tree would turn into a SQL identifier. */
 const filterFieldRefs = (node: QueryFilterNode): readonly string[] => {
@@ -297,10 +216,11 @@ export const selectionFieldRefusal = (
 export const resolveIdsByFilter = (
   tableName: string,
   filter: unknown,
-  declaredFields: ReadonlySet<string> | undefined
+  declared: DeclaredFilterFields
 ): Effect.Effect<readonly string[], DatabaseError | UnknownFilterFieldError, TableRepository> =>
   Effect.gen(function* () {
-    const queryFilter = toQueryFilter(filter)
+    const declaredFields = declared.fields
+    const queryFilter = toQueryFilter(filter, declared.table)
     if (queryFilter === undefined) return [] as const
     const refusal = filterFieldRefusal(tableName, queryFilter, declaredFields)
     if (refusal !== undefined) return yield* Effect.fail(refusal)
@@ -355,9 +275,9 @@ export const resolveIdsByFilter = (
 export const resolveIdsByFilterLenient = (
   tableName: string,
   filter: unknown,
-  declaredFields: ReadonlySet<string> | undefined
+  declared: DeclaredFilterFields
 ): Effect.Effect<readonly string[], UnknownFilterFieldError, TableRepository> =>
-  resolveIdsByFilter(tableName, filter, declaredFields).pipe(
+  resolveIdsByFilter(tableName, filter, declared).pipe(
     Effect.catchTag('DatabaseError', () => Effect.succeed([] as const)),
     Effect.withSpan('automations.resolve-ids-by-filter-lenient')
   )
@@ -394,7 +314,7 @@ export const resolveActionTargetIds = (input: {
   readonly operator: string
   readonly tableName: string
   readonly filter: unknown
-  readonly declaredFields: ReadonlySet<string> | undefined
+  readonly declared: DeclaredFilterFields
   /** An explicit id that pre-empts the filter (only `record/upsert` has one). */
   readonly idFastPath?: string | undefined
 }): Effect.Effect<ActionTargets, never, TableRepository> =>
@@ -405,7 +325,7 @@ export const resolveActionTargetIds = (input: {
     if (fastPath !== undefined) return { resolved: true, ids: [fastPath] } as const
 
     const lookup = yield* Effect.result(
-      resolveIdsByFilterLenient(input.tableName, input.filter, input.declaredFields)
+      resolveIdsByFilterLenient(input.tableName, input.filter, input.declared)
     )
     return lookup._tag === 'Failure'
       ? ({

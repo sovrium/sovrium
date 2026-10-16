@@ -16,12 +16,17 @@ import { Schema } from 'effect'
  *
  * `in` is the most common — used with `$currentUser.assignments.<table>`
  * to scope records to the assignment list. `eq` / `neq` cover ownership
- * checks against `$currentUser.id`.
+ * checks against `$currentUser.id`. `contains` reads the other way round: the
+ * FIELD holds several values (a many-to-many relationship, a `user` field with
+ * `allowMultiple: true`) and the row passes when one of them is the value, or one of
+ * the values of a list. It is membership, never the text match `contains`
+ * means in a page filter, and a field holding one value refuses it.
  */
-export const RowLevelFilterOperatorSchema = Schema.Literals(['eq', 'neq', 'in']).pipe(
+export const RowLevelFilterOperatorSchema = Schema.Literals(['eq', 'neq', 'in', 'contains']).pipe(
   Schema.annotate({
     title: 'Row-Level Filter Operator',
-    description: 'Operator for row-level permission predicates: eq, neq, or in (array membership)',
+    description:
+      'How the field is compared with the value: `eq` equal, `neq` different, `in` the field is one of a list of values, `contains` the field holds several values and one of them is the value (or one of the values of a list). `contains` applies to a many-to-many relationship and to a `user` field with `allowMultiple: true` (a list of people), on the table or one many-to-one relationship away, and is never a text match; on a field holding one value it is refused before the app starts — use `eq` or `in`.',
   })
 )
 
@@ -43,7 +48,7 @@ export const RowLevelPredicateSchema = Schema.Struct({
   field: Schema.String.pipe(
     Schema.annotate({
       description:
-        'Table field to filter on, or a column of the row a many-to-one relationship points to, one relationship deep ("project.client_id")',
+        'Table field to filter on, or a column of the row a many-to-one relationship points to, one relationship deep ("project.client_id", "project.managers")',
     }),
     Schema.check(Schema.isMinLength(1))
   ),
@@ -54,12 +59,14 @@ export const RowLevelPredicateSchema = Schema.Struct({
     Schema.Boolean,
     Schema.Array(
       Schema.String.annotate({
-        description: 'One of the values the field is matched against, for the `in` operator.',
+        description:
+          'One of the values the field is matched against, for the `in` and `contains` operators.',
       })
     ),
     Schema.Array(
       Schema.Finite.annotate({
-        description: 'One of the values the field is matched against, for the `in` operator.',
+        description:
+          'One of the values the field is matched against, for the `in` and `contains` operators.',
       })
     ),
     Schema.Struct({
@@ -85,6 +92,12 @@ export const RowLevelPredicateSchema = Schema.Struct({
           tableSlug: Schema.String.annotate({
             description: 'Table the signed-in person is assigned through.',
           }).pipe(Schema.check(Schema.isMinLength(1))),
+          role: Schema.optional(
+            Schema.String.annotate({
+              description:
+                'Keep only the records the signed-in person is granted under this role (one of `auth.roles`); without it, every record granted in the table counts, whatever the role. String form: `$currentUser.assignments.<table>.<role>`.',
+            }).pipe(Schema.check(Schema.isMinLength(1)))
+          ),
         }),
         Schema.Struct({
           kind: Schema.Literal('activeAssignment').annotate({

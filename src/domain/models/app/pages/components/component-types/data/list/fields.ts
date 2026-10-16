@@ -9,6 +9,7 @@ import { Schema } from 'effect'
 import { ListRowClickActionSchema } from '../../../action'
 import { AuthSourceSchema } from '../../../auth-source'
 import { DataSourceSchema } from '../../../data-source'
+import { SharedFilterPublisherSchema } from '../../../data-source-publishers'
 import { SystemSourceSchema } from '../../../system-source'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
@@ -61,6 +62,14 @@ export const listFields = {
    * link.
    */
   onRowClick: Schema.optional(ListRowClickActionSchema),
+  /**
+   * Publish the item the reader selects on a shared-filter channel: its record
+   * id, under the publisher's `param` or as its condition's value. Clicking an
+   * item selects it (and runs `onRowClick` as before); clicking it again clears
+   * the selection. The same key `tree` and `graph` carry — master and detail
+   * with no new primitive.
+   */
+  publishes: Schema.optional(SharedFilterPublisherSchema),
 } as const
 
 // Re-export all sub-schemas

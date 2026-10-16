@@ -29,6 +29,7 @@ import {
   type AdminRunsListInput,
 } from '@/application/use-cases/admin/automations-overview'
 import { decodeAdminRunsListQuery } from '@/application/use-cases/admin/automations-runs-query'
+import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   automationsCatalogResponseSchema,
@@ -137,7 +138,11 @@ const runsList = defineAdminRead<AdminRunsListInput>({
     }
     return decoded
   },
-  read: BuildAdminRunsList,
+  // `stepsLabel` is phrased in the operator's console language.
+  read: (app, input, request) =>
+    Effect.flatMap(resolveOperatorLanguage(request), (language) =>
+      BuildAdminRunsList(app, input, language)
+    ),
   audit: { action: AUDIT_ACTIONS.AUTOMATION_RUNS_LIST_QUERIED, resourceId: (app) => app.name },
 })
 
@@ -179,7 +184,10 @@ const runRead = defineAdminRead<string>({
         onSome: (params) => ({ _tag: 'Ok', input: params.runId }) as const,
       }
     ),
-  read: BuildAdminRunDetail,
+  read: (app, runId, request) =>
+    Effect.flatMap(resolveOperatorLanguage(request), (language) =>
+      BuildAdminRunDetail(app, runId, language)
+    ),
   audit: {
     action: AUDIT_ACTIONS.AUTOMATION_RUNS_DETAIL_QUERIED,
     resourceId: (_app, runId) => runId,

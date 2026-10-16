@@ -62,6 +62,7 @@ import { collectProseSpacingNotices } from '@/domain/models/app/design/prose-spa
 import { collectSupersededDesignNotices } from '@/domain/models/app/design/superseded-notices'
 import { validateDocumentOutputBuckets } from '@/domain/models/app/document-output-validation'
 import { undeclaredEnvReferenceRefusals } from '@/domain/models/app/env-reference-validation'
+import { validateGrantActions } from '@/domain/models/app/grant-action-validation'
 import { collectEngineKeyNotices } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { canReportEveryDecodeMistake } from '@/domain/models/app/pages/component-nesting-depth-service'
 import { validateComponentFieldReferences } from '@/domain/models/app/pages/components/component-field-references'
@@ -326,10 +327,8 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     ...validateRowColorFields(normalized),
     // A calendar's colour names one option, never a multi-select (its module).
     ...validateCalendarColorFields(normalized),
-    // A drawer's `related` sections, against the tables they name and the
-    // drawer's own table. Here for the same reason as the sweeps above: each
-    // verdict needs `tables[]`, which no drawer schema node can see. See
-    // `drawer-related-validation.ts`.
+    // A drawer's `related` sections, against the tables they name and its own: each
+    // verdict needs `tables[]`, which no drawer schema node sees (`drawer-related-validation.ts`).
     ...validateDrawerRelatedReferences(normalized),
     // Card slots hold record components; the other component-type rules gathered.
     ...validateCardSlotComponents(normalized),
@@ -342,6 +341,7 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     // Declared `{ asset }` paths, and an `attachTo` writing into its field's bucket.
     ...validateAssetReferences(normalized),
     ...validateDocumentOutputBuckets(decoded),
+    ...validateGrantActions(decoded), // a literal grant table or role the app does not declare
     // Mutually-exclusive component keys. Here rather than in the schema
     // because `buildComponentUnion` has no per-branch refinement hook, so a
     // rule relating an INJECTED key (`children`) to a declared one cannot be

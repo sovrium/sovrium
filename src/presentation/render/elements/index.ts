@@ -64,10 +64,10 @@ export {
 export {
   renderField,
   renderTextarea,
-  extractFirstChildId,
   type RenderFieldConfig,
   type RenderTextareaConfig,
 } from './field-renderer'
+export { extractFirstChildId } from './field-control-id'
 
 // Re-export specialized renderers for backward compatibility
 export { renderLanguageSwitcher, renderList, renderListItem } from './specialized-renderers'

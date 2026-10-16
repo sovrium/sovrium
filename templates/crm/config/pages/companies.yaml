@@ -32,10 +32,16 @@ components:
             props:
               className: flex flex-col gap-4 px-5 pb-5 pt-4
             children:
+              # The search box, the industry facet, the filter bar and Export sit
+              # above the grid as their own block, publishing on the channel the
+              # grid listens to.
+              - component: companies-toolbar
               - type: table
                 readOnly: true
                 dataSource:
                   table: companies
+                  bindTo: companies-filter
+                  sharedFilter: {}
                   view: companies_directory
                 columns:
                   - { field: name, label: Company, sortable: true }
@@ -43,13 +49,6 @@ components:
                   - { field: size, label: Size }
                   - { field: website, label: Website }
                   - { field: annual_revenue, label: Annual revenue, format: currency, align: right }
-                search:
-                  enabled: true
-                  placeholder: Search companies
-                toolbar:
-                  search: true
-                  filters: true
-                  export: true
                 pagination:
                   pageSize: 25
                 onRowClick:

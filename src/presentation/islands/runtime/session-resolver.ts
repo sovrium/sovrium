@@ -22,7 +22,7 @@
  *     `$session.email`) is resolved so the confirm affordance stays disabled
  *     until the caller retypes their OWN email.
  *  3. A form control's prefilled value (`data-session-value`, emitted by
- *     `render/elements/crud-form/endpoint-form-renderer.tsx`): a field's
+ *     `render/elements/crud-form/endpoint-form-controls.tsx`): a field's
  *     `defaultValue` of `$session.<field>` arrives as the TEMPLATE and is
  *     filled here, so the served bytes name nobody and a cached copy of the
  *     page cannot carry one reader's identity to the next.
@@ -188,6 +188,20 @@ type ValueControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
  * The tag is read off `tagName` rather than through `instanceof
  * HTMLSelectElement`, which is false across realms — and a marker filled inside
  * a lazily-mounted island's document fragment is exactly that case.
+ *
+ * ─── THE FILL IS THE CONTROL'S DEFAULT, NOT A TYPED EDIT ─────────────────────
+ *
+ * The resolved value is written as the control's DEFAULT as well as its value:
+ * `defaultValue` on a box (the `value` attribute), the `selected` attribute on
+ * the option a dropdown lands on. A form that resets on success
+ * (`onSuccess.reset`, `endpoint-form-runtime.ts`) puts every control back to
+ * its default, and the server drew this one with none — the caller's identity
+ * was never in the bytes. Left as a mere `.value`, the reset would EMPTY the
+ * caller's own email out of a read-only field, and the next entry would travel
+ * without it. A hidden input needs nothing: its `.value` IS its attribute.
+ * Both writes go through the reflected DOM properties (`defaultValue`,
+ * `defaultSelected`), the tersest spelling: this module ships in the universal
+ * client payload, which is budgeted.
  */
 function fillSessionValue(element: HTMLElement, user: SessionUser | undefined): void {
   const template = element.getAttribute(VALUE_BINDING_ATTRIBUTE)
@@ -197,9 +211,15 @@ function fillSessionValue(element: HTMLElement, user: SessionUser | undefined): 
     fillSessionChecked(element, resolved)
     return
   }
-  if (resolved === '' && element.tagName === 'SELECT') return
+  const isSelect = element.tagName === 'SELECT'
+  if (resolved === '' && isSelect) return
   const control = element as ValueControl
   control.value = resolved
+  if (isSelect) {
+    for (const o of (control as HTMLSelectElement).options) o.defaultSelected = o.selected
+    return
+  }
+  ;(control as HTMLInputElement).defaultValue = resolved
 }
 
 /**

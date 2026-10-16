@@ -47,7 +47,9 @@ const HEADER_CELL = 'border-b border-border py-1 pr-3 text-left font-medium text
 const BODY_CELL = 'border-b border-border py-1 pr-3 text-foreground'
 
 /**
- * The twin's four column headings, in order.
+ * Render the twin under its four column headings, in order, as the page
+ * language words them
+ * (`matrix.resource`, `matrix.grantSource`, `matrix.operations`, `matrix.note`).
  *
  * A list rather than four hand-written `<th>` elements, because they differed
  * only in their text and the repetition was most of the function's length.
@@ -59,11 +61,6 @@ const BODY_CELL = 'border-b border-border py-1 pr-3 text-foreground'
  * leaking into an operator's table. Because the word is author-supplied the
  * heading cannot be specific either, so `Note` is the plainest true container
  * for whatever the configuration decided to say.
- */
-const TWIN_HEADINGS = ['Resource', 'Grant source', 'Operations', 'Note'] as const
-
-/**
- * Render the twin.
  *
  * The `flag` column is present on every row and EMPTY on an unflagged one: the
  * author's own word appears exactly once per flagged grant, never as a legend
@@ -71,8 +68,10 @@ const TWIN_HEADINGS = ['Resource', 'Grant source', 'Operations', 'Note'] as cons
  */
 export function MatrixTwin({
   rows,
+  headings,
 }: {
   readonly rows: readonly MatrixTwinRowView[]
+  readonly headings: readonly string[]
 }): ReactElement {
   return (
     <table
@@ -81,7 +80,7 @@ export function MatrixTwin({
     >
       <thead>
         <tr className="text-xs">
-          {TWIN_HEADINGS.map((heading) => (
+          {headings.map((heading) => (
             <th
               key={heading}
               scope="col"

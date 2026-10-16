@@ -5,10 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
+import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { cn } from '@/presentation/design/class-merge'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { renderPendingContent } from '@/presentation/design/spinner-mark'
+import { toastWriteFailure, toastWriteRefusal } from '../runtime/write-refusal'
 
 interface FormState {
   readonly error?: string
@@ -31,6 +33,8 @@ export interface DeleteViewProps {
   readonly testId?: string
   /** The delete button's caption while the delete is in flight, in the page language. */
   readonly pendingLabel?: string
+  /** The page-language strings, for a refusal's toast. */
+  readonly uiStrings?: Readonly<Record<string, string>> | undefined
 }
 
 function ActionButton({
@@ -85,6 +89,36 @@ function buildDeleteFormAction(table: string, recordId: string): string {
   return `/api/tables/${encodeURIComponent(table)}/records/${encodeURIComponent(recordId)}/delete`
 }
 
+/**
+ * Post the delete form from the script, once. A refusal because the writes
+ * were too many keeps the reader on the page with a toast saying how long to
+ * wait; an accepted delete goes where the form would have gone (or reloads the
+ * page when that place is not one of the app's own paths); any other answer,
+ * and a lost connection, is said once in a toast. The delete is never sent a
+ * second time: a page without scripts posts the form itself, and only then.
+ */
+async function submitDeleteForm(
+  form: HTMLFormElement,
+  redirectUrl: string,
+  strings: Readonly<Record<string, string>> | undefined
+): Promise<void> {
+  const response = await fetch(form.action, {
+    method: 'POST',
+    body: new URLSearchParams([...new FormData(form)].map(([k, v]) => [k, String(v)])),
+    headers: { accept: 'application/json' },
+    credentials: 'same-origin',
+    redirect: 'manual',
+  }).catch(() => undefined)
+  if (response !== undefined && toastWriteRefusal(response, strings)) return
+  if (response === undefined || (response.type !== 'opaqueredirect' && !response.ok)) {
+    toastWriteFailure(strings)
+    return
+  }
+  const target = toSafeRedirectPath(redirectUrl)
+  if (target === undefined) window.location.reload()
+  else window.location.assign(target)
+}
+
 function DeleteFormButton({
   table,
   recordId,
@@ -92,6 +126,7 @@ function DeleteFormButton({
   label,
   isPending,
   pendingLabel,
+  strings,
 }: {
   readonly table: string
   readonly recordId: string
@@ -99,12 +134,23 @@ function DeleteFormButton({
   readonly label: string
   readonly isPending: boolean
   readonly pendingLabel?: string | undefined
+  readonly strings?: Readonly<Record<string, string>> | undefined
 }) {
+  const [sending, setSending] = useState(false)
+  const busy = isPending || sending
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (busy) return
+    setSending(true)
+    void submitDeleteForm(event.currentTarget, redirectUrl, strings).finally(() =>
+      setSending(false)
+    )
+  }
   return (
     <form
       method="POST"
       action={buildDeleteFormAction(table, recordId)}
-      onSubmit={isPending ? (event) => event.preventDefault() : undefined}
+      onSubmit={onSubmit}
     >
       <input
         type="hidden"
@@ -113,14 +159,19 @@ function DeleteFormButton({
       />
       <button
         type="submit"
-        {...pendingControlProps(isPending)}
+        {...pendingControlProps(busy)}
       >
-        {isPending ? renderPendingContent(pendingLabel ?? 'Deleting…') : label}
+        {busy ? renderPendingContent(pendingLabel ?? 'Deleting…') : label}
       </button>
     </form>
   )
 }
 
+/**
+ * The delete control: a confirm step when asked; a form post (enhanced by
+ * script) when a redirect is configured; otherwise an in-place delete that
+ * stays on the page and shows the deleted state.
+ */
 function DeleteContent({
   props,
   label,
@@ -132,7 +183,8 @@ function DeleteContent({
   const [showConfirm, setShowConfirm] = useState(false)
   const busy = { isPending: state.isPending, pendingLabel: props.pendingLabel }
 
-  if (state.deleted) return <p>This record has been deleted.</p>
+  const word = (key: string, english: string) => props.uiStrings?.[key] ?? english
+  if (state.deleted) return <p>{word('form.recordDeleted', 'This record has been deleted.')}</p>
 
   if (confirm && !showConfirm) {
     return (
@@ -145,9 +197,9 @@ function DeleteContent({
   if (confirm && showConfirm) {
     return (
       <>
-        <p>{props.confirmMessage ?? 'Are you sure?'}</p>
+        <p>{props.confirmMessage ?? word('form.confirmPrompt', 'Are you sure?')}</p>
         <ActionButton
-          label={`Confirm ${label}`}
+          label={word('form.confirmNamed', 'Confirm {label}').replace('{label}', label)}
           onClick={onSubmit}
           {...busy}
         />
@@ -155,12 +207,11 @@ function DeleteContent({
           type="button"
           onClick={() => setShowConfirm(false)}
         >
-          Cancel
+          {word('form.cancel', 'Cancel')}
         </button>
       </>
     )
   }
-  // Form-based POST when redirect URL is configured (guarantees DB consistency)
   if (recordId && props.redirectUrl) {
     return (
       <DeleteFormButton
@@ -168,11 +219,11 @@ function DeleteContent({
         recordId={recordId}
         redirectUrl={props.redirectUrl}
         label={label}
+        strings={props.uiStrings}
         {...busy}
       />
     )
   }
-  // Async mutation (stays on same page, shows deleted state)
   return (
     <ActionButton
       label={label}

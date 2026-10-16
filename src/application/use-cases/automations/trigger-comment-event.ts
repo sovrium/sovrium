@@ -10,6 +10,7 @@ import { CommentRepository } from '@/application/ports/repositories/comment-repo
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import {
   loadCurrentUserContext,
+  rowRuleScopeOf,
   toSessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
@@ -284,11 +285,9 @@ const buildCommentTriggerData = (
  *
  * Returns true when the trigger should fire (admin-equivalent author, no
  * row-level rules, or the comment author passes the `read.when` predicate
- * against the record fields). Returns false when the trigger MUST be
- * suppressed because the author cannot read the record they just commented
- * on — matches the customer-facing privacy contract that an automation must
- * never reveal a record's existence to a user who could not have seen
- * it themselves.
+ * against the record, a lookup leaf judged in the table's scope). Returns
+ * false when the trigger MUST be suppressed because the author cannot read the
+ * record she commented on: an automation never reveals a record she cannot see.
  *
  * "Unrestricted" is decided by `isAdminEquivalent(role, app)` — the canonical
  * predicate the records API (`row-level-guard.ts`), the session-establish path
@@ -303,7 +302,7 @@ const buildCommentTriggerData = (
  * false and stay gated.
  */
 const passesReadPermissionGate = (input: {
-  readonly app: Pick<App, 'auth'>
+  readonly app: Pick<App, 'auth' | 'tables'>
   readonly table: Table | undefined
   readonly record: Readonly<Record<string, unknown>>
   readonly session: Readonly<UserSession>
@@ -321,7 +320,8 @@ const passesReadPermissionGate = (input: {
       role: input.userRole,
       isUnrestricted,
     })
-    const ctx = yield* loadCurrentUserContext(projection, input.table?.rowLevelPermissions)
+    const scope = rowRuleScopeOf(input.table, input.app.tables)
+    const ctx = yield* loadCurrentUserContext(projection, input.table?.rowLevelPermissions, scope)
     // Judged as the records API reads the row (SQLite `1`/`0` read as booleans).
     return evaluateRecordAgainstPredicate(
       readStoredValues(input.table, input.record),

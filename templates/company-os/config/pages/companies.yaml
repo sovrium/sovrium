@@ -33,10 +33,16 @@ components:
             props:
               className: flex flex-col gap-3 px-5 pb-5 pt-4
             children:
+              # The search box, the sector facet, the filter bar and Export sit
+              # above the grid as their own block, publishing on the channel the
+              # grid listens to.
+              - component: clients-toolbar
               - type: table
                 readOnly: true
                 dataSource:
                   table: companies
+                  bindTo: clients-filter
+                  sharedFilter: {}
                   view: client_directory
                 columns:
                   - { field: name, label: Client, sortable: true }
@@ -44,13 +50,6 @@ components:
                   - { field: account_manager, label: Account manager }
                   - { field: status, label: Status }
                   - { field: website, label: Website }
-                search:
-                  enabled: true
-                  placeholder: Search clients
-                toolbar:
-                  search: true
-                  filters: true
-                  export: true
                 pagination:
                   pageSize: 25
                 onRowClick:

@@ -108,7 +108,9 @@ export const listRecordsQuerySchema = Schema.Struct({
   timezone: queryString('IANA timezone for date formatting'),
   includeDeleted: queryString('Set to "true" to include soft-deleted records'),
   deleted: queryString('Set to "true" to list only soft-deleted records (trash view)'),
-  filter: queryString('Filter expression'),
+  filter: queryString(
+    'Filter expression: a JSON condition tree, `{"and":[…]}` or `{"or":[…]}`, whose leaves are `{"field","operator","value"}`. Operators: equals, notEquals, greaterThan, lessThan, greaterThanOrEqual, lessThanOrEqual, contains, startsWith, endsWith, in, notIn, between (value `[low, high]`, both ends included), and isNull, isNotNull, isEmpty, isNotEmpty, isTrue, isFalse, which take no value. `field:value` is short for one equals condition'
+  ),
   aggregate: queryString('JSON aggregate parameters'),
   groupBy: queryString(
     'Field name to group records by, or a comma-separated list of fields for nested levels (outermost first). Each named field is permission-checked'

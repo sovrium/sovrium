@@ -24,10 +24,14 @@ import type { CellFieldOptions } from '../cell-renderers'
  * `progress.color`, `barcode.format` and `duration.displayFormat` never reached
  * the browser at all. Widening that struct is what lets the scalar renderers
  * read the field the author actually declared.
+ *
+ * `columnLabel` is the heading the column is drawn under; a widget-shaped cell
+ * (the progress bar) takes its accessible name from it.
  */
 export function buildCellFieldOptions(
   meta: FieldMeta | undefined,
-  locale: string
+  locale: string,
+  columnLabel?: string
 ): CellFieldOptions {
   // `timeZone` already travels to the editor; a read-only cell needs the same
   // one, or the grid shows one calendar day and opens on another.
@@ -37,5 +41,6 @@ export function buildCellFieldOptions(
     ...(meta?.options ? { selectOptions: meta.options } : {}),
     ...(meta?.display ? { display: meta.display } : {}),
     ...(timeZone ? { timeZone } : {}),
+    ...(columnLabel ? { columnLabel } : {}),
   }
 }

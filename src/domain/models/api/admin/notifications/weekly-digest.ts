@@ -157,7 +157,7 @@ const digestSystemSchema = Schema.Struct({
     'Change in stored bytes against the previous summary; null on a baseline week'
   ),
   connections: Schema.Struct({
-    healthy: count('Connections currently reporting a healthy status'),
+    healthy: count('Connections whose status in the connections list is active'),
     total: count('Connections the app declares'),
   }).annotate({ description: 'Health of the declared connections at the end of the period' }),
   versionChanges: Schema.Array(versionChangeSchema).annotate({
@@ -174,7 +174,9 @@ const digestSystemSchema = Schema.Struct({
 
 const digestAttentionSchema = Schema.Struct({
   unsetVariables: count('Environment variables the app requires that are not set'),
-  expiredTokens: count('Connections whose token has expired'),
+  expiredTokens: count(
+    'Connections an operator must connect or reconnect: expired, never authorized, or holding a token nothing can renew'
+  ),
   pendingInvitations: count('Invitations still awaiting acceptance'),
 }).annotate({ description: 'What is waiting on an operator at the end of the period' })
 

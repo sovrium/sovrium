@@ -49,7 +49,10 @@ import {
 } from '@/application/use-cases/automations/build-guest-session'
 import { callerReadScope } from '@/application/use-cases/tables/permissions/caller-read-authority'
 import { loadCallerIdentity } from '@/application/use-cases/tables/permissions/caller-write-authority'
-import { loadCurrentUserContext } from '@/application/use-cases/tables/permissions/row-level-enforcement'
+import {
+  loadCurrentUserContext,
+  rowRuleScopeOf,
+} from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { GUEST_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { SIGNED_OUT_VISITOR_ROLE } from '@/domain/models/app/auth/permission-evaluation'
 import {
@@ -148,7 +151,8 @@ const pageReadGate = (
     }
     const table = app.tables?.find((candidate) => candidate.name === tableName)
     const visitor = { userId: GUEST_USER_ID, role: SIGNED_OUT_VISITOR_ROLE, isUnrestricted: false }
-    const rowContext = yield* loadCurrentUserContext(visitor, table?.rowLevelPermissions)
+    const scope = rowRuleScopeOf(table, app.tables)
+    const rowContext = yield* loadCurrentUserContext(visitor, table?.rowLevelPermissions, scope)
     const plan = buildReadAccessPlan({
       app,
       table,

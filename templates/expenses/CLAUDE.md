@@ -26,7 +26,8 @@ Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `
 Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
 run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
 design system is in `config/design.yaml`: read its comments before changing a colour, keep
-one accent, and keep colour for the decisions (approved, waiting, rejected). Who may read a
+one accent, keep colour for the decisions (approved, waiting, rejected), and give each
+category its own `chart-N` hue. Who may read a
 claim is the table's `rowLevelPermissions`, never a page filter alone.
 
 ---

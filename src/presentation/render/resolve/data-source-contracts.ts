@@ -20,7 +20,12 @@
 
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { resolveSystemSource } from '@/domain/models/app/system-sources'
-import type { ReadTableAsCaller, SignFileUrl } from '@/application/ports/services/page-renderer'
+import type {
+  LoadRowRuleContext,
+  ReadRecordLabels,
+  ReadTableAsCaller,
+  SignFileUrl,
+} from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type {
   ComponentReference,
@@ -95,9 +100,14 @@ export interface DataSourceDb {
    * every consumer had to carry a "cannot validate" branch that trusted the
    * caller-supplied cookie verbatim — a tampered cookie could then scope a
    * user to data they cannot reach. Adapters with nothing to read supply a
-   * reader returning `[]`, which fails closed.
+   * reader returning `[]`, which fails closed. With `role`, only the rows
+   * granted under that role count.
    */
-  readonly fetchUserAssignments: (userId: string, tableSlug: string) => Promise<readonly string[]>
+  readonly fetchUserAssignments: (
+    userId: string,
+    tableSlug: string,
+    role?: string
+  ) => Promise<readonly string[]>
 
   /**
    * Optional — fetch every distinct `role` value the user holds across all
@@ -129,6 +139,21 @@ export interface DataSourceDb {
    * narrowed to its reader.
    */
   readonly readTableAsCaller?: ReadTableAsCaller
+
+  /**
+   * Optional — the labels of the record a page is bound to, as the records API
+   * answers its reader (`_display`). Absent, a `user` or relationship field of
+   * that record reads as its stored id.
+   */
+  readonly readRecordLabels?: ReadRecordLabels
+
+  /**
+   * Optional — the context a table's row-level rule judges a reader by, as the
+   * records API loads it (her assignments, and the ids each `contains` or
+   * relationship leaf admits), once per request and table. Absent, a page
+   * judges a row by the reader's assignments alone, and such a leaf admits no row.
+   */
+  readonly loadRowRuleContext?: LoadRowRuleContext
 
   /** Optional — the request's download-address signer (`file-preview`). Absent, no preview is drawn. */
   readonly signFileUrl?: SignFileUrl

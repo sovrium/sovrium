@@ -155,6 +155,34 @@ const validateNoOptOutSelfLoop = (
   return `Redirect '${offender.from}' sets 'localizeTarget: false' on the target '${offender.to}', which is '${offender.from}' under a configured language code — but 'from' still matches every locale variant, so a request to '${offender.to}' matches this rule and is sent back to itself, looping the browser forever. Remove the rule: the engine already resolves an unprefixed path to its localized page.`
 }
 
+/** Every `:name` a path pattern names, in order (the first capture group). */
+const parameterNamesIn = (text: string, pattern: Readonly<RegExp>): readonly string[] =>
+  [...text.matchAll(pattern as RegExp)].map((match) => match[1] ?? '')
+
+/**
+ * Reject a `to` naming a `:name` its `from` never captures.
+ *
+ * Left in, the unknown parameter would be emitted literally — `/records/:id` —
+ * and every visitor the rule answers would land on the same 404. Only a
+ * root-relative target is read: an absolute URL's `:` is a scheme or a port.
+ */
+const validateTargetParameters = (
+  redirects: ReadonlyArray<RedirectRuleForValidation>
+): true | string => {
+  const offender = redirects
+    .filter((rule) => !isAbsoluteRedirectTarget(rule.to))
+    .map((rule) => {
+      const captured = new Set(parameterNamesIn(rule.from, /(?:^|\/):([A-Za-z_][A-Za-z0-9_]*)/g))
+      const unknown = parameterNamesIn(rule.to, /:([A-Za-z_][A-Za-z0-9_]*)/g).find(
+        (name) => !captured.has(name)
+      )
+      return unknown === undefined ? undefined : { rule, unknown }
+    })
+    .find((found) => found !== undefined)
+  if (offender === undefined) return true
+  return `Redirect '${offender.rule.from}' targets '${offender.rule.to}', which names ':${offender.unknown}' — but '${offender.rule.from}' captures no ':${offender.unknown}', so it would be sent literally and every visitor would land on the same 404. Name it in 'from', or remove it from 'to'.`
+}
+
 /**
  * Validate every cross-block redirect rule: page shadowing, the double locale
  * prefix (L1), and the localize-target opt-out self-loop (L2).
@@ -177,6 +205,9 @@ export const validateAllRedirectRules = (app: AppForRedirectValidation): true | 
   // `/en/docs` page does exactly that — and the loop is the more severe of the
   // two: shadowing makes one page unreachable, a loop breaks the browser. The
   // message the author reads should name the failure that will actually bite.
+  const parameters = validateTargetParameters(redirects)
+  if (parameters !== true) return parameters
+
   const doublePrefix = validateNoDoubleLocalePrefix(redirects, languageCodes)
   if (doublePrefix !== true) return doublePrefix
 

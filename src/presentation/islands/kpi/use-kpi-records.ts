@@ -6,7 +6,10 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { createRecordsClient, createViewRecordsClient } from '@/presentation/api/client'
+import {
+  createRecordsClient,
+  createViewRecordsClient,
+} from '@/presentation/islands/runtime/rpc-client'
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
 import { retryUnlessRateLimited } from '../runtime/read-failure'
 import type { LiveRefreshSource } from '../hooks/use-realtime-subscription'

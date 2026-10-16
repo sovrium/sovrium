@@ -6,7 +6,8 @@
  */
 
 import { ifDeclared } from '@/library/manifest/auth-block-kit'
-import { asComponent, param } from '@/library/manifest/block-kit'
+import { asComponent, param, when, type BlockNode } from '@/library/manifest/block-kit'
+import { stringParam } from '@/library/manifest/block-notes'
 import { defineLibraryEntry } from '@/library/manifest/define'
 import {
   ALTERNATIVE_PARAMS,
@@ -26,6 +27,25 @@ import {
 } from '@/library/manifest/login-block-parts'
 
 /** shadcn/ui's `login-03`, composed in config. */
+/**
+ * The card header with a status line after its description: shown only to a
+ * reader whose address carries `next` — sent here by a page that needed a
+ * session — and announced, since it explains why they are signing in again.
+ */
+const withStatusLine = (header: BlockNode, line: string): BlockNode => ({
+  ...header,
+  children: [
+    ...(header['children'] as readonly BlockNode[]),
+    ...when(line, {
+      type: 'text',
+      element: 'p',
+      visibility: { query: { name: 'next', eq: 'set' } },
+      props: { role: 'status', className: 'text-sm font-medium text-foreground' },
+      content: line,
+    }),
+  ],
+})
+
 export const entry = defineLibraryEntry({
   kind: 'block',
   slug: 'login-03',
@@ -36,9 +56,19 @@ export const entry = defineLibraryEntry({
   description: 'A login page with a muted background color.',
   notes: [
     'The app mark above a card on a muted ground: social buttons first, then the email form, then every other way in your app offers.',
+    'Set `statusLine` to tell a reader who was sent here from a page that needs a session (the address carries `next`) why: it is announced under the card heading, and left out while empty.',
     ...LOGIN_NOTES,
   ],
-  params: loginParams('github,google', { extra: ALTERNATIVE_PARAMS }),
+  params: loginParams('github,google', {
+    extra: [
+      ...ALTERNATIVE_PARAMS,
+      stringParam(
+        'statusLine',
+        'A line under the heading for a reader sent here to sign in again (the address carries `next`); empty leaves it out.',
+        ''
+      ),
+    ],
+  }),
   env: [],
   requires: [],
   build: ({ name, params: values }) => {
@@ -46,7 +76,10 @@ export const entry = defineLibraryEntry({
     return asComponent(
       name,
       mutedCardScreen(s, [
-        cardHeader('Welcome back', 'Sign in with your email, or the way your team uses.', true),
+        withStatusLine(
+          cardHeader('Welcome back', 'Sign in with your email, or the way your team uses.', true),
+          s.p('statusLine')
+        ),
         cardContent([
           fieldGroup([
             ...socials(s, 'Sign in with'),

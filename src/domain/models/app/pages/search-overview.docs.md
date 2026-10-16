@@ -87,7 +87,7 @@ On a table declaring `fullTextSearch` on a `long-text` field, `q` is a ranked wo
 - **Computed fields are excluded**, even when they render as text. `formula`, `lookup`, `rollup` and `count` are view expressions rather than stored columns.
 - **Field-level read permission.** The searchable columns are filtered through the same rule that shapes the response, so a term can never match on a value the caller would not have been shown. Otherwise the mere presence of a row in the results would disclose a hidden field.
 
-A term with nowhere to match returns nothing rather than the unfiltered table. **Records: Filtering & Sorting** documents the parameter; the `table` component's toolbar search box issues exactly this request.
+A term with nowhere to match returns nothing rather than the unfiltered table. **Records: Filtering & Sorting** documents the parameter; a `search-input` that publishes `param: q` on a channel makes every grid subscribed to it issue exactly this request.
 
 ## The command palette — searching every table, and your pages
 
@@ -117,15 +117,15 @@ A `search-input` with `scope: page` searches the TEXT OF YOUR PAGES rather than 
 | Need                                                 | Reach for                                                          |
 | ---------------------------------------------------- | ------------------------------------------------------------------ |
 | Narrow a small bound list already on the page        | `dataSource.mode: search`                                          |
-| Find a row that may sit on any page of a large table | `?q=`, or a `table` with `toolbar.search: true`                    |
+| Find a row that may sit on any page of a large table | `?q=`, or a `search-input` publishing `q` to a `table`             |
 | Search across every table at once                    | the ⌘K palette                                                     |
 | Search the content of your public pages              | `search-input` with `scope: page`                                  |
 | Search a large text field by word, ranked            | `fullTextSearch` on a `long-text` field — see **Full-Text Search** |
 
 ## Related reading
 
-- **Search Components** — `search-input` and its two scopes, the `list` display, the palette, the toolbar box.
+- **Search Components** — `search-input` and its two roles, the `list` display, the palette.
 - **Full-Text Search** — what `indexed` and `fullTextSearch` emit, per dialect, and the word-search grammar.
 - **Data Binding** — every `dataSource` property, including the search ones.
 - **Records: Filtering & Sorting** — the `?q=`, `filter` and `sort` query parameters.
-- **Data Components** — `table`, `kanban`, `event-calendar`, `list` and their toolbars.
+- **Data Components** — `table`, `kanban`, `event-calendar`, `list` and the controls composed above them.

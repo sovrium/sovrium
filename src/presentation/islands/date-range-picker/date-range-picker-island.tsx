@@ -5,12 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { computeDateTriggerClasses } from '../date-picker/date-default-classes'
 import { formatRange } from '../date-picker/date-format-helpers'
+import { useLazySharedFilterPublisher } from '../hooks/use-lazy-shared-filter-publisher'
 import { RangePanel } from './range-panel'
 import { formatInterval } from './range-value'
 import { useDateRangeState } from './use-range-state'
+import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
 import type { ReactElement } from 'react'
 
 /**
@@ -61,6 +63,29 @@ interface DateRangePickerIslandProps {
   readonly maxDate?: string
   readonly months?: 1 | 2
   readonly presets?: readonly string[]
+  /** The channel the picker publishes its period on: two conditions on one field, or two params. */
+  readonly publishes?: SharedFilterPublisherConfig
+  /** The picker's words in the page language (`dateRangePicker.*`), where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
+}
+
+/**
+ * Publish the period on the picker's channel each time the reader completes a
+ * new one — as `[first day, last day]`, which the wire turns into two
+ * conditions on one date field (both ends included) or two request params.
+ * The period the page opened on is not published again.
+ */
+function usePublishedPeriod(
+  publishes: SharedFilterPublisherConfig | undefined,
+  submitted: string
+): void {
+  const publish = useLazySharedFilterPublisher(publishes)
+  const last = useRef(submitted)
+  useEffect(() => {
+    if (submitted === last.current) return
+    last.current = submitted
+    publish(submitted === '' ? ['', ''] : submitted.split('/'))
+  }, [submitted, publish])
 }
 
 /** The visible field name, drawn only when there is one. */
@@ -119,6 +144,15 @@ function RangeTrigger({
   )
 }
 
+/** The closed trigger's prompt when no period and no placeholder: the page's word, else English. */
+const pickWord = (words: DateRangePickerIslandProps['uiStrings']): string =>
+  words?.['dateRangePicker.pick'] ?? 'Pick a period'
+
+/**
+ * The period picker. Its preset list is memoised: a fresh `[]` per render would
+ * remount the preset column on every keystroke elsewhere on the page
+ * (`react-perf/jsx-no-new-array-as-prop` exists for it).
+ */
 export default function DateRangePickerIsland({
   id,
   className,
@@ -131,15 +165,16 @@ export default function DateRangePickerIsland({
   maxDate,
   months = 2,
   presets,
+  publishes,
+  uiStrings,
 }: DateRangePickerIslandProps): ReactElement {
   const state = useDateRangeState({ value, minDate, maxDate })
-  // A fresh `[]` per render would remount the preset column on every keystroke
-  // elsewhere on the page; `react-perf/jsx-no-new-array-as-prop` exists for it.
   const presetList = useMemo(() => presets ?? [], [presets])
 
   const submitted = formatInterval(state.range)
+  usePublishedPeriod(publishes, submitted)
   const triggerLabel =
-    submitted === '' ? (placeholder ?? 'Pick a period') : formatRange(state.range, dateFormat)
+    submitted === '' ? (placeholder ?? pickWord(uiStrings)) : formatRange(state.range, dateFormat)
 
   return (
     <div className={className}>
@@ -157,6 +192,7 @@ export default function DateRangePickerIsland({
         {state.open && (
           <RangePanel
             label={label}
+            words={uiStrings}
             viewMonth={state.viewMonth}
             months={months}
             presets={presetList}

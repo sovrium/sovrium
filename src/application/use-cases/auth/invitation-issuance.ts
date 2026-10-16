@@ -73,6 +73,8 @@ export interface InviteUserSuccess {
     readonly name: string
   }
   readonly token: string
+  /** Whether the account existed before this invitation (a pending invitee re-invited). */
+  readonly existed: boolean
 }
 
 /**
@@ -81,6 +83,8 @@ export interface InviteUserSuccess {
 export interface InviteUserFailure {
   readonly status: 'already-onboarded' | 'invalid-input' | 'internal-error'
   readonly message: string
+  /** The onboarded account's id, on an `already-onboarded` refusal. */
+  readonly userId?: string
 }
 
 export type InviteUserResult = InviteUserSuccess | InviteUserFailure
@@ -106,6 +110,8 @@ export const findOrCreateInvitedUser = async (
   | {
       readonly outcome: 'ready'
       readonly user: { readonly id: string; readonly email: string; readonly name: string }
+      /** `true` when the account was already there, still waiting on its invitation. */
+      readonly existed: boolean
     }
   | InviteUserFailure
 > => {
@@ -117,11 +123,12 @@ export const findOrCreateInvitedUser = async (
         status: 'already-onboarded',
         message:
           'A user with this email already exists and has completed onboarding. Use the password reset flow instead.',
+        userId: existing.id,
       }
     }
     // Pending user — clear any stale invitation tokens and re-issue.
     await store.deletePendingInvitationsForUser(existing.id)
-    return { outcome: 'ready', user: existing }
+    return { outcome: 'ready', user: existing, existed: true }
   }
 
   // Brand new user. Better Auth's admin createUser requires a password, so
@@ -144,6 +151,7 @@ export const findOrCreateInvitedUser = async (
   return {
     outcome: 'ready',
     user: { id: createdUserId, email: input.email, name: input.name },
+    existed: false,
   }
 }
 
@@ -195,7 +203,8 @@ const persistInvitation = async (
     )
 
 /**
- * Mint a single-use token for `userId` and store it, expiring after the app's
+ * Mint a single-use token for `userId` and store it, expiring after
+ * `expiresInMs` when the caller names a lifetime, else after the app's
  * `auth.invitationTokenExpiry`. `undefined` when the row could not be written.
  */
 export const mintInvitationToken = async (
@@ -203,11 +212,13 @@ export const mintInvitationToken = async (
     readonly services: InvitationIssuingServices
     readonly authConfig: Auth | undefined
     readonly inviterId?: string | undefined
+    readonly expiresInMs?: number | undefined
   },
   userId: string
 ): Promise<string | undefined> => {
   const token = generateInvitationToken()
-  const expiresAt = new Date(Date.now() + resolveInvitationExpiryMs(params.authConfig))
+  const lifetimeMs = params.expiresInMs ?? resolveInvitationExpiryMs(params.authConfig)
+  const expiresAt = new Date(Date.now() + lifetimeMs)
   const row = { token, userId, expiresAt, invitedBy: params.inviterId }
   return (await persistInvitation(params.services.store, row)) ? token : undefined
 }
@@ -231,5 +242,5 @@ export const issueInvitation = async (params: {
   const token = await mintInvitationToken(params, found.user.id)
   return token === undefined
     ? { status: 'internal-error', message: 'Failed to persist invitation token' }
-    : { status: 'invited', user: found.user, token }
+    : { status: 'invited', user: found.user, token, existed: found.existed }
 }

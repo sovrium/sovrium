@@ -10,6 +10,7 @@ import { CLOUD_COMMAND_HELP } from './cloud-help'
 import { REFERENCE_HELP } from './reference-help'
 import { RENDER_HELP_TEXT } from './render-help'
 import { SEED_HELP_TEXT } from './seed-help'
+import { UPDATE_HELP_TEXT } from './update-help'
 
 /**
  * Per-command `--help` text for every dispatchable `sovrium` command.
@@ -64,25 +65,6 @@ export const START_HELP_TEXT = [
   '  PORT=8080 sovrium start app.json         # Override port',
 ].join('\n')
 
-export const UPDATE_HELP_TEXT = [
-  'Usage: sovrium update [--insecure-skip-checksum]',
-  '',
-  'Update Sovrium to the latest version. Behaviour depends on how it was installed:',
-  '  binary                        Self-replace from GitHub Releases (Unix)',
-  '  homebrew                      Delegates to `brew upgrade sovrium/tap/sovrium`',
-  '  scoop                         Delegates to `scoop update sovrium`',
-  '  docker                        Prints the `docker pull` instruction',
-  '',
-  'Options:',
-  '  --insecure-skip-checksum      Install without verifying the sha256 or the signature',
-  '  --help, -h                    Show this help message',
-  '',
-  'Environment variables (advanced / test seams):',
-  '  SOVRIUM_INSTALL_METHOD        Force the detected install method',
-  '  SOVRIUM_DISABLE_NETWORK       Skip all network calls (offline)',
-  '  SOVRIUM_UPDATE_API_HOST       Override the GitHub API host',
-  '  SOVRIUM_UPDATE_DRY_RUN        Print package-manager command instead of running',
-].join('\n')
 const BUILD_HELP_TEXT = [
   'Usage: sovrium build [config] [options]',
   '',

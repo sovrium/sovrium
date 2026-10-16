@@ -12,6 +12,7 @@ import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/databas
 import { cachedColumnExists } from '@/infrastructure/database/sql/catalog-request-cache'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import { generateSqlConditionFragment } from '../filter-operators'
+import { ruledRelatedTextFragment } from '../related-text-fragment'
 import { validateColumnName, databaseTableName } from '../statement/validation'
 import { isWordSearchLeaf, wordSearchCondition } from './word-search-fragments'
 
@@ -274,13 +275,16 @@ const isOrGroup = (node: FilterNode): node is { readonly or: readonly FilterNode
 /**
  * Render a single filter node to a parameterized Drizzle SQL fragment. Leaves go
  * through `generateSqlConditionFragment` (bound parameters), a `?q=` word search
- * through `wordSearchCondition`; `and` / `or` groups recurse into `( … AND … )` /
- * `( … OR … )` — an empty `or` matches nothing, an empty `and` everything.
+ * through `wordSearchCondition`, a link-name condition under its related table's
+ * rule through `ruledRelatedTextFragment` (the rule rendered here); `and` / `or`
+ * groups recurse — an empty `or` matches nothing, an empty `and` everything.
  */
 function renderFilterNode(node: FilterNode): Readonly<SQL> {
   if (isLeaf(node)) {
     validateColumnName(node.field)
     if (isWordSearchLeaf(node)) return wordSearchCondition(node)
+    const ruled = ruledRelatedTextFragment(node, (rule) => renderFilterNode(rule as FilterNode))
+    if (ruled !== undefined) return ruled
     return generateSqlConditionFragment(node.field, node.operator, node.value)
   }
   if (isOrGroup(node)) {
@@ -298,15 +302,10 @@ function renderFilterNode(node: FilterNode): Readonly<SQL> {
 }
 
 /**
- * Build parameterized filter condition fragments from user-provided filters
- *
- * Returns Drizzle SQL fragments with bound query parameters for all
- * user-supplied filter values (defense-in-depth against SQL injection).
- * Column names are validated via validateColumnName and rendered via
- * sql.identifier() inside generateSqlConditionFragment.
- *
- * Each top-level `and` entry may itself be a nested AND/OR group ([internal ref]
- * composite row-level predicates); `renderFilterNode` recurses through them.
+ * Build parameterized filter condition fragments from user-provided filters:
+ * every value bound, every column validated and rendered via `sql.identifier()`.
+ * Each top-level `and` entry may itself be a nested AND/OR group (composite
+ * row-level predicates); `renderFilterNode` recurses through them.
  */
 export function buildUserFilterConditions(filter?: {
   readonly and?: readonly FilterNode[]

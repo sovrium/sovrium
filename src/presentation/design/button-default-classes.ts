@@ -8,23 +8,17 @@
 /**
  * Prestyled-by-default class computer for the `button` component.
  *
- * Every variant × size × state combination produces a Tailwind className string
- * with inline OKLCH var-fallback expressions so a schema author who writes the
- * bare `{ type: 'button', text: 'Save' }` gets a complete, opinionated button —
- * focus ring, accent border, flat inline surface — with zero theme-layer
- * dependency.
+ * The `button` component type IS shadcn/ui's base-nova `Button`: every
+ * variant and size below is the registry's `buttonVariants` string, so a
+ * schema author who writes the bare `{ type: 'button', label: 'Save' }` gets
+ * exactly the button the shadcn documentation shows — one focus ring (no
+ * offset ring), a primary that hovers at 80 % of itself, and a destructive
+ * drawn as a TINT (destructive ink on a faint destructive ground). An app that
+ * wants the solid red writes it through `design.components.button`, whose
+ * classes `tailwind-merge` lets beat the recipe on every shared property.
  *
- * The recipe mirrors the `uiKitButton` fixture in
- * `[internal ref]`. Keeping the recipe here makes
- * the default design land in the PRODUCTION renderer — the fixture's
- * `uiKitButton` is a thin wrapper around the schema, not the source of styling.
- *
- * Layout / spacing classes (`h-8 px-3 py-1.5`) stay as raw Tailwind utilities;
- * a colour with a shadcn twin is its role utility (`bg-primary`, `ring-ring`),
- * and radius, shadow and the roles shadcn does not declare go through
- * {@link withVarFallback} so `app.design.*` overrides still win at the CSS
- * cascade layer (var lookups resolve the emitted variable first, fall back to
- * the inline literal).
+ * Colours are the role utilities (`bg-primary`, `ring-ring`), so an app's
+ * `design.colors` reach the button through the theme variables they bind.
  *
  * ## Why it lives in `presentation/utils`
  * A submit button is drawn TWICE: once by an SSR renderer (`ui/sections/…` and
@@ -58,7 +52,7 @@ import type { ButtonVariantSchema } from '@/domain/models/app/pages/components/b
  * Schema-aligned variant vocabulary, read off `ButtonVariantSchema`
  * (`src/domain/models/app/pages/components/button-variant.ts`) rather than
  * spelled a second time, so a member added to the schema cannot be missing
- * from the recipe's `cva` variant tables without a type error where they are called.
+ * from the recipe's variant tables without a type error where they are called.
  * The import is type-only, so no island bundle gains the schema. The two
  * fixture-vocabulary aliases (`primary` / `base`) are NOT accepted here —
  * the dispatcher in `interactive-components.ts` always passes schema values.
@@ -78,150 +72,83 @@ export interface ButtonDefaultClassesInput {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Per-variant color stack — flat record keeps cyclomatic complexity at 1.
+// base-nova's `buttonVariants`, verbatim (shadcn/ui, registry commit
+// 3464245c4513b7998b1d11fa9c67b71cc1534dc7 — the same strings the part
+// buttons draw, `button-variant-classes.ts`).
 //
-// `link` and `fab` get bespoke recipes; the other five variants ("filled" /
-// "outlined" / "subtle") share the flat-surface + motion baseline added by
-// {@link computeButtonDefaultClasses}.
+// One structural departure, and it changes no class: shadcn's base carries
+// `rounded-lg`, `text-sm`, `border-transparent` and the 16px svg size, and
+// `tailwind-merge` drops them where a variant or size names its own. Islands
+// draw this recipe too and cannot carry that merge, and Tailwind v4 orders
+// two same-property utilities by NAME rather than by position — so
+// `rounded-lg` would beat the small sizes' `rounded-[min(…)]` and `text-sm`
+// their `text-[0.8rem]`. Each of those tokens therefore moves from the base
+// into the variants and sizes that keep it: the class lists the merge
+// produces, by construction rather than by resolution.
+//
+// `fab` is Sovrium's own (a floating action button is not in the registry):
+// the default variant's paint, circular, and the one button that keeps a
+// shadow because it genuinely floats.
 // ──────────────────────────────────────────────────────────────────────────────
+
+/** base-nova's `buttonVariants` base, less the tokens a variant or size replaces. */
+export const BUTTON_BASE =
+  'group/button inline-flex shrink-0 items-center justify-center border bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0'
+
+/*
+ * The registry's strings repeat a handful of phrases across variants and
+ * sizes. They are named once here, which changes no class and keeps the
+ * recipe light in the islands that draw it (the sign-in form's among them).
+ */
+const MUTED_HOVER =
+  'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground'
+const IN_GROUP = 'in-data-[slot=button-group]:rounded-lg'
+const ICON_INSET_2 = 'has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2'
+const ICON_INSET_15 = 'has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5'
+const RADIUS_10 = 'rounded-[min(var(--radius-md),10px)]'
+const RADIUS_12 = 'rounded-[min(var(--radius-md),12px)]'
+const SVG_3 = "[&_svg:not([class*='size-'])]:size-3"
+
+/** Every variant but `outline` keeps base-nova's transparent edge. */
+const EDGELESS = 'border-transparent'
 
 const VARIANT_CLASS = cva('', {
   variants: {
     variant: {
-      default: [
-        'bg-primary',
-        'text-primary-foreground',
-        'border-primary',
-        `hover:bg-[${v('sv-primary-hover', T.primaryHover)}]`,
-        `active:bg-[${v('sv-primary-active', T.primaryActive)}]`,
-      ].join(' '),
-      // Hover AND active both land on `error-700`, which is not a copy-paste slip.
-      // The ramp's `error-600` is byte-identical to `error-solid` (`#c13520`), so
-      // the previous `hover:bg-error-600` painted the button its own resting colour
-      // and the variant had no hover feedback at all — measured live, not inferred.
-      // `error-700` (`#a12b1a`) is the canvas' `.btn-dan-h`, and the ramp stops
-      // there, so `active` has nowhere darker to go and repeats it rather than
-      // pretending to a step that does not exist.
-      destructive: [
-        'bg-destructive',
-        `text-[${v('sv-error-solid-fg', T.errorSolidFg)}]`,
-        'border-destructive',
-        `hover:bg-[${v('sv-error-700', T.error700)}]`,
-        `active:bg-[${v('sv-error-700', T.error700)}]`,
-      ].join(' '),
-      // `outline`: the border is the whole affordance, so the fill is the page.
-      // The border does NOT darken on hover; the fill carries the state.
-      outline: [
-        'bg-transparent',
-        'text-foreground',
-        `border-[${v('sv-border-strong', T.borderStrong)}]`,
-        'hover:bg-muted',
-      ].join(' '),
-      // base-nova's `secondary`: a filled `--secondary` ground with its own
-      // foreground and no visible edge, so it never reads as `outline`. The
-      // hover deepens the fill by a step of ink, as the part recipe does
-      // (`button-variant-classes.ts`).
-      secondary: [
-        'bg-secondary',
-        'text-secondary-foreground',
-        'border-transparent',
-        'hover:bg-secondary/80',
-      ].join(' '),
-      // `.btn-gho` rests MUTED and resolves to full ink on hover. Resting at full
-      // ink made ghost and secondary read as the same emphasis with different
-      // chrome; the canvas separates them by weight of text, not by border.
-      ghost: [
-        'bg-transparent',
-        'text-muted-foreground',
-        'border-transparent',
-        'hover:bg-muted',
-        'hover:text-foreground',
-      ].join(' '),
-      link: [
-        'bg-transparent',
-        'text-primary',
-        'border-transparent',
-        'underline-offset-4',
-        'hover:underline',
-      ].join(' '),
-      fab: [
-        'bg-primary',
-        'text-primary-foreground',
-        'border-primary',
-        `hover:bg-[${v('sv-primary-hover', T.primaryHover)}]`,
-      ].join(' '),
+      default: `${EDGELESS} bg-primary text-primary-foreground hover:bg-primary/80`,
+      outline: `border-border bg-background ${MUTED_HOVER} dark:border-input dark:bg-input/30 dark:hover:bg-input/50`,
+      secondary: `${EDGELESS} bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground`,
+      ghost: `${EDGELESS} ${MUTED_HOVER} dark:hover:bg-muted/50`,
+      destructive: `${EDGELESS} bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40`,
+      link: `${EDGELESS} text-primary underline-offset-4 hover:underline`,
+      fab: `${EDGELESS} bg-primary text-primary-foreground hover:bg-primary/80 shadow-[${v('shadow-md', T.shadowMd)}]`,
     },
   },
 })
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Layout / spacing — pure Tailwind utilities, no var-fallbacks.
-// `fab` is fixed-circular; `link` collapses padding for inline-text feel.
-// ──────────────────────────────────────────────────────────────────────────────
+/** The tokens shadcn's base carries that a size may replace (see the note above). */
+const BASE_RADIUS = 'rounded-lg'
+const BASE_TEXT = 'text-sm'
+const BASE_SVG = "[&_svg:not([class*='size-'])]:size-4"
+const BASE_BOX = `${BASE_RADIUS} ${BASE_TEXT} ${BASE_SVG}`
 
-/**
- * Type steps are NAMED RUNGS of the platform ladder, not rem literals.
- *
- * They were literals — `text-[0.8125rem]` — for a real reason: Tailwind's
- * `text-[…]` arbitrary syntax is ambiguous between a COLOR and a FONT-SIZE and
- * infers which from the value, so a `text-[var(--font-size-sm,…)]` resolved the
- * font-size candidate as a colour, beat the real colour class and
- * painted the element browser-default black.
- * `text-[length:var(…)]` disambiguates but hides the class from the scanner in
- * `infrastructure/css/arbitrary-var-safelist.ts`, so it would go missing from the
- * compiled binary's corpus instead.
- *
- * Neither trap applies to a named rung. The platform ladder emits Tailwind's
- * own `--text-*` namespace, so `text-base` IS 13px and the utility carries size
- * and leading together, and the rung moves when the ladder moves — no test has
- * to pin the three sizes as literals by hand.
- *
- * The mapping is the canvas': `.btn-sm` 12px, `.btn` 13px, `.btn-lg` 14px.
- */
-const SIZE_CLASS_DEFAULT = cva('', {
+const SIZE_CLASS = cva('', {
   variants: {
     size: {
-      xs: 'h-6 gap-1 px-2 py-0.5 text-xs',
-      sm: 'h-7 px-2.5 py-1 text-sm',
-      default: 'h-8 px-3 py-1.5 text-base',
-      lg: 'h-10 px-4 py-2 text-md',
-      // shadcn/ui's square icon-only sizes: the box is the icon's, the label names it.
-      'icon-xs': "size-6 p-0 [&_svg:not([class*='size-'])]:size-3",
-      'icon-sm': 'size-7 p-0',
-      icon: 'size-8 p-0',
-      'icon-lg': 'size-9 p-0',
+      default: `${BASE_BOX} h-8 gap-1.5 px-2.5 ${ICON_INSET_2}`,
+      xs: `h-6 gap-1 ${RADIUS_10} px-2 text-xs ${IN_GROUP} ${ICON_INSET_15} ${SVG_3}`,
+      sm: `h-7 gap-1 ${RADIUS_12} px-2.5 text-[0.8rem] ${IN_GROUP} ${ICON_INSET_15} [&_svg:not([class*='size-'])]:size-3.5`,
+      lg: `${BASE_BOX} h-9 gap-1.5 px-2.5 ${ICON_INSET_2}`,
+      icon: `${BASE_BOX} size-8`,
+      'icon-xs': `${BASE_TEXT} size-6 ${RADIUS_10} ${IN_GROUP} ${SVG_3}`,
+      'icon-sm': `${BASE_TEXT} ${BASE_SVG} size-7 ${RADIUS_12} ${IN_GROUP}`,
+      'icon-lg': `${BASE_BOX} size-9`,
     },
   },
 })
 
-const SIZE_CLASS_LINK = cva('', {
-  variants: {
-    size: {
-      xs: 'h-auto p-0 text-xs',
-      sm: 'h-auto p-0 text-sm',
-      default: 'h-auto p-0 text-base',
-      lg: 'h-auto p-0 text-md',
-      'icon-xs': 'size-6 p-0',
-      'icon-sm': 'size-7 p-0',
-      icon: 'size-8 p-0',
-      'icon-lg': 'size-9 p-0',
-    },
-  },
-})
-
-const sizeClasses = (size: ButtonSize, variant: ButtonVariant): string => {
-  if (variant === 'fab') return 'h-14 w-14 p-0'
-  if (variant === 'link') return SIZE_CLASS_LINK({ size: size })
-  return SIZE_CLASS_DEFAULT({ size: size })
-}
-
-const FOCUS_CLASS = [
-  'focus-visible:outline-none',
-  'focus-visible:ring-2',
-  'focus-visible:ring-offset-2',
-  'focus-visible:ring-ring',
-  'focus-visible:ring-offset-background',
-].join(' ')
+/** `fab` is a 56px circle at every size. */
+const FAB_SIZE = `rounded-[${v('radius-full', T.radiusFull)}] ${BASE_TEXT} ${BASE_SVG} size-14`
 
 const STATE_CLASS: Record<ButtonState, string> = {
   default: '',
@@ -229,92 +156,10 @@ const STATE_CLASS: Record<ButtonState, string> = {
   loading: 'opacity-75 cursor-progress',
 }
 
-const MOTION_DEFAULT = 'transition-[background-color,border-color] duration-150'
-
-/**
- * A flat surface carries NO shadow class at all, and that is deliberate rather
- * than an omission.
- *
- * `shadow-[${v('shadow-none', T.shadowNone)}]` silently removes the keyboard
- * focus ring from every Sovrium button. Three facts compose into it, and the
- * middle one is the trap:
- *
- *  1. `--sv-shadow-none` is emitted NOWHERE — the theme layer declares
- *     `--shadow-none` — so the reference always falls through to its literal
- *     fallback, `none`;
- *  2. Tailwind v4 composes `box-shadow` from five custom properties
- *     (`box-shadow: var(--tw-inset-shadow), …, var(--tw-ring-shadow),
- *     var(--tw-shadow)`), and `none` is a legal box-shadow value only when it
- *     stands ALONE. `--tw-shadow: none` makes the whole declaration invalid, so
- *     the browser drops it — and with it the focus ring, which is painted
- *     through `--tw-ring-shadow` in that same list;
- *  3. `focus-visible:ring-2` is therefore inert. Measured in Chromium against
- *     a live server: every ring custom property resolved correctly
- *     (`--tw-ring-shadow: 0 0 0 calc(2px + 2px) oklch(0.205 0 0)`) while the
- *     computed `box-shadow` read `none`.
- *
- * Tailwind's own `shadow-none` is NOT the replacement: Sovrium overrides it in
- * its utilities layer with `box-shadow: none !important`
- * (`css/styles/component-layer-generators.ts`), which kills the ring harder.
- *
- * Emitting nothing is correct instead. `--tw-shadow` keeps its `@property`
- * initial value of `0 0 #0000`, no shadow utility claims the `box-shadow`
- * property, the element paints flat exactly as before — and the ring, when it
- * comes, is the only thing in the list.
- */
-const SHADOW_FLAT = ''
-const SHADOW_FLOATING = `shadow-[${v('shadow-md', T.shadowMd)}]`
-
-/**
- * Elevation is reserved for surfaces that genuinely FLOAT above the page.
- * An inline button does not — it sits in the content flow, so it paints flat
- * and reads by fill and border alone ([internal ref] restraint; the approved
- * design-system mockup draws every inline control shadowless). `fab` is the
- * one exception in this family: a floating action button is DEFINED by
- * hovering over the page, and elevation is its only affordance for that.
- */
-const elevationClass = (variant: ButtonVariant): string =>
-  variant === 'fab' ? SHADOW_FLOATING : SHADOW_FLAT
-
-const radiusClass = (variant: ButtonVariant): string =>
-  variant === 'fab'
-    ? `rounded-[${v('radius-full', T.radiusFull)}]`
-    : `rounded-[${v('radius-base', T.radiusBase)}]`
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Variant-specific composers (one per family) — keep the top-level entrypoint's
-// cyclomatic complexity at 2 (link branch + default branch).
-// ──────────────────────────────────────────────────────────────────────────────
-
-const linkClasses = (size: ButtonSize, state: ButtonState): string =>
-  [
-    'inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap',
-    sizeClasses(size, 'link'),
-    VARIANT_CLASS({ variant: 'link' }),
-    FOCUS_CLASS,
-    STATE_CLASS[state],
-  ]
-    .filter(Boolean)
-    .join(' ')
-
-const filledClasses = (variant: ButtonVariant, size: ButtonSize, state: ButtonState): string =>
-  [
-    'inline-flex items-center justify-center gap-1.5 border font-medium whitespace-nowrap',
-    radiusClass(variant),
-    sizeClasses(size, variant),
-    VARIANT_CLASS({ variant: variant }),
-    elevationClass(variant),
-    state === 'default' ? MOTION_DEFAULT : '',
-    FOCUS_CLASS,
-    STATE_CLASS[state],
-  ]
-    .filter(Boolean)
-    .join(' ')
-
 /**
  * Compute the full default className for a button.
  *
- * Composition order: layout → variant → elevation → motion → focus → state.
+ * Composition order: base → variant → size → state.
  * Author-supplied `props.className` is merged in later by the dispatcher via
  * `resolveClasses` (`@/presentation/utils/design/resolve-classes`), which runs
  * the list through tailwind-merge: on a same-property conflict the author's
@@ -331,7 +176,14 @@ export const computeButtonDefaultClasses = (input: ButtonDefaultClassesInput = {
   const variant = input.variant ?? 'default'
   const size = input.size ?? 'default'
   const state = input.state ?? 'default'
-  return variant === 'link' ? linkClasses(size, state) : filledClasses(variant, size, state)
+  return [
+    BUTTON_BASE,
+    VARIANT_CLASS({ variant }),
+    variant === 'fab' ? FAB_SIZE : SIZE_CLASS({ size }),
+    STATE_CLASS[state],
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 /**

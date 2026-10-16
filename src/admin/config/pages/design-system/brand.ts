@@ -40,6 +40,7 @@
 // something to head, and exactly once.
 
 import { ledgerTable } from '../../components/data-table-blocks'
+import { sentence } from '../../components/sentence'
 import { withShell } from '../../components/shell'
 import {
   DESIGN_BRAND_ENDPOINT,
@@ -67,10 +68,10 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 
 /** This page's own slug and the noun it carries in the trail and the `h1`. */
 const SLUG = 'brand'
-const TITLE = 'Brand'
+const TITLE = '$t:admin.common.brand'
 
 /** The page's one-line `meta.description`. */
-const DECK = 'The mark, the imagery rules, the colour roles and the zone map.'
+const DECK = '$t:admin.ds.brand.blurb'
 
 /** Where an author reads what a `design.*` key does. */
 const DOCS_DESIGN = 'https://sovrium.com/en/docs/design'
@@ -86,10 +87,10 @@ const VOICE_PAGE_PATH = '/design-system/voice'
 
 /** The four sections, in reading order — the rail is derived from this list. */
 const SECTIONS: readonly RailSection[] = [
-  { id: 'design-system-brand-mark', title: 'The mark' },
-  { id: 'design-system-brand-color-roles', title: 'Colour roles' },
-  { id: 'design-system-brand-imagery', title: 'Imagery' },
-  { id: 'design-system-brand-zones', title: 'Zones' },
+  { id: 'design-system-brand-mark', title: '$t:admin.ds.brand.mark' },
+  { id: 'design-system-brand-color-roles', title: '$t:admin.ds.brand.colourRoles' },
+  { id: 'design-system-brand-imagery', title: '$t:admin.ds.brand.imagery' },
+  { id: 'design-system-brand-zones', title: '$t:admin.common.zones' },
 ]
 
 /** One family of declared sentences, bound as rows. */
@@ -185,10 +186,10 @@ const markStates = (): PageComponent =>
     element: 'div',
     props: { className: 'flex items-center gap-3', 'data-testid': 'design-system-mark-states' },
     children: [
-      markStateLink('config', 'Your config', true),
-      markStateLink('example', 'Your config', false),
-      markStateLink('config', 'Worked example', false),
-      markStateLink('example', 'Worked example', true),
+      markStateLink('config', '$t:admin.ds.brand.yourConfig', true),
+      markStateLink('example', '$t:admin.ds.brand.yourConfig', false),
+      markStateLink('config', '$t:admin.ds.brand.example', false),
+      markStateLink('example', '$t:admin.ds.brand.example', true),
     ],
   }) as PageComponent
 
@@ -248,9 +249,9 @@ const markPanel = (variant: 'light' | 'dark'): PageComponent =>
  * reason the page cannot explain.
  */
 const FACT_LABELS: readonly (readonly [key: string, label: string])[] = [
-  ['alt', 'Accessible name'],
-  ['clearSpace', 'Clear space'],
-  ['minWidth', 'Smallest reproduction width'],
+  ['alt', '$t:admin.ds.brand.accessibleName'],
+  ['clearSpace', '$t:admin.ds.brand.clearSpace'],
+  ['minWidth', '$t:admin.ds.brand.minWidth'],
 ]
 
 const markFactRow = (): PageComponent =>
@@ -282,22 +283,24 @@ const markFactRow = (): PageComponent =>
         visibility: { record: { field: 'declared', eq: true } },
         content: '$record.value',
       },
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: `text-foreground-subtle ${MEASURE_SM} text-sm leading-relaxed` },
-        visibility: { record: { field: 'declared', eq: false } },
-        content: 'Not declared. Add $record.configPath to record it.',
-      },
+      sentence(
+        `text-foreground-subtle ${MEASURE_SM} text-sm leading-relaxed`,
+        [
+          '$t:admin.ds.brand.notDeclared',
+          ' ',
+          '$record.configPath',
+          ' ',
+          '$t:admin.ds.brand.toRecordIt',
+        ],
+        { visibility: { record: { field: 'declared', eq: false } } }
+      ),
       // The consequence of the floor, stated rather than left to be inferred.
       {
         type: 'text',
         element: 'p',
         props: { className: `text-foreground-subtle ${MEASURE_SM} text-sm leading-relaxed` },
         visibility: { record: { field: 'key', eq: 'minWidth' } },
-        content:
-          'Below this width the mark stops being legible. Use the icon alone instead of scaling ' +
-          'the wordmark further down.',
+        content: '$t:admin.ds.brand.minWidthHint',
       },
     ],
   }) as PageComponent
@@ -318,7 +321,7 @@ const misuseRow = (): PageComponent =>
         // The heading rides on the FIRST row: outside the binding it would
         // render over an empty list, inside it ungated it would repeat.
         visibility: { record: { field: 'index', eq: 0 } },
-        content: 'Misuse',
+        content: '$t:admin.ds.brand.misuse',
       },
       // Error ink on the instruction, because a misuse rule is the one line on
       // this page a reader must not skim past.
@@ -412,10 +415,7 @@ const markLockupExample = (): PageComponent =>
             props: {
               className: `text-foreground-subtle ${MEASURE_XS} text-[11px] leading-relaxed`,
             },
-            content:
-              'The dashed edge is the clear space: declared as clearSpace and kept free of every ' +
-              'other element. minWidth 96px is the smallest width the mark may be reproduced at ' +
-              'before its counters close up.',
+            content: '$t:admin.ds.brand.clearSpaceNote',
           },
         ],
       },
@@ -424,8 +424,8 @@ const markLockupExample = (): PageComponent =>
         element: 'div',
         props: { className: 'grid gap-3 sm:grid-cols-2' },
         children: [
-          markExampleTile('do', 'On its own ground, at or above its minimum width.'),
-          markExampleTile('dont', 'Never restyled, re-spaced or set in another face.'),
+          markExampleTile('do', '$t:admin.ds.brand.ownGround'),
+          markExampleTile('dont', '$t:admin.ds.brand.never'),
         ],
       } as PageComponent,
     ],
@@ -488,10 +488,7 @@ const markSection = (): PageComponent =>
           visibility: { record: { field: 'declared', eq: false } },
           children: [
             notConfiguredCard({
-              body:
-                'This app documents no mark, so nothing records its clear space, its smallest ' +
-                'reproduction width or the ways it must never be used. The pair below is what a ' +
-                'declared one publishes.',
+              body: '$t:admin.ds.brand.noMark',
               configKey: 'design.logo',
               href: DOCS_DESIGN,
             }),
@@ -507,7 +504,7 @@ const markSection = (): PageComponent =>
             href: DOCS_DESIGN,
             className: 'text-foreground hover:text-muted-foreground self-start text-sm font-medium',
           },
-          content: 'How brand placement is declared →',
+          content: '$t:admin.ds.brand.howPlacement',
         } as PageComponent,
       ],
     } as PageComponent,
@@ -550,13 +547,11 @@ const roleRow = (): PageComponent =>
         props: { className: 'flex min-w-0 flex-col gap-1' },
         children: [
           ...registers(`text-foreground ${MEASURE_MD} text-md leading-relaxed`),
-          {
-            type: 'text',
-            element: 'p',
-            props: { className: `text-foreground-subtle ${MEASURE_SM} text-sm leading-relaxed` },
-            visibility: { record: { field: 'pairsWith', isNotEmpty: true } },
-            content: 'Designed to sit against $record.pairsWith.',
-          },
+          sentence(
+            `text-foreground-subtle ${MEASURE_SM} text-sm leading-relaxed`,
+            ['$t:admin.ds.brand.pairsWith', ' ', '$record.pairsWith', '.'],
+            { visibility: { record: { field: 'pairsWith', isNotEmpty: true } } }
+          ),
         ],
       },
     ],
@@ -589,10 +584,7 @@ const colorRolesSection = (): PageComponent =>
               visibility: { record: { field: 'declared', eq: false } },
               children: [
                 notConfiguredCard({
-                  body:
-                    'This app records nothing about what its colours are FOR, so every role ' +
-                    'resolves to the platform’s own and nothing says which ground it was ' +
-                    'designed to sit against.',
+                  body: '$t:admin.ds.brand.noColourRoles',
                   configKey: 'design.colorRoles',
                   href: `${DOCS_DESIGN}-components`,
                 }),
@@ -627,7 +619,7 @@ const imageryColumn = (verdict: 'prefer' | 'never'): PageComponent =>
     element: 'div',
     props: { className: 'flex flex-col gap-2', 'data-design-imagery-verdict': verdict },
     children: [
-      microLabel(verdict === 'prefer' ? 'Prefer' : 'Never'),
+      microLabel(verdict === 'prefer' ? '$t:admin.common.prefer' : '$t:admin.ds.brand.neverLabel'),
       {
         type: 'container',
         element: 'div',
@@ -731,14 +723,10 @@ const imagerySection = (): PageComponent =>
                   children: [
                     imageryTile(
                       'do',
-                      'the running app',
-                      'A screenshot of the real thing, on its own ground.'
+                      '$t:admin.ds.brand.runningApp',
+                      '$t:admin.ds.brand.imageryDo'
                     ),
-                    imageryTile(
-                      'dont',
-                      'a device bezel around it',
-                      'No mockup frames, no perspective, no device bezels.'
-                    ),
+                    imageryTile('dont', '$t:admin.ds.brand.bezel', '$t:admin.ds.brand.imageryDont'),
                   ],
                 } as PageComponent,
               ],
@@ -750,10 +738,7 @@ const imagerySection = (): PageComponent =>
               visibility: { record: { field: 'declared', eq: false } },
               children: [
                 notConfiguredCard({
-                  body:
-                    'This app records no rules about pictures, so nothing constrains what a ' +
-                    'screenshot or an icon on it may be. Declare principles, photography, ' +
-                    'iconSet or patterns to write them down.',
+                  body: '$t:admin.ds.brand.noImagery',
                   configKey: 'design.imagery',
                   href: `${DOCS_DESIGN}-components`,
                 }),
@@ -765,9 +750,7 @@ const imagerySection = (): PageComponent =>
     } as PageComponent,
   ])
 
-// ---------------------------------------------------------------------------
-// ZONES
-// ---------------------------------------------------------------------------
+// ─── ZONES ─────────────────────────────────────────────────────────────────────
 
 /**
  * The zone map, one row per route pattern: the pattern, the zone it reads in,
@@ -778,23 +761,24 @@ const imagerySection = (): PageComponent =>
  */
 const zonesLedger = (): PageComponent =>
   ledgerTable({
-    props: { 'aria-label': 'Zones' },
+    props: { 'aria-label': '$t:admin.common.zones' },
     dataSource: {
       system: { endpoint: DESIGN_ZONES_ENDPOINT, rowsKey: 'items', idKey: 'pattern' },
     },
     columns: [
-      { field: 'pattern', label: 'Route pattern' },
-      { field: 'zone', label: 'Zone' },
+      { field: 'pattern', label: '$t:admin.common.routePattern' },
+      { field: 'zone', label: '$t:admin.common.zone' },
       {
         field: 'hasVoiceOverride',
-        label: 'Voice',
-        valueLabels: { true: 'Departs from the app voice', false: 'App voice' },
+        label: '$t:admin.common.voice',
+        valueLabels: {
+          true: '$t:admin.ds.brand.zoneOverride',
+          false: '$t:admin.ds.brand.appVoice',
+        },
       },
     ],
     // The empty ledger is the not-declared state, so it carries the next step.
-    emptyMessage:
-      'This app declares no zones. Declare design.zones with a route pattern and a zone ' +
-      'name to record which register each route family reads in.',
+    emptyMessage: '$t:admin.ds.brand.noZones',
   })
 
 const zonesSection = (): PageComponent =>
@@ -817,17 +801,16 @@ const zonesSection = (): PageComponent =>
               props: { className: 'flex flex-wrap items-baseline gap-x-2 gap-y-1' },
               visibility: { record: { field: 'declared', eq: true } },
               children: [
-                // The sentence has always pointed at Voice; what it never did
-                // was GO there. A cross-reference a reader has to navigate by
-                // hand is a footnote, and this console is a set of pages whose
-                // whole job is leading an operator between them.
+                // A cross-reference a reader must navigate by hand is a
+                // footnote; this one goes there, when the Voice page exists.
                 {
                   type: 'link',
+                  visibility: { declares: 'design.voice' },
                   props: {
                     href: VOICE_PAGE_PATH,
                     className: 'text-foreground hover:text-muted-foreground text-md font-medium',
                   },
-                  content: 'Open the Voice page →',
+                  content: '$t:admin.ds.brand.openVoice',
                 },
               ],
             },
@@ -842,8 +825,8 @@ const brand: PageConfig = withShell(
     id: 'design-system-brand',
     name: 'design-system-brand',
     path: `/design-system/${SLUG}`,
+    requires: ['design.brand'],
     meta: {
-      lang: 'en-US',
       title: TITLE,
       description: DECK,
     },

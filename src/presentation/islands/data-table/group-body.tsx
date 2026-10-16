@@ -11,6 +11,7 @@ import {
   computeTableBodyClasses,
   computeTableGroupCellClasses,
   computeTableGroupRowClasses,
+  computeTableGroupToggleClasses,
 } from '@/presentation/design/table-default-classes'
 import { resolvePageLocale } from '../runtime/page-locale'
 import { AddRow, type AddRowConfig } from './add-row'
@@ -23,7 +24,7 @@ import type { GroupSummaryContext, GroupSummaryLayout } from './group-summary'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { DataTableColumnDef, DataTableRow } from './island/table-features'
 import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 /**
  * Flatten a `groupBy` block into one entry per level, resolving each level's own
@@ -142,15 +143,57 @@ function groupPrefill(node: GroupNode, levels: readonly GroupLevel[]): Record<st
 }
 
 /**
+ * The group's chevron, name and count — a `<button>` carrying the expanded
+ * state when the group can be collapsed, plain text when it cannot.
+ */
+function GroupToggle({
+  isCollapsed,
+  interactive,
+  children,
+}: {
+  readonly isCollapsed: boolean
+  readonly interactive: boolean
+  readonly children: ReactNode
+}): ReactElement {
+  const chevron = (
+    <span
+      aria-hidden="true"
+      className="mr-2"
+    >
+      {isCollapsed ? '▶' : '▼'}
+    </span>
+  )
+  if (!interactive) {
+    return (
+      <>
+        {chevron}
+        {children}
+      </>
+    )
+  }
+  return (
+    <button
+      type="button"
+      aria-expanded={!isCollapsed}
+      className={computeTableGroupToggleClasses()}
+    >
+      {chevron}
+      {children}
+    </button>
+  )
+}
+
+/**
  * One group's own row: its collapse toggle, its value, its whole-view count and
  * its declared summaries.
  *
- * The whole row acts as the collapse toggle. We
- * deliberately do NOT render an inner `<button>` because the spec's collapse
- * locator is `header.getByRole('button', ...).or(header)` — a Playwright pattern
- * that under strict mode requires EXACTLY ONE of the alternatives to resolve.
- * The `<td>` (not `<tr>`) owns the `onClick` so the click target Playwright
- * actionability-checks is a leaf element with explicit hit testing.
+ * A click anywhere in the label cell collapses the group: the `<td>` (not the
+ * `<tr>`) owns the `onClick`, so the click target is a leaf element with
+ * explicit hit testing. The chevron, name and count sit in a `<button>` that
+ * carries `aria-expanded`: a `row` inside a `table` cannot hold that state, and
+ * the button is what the keyboard reaches. It has no handler of its own — its
+ * click (Enter and Space included) bubbles to the cell's, so one press toggles
+ * once.
  */
 function GroupHeaderRow({
   node,
@@ -176,7 +219,6 @@ function GroupHeaderRow({
       data-group-path={pathKey}
       data-group-level={String(node.level)}
       role="row"
-      aria-expanded={!isCollapsed}
       className={`group-header ${computeTableGroupRowClasses()}`}
     >
       <td
@@ -186,13 +228,12 @@ function GroupHeaderRow({
         {...(handleToggle && { onClick: handleToggle })}
       >
         <GroupIndent level={node.level} />
-        <span
-          aria-hidden="true"
-          className="mr-2"
+        <GroupToggle
+          isCollapsed={isCollapsed}
+          interactive={handleToggle !== undefined}
         >
-          {isCollapsed ? '▶' : '▼'}
-        </span>
-        {node.label} ({shared.groupCounts?.[pathKey] ?? node.pageRowCount})
+          {node.label} ({shared.groupCounts?.[pathKey] ?? node.pageRowCount})
+        </GroupToggle>
         {summary && (
           <GroupSummaryLeadingCells
             layout={summary.layout}

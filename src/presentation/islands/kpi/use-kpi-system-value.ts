@@ -6,7 +6,11 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { buildSystemQueryUrl } from '../runtime/system-query-url'
+import {
+  fetchSystemEnvelope,
+  systemEnvelopeQueryKey,
+  type SystemEnvelopeResult,
+} from '../runtime/system-envelope-query'
 import type { KpiSystemSource } from '@/domain/models/app/pages/components/component-types/data/kpi'
 
 /**
@@ -89,59 +93,33 @@ function resolveSystemValue(system: KpiSystemSource, envelope: unknown): KpiSyst
   return { kind: 'neutral' }
 }
 
-/** Status codes that mean "the read is denied", not "transient failure". */
-const AUTH_DENIAL_STATUSES = new Set([401, 403, 404])
-
-/**
- * The SHARED query result cached per endpoint (the dedup unit). Either the parsed
- * JSON `envelope` (the per-tile `select` reads its own scalar/template out of it)
- * or `denied` — the auth-denial case, cached as a calm sentinel rather than a
- * throw so it is NOT retried (anonymous visitor / admin-gated endpoint).
- */
-type EnvelopeResult =
-  { readonly kind: 'envelope'; readonly envelope: unknown } | { readonly kind: 'denied' }
-
 /**
  * Fetches the system endpoint and resolves the KPI's scalar / template value.
  *
- * Dedup: the `useQuery` `queryKey` is keyed on ONLY the endpoint + static `query`
- * (NOT the per-tile `valuePath` / `valueTemplate`), so every system-source tile
- * sharing an endpoint collapses into ONE fetch + ONE cache entry. The `queryFn`
- * returns the RAW envelope; the `select` derives THIS tile's value from the
- * shared cache without an extra fetch.
+ * Dedup: the query is the page's ONE entry for this endpoint + static `query`
+ * (`systemEnvelopeQueryKey`, NOT keyed on the per-tile `valuePath` /
+ * `valueTemplate`), so every tile — and every chart — reading the same
+ * endpoint collapses into ONE fetch + ONE cache entry. The `queryFn` returns
+ * the RAW envelope; the `select` derives THIS tile's value from it.
  *
- * Resilience (IDENTICAL to before): an AUTH DENIAL (401/403/404 — the
- * anonymous-visitor / anti-enum case, mirroring `useKpiRecords`) caches a
- * `denied` sentinel that `select` maps to a NEUTRAL value, and is NOT retried.
- * Any OTHER non-2xx (e.g. a transient 5xx under load) or network error THROWS so
- * TanStack Query retries it before the island degrades, so a single transient
- * hiccup doesn't cache a stale neutral. The island treats an exhausted-retry
- * error (`data` undefined) as neutral too, so the card always degrades calmly
- * rather than surfacing a raw error region.
+ * Resilience: an AUTH DENIAL (401/403/404 — the anonymous-visitor / anti-enum
+ * case, mirroring `useKpiRecords`) is cached as a `denied` result that
+ * `select` maps to a NEUTRAL value, and is NOT retried. Any OTHER non-2xx
+ * (e.g. a transient 5xx under load) or network error THROWS so TanStack Query
+ * retries it before the island degrades, so a single transient hiccup doesn't
+ * cache a stale neutral. The island treats an exhausted-retry error (`data`
+ * undefined) as neutral too, so the card always degrades calmly rather than
+ * surfacing a raw error region.
  */
 export function useKpiSystemValue(system: KpiSystemSource | undefined) {
   return useQuery({
-    // Keyed on endpoint + static query ONLY (not valuePath/valueTemplate) so all
-    // tiles on the same endpoint dedupe to a single shared fetch + cache entry.
-    queryKey: ['kpi-system-value', system?.endpoint, system?.query],
+    queryKey: systemEnvelopeQueryKey(system),
     enabled: Boolean(system?.endpoint),
-    queryFn: async (): Promise<EnvelopeResult> => {
-      if (!system?.endpoint) return { kind: 'denied' }
-      const res = await fetch(buildSystemQueryUrl(system), { credentials: 'include' })
-      // Denied read → cached sentinel → neutral, no retry (anonymous visitor /
-      // admin-gated endpoint).
-      if (AUTH_DENIAL_STATUSES.has(res.status)) return { kind: 'denied' }
-      if (!res.ok) {
-        // Transient failure — throw so TanStack Query retries before degrading.
-        throw new Error(`KPI system endpoint failed: ${String(res.status)}`)
-      }
-      const envelope = (await res.json()) as unknown
-      return { kind: 'envelope', envelope }
-    },
+    queryFn: () => fetchSystemEnvelope(system),
     // Per-tile derivation off the SHARED cached envelope — no extra fetch. The
     // resolve logic (valueTemplate interpolation, valuePath scalar coercion,
     // missing/denied → neutral) is byte-identical to the pre-dedup behavior.
-    select: (result: EnvelopeResult): KpiSystemValue =>
+    select: (result: SystemEnvelopeResult): KpiSystemValue =>
       result.kind === 'denied' || !system
         ? { kind: 'neutral' }
         : resolveSystemValue(system, result.envelope),

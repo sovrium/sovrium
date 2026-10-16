@@ -73,12 +73,6 @@ export const TABLE_TOOLBAR_PRIMARY_BUTTON_PART = {
   'data-size': 'sm',
 } as const
 
-/** The toolbar row: it wraps rather than overflowing, so a phone reaches every control. */
-const TABLE_TOOLBAR = 'flex flex-wrap items-center gap-2 border-b border-border bg-card p-2'
-
-/** The toolbar row. Which controls hug the right edge stays at the call site. */
-export const computeTableToolbarClasses = (): string => TABLE_TOOLBAR
-
 /**
  * A secondary toolbar control: `outline` / `sm` at 32px.
  *
@@ -113,21 +107,6 @@ export const computeTableToolbarButtonClasses = ({
  */
 export const computeTableToolbarPrimaryButtonClasses = (): string =>
   [TABLE_BUTTON_BASE, DEFAULT_VARIANT, TABLE_BUTTON_SIZE_SM].join(' ')
-
-/**
- * The count a narrowing control carries: a `secondary` badge, squared and at
- * normal weight, as the faceted filter draws its selected values.
- */
-export const computeTableToolbarCountClasses = (): string =>
-  'inline-flex h-5 min-w-5 items-center justify-center rounded-sm bg-secondary px-1 text-xs font-normal text-secondary-foreground'
-
-/**
- * The search field: shadcn's `Input`, narrowed as the example narrows it
- * (150px, 250px from `lg`). `w-full` under the cap lets it shrink with the row
- * it wraps onto at 375px.
- */
-export const computeTableSearchClasses = (): string =>
-  'h-8 w-full min-w-0 max-w-[150px] rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm lg:max-w-[250px] dark:bg-input/30'
 
 /**
  * A matched substring inside a searched cell: a neutral WELL, never a hue, so

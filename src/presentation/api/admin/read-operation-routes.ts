@@ -30,9 +30,11 @@
  */
 
 import { Effect, Schema } from 'effect'
+import { getCookie } from 'hono/cookie'
 import { isAdminReadText } from '@/application/use-cases/admin/admin-read-operation'
 import { resolveRequestBaseUrl } from '@/domain/kernel/url/request-base-url'
 import { errorResponseSchema } from '@/domain/models/api/combinators/error'
+import { LANGUAGE_PREFERENCE_COOKIE } from '@/domain/models/app/languages/language-detection'
 import { logError } from '@/infrastructure/logging/logger'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { provideAdminReadHost } from '@/presentation/api/admin/admin-read-host'
@@ -71,6 +73,12 @@ function readRawParameters(
   ])
 }
 
+/** The browser's remembered language preference, for a read phrasing a value. */
+function preferredLanguageOf(c: Context): { readonly preferredLanguage?: string } {
+  const preferredLanguage = getCookie(c, LANGUAGE_PREFERENCE_COOKIE)
+  return preferredLanguage === undefined ? {} : { preferredLanguage }
+}
+
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 async function handleAdminRead(
@@ -90,6 +98,7 @@ async function handleAdminRead(
             raw: readRawParameters(c, operation),
             actorUserId: session.userId,
             transport: 'api',
+            ...preferredLanguageOf(c),
           }),
           resolveRequestBaseUrl(c)
         )

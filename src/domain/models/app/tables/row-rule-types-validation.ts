@@ -23,6 +23,10 @@
  *    write path stores (`2026-10-01T09:30:00.000Z`);
  *  - a checkbox compared with anything but `true` or `false`.
  *
+ * A `contains` rule on a field that holds one value is refused too: membership
+ * applies to a many-to-many relationship or a `user` field with
+ * `allowMultiple`; one value is compared with `eq`, a list with `in`.
+ *
  * A rule naming `$currentUser.activeAssignment` is refused on any field: no
  * row rule resolves the active scope, so it could never match a record — the
  * rule is scoped with `$currentUser.assignments.<table>` instead. Any other
@@ -32,12 +36,15 @@
 
 import { normalizeCurrentUserRef } from '@/domain/models/app/pages/current-user-ref'
 import { isPredicateGroup } from './row-level-evaluator-service'
+import { holdsSeveralValues, isRowRuleChain } from './row-rule-chain-service'
 import { DATE_FIELD_TYPES, DATETIME_FIELD_TYPES, NUMBER_FIELD_TYPES } from './stored-value-service'
 import type { RowLevelPredicate, RowLevelWhen } from './row-level-permissions'
 
 interface RuleField {
   readonly name: string
   readonly type: string
+  readonly relationType?: string | undefined
+  readonly allowMultiple?: boolean | undefined
 }
 
 interface RuleError {
@@ -110,20 +117,47 @@ const adviceFor = (type: string, value: unknown): string | undefined => {
   return undefined
 }
 
+/**
+ * The message refusing `contains` on a field that holds one value — membership
+ * applies to a field holding several (`holdsSeveralValues`); one value is
+ * compared with `eq`, a list with `in`.
+ */
+export const containsOnOneValueMessage = (field: string): string =>
+  `row rule on "${field}" uses contains, which tests membership in a field holding several values (a many-to-many relationship, a user field with allowMultiple), and "${field}" holds one value — use eq to compare it with one value, or in with a list`
+
+/**
+ * `true` for a `contains` on a field of the table that holds one value. A
+ * chain's far end is checked where the chain is resolved
+ * (`row-rule-chain-validation.ts`), and a multi-select keeps its own refusal.
+ */
+const refusesContains = (predicate: RowLevelPredicate, field: RuleField | undefined): boolean =>
+  predicate.operator === 'contains' &&
+  !isRowRuleChain(predicate.field) &&
+  field?.type !== 'multi-select' &&
+  !holdsSeveralValues(field)
+
+/** A refusal whatever the field stores: the active scope, or `contains` on one value. */
+const shapeRefusal = (
+  predicate: RowLevelPredicate,
+  field: RuleField | undefined
+): string | undefined => {
+  if (normalizeCurrentUserRef(predicate.value)?.path.kind === 'activeAssignment') {
+    return `row rule on "${predicate.field}" names $currentUser.activeAssignment, which no row rule resolves — use $currentUser.assignments.<table> to scope the rule to the records the person is assigned to`
+  }
+  return refusesContains(predicate, field) ? containsOnOneValueMessage(predicate.field) : undefined
+}
+
 /** The refusal of one rule triple, or `undefined` when it can match its field. */
 const tripleError = (
   predicate: RowLevelPredicate,
-  fields: ReadonlyMap<string, string>,
+  fields: ReadonlyMap<string, RuleField>,
   operation: RuleOperation
 ): RuleError | undefined => {
   const path = ['rowLevelPermissions', operation, 'when']
-  if (normalizeCurrentUserRef(predicate.value)?.path.kind === 'activeAssignment') {
-    return {
-      message: `row rule on "${predicate.field}" names $currentUser.activeAssignment, which no row rule resolves — use $currentUser.assignments.<table> to scope the rule to the records the person is assigned to`,
-      path,
-    }
-  }
-  const type = fields.get(predicate.field)
+  const field = fields.get(predicate.field)
+  const refusal = shapeRefusal(predicate, field)
+  if (refusal !== undefined) return { message: refusal, path }
+  const type = field?.type
   if (type === undefined) return undefined
   if (type === 'multi-select') {
     return {
@@ -148,7 +182,7 @@ const tripleError = (
 /** The first refusal in a `when`, walking every condition of a group. */
 const whenError = (
   when: RowLevelWhen,
-  fields: ReadonlyMap<string, string>,
+  fields: ReadonlyMap<string, RuleField>,
   operation: RuleOperation
 ): RuleError | undefined => {
   if (!isPredicateGroup(when)) return tripleError(when, fields, operation)
@@ -169,7 +203,7 @@ export const validateRowRuleTypes = (
   fields: ReadonlyArray<RuleField>
 ): RuleError | undefined => {
   if (rowLevelPermissions === undefined) return undefined
-  const types = new Map(fields.map((field) => [field.name, field.type]))
+  const types = new Map(fields.map((field) => [field.name, field]))
   return OPERATIONS.reduce<RuleError | undefined>((found, operation) => {
     if (found !== undefined) return found
     const when = rowLevelPermissions[operation]?.when

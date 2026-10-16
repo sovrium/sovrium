@@ -1,30 +1,29 @@
 # Search Components
 
-> The components that put a search box on a page — `search-input` and its two scopes, the `list` result display, the ⌘K palette, and the in-component toolbar box.
+> The components that put a search box on a page — `search-input` and its two roles, the `list` result display, and the ⌘K palette.
 
 Tables declare what is searchable and a binding declares how a query runs (**Search Overview**). These are the components that let a visitor type one.
 
-| Component        | What it is                                                                      |
-| ---------------- | ------------------------------------------------------------------------------- |
-| `search-input`   | A search box, in one of two scopes: it publishes a query, or it searches pages. |
-| `list`           | A search-first result display with item templates, highlighting and load-more.  |
-| `command`        | The ⌘K overlay, placed by you rather than appended by the engine.               |
-| toolbar `search` | An in-component box on `table`, `kanban` and `event-calendar`.                  |
+| Component      | What it is                                                                     |
+| -------------- | ------------------------------------------------------------------------------ |
+| `search-input` | A search box, in one of two roles: it publishes a query, or it searches pages. |
+| `list`         | A search-first result display with item templates, highlighting and load-more. |
+| `command`      | The ⌘K overlay, placed by you rather than appended by the engine.              |
 
-## `search-input`, and why `scope` is required
+## `search-input`, and why it declares one role
 
-One component draws every search box, and `scope` says what the box searches. The two mechanisms look identical in the markup and behave nothing alike:
+One component draws every search box, and what it declares says what the box searches. The two mechanisms look identical in the markup and behave nothing alike:
 
-| `scope`         | What the box searches                                                                                                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `'subscribers'` | Nothing on its own. It publishes the query, and sibling components whose `dataSource.bindTo` names this input's `props.id` apply it to their own records.                                         |
-| `'page'`        | Your pages, in its own results panel — by default the public ones through a prebuilt static index; with `index: session`, the ones the current reader may open, answered by the server per query. |
+| Declares                       | What the box searches                                                                                                                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `publishes: { bindTo, param }` | Nothing on its own. It publishes the query on a channel, and every data component subscribed to the channel narrows its own records to what the query matches.                                    |
+| `scope: page`                  | Your pages, in its own results panel — by default the public ones through a prebuilt static index; with `index: session`, the ones the current reader may open, answered by the server per query. |
 
-`scope` has **no default, deliberately**. A default would hand an author who omitted the key the other mechanism, silently: an input publishing to nobody, or a search box with no index behind it. Neither failure shows up as an error — the box renders, and simply never finds anything. The cost of requiring the key is paid once, at the migration the two retired type names (`searchInput`, `pageSearch`) force anyway.
+A box must declare **exactly one** of the two. A default would hand an author who declared neither the other mechanism, silently: an input publishing to nobody, or a search box with no index behind it. Neither failure shows up as an error — the box renders, and simply never finds anything. `scope: subscribers`, where a component named the box's id in its `dataSource.bindTo`, was removed in 0.39 and is refused at load, naming `publishes`.
 
-A key belonging to the other scope is **ignored, not rejected**: `maxResults` under `scope: subscribers` validates and does nothing, as do `debounceMs` and `minQueryLength` under `scope: page`. The full option table sits with the rest of the content components, in **Content Components**.
+A key belonging to the other role is **ignored, not rejected**: `maxResults` on a box that publishes validates and does nothing, as do `debounceMs` and `minQueryLength` under `scope: page`. The full option table sits with the rest of the content components, in **Content Components**.
 
-### `scope: subscribers` — driving a sibling
+### `publishes` — narrowing the data components
 
 ```yaml
 name: my-app
@@ -38,24 +37,19 @@ pages:
     path: /products
     components:
       - type: search-input
-        scope: subscribers
+        publishes: { bindTo: products, param: q }
         debounceMs: 300
         minQueryLength: 2
-        props: { id: product-query }
+        placeholder: Search products...
       - type: list
-        dataSource:
-          table: products
-          mode: search
-          searchFields: [name, description]
-          bindTo: product-query
+        dataSource: { table: products, bindTo: products, sharedFilter: {} }
         listDisplay:
           itemTemplate: { title: $record.name, subtitle: $record.description }
-          highlight: true
 ```
 
-`props.id` is the container's DOM id, and `bindTo` names it; the subscriber resolves the `<input>` inside. `placeholder` is read from `props` too.
+`bindTo` names a channel, not a component: every data component subscribed to `products` narrows to the records the records API's `?q=` matches, combined with every other control publishing on the same channel. A data component draws no search box of its own — a `search` key on one is refused at load — so the box above a grid, a board or a list is always a `search-input`; the library block `block/data-table-toolbar` places one with a facet, a filter bar, Export and New.
 
-`debounceMs` and `minQueryLength` are top-level fields of the component — siblings of `props`, not members of it — and they are **consumed by the subscribers, not by the input**. They describe the query stream the input publishes, so declaring them once governs every component bound to it. A subscriber that also sets `dataSource.debounceMs` uses the publisher's value; the binding's own delay is for a component that renders its own box instead of binding to one. Below `minQueryLength` the subscriber shows its unfiltered baseline rather than freezing on the last query, and clearing the box always restores that baseline.
+`debounceMs` and `minQueryLength` describe the query stream the box publishes, so declaring them once governs every component on the channel. Below `minQueryLength` the subscribers show their unfiltered rows rather than freezing on the last query, and clearing the box always restores them.
 
 ### `scope: page` — the static public-page index
 
@@ -71,7 +65,7 @@ pages:
         maxResults: 10
 ```
 
-**The scope is the switch.** The moment a `search-input` with `scope: page` appears anywhere in the page tree — including a breakpoint's `responsive.<bp>.children` and inside a shared component a page places — `sovrium build` and `sovrium start` emit the index; no environment variable and no top-level configuration is involved. A `scope: subscribers` input builds nothing, so an app full of bound filter boxes pays no index cost.
+**The scope is the switch.** The moment a `search-input` with `scope: page` appears anywhere in the page tree — including a breakpoint's `responsive.<bp>.children` and inside a shared component a page places — `sovrium build` and `sovrium start` emit the index; no environment variable and no top-level configuration is involved. A box that publishes builds nothing, so an app full of search boxes over its data pays no index cost.
 
 What gets emitted is a JSON index and a small runtime the box queries in the browser, served at `/sovrium-search/index.json` and `/sovrium-search/runtime.js`. `sovrium build` writes them under `<outputDir>/sovrium-search/`, as part of the site it produces. `sovrium start` writes them under the data directory (`SOVRIUM_DATA_DIR`), beside the database, and serves them from there: starting an app never writes into its own folder, so `public/` holds only what you put in it. The index is TF-IDF over each page's text, with a double weight for words that also appear in the page title, and it carries a short excerpt per page.
 
@@ -151,6 +145,8 @@ A reader who may not read a field the list names searches and sees the list with
 
 Sovrium appends its own command palette to every page and binds ⌘K / Ctrl+K to it. You get it for nothing — no configuration at all — and it searches every table you may read, plus your own pages. **Search Overview** has what it returns and who sees what.
 
+Every palette shows the keys that drive it in a footer under its list — ↑ ↓ to move, ↵ to open, Esc to close — in the page language (« naviguer », « ouvrir », « fermer » in French; renamed under `sovrium.commandPalette.hintNavigate`, `hintOpen` and `hintClose`).
+
 Its « create a record » dialogs offer a table's text fields, and only those its reader may read: a field the reader's role may not read is not named in the page at all.
 
 ### Switching it off app-wide
@@ -213,34 +209,12 @@ The palette appends `?q=<term>` (or `&q=` when your path already carries a query
 }
 ```
 
-`title` is the row's text, `href` is where selecting it navigates, and `type` plus `entityId` identify the row. `kindLabels` turns a GROUP's `type` into its heading, so the list reads as nouns rather than tokens; a `type` the map does not name prints as itself. Anything that is not a `200` carrying this shape renders the no-results state — the palette never reports a fetch error to the visitor.
-
-## The in-component search box
-
-A data component can draw its own search bar instead of being driven by a separate input. On a `table`, `toolbar.search: true` renders a box over the bound rows, which issues a `?q=` request rather than filtering the loaded page — see **Search Overview**. The other `toolbar` keys are `filters`, `sort`, `export` and `refresh`, and those five are the whole set: a saved-views menu, a view switcher, a column toggle, a density button and a runtime group-by picker are refused at load, because a lasting way of looking at a table is one of its `views[]`, bound with `dataSource.view`. **Data Tables** documents the set.
-
-```yaml
-name: my-app
-tables:
-  - name: orders
-    fields:
-      - { name: customer, type: single-line-text }
-      - { name: reference, type: single-line-text }
-pages:
-  - name: Orders
-    path: /orders
-    components:
-      - type: table
-        dataSource: { table: orders }
-        toolbar: { search: true, filters: true, sort: true }
-```
-
-`kanban` and `event-calendar` take a `search` block instead — `enabled`, `placeholder`, `debounceMs`, `highlight` — documented with the other shared component modules in **Component Model**.
+`title` is the row's text, `href` is where selecting it navigates, and `type` plus `entityId` identify the row. `kindLabels` turns a GROUP's `type` into its heading, so the list reads as nouns rather than tokens; a `type` the map does not name prints as itself. A `record` row whose `href` points into one of your tables (`…/tables/<name>?record=…`) prints that table's plural label before its title — `Client companies · Heartgold Industries` — so two records of two tables never read alike; every other row carries its kind beside it. Two rows may share an `entityId`: each is told apart by its `href`. On a page with no SPA navigation, selecting a row loads its `href` as a link would. Anything that is not a `200` carrying this shape renders the no-results state — the palette never reports a fetch error to the visitor.
 
 ## Related reading
 
 - **Search Overview** — the four mechanisms and which one a configuration reaches.
 - **Full-Text Search** — `indexed` and `fullTextSearch` on a field.
 - **Content Components** — the `search-input` option table.
-- **Data Tables** — the grid, its toolbar and its columns.
+- **Data Tables** — the grid, its columns and the controls composed above it.
 - **Data Components** — every component a `dataSource` can drive.

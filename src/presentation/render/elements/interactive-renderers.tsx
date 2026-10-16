@@ -269,6 +269,8 @@ export interface RenderFileUploadConfig {
   readonly dropZone?: boolean
   readonly disabled?: boolean
   readonly label?: string
+  /** The `fileUpload.*` words in the page language, where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
 }
 
 /**
@@ -299,7 +301,8 @@ export function renderFileUpload(config: RenderFileUploadConfig): ReactElement {
   //     fields from the same `pickFromComponent` lookup contract.
   const { props, accept, maxFiles, disabled, label } = config
   const id = props.id as string | undefined
-  const ariaLabel = (props['aria-label'] as string | undefined) ?? label ?? 'Upload file'
+  const fallback = config.uiStrings?.['fileUpload.button'] ?? 'Upload file'
+  const ariaLabel = (props['aria-label'] as string | undefined) ?? label ?? fallback
   const className = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
   const allowMultiple = typeof maxFiles === 'number' ? maxFiles > 1 : false

@@ -39,6 +39,7 @@ import {
   computeStaticTableShellClasses,
 } from '@/presentation/design/static-table-default-classes'
 import { formatCreatedAt, type ApiKeySummary } from './api-key-client'
+import { useApiKeyWord as useWord } from './api-key-strings'
 import type { ReactElement } from 'react'
 
 interface ApiKeyListProps {
@@ -63,6 +64,8 @@ function ApiKeyRow({
   readonly onRequestRevoke: (key: ApiKeySummary) => void
   readonly revoking: boolean
 }): ReactElement {
+  const unnamed = useWord('unnamed', 'Unnamed key')
+  const revoke = useWord('revoke', 'Revoke')
   return (
     <tr
       data-slot="table-row"
@@ -72,7 +75,7 @@ function ApiKeyRow({
         data-slot="table-cell"
         className={`${CELL} font-medium`}
       >
-        {apiKey.name ?? 'Unnamed key'}
+        {apiKey.name ?? unnamed}
       </td>
       <td
         data-slot="table-cell"
@@ -97,7 +100,7 @@ function ApiKeyRow({
           {...pendingControlProps(revoking)}
           className={computeButtonDefaultClasses({ variant: 'outline', size: 'sm' })}
         >
-          Revoke
+          {revoke}
         </button>
       </td>
     </tr>
@@ -119,13 +122,16 @@ function NoKeys(): ReactElement {
           data-slot="empty-title"
           className={computeEmptyStateTitleClasses()}
         >
-          You have no API keys yet.
+          {useWord('empty', 'You have no API keys yet.')}
         </div>
         <div
           data-slot="empty-description"
           className={computeEmptyDescriptionClasses()}
         >
-          Create one to let a script or a scheduled job call the API as you.
+          {useWord(
+            'emptyBody',
+            'Create one to let a script or a scheduled job call the API as you.'
+          )}
         </div>
       </div>
     </div>
@@ -146,6 +152,13 @@ function Head({ children }: { readonly children: ReactElement | string }): React
 
 /** The table, or an honest empty state — never a spinner that never resolves. */
 export function ApiKeyList({ keys, onRequestRevoke, revokingId }: ApiKeyListProps): ReactElement {
+  const heads = [
+    useWord('list', 'Your API keys'),
+    useWord('name', 'Name'),
+    useWord('prefix', 'Prefix'),
+    useWord('created', 'Created'),
+    useWord('actions', 'Actions'),
+  ] as const
   if (keys.length === 0) return <NoKeys />
   return (
     <div
@@ -154,7 +167,7 @@ export function ApiKeyList({ keys, onRequestRevoke, revokingId }: ApiKeyListProp
     >
       <table
         data-slot="table"
-        aria-label="Your API keys"
+        aria-label={heads[0]}
         className={computeStaticTableShellClasses()}
       >
         <thead data-slot="table-header">
@@ -162,11 +175,11 @@ export function ApiKeyList({ keys, onRequestRevoke, revokingId }: ApiKeyListProp
             data-slot="table-row"
             className={ROW}
           >
-            <Head>Name</Head>
-            <Head>Prefix</Head>
-            <Head>Created</Head>
+            <Head>{heads[1]}</Head>
+            <Head>{heads[2]}</Head>
+            <Head>{heads[3]}</Head>
             <Head>
-              <span className="sr-only">Actions</span>
+              <span className="sr-only">{heads[4]}</span>
             </Head>
           </tr>
         </thead>
@@ -205,17 +218,19 @@ export function RevokeGate({
   readonly onConfirm: () => void
   readonly onCancel: () => void
 }): ReactElement {
+  const unnamed = useWord('unnamed', 'Unnamed key')
+  const prompt = useWord(
+    'revokePrompt',
+    'Revoke “{name}”? Anything still presenting it stops working immediately, and it cannot be restored.'
+  )
   return (
     <div
       role="alertdialog"
       aria-modal="false"
-      aria-label="Revoke API key"
+      aria-label={useWord('revokeTitle', 'Revoke API key')}
       className="bg-card text-card-foreground ring-foreground/10 flex flex-col gap-3 rounded-xl p-4 text-sm ring-1"
     >
-      <p>
-        Revoke “{apiKey.name ?? 'Unnamed key'}”? Anything still presenting it stops working
-        immediately, and it cannot be restored.
-      </p>
+      <p>{prompt.split('{name}').join(apiKey.name ?? unnamed)}</p>
       <div className="flex gap-2">
         <button
           type="button"
@@ -223,7 +238,7 @@ export function RevokeGate({
           onClick={onConfirm}
           className={computeButtonDefaultClasses({ variant: 'destructive', size: 'sm' })}
         >
-          Revoke key
+          {useWord('revokeKey', 'Revoke key')}
         </button>
         <button
           type="button"
@@ -231,7 +246,7 @@ export function RevokeGate({
           onClick={onCancel}
           className={computeButtonDefaultClasses({ variant: 'outline', size: 'sm' })}
         >
-          Cancel
+          {useWord('cancel', 'Cancel')}
         </button>
       </div>
     </div>

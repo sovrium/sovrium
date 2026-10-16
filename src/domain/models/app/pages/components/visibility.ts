@@ -111,8 +111,13 @@ export const CALLER_CAPABILITIES = [
 export const CallerCapabilitySchema = Schema.Literals([...CALLER_CAPABILITIES]).annotate({
   identifier: 'CallerCapability',
   title: 'Caller Capability',
+  // POLARITY-NEUTRAL, for the reason `RuntimeCapabilitySchema` states: this
+  // one node serves `capability`, `unlessCapability`, a grid action column and
+  // a sidebar entry, and it carries an `identifier`, so a use-site annotation
+  // would fork its `$def`. The gate's direction belongs to the key name; this
+  // says what the value NAMES.
   description:
-    'A power the requesting session must hold for the component to be rendered at all: `admin-console` reaches the operator console, `administer-accounts` may create, ban and re-role users, `edit-operations` may make the console operational writes (retry a run, pause or resume an automation, manage links, connect or disconnect an account, share the design system)',
+    'A power the requesting session may hold: `admin-console` reaches the operator console, `administer-accounts` may create, ban and re-role users, `edit-operations` may make the console operational writes (retry a run, pause or resume an automation, manage links, connect or disconnect an account, share the design system)',
 })
 
 /** @public */
@@ -334,6 +339,42 @@ export const VisibilitySchema = Schema.Struct({
    */
   capability: Schema.optional(CallerCapabilitySchema),
   /**
+   * The negation of {@link capability}: rendered ONLY when the caller does NOT
+   * hold the named power — the other half of a body that alternates on what
+   * the reader may do.
+   *
+   * ─── WHY IT EXISTS NOW ─────────────────────────────────────────────────────
+   *
+   * It was withheld while a caller who lacks a power was only ever shown
+   * nothing. The console's top bar is the call site that changed that: a
+   * reader without `edit-operations` is TOLD the console is read-only for
+   * them, and the role badge beside it names the tier they hold. Both are
+   * statements about a power the reader lacks, and neither can be written
+   * with `roles` or `condition`: a mounted console renders without a session
+   * to read a role name from, and a role name is not a power anyway (see
+   * {@link CALLER_CAPABILITIES}). Only the capability predicate reaches it.
+   *
+   * ─── ANONYMOUS CALLERS SATISFY IT ──────────────────────────────────────────
+   *
+   * An anonymous caller holds no capability, so it renders for them — the
+   * exact mirror of `capability`, which is absent for them. Pair it with
+   * `when: authenticated` when the statement only makes sense to somebody
+   * signed in.
+   *
+   * It composes with every sibling by AND. Naming the SAME power in
+   * `capability` and here describes a component that can render for nobody.
+   *
+   * @example
+   * ```yaml
+   * # Told only to a reader the console's operational writes refuse
+   * - type: badge
+   *   content: Read-only
+   *   visibility:
+   *     unlessCapability: edit-operations
+   * ```
+   */
+  unlessCapability: Schema.optional(CallerCapabilitySchema),
+  /**
    * Capability the HOST APP must declare — SSR-EXCLUDED when it does not.
    *
    * ─── THE OTHER SUBJECT ─────────────────────────────────────────────────────
@@ -392,15 +433,12 @@ export const VisibilitySchema = Schema.Struct({
    * holds, and the same reason `capability` sits beside `condition` rather than
    * inside it. A flat sibling changes no existing node.
    *
-   * ─── WHY THIS POLARITY EXISTS AND `capability`'s DOES NOT ──────────────────
+   * ─── WHY THIS POLARITY EXISTS ──────────────────────────────────────────────
    *
    * An alternating body needs BOTH halves in one page: the catalog when
-   * automations are declared, the empty state when they are not. There is no
-   * such else-branch for a caller capability — a caller who lacks a power is
-   * shown nothing, not something else — and the affordance that motivated one
-   * (an action column withheld from a non-administrator) is now gated on the
-   * COLUMN. A negation with no call site is the inert-config class this schema
-   * refuses, so `unlessCapability` is deliberately NOT shipped.
+   * automations are declared, the empty state when they are not. The caller
+   * gate gained its own negation, {@link unlessCapability}, for the same reason
+   * once a page needed to say something to a reader lacking a power.
    *
    * Declaring `declares` and `unlessDeclares` for the SAME capability on one
    * component is refused at decode (`collectPageBindingViolations`): it can
@@ -456,9 +494,8 @@ export const VisibilitySchema = Schema.Struct({
    * The negation of {@link runtime}: rendered ONLY when the named capability
    * CANNOT run here — the honest-alternative half of an alternating body.
    *
-   * Both polarities exist for the reason {@link unlessDeclares} gives and
-   * `unlessCapability` does not: an alternating body needs both halves in one
-   * page — the composer where AI runs, the search where it does not — and both
+   * Both polarities exist for the reason {@link unlessDeclares} gives: an
+   * alternating body needs both halves in one page — the composer where AI runs, the search where it does not — and both
    * halves are authored the moment this ships.
    *
    * Naming the SAME capability in both halves is refused at decode

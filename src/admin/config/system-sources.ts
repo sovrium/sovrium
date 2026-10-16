@@ -434,35 +434,6 @@ export const CONFIG_DECLARATIONS_ENDPOINT = '/api/admin/config/declarations'
 export const CONFIG_SCHEMA_ENDPOINT = '/api/admin/config/schema'
 
 /**
- * The component-type catalogue: one row per type the engine can draw.
- *
- * `{ items, total }`, never paginated — the catalogue is bounded by the schema
- * rather than by data, so a page reads it whole. Each row carries what a card
- * needs and nothing a card would have to compute: the type's own literal, its
- * category and title, its own address, the five axis counts, and — for a type
- * the catalogue reports rather than draws — the state and the sentence that say
- * so. A config page has no arithmetic and no string operations, so every one of
- * those arrives already in the form the page prints.
- */
-export const COMPONENT_TYPES_ENDPOINT = '/api/admin/schema/component-types'
-
-/**
- * The FIELD-type catalogue: one row per column type a table may declare.
- *
- * A separate read from the component catalogue above, and not a mode of it. A
- * field type has no renderer, no variant axis, no state vocabulary and no props
- * table — none of the facts a component-type row publishes applies to one — so
- * folding the two behind a `?kind=` would produce rows whose every member but
- * `type` and `category` is optional, and a page binding it would have to know
- * which half it asked for in order to read the answer.
- *
- * It describes what a table MAY declare and never what this instance's tables
- * do, which is what makes it a build constant rather than a config read: the
- * composed form draws the same controls on every instance.
- */
-export const FIELD_TYPES_ENDPOINT = '/api/admin/schema/field-types'
-
-/**
  * Every sentence the operator's `design` block declares, split into the
  * register a reader obeys and the reason the same line gave for it.
  *
@@ -580,30 +551,11 @@ export const DESIGN_TOKENS_ENDPOINT = '/api/admin/design-system/tokens'
 export const DESIGN_TYPE_LADDER_ENDPOINT = '/api/admin/design-system/type-ladder'
 
 /**
- * ONE component type, in full: its own fields, the shared modules it spreads,
- * both axes flat, the states its category draws, the flat variant × state
- * product, its usage routes and its category siblings.
- *
- * The rows envelope and the record envelope are the SAME address, read twice
- * per request and deduped by the system-value hook: the per-type page binds it
- * as its page RECORD (for the scalars every gate reads) and again as six
- * different `rowsKey` bindings (for the six lists it draws). A second spelling
- * of one address would silently become two fetches.
- *
- * `:type` is the id slot the page RECORD injects its route segment into;
- * `$param.type` is the substitution form the row bindings use, because a rows
- * envelope has no id slot. Two grammars, one address — see the page's own note.
- */
-export const COMPONENT_TYPE_DETAIL_ENDPOINT = '/api/admin/schema/component-types/:type'
-
-/** The same address in the `$param.` grammar a rows envelope substitutes. */
-export const COMPONENT_TYPE_DETAIL_ROWS_ENDPOINT = '/api/admin/schema/component-types/$param.type'
-
-/**
  * ONE component type's whole option surface — the Configuration section's two
  * nested lists, from one address read twice.
  *
- * The DETAIL route beside it answers `object` for `pagination` and stops, which
+ * The component-type DETAIL route (`…/component-types/:type`) answers `object`
+ * for `pagination` and stops, which
  * is the right answer for a props table and not enough for a section that has
  * to name `columns[].format` and list its twelve values. This is the same
  * schema walked to the bottom and flattened.
@@ -620,7 +572,7 @@ export const COMPONENT_TYPE_DETAIL_ROWS_ENDPOINT = '/api/admin/schema/component-
  * runs — so the N reads are N different reads.
  *
  * `$param.type` and not `:type`: a rows envelope has no id slot, so the segment
- * arrives by substitution exactly as it does for the detail rows above.
+ * arrives by substitution.
  */
 // DELETED — `COMPONENT_TYPE_OPTIONS_ROWS_ENDPOINT`
 // (`/api/admin/schema/component-types/$param.type/options`). The paragraph
@@ -646,51 +598,6 @@ export const COMPONENT_TYPE_DETAIL_ROWS_ENDPOINT = '/api/admin/schema/component-
 export const DESIGN_USAGE_ENDPOINT = '/api/admin/design-system/usage'
 
 /**
- * Three rows the platform publishes so a data component can be DRAWN.
- *
- * The design system has to show what a table, a kanban board and a calendar do
- * with records, and the only records this console could otherwise reach are
- * yours — which is exactly what the specimen bound forbids. So the platform
- * serves its own three: `id`, `name`, `role`, `status`, `startsAt`, `endsAt`,
- * enough to group by, place on a date and summarise, and belonging to nobody.
- *
- * The envelope is `{ items, total }`, so a rows binding takes `rowsKey: 'items'`
- * and a scalar binding takes `valuePath: 'total'`.
- */
-export const SPECIMEN_ROWS_ENDPOINT = '/api/admin/design-system/specimen-rows'
-
-/**
- * The same fixture, reachable as a TABLE rather than as a read endpoint.
- *
- * Reserved and feature-prefixed by the platform, so declaring a table of this
- * name cannot shadow it, and read-only by omission: only a GET is registered,
- * so a write falls through to the ordinary record routes and meets the
- * undeclared-table 404.
- *
- * The literal is repeated here rather than imported: `src/admin/**` value-
- * imports nothing from `src/` — the `Admin Config Only` gate enforces it — and
- * this config is frozen into the embedded preset, which must not carry an edge
- * back into the engine that built it.
- *
- * Bind this where a drawing needs ROWS: a trend line to plot, an aggregate to
- * reduce, candidates to pick from. Bind the endpoint above where it needs one
- * pre-computed number.
- */
-export const SPECIMEN_TABLE_NAME = 'design_system_specimens'
-
-/**
- * The same fixture as a GRAPH: its people, the three teams they belong to and
- * the projects those teams own, with the edges between them.
- *
- * A graph and a matrix read nodes and edges, which a list of rows cannot give
- * them, so the platform serves this beside the rows. The envelope is
- * `{ nodes, edges }`, the keys both types read by default. Node kinds are
- * `person`, `team` and `project`; an `access` edge carries the letters a
- * matrix cell draws in `ops`.
- */
-export const SPECIMEN_GRAPH_ENDPOINT = '/api/admin/design-system/specimen-graph'
-
-/**
  * The share links that let someone read this system without an account.
  *
  * `GET` lists them as `{ items, total }` — id and creation date only, never the
@@ -700,3 +607,17 @@ export const SPECIMEN_GRAPH_ENDPOINT = '/api/admin/design-system/specimen-graph'
  * already-revoked id, and writes an audit row.
  */
 export const SHARES_ENDPOINT = '/api/admin/design-system/shares'
+
+/**
+ * The access grants of the app's scope tables (`auth.scopeTables`): who may see
+ * which records, under which role.
+ *
+ * Read twice, narrowed two ways — by `user_email` on an account page, and by
+ * `table_slug` + `record_id` on one record's access page. Each listed grant
+ * carries the account's email and name and the records' display values beside
+ * the raw ids, so the console prints names and never an id.
+ *
+ * Read-only here. The same route takes PATCH and DELETE, and the console binds
+ * neither: grants change through the API, the seed or an automation.
+ */
+export const USER_ACCESS_ENDPOINT = '/api/tables/user_access/records'

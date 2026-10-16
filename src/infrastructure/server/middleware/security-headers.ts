@@ -160,3 +160,34 @@ const grantPermissions = (structural: string, grants: string): string => {
     .map((directive) => granted.get(featureOf(directive)) ?? directive)
     .join(', ')
 }
+
+/**
+ * The framing pair an address the app frames itself answers with — the four
+ * structural directives restated, since a route's CSP replaces the platform's
+ * wholesale, with `frame-ancestors` relaxed to `'self'`.
+ */
+const SAME_ORIGIN_FRAMING: ReadonlyArray<readonly [string, string]> = [
+  [
+    'Content-Security-Policy',
+    "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+  ],
+  ['X-Frame-Options', 'SAMEORIGIN'],
+]
+
+/**
+ * Lets the app's own pages frame the addresses they name.
+ *
+ * `framedPaths` is the set an `iframe` of the app's pages points at on this
+ * origin (`selfFramedPaths`); only a response for one of those paths is given
+ * the `'self'` pair, and only when its route set no policy of its own — a
+ * route that already decided (stricter, like a file download) keeps its
+ * decision. Mounted INSIDE {@link securityHeaders}, so what it sets is a
+ * route-level decision that the structural pass restores rather than clobbers.
+ */
+export const sameOriginFraming =
+  (framedPaths: ReadonlySet<string>): MiddlewareHandler =>
+  async (c, next) => {
+    await next()
+    if (!framedPaths.has(c.req.path) || c.res.headers.has('Content-Security-Policy')) return
+    SAME_ORIGIN_FRAMING.forEach(([name, value]) => c.res.headers.set(name, value))
+  }

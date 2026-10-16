@@ -25,6 +25,10 @@ interface FilterChipProps {
   readonly index: number
   readonly condition: FilterBarCondition
   readonly field: FilterBarField | undefined
+  /** The remove button's name, `{field}` standing for the field's label. */
+  readonly removeLabel: string
+  /** The operator and range words in the page language (`filterBar.*`). */
+  readonly strings?: Readonly<Record<string, string>> | undefined
   readonly onRemove: (index: number) => void
 }
 
@@ -56,11 +60,18 @@ const REMOVE_GLYPH = (
  * It always carries its own remove control, including under `allowAdd: false`.
  * A condition a reader can see and cannot lift is a dead end.
  */
-export function FilterChip({ index, condition, field, onRemove }: FilterChipProps): ReactElement {
+export function FilterChip({
+  index,
+  condition,
+  field,
+  removeLabel,
+  strings,
+  onRemove,
+}: FilterChipProps): ReactElement {
   const handleRemove = useCallback(() => onRemove(index), [index, onRemove])
   const fieldLabel = labelOf(field, condition.field)
-  const operatorText = operatorLabel(condition.operator, kindOf(field))
-  const valueLabel = displayValue(field, condition.value)
+  const operatorText = operatorLabel(condition.operator, kindOf(field), strings)
+  const valueLabel = displayValue(field, condition.value, condition.operator, strings)
   return (
     <span
       data-filter-chip
@@ -84,7 +95,7 @@ export function FilterChip({ index, condition, field, onRemove }: FilterChipProp
       <button
         type="button"
         onClick={handleRemove}
-        aria-label={`Remove ${fieldLabel} filter`}
+        aria-label={removeLabel.replace('{field}', fieldLabel)}
         data-slot="button"
         data-variant="ghost"
         data-size="icon-xs"

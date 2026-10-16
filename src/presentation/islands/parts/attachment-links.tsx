@@ -56,6 +56,7 @@ export function AttachmentLink({ entry }: { entry: AttachmentEntry }): React.Rea
         href={entry.href}
         target="_blank"
         rel="noopener noreferrer"
+        aria-describedby="sovrium-new-tab-notice"
         className={computeAttachmentLinkClasses()}
       >
         {entry.name}

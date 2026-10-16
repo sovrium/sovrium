@@ -23,6 +23,28 @@ redirects:
 
 Query strings are not part of the match key. An incoming query string is preserved and carried onto the target, so there is no point encoding one in `from`. If `to` already carries its own query string, the incoming one is appended to it with `&`.
 
+### Retiring a family of URLs
+
+Renaming a section retires every URL under it. A `from` segment written `:name` matches any one segment and captures it, as a page path's `:name` does, and `to` writes it back wherever it names the same `:name` — in the path or in the query string:
+
+```yaml
+redirects:
+  - from: /tables/:table
+    to: /records/:table
+  - from: /tables/:table/access/:record
+    to: /records/:table?record=:record&tab=access
+  - from: /users/invitations
+    to: /users?tab=invitations
+  - from: /users/:email
+    to: /users?user=:email
+```
+
+- A `:name` matches exactly one segment: `/tables/contacts/export` and the bare `/tables` are not matched by `/tables/:table`.
+- A captured value is encoded for where it lands, so `/users/ada%40example.com` becomes `/users?user=ada%40example.com`.
+- The incoming query string is appended after the target's own, as for any rule.
+- A literal `from` wins over a parametrised one that would also match, whatever the order they are declared in — which is how `/users/invitations` is retired separately from `/users/:email` above.
+- A `to` naming a `:name` that its `from` never captures fails validation: it would otherwise be sent literally, and every visitor would land on the same 404.
+
 ### Choosing a status
 
 | Status | Meaning                                              | Use it when                                                    |

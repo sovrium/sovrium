@@ -32,6 +32,12 @@ export interface OAuthStateEntry {
   readonly userId: string
   readonly codeVerifier: string | undefined
   readonly redirectUri: string
+  /**
+   * Where the operator asked to land once the callback completes, as given to
+   * the authorize request. Unvalidated here: the callback only follows it when
+   * it is a same-origin path.
+   */
+  readonly returnTo?: string | undefined
   readonly expiresAt: number
 }
 

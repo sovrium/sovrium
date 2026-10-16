@@ -17,10 +17,12 @@
  * refusal. So a key travels: schema → this table (one release, a warning) →
  * `removed-keys.ts` (a refusal that names the replacement).
  *
- * The table is EMPTY on purpose. The two removals of 2026-10 — the table view
+ * The table is EMPTY. The two removals of early 2026-10 — the table view
  * switcher and the page form's create path — were executed before the policy
  * took effect and went straight to `removed-keys.ts`; [internal ref] records them as
- * the exception.
+ * the exception. The composed-controls move of 0.39 is the third exception
+ * ([internal ref] D2f): its replacement ships in the same release, so its keys went
+ * straight to a refusal too, and the table holds nothing.
  *
  * ## Why a walk over the raw config rather than the reporter
  *
@@ -62,7 +64,10 @@ export interface DeprecationWarning {
   readonly message: string
 }
 
-/** Every deprecated key. Empty until the first deprecation under [internal ref]. */
+/**
+ * Every deprecated key. Empty: no key is between its warning release and its
+ * removal.
+ */
 export const DEPRECATED_KEYS: readonly DeprecatedKey[] = []
 
 type Segment = string | number

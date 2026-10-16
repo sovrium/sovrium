@@ -51,7 +51,7 @@ function SortIndicator({ sorted }: { readonly sorted: SortState }): ReactElement
  * see, and `SortIndicator` draws nothing until a sort exists. `active: false`
  * is the tone the design system already minted for exactly this: "it exists so
  * a caller that DOES draw an inactive affordance has the disabled tone to hand
- * rather than minting one" (`table-shell-default-classes.ts`).
+ * rather than minting one" (`table-sort-default-classes.ts`).
  *
  * `aria-hidden`, like its sorted siblings — the button around it is what
  * carries a name.

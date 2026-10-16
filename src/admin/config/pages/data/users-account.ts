@@ -13,10 +13,10 @@
 // build from `users-row-actions.ts`. `users.ts` imports the page and lists it
 // last, where the route order needs it.
 
-import { pageHeading, toolbarRow } from '../../components/data-page'
-import { dataTable, STATUS_BADGE } from '../../components/data-table-blocks'
-import { withShell } from '../../components/shell'
-import { ADMIN_ROLES_ENDPOINT, USERS_ENDPOINT } from '../../system-sources'
+import { CARD_SURFACE } from '../../components/card'
+import { consolePage, toolbarRow } from '../../components/data-page'
+import { dataTable, ledgerTable, STATUS_BADGE } from '../../components/data-table-blocks'
+import { ADMIN_ROLES_ENDPOINT, USER_ACCESS_ENDPOINT, USERS_ENDPOINT } from '../../system-sources'
 import { banAction, changeGroupsAction, changeRoleAction, liftBanAction } from './users-row-actions'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -85,28 +85,28 @@ const accountGrid = (): PageComponent =>
       },
     },
     columns: [
-      { field: 'email', label: 'Email' },
-      { field: 'name', label: 'Name' },
-      { field: 'role', label: 'Role' },
-      { field: 'groups', label: 'Groups' },
+      { field: 'email', label: '$t:admin.common.email' },
+      { field: 'name', label: '$t:admin.common.name' },
+      { field: 'role', label: '$t:admin.common.role' },
+      { field: 'groups', label: '$t:admin.common.groups' },
       {
         field: 'banned',
-        label: 'Status',
-        valueLabels: { false: 'active', true: 'banned' },
+        label: '$t:admin.common.status',
+        valueLabels: { false: '$t:admin.users.state.active', true: '$t:admin.users.state.banned' },
         cellStyle: [
           {
             when: { eq: false },
-            className: STATUS_BADGE.positive,
+            className: STATUS_BADGE.quiet.positive,
           },
           {
             when: { eq: true },
-            className: STATUS_BADGE.destructive,
+            className: STATUS_BADGE.quiet.negative,
           },
         ],
       },
       {
         type: 'actions',
-        label: 'Actions',
+        label: '$t:admin.common.actions',
         // The same whole-column gate the directory uses: every endpoint behind
         // these six 404s an admin-tier but not admin-EQUIVALENT operator — the
         // five on `/api/auth/admin/*`, and the membership write beside them.
@@ -126,14 +126,13 @@ const accountGrid = (): PageComponent =>
             // and they will discover it rather than be told. Reversible in the
             // sense that they can sign in again — which is why it is a confirm
             // and not the type-to-confirm the deletion below would want.
-            label: 'End all sessions',
+            label: '$t:admin.users.endAll',
             confirm: {
-              title: 'End every session for this account?',
-              message:
-                'They are signed out on every device immediately. Nothing else changes and they can sign in again.',
+              title: '$t:admin.users.endConfirm',
+              message: '$t:admin.users.endMessage',
               role: 'alertdialog',
-              confirmLabel: 'End sessions',
-              cancelLabel: 'Cancel',
+              confirmLabel: '$t:admin.users.endSessions',
+              cancelLabel: '$t:admin.common.cancel',
             },
             action: {
               type: 'fetch',
@@ -141,19 +140,18 @@ const accountGrid = (): PageComponent =>
               method: 'POST',
               body: { userId: '$record.id' },
               responseEnvelope: 'better-auth',
-              onSuccess: { type: 'toast', message: 'Sessions ended' },
+              onSuccess: { type: 'toast', message: '$t:admin.users.sessionsEnded' },
             },
           },
           {
-            label: 'Delete account',
+            label: '$t:admin.users.delete',
             variant: 'destructive',
             confirm: {
-              title: 'Delete this account?',
-              message:
-                'The account and its sessions are removed. Records they authored keep their author field. This cannot be undone.',
+              title: '$t:admin.users.deleteConfirm',
+              message: '$t:admin.users.deleteMessage',
               role: 'alertdialog',
-              confirmLabel: 'Delete account',
-              cancelLabel: 'Cancel',
+              confirmLabel: '$t:admin.users.delete',
+              cancelLabel: '$t:admin.common.cancel',
             },
             action: {
               type: 'fetch',
@@ -161,13 +159,17 @@ const accountGrid = (): PageComponent =>
               method: 'POST',
               body: { userId: '$record.id' },
               responseEnvelope: 'better-auth',
-              onSuccess: { type: 'toast', message: 'Account deleted', refetch: ACCOUNT_GRID_ID },
+              onSuccess: {
+                type: 'toast',
+                message: '$t:admin.users.deleted',
+                refetch: ACCOUNT_GRID_ID,
+              },
             },
           },
         ],
       },
     ],
-    emptyMessage: 'No account with this address',
+    emptyMessage: '$t:admin.users.noAccount',
   }) as PageComponent
 
 /**
@@ -204,8 +206,78 @@ const assignableRoles = (): PageComponent =>
       dataTable({
         props: { 'aria-label': '$t:admin.users.account.roles.region' },
         dataSource: { system: { endpoint: ADMIN_ROLES_ENDPOINT, rowsKey: 'roles', idKey: 'name' } },
-        columns: [{ field: 'name', label: 'Role' }],
-        emptyMessage: 'This app declares no roles',
+        // The description the app wrote for each role in `auth.roles[]`: what
+        // choosing it means, read beside the name rather than guessed from it.
+        columns: [
+          { field: 'name', label: '$t:admin.common.role' },
+          { field: 'description', label: '$t:admin.users.canDo' },
+        ],
+        emptyMessage: '$t:admin.users.noRoles',
+      }),
+    ],
+  }) as PageComponent
+
+/**
+ * The records of scope tables this account has been granted, READ-ONLY.
+ *
+ * Narrowed by the address in the URL (`?user_email=`) because the address is
+ * all this page knows — the account's id only exists on the row the grid above
+ * resolves. Each grant carries its records' display values beside their ids, so
+ * the Records column reads names.
+ *
+ * The listing route also answers PATCH and DELETE, and nothing here binds
+ * either: the console reads grants and never changes them. The line
+ * under the heading says where they do change, which is the whole of the
+ * answer to "where is the revoke button?". Every column is unsortable for the
+ * same reason the region holds no textbox: a header button would be the one
+ * control in a section whose contract is that it has none.
+ *
+ * On an app that declares no `auth.scopeTables` the read answers an empty list,
+ * so the section reads its empty state rather than an error.
+ */
+const accessGrants = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'section',
+    props: {
+      'aria-label': '$t:admin.users.account.access.region',
+      className: 'flex flex-col gap-3',
+    },
+    children: [
+      {
+        type: 'text',
+        element: 'h2',
+        props: { className: 'text-foreground text-md font-medium' },
+        content: '$t:admin.users.account.access.heading',
+      },
+      {
+        type: 'text',
+        element: 'p',
+        props: { className: 'text-muted-foreground max-w-2xl text-sm leading-relaxed' },
+        content: '$t:admin.users.account.access.body',
+      },
+      ledgerTable({
+        props: { 'aria-label': '$t:admin.users.account.access.grid' },
+        dataSource: {
+          system: {
+            endpoint: USER_ACCESS_ENDPOINT,
+            rowsKey: 'records',
+            idKey: 'id',
+            query: { user_email: '$param.email' },
+          },
+        },
+        columns: [
+          { field: 'table_slug', label: '$t:admin.common.table', sortable: false },
+          { field: 'record_labels', label: '$t:admin.common.records', sortable: false },
+          { field: 'role', label: '$t:admin.common.role', sortable: false },
+          {
+            field: 'created_at',
+            label: '$t:admin.users.granted',
+            format: 'short-date',
+            sortable: false,
+          },
+        ],
+        emptyMessage: '$t:admin.users.noAccess',
       }),
     ],
   }) as PageComponent
@@ -220,7 +292,7 @@ const gapCard = (heading: string, body: string): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className: 'border-border bg-card flex flex-col gap-1 rounded-lg border p-4',
+      className: `${CARD_SURFACE} flex flex-col gap-1 p-4`,
     },
     children: [
       {
@@ -288,29 +360,24 @@ const backToDirectory = (): PageComponent =>
  * It is NOT a tabbed page: there is one subject and no second question to put
  * beside it, so it takes the plain body the developer surfaces use.
  */
-export const accountPage: PageConfig = withShell(
-  {
-    id: 'dashboard-data-user-account',
-    name: 'dashboard-data-user-account',
-    path: '/users/:email',
-    // The title cannot name the account: the route-param pass walks `components`
-    // and `layout`, deliberately not `meta`, at parity with the `$query` and
-    // `$app` passes.
-    meta: { title: '$t:admin.meta.userAccount', lang: 'en-US' },
-    components: [
-      pageHeading('$t:admin.users.account.heading', '$t:admin.users.account.blurb'),
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-col gap-6 pt-2' },
-        children: [
-          toolbarRow([backToDirectory()]),
-          accountGrid(),
-          assignableRoles(),
-          accountGaps(),
-        ],
-      } as PageComponent,
-    ],
-  } as PageConfig,
-  { breadcrumb: { users: '$t:admin.crumb.users' } }
-)
+export const accountPage: PageConfig = consolePage({
+  id: 'dashboard-data-user-account',
+  path: '/users/:email',
+  title: '$t:admin.meta.userAccount',
+  heading: ['$t:admin.users.account.heading', '$t:admin.users.account.blurb'],
+  shell: { breadcrumb: { users: '$t:admin.crumb.users' } },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex flex-col gap-6 pt-2' },
+      children: [
+        toolbarRow([backToDirectory()]),
+        accountGrid(),
+        accessGrants(),
+        assignableRoles(),
+        accountGaps(),
+      ],
+    } as PageComponent,
+  ],
+})

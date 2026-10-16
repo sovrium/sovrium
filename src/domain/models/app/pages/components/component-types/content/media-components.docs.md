@@ -94,6 +94,8 @@ An embedded external frame.
 
 The frame spans its column with rounded-lg corners and a border, on the page background. Reference: no shadcn counterpart.
 
+**Framing a page or a file of the same app.** Every response refuses to be framed by default (`frame-ancestors 'none'`). When `src` is a path of the app itself — it starts with a single `/`, like `/embeds/booking?from=deliveries` or `/mark.svg` — that address answers `frame-ancestors 'self'` instead, so the frame loads. Only addresses an `iframe` of the app's own pages names get this; every other page, including the one holding the frame, keeps refusing. A full URL is treated as another origin and grants nothing here.
+
 ## `qr-code`
 
 A scannable QR symbol rendered inline as SVG.

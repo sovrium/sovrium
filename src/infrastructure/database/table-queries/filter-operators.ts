@@ -6,8 +6,11 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
-import { LIKE_ESCAPE_CHARACTER, escapeLikeMetacharacters } from '@/domain/kernel/sql/sql-formatting'
+import { likePatternOf } from '@/domain/kernel/sql/like-pattern'
+import { LIKE_ESCAPE_CHARACTER } from '@/domain/kernel/sql/sql-formatting'
 import { formatSqlValue, formatLikePattern, escapeSqlString } from '../sql/sql-utils'
+import { betweenFragment, betweenSqlCondition } from './between-condition'
+import { serverOperatorFragment } from './server-operator-fragment'
 
 /**
  * Return type of `sql.identifier()` — a safely-escaped SQL identifier chunk.
@@ -178,6 +181,11 @@ export const generateSqlCondition = (
   const inCondition = handleInOperator(field, operator, value)
   if (inCondition) return inCondition
 
+  const between = betweenSqlCondition(field, operator, value, (bound) =>
+    formatValue(bound, useEscapeSqlString)
+  )
+  if (between) return between
+
   // Handle comparison operators
   const sqlOperator = SQL_OPERATOR_MAP[operator]
   if (sqlOperator) {
@@ -261,13 +269,7 @@ const buildPatternFragment = (
   if (operator !== 'contains' && operator !== 'startsWith' && operator !== 'endsWith') {
     return undefined
   }
-  const stringValue = escapeLikeMetacharacters(typeof value === 'string' ? value : String(value))
-  const pattern =
-    operator === 'contains'
-      ? `%${stringValue}%`
-      : operator === 'startsWith'
-        ? `${stringValue}%`
-        : `%${stringValue}`
+  const pattern = likePatternOf(operator, typeof value === 'string' ? value : String(value))
   // sql-literal: keyword -- the escape character is a module constant
   return sql`lower(${column}) LIKE lower(${pattern}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)}`
 }
@@ -371,6 +373,8 @@ export const generateSqlConditionFragment = (
   value: unknown
 ): Readonly<SQL> => {
   const column = sql.identifier(field)
+  const serverFragment = serverOperatorFragment(field, operator, value)
+  if (serverFragment) return serverFragment
 
   const patternFragment = buildPatternFragment(column, operator, value)
   if (patternFragment) return patternFragment
@@ -383,6 +387,9 @@ export const generateSqlConditionFragment = (
 
   const inFragment = buildInFragment(column, operator, value)
   if (inFragment) return inFragment
+
+  const between = betweenFragment(column, operator, value)
+  if (between) return between
 
   // Comparison operators (equals, notEquals, gt, lt, gte, lte) and fallback.
   // The SQL operator keyword is static; the value is bound as a parameter.

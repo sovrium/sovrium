@@ -26,7 +26,9 @@ import {
   AdminFormsRepository,
   type AdminFormAggregateRow,
   type AdminFormSubmissionDetailRow,
+  type AdminFormSubmissionListRow,
   type AdminFormSubmissionRow,
+  type AdminSubmissionsCountFilters,
   type AdminSubmissionsListFilters,
 } from '@/application/ports/repositories/forms/admin-forms-repository'
 import { db } from '@/infrastructure/database'
@@ -63,7 +65,9 @@ const wrap = makeDbWrap((cause) => new AdminFormsDatabaseError({ cause }))
  * `submittedAt`. UUID id ties are approximated away (Phase 0 — see the use
  * case docstring); moved verbatim from the former route handler.
  */
-const buildListConditions = (filters: AdminSubmissionsListFilters): ReadonlyArray<SQL> => {
+const buildListConditions = (
+  filters: AdminSubmissionsCountFilters & { readonly cursorBefore?: Date | undefined }
+): ReadonlyArray<SQL> => {
   const submissions = formSubmissionsTable()
   const formFilter: ReadonlyArray<SQL> = [sentOf(filters.formName)]
   const deletedFilter: ReadonlyArray<SQL> = filters.includeDeleted
@@ -115,7 +119,7 @@ const buildListConditions = (filters: AdminSubmissionsListFilters): ReadonlyArra
  * searchable. A term that is somebody's e-mail address will not surface the
  * anonymous rows that merely CONTAIN that address in their (unsearched) body.
  */
-const buildSearchConditions = (filters: AdminSubmissionsListFilters): ReadonlyArray<SQL> => {
+const buildSearchConditions = (filters: AdminSubmissionsCountFilters): ReadonlyArray<SQL> => {
   const submissions = formSubmissionsTable()
   const users = authUsersTable()
   return searchAnyColumn(filters.q, users.email, users.name, submissions.id)
@@ -124,7 +128,8 @@ const buildSearchConditions = (filters: AdminSubmissionsListFilters): ReadonlyAr
 /**
  * Drizzle implementation for {@link AdminFormsRepository.listSubmissions}.
  * Pulled out of the `wrap()` callback so the latter stays under the complexity
- * cap. Fetches `limit + 1` rows so the use case can derive `hasMore`.
+ * cap. Fetches `limit + 1` rows so the use case can derive `hasMore`; selects
+ * `data` too only when the caller's reveal passed (`withData`).
  *
  * The submitter join is added ONLY when a term is present. It is a LEFT JOIN, so
  * it could ride unconditionally without changing the row set — but the inbox is
@@ -132,15 +137,16 @@ const buildSearchConditions = (filters: AdminSubmissionsListFilters): ReadonlyAr
  */
 const listSubmissionsImpl = async (
   filters: AdminSubmissionsListFilters
-): Promise<ReadonlyArray<AdminFormSubmissionRow>> => {
+): Promise<ReadonlyArray<AdminFormSubmissionListRow>> => {
   const submissions = formSubmissionsTable()
-  const projection = {
+  const envelope = {
     id: submissions.id,
     formName: submissions.formName,
     submittedAt: submissions.submittedAt,
     status: submissions.status,
     deletedAt: submissions.deletedAt,
   }
+  const projection = filters.withData === true ? { ...envelope, data: submissions.data } : envelope
   const conditions = buildListConditions(filters)
   if (filters.q === undefined) {
     return (await db
@@ -148,7 +154,7 @@ const listSubmissionsImpl = async (
       .from(submissions)
       .where(and(...conditions))
       .orderBy(desc(submissions.submittedAt))
-      .limit(filters.limit + 1)) as ReadonlyArray<AdminFormSubmissionRow>
+      .limit(filters.limit + 1)) as ReadonlyArray<AdminFormSubmissionListRow>
   }
   const users = authUsersTable()
   return (await db
@@ -157,7 +163,31 @@ const listSubmissionsImpl = async (
     .leftJoin(users, eq(users.id, submissions.submitterUserId))
     .where(and(...conditions, ...buildSearchConditions(filters)))
     .orderBy(desc(submissions.submittedAt))
-    .limit(filters.limit + 1)) as ReadonlyArray<AdminFormSubmissionRow>
+    .limit(filters.limit + 1)) as ReadonlyArray<AdminFormSubmissionListRow>
+}
+
+/**
+ * Drizzle implementation for {@link AdminFormsRepository.countSubmissions}: the
+ * list's own predicates, the submitter join only when searching, no cursor and
+ * no limit. Postgres answers `count()` as a bigint string, hence the `Number`.
+ */
+const countSubmissionsImpl = async (filters: AdminSubmissionsCountFilters): Promise<number> => {
+  const submissions = formSubmissionsTable()
+  const users = authUsersTable()
+  const conditions = buildListConditions(filters)
+  const rows = (
+    filters.q === undefined
+      ? await db
+          .select({ total: count() })
+          .from(submissions)
+          .where(and(...conditions))
+      : await db
+          .select({ total: count() })
+          .from(submissions)
+          .leftJoin(users, eq(users.id, submissions.submitterUserId))
+          .where(and(...conditions, ...buildSearchConditions(filters)))
+  ) as ReadonlyArray<{ readonly total: number | string }>
+  return Number(rows[0]?.total ?? 0)
 }
 
 /**
@@ -187,6 +217,8 @@ export const AdminFormsRepositoryLive = Layer.succeed(AdminFormsRepository, {
     }),
 
   listSubmissions: (filters) => wrap(async () => listSubmissionsImpl(filters)),
+
+  countSubmissions: (filters) => wrap(async () => countSubmissionsImpl(filters)),
 
   findSubmissionDetail: (formName, submissionId) =>
     wrap(async () => {

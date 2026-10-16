@@ -6,7 +6,7 @@
  */
 
 import { MAX_PAGE_SIZE } from '@/domain/kernel/sql/page-window'
-import { createRecordsClient, createViewRecordsClient } from '@/presentation/api/client'
+import { createRecordsClient, createViewRecordsClient } from './rpc-client'
 import type { TableRecord } from './types'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 

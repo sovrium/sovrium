@@ -32,13 +32,16 @@ export function ruleProps(field: FormFieldConfig): Record<string, number | boole
  * The form-level half of the rules: a form with a ruled field is `novalidate`,
  * so the endpoint runtime's own check (and its reason under the field) runs
  * instead of the browser's bubble, and carries the `error` part's classes for
- * the reasons that check draws. A form with no rule keeps its bytes.
+ * the reasons that check draws. A form with a field a refusal can be marked on
+ * (`refusable`) carries them too, for that reason. A form with neither keeps
+ * its bytes.
  */
 export function formRuleProps(
   fields: readonly FormFieldConfig[],
-  errorPart: string | undefined
+  errorPart: string | undefined,
+  refusable = false
 ): Record<string, string | boolean> {
-  if (!fields.some(hasRules)) return {}
+  if (!refusable && !fields.some(hasRules)) return {}
   return {
     noValidate: true,
     'data-error-class': resolveClasses(computeFormFieldErrorClasses(), errorPart),

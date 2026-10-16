@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
+
 export interface OptionItem {
   readonly label: string
   readonly value: string
@@ -19,9 +21,11 @@ export interface SelectIslandProps {
   /**
    * Marks this control as a shared-filter PUBLISHER: every change publishes the
    * current value on channel `bindTo` under key `param`, and every data source
-   * whose `bindTo` names that channel merges it into its next read.
+   * whose `bindTo` names that channel merges it into its next read — as a
+   * param, or as a condition. `controls` is stamped by the page: the ids of the
+   * data components on the channel, for `aria-controls`.
    */
-  readonly publishes?: { readonly bindTo: string; readonly param: string }
+  readonly publishes?: SharedFilterPublisherConfig & { readonly controls?: string }
   readonly placeholder?: string
   /**
    * Whether the reader may hold more than one choice at a time.
@@ -45,7 +49,13 @@ export interface SelectIslandProps {
   readonly allowCustomValue?: boolean
   readonly defaultValue?: string
   readonly disabled?: boolean
+  /** The id of the `field` label that names the trigger, when the select draws no label. */
+  readonly labelledBy?: string
+  /** The control's name when it draws no `label` and no field label names it. */
+  readonly ariaLabel?: string
   readonly label?: string
+  /** The select's words in the page language (`select.*`), where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string

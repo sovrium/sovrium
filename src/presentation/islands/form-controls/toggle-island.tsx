@@ -8,6 +8,8 @@
 import { Toggle } from '@base-ui/react/toggle'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { computeToggleClasses } from '@/presentation/islands/form-controls/toggle-default-classes'
+import { useLazySharedFilterPublisher } from '@/presentation/islands/hooks/use-lazy-shared-filter-publisher'
+import type { SharedFilterPublisherConfig } from '@/presentation/islands/hooks/use-shared-filter-publisher'
 import type { ReactElement } from 'react'
 
 interface ToggleIslandProps {
@@ -19,6 +21,8 @@ interface ToggleIslandProps {
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+  /** The channel the control publishes its value on, as a condition or a param. */
+  readonly publishes?: SharedFilterPublisherConfig
 }
 
 /**
@@ -36,10 +40,13 @@ export default function ToggleIsland({
   className,
   id,
   'data-testid': testId,
+  publishes,
 }: ToggleIslandProps): ReactElement {
+  const publish = useLazySharedFilterPublisher(publishes)
   return (
     <Toggle
       defaultPressed={pressed}
+      onPressedChange={(on) => publish(on)}
       disabled={disabled}
       className={resolveClasses(computeToggleClasses({ variant, size }), className)}
       id={id}

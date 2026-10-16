@@ -8,6 +8,9 @@
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import type { Languages } from '@/domain/models/app/languages'
 
+/** Re-exported for the file-upload host, whose strings ride beside its child label. */
+export { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
+
 /**
  * Resolve a CHILD component's caption through the active language.
  *

@@ -7,7 +7,7 @@
 
 import { type CSSProperties } from 'react'
 import { FormBody, type EmbeddedFormPrefillContext } from './form-body'
-import { resolveDocumentLang } from './form-field-resolver'
+import { resolveDocumentLang } from './form-document-lang'
 import { ResumeUnavailableNotice } from './form-save-for-later'
 import type { FormLinkState } from './form-prefill-resolver'
 import type { App } from '@/domain/models/app'

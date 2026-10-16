@@ -51,6 +51,8 @@ export const buildAuthPlugins = (
   ssoContext: ssoPlugin.SsoPluginContext = { envLookup: {}, baseURL: '' },
   extras: {
     readonly appName?: string
+    /** The declared `displayName`, which the two-factor issuer prints before the name. */
+    readonly appDisplayName?: string
     readonly mintDeviceKey?: DeviceKeyMinter
     readonly hookContext?: AuthHookContext
   } = {}
@@ -63,7 +65,7 @@ export const buildAuthPlugins = (
   ...buildEmailOtpPlugin(handlers.emailOtp, authConfig),
   ...buildOauthServerPlugin(authConfig),
   ...buildOrganizationPlugin(authConfig),
-  ...buildTwoFactorPlugin(authConfig, extras.appName),
+  ...buildTwoFactorPlugin(authConfig, extras.appName, extras.appDisplayName),
   ...ssoPlugin.buildSsoPlugin(authConfig, ssoContext),
   // "Sign in with Sovrium Cloud", from the environment only — never `auth.sso`.
   // A partial set is refused at boot (`validateOperatorEnv`): here it is whole or absent.
@@ -138,6 +140,12 @@ export function buildAdvancedConfig() {
   }
 }
 
+/** The app's name and display name, as the plugins that print them read them. */
+const appIdentityExtras = (appMeta: AppMetaForOrg | undefined) => ({
+  ...(appMeta?.name === undefined ? {} : { appName: appMeta.name }),
+  ...(appMeta?.displayName === undefined ? {} : { appDisplayName: appMeta.displayName }),
+})
+
 export function createAuthInstance(
   authConfig?: Auth,
   connections?: readonly ConnectionForSeed[],
@@ -195,7 +203,7 @@ export function createAuthInstance(
     socialProviders: buildSocialProviders(authConfig),
     session: { additionalFields: SESSION_ADDITIONAL_FIELDS },
     plugins: buildAuthPlugins(handlers, authConfig, ssoContext, {
-      ...(appMeta?.name === undefined ? {} : { appName: appMeta.name }),
+      ...appIdentityExtras(appMeta),
       mintDeviceKey,
       hookContext,
     }),

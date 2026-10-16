@@ -142,6 +142,9 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'auth/registerOAuthClient',
   'auth/rotateOAuthClientSecret',
   'auth/deleteOAuthClient',
+  // The grant the step wrote, named by the props it was handed, and whether access moved.
+  'auth/grantAccess',
+  'auth/revokeAccess',
   'automation/return',
   'connection/call',
   'crypto/hash',
@@ -226,6 +229,8 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
 /** Actions whose output carries stored data no reach judges, with why. */
 const UNJUDGED_READS: ReadonlyMap<string, string> = new Map([
   ['ai/transcribe', 'reads a stored recording'],
+  ['auth/inviteUser', 'reports whether an account exists for an address, with its id'],
+  ['auth/listGrantees', 'reads who is granted a record, with their email addresses'],
   ['browser/run', 'reads the stored files it uploads and returns what earlier runs stored'],
   ['browser/agent', 'returns what a site showed it, signed in through a session other runs keep'],
   ['code/runTypescript', 'its script may call any action'],

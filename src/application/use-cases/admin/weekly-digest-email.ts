@@ -24,6 +24,8 @@ import { consoleBase, type NoticeEnv } from '@/application/use-cases/automations
 import { formatAppIdentity } from '@/domain/kernel/format/app-identity'
 import { formatByteCount } from '@/domain/kernel/format/byte-format'
 import { zonedIsoDate } from '@/domain/kernel/time/zoned-calendar'
+import { defaultLanguageTranslator } from '@/domain/models/app/languages/translation-resolver'
+import { tableLabelPlural } from '@/domain/models/app/tables/table-display-name-service'
 import {
   renderSystemNotification,
   type SystemNotificationEmail,
@@ -86,7 +88,8 @@ const attentionItems = (digest: WeeklyDigest): readonly AttentionItem[] => {
     },
     {
       count: attention.expiredTokens,
-      label: plural(attention.expiredTokens, 'expired connection token'),
+      // Expired, unrenewable, or never authorized: each waits on a sign-in.
+      label: plural(attention.expiredTokens, 'connection to reconnect', 'connections to reconnect'),
     },
     {
       count: attention.pendingInvitations,
@@ -140,11 +143,27 @@ const automationsSection = (digest: WeeklyDigest): SystemNotificationSection => 
   }
 }
 
-const dataSection = (digest: WeeklyDigest): SystemNotificationSection => {
+/**
+ * A table as its people read it (its plural label, in the app's default
+ * language), or its name when the config no longer declares it.
+ */
+const tableNamer =
+  (app: App) =>
+  (name: string): string => {
+    const declared = (app.tables ?? []).find((table) => table.name === name)
+    return declared === undefined
+      ? name
+      : tableLabelPlural(declared, defaultLanguageTranslator(app.languages))
+  }
+
+const dataSection = (
+  digest: WeeklyDigest,
+  nameOf: (name: string) => string
+): SystemNotificationSection => {
   const { data } = digest
   const tables = data.tables.map(
     (table) =>
-      `- ${table.name}: ${plural(table.rows, 'row')}${countChange(table.rowsDelta, ' this week')}, ${table.written} added or edited`
+      `- ${nameOf(table.name)}: ${plural(table.rows, 'row')}${countChange(table.rowsDelta, ' this week')}, ${table.written} added or edited`
   )
   return {
     heading: 'Data',
@@ -220,7 +239,7 @@ export const renderWeeklyDigestEmail = (
     sections: [
       attentionSection(digest),
       automationsSection(digest),
-      dataSection(digest),
+      dataSection(digest, tableNamer(app)),
       systemSection(digest),
     ],
     ...(base === undefined ? {} : { action: { label: 'Open the console', href: base } }),

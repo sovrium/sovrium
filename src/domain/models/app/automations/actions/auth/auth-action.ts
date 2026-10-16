@@ -11,8 +11,12 @@ import { AuthAssignRoleActionSchema } from './assign-role'
 import { AuthBanUserActionSchema } from './ban-user'
 import { AuthCreateUserActionSchema } from './create-user'
 import { AuthDeleteOAuthClientActionSchema } from './delete-oauth-client'
+import { AuthGrantAccessActionSchema } from './grant-access'
+import { AuthInviteUserActionSchema } from './invite-user'
+import { AuthListGranteesActionSchema } from './list-grantees'
 import { AuthRegisterOAuthClientActionSchema } from './register-oauth-client'
 import { AuthRemoveFromGroupActionSchema } from './remove-from-group'
+import { AuthRevokeAccessActionSchema } from './revoke-access'
 import { AuthRotateOAuthClientSecretActionSchema } from './rotate-oauth-client-secret'
 import { AuthUnbanUserActionSchema } from './unban-user'
 
@@ -29,12 +33,16 @@ export const AuthActionSchema = Schema.Union([
   AuthRegisterOAuthClientActionSchema,
   AuthRotateOAuthClientSecretActionSchema,
   AuthDeleteOAuthClientActionSchema,
+  AuthGrantAccessActionSchema,
+  AuthRevokeAccessActionSchema,
+  AuthListGranteesActionSchema,
+  AuthInviteUserActionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'AuthAction',
     title: 'Auth Action',
     description:
-      'Authentication operations (create user, assign role, ban/unban, add to or remove from a group, register, rotate or delete a sign-in client)',
+      'Authentication operations (create user, invite user by email, assign role, ban/unban, add to or remove from a group, register, rotate or delete a sign-in client, grant or revoke access to a scoped record, list who holds it)',
   })
 )
 

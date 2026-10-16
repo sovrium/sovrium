@@ -41,71 +41,70 @@
 // advertises and then refuses.
 
 import { ACCOUNT_COLUMN, CARD_CLASS } from '../components/card'
-import { withShell } from '../components/shell'
+import { consolePage } from '../components/data-page'
 import type { Page as PageConfig } from '@/domain/models/app'
 
-export default withShell(
-  {
-    id: 'dashboard-api-keys',
-    name: 'dashboard-api-keys',
-    path: '/api-keys',
-    meta: { title: '$t:admin.meta.apiKeys', lang: 'en-US' },
+export default consolePage({
+  id: 'dashboard-api-keys',
+  path: '/api-keys',
+  title: '$t:admin.meta.apiKeys',
+  page: {
     requires: ['auth.apiKeys'],
-    components: [
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: ACCOUNT_COLUMN },
-        children: [
-          {
-            type: 'container',
-            element: 'div',
-            props: { className: 'flex flex-col gap-2' },
-            children: [
-              {
-                type: 'text',
-                element: 'h2',
-                props: { className: 'text-foreground text-3xl font-semibold' },
-                content: '$t:admin.apiKeys.heading',
-              },
-              {
-                type: 'text',
-                element: 'p',
-                props: { className: 'text-foreground-subtle text-md' },
-                content: '$t:admin.locked.audit.apiKeys.scopeNotice',
-              },
-            ],
-          },
-          // The island host. `data-island` on a config `props` bag is the
-          // sanctioned marker shape: `hasDataIslandProp` is what makes the page
-          // emit the hydration script, and `check-island-drift.ts` reads
-          // object-literal `'data-island'` properties as structural emitters, so
-          // the registry and this host cannot silently drift apart.
-          //
-          // The SSR child is a plain sentence rather than a skeleton: this list
-          // is one fetch deep, and the honest placeholder for "we are asking" is
-          // saying so.
-          {
-            type: 'container',
-            element: 'section',
-            props: {
-              className: CARD_CLASS,
-              'aria-label': '$t:admin.apiKeys.region',
-              'data-island': 'api-key-manager',
-              'data-island-props': '{}',
+  },
+  shell: { breadcrumb: { 'api-keys': '$t:admin.crumb.apiKeys' } },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: ACCOUNT_COLUMN },
+      children: [
+        {
+          type: 'container',
+          element: 'div',
+          props: { className: 'flex flex-col gap-2' },
+          children: [
+            {
+              type: 'text',
+              element: 'h2',
+              props: { className: 'text-foreground text-3xl font-semibold' },
+              content: '$t:admin.apiKeys.heading',
             },
-            children: [
-              {
-                type: 'text',
-                element: 'p',
-                props: { className: 'text-foreground-subtle text-md' },
-                content: '$t:admin.apiKeys.loading',
-              },
-            ],
+            {
+              type: 'text',
+              element: 'p',
+              props: { className: 'text-foreground-subtle text-md' },
+              content: '$t:admin.locked.audit.apiKeys.scopeNotice',
+            },
+          ],
+        },
+        // The island host. `data-island` on a config `props` bag is the
+        // sanctioned marker shape: `hasDataIslandProp` is what makes the page
+        // emit the hydration script, and `check-island-drift.ts` reads
+        // object-literal `'data-island'` properties as structural emitters, so
+        // the registry and this host cannot silently drift apart.
+        //
+        // The SSR child is a plain sentence rather than a skeleton: this list
+        // is one fetch deep, and the honest placeholder for "we are asking" is
+        // saying so.
+        {
+          type: 'container',
+          element: 'section',
+          props: {
+            className: CARD_CLASS,
+            'aria-label': '$t:admin.apiKeys.region',
+            'data-island': 'api-key-manager',
+            'data-island-props': '{}',
           },
-        ],
-      },
-    ],
-  } as PageConfig,
-  { breadcrumb: { 'api-keys': '$t:admin.crumb.apiKeys' } }
-) satisfies PageConfig
+          children: [
+            {
+              type: 'text',
+              element: 'p',
+              props: { className: 'text-foreground-subtle text-md' },
+              content: '$t:admin.apiKeys.loading',
+            },
+          ],
+        },
+      ],
+    },
+  ],
+}) satisfies PageConfig

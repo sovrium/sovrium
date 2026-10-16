@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { withEffectivePrimaryKey } from '@/domain/models/app/tables/record-id-service'
 import {
   LIVE_ROWS_PREDICATE,
   REFERENCED_KEY_COLUMNS,
@@ -174,6 +175,18 @@ export const applyUniqueDefaults = (tables: readonly Table[]): readonly Table[] 
 }
 
 /**
+ * `tables` with the text key a table in `auth.scopeTables` is created with when
+ * it declares none (`withEffectivePrimaryKey`). Exported for the boot fast
+ * path, whose check of the installed views must compare them with the views
+ * the migration writes — over a text key, not the serial key the config
+ * literally implies — or every boot read them as stale.
+ */
+export const withScopeTableKeys = (
+  tables: readonly Table[],
+  app: Readonly<App>
+): readonly Table[] => tables.map((t) => withEffectivePrimaryKey(t, app.auth?.scopeTables))
+
+/**
  * Apply schema-author-friendly defaults to the sorted table list:
  *   - Z-1/Z-2: tables in `auth.scopeTables` get a TEXT primary key when
  *     none was declared, so applications can store portable string IDs
@@ -192,12 +205,7 @@ export const applySchemaDefaults = (
   sortedTables: readonly Table[],
   app: Readonly<App>
 ): readonly Table[] => {
-  const scopeTableNames = new Set(app.auth?.scopeTables ?? [])
-  const withScopePk = sortedTables.map((t) =>
-    scopeTableNames.has(t.name) && t.primaryKey === undefined
-      ? ({ ...t, primaryKey: { type: 'text', field: 'id' } } as Table)
-      : t
-  )
+  const withScopePk = withScopeTableKeys(sortedTables, app)
   const withFormAttachments = upgradeFormReferencedAttachments(withScopePk, app)
   return applyUniqueDefaults(withFormAttachments)
 }

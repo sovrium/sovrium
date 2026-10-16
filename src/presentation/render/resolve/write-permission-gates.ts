@@ -15,6 +15,7 @@
 import { toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
 import {
   hasCreatePermissionForRoles,
+  hasDeletePermissionForRoles,
   hasInlineEditDefaultForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import type { App } from '@/domain/models/app'
@@ -59,7 +60,7 @@ function relatedCreateGates(ctx: {
  * affordance follows their rules exactly: a viewer is offered no write a group
  * grant would give her, because the API refuses it.
  */
-function writeGateRoles(session: SessionInfo | undefined): readonly string[] {
+export function writeGateRoles(session: SessionInfo | undefined): readonly string[] {
   return [session?.role ?? '', ...(session?.groups ?? []).map(toGroupReference)]
 }
 
@@ -81,6 +82,8 @@ function signedInWriteGates(ctx: WriteGateContext, session: SessionInfo) {
   return {
     _canCreate: hasCreatePermissionForRoles(ctx.table, roles, ctx.app),
     _canUpdate: hasInlineEditDefaultForRoles(ctx.table, roles, ctx.app),
+    // The selection's Delete, offered as the records API's bulk delete accepts it.
+    _canDelete: hasDeletePermissionForRoles(ctx.table, roles, ctx.app),
     // Per-relationship-field create gates. Stamped alongside the two
     // table-level gates because this is the one layer holding BOTH the session
     // and `app.tables` — the picker's create affordance needs the second
@@ -126,6 +129,7 @@ export function withWritePermissionGates(ctx: WriteGateContext): Component {
       : {
           _canCreate: false,
           _canUpdate: false,
+          _canDelete: false,
           _canCreateRelated: Object.fromEntries(
             Object.keys(relatedCreateGates(ctx)).map((name) => [name, false])
           ),

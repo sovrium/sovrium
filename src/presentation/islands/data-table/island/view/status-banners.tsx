@@ -48,13 +48,37 @@ function RealtimeConnectionBanner({
 }
 
 /**
- * The alert strip above the toolbar: a stalled live connection, the floating
- * save indicator, a failed save, a refused save, and a realtime conflict.
+ * `saveIndicatorPosition: toolbar`: the grid draws no toolbar of its own, so the
+ * indicator gets the slim row above the rows that held it — only while there
+ * is a save to report.
+ */
+function SaveIndicatorRow({
+  status,
+}: {
+  readonly status: StatusBannersProps['toolbarSaveStatus']
+}) {
+  if (status === undefined || status === 'idle') return undefined
+  return (
+    <div
+      data-slot="data-table-toolbar"
+      data-testid="data-table-toolbar"
+      className="border-border bg-card flex items-center gap-2 border-b p-2"
+    >
+      <SaveStatusIndicator status={status} />
+    </div>
+  )
+}
+
+/**
+ * The alert strip above the grid: a stalled live connection, the save
+ * indicator's row or floating toast, a failed save, a refused save, and a
+ * realtime conflict.
  */
 export function StatusBanners(props: StatusBannersProps) {
   return (
     <>
       <RealtimeConnectionBanner status={props.connectionStatus} />
+      <SaveIndicatorRow status={props.toolbarSaveStatus} />
       {props.showToastIndicator && props.indicatorStatus !== 'idle' && (
         <div className="pointer-events-none fixed right-4 bottom-4 z-50">
           <div className="border-border bg-popover rounded-md border px-3 py-2 shadow-lg">

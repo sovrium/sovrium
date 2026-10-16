@@ -5,16 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { canonicalizeOperator, evaluatePredicate } from './filter-operators'
-import type { FilterConjunction, FilterRow } from './use-ui-state'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
-import type { TableRecord } from '../../runtime/types'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
-import type {
-  DataTableColumn,
-  ComponentSearch,
-  DataTableToolbar,
-} from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type { DataTableColumn } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
 
 /**
@@ -83,77 +76,6 @@ export function withColumnDisplayFields(
 }
 
 /**
- * The filter-builder operators the records API can apply itself, keyed by the
- * builder's canonical spelling. `isBefore` / `isAfter` compare as the API's
- * ordered comparisons; `isAnyOf` becomes `in`. Anything absent — `between`,
- * `doesNotContain`, `isNoneOf` — has no server spelling.
- */
-const SERVER_FILTER_OPERATORS: ReadonlyMap<string, string> = new Map([
-  ['equals', 'equals'],
-  ['notEquals', 'notEquals'],
-  ['greaterThan', 'greaterThan'],
-  ['lessThan', 'lessThan'],
-  ['greaterThanOrEqual', 'greaterThanOrEqual'],
-  ['lessThanOrEqual', 'lessThanOrEqual'],
-  ['contains', 'contains'],
-  ['startsWith', 'startsWith'],
-  ['endsWith', 'endsWith'],
-  ['isBefore', 'lessThan'],
-  ['isAfter', 'greaterThan'],
-  ['isAnyOf', 'in'],
-])
-
-/** One condition as the records API's `?filter=` tree spells it. */
-export interface ServerFilterCondition {
-  readonly field: string
-  readonly operator: string
-  readonly value: unknown
-}
-
-/** A node of the records API's filter tree: a condition, or a nested group. */
-export type ServerFilterNode = ServerFilterCondition | ServerFilterGroup
-
-/** The filter-builder's rows as one `and` / `or` group of the records API. */
-export type ServerFilterGroup =
-  { readonly and: readonly ServerFilterNode[] } | { readonly or: readonly ServerFilterNode[] }
-
-const toServerCondition = (row: FilterRow): ServerFilterCondition | undefined => {
-  const canonical = canonicalizeOperator(row.operator)
-  const operator = SERVER_FILTER_OPERATORS.get(canonical)
-  if (operator === undefined) return undefined
-  const value =
-    canonical === 'isAnyOf'
-      ? row.value
-          .split(',')
-          .map((part) => part.trim())
-          .filter((part) => part.length > 0)
-      : row.value
-  return { field: row.field, operator, value }
-}
-
-/**
- * The filter-builder's rows as a server filter, or `undefined` when there are
- * none — or when one of them has no server spelling.
- *
- * A grid that loads page by page cannot narrow on the client: a filter applied
- * to the rows already loaded would hide every match that sits on a page not
- * fetched yet, and "Load more" would then page through rows the filter throws
- * away. So such a grid sends its filter with the request. A row the API cannot
- * express makes the whole set fall back to the client, rather than half of an
- * `or` running on the server and half in the browser.
- */
-export function toServerFilterGroup(
-  rows: readonly FilterRow[],
-  conjunction: FilterConjunction
-): ServerFilterGroup | undefined {
-  if (rows.length === 0) return undefined
-  const conditions = rows.map(toServerCondition)
-  if (conditions.some((condition) => condition === undefined)) return undefined
-  const defined = conditions as readonly ServerFilterCondition[]
-  return conjunction === 'OR' ? { or: defined } : { and: defined }
-}
-
-/**
  * Ordered list of editable field names from explicit column config.
  * Used by auto-save Tab navigation to find the next editable cell.
  *
@@ -170,43 +92,6 @@ export function resolveEditableFields(
     .filter((col): col is Extract<DataTableColumn, { field: string }> => 'field' in col)
     .filter((col) => col.editable === true)
     .map((col) => col.field)
-}
-
-/** Compute whether the search input should be visible. */
-export function shouldShowSearch(
-  searchConfig: ComponentSearch | undefined,
-  toolbarConfig: DataTableToolbar | undefined
-): boolean {
-  return !!(
-    (searchConfig && searchConfig.enabled !== false) ||
-    (toolbarConfig && toolbarConfig.search)
-  )
-}
-
-/**
- * The search settings the toolbar renders from — `search` when the author wrote
- * one, otherwise the defaults implied by `toolbar: { search: true }`.
- *
- * The two declarations are separate blocks that both say "this grid searches",
- * and {@link shouldShowSearch} has always honoured either. The RENDER, however,
- * required the `search` block itself (`showSearch && searchConfig` in
- * `toolbar.tsx`), so `toolbar.search` on its own painted no box at all and
- * `shouldShowSearch`'s second branch could never reach a visible control — a
- * declared capability that did nothing, the same shape as the toolbar-gate
- * defects above it.
- *
- * Resolving here rather than defaulting at the render site keeps ONE answer:
- * the grid decides once whether it searches and with what settings, instead of
- * the visibility gate and the render gate deriving it separately and disagreeing.
- * NO new AppSchema — both blocks already exist; this only stops one of them
- * being inert.
- */
-export function resolveSearchConfig(
-  searchConfig: ComponentSearch | undefined,
-  toolbarConfig: DataTableToolbar | undefined
-): ComponentSearch | undefined {
-  if (searchConfig) return searchConfig
-  return toolbarConfig?.search ? { enabled: true } : undefined
 }
 
 /**
@@ -255,11 +140,6 @@ export function resolveSaveIndicator(
  *    with the same confidence as a right one, which is worse than the inert
  *    header this replaces.
  *
- * `loadedRows` is the count BEFORE the runtime filter-builder narrows it,
- * because a filter removing rows says nothing about whether the server paged:
- * comparing the narrowed count would switch client sorting off precisely when
- * the reader had narrowed the view enough for it to be cheapest.
- *
  * An endpoint that DOES sort is unharmed: it keeps receiving `?sort=`, returns
  * its rows already in order, and the model re-sorts them by the same key to
  * the same order.
@@ -270,37 +150,4 @@ export function resolveClientSorted(
   totalRecords: number
 ): boolean {
   return isSystemSource && loadedRows >= totalRecords
-}
-
-/**
- * Apply the runtime filter-builder's `activeFilters` to the server-returned
- * records (PG-03 / [internal ref]).
- *
- * The filter UI is purely client-side state — no round-trip is needed to
- * narrow the visible rows when a filter is committed. With AND conjunction
- * every predicate must match; with OR at least one must match. An empty
- * filter set passes through unchanged.
- *
- * `fieldMeta` carries the declared field types, and is what tells `equals` on
- * an `assignee` column to compare strings rather than coerce `'Alice'` to
- * `NaN`. It is optional because the predicate degrades safely to the string
- * comparison without it, but the island always has it — pass it.
- *
- * Kept out of the orchestrator so the orchestrator's hook count + complexity
- * stays under the size-limit cap.
- */
-export function applyClientFilters(
-  records: readonly TableRecord[],
-  activeFilters: readonly FilterRow[],
-  conjunction: FilterConjunction,
-  fieldMeta?: FieldMetaMap
-): readonly TableRecord[] {
-  if (activeFilters.length === 0) return records
-  const matches = (row: Record<string, unknown>, f: FilterRow): boolean =>
-    evaluatePredicate(row[f.field], f.operator, f.value, fieldMeta?.[f.field]?.type)
-  return records.filter((record) => {
-    const row = record as Record<string, unknown>
-    if (conjunction === 'OR') return activeFilters.some((f) => matches(row, f))
-    return activeFilters.every((f) => matches(row, f))
-  })
 }

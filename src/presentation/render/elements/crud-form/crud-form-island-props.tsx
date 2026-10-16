@@ -65,7 +65,8 @@ const answerExtras = (action: CrudFormAction) => ({
   close: action.onSuccess?.close,
 })
 
-export function buildCrudIslandProps(ctx: {
+/** What {@link buildCrudIslandProps} serialises: the action, the fields and the form's settings. */
+interface CrudIslandPropsInput {
   readonly operation: string
   readonly action: CrudFormAction
   readonly fields: readonly ResolvedFieldDef[]
@@ -90,7 +91,11 @@ export function buildCrudIslandProps(ctx: {
   readonly uiStrings?: Readonly<Record<string, string>>
   /** The delete button's in-flight word, resolved in the page language. */
   readonly pendingLabel?: string
-}): string {
+  /** An edit form's accessible name, its table's singular label resolved. */
+  readonly formName?: string
+}
+
+export function buildCrudIslandProps(ctx: CrudIslandPropsInput): string {
   const { onSuccess } = ctx.action
   const successPage =
     onSuccess?.type === 'successPage'
@@ -126,6 +131,7 @@ export function buildCrudIslandProps(ctx: {
     stickyActions: ctx.stickyActions,
     uiStrings: ctx.uiStrings,
     pendingLabel: ctx.pendingLabel,
+    formName: ctx.formName,
     'data-testid': ctx.testId,
     id: ctx.id,
     className: ctx.className,

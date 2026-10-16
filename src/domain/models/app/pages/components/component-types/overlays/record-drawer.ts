@@ -22,6 +22,8 @@
  */
 
 import { Schema } from 'effect'
+import { FieldConditionSchema } from '@/domain/models/app/tables/condition-operators'
+import { PageCapabilitySchema } from '../../../requires'
 import { actionWithoutFill, NavigateActionSchema, OpenDrawerActionSchema } from '../../action'
 import { ConfirmGateSchema } from '../../confirm-gate'
 import { DataSortSchema } from '../../data-source'
@@ -119,6 +121,29 @@ export const RecordDrawerFieldSchema = Schema.Struct({
    * drawer's `canEdit`.
    */
   renderAs: Schema.optional(RecordDrawerFieldRenderAsSchema),
+  /**
+   * Per-record visibility: the entry is drawn only when the open record's
+   * `field` satisfies the operator(s); omit it to draw the entry on every record.
+   *
+   * The SAME condition a `table` action item's `visibleWhen`, a `button`
+   * field's `visibleWhen` and `visibility.record` spend — `FieldConditionSchema`
+   * by reference, evaluated by `satisfiesFieldCondition` — so the four sites
+   * cannot drift. It sits on the entry rather than in a `visibility` because an
+   * entry is not a component: it has no `visibility`, and the record it tests is
+   * loaded in the browser after the sheet opens, past the server-side row
+   * expansion `visibility.record` relies on.
+   *
+   * Read against the record the sheet loaded, never against unsaved edits.
+   * Hiding is presentation, not permission: the hidden field keeps its stored
+   * value, and saving the sheet never clears it.
+   *
+   * @example
+   * ```yaml
+   * # The reason shows only on a rejected claim
+   * - { name: decision_reason, type: long-text, visibleWhen: { field: status, eq: Rejected } }
+   * ```
+   */
+  visibleWhen: Schema.optional(FieldConditionSchema),
 }).pipe(
   Schema.annotate({
     identifier: 'RecordDrawerField',
@@ -203,6 +228,61 @@ export const RecordDrawerActionSchema = Schema.Struct({
    * non-destructive footer action that fires immediately.
    */
   confirm: Schema.optional(ConfirmGateSchema),
+  /**
+   * The footer button is drawn only when the host app declares this capability
+   * — the same closed vocabulary as `visibility.declares`, asked about the
+   * sheet's own table.
+   *
+   * ─── WHY ON THE BUTTON, NOT ON A `visibility` ──────────────────────────────
+   *
+   * A footer button is not a component: it has no `props`, no `children` and no
+   * `visibility`, and gating the whole sheet would take the record away with
+   * the one affordance. It carries the clause at its own root, the position a
+   * grid's action column already takes for `capability`.
+   *
+   * ─── WHAT "THE SHEET'S OWN TABLE" BUYS ─────────────────────────────────────
+   *
+   * The clause is answered with the table in the sheet's `dataSource.table`,
+   * after a `$param.table` binding has resolved to the table the address
+   * names. For `auth.scopeTables` that is the whole point: one sheet written
+   * for every table of a records explorer offers "Who has access" on a scoped
+   * table's record and on no other. Every other capability is a fact about the
+   * app and answers the same whatever the table.
+   *
+   * An unmet clause REMOVES the button from the page, as an unmet
+   * `visibility.declares` removes a component: it is not drawn disabled and its
+   * action never reaches the browser.
+   *
+   * @example
+   * ```yaml
+   * actions:
+   *   - label: Who has access
+   *     declares: auth.scopeTables
+   *     action: { type: fetch, mode: navigate, url: /access/$record.id }
+   * ```
+   */
+  declares: Schema.optional(PageCapabilitySchema),
+  /**
+   * Per-record visibility: the footer button is drawn only when the open
+   * record's `field` satisfies the operator(s); omit it to draw the button on
+   * every record.
+   *
+   * The grid's per-row `columns[].actions[].visibleWhen`, at the sheet's foot:
+   * the same `FieldConditionSchema` and the same matcher. Where `declares` asks
+   * about the app, this asks about the record. An unmet condition REMOVES the
+   * button — not drawn disabled, never fired — and when an action writes the
+   * record while the sheet stays open, the sheet reads it again and the footer
+   * follows.
+   *
+   * @example
+   * ```yaml
+   * actions:
+   *   - label: Approve
+   *     visibleWhen: { field: status, eq: Pending }
+   *     action: { type: fetch, method: PATCH, url: /api/tables/expenses/records/$record.id, body: { fields: { status: Approved } } }
+   * ```
+   */
+  visibleWhen: Schema.optional(FieldConditionSchema),
 }).pipe(
   Schema.annotate({
     identifier: 'RecordDrawerAction',

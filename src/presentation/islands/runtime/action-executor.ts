@@ -144,7 +144,10 @@ function runFetchSuccess(
 ): void {
   const { onSuccess } = action
   runSuccessOutcome(options.origin, {
-    toast: options.successToast ?? (() => renderActionToast(onSuccess, options)),
+    toast:
+      options.successToast === undefined
+        ? () => renderActionToast(onSuccess, options)
+        : () => options.successToast?.(body),
     effects: () => {
       applyFetchSuccessEffects(onSuccess, body)
       options.successEffects?.()
@@ -181,14 +184,18 @@ function readRedirectDestination(
  * action's `callbackPath` is the provider's registered redirect_uri (config
  * metadata only — no client navigation of its own). The url's `$record.<field>`
  * references are resolved against the injected row record exactly as every other
- * mode does, so a row-bound authorize targets the clicked row's record.
+ * mode does, so a row-bound authorize targets the clicked row's record. Unless
+ * the url names its own `returnTo`, the current page is sent as one, so the
+ * callback lands back where the gesture started under any console mount.
  */
 async function performOauth(
   action: FetchAction,
   options: ExecuteFetchActionOptions
 ): Promise<FetchActionResult> {
-  const url = substituteRecord(action.url, options.record)
   try {
+    const url = new URL(substituteRecord(action.url, options.record), location.href)
+    const query = url.searchParams
+    if (!query.has('returnTo')) query.set('returnTo', location.pathname + location.search)
     const res = await fetch(url, buildRequestInit(action, options.record))
     const body = await res.json().catch(emptyBody)
     if (!res.ok) return { ok: false, status: res.status, body }

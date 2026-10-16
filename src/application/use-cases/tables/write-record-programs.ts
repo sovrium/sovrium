@@ -31,11 +31,11 @@ import {
   buildCurrentUserDefaults,
   buildUpdateAuthorshipOverrides,
 } from '@/domain/models/app/tables/authorship-fields'
-import { normalizeDateValuesIn } from '@/domain/models/app/tables/empty-date-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import { storedValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import { enrichRecordWithAttachmentUrls } from './attachment-url-enricher'
 import { omitFromWriteEcho, writeEchoReaderOf } from './hidden-lookup-omission'
-import { refuseUnreadableLinkTargets } from './link-target-check'
+import { namedAccounts, refuseUnreadableLinkTargets } from './link-target-check'
 import { getManyToManyFieldSpecs } from './many-to-many-fields'
 import { refuseWhenNoSingleIdAddress } from './read-record-programs'
 import { announceRecordWrites } from './record-change-announcement'
@@ -160,7 +160,7 @@ const readableEchoFields = (
 
 export function createRecordProgram(config: CreateRecordConfig) {
   const { session, tableName, app, userRole, origin } = config
-  const fields = normalizeDateValuesIn(app?.tables, tableName, config.fields)
+  const fields = storedValuesIn(app?.tables, tableName, config.fields)
   return Effect.gen(function* () {
     const repo = yield* TableRepository
 
@@ -188,7 +188,8 @@ export function createRecordProgram(config: CreateRecordConfig) {
       getManyToManyFieldSpecs(app?.tables, tableName)
     )
 
-    const created = yield* repo.createRecord(session, tableName, baseFields, links)
+    const accounts = namedAccounts(app, tableName, [fields])
+    const created = yield* repo.createRecord(session, tableName, baseFields, { links, accounts })
 
     // The answer holds no more than the writer's own read of the record.
     const [record = created] = yield* omitFromWriteEcho(
@@ -295,6 +296,7 @@ const resolveUpdatedBaseRecord = (
     const { expectedUpdatedAt, auditContext } = params
     return yield* repo.updateRecord(session, tableName, recordId, {
       ...{ fields: baseWithAuthorship, app: params.app, links, unlinks },
+      accounts: namedAccounts(params.app, tableName, [params.fields]),
       ...(expectedUpdatedAt === undefined ? {} : { expectedUpdatedAt }),
       ...(auditContext === undefined ? {} : { auditContext }),
     })
@@ -336,7 +338,7 @@ export function updateRecordProgram(
     // junction write. Extracted so this generator stays under the complexity cap.
     const written = yield* resolveUpdatedBaseRecord(session, tableName, recordId, {
       ...params,
-      fields: normalizeDateValuesIn(params.app?.tables, tableName, params.fields),
+      fields: storedValuesIn(params.app?.tables, tableName, params.fields),
     })
 
     // Pure m2m PATCH against a missing row: surface empty so the route 404s.

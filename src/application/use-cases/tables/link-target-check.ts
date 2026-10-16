@@ -37,17 +37,21 @@
  */
 
 import { Effect } from 'effect'
+import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { ForeignKeyViolationError } from '@/domain/errors'
+import { DatabaseError, ForeignKeyViolationError } from '@/domain/errors'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { hasReadPermissionForCaller } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import {
+  accountIdsOf,
+  userListFieldNames,
+} from '@/domain/models/app/tables/user-list-field-service'
 import { readableKeys, type LinkReader } from './linked-row-visibility'
 import { buildEffectiveRoles } from './user-groups'
 import type { UserSession } from '@/application/ports/contracts/user-session'
-import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
 import type { App, Table } from '@/domain/models/app'
 
 /** One record a write proposes, and the row it changes when it is an update. */
@@ -198,6 +202,80 @@ const refusedField = (
     return refused.find((field) => !holds(field))
   })
 
+/** The account ids a write's `fields` list under the list field `name`. */
+const accountsNamed = (
+  fields: Readonly<Record<string, unknown>>,
+  name: string
+): readonly string[] => (Object.hasOwn(fields, name) ? accountIdsOf(fields[name]) : [])
+
+/**
+ * The accounts each list of people names across the written `rows`, by field: what the
+ * repository confirms again inside the write's own transaction, after the
+ * early check below has refused an unknown account with no work done.
+ */
+export const namedAccounts = (
+  app: App | undefined,
+  tableName: string,
+  rows: readonly Readonly<Record<string, unknown>>[]
+): readonly AccountReference[] =>
+  userListFieldNames(app?.tables?.find((t) => t.name === tableName)?.fields).flatMap((field) => {
+    const ids = [...new Set(rows.flatMap((row) => accountsNamed(row, field)))]
+    return ids.length === 0 ? [] : [{ field, ids }]
+  })
+
+/** How many account ids one existence read names, far below both engines' parameter ceilings. */
+const ACCOUNT_CHECK_CHUNK = 500
+
+/** The ids among `ids` that name an account, read in bounded chunks. */
+const existingAccounts = (
+  ids: readonly string[]
+): Effect.Effect<ReadonlySet<string>, DatabaseError, AuthRepository> =>
+  Effect.gen(function* () {
+    const auth = yield* AuthRepository
+    const chunks = Array.from({ length: Math.ceil(ids.length / ACCOUNT_CHECK_CHUNK) }, (_, i) =>
+      ids.slice(i * ACCOUNT_CHECK_CHUNK, (i + 1) * ACCOUNT_CHECK_CHUNK)
+    )
+    const found = yield* Effect.forEach(chunks, (chunk) =>
+      auth
+        .getUserDisplayLabels(chunk)
+        .pipe(
+          Effect.mapError(
+            (error) => new DatabaseError('Failed to check the accounts a list names', error)
+          )
+        )
+    )
+    return new Set(found.flatMap((labels) => [...labels.keys()]))
+  })
+
+/**
+ * Refuse the write when a `user` field holding several people names an account
+ * that does not exist. No foreign key can check a list column, so the ids are
+ * read here, before the first write, and a list naming one missing account is
+ * refused whole — nothing of it is written.
+ */
+const refuseUnknownAccounts = (
+  app: App,
+  tableName: string,
+  writes: readonly LinkTargetWrite[]
+): Effect.Effect<void, ForeignKeyViolationError | DatabaseError, AuthRepository> =>
+  Effect.gen(function* () {
+    const names = userListFieldNames(app.tables?.find((t) => t.name === tableName)?.fields)
+    const ids = [
+      ...new Set(
+        writes.flatMap((write) => names.flatMap((name) => accountsNamed(write.fields, name)))
+      ),
+    ]
+    if (ids.length === 0) return
+    const existing = yield* existingAccounts(ids)
+    const refused = names.find((name) =>
+      writes.some((write) => accountsNamed(write.fields, name).some((id) => !existing.has(id)))
+    )
+    if (refused === undefined) return
+    return yield* Effect.fail(
+      new ForeignKeyViolationError(`referenced ${refused} does not exist`, refused)
+    )
+  })
+
 /**
  * Refuse the write when any relationship value names a row its writer may not
  * read — or a many-to-many id that does not exist — with the failure a missing
@@ -219,6 +297,7 @@ export const refuseUnreadableLinkTargets = (input: {
   Effect.gen(function* () {
     const { app, session, tableName, writes, reader } = input
     if (app === undefined || writes.length === 0) return
+    yield* refuseUnknownAccounts(app, tableName, writes)
     const fields = linkFieldsOf(app, tableName)
     if (fields.length === 0) return
     const targets = namedTargets(fields, writes)

@@ -11,6 +11,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
+import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
 import { fetchUserDirectoryPage, USER_DIRECTORY_SOURCE_KEY } from '../parts/user-directory'
 
 /** One choice of a drawer select: the value written and the text shown. */
@@ -37,7 +38,26 @@ export const isChoiceField = (field: {
 export const isLinkField = (field: {
   readonly type: string
   readonly relatedTable?: string
-}): boolean => field.type === 'relationship' && field.relatedTable !== undefined
+  readonly allowMultiple?: boolean
+}): boolean =>
+  field.type === 'relationship' && field.relatedTable !== undefined && field.allowMultiple !== true
+
+/** Widgets the sheet draws with the form's own control. */
+const FORM_WIDGETS: ReadonlySet<string> = new Set([
+  'rating',
+  'multi-select',
+  'datetime',
+  'rich-text',
+  'code',
+])
+
+/** Whether an entry is drawn by the form's own control rather than the sheet's box. */
+export const isFormControlEntry = (field: {
+  readonly type: string
+  readonly allowMultiple?: boolean
+}): boolean =>
+  FORM_WIDGETS.has(fieldWidgetOf(field.type)) ||
+  (field.type === 'relationship' && field.allowMultiple === true)
 
 const NO_CHOICES: ReadonlyArray<DrawerChoice> = []
 

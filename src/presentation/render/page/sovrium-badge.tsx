@@ -6,12 +6,14 @@
  */
 
 import { type ReactElement } from 'react'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import { CHROME_FOCUS_RING } from '@/presentation/design/chrome-focus-ring'
+import { newTabName } from '@/presentation/design/new-tab-attributes'
 import { getBadgeLabel } from './badge-labels'
 import type { BadgePlacement } from './badge-placement'
 
 /** The pill's look, shared by both placements; only the positioning differs. */
-const PILL_CLASSES =
-  'border-border bg-card text-muted-foreground hover:text-foreground rounded-full border px-3 py-1.5 text-sm font-medium no-underline shadow-sm transition-colors'
+const PILL_CLASSES = `border-border bg-card text-muted-foreground hover:text-foreground rounded-full border px-3 py-1.5 text-sm font-medium no-underline shadow-sm transition-colors ${CHROME_FOCUS_RING}`
 
 /**
  * The "Built with Sovrium" badge — a small static link pill shown on every
@@ -29,7 +31,8 @@ const PILL_CLASSES =
  * - Contrast-safe in both light and dark themes via the neutral design-token
  *   scale (same platform-chrome approach as the skip link in DynamicPage).
  * - Label follows the page's active locale (en/fr, English fallback) via
- *   {@link getBadgeLabel}; the text is platform chrome, not app content.
+ *   {@link getBadgeLabel}; the text is platform chrome, not app content. It
+ *   opens a new tab, and says so to assistive technology in the same language.
  *
  * Rendered only when `resolveBadge(app.badge)` yields a placement (it reads the
  * shared positive-polarity predicate `isBadgeEnabled`) and never on the
@@ -51,6 +54,7 @@ export function SovriumBadge({
       target="_blank"
       rel="noopener"
       data-testid="sovrium-badge"
+      {...newTabName(getBadgeLabel(lang), resolveInterpreterString('link.opensInNewTab', lang))}
       // The toast region reads it to rise clear of a floating badge.
       data-sovrium-badge={isFooter ? 'footer' : 'floating'}
       /* Role tokens carry their own dark cascade, so the six hand-written

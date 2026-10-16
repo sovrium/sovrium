@@ -61,6 +61,7 @@
 
 import { isEnvVarRequired } from '@/application/use-cases/env/validate-required-env-vars'
 import { ENV_VALUE_MASK } from '@/domain/models/api/admin/env'
+import { envReferenceLocations } from '@/domain/models/app/env-reference-validation'
 import type { EnvDefaultState, EnvValueSource, EnvVarStatus } from '@/domain/models/api/admin/env'
 import type { App } from '@/domain/models/app'
 import type { EnvVar } from '@/domain/models/app/env'
@@ -111,7 +112,8 @@ function defaultStateOf(envVar: EnvVar): EnvDefaultState {
 /** Project one declared variable to its status row. */
 function statusOf(
   envVar: EnvVar,
-  processEnv: Readonly<Record<string, string | undefined>>
+  processEnv: Readonly<Record<string, string | undefined>>,
+  usedBy: readonly string[]
 ): Readonly<EnvVarStatus> {
   const source = resolveSource(envVar, processEnv)
   const isSet = source !== 'unset'
@@ -135,6 +137,8 @@ function statusOf(
     isSet,
     source,
     masked: isSet ? ENV_VALUE_MASK : null,
+    // Places only, worded as `sovrium validate` words a reference; never the value.
+    usedBy,
   }
 }
 
@@ -153,5 +157,8 @@ export function buildEnvVarStatuses(
   app: App,
   processEnv: Readonly<Record<string, string | undefined>>
 ): ReadonlyArray<Readonly<EnvVarStatus>> {
-  return (app.env ?? []).map((envVar) => statusOf(envVar, processEnv))
+  const locations = envReferenceLocations(app)
+  return (app.env ?? []).map((envVar) =>
+    statusOf(envVar, processEnv, locations.get(envVar.key) ?? [])
+  )
 }

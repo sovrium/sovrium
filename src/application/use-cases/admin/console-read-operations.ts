@@ -28,6 +28,7 @@ import { buildAdminAttention } from '@/application/use-cases/admin/attention'
 import { buildAdminOverview } from '@/application/use-cases/admin/overview'
 import { SearchAdminGlobal } from '@/application/use-cases/admin/search'
 import { buildTablesOverview } from '@/application/use-cases/admin/tables-overview'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { footprintOverviewResponseSchema } from '@/domain/models/api/admin/footprint/overview'
@@ -46,6 +47,9 @@ import {
   tablesOverviewResponseSchema,
   type TablesOverviewQuery,
 } from '@/domain/models/api/admin/tables/overview'
+import { hasReadPermission } from '@/domain/models/app/auth/permission-evaluator-service'
+import { defaultLanguageTranslator } from '@/domain/models/app/languages/translation-resolver'
+import { tableLabelPlural } from '@/domain/models/app/tables/table-display-name-service'
 import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { Logger } from '@/infrastructure/logging/logger'
 import type {
@@ -293,17 +297,22 @@ const tablesOverview = defineAdminRead<Period>({
         onSome: (query) => ({ _tag: 'Ok', input: query.period }) as const,
       }
     ),
-  read: (app, period) =>
-    Effect.map(
+  // Only the tables the caller may READ: the sidebar's Records disclosure lists
+  // this answer, and a table whose records route 404s the caller is not one it
+  // should be offered — the same predicate, so the two cannot disagree.
+  read: (app, period, request) =>
+    Effect.flatMap(getUserRole(request.actorUserId, app), (role) =>
       buildTablesOverview({
-        tables: (app.tables ?? []).map((table) => ({
-          displayName: table.name,
-          dbName: sanitizeTableName(table.name),
-        })),
+        tables: (app.tables ?? [])
+          .filter((table) => hasReadPermission(table, role, app.tables))
+          .map((table) => ({
+            displayName: table.name,
+            dbName: sanitizeTableName(table.name),
+            label: tableLabelPlural(table, defaultLanguageTranslator(app.languages)),
+          })),
         period,
         now: new Date(),
-      }),
-      (body) => answerWithSchema(tablesOverviewResponseSchema, body)
+      }).pipe(Effect.map((body) => answerWithSchema(tablesOverviewResponseSchema, body)))
     ),
   audit: { action: AUDIT_ACTIONS.TABLE_OVERVIEW_QUERIED, resourceId: () => 'overview' },
 })

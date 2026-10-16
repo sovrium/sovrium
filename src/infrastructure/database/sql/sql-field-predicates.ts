@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
 import { isViewComputedFormula } from '../formula/formula-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -31,6 +32,16 @@ export const isAutoPopulatedUserField = (field: Fields[number]): boolean =>
  * Exported for use in schema-initializer
  */
 export const isUserField = (field: Fields[number]): boolean => field.type === 'user'
+
+/**
+ * Check if field is a `user` field holding ONE person — the only kind that is
+ * a foreign key onto the account table. A `user` field with `allowMultiple`
+ * stores a list of account ids in a list column, which no foreign key can
+ * check: its ids are checked when a record is written, and taken out of the
+ * list when an account is erased.
+ */
+export const isSingleUser = (field: Fields[number]): boolean =>
+  isUserField(field) && !isUserListField(field)
 
 /**
  * Check if field is a relationship field (type: 'relationship')

@@ -20,7 +20,9 @@ A button that runs an `action`, an `interactions` behaviour, or both.
 
 <!-- sovrium:options type:button -->
 
-`variant` is declared beside `action`, not inside `props`: `default` is the primary fill and what you get by declaring nothing, and the rest are `destructive`, `outline`, `secondary`, `ghost`, `link` and `fab`. `size` takes shadcn/ui's scale: `xs`, `sm`, `default` (what you get by declaring nothing) and `lg` for a labelled button, and `icon-xs`, `icon-sm`, `icon` and `icon-lg` for a square button that draws its `icon` alone. `icon` names a Lucide icon drawn before the label; at an icon size the `label` is no longer printed but becomes the button's accessible name, so an icon size without an `icon` or without a `label` is refused when the configuration is read. `label` is the text; `content` is the alternative when the button holds a child, such as an `icon`. `loading` — beside `type`, like `variant` and `label` — shows a spinner inside the button; `props.disabled` disables it, and that one really does live in the bag.
+`variant` is declared beside `action`, not inside `props`: `default` is the primary fill and what you get by declaring nothing, and the rest are `destructive`, `outline`, `secondary`, `ghost`, `link` and `fab`. Every variant and size draws shadcn/ui's Button exactly: one focus ring with no offset ring around it, a primary that hovers at 80 % of its own colour, and a `destructive` button drawn as a tint — the label in the destructive colour on a faint ground of it — rather than a solid red block. An app that wants the solid red declares it once, for every destructive button, under `design.components.button.variants.destructive.root` (for example `bg-destructive text-white hover:bg-destructive/90`); those classes win over the default on every property they name. `size` takes shadcn/ui's scale: `xs`, `sm`, `default` (what you get by declaring nothing) and `lg` for a labelled button, and `icon-xs`, `icon-sm`, `icon` and `icon-lg` for a square button that draws its `icon` alone. `icon` names a Lucide icon drawn before the label; at an icon size the `label` is no longer printed but becomes the button's accessible name, so an icon size without an `icon` or without a `label` is refused when the configuration is read. `label` is the text; `content` is the alternative when the button holds a child, such as an `icon`. `loading` — beside `type`, like `variant` and `label` — shows a spinner inside the button; `props.disabled` disables it, and that one really does live in the bag.
+
+`{ action: openImport, table }` opens the CSV import dialog for that table — choose a file, map its columns to the table's fields, write the rows — the dialog a grid's own Import used to open. The button is drawn only for a reader the table lets create records.
 
 `confirm` puts a prompt between the click and the action. It is an object rather than a boolean so that the prompt can say what is about to happen — see the confirmation options in the table above.
 
@@ -60,6 +62,8 @@ An anchor.
 <!-- sovrium:options type:link -->
 
 `props.href` carries the URL or route path, `props.target` and `props.rel` the usual anchor attributes, and `children` lets a link wrap something other than text — an `image`, for a clickable image.
+
+A link with `target: _blank` tells assistive technology that it opens a new tab: "(opens in a new tab)" ends its accessible name, in the page language, and nothing changes on screen. Every link the engine opens in a new tab says the same — the "Built with Sovrium" badge, a docs article's edit and issue links, a file's Open, an attachment, a `url` cell, a menu or navigation entry, and a `button` whose `openUrl` click or `navigate` action sets `openInNewTab`. Rename the words under `sovrium.link.opensInNewTab`.
 
 ### Marking the current item
 

@@ -156,7 +156,7 @@ const detailResponse = async (
     return internalError(c, 'Failed to read the link back')
   }
   const body = decodeSafe(adminLinkDetailResponseSchema)({
-    link: toAdminLinkDetail(result.success.entry, result.success.state),
+    link: toAdminLinkDetail(result.success),
   })
   if (!body.success) return internalError(c, 'Failed to build the link detail')
   return c.json(body.data, status)

@@ -120,6 +120,7 @@ const nodeOf = (entry: GraphTablesSource['nodes'][number], row: Row): Row => {
     label: textOf(row[entry.labelField]) ?? String(row['id']),
     kind: entry.kind,
     ...(mapped === undefined ? {} : { state: mapped }),
+    ...(entry.flagField === undefined ? {} : { flag: isTrue(row[entry.flagField]) }),
   }
 }
 

@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
-import { useSharedFilterPublisher } from '../hooks/use-shared-filter-publisher'
+import { useLazySharedFilterPublisher } from '../hooks/use-lazy-shared-filter-publisher'
 import { buildForest, initiallyOpen, keptByFilter, visibleIds, type TreeConfig } from './tree-model'
 import { selectTreeNode, type TreeSelect } from './tree-select'
 import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
@@ -40,7 +40,7 @@ export function useTreeState(input: TreeStateInput) {
   const visible = useMemo(() => visibleIds(forest, openIds, kept), [forest, openIds, kept])
   const [focused, setFocused] = useState<string | undefined>(undefined)
   const [selected, setSelected] = useState<string | undefined>(undefined)
-  const publish = useSharedFilterPublisher(input.publishes)
+  const publish = useLazySharedFilterPublisher(input.publishes)
   const { onSelect, table } = input
 
   const toggle = useCallback(

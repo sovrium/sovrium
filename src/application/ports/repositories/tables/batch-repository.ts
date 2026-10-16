@@ -7,6 +7,7 @@
 
 import { Context } from 'effect'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
 import type {
   NotFoundError,
   DatabaseError,
@@ -69,13 +70,17 @@ export class BatchRepository extends Context.Service<
     /**
      * Create every record, and write `links[i]` — record `i`'s many-to-many
      * links — to the junction in the SAME transaction, so a link that cannot be
-     * written leaves no record behind.
+     * written leaves no record behind. `accounts` are confirmed in that
+     * transaction ({@link AccountReference}), as by every batch write below.
      */
     readonly batchCreate: (
       session: Readonly<UserSession>,
       tableName: string,
       recordsData: readonly Record<string, unknown>[],
-      links?: readonly (readonly BatchCreateLink[])[]
+      written?: {
+        readonly links?: readonly (readonly BatchCreateLink[])[] | undefined
+        readonly accounts?: readonly AccountReference[]
+      }
     ) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError>
 
     readonly batchUpdate: (
@@ -84,7 +89,8 @@ export class BatchRepository extends Context.Service<
       updates: readonly {
         readonly id: string
         readonly fields?: Record<string, unknown>
-      }[]
+      }[],
+      accounts?: readonly AccountReference[]
     ) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError>
 
     readonly batchDelete: (
@@ -117,6 +123,7 @@ export class BatchRepository extends Context.Service<
          * record matching only these is created, and they are left untouched.
          */
         readonly hiddenIds?: readonly string[]
+        readonly accounts?: readonly AccountReference[]
       }
     ) => Effect.Effect<UpsertResult, DatabaseError | BatchValidationError | ValidationError>
   }

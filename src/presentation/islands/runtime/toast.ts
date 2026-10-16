@@ -17,14 +17,16 @@
  * former homes now re-export from here, so existing import sites are unchanged.
  *
  * The DOM contract is fixed and asserted by specs on every surface:
- * `<div data-sonner-toaster role=status aria-live=polite><div data-toast
- * data-variant><span data-toast-message>message</span></div></div>`, plus a
- * `<button data-toast-dismiss>` on a toast that never expires and `role=alert`
- * on one that has to interrupt. Two selector families depend on it —
+ * `<div data-sonner-toaster data-toast-container><div data-toast data-variant
+ * role=status aria-live=polite><span data-toast-message>message</span></div></div>`,
+ * plus a `<button data-toast-dismiss>` on a toast that never expires, and
+ * `role=alert` instead of `status` on one that has to interrupt. Each toast is
+ * its own live region and the container is none, so a failure is announced
+ * once, assertively, rather than once by the toast and again by a polite
+ * container around it. Two selector families depend on it —
  * `[data-sonner-toaster]` with an inner `[data-toast][data-variant]`, and the
  * looser `[data-toast-container], [role="status"], [aria-live="polite"]` — so
- * the container's role, live-region attributes, and `display:flex` stacking are
- * all load-bearing, not decoration.
+ * the container's marker and `display:flex` stacking are load-bearing.
  *
  * The message has a node of its own because a control inside `[data-toast]`
  * joins that element's `textContent`: without it, appending a dismiss button
@@ -59,6 +61,7 @@
 import {
   appendToastDismissControl,
   appendToastMessage,
+  keepToastsClearOfFocus,
   markToastPoliteness,
   resolveToastDismissLabel,
 } from '@/presentation/islands/runtime/toast-accessibility'
@@ -76,8 +79,7 @@ function ensureToasterContainer(): Element {
   if (existing) return existing
   const container = document.createElement('div')
   container.setAttribute('data-sonner-toaster', '')
-  container.setAttribute('role', 'status')
-  container.setAttribute('aria-live', 'polite')
+  container.setAttribute('data-toast-container', '')
   const el = container as HTMLElement
   el.style.position = 'fixed'
   el.style.right = '16px'
@@ -122,9 +124,11 @@ export function renderToast(message: string, variant?: string, duration?: number
   if (dismissAfter === undefined) {
     appendToastDismissControl(toast, resolveToastDismissLabel(container))
     container.appendChild(toast)
+    keepToastsClearOfFocus(container)
     return
   }
   container.appendChild(toast)
+  keepToastsClearOfFocus(container)
   setTimeout(() => {
     toast.remove()
   }, dismissAfter)

@@ -31,10 +31,23 @@
  * removes the ambiguity: there is now one unit in the module and it is the unit
  * the schema, the SQL mapping and the published docs all name.
  *
+ * ## The `duration` column format reads an ELAPSED time, in either unit
+ *
+ * {@link formatElapsedDuration} is the compact readout a `format: 'duration'`
+ * column or `record-field` prints (`180 ms`, `1.4 s`, `2 min 18 s`,
+ * `1 h 05 min`). Its input unit is decided by WHERE the value comes from, never
+ * guessed from its size: a `duration` field stores seconds (above), so a value
+ * bound to one is read as seconds; any other number is read as MILLISECONDS,
+ * the unit every elapsed-time figure the engine itself records is kept in (an
+ * automation run's `durationMs`, a step's timing). Postgres interval text is
+ * seconds whatever the caller says, because the text names its own units.
+ *
  * Effect-free by construction: the data-table island imports this, and pulling
  * `effect` into a browser bundle for a number-to-string conversion is not a
  * trade worth making.
  */
+
+import { usableLocale } from './usable-locale'
 
 /** The three display presets a `duration` field may declare. */
 export type DurationDisplayFormat = 'h:mm' | 'h:mm:ss' | 'decimal'
@@ -127,4 +140,67 @@ export const formatDurationValue = (
 ): string | undefined => {
   const seconds = durationToSeconds(value)
   return seconds === undefined ? undefined : formatDurationSeconds(seconds, displayFormat)
+}
+
+/** The unit a NUMBER handed to {@link formatElapsedDuration} is counted in. */
+export type DurationInputUnit = 'seconds' | 'milliseconds'
+
+/** The stored value as milliseconds, or `undefined` when it names no duration. */
+const toMilliseconds = (value: unknown, unit: DurationInputUnit): number | undefined => {
+  const count = typeof value === 'string' && /^-?[\d.]+$/.test(value) ? Number(value) : value
+  if (typeof count !== 'number') {
+    const seconds = durationToSeconds(count)
+    return seconds === undefined ? undefined : seconds * 1000
+  }
+  return unit === 'seconds' ? count * 1000 : count
+}
+
+/** `n` padded to two digits: the minutes under an hour, the seconds under a minute. */
+const pad = (n: number): string => String(n).padStart(2, '0')
+
+/** Whole seconds, ten and up: `42 s`, `2 min 05 s`, `1 h 05 min`. */
+const formatWholeSeconds = (total: number): string => {
+  if (total < SECONDS_PER_MINUTE) return `${String(total)} s`
+  const [big, small, bigUnit, smallUnit] =
+    total < SECONDS_PER_HOUR
+      ? [Math.floor(total / SECONDS_PER_MINUTE), total % SECONDS_PER_MINUTE, 'min', 's']
+      : [
+          Math.floor(total / SECONDS_PER_HOUR),
+          Math.floor((total % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE),
+          'h',
+          'min',
+        ]
+  return small === 0
+    ? `${String(big)} ${bigUnit}`
+    : `${String(big)} ${bigUnit} ${pad(small)} ${smallUnit}`
+}
+
+/**
+ * An elapsed time as one compact readout in `locale`: `180 ms` under a second,
+ * one decimal under ten seconds (`1.4 s`, « 1,4 s »; a whole value drops its
+ * `.0`), whole seconds under a minute (`42 s`), then minutes and zero-padded
+ * seconds (`2 min 05 s`) and hours and zero-padded minutes (`1 h 05 min`) —
+ * two units at most, because a column of run times is scanned, not read.
+ *
+ * Only the one-decimal figure goes through `Intl` (for its decimal separator);
+ * every other part is a whole number, written as digits. The module stays small
+ * on purpose: every island that formats a cell carries it.
+ *
+ * Returns `undefined` for a value that names no duration, or a negative one
+ * (no elapsed time is), so the caller owns what an unreadable cell shows.
+ */
+export const formatElapsedDuration = (
+  value: unknown,
+  locale = 'en-US',
+  unit: DurationInputUnit = 'milliseconds'
+): string | undefined => {
+  const ms = value === null || value === '' ? undefined : toMilliseconds(value, unit)
+  if (ms === undefined || !(ms >= 0) || ms === Infinity) return undefined
+
+  const whole = Math.round(ms)
+  if (whole < 1000) return `${String(whole)} ms`
+  const tenths = Math.round(whole / 100)
+  if (tenths >= 100) return formatWholeSeconds(Math.round(whole / 1000))
+  const figure = new Intl.NumberFormat(usableLocale(locale), { maximumFractionDigits: 1 })
+  return `${figure.format(tenths / 10)} s`
 }

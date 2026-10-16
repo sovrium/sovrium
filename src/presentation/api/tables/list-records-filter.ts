@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
   describeUnknownRelativeDate,
   resolveRelativeDatesIn,
@@ -17,7 +18,10 @@ import {
   isVocabularyTerm,
   unknownTermRefusal,
 } from '@/domain/models/app/tables/closed-vocabulary'
+import { withRelatedTextConditions } from '@/domain/models/app/tables/related-text-filter-service'
+import { withListMembershipConditions } from '@/domain/models/app/tables/user-list-field-service'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
+import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { validateFilterParam } from './field-permission-validation'
 import { parseFilterParameter } from './filter-parser'
 import { parseFormulaToFilter } from './formula-parser'
@@ -61,7 +65,20 @@ export function parseFilter(
   // After the permission check, so a field the caller may not read is refused
   // as such rather than described.
   const nonBoolean = refuseNonBooleanOperand(c, app, tableName, parsed.value)
-  return nonBoolean ?? parsed
+  if (nonBoolean !== undefined) return nonBoolean
+  // A text condition on a link reads the linked record's display field, under
+  // the related-value rule for THIS reader (`related-text-filter-service.ts`).
+  const signedOut = isGuestSession(getSessionContext(c)?.userId)
+  const reader = { role: userRole, groups: userGroups, signedOut }
+  // `contains` on a list of people is membership, never a text match.
+  const fields = app.tables?.find((table) => table.name === tableName)?.fields
+  return {
+    error: false,
+    value: withListMembershipConditions(
+      withRelatedTextConditions(parsed.value, { app, tableName, reader }),
+      fields
+    ),
+  }
 }
 
 /**
@@ -157,6 +174,9 @@ function parseFilterInput(c: Context, app: App, tableName: string, param: string
       ),
     }
   }
+
+  const malformedRange = refuseMalformedBetween(c, parsedFilterResult.filter)
+  if (malformedRange !== undefined) return malformedRange
 
   // A relative date token in a value names a day of THIS request,
   // resolved here rather than left to the database's own date parser.
@@ -266,6 +286,45 @@ function firstLeafWhere(
     return test(leaf) ? leaf : undefined
   }
   return firstLeafWhere(record['and'], test) ?? firstLeafWhere(record['or'], test)
+}
+
+/**
+ * The first `between` condition, depth first, whose value is not two bounds.
+ * Compiled, one bound or three would match nothing and read as "no record".
+ */
+function firstMalformedBetween(node: unknown): FilterLeaf | undefined {
+  if (Array.isArray(node)) {
+    return node.reduce<FilterLeaf | undefined>(
+      (found, child) => found ?? firstMalformedBetween(child),
+      undefined
+    )
+  }
+  if (typeof node !== 'object' || node === null) return undefined
+  const record = node as Readonly<Record<string, unknown>>
+  if ('operator' in record) {
+    const { value } = record
+    return record['operator'] === 'between' && !(Array.isArray(value) && value.length === 2)
+      ? { field: String(record['field']), operator: 'between' }
+      : undefined
+  }
+  return firstMalformedBetween(record['and']) ?? firstMalformedBetween(record['or'])
+}
+
+/** A `between` condition whose value is not two bounds, refused naming the field. */
+const refuseMalformedBetween = (c: Context, filter: unknown): FilterResult | undefined => {
+  const leaf = firstMalformedBetween(filter)
+  if (leaf === undefined) return undefined
+  return {
+    error: true,
+    response: c.json(
+      {
+        success: false,
+        message: `The "between" operator on field "${leaf.field}" takes a two-item value, [low, high].`,
+        code: 'BAD_REQUEST',
+      },
+      400
+    ),
+  }
 }
 
 /** The first leaf, depth first, whose operator is not a records-API operator. */

@@ -276,29 +276,29 @@ const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.Rea
       <RecordButton
         config={field.button}
         fieldName={field.name}
-        {...(uiStrings?.['action.running'] === undefined
-          ? {}
-          : { pendingLabel: uiStrings['action.running'] })}
+        strings={uiStrings}
         {...(binding?.table === undefined ? {} : { table: binding.table })}
         {...(binding?.recordId === undefined ? {} : { recordId: binding.recordId })}
       />
     ) : undefined,
   code: ({ field, value, onChange }) => renderCodeField(field, value, onChange),
   'rich-text': ({ field, value, onChange }) => renderRichTextField(field, value, onChange),
-  'file-single': ({ field, value, onChange }) => (
+  'file-single': ({ field, value, onChange, uiStrings }) => (
     <FileField
       field={field}
       multiple={false}
       value={value}
       onChange={onChange}
+      strings={uiStrings}
     />
   ),
-  'file-multiple': ({ field, value, onChange }) => (
+  'file-multiple': ({ field, value, onChange, uiStrings }) => (
     <FileField
       field={field}
       multiple={true}
       value={value}
       onChange={onChange}
+      strings={uiStrings}
     />
   ),
   textarea: ({ field, value, onChange, invalid }) => (

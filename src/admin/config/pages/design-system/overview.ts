@@ -62,8 +62,8 @@
 // nobody opens, it is an unaudited one still serving a second copy of the
 // affordances to whoever bookmarked it.
 
+import { consolePage } from '../../components/data-page'
 import { designPageHeader } from '../../components/page-header'
-import { withShell } from '../../components/shell'
 import { DESIGN_COVERAGE_ENDPOINT, SHARES_ENDPOINT } from '../../system-sources'
 import { designSystemBreadcrumb } from './chrome'
 import { MEASURE_MD, kitType, microLabel } from './sections'
@@ -86,34 +86,17 @@ const JSON_EXPORT = '/api/admin/design-system.json'
  */
 const CLI_COMMAND = 'sovrium design-system app.ts --format md'
 
-/** The kit types this page is built from, each stamped on a real instance below. */
-
 /**
- * The five destinations below the Overview, each with the noun it renders and
+ * The four destinations below the Overview, each with the noun it renders and
  * one line about what is on it.
  *
- * Five, not six: the seventh console page is retired and the sixth IS this one.
- * The line matters as much as the noun — a list of five bare nouns tells a
- * reader nothing about which one answers the question they arrived with.
+ * The line matters as much as the noun: a bare noun does not say which page answers a question.
  */
 const SECTIONS: readonly (readonly [slug: string, title: string, blurb: string])[] = [
-  [
-    'foundations',
-    'Foundations',
-    'Seven properties — colour, type, space, shape, elevation, motion, breakpoints — each shown by the components it moves.',
-  ],
-  [
-    'ui-kit',
-    'UI kit',
-    'Every component type the engine can draw, grouped by category, each with the options it accepts.',
-  ],
-  [
-    'components',
-    'Components',
-    'Your own reusable compositions, drawn on their own beside the guidance written with them.',
-  ],
-  ['brand', 'Brand', 'The mark, the imagery rules, the zones, and what may not be changed.'],
-  ['voice', 'Voice', 'The sentences this app writes, and the reasons given for each of them.'],
+  ['foundations', '$t:admin.common.foundations', '$t:admin.ds.overview.foundations'],
+  ['components', '$t:admin.common.components', '$t:admin.ds.overview.components'],
+  ['brand', '$t:admin.common.brand', '$t:admin.ds.overview.brand'],
+  ['voice', '$t:admin.common.voice', '$t:admin.ds.overview.voice'],
 ]
 
 // ─── THE PREVIEW BESIDE EACH ROW ───────────────────────────────────────────
@@ -121,8 +104,7 @@ const SECTIONS: readonly (readonly [slug: string, title: string, blurb: string])
 // A row naming a page and describing it in a line still leaves a reader
 // guessing what is on the other side of the chevron. A small drawing lifted
 // from that page answers it in the width the row already has — the colour
-// ramp for Foundations, three button recipes for the UI kit, the console
-// topbar for Components, the mark for Brand, one sentence in the app's own
+// ramp for Foundations, the console topbar for Components, the mark for Brand, one sentence in the app's own
 // voice for Voice.
 //
 // Each is composed from real kit types, drawn at rest. None of them is a
@@ -132,9 +114,9 @@ const SECTIONS: readonly (readonly [slug: string, title: string, blurb: string])
 /**
  * The frame every preview sits in, so the five read as one column.
  *
- * It carries the console's body step for the same reason `previewCard` does:
- * a drawing holding a component that rules no typography class would otherwise
- * inherit the document root and draw bigger than the row naming it.
+ * It carries the console's body step because font-size INHERITS: a drawing
+ * holding a component that rules no typography class would otherwise inherit
+ * the document root and draw bigger than the row naming it.
  */
 const previewSlot = (children: readonly PageComponent[]): PageComponent =>
   ({
@@ -156,32 +138,6 @@ const foundationsPreview = (): PageComponent =>
     )
   )
 
-/** UI kit: one row of the kit, at the three button recipes a screen uses. */
-const uiKitPreview = (): PageComponent =>
-  previewSlot([
-    {
-      type: 'button',
-      label: 'Create table',
-      variant: 'default',
-      size: 'sm',
-      props: { type: 'button', disabled: true, ...kitType('button') },
-    } as PageComponent,
-    {
-      type: 'button',
-      label: 'Export CSV',
-      variant: 'outline',
-      size: 'sm',
-      props: { type: 'button', disabled: true },
-    } as PageComponent,
-    {
-      type: 'button',
-      label: 'View log',
-      variant: 'ghost',
-      size: 'sm',
-      props: { type: 'button', disabled: true },
-    } as PageComponent,
-  ])
-
 /** Components: the console topbar, which is one of the four declared. */
 const componentsPreview = (): PageComponent =>
   previewSlot([
@@ -197,7 +153,7 @@ const componentsPreview = (): PageComponent =>
           type: 'text',
           element: 'span',
           props: { className: 'text-muted-foreground text-[10px]' },
-          content: 'Records',
+          content: '$t:admin.common.records',
         },
         {
           type: 'text',
@@ -209,7 +165,7 @@ const componentsPreview = (): PageComponent =>
           type: 'text',
           element: 'span',
           props: { className: 'text-foreground text-[10px] font-medium' },
-          content: 'Invoices',
+          content: '$t:admin.ds.overview.invoices',
         },
         {
           type: 'icon',
@@ -262,13 +218,12 @@ const voicePreview = (): PageComponent =>
       type: 'text',
       element: 'p',
       props: { className: 'text-foreground-subtle text-md italic' },
-      content: 'Reads as a fact, not as a claim.',
+      content: '$t:admin.ds.overview.fact',
     } as PageComponent,
   ])
 
 const PREVIEWS: Readonly<Record<string, () => PageComponent>> = {
   foundations: foundationsPreview,
-  'ui-kit': uiKitPreview,
   components: componentsPreview,
   brand: brandPreview,
   voice: voicePreview,
@@ -278,8 +233,7 @@ const PREVIEWS: Readonly<Record<string, () => PageComponent>> = {
  * One destination row: the page's name, what is on it, its preview, and a chevron.
  *
  * A rule-separated ROW rather than a card in a grid, and it is the same anatomy
- * the UI kit index and the Components index use — one row shape across three
- * indexes rather than three. A card is a square and a page's purpose is a line
+ * the Components index uses — one row shape across both indexes. A card is a square and a page's purpose is a line
  * of prose; the grid answered "what is this called" and never "which of these
  * do I want".
  */
@@ -334,22 +288,60 @@ const pagesList = (): PageComponent =>
   ({
     type: 'container',
     element: 'section',
-    props: { className: 'flex flex-col gap-3', 'aria-label': 'Pages' },
+    props: { className: 'flex flex-col gap-3', 'aria-label': '$t:admin.common.pages' },
     children: [
       {
         type: 'text',
         element: 'h2',
         props: { className: 'text-lg font-semibold tracking-tight', ...kitType('text') },
-        content: 'Pages',
+        content: '$t:admin.common.pages',
       },
       {
         type: 'container',
         element: 'div',
         props: { className: 'border-border rounded-md border' },
-        children: SECTIONS.map(([slug, title, blurb]) => sectionRow(slug, title, blurb)),
+        children: SECTIONS.map(([slug, title, blurb]) =>
+          gatedRow(slug, sectionRow(slug, title, blurb))
+        ),
+      },
+      // The engine's catalogue is shadcn's and ships with the binary: one line says where.
+      {
+        type: 'container',
+        element: 'div',
+        props: {
+          className: 'text-muted-foreground text-sm',
+          'data-testid': 'design-system-catalogue-pointer',
+        },
+        children: [
+          {
+            type: 'text',
+            element: 'span',
+            content: '$t:admin.ds.overview.engineTypes',
+          },
+          {
+            type: 'text',
+            element: 'code',
+            props: { className: 'bg-muted rounded px-1 py-0.5 font-mono text-xs' },
+            content: 'sovrium docs components',
+          },
+        ],
       },
     ],
   }) as PageComponent
+
+/** The feature each destination requires: a row to a page the host does not serve is a 404 link. */
+const ROW_REQUIRES: Readonly<Record<string, string>> = {
+  components: 'components',
+  brand: 'design.brand',
+  voice: 'design.voice',
+}
+
+const gatedRow = (slug: string, row: PageComponent): PageComponent => {
+  const feature = ROW_REQUIRES[slug]
+  return feature === undefined
+    ? row
+    : ({ ...(row as Record<string, unknown>), visibility: { declares: feature } } as PageComponent)
+}
 
 /**
  * Which published article explains each undeclared layer.
@@ -401,7 +393,7 @@ const coverageLedger = (): PageComponent =>
     element: 'section',
     props: {
       className: 'flex flex-col gap-4',
-      'aria-label': 'What you have declared',
+      'aria-label': '$t:admin.ds.overview.declared',
       'data-testid': 'design-system-coverage',
     },
     children: [
@@ -409,7 +401,7 @@ const coverageLedger = (): PageComponent =>
         type: 'text',
         element: 'h2',
         props: { className: 'text-lg font-semibold tracking-tight' },
-        content: 'What you have declared',
+        content: '$t:admin.ds.overview.declared',
       },
       {
         type: 'container',
@@ -574,11 +566,11 @@ const exportRow = (input: {
               className:
                 'text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-[10px] leading-none',
               'data-copy-code': 'true',
-              'data-copied-label': 'Copied',
-              'aria-label': `Copy ${input.path}`,
+              'data-copied-label': '$t:admin.common.copied',
+              'aria-label': `$t:admin.common.copy ${input.path}`,
               ...kitType('button'),
             },
-            content: 'Copy',
+            content: '$t:admin.common.copy',
           },
         ],
       },
@@ -600,7 +592,7 @@ const terminalBlock = (): PageComponent =>
     element: 'div',
     props: { className: 'flex flex-col gap-1.5', 'data-testid': 'design-system-copy-cli' },
     children: [
-      microLabel('From the terminal'),
+      microLabel('$t:admin.ds.share.terminal'),
       {
         type: 'container',
         element: 'div',
@@ -628,10 +620,10 @@ const terminalBlock = (): PageComponent =>
               className:
                 'text-foreground-subtle hover:text-foreground shrink-0 font-mono text-[10px] leading-none',
               'data-copy-code': 'true',
-              'data-copied-label': 'Copied',
-              'aria-label': `Copy ${CLI_COMMAND}`,
+              'data-copied-label': '$t:admin.common.copied',
+              'aria-label': `$t:admin.common.copy ${CLI_COMMAND}`,
             },
-            content: 'Copy',
+            content: '$t:admin.common.copy',
           },
         ],
       },
@@ -687,7 +679,7 @@ const sharePanel = (): PageComponent =>
             type: 'text',
             element: 'h3',
             props: { className: 'text-foreground text-md font-medium' },
-            content: 'Active links',
+            content: '$t:admin.ds.share.active',
           },
           {
             type: 'button',
@@ -712,19 +704,15 @@ const sharePanel = (): PageComponent =>
             // BEFORE anything exists. A disclosure shown after the mint informs
             // someone of a decision already taken, which is not a disclosure.
             confirm: {
-              title: 'Publish this design system?',
-              message:
-                'The link publishes more than your colours and type: your principles, your ' +
-                'voice and its tone, your colour roles and your component guidance all become ' +
-                'readable by anyone with the link, with no account. It is unlisted and ' +
-                'revocable, not private.',
+              title: '$t:admin.ds.share.publishConfirm',
+              message: '$t:admin.ds.share.publishMessage',
               // The affirm label avoids every verb the console's read-only sweep
               // forbids — `save`, `set`, `apply`, `edit`, `update`, `reset`,
               // `publish`. "Publish and create the link" tripped it, rightly: a
               // button named for a write looks like an editor. The message says
               // what publishing means; the button says what the click does.
-              confirmLabel: 'Create the link',
-              cancelLabel: 'Keep it private',
+              confirmLabel: '$t:admin.ds.share.createConfirm',
+              cancelLabel: '$t:admin.ds.share.keepPrivate',
             },
             action: {
               type: 'fetch',
@@ -732,7 +720,7 @@ const sharePanel = (): PageComponent =>
               url: SHARES_ENDPOINT,
               onSuccess: {
                 type: 'toast',
-                message: 'Share link created — the address below is shown once.',
+                message: '$t:admin.ds.share.created',
                 // ─── THE ONE PLACE THE ADDRESS EVER EXISTS ───────────────
                 //
                 // `POST` answers with the forwarding address; `GET` never
@@ -749,7 +737,7 @@ const sharePanel = (): PageComponent =>
                 refetch: 'design-system-share-list',
               },
             },
-            children: [{ type: 'text', element: 'span', content: 'Create a share link' }],
+            children: [{ type: 'text', element: 'span', content: '$t:admin.ds.share.create' }],
           } as PageComponent,
         ],
       },
@@ -866,7 +854,7 @@ const sharePanel = (): PageComponent =>
                       url: `${SHARES_ENDPOINT}/$record.id`,
                       onSuccess: {
                         type: 'toast',
-                        message: 'Share link revoked.',
+                        message: '$t:admin.ds.share.revoked',
                         refetch: 'design-system-share-list',
                       },
                       // ─── A REFUSED REVOKE MUST NOT BE SILENT ──────────────
@@ -895,18 +883,18 @@ const sharePanel = (): PageComponent =>
                       onError: {
                         type: 'toast',
                         variant: 'error',
-                        message:
-                          'The link was not revoked and is still active. Try again, or check the server log.',
+                        message: '$t:admin.ds.share.revokeFailed',
                       },
                     },
                     confirm: {
-                      title: 'Revoke this link?',
-                      message:
-                        'Anyone holding it loses access immediately. This cannot be undone, and a new link is a different address.',
-                      confirmLabel: 'Revoke',
-                      cancelLabel: 'Keep it',
+                      title: '$t:admin.ds.share.revokeConfirm',
+                      message: '$t:admin.ds.share.revokeMessage',
+                      confirmLabel: '$t:admin.common.revoke',
+                      cancelLabel: '$t:admin.ds.share.keep',
                     },
-                    children: [{ type: 'text', element: 'span', content: 'Revoke' }],
+                    children: [
+                      { type: 'text', element: 'span', content: '$t:admin.common.revoke' },
+                    ],
                   } as PageComponent,
                 ],
               } as PageComponent,
@@ -930,7 +918,7 @@ const sharePanel = (): PageComponent =>
               'data-testid': 'design-system-share-empty',
             },
             visibility: { record: { field: 'total', eq: 0 } },
-            content: 'No active link yet.',
+            content: '$t:admin.ds.share.none',
           } as PageComponent,
         ],
       },
@@ -960,7 +948,7 @@ const shareAndExport = (): PageComponent =>
     element: 'section',
     props: {
       className: 'flex flex-col gap-4',
-      'aria-label': 'Share and export',
+      'aria-label': '$t:admin.common.shareExport',
       'data-testid': 'design-system-share',
     },
     children: [
@@ -968,14 +956,13 @@ const shareAndExport = (): PageComponent =>
         type: 'text',
         element: 'h2',
         props: { className: 'text-lg font-semibold tracking-tight' },
-        content: 'Share and export',
+        content: '$t:admin.common.shareExport',
       },
       {
         type: 'text',
         element: 'p',
         props: { className: `text-foreground-subtle ${MEASURE_MD} text-md leading-relaxed` },
-        content:
-          'Two documents carry this system out of the console: a markdown brief a person or an agent reads, and a token document a build step reads. Both are readable with an admin session, from the terminal, or — by anyone at all — through an active share link. A share link is unlisted, needs no account, and can be revoked here.',
+        content: '$t:admin.ds.share.blurb',
       },
       // TWO COLUMNS from `md` up: what the system is handed over AS on the
       // left, and who currently holds it on the right. Stacked, the addresses
@@ -998,13 +985,13 @@ const shareAndExport = (): PageComponent =>
                 props: { className: 'border-border rounded-md border' },
                 children: [
                   exportRow({
-                    name: 'Markdown brief',
+                    name: '$t:admin.ds.share.brief',
                     path: MARKDOWN_EXPORT,
                     nameTestId: 'design-system-export-markdown',
                     pathTestId: 'design-system-overview-export',
                   }),
                   exportRow({
-                    name: 'Token document',
+                    name: '$t:admin.ds.share.tokens',
                     path: JSON_EXPORT,
                     nameTestId: 'design-system-export-json',
                     pathTestId: 'design-system-export-json-path',
@@ -1025,12 +1012,11 @@ const shareAndExport = (): PageComponent =>
     ],
   }) as PageComponent
 
-export default withShell(
-  {
-    id: 'design-system-overview',
-    name: 'design-system-overview',
-    path: '/design-system',
-    meta: { title: 'Sovrium — Design system', lang: 'en-US' },
+export default consolePage({
+  id: 'design-system-overview',
+  path: '/design-system',
+  title: '$t:admin.ds.overview.specimenTitle',
+  page: {
     // ─── THE PAGE RECORD IS THE SHARE ENVELOPE ──────────────────────────────
     //
     // It is here for exactly one gate: whether this app has any active share
@@ -1049,12 +1035,12 @@ export default withShell(
     // leaves the children of a `dataSource`-bearing node alone. That is what
     // lets one page carry a record AND two rows bindings.
     dataSource: { system: { endpoint: SHARES_ENDPOINT, idKey: 'total' } },
-    components: [
-      designPageHeader('Design system'),
-      pagesList(),
-      coverageLedger(),
-      shareAndExport(),
-    ],
-  } as PageConfig,
-  { breadcrumb: designSystemBreadcrumb('design-system', 'Design system') }
-) satisfies PageConfig
+  },
+  shell: { breadcrumb: designSystemBreadcrumb('design-system', '$t:admin.common.designSystem') },
+  body: [
+    designPageHeader('$t:admin.common.designSystem'),
+    pagesList(),
+    coverageLedger(),
+    shareAndExport(),
+  ],
+}) satisfies PageConfig

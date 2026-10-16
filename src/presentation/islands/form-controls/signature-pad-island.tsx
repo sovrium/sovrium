@@ -30,6 +30,7 @@ import {
   SaveFailed,
   SignatureInput,
   SignedReading,
+  type PadStrings,
 } from './signature-pad-parts'
 import type { SignedItemClasses } from '@/presentation/design/signature-signed-item'
 
@@ -47,6 +48,8 @@ interface SignaturePadIslandProps {
   readonly lang?: string
   /** The signed reading's item classes, resolved by the server. */
   readonly signedClasses: SignedItemClasses
+  /** Every word the pad draws, in the page language (`signaturePad.*`). */
+  readonly uiStrings: PadStrings
 }
 
 type Status =
@@ -109,6 +112,7 @@ export default function SignaturePadIsland(props: SignaturePadIslandProps): Reac
         statement={props.statement}
         lang={props.lang}
         classes={props.signedClasses}
+        strings={props.uiStrings}
       />
     )
   }
@@ -127,13 +131,11 @@ export default function SignaturePadIsland(props: SignaturePadIslandProps): Reac
     >
       <PadStatement statement={props.statement} />
       <SignatureInput
-        typed={typed}
-        name={name}
-        setName={setName}
-        canvasRef={canvasRef}
+        {...{ typed, name, setName, canvasRef }}
         height={props.height}
+        strings={props.uiStrings}
       />
-      {status.kind === 'failed' && <SaveFailed />}
+      {status.kind === 'failed' && <SaveFailed strings={props.uiStrings} />}
       <PadActions
         typed={typed}
         inked={inked}
@@ -143,6 +145,7 @@ export default function SignaturePadIsland(props: SignaturePadIslandProps): Reac
         onClear={() => clear(canvasRef.current, setInked)}
         onToggle={() => setTyped(!typed)}
         onSign={() => void sign()}
+        strings={props.uiStrings}
       />
     </div>
   )

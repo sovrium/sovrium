@@ -1,4 +1,4 @@
-# sovrium-library: block/feature-grid@0.37.0
+# sovrium-library: block/feature-grid@0.38.0
 # sovrium-library-params: eyebrow=%5BEyebrow%5D&headline=Group%20the%20benefits%20under%20one%20idea&subheadline=A%20sentence%20that%20frames%20the%20six%20items%20below.
 name: feature-grid
 type: container
@@ -50,7 +50,7 @@ children:
                   size: 22
                   className: text-foreground
               - type: text
-                element: h4
+                element: h3
                 props:
                   className: text-md font-semibold text-foreground mt-2 text-lg
                 content: One file describes the app
@@ -69,7 +69,7 @@ children:
                   size: 22
                   className: text-foreground
               - type: text
-                element: h4
+                element: h3
                 props:
                   className: text-md font-semibold text-foreground mt-2 text-lg
                 content: Your data stays yours
@@ -88,7 +88,7 @@ children:
                   size: 22
                   className: text-foreground
               - type: text
-                element: h4
+                element: h3
                 props:
                   className: text-md font-semibold text-foreground mt-2 text-lg
                 content: Work runs on its own
@@ -107,7 +107,7 @@ children:
                   size: 22
                   className: text-foreground
               - type: text
-                element: h4
+                element: h3
                 props:
                   className: text-md font-semibold text-foreground mt-2 text-lg
                 content: Roles decide who sees what
@@ -126,7 +126,7 @@ children:
                   size: 22
                   className: text-foreground
               - type: text
-                element: h4
+                element: h3
                 props:
                   className: text-md font-semibold text-foreground mt-2 text-lg
                 content: Records you can export
@@ -145,7 +145,7 @@ children:
                   size: 22
                   className: text-foreground
               - type: text
-                element: h4
+                element: h3
                 props:
                   className: text-md font-semibold text-foreground mt-2 text-lg
                 content: Runs where you choose

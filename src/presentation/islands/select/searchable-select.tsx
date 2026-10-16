@@ -6,7 +6,7 @@
  */
 
 import { Combobox } from '@base-ui/react/combobox'
-import { useMemo, type KeyboardEventHandler, type ReactElement } from 'react'
+import { useId, useMemo, type KeyboardEventHandler, type ReactElement } from 'react'
 import { cn } from '@/presentation/design/class-merge'
 import {
   computeComboboxAddonClasses,
@@ -24,16 +24,22 @@ import { useComboboxCustomValue } from './use-combobox-custom-value'
 import type { OptionItem, SelectIslandProps } from './select-island-types'
 
 interface ComboboxInputGroupProps {
+  /** The text input's id, which the visible caption's `for` names. */
+  readonly inputId: string
   readonly inputPlaceholder: string
   readonly label: string | undefined
+  /** The `field` label naming the input when the combobox draws no caption. */
+  readonly labelledBy: string | undefined
   readonly triggerLabel: string
   readonly allowCustomValue: boolean
   readonly onInputKeyDown: KeyboardEventHandler<HTMLInputElement>
 }
 
 function ComboboxInputGroup({
+  inputId,
   inputPlaceholder,
   label,
+  labelledBy,
   triggerLabel,
   allowCustomValue,
   onInputKeyDown,
@@ -45,8 +51,14 @@ function ComboboxInputGroup({
       role="group"
     >
       <Combobox.Input
+        id={inputId}
         placeholder={inputPlaceholder}
         aria-label={label}
+        // Base UI gives the input its own id once hydrated, so a field label's
+        // `for` stops reaching it: the field names it by its label's id instead.
+        {...(label === undefined && labelledBy !== undefined
+          ? { 'aria-labelledby': labelledBy }
+          : {})}
         data-allow-custom-value={allowCustomValue ? 'true' : undefined}
         onKeyDown={onInputKeyDown}
         className={computeComboboxInputClasses()}
@@ -69,15 +81,28 @@ function ComboboxInputGroup({
   )
 }
 
-/** The visible caption: shadcn/ui's `Label`, as Base UI's `Combobox.Label`. */
-function ComboboxCaption({ label }: { readonly label: string }): ReactElement {
+/**
+ * The visible caption: shadcn/ui's `Label`, as a native `<label>` for the text
+ * input. Base UI's `Combobox.Label` labels the TRIGGER only, so a reader who
+ * clicked it landed nowhere; the input is the field a reader types into, and a
+ * native label both names it and focuses it on click.
+ */
+function ComboboxCaption({
+  label,
+  inputId,
+}: {
+  readonly label: string | undefined
+  readonly inputId: string
+}): ReactElement | null {
+  if (!label) return null
   return (
-    <Combobox.Label
+    <label
+      htmlFor={inputId}
       className={computeSelectLabelClasses()}
       data-slot="label"
     >
       {label}
-    </Combobox.Label>
+    </label>
   )
 }
 
@@ -109,12 +134,40 @@ function ComboboxField({
   if (chips)
     return (
       <ComboboxChipsField
+        inputId={group.inputId}
         label={group.label}
         placeholder={group.inputPlaceholder}
       />
     )
   return <ComboboxInputGroup {...group} />
 }
+
+/**
+ * The name the input carries: the caption, else — with no field label naming
+ * it either — the author's `aria-label`.
+ */
+const controlName = (
+  caption: string | undefined,
+  labelledBy: string | undefined,
+  ariaLabel: string | undefined
+): string | undefined => caption || (labelledBy === undefined ? ariaLabel : undefined)
+
+/**
+ * The trigger's accessible name and the input's prompt. `searchPlaceholder`
+ * (schema-author intent for the search-input affordance) overrides the generic
+ * `placeholder` and the fallback "Select..." prompt.
+ */
+const comboboxPrompts = (
+  label: string | undefined,
+  searchPlaceholder: string | undefined,
+  placeholder: string | undefined,
+  words: Readonly<Record<string, string>> | undefined
+) => ({
+  triggerLabel: label
+    ? (words?.['select.openNamed'] ?? 'Open {label}').split('{label}').join(label)
+    : (words?.['select.open'] ?? 'Open options'),
+  inputPlaceholder: searchPlaceholder ?? placeholder ?? 'Select...',
+})
 
 export function SearchableSelect({
   options,
@@ -123,12 +176,15 @@ export function SearchableSelect({
   allowCustomValue,
   defaultValue,
   disabled,
-  label,
+  label: caption,
+  labelledBy,
+  ariaLabel,
   className,
   publishes,
   multiple,
   chips,
   name,
+  uiStrings,
 }: SelectIslandProps): ReactElement {
   // Same publisher wiring as `PlainSelect`: a searchable filter is an ordinary
   // authoring choice, and leaving `publishes` inert on this half would be a
@@ -137,11 +193,10 @@ export function SearchableSelect({
   const items: readonly OptionItem[] = options ?? []
   const defaultItem =
     defaultValue !== undefined ? items.find((o) => o.value === defaultValue) : undefined
-  const triggerLabel = label ? `Open ${label}` : 'Open options'
-  // `searchPlaceholder` (schema-author intent for the search-input affordance)
-  // overrides the generic `placeholder` and the fallback "Select..." prompt.
-  const inputPlaceholder = searchPlaceholder ?? placeholder ?? 'Select...'
+  const label = controlName(caption, labelledBy, ariaLabel)
+  const prompts = comboboxPrompts(label, searchPlaceholder, placeholder, uiStrings)
   const custom = useCustomValueWiring(allowCustomValue === true && multiple !== true)
+  const inputId = useId()
 
   return (
     <div className={cn(className)}>
@@ -155,12 +210,17 @@ export function SearchableSelect({
         inputValue={custom.inputValue}
         onInputValueChange={custom.onInputValueChange}
       >
-        {label && <ComboboxCaption label={label} />}
+        <ComboboxCaption
+          label={caption}
+          inputId={inputId}
+        />
         <ComboboxField
           chips={chips === true && multiple === true}
-          inputPlaceholder={inputPlaceholder}
+          inputId={inputId}
+          inputPlaceholder={prompts.inputPlaceholder}
           label={label}
-          triggerLabel={triggerLabel}
+          labelledBy={labelledBy}
+          triggerLabel={prompts.triggerLabel}
           allowCustomValue={custom.enabled}
           onInputKeyDown={custom.onInputKeyDown}
         />

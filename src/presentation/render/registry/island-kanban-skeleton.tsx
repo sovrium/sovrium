@@ -81,13 +81,16 @@ function KanbanSkeletonColumn({
  */
 function KanbanSwimlaneSkeleton({
   laneLabels,
+  label,
 }: {
   readonly laneLabels: readonly string[]
+  readonly label: string
 }): ReactElement {
   return (
     <div
       className={computeKanbanGridClasses()}
-      aria-label="Loading kanban board..."
+      data-loading-status=""
+      aria-label={label}
       role="status"
     >
       <div className={computeKanbanLaneRowClasses()}>
@@ -154,16 +157,25 @@ function resolveSkeletonLaneLabels(elementProps: Record<string, unknown>): reado
  */
 export function KanbanSkeleton({
   elementProps,
+  label,
 }: {
   readonly elementProps: Record<string, unknown>
+  /** The status name in the page language (`kanban.loading`). */
+  readonly label: string
 }): ReactElement {
   if (elementProps.swimlanes) {
-    return <KanbanSwimlaneSkeleton laneLabels={resolveSkeletonLaneLabels(elementProps)} />
+    return (
+      <KanbanSwimlaneSkeleton
+        laneLabels={resolveSkeletonLaneLabels(elementProps)}
+        label={label}
+      />
+    )
   }
   return (
     <div
       className={computeKanbanBoardClasses()}
-      aria-label="Loading kanban board..."
+      data-loading-status=""
+      aria-label={label}
       role="status"
     >
       {['a', 'b', 'c'].map((slot) => (

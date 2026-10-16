@@ -18,7 +18,7 @@ import { omitHiddenLookups } from '@/application/use-cases/tables/hidden-lookup-
 import { lookupReadMasks } from '@/application/use-cases/tables/lookup-read-masks'
 import { buildGuestSession } from '../build-guest-session'
 import { CALLER_REFUSAL, runLinkReader, type RunReadAccess } from './record-caller-gate'
-import { declaredFieldNames } from './record-filters'
+import { declaredFieldNames } from './record-filter-shape'
 import type { ActionOutcome, AutomationContext } from './shared'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'

@@ -53,12 +53,22 @@ const TABLE_GROUP_CELL = ['px-2 py-1 text-xs font-medium cursor-pointer', `text-
 /**
  * Compute the default className for a group header's label cell.
  *
- * `cursor-pointer` is part of the part rather than appended: the whole `<td>`
- * IS the collapse toggle (no inner `<button>`, because the spec's collapse
- * locator requires exactly one of `button`-or-header to resolve), so the
- * affordance is unconditional here in a way it is not on an ordinary cell.
+ * `cursor-pointer` is part of the part rather than appended: a click anywhere
+ * in the cell collapses the group, so the affordance is unconditional here in
+ * a way it is not on an ordinary cell. The keyboard reaches the same toggle
+ * through the cell's {@link computeTableGroupToggleClasses} button.
  */
 export const computeTableGroupCellClasses = (): string => TABLE_GROUP_CELL
+
+// The group's collapse button: the chevron, the name and the count, inheriting
+// the cell's type step, with the focus ring every base-nova control wears. A
+// group row is a `row` of a `table`, which cannot carry `aria-expanded`, so the
+// expanded state lives here, on the control that changes it.
+const TABLE_GROUP_TOGGLE =
+  'inline-flex items-center rounded-sm text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+
+/** Compute the default className for a group header's collapse button. */
+export const computeTableGroupToggleClasses = (): string => TABLE_GROUP_TOGGLE
 
 // Canvas: `padding:4px 8px; font-size:11px; font-weight:500; color:#565656`.
 // The muted tone matters: with the label's full-strength `fg`, a number

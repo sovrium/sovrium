@@ -45,10 +45,8 @@ import {
 import { BUILT_IN_ROLES, BUILT_IN_ROLE_LEVELS } from '@/domain/models/app/auth/roles/role'
 import type { OrganizationTeamMembershipRecord } from '@/application/ports/repositories/auth/organization-team-repository'
 import type { DirectoryUserRow } from '@/application/ports/repositories/tables/users-directory-repository'
-import type {
-  AdminOrganisationGraphEdge,
-  AdminOrganisationGraphNode,
-} from '@/domain/models/api/admin/organisation/graph'
+import type { ProjectedNode } from '@/application/use-cases/admin/organisation-graph-denormalisation'
+import type { AdminOrganisationGraphEdge } from '@/domain/models/api/admin/organisation/graph'
 import type { App } from '@/domain/models/app'
 import type { PermissionValue } from '@/domain/models/app/auth/permissions'
 
@@ -80,7 +78,7 @@ export const teamNodeId = (name: string): string => `${TEAM_NODE_PREFIX}${name}`
  */
 export const tableNodeId = (name: string): string => `table:${name}`
 
-const personNodeId = (userId: string): string => `person:${userId}`
+export const personNodeId = (userId: string): string => `person:${userId}`
 const agentNodeId = (name: string): string => `agent:${name}`
 const agentResourceNodeId = (name: string): string => `agent-resource:${name}`
 const automationNodeId = (name: string): string => `automation:${name}`
@@ -278,9 +276,7 @@ export const resourceTargets = (app: App): readonly ResourceTarget[] => [
 ]
 
 /** The drawable node for one resource target. */
-export const resourceNodes = (
-  targets: readonly ResourceTarget[]
-): readonly AdminOrganisationGraphNode[] =>
+export const resourceNodes = (targets: readonly ResourceTarget[]): readonly ProjectedNode[] =>
   targets.map((target) => ({
     id: target.nodeId,
     kind: target.kind,
@@ -350,9 +346,7 @@ const principalRole = (row: DirectoryUserRow): string =>
 export const principalLabel = (row: DirectoryUserRow): string =>
   typeof row.name === 'string' && row.name.trim().length > 0 ? row.name : UNNAMED_PRINCIPAL_LABEL
 
-export const personNodes = (
-  rows: readonly DirectoryUserRow[]
-): readonly AdminOrganisationGraphNode[] =>
+export const personNodes = (rows: readonly DirectoryUserRow[]): readonly ProjectedNode[] =>
   rows.map((row) => ({
     id: personNodeId(row.id),
     kind: 'person' as const,
@@ -439,7 +433,7 @@ export const roleNodes = (
   app: App,
   principals: readonly DirectoryUserRow[],
   edges: readonly AdminOrganisationGraphEdge[]
-): readonly AdminOrganisationGraphNode[] =>
+): readonly ProjectedNode[] =>
   roleNamesOf(app, principals, edges).map((name) => {
     const level = roleLevel(app, name)
     return {
@@ -454,7 +448,7 @@ export const teamNodes = (
   app: App,
   memberships: readonly OrganizationTeamMembershipRecord[],
   edges: readonly AdminOrganisationGraphEdge[]
-): readonly AdminOrganisationGraphNode[] =>
+): readonly ProjectedNode[] =>
   teamNamesOf(app, memberships, edges).map((name) => {
     const members = memberships.filter((membership) => membership.teamName === name).length
     return {
@@ -477,7 +471,7 @@ export const teamNodes = (
  */
 export const openNodes = (
   edges: readonly AdminOrganisationGraphEdge[]
-): readonly AdminOrganisationGraphNode[] =>
+): readonly ProjectedNode[] =>
   edges.some((edge) => edge.from === OPEN_NODE_ID)
     ? [
         {
@@ -496,7 +490,7 @@ export const openNodes = (
  * truth is a grant: `agent` is the principal that acts, `agent-resource` is the
  * same agent seen as a thing that can be invoked.
  */
-export const agentNodes = (agents: readonly AppAgent[]): readonly AdminOrganisationGraphNode[] =>
+export const agentNodes = (agents: readonly AppAgent[]): readonly ProjectedNode[] =>
   agents.flatMap((agent) => [
     { id: agentNodeId(agent.name), kind: 'agent' as const, label: agent.name, detail: agent.role },
     {
@@ -562,7 +556,7 @@ const automationState = (
 export const automationNodes = (
   automations: readonly AppAutomation[],
   paused: ReadonlySet<string> | undefined
-): readonly AdminOrganisationGraphNode[] =>
+): readonly ProjectedNode[] =>
   automations.flatMap((automation) => [
     {
       id: automationNodeId(automation.name),

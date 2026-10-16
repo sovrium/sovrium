@@ -6,9 +6,11 @@
  */
 
 import { type CSSProperties, type ReactElement } from 'react'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { resolveClasses } from '../../design/resolve-classes'
 import {
   computeSidebarBoxClasses,
+  computeSidebarDrawerSeparatorClasses,
   computeSidebarRailBoxClasses,
   type SidebarRailBreakpoint,
 } from '../../design/sidebar-default-classes'
@@ -153,7 +155,15 @@ export const renderSidebarComponent: ComponentRenderer = ({
     props: { ...sidebarBoxProps(boxProps, railBelow, drawerBelow, keys) },
     content: content,
     children: [
-      framed(surface, drawer, translate, isShell(keys) ? keys : undefined),
+      framed(
+        surface,
+        drawer,
+        {
+          translate,
+          closeLabel: resolveInterpreterString('sidebar.drawerClose', currentLang, languages),
+        },
+        isShell(keys) ? keys : undefined
+      ),
       ...renderFoldControls(keys, translate),
     ],
     interactions: interactions,
@@ -176,7 +186,7 @@ const cornerOffset = (shell: SidebarKeys & SidebarShellKeys): CSSProperties | un
 const framed = (
   surface: ReactElement,
   drawer: SidebarKeys['drawer'],
-  translate: (text: string) => string,
+  words: { readonly translate: (text: string) => string; readonly closeLabel: string },
   shell: (SidebarKeys & SidebarShellKeys) | undefined
 ): ReactElement =>
   drawer?.below === undefined ? (
@@ -185,7 +195,8 @@ const framed = (
     <SidebarDrawerFrame
       key="sidebar-drawer"
       below={drawer.below}
-      label={translate(drawer.label ?? 'Menu')}
+      label={words.translate(drawer.label ?? 'Menu')}
+      closeLabel={words.closeLabel}
       triggerClassName={shell ? computeSidebarShellDrawerTriggerClasses() : undefined}
       triggerStyle={shell ? cornerOffset(shell) : undefined}
     >
@@ -224,6 +235,11 @@ const renderSurface = (
         data-slot="sidebar-footer"
         className={computeSidebarFooterClasses()}
       >
+        <div
+          role="separator"
+          data-slot="sidebar-separator"
+          className={computeSidebarDrawerSeparatorClasses()}
+        />
         {footer}
       </div>
     )}

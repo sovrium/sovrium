@@ -24,6 +24,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { useAgentConversationString as useWord } from './admin-agent-conversations-strings'
 
 /** The action shape returned by the chat endpoint (`chatActionSchema`). */
 export interface ChatTurnAction {
@@ -82,21 +83,49 @@ function ActionIcon({ type }: { readonly type: ChatTurnAction['type'] }): ReactE
   )
 }
 
-/** The headline for an action — what happened, in the operator's terms. */
-function actionTitle(action: ChatTurnAction): string {
-  const where = action.table ?? 'the table'
+/** One of the trail's words: the page's (`agentConversations.<key>`), else the English. */
+type Word = (key: string, english: string) => string
+
+/** The headline for an action — what happened, in the operator's terms and the page language. */
+function actionTitle(action: ChatTurnAction, word: Word): string {
+  const where = action.table ?? word('theTable', 'the table')
+  const fill = (key: string, english: string) => word(key, english).split('{table}').join(where)
   switch (action.type) {
     case 'query':
-      return action.table ? `Queried ${where}` : 'Queried records'
+      return action.table
+        ? fill('queried', 'Queried {table}')
+        : word('queriedRecords', 'Queried records')
     case 'create':
-      return `Created a record in ${where}`
+      return fill('created', 'Created a record in {table}')
     case 'update':
-      return `Updated a record in ${where}`
+      return fill('updated', 'Updated a record in {table}')
     case 'delete':
-      return `Deleted a record from ${where}`
+      return fill('deleted', 'Deleted a record from {table}')
     case 'automation':
-      return `Ran ${action.name ?? 'an automation'}`
+      return word('ran', 'Ran {name}')
+        .split('{name}')
+        .join(action.name ?? word('anAutomation', 'an automation'))
   }
+}
+
+/** The trail's words, read once per card: each key the operator may see. */
+function useTrailWord(): Word {
+  const words: Readonly<Record<string, string>> = {
+    theTable: useWord('theTable', 'the table'),
+    queried: useWord('queried', 'Queried {table}'),
+    queriedRecords: useWord('queriedRecords', 'Queried records'),
+    created: useWord('created', 'Created a record in {table}'),
+    updated: useWord('updated', 'Updated a record in {table}'),
+    deleted: useWord('deleted', 'Deleted a record from {table}'),
+    ran: useWord('ran', 'Ran {name}'),
+    anAutomation: useWord('anAutomation', 'an automation'),
+    statusSuccess: useWord('statusSuccess', 'Success'),
+    statusFailed: useWord('statusFailed', 'Failed'),
+    statusRunning: useWord('statusRunning', 'Running'),
+    run: useWord('run', 'run {id}'),
+    runLog: useWord('runLog', 'Open Automations to read the run log.'),
+  }
+  return (key, english) => words[key] ?? english
 }
 
 /**
@@ -105,10 +134,10 @@ function actionTitle(action: ChatTurnAction): string {
  * operator reads the same word here and on `/_admin/automations`. One term per
  * concept — `completed` in the payload is "Success" everywhere a human looks.
  */
-const RUN_STATUS_LABEL: Readonly<Record<NonNullable<ChatTurnAction['status']>, string>> = {
-  completed: 'Success',
-  failed: 'Failed',
-  running: 'Running',
+const RUN_STATUS_KEY: Readonly<Record<NonNullable<ChatTurnAction['status']>, string>> = {
+  completed: 'statusSuccess',
+  failed: 'statusFailed',
+  running: 'statusRunning',
 }
 
 /**
@@ -118,8 +147,10 @@ const RUN_STATUS_LABEL: Readonly<Record<NonNullable<ChatTurnAction['status']>, s
  */
 function AutomationStatus({
   action,
+  word,
 }: {
   readonly action: ChatTurnAction
+  readonly word: Word
 }): ReactElement | undefined {
   if (action.type !== 'automation' || action.status === undefined) return undefined
   const failed = action.status === 'failed'
@@ -128,14 +159,18 @@ function AutomationStatus({
   return (
     <p className={`flex flex-wrap items-center gap-2 text-sm ${tone}`}>
       <span>
-        {RUN_STATUS_LABEL[action.status]}
+        {word(RUN_STATUS_KEY[action.status], action.status)}
         {duration}
       </span>
       {action.runId ? (
-        <span className="text-foreground-subtle font-mono">run {action.runId}</span>
+        <span className="text-foreground-subtle font-mono">
+          {word('run', 'run {id}').split('{id}').join(action.runId)}
+        </span>
       ) : undefined}
       {failed ? (
-        <span className="text-muted-foreground">Open Automations to read the run log.</span>
+        <span className="text-muted-foreground">
+          {word('runLog', 'Open Automations to read the run log.')}
+        </span>
       ) : undefined}
     </p>
   )
@@ -143,15 +178,19 @@ function AutomationStatus({
 
 /** One action card. */
 function ActionCard({ action }: { readonly action: ChatTurnAction }): ReactElement {
+  const word = useTrailWord()
   return (
     <li className="border-border bg-muted flex items-start gap-3 rounded-md border px-3 py-2">
       <span className="text-foreground-subtle mt-1">
         <ActionIcon type={action.type} />
       </span>
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="text-foreground text-sm font-medium">{actionTitle(action)}</p>
+        <p className="text-foreground text-sm font-medium">{actionTitle(action, word)}</p>
         <p className="text-muted-foreground text-sm leading-relaxed">{action.description}</p>
-        <AutomationStatus action={action} />
+        <AutomationStatus
+          action={action}
+          word={word}
+        />
       </div>
     </li>
   )
@@ -166,10 +205,11 @@ export function ChatTurnActions({
 }: {
   readonly actions: ReadonlyArray<ChatTurnAction>
 }): ReactElement | undefined {
+  const label = useWord('actionsTaken', 'Actions taken')
   if (actions.length === 0) return undefined
   return (
     <ul
-      aria-label="Actions taken"
+      aria-label={label}
       className="mt-2 flex flex-col gap-2"
     >
       {actions.map((action, index) => (

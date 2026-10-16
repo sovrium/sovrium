@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback } from 'react'
+import { useCallback, type ReactNode } from 'react'
 import {
   computeTablePagerButtonClasses,
   computeTablePagerClasses,
@@ -26,6 +26,20 @@ interface PaginationControlsProps {
    * WHERE the pager is placed is `GridBody`'s call, not this one's.
    */
   readonly position?: 'top' | 'bottom'
+  /**
+   * What takes the bar's LEFT half instead of the range summary — the selection,
+   * once rows are checked. Absent, the summary says where in the list the
+   * reader is.
+   */
+  readonly leading?: ReactNode
+  /** The reader's session controls, first in the right half. */
+  readonly trailing?: ReactNode
+  /**
+   * The page-size select and the steps. Off on a bar drawn for a grid that does
+   * not number its pages — one that only selects — which keeps the bar for
+   * its selection and its session controls.
+   */
+  readonly paged?: boolean
 }
 
 function PageSizeSelect({
@@ -68,16 +82,19 @@ function usePagerLabels(input: {
   readonly pageSize: number
   readonly pageCount: number
   readonly total: number
+  readonly paged: boolean
 }) {
-  const { pageIndex, pageSize, pageCount, total } = input
+  const { pageIndex, pageSize, pageCount, total, paged } = input
   const range = useGridString('datatable.pagination.range', '{from}–{to} of {total}', {
     from: pageIndex * pageSize + 1,
     to: Math.min((pageIndex + 1) * pageSize, total),
     total,
   })
   const noResults = useGridString('datatable.pagination.empty', 'No results')
+  // A bar that numbers no pages counts the rows instead of a range of them.
+  const count = useGridString('sharedFilter.resultCount', '{count} records', { count: total })
   return {
-    summary: total > 0 ? range : noResults,
+    summary: paged ? (total > 0 ? range : noResults) : count,
     page: useGridString('datatable.pagination.page', 'Page {page} of {count}', {
       page: pageIndex + 1,
       count: pageCount || 1,
@@ -161,7 +178,7 @@ function PagerSteps({
  * and the four steps are wider than the bar, and the last step was clipped.
  */
 export function PaginationControls(props: PaginationControlsProps) {
-  const { table, total, pageSizeOptions, position = 'bottom' } = props
+  const { table, total, pageSizeOptions, position = 'bottom', paged = true } = props
   const { pageIndex, pageSize } = table.state.pagination
   const pageCount = table.getPageCount()
 
@@ -170,7 +187,7 @@ export function PaginationControls(props: PaginationControlsProps) {
     [table]
   )
 
-  const labels = usePagerLabels({ pageIndex, pageSize, pageCount, total })
+  const labels = usePagerLabels({ pageIndex, pageSize, pageCount, total, paged })
 
   return (
     <nav
@@ -179,19 +196,22 @@ export function PaginationControls(props: PaginationControlsProps) {
       data-pagination
       className={`${computeTablePagerClasses({ position })} flex-wrap justify-between gap-y-1`}
     >
-      <span className="whitespace-nowrap">{labels.summary}</span>
+      {props.leading ?? <span className="whitespace-nowrap">{labels.summary}</span>}
       <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
-        {pageSizeOptions && pageSizeOptions.length > 0 && (
+        {props.trailing}
+        {paged && pageSizeOptions && pageSizeOptions.length > 0 && (
           <PageSizeSelect
             pageSize={pageSize}
             pageSizeOptions={pageSizeOptions}
             onChange={onPageSizeChange}
           />
         )}
-        <PagerSteps
-          table={table}
-          labels={labels}
-        />
+        {paged && (
+          <PagerSteps
+            table={table}
+            labels={labels}
+          />
+        )}
       </div>
     </nav>
   )

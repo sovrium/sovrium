@@ -6,12 +6,13 @@
  */
 
 import { Schema } from 'effect'
-import { SharedFilterPublisherSchema } from '../../data-source'
+import { SharedFilterPublisherSchema } from '../../data-source-publishers'
 import { OptionsSchema } from '../../form-controls'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
 import { visibilityFields } from '../modules/visibility'
 import { SelectOptionSourceBindingSchema } from './select-option-source'
+import { SelectOptionsFromSchema } from './select-options-from'
 
 export const SelectTypeLiteral = Schema.Literal('select')
 
@@ -41,6 +42,17 @@ export const selectFields = {
    * reaches the client bundle.
    */
   dataSource: Schema.optional(SelectOptionSourceBindingSchema),
+  /**
+   * Take the options a table FIELD declares — a `status` or `single-select`
+   * field's own choices, in their declared order — instead of writing them out.
+   *
+   * Not a third member of `dataSource`: both members of that binding read ROWS,
+   * and a field's option list is not rows (see `select-options-from.ts`).
+   * Exclusive with `options` and with `dataSource`, each of which answers the
+   * same question. `table` may be `$param.<segment>`, so a facet can follow the
+   * table a route-bound page names.
+   */
+  optionsFrom: Schema.optional(SelectOptionsFromSchema),
   /**
    * Publish this select's current value on a shared-filter channel.
    *

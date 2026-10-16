@@ -105,6 +105,8 @@ interface AiChatProps {
   readonly suggestions: ReadonlyArray<string> | undefined
   /** Push-to-talk settings, when the author declared `voiceInput` on the component. */
   readonly voiceInput: VoiceInputProps | undefined
+  /** The URL parameter the composer opens with, read in the browser before mount. */
+  readonly draftParam: string | undefined
   readonly testId: string
   /** The engine-written notices, in the document's language. */
   readonly labels: AiChatLabels
@@ -275,13 +277,14 @@ const resolveAiChatProps = ({
 }: AiChatPropsSource): AiChatProps => {
   const props = rawProps ?? {}
   const agent = readChatOption(component, props, 'agent') as string | undefined
-  const labels = getAiChatLabels(currentLang)
+  const labels = getAiChatLabels(currentLang, languages)
   const { placeholder, chatHeight } = readSizing(component, props, labels)
   const showHistory = readChatOption(component, props, 'showHistory') as boolean | undefined
   const { declaredAttachments, allowAttachments, uploads } = readAttachmentOptions(component, props)
   const allowedTables = props.allowedTables as ReadonlyArray<string> | undefined
   const suggestions = resolveSuggestions(props.suggestions, currentLang, languages)
   const voiceInput = readVoiceInput(component)
+  const { draftParam } = (component ?? {}) as { readonly draftParam?: string }
   const testId = (elementProps['data-testid'] as string | undefined) ?? 'ai-chat'
   return {
     agent,
@@ -291,6 +294,7 @@ const resolveAiChatProps = ({
     allowedTables,
     suggestions,
     voiceInput,
+    draftParam,
     testId,
     labels,
     islandPropsJson: JSON.stringify({

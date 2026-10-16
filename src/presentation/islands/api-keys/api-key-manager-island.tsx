@@ -36,6 +36,7 @@ import { createApiKey, fetchApiKeys, revokeApiKey, type ApiKeySummary } from './
 import { ApiKeyCreate } from './api-key-create'
 import { ApiKeyList, RevokeGate } from './api-key-list'
 import { ApiKeyReveal } from './api-key-reveal'
+import { ApiKeyStringsContext, useApiKeyWord as useWord } from './api-key-strings'
 import type { ReactElement } from 'react'
 
 /** Load state, kept explicit so a failed read says so instead of reading as "no keys". */
@@ -128,8 +129,10 @@ function useApiKeys(): ApiKeysState {
 
 /** What the list area says while it cannot show the list: still reading, or the read failed. */
 function LoadNotice({ load }: { readonly load: LoadState }): ReactElement | undefined {
+  const loading = useWord('loading', 'Loading your keys…')
+  const failed = useWord('loadFailed', 'Could not load your API keys. Reload to try again.')
   if (load === 'loading') {
-    return <p className={computeFieldDescriptionClasses()}>Loading your keys…</p>
+    return <p className={computeFieldDescriptionClasses()}>{loading}</p>
   }
   if (load !== 'failed') return undefined
   return (
@@ -137,12 +140,30 @@ function LoadNotice({ load }: { readonly load: LoadState }): ReactElement | unde
       role="alert"
       className={computeFieldErrorClasses()}
     >
-      Could not load your API keys. Reload to try again.
+      {failed}
     </p>
   )
 }
 
-export default function ApiKeyManagerIsland(): ReactElement {
+/**
+ * The manager, its words in the page language: the console mounts it from a
+ * plain container, which merges them in (`withRawIslandUiStrings`).
+ */
+export default function ApiKeyManagerIsland({
+  uiStrings = NO_WORDS,
+}: {
+  readonly uiStrings?: Readonly<Record<string, string>>
+}): ReactElement {
+  return (
+    <ApiKeyStringsContext.Provider value={uiStrings}>
+      <ApiKeyManager />
+    </ApiKeyStringsContext.Provider>
+  )
+}
+
+const NO_WORDS: Readonly<Record<string, string>> = {}
+
+function ApiKeyManager(): ReactElement {
   const { keys, load, create, revoke, revoking } = useApiKeys()
   const [revealed, setRevealed] = useState('')
   const [pendingRevoke, setPendingRevoke] = useState<ApiKeySummary | undefined>(undefined)

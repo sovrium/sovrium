@@ -6,7 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { createRecordsClient } from '@/presentation/api/client'
+import { createRecordsClient } from '@/presentation/islands/runtime/rpc-client'
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
 import { useLiveRefresh } from '../hooks/use-realtime-subscription'
 import { buildFilterParam, type ChartRecordsDataSource } from './use-chart-records'

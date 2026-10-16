@@ -27,6 +27,7 @@
 import {
   formatDurationValue,
   type DurationDisplayFormat,
+  type DurationInputUnit,
 } from '../../../kernel/format/duration-format'
 import { usableLocale } from '../../../kernel/format/usable-locale'
 import { RECORD_TEXT_KEY } from '../pages/substitute-record-vars'
@@ -43,6 +44,8 @@ interface CellTextField {
   readonly timeZone?: string
   /** A `datetime`'s words between its date and its time, as the server writes them. */
   readonly glue?: string
+  /** The unit a `duration` column format reads a number in (seconds on a duration field). */
+  readonly durationUnit?: DurationInputUnit
 }
 
 /** A `percentage` field: the stored 0–100 value with `%`, at the field's precision. */
@@ -58,9 +61,15 @@ interface OptionTextField {
   readonly labels: Readonly<Record<string, string>>
 }
 
-/** A `duration` field: its stored seconds (or interval text) in its display format. */
+/**
+ * A `duration` field read by its type, with no column format named: its stored
+ * seconds (or interval text) in the field's own clock preset (`1:30`). Named
+ * `duration-clock`, not `duration`, because `duration` is also a column format
+ * — the compact elapsed readout (`2 min 18 s`) — and the two must not share a
+ * discriminant.
+ */
 interface DurationTextField {
-  readonly format: 'duration'
+  readonly format: 'duration-clock'
   readonly displayFormat?: DurationDisplayFormat
 }
 
@@ -122,12 +131,12 @@ const isCellField = (field: RecordTextField): field is CellTextField =>
   field.format !== 'percent' &&
   field.format !== 'option' &&
   field.format !== 'options' &&
-  field.format !== 'duration'
+  field.format !== 'duration-clock'
 
 /** A value in one of the formats only a sentence reads (a percentage, an option, a duration). */
 const formatOwn = (value: unknown, field: OwnTextField, tag: string): string => {
   if (field.format === 'percent') return formatPercent(value, field.precision, tag)
-  if (field.format === 'duration') {
+  if (field.format === 'duration-clock') {
     return formatDurationValue(value, field.displayFormat) ?? String(value)
   }
   return field.format === 'options'
@@ -148,6 +157,7 @@ const formatCell = (
         ...(field.currency === undefined ? {} : { currency: field.currency }),
         ...(field.timeZone === undefined ? {} : { timeZone: field.timeZone }),
         ...(now === undefined ? {} : { now }),
+        ...(field.durationUnit === undefined ? {} : { durationUnit: field.durationUnit }),
       })
 
 /**

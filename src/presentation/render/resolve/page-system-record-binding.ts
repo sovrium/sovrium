@@ -64,6 +64,7 @@ import { markAddressedDialogs } from '@/presentation/render/resolve/overlay-trig
 import {
   autoBindCommentComponents,
   injectRecordIntoNestedSingleMode,
+  substituteRecordInMeta,
 } from '@/presentation/render/resolve/page-collection-resolver'
 import { pageRecordScope } from '@/presentation/render/resolve/record-repeat-expansion'
 import { filterChildrenForRecord } from '@/presentation/render/resolve/record-visibility'
@@ -322,7 +323,12 @@ export async function applyPageLevelRecordBinding(
     }
     const record = pageRecordOf(bound.record, ds.table, readers.recordText)
     const components = substitutePageComponents(bound.tree, record, ds.table)
-    return { kind: 'page', page: { ...page, components: bindComments(components, record, ds) } }
+    // The tab and the description name the record, as a collection page's do.
+    const meta = substituteRecordInMeta(page.meta, record)
+    return {
+      kind: 'page',
+      page: { ...page, meta, components: bindComments(components, record, ds) },
+    }
   }
   return { kind: 'page', page }
 }

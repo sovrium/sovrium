@@ -44,6 +44,7 @@ import { expandMatchedPageReferences } from '@/presentation/render/resolve/compo
 import { stampTemplateIslands } from '@/presentation/render/resolve/data-source-rows'
 import { resolveDerivedBreadcrumbs } from '@/presentation/render/resolve/derived-breadcrumb-resolver'
 import { routeParamsAreServed } from '@/presentation/render/resolve/route-param-allow-list-resolver'
+import { stampChannelControls } from '@/presentation/render/resolve/shared-channel-controls'
 import { resolveSidebarCurrentEntries } from '@/presentation/render/resolve/sidebar-current-resolver'
 import { resolvePageSidebar } from '@/presentation/render/resolve/sidebar-resolver'
 import { resolveSidebarScopedEntries } from '../resolve/sidebar-scope-resolver'
@@ -288,14 +289,14 @@ export async function renderPageByPath(
   // G3 additionally takes the RAW request query — undefaulted, straight off
   // `c.req.query()`. An entry whose href declares `?category=…` is current only
   // when the reader actually carries it, so a page's `query` DEFAULTS must not
-  // reach this pass or every filter row would mark itself on the unfiltered
-  // page. G2b needs none of it: `showWhen.section` is a path.
+  // reach this pass or every filter row would mark itself on the unfiltered page.
   const page: Page = rootRelativeFavicons(
     resolveSidebarCurrentEntries(
       resolveSidebarScopedEntries(
         resolveDerivedBreadcrumbs(resolvedPage, path, basePath),
         path,
-        basePath
+        basePath,
+        { session, app, granted: callerCapabilities }
       ),
       path,
       basePath,
@@ -337,9 +338,8 @@ export async function renderPageByPath(
     ),
   ])
 
-  // A contentDir page whose requested slug has no
-  // backing markdown file (in an existing collection directory) is a genuine
-  // not-found — return undefined so the caller renders the 404 not-found page
+  // A contentDir page whose requested slug has no backing markdown file (in an
+  // existing collection directory) is a genuine not-found — return undefined so the caller renders the 404 not-found page
   // instead of an empty 200 article shell. Checked AFTER the parallel resolve
   // (instead of as a pre-flight read) so the hot path reads the article file
   // once; the discriminator only re-reads on the rare no-payload branch, and
@@ -351,7 +351,7 @@ export async function renderPageByPath(
     return undefined
   const pageHtml = renderPageHtml({
     app,
-    page: { ...page, components: highlightedComponents },
+    page: stampChannelControls({ ...page, components: highlightedComponents }),
     appComponents: highlightedTemplates,
     routeParams,
     detectedLanguage,

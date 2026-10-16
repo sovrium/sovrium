@@ -173,6 +173,30 @@ const withRecordedVersion = (rendered: string, onDisk: string): string => {
     : [`${head}${recorded}`, ...rest].join('\n')
 }
 
+/** A YAML fragment's comment lines: its provenance header and any the author added. */
+const commentsOf = (text: string): string =>
+  text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('#'))
+    .join('\n')
+
+/**
+ * Whether two fragments are the same install: the same bytes, or — for YAML —
+ * the same comment lines and the same value, so a file a formatter re-quoted or
+ * re-wrapped (Prettier over a template's `library/`) is not taken for an edit.
+ * A TypeScript fragment is compared byte for byte; a YAML one that does not parse differs.
+ */
+const sameFragment = (onDisk: string, rendered: string): boolean => {
+  if (onDisk === rendered) return true
+  if (!onDisk.startsWith('#') || commentsOf(onDisk) !== commentsOf(rendered)) return false
+  try {
+    return Bun.deepEquals(Bun.YAML.parse(onDisk), Bun.YAML.parse(rendered), true)
+  } catch {
+    return false
+  }
+}
+
 /** What re-adding a fragment is judged from. */
 interface ReinstallInput {
   readonly entry: LibraryEntry
@@ -214,11 +238,11 @@ const priorOf = (
 export const reinstallOf = (input: ReinstallInput): Reinstall => {
   const { onDisk } = input
   if (onDisk === undefined) return { kind: 'new' }
-  if (onDisk === input.content) return { kind: 'same' }
+  if (sameFragment(onDisk, input.content)) return { kind: 'same' }
   const { prior, recordParams, against } = priorOf(input, onDisk)
   if (
     prior === undefined ||
-    withRecordedVersion(input.render(prior, recordParams), onDisk) !== onDisk
+    !sameFragment(onDisk, withRecordedVersion(input.render(prior, recordParams), onDisk))
   ) {
     return { kind: 'edited', against }
   }
@@ -273,7 +297,7 @@ export const placementOf = (
   replaceWith: string | undefined
 ): ReturnType<typeof rewriteOf> & { readonly replaced?: Replaced } => {
   if (replaceWith !== undefined && onDisk !== undefined) {
-    if (onDisk === content) return { present: true }
+    if (sameFragment(onDisk, content)) return { present: true }
     const from = installedVersionOf(onDisk)
     return {
       present: false,

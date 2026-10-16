@@ -35,8 +35,13 @@ export const BREADCRUMB_LIST_CLASSES =
 /** One crumb's `<li>`. */
 export const BREADCRUMB_ITEM_CLASSES = 'inline-flex items-center gap-1'
 
-/** A prior crumb's `<a>`. */
-export const BREADCRUMB_LINK_CLASSES = 'transition-colors hover:text-foreground'
+/**
+ * A prior crumb's `<a>`. Its muted ink is spelled out where base-nova lets it
+ * inherit from the list: the base layer paints a bare link in the app's primary
+ * colour, which an inherited ink loses to.
+ */
+export const BREADCRUMB_LINK_CLASSES =
+  'text-muted-foreground transition-colors hover:text-foreground'
 
 /** The current crumb's `<span aria-current="page">`. */
 export const BREADCRUMB_PAGE_CLASSES = 'font-normal text-foreground'

@@ -11,6 +11,6 @@ submitTo:
 antiSpam:
   honeypot: true
 fields:
-  - { kind: table-field, column: name, required: true, label: Name }
-  - { kind: table-field, column: email, required: true, label: Email }
+  - { kind: table-field, column: name, required: true, label: Name, autocomplete: name }
+  - { kind: table-field, column: email, required: true, label: Email, autocomplete: email }
   - { kind: table-field, column: message, required: true, label: Message }

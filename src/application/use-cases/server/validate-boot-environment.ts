@@ -40,6 +40,7 @@ import {
   parseSovriumNotifyTo,
 } from '@/domain/models/process-env/notifications'
 import { parseRateLimitWindowSeconds } from '@/domain/models/process-env/rate-limit-window'
+import { parseRecordsRateLimits } from '@/domain/models/process-env/records-rate-limits'
 import { parseRendererEnv } from '@/domain/models/process-env/renderer'
 import {
   parseSovriumBindHost,
@@ -156,6 +157,7 @@ export const validateBootEnvironment = (
           parseSovriumAutomationRunRetentionDays(process.env),
           parseApiIpRateLimit(process.env),
           parseRateLimitWindowSeconds(process.env),
+          parseRecordsRateLimits(process.env),
           parseSovriumDevClock(process.env),
           parseEmailTransport(process.env),
           parseSovriumBundlePublicKeys(process.env),

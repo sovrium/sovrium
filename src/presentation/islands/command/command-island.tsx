@@ -10,16 +10,17 @@
  * (`parts/command-primitives`, shadcn's `command` over cmdk) inside a Base UI
  * dialog.
  *
- * Three modes: AUTHORED when the host carries declared `groups`
- * (`command-groups.tsx`), else decided by whether it declared an `endpoint`:
+ * Three modes, decided by whether the host declared an `endpoint`, else
+ * `groups` (AUTHORED, `command-groups.tsx`), else neither:
  *
  *  - SEARCH: typing (debounced) queries the declared endpoint and lists the
- *    matches grouped by kind; choosing one navigates to it through the SPA
- *    content-swap path. The console's global search is this mode.
- *  - BUILT-IN: the app's quick actions ("Create new record in <table>",
- *    "Go to <page>", "Toggle dark mode") from the page's
- *    `[data-command-palette-config]` block, and, once the query is long
- *    enough, the pages and records `GET /api/command-search` matches.
+ *    matches grouped by kind, below any declared `groups`; choosing one
+ *    navigates to it through the SPA content-swap path. The console's global
+ *    search is this mode.
+ *  - BUILT-IN (`command-built-in-palette.tsx`): the app's quick actions
+ *    ("Create new record in <table>", "Go to <page>", "Toggle dark mode") from
+ *    the page's `[data-command-palette-config]` block, and, once the query is
+ *    long enough, the pages and records `GET /api/command-search` matches.
  *
  * The list's own filtering is off in both modes: search results arrive
  * already chosen by the server, and the built-in quick actions keep their
@@ -33,11 +34,11 @@ import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { consoleHref } from '@/presentation/islands/runtime/mount-base-path'
 import { requestSpaNavigation } from '../navigation/spa-nav-request'
 import { Command, CommandDialog, CommandInput, CommandList } from '../parts/command-primitives'
-import { renderToast } from '../runtime/toast'
-import { BuiltInActions } from './command-actions'
 import { readPaletteConfig, type PaletteConfig } from './command-actions-data'
+import { BuiltInPalette } from './command-built-in-palette'
 import { CreateRecordDialog } from './command-create-dialog'
-import { GroupsPalette, type AuthoredCommandGroup } from './command-groups'
+import { GroupsPalette, SearchedGroups, type AuthoredCommandGroup } from './command-groups'
+import { CommandHints, type CommandHintWords } from './command-hints'
 import { SearchResults } from './command-search-results'
 import { useAdminSearch, useOpenIntent } from './use-command-search'
 
@@ -49,28 +50,33 @@ interface CommandIslandProps {
   readonly placeholder?: string
   /** Group heading per result kind. */
   readonly kindLabels?: Readonly<Record<string, string>>
-  /** AUTHORED mode: the groups the page declared, in place of the built-in quick actions. */
+  /** The groups the page declared: in place of the quick actions, or above the search results. */
   readonly groups?: readonly AuthoredCommandGroup[]
+  /** The keyboard-hint footer's words, in the page language. */
+  readonly hints?: CommandHintWords
+  /** SEARCH mode: each table's plural label by its name, naming a record row's table. */
+  readonly tableLabels?: Readonly<Record<string, string>>
 }
 
-/** Flip the page between light and dark, and say which it is now. */
-function toggleDarkMode(): void {
-  const root = document.documentElement
-  const enable = !root.classList.contains('dark')
-  root.classList.toggle('dark', enable)
-  renderToast(enable ? 'Dark mode enabled' : 'Light mode enabled')
-}
+/** A search palette declaring no groups draws none above its results. */
+const NO_GROUPS: readonly AuthoredCommandGroup[] = []
 
 /** The SEARCH mode: an endpoint-backed search with its three calm states. */
 function SearchPalette({
   endpoint,
   placeholder,
   kindLabels,
+  tableLabels,
+  groups,
+  hints,
   close,
 }: {
   readonly endpoint: string
+  readonly groups: readonly AuthoredCommandGroup[] | undefined
   readonly placeholder: string
   readonly kindLabels: Readonly<Record<string, string>> | undefined
+  readonly tableLabels: Readonly<Record<string, string>> | undefined
+  readonly hints: CommandHintWords | undefined
   readonly close: () => void
 }): ReactElement {
   const [query, setQuery] = useState('')
@@ -78,10 +84,11 @@ function SearchPalette({
   const onSelect = useCallback(
     (href: string) => {
       close()
-      // Search hrefs are persisted as console-root paths, so they are re-pointed
-      // at whichever mount serves this document, here at the one place a hit is
-      // navigated to. The nav island falls back to a full navigation itself.
-      requestSpaNavigation(consoleHref(href))
+      // A console-root path, re-pointed at whichever mount serves this document.
+      const target = consoleHref(href)
+      if (requestSpaNavigation(target)) return
+      const safe = toSafeRedirectPath(target)
+      if (safe !== undefined) window.location.assign(safe)
     },
     [close]
   )
@@ -94,70 +101,73 @@ function SearchPalette({
         aria-label={placeholder}
       />
       <CommandList>
+        <SearchedGroups
+          groups={groups ?? NO_GROUPS}
+          query={query}
+          narrow
+          close={close}
+        />
         <SearchResults
           query={query}
           search={search}
           kindLabels={kindLabels}
+          tableLabels={tableLabels}
+          words={hints}
           onSelect={onSelect}
         />
       </CommandList>
-      <p className="text-muted-foreground border-t px-3 py-2 text-xs">Esc to close</p>
+      <CommandHints words={hints} />
     </Command>
   )
 }
 
-/** The BUILT-IN mode: quick actions and the content matches. */
-function BuiltInPalette({
+/** The palette's body in the mode its host declared: authored, search or built-in. */
+function PaletteBody({
+  host,
   config,
   close,
   onCreate,
 }: {
-  readonly config: PaletteConfig
+  readonly host: CommandIslandProps
+  readonly config: PaletteConfig | undefined
   readonly close: () => void
   readonly onCreate: (table: string) => void
 }): ReactElement {
-  const [query, setQuery] = useState('')
-  const onActivate = useCallback(
-    (action: string, href: string | undefined) => {
-      close()
-      if (action === 'toggle-dark-mode') {
-        toggleDarkMode()
-      } else if (action.startsWith('create-record:')) {
-        onCreate(action.slice('create-record:'.length))
-      } else {
-        // A page path or a record's detail path, both this instance's own.
-        const target = toSafeRedirectPath(href)
-        if (target !== undefined) window.location.assign(target)
-      }
-    },
-    [close, onCreate]
-  )
-  return (
-    <Command shouldFilter={false}>
-      <CommandInput
-        value={query}
-        onValueChange={setQuery}
-        placeholder="Search…"
-        aria-label="Search"
+  if (host.groups !== undefined && host.endpoint === undefined) {
+    return (
+      <GroupsPalette
+        groups={host.groups}
+        hints={host.hints}
+        close={close}
       />
-      <CommandList>
-        <BuiltInActions
-          config={config}
-          query={query}
-          onActivate={onActivate}
-        />
-      </CommandList>
-    </Command>
+    )
+  }
+  if (config === undefined) {
+    return (
+      <SearchPalette
+        endpoint={host.endpoint ?? ''}
+        placeholder={host.placeholder ?? host.hints?.['searchAll'] ?? 'Search all your data'}
+        kindLabels={host.kindLabels}
+        tableLabels={host.tableLabels}
+        groups={host.groups}
+        hints={host.hints}
+        close={close}
+      />
+    )
+  }
+  return (
+    <BuiltInPalette
+      config={config}
+      hints={host.hints}
+      close={close}
+      onCreate={onCreate}
+    />
   )
 }
 
 /** The ⌘K palette in whichever mode its host declared. */
-export default function CommandIsland({
-  endpoint,
-  placeholder = 'Search all your data',
-  kindLabels,
-  groups,
-}: CommandIslandProps = {}): ReactElement {
+export default function CommandIsland(host: CommandIslandProps): ReactElement {
+  const { endpoint, groups } = host
   const [isOpen, setIsOpen] = useState(false)
   const [creating, setCreating] = useState<string | undefined>(undefined)
   const open = useCallback(() => setIsOpen(true), [])
@@ -176,27 +186,18 @@ export default function CommandIsland({
       <CommandDialog
         open={isOpen}
         onOpenChange={setIsOpen}
-        title={config === undefined ? 'Search' : 'Command palette'}
+        title={
+          config === undefined
+            ? (host.hints?.['search'] ?? 'Search')
+            : (host.hints?.['title'] ?? 'Command palette')
+        }
       >
-        {groups !== undefined ? (
-          <GroupsPalette
-            groups={groups}
-            close={close}
-          />
-        ) : config === undefined ? (
-          <SearchPalette
-            endpoint={endpoint ?? ''}
-            placeholder={placeholder}
-            kindLabels={kindLabels}
-            close={close}
-          />
-        ) : (
-          <BuiltInPalette
-            config={config}
-            close={close}
-            onCreate={setCreating}
-          />
-        )}
+        <PaletteBody
+          host={host}
+          config={config}
+          close={close}
+          onCreate={setCreating}
+        />
       </CommandDialog>
       {config !== undefined && (
         <CreateRecordDialog

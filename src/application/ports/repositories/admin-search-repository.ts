@@ -96,6 +96,10 @@ export class AdminSearchRepository extends Context.Service<
      * users, files, conversations) and upsert one secret-free index row per
      * entity. `extraRows` carries the config-derived connection rows the use
      * case assembled. Idempotent upsert on `(type, entity_id)`.
+     *
+     * Then it deletes what the index no longer produces: every stored row of a
+     * kind outside `producedKinds`, and every stored row of a `configKinds` kind
+     * that `extraRows` does not list (those kinds are listed in full).
      */
     readonly rebuildIndex: (input: {
       readonly tables: ReadonlyArray<{
@@ -103,6 +107,8 @@ export class AdminSearchRepository extends Context.Service<
         readonly textColumns: readonly string[]
       }>
       readonly extraRows: readonly AdminSearchUpsertRow[]
+      readonly producedKinds: readonly AdminSearchEntityType[]
+      readonly configKinds: readonly AdminSearchEntityType[]
     }) => Effect.Effect<void, AdminSearchDatabaseError>
 
     /**

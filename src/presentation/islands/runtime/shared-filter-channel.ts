@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isConditionKey } from '@/domain/models/app/pages/shared-filter-condition-service'
+import { heldContributions } from './shared-filter-held'
 import { withSharedFilter, type SharedRecordsParams } from './shared-filter-param'
 
 /**
@@ -16,10 +18,8 @@ import { withSharedFilter, type SharedRecordsParams } from './shared-filter-para
  * documented once, on `useSharedFilter`.
  */
 
-/** The raw value a publisher last published — a scalar input or a param bag. */
-export type PublishedValue =
-  | { readonly kind: 'scalar'; readonly value: string }
-  | { readonly kind: 'bag'; readonly value: Record<string, string> }
+/** What the channel's publishers last published, merged into one param bag. */
+export type PublishedValue = { readonly kind: 'bag'; readonly value: Record<string, string> }
 
 /** Stable empty reference so an inert subscriber never churns its query key. */
 export const EMPTY_PARAMS: Record<string, string> = {}
@@ -39,15 +39,14 @@ export function selectParams(
   published: PublishedValue,
   params: readonly string[] | undefined
 ): Record<string, string> {
-  if (published.kind === 'scalar') {
-    // A scalar publisher maps its value onto each named param; without params it
-    // has no bag to merge.
-    if (params === undefined || params.length === 0) return EMPTY_PARAMS
-    return Object.fromEntries(params.map((p) => [p, published.value]))
-  }
-  // A bag publisher: pick the declared subset (or the full bag when no params).
+  // Pick the declared subset (or the full bag when no params). A control's
+  // CONDITION is for every subscriber on the channel, so it is kept whatever
+  // subset the subscriber names.
   const bag = published.value
-  const keys = params !== undefined && params.length > 0 ? params : Object.keys(bag)
+  const keys =
+    params !== undefined && params.length > 0
+      ? [...params, ...Object.keys(bag).filter(isConditionKey)]
+      : Object.keys(bag)
   return Object.fromEntries(keys.map((k) => [k, bag[k] ?? ''] as const))
 }
 
@@ -131,12 +130,23 @@ function mergeDomPublisherSeed(
   previous: PublishedValue | undefined,
   bindTo: string
 ): PublishedValue | undefined {
-  const seeded = readDomPublisherContributions(bindTo)
+  // What an island publisher already sent (a value restored from the address
+  // at its mount, before this subscriber listened), then what the DOM holds.
+  const seeded = { ...heldContributions(bindTo), ...readDomPublisherContributions(bindTo) }
   if (Object.keys(seeded).length === 0) return previous
-  return {
+  return { kind: 'bag', value: previous === undefined ? seeded : { ...previous.value, ...seeded } }
+}
+
+type SetPublished = (
+  update: (prev: PublishedValue | undefined) => PublishedValue | undefined
+) => void
+
+/** Merge one contribution over what the channel already holds. */
+function mergeContribution(setPublished: SetPublished, contributed: Record<string, string>): void {
+  setPublished((prev) => ({
     kind: 'bag',
-    value: previous?.kind === 'bag' ? { ...previous.value, ...seeded } : seeded,
-  }
+    value: prev === undefined ? contributed : { ...prev.value, ...contributed },
+  }))
 }
 
 /**
@@ -144,10 +154,7 @@ function mergeDomPublisherSeed(
  * `setPublished`, starting with what a DOM publisher already holds. Returns the
  * function that stops listening.
  */
-export function subscribeSharedFilter(
-  bindTo: string,
-  setPublished: (update: (prev: PublishedValue | undefined) => PublishedValue | undefined) => void
-): () => void {
+export function subscribeSharedFilter(bindTo: string, setPublished: SetPublished): () => void {
   // Param-bag publisher (a multi-param selector island).
   const onSystemQuery = (e: Event): void => {
     const detail = (e as CustomEvent).detail as
@@ -161,37 +168,9 @@ export function subscribeSharedFilter(
     // the same request. A publisher that sends its whole bag every time (the
     // runs filter bar) is unaffected: merging its complete bag over the
     // previous one is the same value.
-    setPublished((prev) => ({
-      kind: 'bag',
-      value: prev?.kind === 'bag' ? { ...prev.value, ...contributed } : contributed,
-    }))
+    mergeContribution(setPublished, contributed)
   }
   document.addEventListener('island:system-query', onSystemQuery)
-
-  // Scalar publisher via the island:search event (a search-input island).
-  const onSearch = (e: Event): void => {
-    const detail = (e as CustomEvent).detail as { query?: string; sourceId?: string } | undefined
-    const query = detail?.query
-    if (query === undefined || detail?.sourceId !== bindTo) return
-    setPublished(() => ({ kind: 'scalar', value: query }))
-  }
-  document.addEventListener('island:search', onSearch)
-
-  // Scalar publisher via the DOM input of a static `search-input` (the channel
-  // the legacy `useBoundQuery` reads): listen for its `input` event directly.
-  const container = document.getElementById(bindTo)
-  const input = container?.querySelector('input') ?? document.querySelector(`#${bindTo} input`)
-  const onInput = (e: Event): void => {
-    const { value } = e.target as HTMLInputElement
-    setPublished(() => ({ kind: 'scalar', value }))
-  }
-  input?.addEventListener('input', onInput)
-  // Capture a value the publisher already holds when this subscriber mounts
-  // (e.g. the input was filled before this lazy island hydrated) so the binding
-  // is robust against the hydration race — without it, an early `input` event
-  // would be missed and the param never forwarded.
-  const held = input instanceof HTMLInputElement ? input.value : ''
-  if (held !== '') setPublished(() => ({ kind: 'scalar', value: held }))
 
   // The same late-join capture for a publisher that HOLDS its contribution in
   // the DOM — an island-less native select (usable from first paint, so it
@@ -203,8 +182,6 @@ export function subscribeSharedFilter(
 
   return () => {
     document.removeEventListener('island:system-query', onSystemQuery)
-    document.removeEventListener('island:search', onSearch)
-    input?.removeEventListener('input', onInput)
   }
 }
 

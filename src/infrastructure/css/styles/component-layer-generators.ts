@@ -59,7 +59,7 @@ import { generateEntranceAnimationCSS } from '@/infrastructure/css/styles/entran
  * inputs were missing: a calm rounded shape (`rounded-md`), comfortable
  * padding + a consistent control height (`px-3 py-2 text-sm leading-tight`),
  * full-width so controls fill their field column, a quiet muted placeholder, a
- * smooth focus transition, a clear focus ring with a tightened border, and a
+ * smooth focus transition, shadcn's one-ring focus with a ring-coloured edge, and a
  * legible disabled state. Color goes through canonical role tokens only —
  * never raw colors — so design overrides win.
  *
@@ -85,16 +85,15 @@ export function buildInputClasses(): string {
     'text-foreground',
     'placeholder:text-foreground-subtle',
     'transition-colors',
+    // shadcn/ui's control focus: the edge takes the ring colour and ONE 3px
+    // ring at half its strength draws around it — no ring offset. An offset
+    // draws a gap in the page colour and a second ring outside it, and this
+    // rule reaches recipe-styled controls too (the recipe paints over it in
+    // the utilities layer but cannot remove an offset it never names), so an
+    // offset here was a second ring around every focused input.
     'focus:border-ring',
-    'focus:ring-2',
-    'focus:ring-ring',
-    'focus:ring-offset-2',
-    // The offset takes the page ground. Left without a colour it falls back to
-    // Tailwind's literal `#fff` — invisible on a light page and a white halo on
-    // a dark one, which reads as a glow around the field rather than as the gap
-    // the offset exists to be. `background` is the scheme-aware role, so one
-    // declaration is right in both schemes.
-    'focus:ring-offset-background',
+    'focus:ring-3',
+    'focus:ring-ring/50',
     'focus:outline-none',
     'disabled:cursor-not-allowed',
     'disabled:opacity-60',
@@ -313,10 +312,30 @@ ${buildFormShellRules()}`
  * @returns CSS @layer components rule as string
  */
 export function generateComponentsLayer(): string {
-  return `@layer components {${buildIconButtonRule()}
+  return `${SCROLL_FADE_KEYFRAMES}
+@layer components {${buildIconButtonRule()}
 ${generateElementRules()}
     }`
 }
+
+/**
+ * The edge fade of a scroll region with more below, as keyframes a region runs
+ * on its OWN scroll timeline (`animation-timeline: scroll(self)`, set by the
+ * recipe that wants it — the sidebar's navigation root).
+ *
+ * Driving the mask from the scroll position is what makes it conditional
+ * without a line of script: a region whose content fits has an INACTIVE
+ * timeline, so the animation applies nothing and the region draws no fade; a
+ * region that overflows draws it from the top, and drops it on reaching the
+ * bottom, where nothing lies beyond. The value is discrete, so it holds until
+ * the last percent of the scroll.
+ *
+ * Named `sv-` because keyframe names are global, not layered.
+ */
+export const SCROLL_FADE_KEYFRAMES = `@keyframes sv-scroll-fade-end {
+      0%, 98% { mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent); }
+      100% { mask-image: none; }
+    }`
 
 /**
  * Generate utilities layer styles
@@ -344,9 +363,23 @@ export function generateUtilitiesLayer(): string {
         text-align: center;
       }
 
-      /* Override Tailwind v4's multi-layer shadow system for shadow-none */
-      .shadow-none {
+      /* Override Tailwind v4's multi-layer shadow system for shadow-none — but
+         never on a control that has keyboard focus: its focus ring is drawn
+         with box-shadow too, and a flat control must still show where focus
+         is (WCAG 2.4.7). On focus, Tailwind's own shadow-none applies, which
+         zeroes the shadow layer and keeps the ring layer. */
+      .shadow-none:not(:focus-visible) {
         box-shadow: none !important;
+      }
+
+      /* A chart (recharts) puts its surface and its pie layer in the tab order;
+         shadcn's chart anatomy hides their outline, so they would take focus
+         invisibly. A focused part draws the ring colour as an outline. */
+      .recharts-surface.recharts-surface:focus-visible,
+      .recharts-layer.recharts-layer:focus-visible,
+      .recharts-sector.recharts-sector:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
       }
 ${buildSelectRules()}
 

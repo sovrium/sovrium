@@ -22,6 +22,7 @@ import { parseProjectDir } from './desktop'
  *       database.db    ← SQLite default (DATABASE_URL overrides)
  *       encryption-key ← per-install root secret (SOVRIUM_ENCRYPTION_KEY overrides)
  *       lock           ← server PID + config hash (SOVRIUM_LOCK_DIR overrides)
+ *       output.css     ← pre-compiled stylesheet from `sovrium build` (SOVRIUM_CSS_FILE overrides)
  *       storage/       ← local file uploads (STORAGE_LOCAL_DIRECTORY overrides)
  *
  * `SOVRIUM_DATA_DIR` overrides the location. Each artifact also keeps its own
@@ -75,6 +76,18 @@ export const defaultLockDir = (): string => parseDataDir()
  * @public
  */
 export const defaultUploadsDir = (): string => path.join(parseDataDir(), 'storage')
+
+/**
+ * Default pre-compiled stylesheet path (`<dataDir>/output.css`): the file
+ * `sovrium build` writes and a production `sovrium start` serves instead of
+ * compiling. It is a build artefact of the config, like the database beside
+ * it, so it follows the data directory rather than the working directory:
+ * a deployment that moves the data directory moves the stylesheet with it,
+ * and `build` and `start` agree on where it is. Overridden by `SOVRIUM_CSS_FILE`.
+ *
+ * @public
+ */
+export const defaultPrecompiledCssPath = (): string => path.join(parseDataDir(), 'output.css')
 
 /**
  * File name of the per-install root secret inside the data dir.

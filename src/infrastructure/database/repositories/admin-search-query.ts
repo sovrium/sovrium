@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import {
   ADMIN_SEARCH_CONTENT_TABLE,
@@ -16,6 +16,17 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 import { entityIdOfIndexRow } from './admin-search-record-key'
 import type { AdminSearchIndexHit } from '@/application/ports/repositories/admin-search-repository'
 import type { AdminSearchEntityType } from '@/domain/models/api/admin/search/search'
+
+/**
+ * The admin-search content table reference for the active dialect.
+ *
+ * Shared by the repository, the prune below and the boot-time purge
+ * (`admin-search-index-purge.ts`), so all three name the SAME relation — the dialect branch must not be
+ * restated in a second place.
+ */
+export const adminSearchContentTableRef = (): SQL =>
+  // sql-literal: identifier -- a module constant naming the search content table
+  isSqliteRuntime() ? sql.raw(ADMIN_SEARCH_CONTENT_TABLE) : sql.raw('system."_admin_search_index"')
 
 /**
  * Build the SQLite FTS5 MATCH expression from a raw query: split into
@@ -81,3 +92,45 @@ const searchPostgres = (query: string): Promise<readonly AdminSearchIndexHit[]> 
  */
 export const searchAdminIndex = (query: string): Promise<readonly AdminSearchIndexHit[]> =>
   isSqliteRuntime() ? searchSqlite(query) : searchPostgres(query)
+
+/** What a rebuild keeps: the kinds it produces, and the config-derived rows it lists in full. */
+export interface AdminSearchPruneInput {
+  readonly producedKinds: readonly AdminSearchEntityType[]
+  readonly configRows: ReadonlyArray<{
+    readonly type: AdminSearchEntityType
+    readonly entityId: string
+  }>
+  readonly configKinds: readonly AdminSearchEntityType[]
+}
+
+/** A parameter-bound `(v1, v2, …)` list (S3); callers guarantee it is non-empty. */
+const boundList = (values: readonly string[]): SQL =>
+  sql.join(
+    values.map((value) => sql`${value}`),
+    sql`, `
+  )
+
+/**
+ * Delete the index rows a rebuild no longer produces: every row of a kind
+ * outside `producedKinds` (a kind an older version indexed, such as the
+ * retired per-type UI-kit pages), and every config-derived row (`configKinds`)
+ * whose entity is not in this rebuild's `configRows` — a connection removed
+ * from the config, a design-system page the app is no longer served.
+ *
+ * The rebuild upserts; without this it never deletes, so such a row would be
+ * served until the next boot purge, and its link answers 404. On SQLite the
+ * content table's `…_ad` trigger drops the row's tokens from the FTS index too.
+ */
+export const pruneAdminIndex = async ({
+  producedKinds,
+  configRows,
+  configKinds,
+}: AdminSearchPruneInput): Promise<void> => {
+  const table = adminSearchContentTableRef()
+  await executeRaw(db, sql`DELETE FROM ${table} WHERE type NOT IN (${boundList(producedKinds)})`)
+  for (const kind of configKinds) {
+    const ids = configRows.filter((row) => row.type === kind).map((row) => row.entityId)
+    const keep = ids.length > 0 ? sql` AND entity_id NOT IN (${boundList(ids)})` : sql``
+    await executeRaw(db, sql`DELETE FROM ${table} WHERE type = ${kind}${keep}`)
+  }
+}

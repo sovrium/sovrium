@@ -14,13 +14,13 @@ import type { RecordEventChannel, StepLogEntry } from '../action-handlers/shared
 import type { TriggerData } from '../resolve-trigger-data'
 import type { StepMetadataMap } from './step-metadata'
 import type { WriteOnlyInheritance } from './write-only-values'
+import type { AuthStepRequirements } from '../action-handlers/auth-grants'
 import type { BrowserStepRequirements } from '../action-handlers/browser-run-scope'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import type { OrganizationTeamRepository } from '@/application/ports/repositories/auth/organization-team-repository'
 import type { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import type { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
@@ -242,7 +242,7 @@ export type StepRequirements =
   | AutomationDigestRepository
   | AutomationApprovalRepository
   | AuthRepository
-  | OrganizationTeamRepository // the `auth` group operators' membership store
+  | AuthStepRequirements // the `auth` group, access-grant and invitation operators' services
   | ConnectionRepository
   | ConnectionTokenRepository
   | SentinelTokens

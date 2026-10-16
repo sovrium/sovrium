@@ -64,15 +64,15 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 
 /** This page's own slug and the noun it carries in the trail and the `h1`. */
 const SLUG = 'voice'
-const TITLE = 'Voice'
+const TITLE = '$t:admin.common.voice'
 
 /** The five sections, in reading order — the rail is derived from this list. */
 const SECTIONS: readonly RailSection[] = [
-  { id: 'voice-principles', title: 'Principles' },
-  { id: 'voice-voice', title: 'Voice' },
-  { id: 'voice-tone', title: 'Tone by moment' },
-  { id: 'voice-in-practice', title: 'In practice' },
-  { id: 'voice-zones', title: 'Voice per zone' },
+  { id: 'voice-principles', title: '$t:admin.ds.voice.principles' },
+  { id: 'voice-voice', title: '$t:admin.common.voice' },
+  { id: 'voice-tone', title: '$t:admin.ds.voice.toneByMoment' },
+  { id: 'voice-in-practice', title: '$t:admin.ds.voice.practice' },
+  { id: 'voice-zones', title: '$t:admin.ds.voice.perZone' },
 ]
 
 /** One family of declared sentences, bound as rows. */
@@ -134,7 +134,7 @@ const verdictColumn = (verdict: 'prefer' | 'avoid'): PageComponent =>
     element: 'div',
     props: { className: 'flex flex-col gap-1.5', 'data-design-voice-verdict': verdict },
     children: [
-      microLabel(verdict === 'prefer' ? 'Prefer' : 'Avoid'),
+      microLabel(verdict === 'prefer' ? '$t:admin.common.prefer' : '$t:admin.ds.voice.avoid'),
       {
         type: 'container',
         element: 'div',
@@ -224,8 +224,8 @@ const voiceSection = (): PageComponent =>
       element: 'div',
       props: { className: 'flex flex-col' },
       children: [
-        labelledRows('Address the reader as', 'voice.pronoun'),
-        labelledRows('Personality', 'voice.personality'),
+        labelledRows('$t:admin.common.addressAs', 'voice.pronoun'),
+        labelledRows('$t:admin.common.personality', 'voice.personality'),
         {
           type: 'container',
           element: 'div',
@@ -338,10 +338,7 @@ const toneSection = (): PageComponent =>
           visibility: { record: { field: 'total', eq: 0 } },
           children: [
             notConfiguredCard({
-              body:
-                'This app declares no tone overrides, so every moment \u2014 empty, loading, ' +
-                'error, success, destructive \u2014 speaks in the voice above. Declare a tone to ' +
-                'set a register per moment.',
+              body: '$t:admin.ds.voice.noTone',
               configKey: 'design.voice.tone',
               href: 'https://sovrium.com/en/docs/design',
             }),
@@ -392,16 +389,8 @@ const inPracticeSection = (): PageComponent =>
           element: 'div',
           props: { className: 'grid gap-4 sm:grid-cols-2' },
           children: [
-            practiceRow(
-              'fact',
-              'Reads as a fact',
-              'Sovrium runs the application. On your own infrastructure.'
-            ),
-            practiceRow(
-              'claim',
-              'Reads as a claim',
-              'Sovrium is the most powerful configuration platform available today.'
-            ),
+            practiceRow('fact', '$t:admin.ds.voice.fact', '$t:admin.ds.voice.factExample'),
+            practiceRow('claim', '$t:admin.ds.voice.claim', '$t:admin.ds.voice.claimExample'),
           ],
         } as PageComponent,
       ],
@@ -457,20 +446,20 @@ const zonesSection = (): PageComponent =>
       props: { className: 'flex flex-col', 'data-testid': 'design-system-zones' },
       children: [
         ledgerTable({
-          props: { 'aria-label': 'Zones', className: 'mb-3' },
+          props: { 'aria-label': '$t:admin.common.zones', className: 'mb-3' },
           dataSource: {
             system: { endpoint: DESIGN_ZONES_ENDPOINT, rowsKey: 'items', idKey: 'pattern' },
           },
           columns: [
-            { field: 'pattern', label: 'Route pattern' },
-            { field: 'zone', label: 'Zone' },
+            { field: 'pattern', label: '$t:admin.common.routePattern' },
+            { field: 'zone', label: '$t:admin.common.zone' },
           ],
-          emptyMessage: 'No zone declared. This app reads in one register.',
+          emptyMessage: '$t:admin.ds.voice.noZone',
         }),
-        labelledRows('Zone addresses the reader as', 'zone.voice.pronoun'),
-        labelledRows('Zone prefers', 'zone.voice.prefer'),
-        labelledRows('Zone avoids', 'zone.voice.avoid'),
-        labelledRows('Zone tone', 'zone.voice.tone'),
+        labelledRows('$t:admin.ds.voice.zoneAddress', 'zone.voice.pronoun'),
+        labelledRows('$t:admin.ds.voice.zonePrefers', 'zone.voice.prefer'),
+        labelledRows('$t:admin.ds.voice.zoneAvoids', 'zone.voice.avoid'),
+        labelledRows('$t:admin.ds.voice.zoneTone', 'zone.voice.tone'),
       ],
     } as PageComponent,
   ])
@@ -480,14 +469,13 @@ const voice: PageConfig = withShell(
     id: 'design-system-voice',
     name: 'design-system-voice',
     path: `/design-system/${SLUG}`,
+    requires: ['design.voice'],
     // The deck is the page's own sentence and runs past the 160-character
     // bound a `meta.description` carries, so the head gets the short form and
     // the reader gets the long one.
     meta: {
-      lang: 'en-US',
       title: TITLE,
-      description:
-        'The rules a writer follows here: what this app believes, how it addresses a reader, and what it refuses to say.',
+      description: '$t:admin.ds.voice.blurb',
     },
     // The ONE scalar no rows binding can answer: how many tone moments this app
     // declared. Every other `$record.` on this page sits under a `dataSource`,

@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
+import { identifyRequester } from '@/application/use-cases/automations/requester-identity'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { holdsRequiredRole } from '@/domain/models/app/automations/manual-trigger-role-service'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
@@ -19,8 +21,8 @@ type WebhookTrigger = Extract<Trigger, { type: 'webhook' }>
 /**
  * Who called a webhook, read from the request's credential — the session the
  * extract-only auth middleware resolved from a session cookie or a user's
- * `x-api-key` — never from the body. `undefined` for an anonymous call, which
- * includes a key nobody minted.
+ * `x-api-key` — never from the body, with the email and the name its account
+ * holds. `undefined` for an anonymous call, which includes a key nobody minted.
  */
 export const resolveWebhookCaller = async (
   c: Context,
@@ -28,8 +30,12 @@ export const resolveWebhookCaller = async (
 ): Promise<TriggerRequester | undefined> => {
   const session = getSessionContext(c)
   if (session === undefined) return undefined
-  const role = await runDomainPromise(c, getUserRole(session.userId, app))
-  return { id: session.userId, role }
+  return runDomainPromise(
+    c,
+    getUserRole(session.userId, app).pipe(
+      Effect.flatMap((role) => identifyRequester({ id: session.userId, role }))
+    )
+  )
 }
 
 /**

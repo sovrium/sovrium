@@ -21,6 +21,7 @@ import {
   RadialBar,
   RadialBarChart,
 } from 'recharts'
+import { CHART_AXIS_TICK_FILL } from '@/presentation/design/chart-default-classes'
 import { categoryTooltip } from './category-tooltip'
 import { categoryConfig, categoryKey, chartColorVar, paletteColor, seriesKey } from './chart-config'
 import { ChartFrame } from './chart-frame'
@@ -37,6 +38,9 @@ export interface PolarChartProps {
 }
 
 const POLAR_MARGIN = { top: 16, right: 16, bottom: 16, left: 16 } as const
+
+/** A spoke's name, in the tick role of the cartesian axes (readable on a dark card too). */
+const SPOKE_TICK = { fill: CHART_AXIS_TICK_FILL } as const
 
 /** A category as the polar charts read it: its name, value and paint. */
 const polarRows = (data: readonly CategoryDatum[], paint: (index: number) => string) =>
@@ -65,7 +69,10 @@ export function RadarCategoryChart({
       >
         {categoryTooltip(tooltip)}
         <PolarGrid />
-        <PolarAngleAxis dataKey="name" />
+        <PolarAngleAxis
+          dataKey="name"
+          tick={SPOKE_TICK}
+        />
         <Radar
           dataKey="value"
           fill={chartColorVar(seriesKey(0))}

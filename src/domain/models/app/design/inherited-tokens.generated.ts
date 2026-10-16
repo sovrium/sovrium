@@ -20,7 +20,7 @@ export const INHERITED_COLOR_TOKENS: Readonly<Record<string, string>> = {
   'background-overlay': 'oklch(1 0 0)',
   'background-inset': 'oklch(0.952 0 0)',
   foreground: 'oklch(0.145 0 0)',
-  'foreground-muted': 'oklch(0.556 0 0)',
+  'foreground-muted': 'oklch(0.52 0 0)',
   'foreground-subtle': 'oklch(0.54 0 0)',
   'foreground-disabled': 'oklch(0.71 0 0)',
   'foreground-inverse': 'oklch(0.985 0 0)',
@@ -34,7 +34,7 @@ export const INHERITED_COLOR_TOKENS: Readonly<Record<string, string>> = {
   'primary-subtle-foreground': 'oklch(0.205 0 0)',
   success: 'oklch(0.45 0 0)',
   warning: 'oklch(0.72 0 0)',
-  error: 'oklch(0.577 0.245 27.325)',
+  error: 'oklch(0.5 0.245 27.325)',
   info: '#398ad6',
 }
 

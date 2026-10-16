@@ -48,7 +48,7 @@ import {
 } from '@/domain/models/api/admin/connections/connections'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import {
-  deriveConnectionHealth,
+  deriveConnectionListStatus,
   deriveConnectionRowAction,
   deriveTokenStatus,
   soonestExpiryMs,
@@ -65,6 +65,16 @@ function toIso(raw: Readonly<Date> | string): string {
 function expiryToIso(raw: Readonly<Date> | string | null | undefined): string | null {
   if (raw === null || raw === undefined) return null
   return toIso(raw)
+}
+
+/**
+ * The connection named in one reading, for a console cell that shows one
+ * field: `name · provider`, or the name alone when the two are the same word
+ * (compared without regard to case). Built from the configuration's own words,
+ * so it does not depend on the operator's language.
+ */
+function connectionLabel(name: string, provider: string): string {
+  return name.toLowerCase() === provider.toLowerCase() ? name : `${name} · ${provider}`
 }
 
 /**
@@ -91,12 +101,18 @@ function buildConnectionItem(
     ...(appToken === undefined ? [] : [appToken.expiresAt]),
   ])
   const type = String(row['type'])
-  const status = deriveConnectionHealth([...tokens, ...(appToken === undefined ? [] : [appToken])])
+  const status = deriveConnectionListStatus(type, [
+    ...tokens,
+    ...(appToken === undefined ? [] : [appToken]),
+  ])
   const tokenCount = tokens.length + (appToken === undefined ? 0 : 1)
+  const name = String(row['name'])
+  const provider = String(row['provider'])
   return {
     id: String(row['id']),
-    name: String(row['name']),
-    provider: String(row['provider']),
+    name,
+    provider,
+    label: connectionLabel(name, provider),
     type,
     tokenCount,
     expiresAt: soonestMs === null ? null : new Date(soonestMs).toISOString(),

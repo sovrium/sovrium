@@ -20,7 +20,10 @@ import {
   computeSelectTriggerClasses,
   computeSelectValueClasses,
 } from '../../design/select-default-classes'
-import { useSharedFilterPublisher } from '../hooks/use-shared-filter-publisher'
+import {
+  usePublishedValueInAddress,
+  useSharedFilterPublisher,
+} from '../hooks/use-shared-filter-publisher'
 import { ChevronDown, ChevronUp, XMark } from './select-icons'
 import { SelectOptions } from './select-option-renderers'
 import type { OptionItem, SelectIslandProps } from './select-island-types'
@@ -193,16 +196,28 @@ function SelectTrigger({
   parts,
   placeholder,
   renderValue,
+  controls,
+  labelledBy,
+  ariaLabel,
 }: {
   readonly parts: SelectPartClasses
   readonly placeholder: string | undefined
   readonly renderValue: (value: SelectedValue) => string
+  /** The data components this control narrows, when it publishes on a channel. */
+  readonly controls: string | undefined
+  readonly labelledBy: string | undefined
+  readonly ariaLabel: string | undefined
 }): ReactElement {
   return (
     <Select.Trigger
+      {...(controls === undefined ? {} : { 'aria-controls': controls })}
       className={parts.trigger}
       data-slot="select-trigger"
       data-size="default"
+      // Spread, never `undefined`: an explicit prop would replace the
+      // `aria-labelledby` Base UI points at the select's own label.
+      {...(labelledBy === undefined ? {} : { 'aria-labelledby': labelledBy })}
+      {...(ariaLabel === undefined ? {} : { 'aria-label': ariaLabel })}
     >
       <Select.Value
         placeholder={placeholder ?? 'Select...'}
@@ -219,14 +234,16 @@ function SelectTrigger({
 /** The clear control, once a clearable select holds a value. */
 function ClearControl({
   clear,
+  label,
 }: {
   readonly clear: ReturnType<typeof useClearableValue>
+  readonly label: string | undefined
 }): ReactElement | undefined {
   if (clear?.value == null || clear.value === '') return undefined
   return (
     <button
       type="button"
-      aria-label="Clear"
+      aria-label={label ?? 'Clear'}
       data-slot="select-clear"
       className={computeSelectClearClasses()}
       onClick={clear.reset}
@@ -267,6 +284,45 @@ function useClearableValue(
 }
 
 /**
+ * The value the select opens on: the one its `publishes.url` left in the page
+ * address (a multiple select's as a list), else its `defaultValue`.
+ */
+function useOpeningValue(
+  publishes: SelectIslandProps['publishes'],
+  defaultValue: string | undefined,
+  multiple: boolean | undefined
+): string | readonly string[] | undefined {
+  const restored = usePublishedValueInAddress(publishes)
+  if (typeof restored !== 'string') return defaultValue
+  return multiple === true ? restored.split(',') : restored
+}
+
+/**
+ * The root's value props and the clear control: a shared-filter PUBLISHER
+ * when `publishes` is declared, and a no-op otherwise — so a plain select
+ * costs one closure and dispatches nothing.
+ */
+function useSelectValue({
+  publishes,
+  defaultValue,
+  multiple,
+  clearable,
+}: Pick<SelectIslandProps, 'publishes' | 'defaultValue' | 'multiple' | 'clearable'>) {
+  const publish = useSharedFilterPublisher(publishes)
+  const opening = useOpeningValue(publishes, defaultValue, multiple)
+  const clear = useClearableValue(
+    clearable === true && multiple !== true,
+    typeof opening === 'string' ? opening : undefined,
+    publish
+  )
+  const rootValue =
+    clear === undefined
+      ? { defaultValue: opening, onValueChange: publish }
+      : { value: clear.value, onValueChange: clear.change }
+  return { clear, rootValue }
+}
+
+/**
  * The plain select: shadcn/ui's `Select` on Base UI.
  *
  * `modal` defaults to TRUE, which is a dialog's contract: it locks the
@@ -274,6 +330,10 @@ function useClearableValue(
  * dropdown is not a dialog — a reader picking a value keeps the page around
  * it. (The searchable half runs on `Combobox.Root`, whose own `modal` already
  * defaults to false, so it needs nothing here.)
+ *
+ * A shared-filter PUBLISHER when `publishes` is declared, and a no-op
+ * otherwise — so a plain select costs one closure and dispatches nothing. A
+ * select drawing no label of its own is named by `labelledBy`, its field's label.
  */
 export function PlainSelect({
   options,
@@ -283,19 +343,19 @@ export function PlainSelect({
   defaultValue,
   disabled,
   label,
+  labelledBy,
+  ariaLabel,
   className,
   publishes,
   designClasses,
   designFloor,
   designReplace,
+  uiStrings,
 }: SelectIslandProps): ReactElement {
-  // A shared-filter PUBLISHER when `publishes` is declared, and a no-op
-  // otherwise — so a plain select costs one closure and dispatches nothing.
-  const publish = useSharedFilterPublisher(publishes)
+  const { clear, rootValue } = useSelectValue({ publishes, defaultValue, multiple, clearable })
   const items = useMemo(() => options ?? [], [options])
   const renderValue = useValueRenderer(items, placeholder)
   const parts = partClasses(designClasses, designFloor, designReplace)
-  const clear = useClearableValue(clearable === true && multiple !== true, defaultValue, publish)
 
   return (
     <div className={cn(className)}>
@@ -304,9 +364,7 @@ export function PlainSelect({
         multiple={multiple}
         modal={false}
         disabled={disabled}
-        {...(clear === undefined
-          ? { defaultValue, onValueChange: publish }
-          : { value: clear.value, onValueChange: clear.change })}
+        {...rootValue}
       >
         {label && (
           <Select.Label
@@ -322,8 +380,11 @@ export function PlainSelect({
             parts={parts}
             placeholder={placeholder}
             renderValue={renderValue}
+            controls={publishes?.controls}
+            labelledBy={label ? undefined : labelledBy}
+            ariaLabel={label || labelledBy !== undefined ? undefined : ariaLabel}
           />
-          <ClearControl clear={clear} />
+          <ClearControl {...{ clear, label: uiStrings?.['select.clear'] }} />
         </div>
 
         <SelectPopup

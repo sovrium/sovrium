@@ -16,6 +16,7 @@ import { applySpacingStyles } from '../styling/spacing-resolver'
 import { buildFinalClassName, processComponentStyle } from '../styling/style-processor'
 import { substitutePropsThemeTokens } from '../styling/theme-tokens'
 import { buildElementProps } from './props-builder'
+import { withRawIslandUiStrings } from './raw-island-ui-strings'
 import type { Design } from '@/domain/models/app/design'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -111,8 +112,12 @@ function applyTokenSubstitutions(
     currentLang,
     languages
   )
-  // Design token substitution
-  return substitutePropsThemeTokens(translationSubstitutedProps, design)
+  // Design token substitution, then a container-mounted island's own words
+  return withRawIslandUiStrings(
+    substitutePropsThemeTokens(translationSubstitutedProps, design),
+    currentLang,
+    languages
+  )
 }
 
 /**

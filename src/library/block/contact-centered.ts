@@ -72,8 +72,8 @@ export const entry = defineLibraryEntry({
               errorMessage: 'The message could not be sent. Try again.',
               className: 'mt-4',
               fields: [
-                { field: 'name', control: 'text', label: 'Name' },
-                { field: 'email', control: 'email', label: 'Email' },
+                { field: 'name', control: 'text', label: 'Name', autocomplete: 'name' },
+                { field: 'email', control: 'email', label: 'Email', autocomplete: 'email' },
                 { field: 'message', control: 'textarea', label: 'Message' },
               ],
             }),

@@ -4,7 +4,7 @@
 
 Four field types reference users from the authentication system. Three are auto-populated audit fields tracking who created, updated or deleted a record; one is an editable reference. All of them accept the base field properties every field type shares.
 
-Only `user` is bound to the account table. It emits a foreign key to Better Auth's user table — `auth.user` on PostgreSQL, `auth_user` on SQLite — so it needs `auth` configured to be usable. The three authorship types emit no foreign key at all: they are plain columns the engine stamps from the session, which is why the paragraph at the end of this page is true.
+Only `user` is bound to the account table, so it needs `auth` configured to be usable. A field holding one person emits a foreign key to Better Auth's user table — `auth.user` on PostgreSQL, `auth_user` on SQLite; a field holding several people checks each account when a record is written instead. The three authorship types emit no foreign key at all: they are plain columns the engine stamps from the session, which is why the paragraph at the end of this page is true.
 
 | Type         | Behaviour                                                             |
 | ------------ | --------------------------------------------------------------------- |
@@ -20,6 +20,20 @@ Wherever a `user` field is shown as text — a grid cell, a card, a drawer, a li
 An editable reference to one or more accounts — an assignee, a reviewer, a watcher list.
 
 Its foreign key is `ON DELETE SET NULL`: deleting the account clears the reference and keeps the record. An assignment names a person rather than being that person's content, so the row survives them — and it is what keeps an assigned account erasable at all.
+
+### Several people
+
+With `allowMultiple: true` the field holds a list of people — a crew, a project's managers, a document's reviewers. Its value is a list of account ids everywhere it crosses: the records API reads and writes an array, the MCP tools describe it as an array of strings, and a form draws a people picker that takes several names. The list keeps the order it was written in and holds each person once; an empty list names no one.
+
+```yaml
+- { id: 3, name: crew, type: user, allowMultiple: true }
+```
+
+- **Every id must be an account.** A list naming an account that does not exist is refused with `400`, naming the field, and nothing of it is written.
+- **It reads as names.** A grid cell, a card, a drawer, a `description-list` entry and a `record-field` show each person's name, in order.
+- **Filter it with `contains`.** `{ field: crew, operator: contains, value: <account id> }` answers the records listing that person — on the records API, in a page component's `dataSource.filter` (`value: $currentUser.id` lists the records naming the reader) and in an automation `record` action's `filter` — and never a record whose list merely holds an id containing that one as text; a row rule tests it the same way (see **Table Permissions**).
+- **Erasing an account takes it out of every list.** The other people stay, in their order; a list that named only that person names no one.
+- **Upgrading keeps the stored person.** A field an older version stored as one account becomes a one-person list on the first start of the new version, on both database engines, and then takes more people.
 
 <!-- sovrium:options UserFieldSchema -->
 

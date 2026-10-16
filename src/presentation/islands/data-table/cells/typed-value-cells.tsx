@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveCurrencyOptions } from '@/domain/kernel/format/currency-format'
 import { formatRecordText } from '@/domain/models/app/tables/record-text-service'
 import { computeAttachmentLinkClasses } from '@/presentation/design/cell-affordances-default-classes'
 import { resolvePageLocale } from '../../runtime/page-locale'
 import { EMPTY_VALUE, isMissing } from '../cell-empty'
+import { currencyText } from './currency-text'
 import type { CellFieldOptions } from '../cell-renderers'
 
 /**
@@ -32,16 +32,7 @@ const localeOf = (fieldOptions?: CellFieldOptions): string =>
 
 /** A `currency` value, in its declared currency, symbol position and separators. */
 export function CurrencyCell({ value, fieldOptions }: CellProps): React.ReactNode {
-  if (isMissing(value)) return EMPTY_VALUE
-  const currency = resolveCurrencyOptions({
-    type: 'currency',
-    display: fieldOptions?.display,
-  })
-  return formatRecordText(
-    value,
-    { format: 'currency', ...(currency === undefined ? {} : { currency }) },
-    localeOf(fieldOptions)
-  )
+  return isMissing(value) ? EMPTY_VALUE : currencyText(value, fieldOptions)
 }
 
 /** A `percentage` value (stored 0 to 100), at its declared precision. */

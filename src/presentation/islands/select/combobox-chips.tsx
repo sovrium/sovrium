@@ -58,9 +58,11 @@ const renderChips = (values: readonly OptionItem[]): ReactElement => (
  * types into. Backspace in the empty input removes the last chip.
  */
 export function ComboboxChipsField({
+  inputId,
   label,
   placeholder,
 }: {
+  readonly inputId: string
   readonly label: string | undefined
   readonly placeholder: string
 }): ReactElement {
@@ -71,6 +73,7 @@ export function ComboboxChipsField({
     >
       <Combobox.Value>{renderChips}</Combobox.Value>
       <Combobox.Input
+        id={inputId}
         aria-label={label}
         placeholder={placeholder}
         className={computeComboboxChipInputClasses()}

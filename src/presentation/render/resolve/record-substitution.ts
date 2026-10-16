@@ -31,6 +31,7 @@ import {
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { fillRecordIntoTypedField } from '@/presentation/render/elements/button-navigate-action'
 import { walkComponentSlots, type ComponentListEntry } from './component-slot-walk'
+import { recordDisplayOf } from './record-display-labels'
 import {
   fillProseField,
   substituteRecordInProps,
@@ -357,10 +358,8 @@ const SYSTEM_TIMESTAMP_COLUMNS: Readonly<Record<string, string>> = {
 }
 
 /**
- * A field's value on the bound record. `createdAt` and `updatedAt` — the names
- * the records API gives the system timestamps — read the stored column when
- * the row carries only that, so a `record-field` formats them as it formats a
- * declared date.
+ * A field's value on the bound record. `createdAt` and `updatedAt` (the API's
+ * names) read the stored column when the row carries only that.
  */
 const recordValueOf = (record: Record<string, unknown>, fieldName: string): unknown => {
   const column = SYSTEM_TIMESTAMP_COLUMNS[fieldName]
@@ -368,10 +367,10 @@ const recordValueOf = (record: Record<string, unknown>, fieldName: string): unkn
 }
 
 /**
- * Injects the bound record's raw value + table name into a `record-field`
- * component's props (`_recordValue`, `_recordTable`). The renderer reads these
- * plus `config.tables` to look up the field's declared type and render it
- * read-only ([internal ref] / the pages data components record detail view requirement).
+ * Injects the bound record's raw value, its label (a person or linked record by
+ * name) and table into a `record-field`'s props (`_recordValue`, `_recordDisplay`,
+ * `_recordTable`). The renderer reads these plus `config.tables` to draw the
+ * field read-only by its declared type.
  */
 export function injectRecordFieldValue(
   component: Component,
@@ -391,6 +390,7 @@ export function injectRecordFieldValue(
     props: {
       ...baseProps,
       _recordValue: value,
+      _recordDisplay: recordDisplayOf(record, fieldName),
       _recordId: record['id'],
       // A `file-preview` reads its image's alternative text from a second field.
       ...(typeof altField === 'string' && { _recordAlt: record[altField] }),

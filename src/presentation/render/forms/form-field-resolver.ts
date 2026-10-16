@@ -28,7 +28,8 @@ import {
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
 import { renderInlineMarkdown } from '@/presentation/render/markdown/inline-markdown'
 import { calculationItem } from './form-calculation-item'
-import { withRecorderLabel } from './form-recorder-label'
+import { resolveActiveLang, resolveDocumentLang } from './form-document-lang'
+import { withFieldEngineWords } from './form-recorder-label'
 import type { ResolvedFormField } from './form-field-elements'
 import type { App } from '@/domain/models/app'
 import type { DensityStepName } from '@/domain/models/app/design'
@@ -40,36 +41,8 @@ import type { Languages } from '@/domain/models/app/languages'
 import type { Table } from '@/domain/models/app/tables'
 import type { SelectOption } from '@/domain/models/app/tables/fields/field-types/validation-utils'
 
-/**
- * Resolve the active language for `$t:` resolution.
- *
- * The requested language (e.g. `?lang=fr`) wins when it is one of the
- * app's `supported` codes. Otherwise the renderer immediately collapses to
- * `fallback ?? default` so an unsupported `?lang=de`
- * resolves against the catalog rather than emitting raw `$t:` literals.
- * The downstream `resolveTranslationPattern` still applies its own
- * active → fallback → literal chain for missing keys.
- */
-function resolveActiveLang(languages: Languages, requestedLang: string | undefined): string {
-  if (requestedLang === undefined || requestedLang === '') {
-    return languages.default
-  }
-  const supported = languages.supported ?? []
-  const isSupported = supported.some(
-    (entry) => entry.code === requestedLang || entry.locale === requestedLang
-  )
-  if (isSupported) return requestedLang
-  return languages.fallback ?? languages.default
-}
-
-/**
- * Resolve the document `lang`: `'en'` with no `languages` block, else the
- * `$t:` active language (requested when supported, else fallback ?? default).
- */
-export function resolveDocumentLang(languages: Languages | undefined, activeLang?: string): string {
-  if (!languages) return 'en'
-  return resolveActiveLang(languages, activeLang)
-}
+// Re-exported for the embedded-form resolver, which reads both from here.
+export { resolveDocumentLang } from './form-document-lang'
 
 /**
  * The density step a standalone form document runs at, resolved exactly as a
@@ -543,7 +516,11 @@ export function resolveAllFields(
     if (resolved === undefined) return []
     // Help text is translated first, then rendered: a `$t:` value may carry markdown.
     const withHelp = {
-      ...withRecorderLabel(resolved, resolveDocumentLang(app.languages, activeLang), app.languages),
+      ...withFieldEngineWords(
+        resolved,
+        resolveDocumentLang(app.languages, activeLang),
+        app.languages
+      ),
       helpTextHtml: renderInlineMarkdown(resolved.helpText),
     }
     return [withConditionState(field, withHelp, values)]

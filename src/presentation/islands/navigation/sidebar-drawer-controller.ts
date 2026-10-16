@@ -24,8 +24,8 @@
  *
  * ─── WHAT CLOSING DOES, AND WHY IT IS IDEMPOTENT ───────────────────────────
  *
- * The drawer closes four ways — Escape, a tap on the backdrop, following any
- * entry, and the viewport widening past the breakpoint. Escape reaches us only
+ * The drawer closes five ways — Escape, its own close button, a tap on the
+ * backdrop, following any entry, and the viewport widening past the breakpoint. Escape reaches us only
  * through the dialog's `close` event, which is queued as a TASK; the other three
  * close it ourselves. Following a same-page `#section` link must restore the
  * page's scroll BEFORE the browser scrolls to the section, so the restore runs
@@ -40,6 +40,8 @@ interface DrawerParts {
   readonly root: Element
   readonly trigger: HTMLButtonElement
   readonly panel: HTMLDialogElement
+  /** The node inside the panel the navigation moves into — below its close header. */
+  readonly content: Element
   readonly body: HTMLElement
 }
 
@@ -54,7 +56,8 @@ const findParts = (root: Element): DrawerParts | undefined => {
     )
   const body = root.querySelector<HTMLElement>(':scope > [data-sidebar-drawer-body]')
   if (trigger === null || panel === null || body === null) return undefined
-  return { root, trigger, panel, body }
+  const content = panel.querySelector(':scope > [data-sidebar-drawer-content]') ?? panel
+  return { root, trigger, panel, content, body }
 }
 
 const isOpen = (parts: DrawerParts): boolean =>
@@ -109,7 +112,7 @@ const unfoldForDrawer = (root: Element, opening: boolean): void => {
 const open = (parts: DrawerParts): void => {
   if (isOpen(parts)) return
   unfoldForDrawer(parts.root, true)
-  moveChildren(parts.body, parts.panel)
+  moveChildren(parts.body, parts.content)
   lockScroll(parts.root)
   parts.trigger.setAttribute('aria-expanded', 'true')
   parts.panel.showModal()
@@ -122,7 +125,7 @@ const open = (parts: DrawerParts): void => {
 /** Put the navigation back and the page as it was. A no-op when already closed. */
 const restore = (parts: DrawerParts): void => {
   if (!isOpen(parts)) return
-  moveChildren(parts.panel, parts.body)
+  moveChildren(parts.content, parts.body)
   unfoldForDrawer(parts.root, false)
   unlockScroll(parts.root)
   parts.trigger.setAttribute('aria-expanded', 'false')
@@ -159,8 +162,9 @@ export const wireSidebarDrawer = (root: Element): (() => void) => {
   const onTrigger = (): void => open(parts)
   const onPanelClick = (event: MouseEvent): void => {
     const { target } = event
-    const followsLink = target instanceof Element && target.closest('a[href]') !== null
-    if (followsLink || onBackdrop(parts.panel, event)) close(parts)
+    const closes =
+      target instanceof Element && target.closest('a[href], [data-sidebar-drawer-close]') !== null
+    if (closes || onBackdrop(parts.panel, event)) close(parts)
   }
   const onPanelClose = (): void => restore(parts)
   // A drawer left open while the viewport widens past its breakpoint would

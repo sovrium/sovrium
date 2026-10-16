@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  conditionsInBag,
+  type ApiCondition,
+} from '@/domain/models/app/pages/shared-filter-condition-service'
+
 /**
  * Fold what a shared-filter channel publishes into ONE records request.
  *
@@ -20,7 +25,8 @@
  * shorthand the records endpoint accepts is read as the one equality it
  * stands for, so it narrows too; a published value that is neither is dropped
  * rather than sent in place of the own filter. An empty published value adds
- * nothing.
+ * nothing. Each CONDITION a control contributes (`shared-filter-condition-service`)
+ * joins the bar's expression and the own filter in the same `and`.
  */
 export interface SharedRecordsParams {
   /** The filter expression to request, or `undefined` for none. */
@@ -61,12 +67,24 @@ const combineFilters = (own: string | undefined, published: string): string | un
   return JSON.stringify({ and: [ownTree, publishedTree] })
 }
 
+/** The bar's expression (when there is one) and the controls' conditions, as one tree. */
+const publishedFilter = (
+  bar: string | undefined,
+  conditions: readonly ApiCondition[]
+): string | undefined => {
+  if (conditions.length === 0) return bar
+  const barTree = bar === undefined || bar === '' ? undefined : toFilterTree(bar)
+  return JSON.stringify({ and: [...(barTree === undefined ? [] : [barTree]), ...conditions] })
+}
+
 export function withSharedFilter(
   ownFilter: string | undefined,
   shared: Readonly<Record<string, string>>
 ): SharedRecordsParams {
-  const { filter: published, ...rest } = shared
+  const { conditions, params } = conditionsInBag(shared)
+  const { filter: bar, ...rest } = params
   const extraParams = Object.fromEntries(Object.entries(rest).filter(([, value]) => value !== ''))
+  const published = publishedFilter(bar, conditions)
   const filterParam =
     published === undefined || published === '' ? ownFilter : combineFilters(ownFilter, published)
   return { filterParam, extraParams }

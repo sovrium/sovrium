@@ -48,6 +48,7 @@ import { TablePermissionsSchema } from './permissions'
 import { PrimaryKeySchema } from './primary-key'
 import { TableRetentionSchema } from './retention'
 import { RowLevelPermissionsSchema } from './row-level-permissions'
+import { TableLabelPluralSchema, TableLabelSchema } from './table-display-name'
 import { ViewSchema } from './views'
 import { WebhookSchema } from './webhooks'
 
@@ -157,6 +158,8 @@ const validateTableSchema = (table: TableShape): ValidationError | true => {
 const TableStruct = Schema.Struct({
   id: Schema.optional(TableIdSchema),
   name: NameSchema,
+  label: Schema.optional(TableLabelSchema),
+  labelPlural: Schema.optional(TableLabelPluralSchema),
   fields: FieldsSchema,
   primaryKey: Schema.optional(PrimaryKeySchema),
   indexes: Schema.optional(IndexesSchema),

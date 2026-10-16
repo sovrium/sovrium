@@ -116,6 +116,36 @@ export const resolveRowRuleChain = (
   return { ...chain, relatedTable }
 }
 
+/**
+ * `true` when a field holds several values — a many-to-many relationship, or
+ * a `user` field with `allowMultiple` — the only fields a `contains` rule
+ * tests membership in.
+ */
+export const holdsSeveralValues = (field: ChainField | undefined): boolean =>
+  field !== undefined &&
+  ((field.type === 'relationship' && field.relationType === 'many-to-many') ||
+    (field.type === 'user' && field.allowMultiple === true))
+
+/**
+ * `true` when a leaf is answered by the rows a per-request lookup admits
+ * rather than by comparing a column: a chain, or a `contains` membership test
+ * (a field holding several values keeps them outside the row — a many-to-many
+ * relationship in its link table). Each such leaf is looked up once per
+ * request, and every door then judges the row by the ids the lookup admitted.
+ */
+export const isLookupLeaf = (leaf: RowLevelPredicate): boolean =>
+  isRowRuleChain(leaf.field) || leaf.operator === 'contains'
+
+/** Every rule leaf (in any branch of a group) answered by a lookup ({@link isLookupLeaf}). */
+export const lookupLeavesOf = (when: RowLevelWhen | undefined): readonly RowLevelPredicate[] => {
+  if (when === undefined) return []
+  if ('conditions' in when && Array.isArray(when.conditions)) {
+    return when.conditions.flatMap((child) => lookupLeavesOf(child))
+  }
+  const leaf = when as RowLevelPredicate
+  return isLookupLeaf(leaf) ? [leaf] : []
+}
+
 /** Every rule leaf (in any branch of a group) whose `field` is a chain. */
 export const chainLeavesOf = (when: RowLevelWhen | undefined): readonly RowLevelPredicate[] => {
   if (when === undefined) return []

@@ -7,6 +7,12 @@
 
 import type { FieldDef } from './field-def'
 
+/** The form's interface strings in the page language, where they differ from English. */
+export type Words = Readonly<Record<string, string>> | undefined
+
+/** One of the form's words: the page's, else the English. */
+const word = (strings: Words, key: string, english: string): string => strings?.[key] ?? english
+
 /**
  * A file field's values outside React: validating a pick, uploading it to its
  * bucket, and reading and writing the stored value the form submits.
@@ -42,21 +48,35 @@ export interface StoredFile {
  * Reject a file whose MIME type is not in `allowedFileTypes` or whose size
  * exceeds `maxFileSize`. Returns a human-readable error or `undefined`.
  */
-function validateFile(file: File, field: FieldDef): string | undefined {
+function validateFile(file: File, field: FieldDef, strings: Words): string | undefined {
   const types = field.allowedFileTypes
   if (types !== undefined && types.length > 0 && !types.includes(file.type)) {
-    return 'File type not allowed. Please choose a valid file.'
+    return word(
+      strings,
+      'form.uploadTypeRefused',
+      'File type not allowed. Please choose a valid file.'
+    )
   }
   if (field.maxFileSize !== undefined && field.maxFileSize > 0 && file.size > field.maxFileSize) {
     const mb = Math.round(field.maxFileSize / (1024 * 1024))
-    return `File size exceeds the maximum of ${mb} MB.`
+    return word(
+      strings,
+      'form.uploadTooLarge',
+      'File size exceeds the maximum of {size} MB.'
+    ).replace('{size}', String(mb))
   }
   return undefined
 }
 
 /** Find the first MIME-type / size validation error in a list of selected files. */
-function firstFileError(files: readonly File[], field: FieldDef): string | undefined {
-  return files.map((file) => validateFile(file, field)).find((error) => error !== undefined)
+function firstFileError(
+  files: readonly File[],
+  field: FieldDef,
+  strings: Words
+): string | undefined {
+  return files
+    .map((file) => validateFile(file, field, strings))
+    .find((error) => error !== undefined)
 }
 
 /**
@@ -210,9 +230,10 @@ export function planSelection(
   selected: readonly File[],
   field: FieldDef,
   multiple: boolean,
-  existingCount: number
+  existing: { readonly count: number; readonly strings?: Words }
 ): SelectionPlan {
-  const blocking = firstFileError(selected, field)
+  const { count: existingCount, strings } = existing
+  const blocking = firstFileError(selected, field, strings)
   if (blocking !== undefined) return { error: blocking, accepted: [] }
 
   if (multiple) return { error: undefined, accepted: selected }
@@ -221,7 +242,13 @@ export function planSelection(
   const overLimit = existingCount + selected.length > limit
   const accepted = selected.slice(0, Math.max(0, limit - existingCount))
   return {
-    error: overLimit ? `Too many files — the maximum allowed is ${String(limit)}.` : undefined,
+    error: overLimit
+      ? word(
+          strings,
+          'form.uploadTooMany',
+          'Too many files — the maximum allowed is {count}.'
+        ).replace('{count}', String(limit))
+      : undefined,
     accepted,
   }
 }

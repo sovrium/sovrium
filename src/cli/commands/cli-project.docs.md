@@ -131,7 +131,7 @@ SOVRIUM_OUTPUT_DIR=./out \
   sovrium build app.yaml
 ```
 
-Build options come from `SOVRIUM_` environment variables rather than flags, because they are deployment facts rather than per-invocation choices. Output goes to `SOVRIUM_OUTPUT_DIR` when set; otherwise to a `dist/` directory beside the config file.
+Build options come from `SOVRIUM_` environment variables rather than flags, because they are deployment facts rather than per-invocation choices. Output goes to `SOVRIUM_OUTPUT_DIR` when set; otherwise to a `dist/` directory beside the config file. It also writes the app's stylesheet to `output.css` in the data directory (`.sovrium/output.css` unless `SOVRIUM_DATA_DIR` moves it, or `SOVRIUM_CSS_FILE` names the exact path) with a first line recording the engine version and design that built it, so a production `sovrium start` can serve that file instead of compiling — whatever the app declares. A file whose first line names another engine version or design is set aside with one warning. The operator console compiles its own stylesheet and never reads this file.
 
 With `SOVRIUM_GENERATE_SITEMAP=true` the build also reads the database it runs against (`DATABASE_URL`) for the records of each collection page an anonymous visitor could open, lists them in `sitemap.xml` exactly as the running server's `/sitemap.xml` does, and writes each listed record's page as its own HTML file — `blog/pricing-change.html` for `/blog/pricing-change` — so a static host answers every address the sitemap advertises. Past 5 000 addresses it writes `sitemap-1.xml`, `sitemap-2.xml`, … beside an index. The rules that decide which records are listed are in **SEO & Crawlers**.
 

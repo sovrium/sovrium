@@ -6,7 +6,6 @@
  */
 
 import { ROW_HEIGHT_CLASSES } from '../../../hooks/use-data-table-state'
-import { resolveSearchConfig, shouldShowSearch } from '../island-setup-helpers'
 import type { SetupContext } from './setup-params'
 import type { EffectiveLayout } from './use-effective-layout'
 import type { EffectiveQuery } from './use-effective-query'
@@ -15,6 +14,7 @@ import type { GridInstance, GridRecords } from './use-grid-table'
 import type { InlineSaveWiring } from './use-inline-save-wiring'
 import type { RecordsQuery } from './use-records-query'
 import type { RefreshWiring } from './use-refresh-wiring'
+import type { SystemQueryParams } from './use-system-query-params'
 import type { useInlineEditing } from '../../../hooks/use-inline-editing'
 import type { DataTableColumnDef } from '../table-features'
 
@@ -30,6 +30,7 @@ export interface SetupResultInput {
   readonly actions: GridActions
   readonly inlineEditing: ReturnType<typeof useInlineEditing>
   readonly inlineSave: InlineSaveWiring
+  readonly system: SystemQueryParams
 }
 
 /**
@@ -80,6 +81,8 @@ export function buildIslandSetupResult(input: SetupResultInput) {
     // query to its previous cached key and clears `isError` within a frame, so
     // a banner keyed on the live status would flash past unread.
     readError: refresh.sortRefusal.readError,
+    /** The column whose refused sort the read error undid, if it undid one. */
+    refusedSortColumn: refresh.sortRefusal.refusedSortColumn,
     inlineEditing: input.inlineEditing,
     inlineAutoSave: input.inlineSave.inlineAutoSave,
     saveIndicator: input.inlineSave.saveIndicator,
@@ -89,20 +92,19 @@ export function buildIslandSetupResult(input: SetupResultInput) {
     dismissConflict: grid.dismissConflict,
     connectionStatus: refresh.connectionStatus,
     globalFilter: tableState.globalFilter,
-    setGlobalFilter: tableState.setGlobalFilter,
-    rowSelection: tableState.rowSelection,
-    currentRowHeight: tableState.currentRowHeight,
-    cellClass: ROW_HEIGHT_CLASSES[tableState.currentRowHeight],
-    borderClass: ctx.params.bordered ? 'border border-border' : '',
-    showSearch: shouldShowSearch(ctx.params.searchConfig, ctx.params.toolbarConfig),
     /**
-     * Search settings the toolbar renders from — the author's `search` block, or
-     * the defaults a bare `toolbar: { search: true }` implies. See
-     * `resolveSearchConfig`: the render gate used to require the block itself,
-     * so the toolbar flag alone painted nothing.
+     * The term the grid is searched by — a search box's `q` on its channel —
+     * which a no-match message echoes as `{query}`.
      */
-    resolvedSearchConfig: resolveSearchConfig(ctx.params.searchConfig, ctx.params.toolbarConfig),
-    /** The bound view's grouping, the only one a grid draws. */
+    searchQuery: input.system.sharedFilterParams['q'] ?? tableState.globalFilter,
+    /** A control on the page narrows this grid right now (a non-empty value on its channel). */
+    narrowed: Object.values(input.system.sharedFilterParams).some((value) => value !== ''),
+    rowSelection: tableState.rowSelection,
+    // The reader's row height for the visit, else the author's.
+    currentRowHeight: ctx.ui.rowHeight ?? tableState.currentRowHeight,
+    cellClass: ROW_HEIGHT_CLASSES[ctx.ui.rowHeight ?? tableState.currentRowHeight],
+    borderClass: ctx.params.bordered ? 'border border-border' : '',
+    /** The grouping the grid draws: the bound view's, or the reader's for the visit. */
     effectiveGroupByConfig: records.effectiveGroupByConfig,
   }
 }

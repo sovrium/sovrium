@@ -17,6 +17,7 @@ import dataListBody from '@/domain/models/app/pages/components/component-types/d
 import mapBody from '@/domain/models/app/pages/components/component-types/data/map/map.docs.md' with { type: 'file' }
 import matrixBody from '@/domain/models/app/pages/components/component-types/data/matrix/matrix.docs.md' with { type: 'file' }
 import gridEditingBody from '@/domain/models/app/pages/components/component-types/data/table/grid-editing.docs.md' with { type: 'file' }
+import tableFormAnswersBody from '@/domain/models/app/pages/components/component-types/data/table/table-form-answers.docs.md' with { type: 'file' }
 import dataTableBody from '@/domain/models/app/pages/components/component-types/data/table/table.docs.md' with { type: 'file' }
 import treeBody from '@/domain/models/app/pages/components/component-types/data/tree/tree.docs.md' with { type: 'file' }
 import { componentType } from './component-directives'
@@ -55,10 +56,13 @@ export const section = defineSection({
         'US-DESIGN-SYSTEM-COMPONENT-TYPES-DATA-FILTER-BAR',
         'US-PAGES-ACCESS-ACTION-CAPABILITY-GATE',
         'US-PAGES-DATA-COMPONENTS-COLUMN-FORMAT-BYTES',
+        'US-PAGES-DATA-COMPONENTS-COLUMN-FORMAT-DURATION',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-001',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-003',
+        'US-PAGES-DATA-COMPONENTS-DATA-TABLE-ACTION-CONFIRM',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-AI-STATUS',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-COLUMN-PRESENTATION',
+        'US-PAGES-DATA-COMPONENTS-DATA-TABLE-COMPOSED-TOOLBAR',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-DISPLAY-CONFIG',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-GROUP-SUMMARY',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-NESTED-GROUP',
@@ -72,8 +76,7 @@ export const section = defineSection({
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-TOOLBAR-CREATE',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-VALUE-LABELS',
         'US-PAGES-DATA-COMPONENTS-DATA-TABLE-VISIBLE-WHEN',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-001',
-        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS-002',
+        'US-PAGES-DATA-COMPONENTS-RUNTIME-VIEWS',
         'US-PAGES-DATA-COMPONENTS-SELECT-PUBLISHES',
       ],
     }),
@@ -108,6 +111,18 @@ export const section = defineSection({
         'US-PAGES-INTERACTIVITY-CLIPBOARD-OPERATIONS-001',
         'US-PAGES-INTERACTIVITY-CLIPBOARD-OPERATIONS-002',
       ],
+    }),
+    defineArticle({
+      slug: 'data-components-form-answers',
+      title: "A Grid over a Form's Answers",
+      description:
+        "One page that lists what any of your forms received, with a column per question — columnsFrom: { form } on a table bound to the form's submissions.",
+      keywords: ['sovrium', 'data table', 'columnsFrom', 'form submissions', 'reveal', 'inbox'],
+      order: 3403,
+      sidebarLabel: 'Form Answers in a Grid',
+      body: tableFormAnswersBody,
+      documents: [],
+      stories: ['US-PAGES-DATA-COMPONENTS-DATA-TABLE-COLUMNS-FROM-FORM'],
     }),
     defineArticle({
       slug: 'data-components-lists',

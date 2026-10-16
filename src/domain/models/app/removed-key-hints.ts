@@ -9,9 +9,11 @@ import { DesignComponentsSchema } from './design/components'
 import { migrationHintForRemovedKey } from './design/removed-keys'
 import { migrationHintForRemovedFormKey } from './pages/components/component-types/data/form/removed-keys'
 import { migrationHintForRemovedTableKey } from './pages/components/component-types/data/table/removed-keys'
+import { migrationHintForRemovedModuleKey } from './pages/components/component-types/modules/removed-keys'
 import { migrationHintForPromotedTypeKey } from './pages/components/component-types/promoted-removed-keys'
 import { RENAMED_COMPONENT_TYPES } from './pages/components/component-types/renamed-types'
 import { migrationHintForRepurposedTypeKey } from './pages/components/component-types/repurposed-removed-keys'
+import { migrationHintForRemovedDataSourceKey } from './pages/components/data-source-removed-keys'
 
 /**
  * `design.components` is keyed by component type, so a renamed type is a renamed key there too —
@@ -29,7 +31,8 @@ const RENAMED_DESIGN_COMPONENT_KEYS: ReadonlyMap<string, string> = new Map(
 /**
  * The migration sentence for a key the decoder refused as excess, asked of each
  * module that keeps a list of removed or refused keys, first answer wins:
- * `design` keys (renamed component types under `design.components` included), then the page `table`, the page `form`, the promoted
+ * `design` keys (renamed component types under `design.components` included), then the page `table`, the page `form`,
+ * the shared modules every data component spreads (its `search` box), a component's `dataSource`, the promoted
  * component types and the repurposed ones. `undefined` when none of them knows the key.
  *
  * @param path - Dotted path of the node holding the key.
@@ -43,7 +46,9 @@ export const migrationHintForExcessKey = (
 ): string | undefined =>
   migrationHintForRemovedKey(path, key) ??
   (path === 'design.components' ? RENAMED_DESIGN_COMPONENT_KEYS.get(key) : undefined) ??
-  migrationHintForRemovedTableKey(path, discriminant, key) ??
+  migrationHintForRemovedTableKey(discriminant, key) ??
   migrationHintForRemovedFormKey(path, discriminant, key) ??
+  migrationHintForRemovedModuleKey(discriminant, key) ??
+  migrationHintForRemovedDataSourceKey(path, key) ??
   migrationHintForPromotedTypeKey(discriminant, key) ??
   migrationHintForRepurposedTypeKey(discriminant, key)

@@ -184,8 +184,8 @@ export type ComponentTreeSource = {
  *
  * Merging two component types into one leaves questions that are about a
  * FIELD VALUE, not a name. `hasPageSearchComponent` has to find a
- * `search-input` whose `scope` is `page` and ignore one whose scope is
- * `subscribers`. `componentTreeHasType` builds the name-matching predicate for
+ * `search-input` whose `scope` is `page` and ignore one that publishes its
+ * query on a channel. `componentTreeHasType` builds the name-matching predicate for
  * the callers that still want one.
  *
  * @param app - The app's pages and templates, decoded or as authored.

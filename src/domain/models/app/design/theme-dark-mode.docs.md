@@ -52,7 +52,7 @@ design:
   colorScheme: light
 ```
 
-A visitor who has since made a choice always overrides this — the stored preference wins on every subsequent visit. `colorScheme` is the default, not the policy.
+A visitor who has since made a choice always overrides this — the stored preference wins on every subsequent visit. `colorScheme` is the default, not the policy. Under `system`, a page that is already open follows the operating system when it changes scheme, until the visitor makes a choice of their own.
 
 It is applied before the page's content renders, so a dark-first app does not flash a white page on load.
 

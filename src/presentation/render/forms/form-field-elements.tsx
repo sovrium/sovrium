@@ -76,14 +76,12 @@ export interface ResolvedFormField {
   readonly maxFiles?: number
   /** Whether to render a drag-and-drop zone alongside the file picker. */
   readonly dropZone?: boolean
+  readonly dropZoneLabel?: string // the drop zone's prompt, in the page language
   /** Seconds a browser recording may last; present only when `recordAudio` is set. */
   readonly recordAudioMaxSeconds?: number
   /** The Record button's words in the page language; present only when `recordAudio` is set. */
   readonly recordAudioLabel?: string
-  /**
-   * For `user`-typed columns: whether the picker allows multiple selections,
-   * as `data-allow-multiple` on the picker root, so the runtime picks the widget.
-   */
+  /** `user` columns: whether the picker allows several (`data-allow-multiple` on its root). */
   readonly allowMultiple?: boolean
   /**
    * The bound column's type and its typed configuration (`precision`,

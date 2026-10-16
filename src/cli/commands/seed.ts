@@ -154,7 +154,8 @@ const requireAccountPlan = async (
 ) => {
   const { collectAccountReferences } = await import('@/application/use-cases/seed/seed-checks')
   const { planAccounts, readAccountIndex, readPendingInvitees } = await import('./seed-accounts')
-  const accountPlan = planAccounts({
+  const { checkSeedGrants } = await import('./seed-grants')
+  const planned = planAccounts({
     app,
     accounts: loaded.accounts,
     index: await readAccountIndex(),
@@ -163,6 +164,10 @@ const requireAccountPlan = async (
     fallbackPassword: Bun.env.SOVRIUM_SEED_PASSWORD,
     pendingInvitees: await readPendingInvitees(),
   })
+  const accountPlan = {
+    ...planned,
+    errors: [...planned.errors, ...checkSeedGrants(app, plan, loaded.accounts)],
+  }
   return accountPlan.errors.length > 0
     ? refuse(`Error: seed data was refused:\n${indent(accountPlan.errors)}`)
     : accountPlan
@@ -181,6 +186,8 @@ const writeRun = async (input: {
   readonly app: Readonly<App>
   readonly plan: SeedPlan
   readonly accountPlan: AccountPlan
+  /** Every account the files list, with the grants each carries. */
+  readonly accounts: readonly SeedAccount[]
   readonly mode: SeedMode
   readonly seedDir: string
   readonly options: SeedCommandOptions
@@ -193,26 +200,36 @@ const writeRun = async (input: {
   const { accountReportLines, createPlannedAccounts, invitationReportLines, readAccountIndex } =
     await import('./seed-accounts')
   const { executeSeedPlan } = await import('./seed-write')
+  const { writeSeedGrants } = await import('./seed-grants')
 
   const { accounts, invitations } = options.dryRun
     ? { accounts: await readAccountIndex(), invitations: [] }
     : await createPlannedAccounts(app, accountPlan)
   const actingId = options.as === undefined ? undefined : accounts.get(options.as.toLowerCase())
+  const session = actingId === undefined ? buildSystemSession() : buildSyntheticSession(actingId)
+  const context = { plan: input.plan, tables: seedTablesOf(app), seedDir: input.seedDir, accounts }
+  const grantsInput = { ...input, accountIds: accounts, context, createdBy: session.userId }
   const rows = await executeSeedPlan({
     app,
     plan: input.plan,
-    tables: seedTablesOf(app),
+    tables: context.tables,
     mode: input.mode,
     seedDir: input.seedDir,
     dryRun: options.dryRun,
-    session: actingId === undefined ? buildSystemSession() : buildSyntheticSession(actingId),
+    session,
     accounts,
-  }).catch((error: unknown) => {
-    // The invitations exist and a replay will not mint them again: hand their
-    // links over before the failure, or nobody ever can.
-    if (invitations.length > 0) input.print(invitationReportLines(invitations))
-    throw error
   })
+    // Grants name rows by their keys, so they are written once every key has an id.
+    .then(async (written) => [
+      ...written.value,
+      ...(options.dryRun ? [] : await writeSeedGrants({ ...grantsInput, index: written.index })),
+    ])
+    .catch((error: unknown) => {
+      // The invitations exist and a replay will not mint them again: hand their
+      // links over before the failure, or nobody ever can.
+      if (invitations.length > 0) input.print(invitationReportLines(invitations))
+      throw error
+    })
   return [...accountReportLines(accountPlan, options.dryRun, invitations), ...rows]
 }
 
@@ -223,10 +240,13 @@ const describeRunFailure = async (
 ): Promise<string> => {
   const { SeedWriteError } = await import('./seed-write')
   const { SeedAccountError, invitationReportLines } = await import('./seed-accounts')
+  const { SeedGrantError } = await import('./seed-grants')
   if (error instanceof SeedAccountError && error.invitations.length > 0) {
     print(invitationReportLines(error.invitations))
   }
-  return error instanceof SeedWriteError || error instanceof SeedAccountError
+  return error instanceof SeedWriteError ||
+    error instanceof SeedAccountError ||
+    error instanceof SeedGrantError
     ? `Error: ${error.message}`
     : `Error: seeding failed: ${error instanceof Error ? error.message : String(error)}`
 }
@@ -341,6 +361,7 @@ export const handleSeedCommand = async (given: SeedCommandOptions): Promise<void
     app,
     plan: planned.plan,
     accountPlan,
+    accounts: loaded.accounts,
     mode,
     seedDir,
     options,

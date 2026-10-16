@@ -21,6 +21,8 @@ interface DatePickerIslandProps {
   readonly datePickerMode?: 'single' | 'range'
   readonly disabled?: boolean
   readonly name?: string
+  /** The picker's words in the page language (`datePicker.*`), where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
 }
 
 interface TriggerButtonProps {
@@ -88,6 +90,7 @@ export default function DatePickerIsland({
   datePickerMode = 'single',
   disabled = false,
   name,
+  uiStrings,
 }: DatePickerIslandProps): ReactElement {
   const state = useDatePickerState({
     minDate,
@@ -95,7 +98,7 @@ export default function DatePickerIsland({
     dateFormat,
     datePickerMode,
     disabled,
-    label,
+    label: label ?? uiStrings?.['datePicker.pick'],
     placeholder,
   })
 
@@ -121,7 +124,7 @@ export default function DatePickerIsland({
       )}
       {state.open && (
         <DatePickerPopup
-          label={label}
+          label={label ?? uiStrings?.['datePicker.choose']}
           viewMonth={state.viewMonth}
           onMonthChange={state.handleMonthChange}
           minDateObj={state.minDateObj}

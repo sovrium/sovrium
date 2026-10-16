@@ -34,6 +34,7 @@ import {
   ensureClientScript,
   fetchPartial,
   type PartialAnswer,
+  type PartialRefusal,
   type SpaNavScope,
 } from './spa-nav-partial'
 
@@ -66,7 +67,7 @@ export interface SpaRegion {
 /** What a swap attempt ended in. */
 export type SpaSwapOutcome =
   | { readonly swapped: true; readonly url: string }
-  | { readonly swapped: false; readonly fallbackUrl: string }
+  | { readonly swapped: false; readonly fallbackUrl: string; readonly refusal?: PartialRefusal }
 
 /**
  * The incoming region element of an `app`-scope partial, parsed BEFORE the
@@ -172,7 +173,10 @@ export async function performSpaSwap(
   if (!outgoing) return { swapped: false, fallbackUrl: url }
 
   const fetched = await fetchPartial(url, region.scope, signal)
-  if (!fetched.ok) return { swapped: false, fallbackUrl: fetched.fallbackUrl }
+  if (!fetched.ok) {
+    const { fallbackUrl, refusal } = fetched
+    return { swapped: false, fallbackUrl, ...(refusal && { refusal }) }
+  }
   if (signal?.aborted) return { swapped: false, fallbackUrl: url }
 
   const { answer } = fetched

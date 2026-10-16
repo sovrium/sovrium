@@ -2,14 +2,12 @@
 
 > Moving bulk data in and out of a table three ways — a CSV wizard in the grid, an export endpoint, and spreadsheet clipboard — all of them ordinary Records writes underneath.
 
-Import and clipboard need no configuration: a `table` bound to a writable table draws the Import control itself. Export is a toolbar affordance, so it appears only where the component asks for it.
+Clipboard needs no configuration. Import and export are controls placed on the page: a button whose action is `{ action: openImport, table }` opens the CSV wizard for that table, drawn only for a reader the table lets create records, and the library block `block/data-table-toolbar` places Import and Export CSV above a grid.
 
 ```yaml
-type: table
-dataSource:
-  table: orders
-toolbar:
-  export: true
+type: button
+content: Import
+action: { action: openImport, table: orders }
 ```
 
 ## CSV import

@@ -20,14 +20,25 @@ const API_OPERATORS: Readonly<Record<DataFilter['operator'], string>> = {
   eq: 'equals',
   neq: 'notEquals',
   contains: 'contains',
+  startsWith: 'startsWith',
   gt: 'greaterThan',
   lt: 'lessThan',
   gte: 'greaterThanOrEqual',
   lte: 'lessThanOrEqual',
   in: 'in',
+  between: 'between',
   isEmpty: 'isEmpty',
   isNotEmpty: 'isNotEmpty',
 }
+
+/**
+ * The records-API spelling of a page operator, or `undefined` for a string
+ * that is not one — a value read back from the page address is untrusted.
+ */
+export const toRecordsApiOperator = (operator: string): string | undefined =>
+  Object.hasOwn(API_OPERATORS, operator)
+    ? API_OPERATORS[operator as DataFilter['operator']]
+    : undefined
 
 /**
  * The JSON `filter` parameter (`{"and":[…]}`) for `filters`, or `undefined`

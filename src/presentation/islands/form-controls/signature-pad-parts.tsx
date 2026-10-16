@@ -24,6 +24,16 @@ import {
   type SignedItemClasses,
 } from '@/presentation/design/signature-signed-item'
 
+/**
+ * Every word the pad draws (`signaturePad.*`), resolved by the server in the
+ * page language. All of them, not only those that differ from English: the
+ * island carries no English of its own, its mount budget has no room for it.
+ */
+export type PadStrings = Readonly<Record<string, string>>
+
+/** One of the pad's words, `signaturePad.<key>`. */
+const padWord = (s: PadStrings, key: string): string => s[`signaturePad.${key}`] ?? key
+
 /** Clear: base-nova's ghost button, small. */
 const CLEAR = computePartButtonClasses({ variant: 'ghost', size: 'sm' })
 /** The drawn/typed switch: base-nova's outline button, small. */
@@ -37,19 +47,23 @@ export function SignedReading({
   statement,
   lang,
   classes,
+  strings,
 }: {
   readonly signerName: string
   readonly signedAt: string
   readonly statement: string
   readonly lang?: string
   readonly classes: SignedItemClasses
+  readonly strings: PadStrings
 }): ReactElement {
   const day = new Intl.DateTimeFormat(lang ?? 'en-GB', { dateStyle: 'long' }).format(
     Date.parse(signedAt)
   )
   return (
     <SignatureSignedItem
-      title={`Signed by ${signerName} on ${day}`}
+      title={padWord(strings, 'signedBy')
+        .replace('{name}', () => signerName)
+        .replace('{date}', day)}
       statement={statement}
       classes={classes}
     />
@@ -75,12 +89,14 @@ export function SignatureInput({
   setName,
   canvasRef,
   height,
+  strings,
 }: {
   readonly typed: boolean
   readonly name: string
   readonly setName: (name: string) => void
   readonly canvasRef: React.RefObject<HTMLCanvasElement | null>
   readonly height: number
+  readonly strings: PadStrings
 }): ReactElement {
   const wellStyle = useMemo(() => ({ height }), [height])
   if (typed) {
@@ -94,7 +110,7 @@ export function SignatureInput({
           data-slot="field-label"
           className={computeInputGroupLabelClasses()}
         >
-          Full name
+          {padWord(strings, 'fullName')}
         </label>
         <input
           id="signature-pad-typed-name"
@@ -113,7 +129,7 @@ export function SignatureInput({
       ref={canvasRef}
       data-signature-well=""
       data-slot="signature-pad-well"
-      aria-label="Signing well: draw your signature"
+      aria-label={padWord(strings, 'well')}
       className="bg-background text-foreground focus-visible:ring-ring/50 w-full touch-none rounded-lg border border-dashed outline-none focus-visible:ring-3"
       style={wellStyle}
     />
@@ -130,7 +146,9 @@ export function PadActions(props: {
   readonly onClear: () => void
   readonly onToggle: () => void
   readonly onSign: () => void
+  readonly strings: PadStrings
 }): ReactElement {
+  const s = props.strings
   return (
     <div
       data-slot="signature-pad-actions"
@@ -144,7 +162,7 @@ export function PadActions(props: {
           disabled={!props.inked}
           onClick={props.onClear}
         >
-          Clear
+          {padWord(s, 'clear')}
         </button>
       )}
       {props.allowTyped && (
@@ -154,7 +172,7 @@ export function PadActions(props: {
           className={TOGGLE}
           onClick={props.onToggle}
         >
-          {props.typed ? 'Draw instead' : 'Type your name instead'}
+          {padWord(s, props.typed ? 'drawInstead' : 'typeInstead')}
         </button>
       )}
       <button
@@ -165,20 +183,20 @@ export function PadActions(props: {
         {...pendingControlProps(props.saving)}
         onClick={props.saving ? undefined : props.onSign}
       >
-        {props.saving ? 'Signing…' : 'Sign'}
+        {padWord(s, props.saving ? 'signing' : 'sign')}
       </button>
     </div>
   )
 }
 
 /** The one failure a signer can act on. */
-export function SaveFailed(): ReactElement {
+export function SaveFailed({ strings }: { readonly strings: PadStrings }): ReactElement {
   return (
     <p
       role="alert"
       className="text-destructive text-sm"
     >
-      The signature could not be saved. Check the connection and sign again.
+      {padWord(strings, 'saveFailed')}
     </p>
   )
 }

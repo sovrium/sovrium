@@ -43,7 +43,7 @@ import {
   systemRecordFetcher,
   systemRowsFetcher,
 } from '../../../infrastructure/egress/system-rows-fetcher'
-import { readTableAsCaller } from './caller-table-reader'
+import { callerTableReaders } from './caller-table-reader'
 import { fileUrlSigner } from './file-url-signer'
 import {
   CACHED_PAGE_CACHE_CONTROL,
@@ -55,7 +55,9 @@ import { isPartialEligible, pagePartialOf } from './page-partial'
 import { sendRevalidatedPage } from './page-revalidation'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
 import type {
+  LoadRowRuleContext,
   PageRenderResult,
+  ReadRecordLabels,
   ReadTableAsCaller,
   SignFileUrl,
 } from '@/application/ports/services/page-renderer'
@@ -152,18 +154,17 @@ export interface PageRequestContext {
     recordKey: string | undefined
   ) => Promise<Readonly<Record<string, unknown>> | undefined>
   /**
-   * The `/:lang/` URL-prefix locale, when the request
-   * carried one. `detectedLanguage` above collapses the URL prefix and the
-   * browser `Accept-Language` guess into one value; this keeps the URL prefix
-   * distinguishable, because only IT outranks a page's own `meta.lang`.
+   * The `/:lang/` URL-prefix locale, when the request carried one: kept apart from
+   * `detectedLanguage`, because only IT outranks a page's own `meta.lang`.
    */
   readonly urlLanguage?: string
   /**
-   * The table API's answer to "what may this caller see of this table?" — the
-   * views, permission map and fields a data-table grid hands its reader. Never
-   * supplied by a route: {@link renderWithCache} attaches it beside the readers.
+   * The table API's answers for this caller (a grid's table, a record's labels, a
+   * row rule's context). Never supplied by a route: `renderWithCache` attaches them.
    */
   readonly readTableAsCaller?: ReadTableAsCaller
+  readonly readRecordLabels?: ReadRecordLabels
+  readonly loadRowRuleContext?: LoadRowRuleContext
   readonly signFileUrl?: SignFileUrl // the `file-preview` signer, attached beside the readers
 }
 
@@ -281,16 +282,15 @@ export async function renderWithCache(
   const renderCtx: PageRequestContext = {
     ...reqCtx,
     fetchSystemRows: systemRowsFetcher(c),
-    // The SINGLE-RECORD sibling. A page bound to a `{ system }`
-    // detail endpoint is NAMED by its record, so it must be read before the
-    // document ships — as the caller, and 404ing when there is none.
+    // The SINGLE-RECORD sibling. A page bound to a `{ system }` detail endpoint is
+    // NAMED by its record: read before the document ships, as the caller, 404 if none.
     fetchSystemRecord: systemRecordFetcher(c),
     // G1: the address this request arrived on — the shared resolver every
     // surface printing this instance's address uses, so none can disagree.
     requestOrigin: resolveRequestBaseUrl(c),
-    // A grid's payload carries only what the table API answers its reader; a
-    // `file-preview` draws its file through an address signed for this caller.
-    readTableAsCaller,
+    // A grid's payload and a record's labels carry only what the table API answers
+    // its reader; a `file-preview` draws its file through an address signed for her.
+    ...callerTableReaders(c),
     signFileUrl: fileUrlSigner(app, reqCtx.session),
   }
 

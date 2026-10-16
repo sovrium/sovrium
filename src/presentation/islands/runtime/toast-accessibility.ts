@@ -38,10 +38,11 @@
  * is no single element whose politeness can be set per toast. The two available
  * shapes were a second container per politeness, or a live region on the toast
  * itself. The first is refused — a page that declares `page.toasts` must serve
- * exactly ONE standing live region, and a second one makes the selector union
+ * exactly ONE standing container, and a second one makes the selector union
  * `[data-toast-container], [role="status"], [aria-live="polite"]` match twice,
  * reddening eight strict reads in `action-feedback.spec.ts` on a strict-mode
- * violation rather than on anything they test. The second is also the one screen
+ * violation rather than on anything they test. The container is therefore no
+ * live region itself — an alert inside a polite region is announced twice. The second is also the one screen
  * readers handle reliably: `role="alert"` announces on insertion and is the
  * best-supported assertive pattern there is, whereas flipping a standing
  * region's `aria-live` at the same moment as inserting its content is a known
@@ -101,14 +102,18 @@ export function appendToastMessage(toast: Element, message: string): void {
 }
 
 /**
- * Mark a toast as the urgent kind, when its variant says so.
+ * Make the toast its own live region, of the urgency its variant asks for.
  *
- * `role="alert"` and nothing else: its implicit `aria-live` is already
- * assertive, and pairing the two makes some assistive technology announce
- * twice.
+ * An urgent toast is `role="alert"` and nothing else: its implicit `aria-live`
+ * is already assertive, and pairing the two makes some assistive technology
+ * announce twice. Every other toast is a polite `role="status"`. The container
+ * around them is no live region at all, so each toast is announced exactly
+ * once, by itself (WCAG 4.1.3).
  */
 export function markToastPoliteness(toast: Element, variant?: string): void {
-  if (isAssertiveToastVariant(variant)) toast.setAttribute('role', 'alert')
+  const urgent = isAssertiveToastVariant(variant)
+  toast.setAttribute('role', urgent ? 'alert' : 'status')
+  if (!urgent) toast.setAttribute('aria-live', 'polite')
 }
 
 /**
@@ -185,4 +190,31 @@ function dismissMostRecentToast(): void {
     (toast) => toast.querySelector('[data-toast-dismiss]') !== null
   )
   dismissible[dismissible.length - 1]?.remove()
+}
+
+/**
+ * Lift a pinned toast region clear of the control that has focus.
+ *
+ * A refused submit hands the focus back to its button before the failure is
+ * toasted, and a toast region pinned to the corner could land right over that
+ * button — the one control the reader is about to press again. So once a toast
+ * is in, the region is measured against the focused control and, when the two
+ * overlap, raised to sit just above it. Each new toast measures again from the
+ * stylesheet's own corner, so the lift never outlives the layout it answered.
+ * A region the page draws in its own flow is not pinned, and is left alone.
+ */
+export function keepToastsClearOfFocus(container: Element): void {
+  const region = container as HTMLElement
+  if (getComputedStyle(region).position !== 'fixed') return
+  region.style.bottom = ''
+  const focused = document.activeElement
+  if (!(focused instanceof HTMLElement) || focused === document.body) return
+  const control = focused.getBoundingClientRect()
+  const toasts = region.getBoundingClientRect()
+  const overlaps =
+    control.left < toasts.right &&
+    toasts.left < control.right &&
+    control.top < toasts.bottom &&
+    toasts.top < control.bottom
+  if (overlaps) region.style.bottom = `${Math.ceil(window.innerHeight - control.top + 8)}px`
 }

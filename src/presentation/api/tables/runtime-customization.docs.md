@@ -2,7 +2,7 @@
 
 > What a reader can change about what she sees without a developer changing the config — for the length of a visit — and the boundary that stops it from widening access.
 
-Developers declare the data model, the views and the pages; readers narrow what they are shown. A grid's toolbar can offer a search box, a filter builder and a sort builder, and every column header sorts on a click. These are behaviours of the runtime rather than stored settings: `toolbar` decides which controls are _surfaced_, and what a reader does with them lasts for her visit only. It is stored nowhere — neither on the server nor in the browser — and a reload shows the component as configured.
+Developers declare the data model, the views and the pages; readers narrow what they are shown. The controls composed above a grid — a search box, a facet, a filter bar — narrow it through the channel it subscribes to, and every column header sorts on a click. These are behaviours of the runtime rather than stored settings: the page decides which controls are _surfaced_, and what a reader does with them lasts for her visit only. It is stored nowhere — neither on the server nor in the browser — and a reload shows the component as configured.
 
 ## A way of looking at a table is configuration
 
@@ -12,7 +12,7 @@ A lasting way of looking at a table — a filter, a sort, a grouping, a set of v
 | -------------------- | -------------------------------------------------------------------------------- |
 | Search               | The visit; it narrows what the binding — the view or the table — already returns |
 | Filter               | The visit; conditions stack on top of the view's filters or the binding's own    |
-| Sort                 | The visit; a header click or the sort builder reorders the rows                  |
+| Sort                 | The visit; a header click reorders the rows                                      |
 
 Runtime filters and sorts go through the same query layer the Records API already exposes — the interface composes the very `filter` and `sort` parameters a script would send. Nothing about runtime narrowing is a second, parallel query path, which is why it cannot behave differently from the API under the same permissions.
 

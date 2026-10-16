@@ -5,12 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { groupRecords, type KanbanColumnData } from './group-records'
+import { groupRecords, type KanbanColumnData, type KanbanHeaderPaint } from './group-records'
 import type { TableRecord } from '../runtime/types'
 
 /** One lane of a two-axis board: its value, and the full column set inside it. */
 export interface KanbanLaneData {
   readonly value: string
+  /** The lane option's label in the page language, when it differs from `value`. */
+  readonly label?: string
   readonly columns: readonly KanbanColumnData[]
   /** Every record in this lane, across all its columns — the lane's own count. */
   readonly recordCount: number
@@ -20,9 +22,10 @@ export interface BuildKanbanGridInput {
   readonly records: readonly TableRecord[]
   readonly columnField: string
   readonly columnOptions: readonly string[] | undefined
-  readonly columnColors: Readonly<Record<string, string>> | undefined
+  readonly columnPaint: KanbanHeaderPaint
   readonly laneField: string
   readonly laneOptions: readonly string[] | undefined
+  readonly laneLabels?: Readonly<Record<string, string>>
   /** Draw a declared lane that holds no records. Defaults to `true`. */
   readonly showEmptyLanes: boolean
 }
@@ -57,22 +60,25 @@ export interface KanbanGrid {
  * one level deeper than a single-axis board needs it.
  */
 export function buildKanbanGrid(input: BuildKanbanGridInput): KanbanGrid {
-  const { records, columnField, columnOptions, columnColors, laneField } = input
+  const { records, columnField, columnOptions, columnPaint, laneField } = input
 
   // The whole-board column set, in the order the single-axis board would draw
   // it. Doubles as the shared header row, so its counts are board-wide totals.
-  const columnHeaders = groupRecords(records, columnField, columnOptions, columnColors)
+  const columnHeaders = groupRecords(records, columnField, columnOptions, columnPaint)
   const columnValues = columnHeaders.map((column) => column.value)
 
-  const allLanes = groupRecords(records, laneField, input.laneOptions)
+  const allLanes = groupRecords(records, laneField, input.laneOptions, {
+    labels: input.laneLabels,
+  })
   const lanes = input.showEmptyLanes ? allLanes : allLanes.filter((lane) => lane.records.length > 0)
 
   return {
     columnHeaders,
     lanes: lanes.map((lane) => ({
       value: lane.value,
+      ...(lane.label ? { label: lane.label } : {}),
       recordCount: lane.records.length,
-      columns: groupRecords(lane.records, columnField, columnValues, columnColors),
+      columns: groupRecords(lane.records, columnField, columnValues, columnPaint),
     })),
   }
 }

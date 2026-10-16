@@ -12,13 +12,12 @@
 // the four.
 
 export default {
-  'admin.footprint.heading': 'Empreinte',
-  'admin.footprint.blurb':
-    'Ce que cette instance a consommé, et les leviers sous lesquels elle tourne. Chaque chiffre ci-dessous est soit mesuré par ce processus, soit déclaré par toi — chaque région dit lequel.',
-
   'admin.tables.heading': 'Enregistrements',
   'admin.tables.blurb':
     'Parcours et modifie les enregistrements de tes tables. Choisis une table pour ouvrir sa grille — cherche, trie, filtre, puis ouvre un enregistrement pour le modifier.',
+  'admin.tables.toolbar': 'Contrôles des enregistrements',
+  'admin.tables.search': 'Chercher dans les lignes',
+  'admin.tables.export': 'Exporter en CSV',
 
   'admin.buckets.heading': 'Fichiers',
   'admin.buckets.blurb':
@@ -33,6 +32,8 @@ export default {
     'Toutes les conversations que tes utilisateurs ont eues avec cet agent. Ouvres-en une pour lire le fil complet.',
   'admin.agents.blurbSystem':
     'Les conversations avec l’agent Système intégré : l’assistant de Bienvenue, et toute discussion qui ne nomme aucun agent déclaré. Il lit les données de ton app sans jamais les modifier. Ouvres-en une pour lire le fil complet.',
+  'admin.conversations.person': 'Personne',
+  'admin.conversations.everyone': 'Tout le monde',
 
   'admin.forms.heading': 'Réponses',
   'admin.forms.blurb':
@@ -45,8 +46,8 @@ export default {
   'admin.connections.status.expiringSoon': 'Bientôt expiré',
   'admin.connections.status.expired': 'Expiré',
   'admin.connections.status.reconnectNeeded': 'À reconnecter',
+  'admin.connections.status.notConnected': 'Non connectée',
   'admin.connections.col.connection': 'Connexion',
-  'admin.connections.col.provider': 'Fournisseur',
   'admin.connections.col.type': 'Type',
   'admin.connections.col.status': 'Statut',
   'admin.connections.col.tokens': 'Jetons',
@@ -88,8 +89,8 @@ export default {
   'admin.organisation.processes.blurb':
     'Ce qui tourne sans personne devant : chaque automatisation en couloir, et les étapes qu’elle parcourt, dans l’ordre où elle les parcourt. Un couloir en pointillés est en pause ; un couloir gris est désactivé dans la configuration. Le tableau en dessous porte les mêmes couloirs et les mêmes étapes en texte.',
 
-  'admin.organisation.tabs.findings': 'Constats',
   'admin.organisation.tabs.matrix': 'Matrice',
+  'admin.organisation.findingsFact': 'constats',
   'admin.organisation.tabs.map': 'Carte',
   'admin.organisation.tabs.reach': 'Portée',
   'admin.organisation.tabs.processes': 'Processus',
@@ -103,6 +104,7 @@ export default {
   'admin.organisation.matrix.empty':
     'Rien à croiser. Cette app ne déclare aucune ressource, ou aucun rôle, aucune équipe et aucun droit ouvert qui pourrait les atteindre.',
   'admin.organisation.matrix.flag': 'Par le barreau ouvert',
+  'admin.organisation.graph.flag': 'Nommé par un constat',
 
   'admin.organisation.map.label':
     'Qui atteint quoi, et par quel droit. Le tableau en dessous porte les mêmes nœuds et les mêmes droits en texte.',
@@ -190,10 +192,11 @@ export default {
   'admin.users.account.gaps.activity.heading': 'Dernière activité',
   'admin.users.account.gaps.activity.body':
     'L’annuaire renvoie id, e-mail, nom, rôle, statut et groupes. Un instant de dernière activité par compte demande une jointure sur la table des sessions, qu’aucune lecture ne fait.',
-
-  'admin.invitations.heading': 'Invitations',
-  'admin.invitations.blurb':
-    'Invite quelqu’un sur cette app, vois quelles invitations sont encore en attente, et reprends-en une avant qu’elle soit acceptée.',
+  'admin.users.account.access.region': 'Accès',
+  'admin.users.account.access.heading': 'Accès',
+  'admin.users.account.access.body':
+    'Les enregistrements des tables à portée accordés à ce compte, et le rôle que donne chaque accès. Les accès se modifient par l’API, le seed ou les automatisations, jamais ici.',
+  'admin.users.account.access.grid': 'Autorisations',
 
   'admin.pages.heading': 'Analytique',
   'admin.pages.blurb':
@@ -224,12 +227,22 @@ export default {
   'admin.automations.region': 'Automatisations',
   'admin.buckets.browser.region': 'Explorateur de fichiers',
   'admin.buckets.upload.region': 'Envoyer un fichier',
+  'admin.buckets.upload.failed': 'Impossible d’envoyer {file}.',
+  // The three rules keys keep a space at each end: they sit between other
+  // elements of one line, and the spaces are what separate the words for a
+  // screen reader (the line's flex gap is not text).
+  'admin.buckets.public': 'Public',
+  'admin.buckets.rules.types': ' Accepte ',
+  'admin.buckets.rules.sizeBefore': ' Jusqu’à ',
+  'admin.buckets.rules.sizeAfter': ' par fichier ',
   'admin.connections.region': 'Connexions',
   'admin.forms.metrics.region': 'Indicateurs du formulaire',
   'admin.forms.submissions.region': 'Réponses',
   'admin.users.metrics.region': 'Indicateurs des utilisateurs',
   'admin.users.region': 'Utilisateurs',
   'admin.invitations.form.region': 'Inviter un coéquipier',
+  'admin.invitations.form.blurb': 'Cette personne reçoit un e-mail avec un lien pour rejoindre.',
+  'admin.invitations.sent': 'Invitation envoyée à $response.user.email',
   'admin.invitations.pending.region': 'Invitations en attente',
 
   'admin.tables.empty.heading': 'Aucune table',
@@ -260,7 +273,8 @@ export default {
   'admin.automations.catalog.pause.title': 'Mettre cette automatisation en pause\u00a0?',
   'admin.automations.catalog.pause.message':
     'Les nouvelles exécutions s’arrêtent jusqu’à la reprise. Une exécution déjà en cours n’est pas annulée.',
-  'admin.automations.catalog.pause.toast': 'Automatisation mise en pause',
+  'admin.automations.catalog.pause.toast': '$record.name mise en pause',
+  'admin.automations.catalog.pause.failed': 'Impossible de mettre $record.name en pause.',
   'admin.automations.catalog.resume.toast': 'Automatisation reprise',
   'admin.automations.catalog.empty': 'Aucune automatisation',
 
@@ -291,6 +305,10 @@ export default {
   'admin.automations.runs.col.status': 'Statut',
   'admin.automations.runs.col.started': 'Démarrée',
   'admin.automations.runs.col.duration': 'Durée',
+  'admin.automations.runs.col.stepCount': 'Étapes',
+  'admin.automations.runs.col.attempt': 'Tentative',
+  'admin.automations.runs.col.error': 'Erreur',
+  'admin.automations.runs.action.record': 'Ouvrir l’enregistrement',
   'admin.automations.runs.action.view': 'Voir l’exécution',
   'admin.automations.runs.search': 'Rechercher des exécutions',
   'admin.automations.runs.empty': 'Aucune exécution',
@@ -324,23 +342,11 @@ export default {
   'admin.automations.runs.detail.retry.error': 'L’exécution n’a pas été relancée.',
 
   'admin.forms.openForm': 'Ouvrir le formulaire',
-  'admin.forms.conversion.heading': 'Taux de conversion',
-  'admin.forms.conversion.why':
-    'Le taux de conversion demande un compteur de vues — Sovrium ne le mesure pas encore.',
   'admin.forms.tabs.region': 'Sous-vues Réponses',
   'admin.forms.trend.region': 'Réponses dans le temps',
-  'admin.forms.gaps.region': 'Chiffres pas encore mesurés',
-  'admin.forms.gaps.heading': 'Pas encore mesuré',
-  'admin.forms.metric.unmeasured': 'pas mesuré',
-  'admin.forms.duration.heading': 'Temps de remplissage moyen',
-  'admin.forms.duration.why':
-    'Chronométrer une réponse demande le moment où le formulaire a été ouvert ; seul celui où elle est arrivée est enregistré.',
-  'admin.forms.attachments.heading': 'Pièces jointes',
-  'admin.forms.attachments.why':
-    'Les compter demande de lire les données de chaque réponse, ce que la requête d’agrégat évite volontairement pour rester légère.',
   'admin.forms.dropOff.heading': 'Abandon par étape',
-  'admin.forms.dropOff.why':
-    'Savoir où quelqu’un s’est arrêté demande une trace des étapes atteintes ; un formulaire multi-étapes ne stocke que ce qu’il a reçu.',
+  'admin.forms.dropOff.singlePage': 'Sans objet : formulaire d’une seule page',
+  'admin.forms.reveal': 'Afficher les réponses',
   'admin.forms.export.region': 'Exporter en CSV',
   'admin.forms.scope':
     'Affiche les 25 réponses les plus récentes. La recherche interroge toutes les réponses et renvoie les 25 correspondances les plus récentes.',

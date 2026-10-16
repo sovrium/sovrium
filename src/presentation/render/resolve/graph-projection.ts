@@ -34,25 +34,20 @@
  *
  * ─── AND WHY THERE IS NO CEILING, WHERE `matrix` HAS TWO ───────────────────
  *
- * `matrix-projection.ts` caps its axes at 150 x 40, because a matrix inlines
- * rows x COLUMNS of markup and the cliff arrives from a config an author cannot
- * read a size off. A graph inlines nodes PLUS edges — a sum, not a product — so
- * the same instance costs an order of magnitude less. Measured on the console's
- * own app: 58 nodes and 49 edges, of which 47 nodes are one column.
- *
- * A lopsided, tall drawing is therefore the NORMAL case rather than a defect,
- * and it is deliberately not capped. Hiding nodes behind an "and N more" would
- * hide exactly the facts the lens exists to show — a resource nobody can name
- * is a resource nobody can audit. It is drawn whole and the page scrolls.
+ * A matrix inlines rows x COLUMNS of markup and caps its axes; a graph inlines
+ * nodes PLUS edges, a sum, so a tall drawing is the NORMAL case and is drawn
+ * whole. An "and N more" would hide exactly the facts the lens exists to show.
  *
  * @see ./graph-resolver.ts — the render-path read that feeds this
  * @see src/presentation/render/registry/island-graph-component.tsx — the SSR half
  */
 
+import { FLAG_MARK, markFlagged } from '@/presentation/render/resolve/graph-node-flag'
 import type {
   GraphColumn,
   GraphLanes,
 } from '@/domain/models/app/pages/components/component-types/data/graph'
+import type { GraphNodeFlagConfig } from '@/presentation/render/resolve/graph-node-flag'
 
 /** One record of the bound envelope — a node or an edge, read loosely. */
 type GraphRecord = Readonly<Record<string, unknown>>
@@ -67,6 +62,8 @@ export interface GraphNodeView {
   readonly state?: string
   /** One short line the drawing carries as a `<title>` and the twin prints. */
   readonly detail?: string
+  /** The `flag.label` of a node whose `flag.field` is true; absent on an unmarked one. */
+  readonly flag?: string
 }
 
 /**
@@ -134,6 +131,7 @@ export interface GraphTwinRowView {
   readonly columnLabel: string
   readonly band?: string
   readonly detail?: string
+  readonly flag?: string
   /** Labels of the nodes this one reaches DIRECTLY — the edges, as text. */
   readonly reaches: readonly string[]
 }
@@ -199,6 +197,7 @@ export interface GraphProjectionConfig {
   readonly lanes?: GraphLanes
   readonly nodesKey?: string
   readonly edgesKey?: string
+  readonly flag?: GraphNodeFlagConfig
 }
 
 const DEFAULT_NODES_KEY = 'nodes'
@@ -264,12 +263,14 @@ const nodeView = (node: GraphRecord): GraphNodeView => {
   const id = text(node, 'id') ?? ''
   const state = text(node, 'state')
   const detail = text(node, 'detail')
+  const flag = text(node, FLAG_MARK)
   return {
     id,
     label: text(node, 'label') ?? id,
     kind: text(node, 'kind') ?? '',
     ...(state === undefined ? {} : { state }),
     ...(detail === undefined ? {} : { detail }),
+    ...(flag === undefined ? {} : { flag }),
   }
 }
 
@@ -363,10 +364,7 @@ const drawnEdges = (
  * as lines": a transitive closure would be the island's reach SET.
  *
  * Closed over once per projection rather than passed down as an `edges` +
- * `labels` pair, which is a readability point as much as a parameter-count one:
- * every caller wants the same question answered about a different node, and a
- * function that answers it is a smaller thing to hand around than the two
- * collections the answer is computed from.
+ * `labels` pair: every caller asks the same question about a different node.
  */
 type Reach = (id: string) => readonly string[]
 
@@ -389,6 +387,7 @@ const twinRow = (
   columnLabel,
   ...(band === undefined ? {} : { band }),
   ...(node.detail === undefined ? {} : { detail: node.detail }),
+  ...(node.flag === undefined ? {} : { flag: node.flag }),
   reaches: reach(node.id),
 })
 
@@ -609,7 +608,7 @@ const projectLanes = (
  * could read off the config.
  */
 export const projectGraph = (envelope: GraphRecord, config: GraphProjectionConfig): GraphView => {
-  const nodes = collection(envelope, config.nodesKey ?? DEFAULT_NODES_KEY)
+  const nodes = markFlagged(collection(envelope, config.nodesKey ?? DEFAULT_NODES_KEY), config.flag)
   const edges = collection(envelope, config.edgesKey ?? DEFAULT_EDGES_KEY)
   const degraded = degradedSources(envelope)
   return config.layout === 'lanes'

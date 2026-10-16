@@ -5,8 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useCallback } from 'react'
 import { useRealtimeSubscription } from '../../../hooks/use-realtime-subscription'
 import { useGridRefresh, useSortRefusal } from '../../../hooks/use-sort-refusal'
+import { removeRowThenRefreshOnce } from '../../row-actions/deleted-row-refresh'
 import { useGridRefreshChannels } from '../use-refresh-channels'
 import type { SetupContext } from './setup-params'
 import type { EffectiveLayout } from './use-effective-layout'
@@ -33,6 +35,10 @@ export function useRefreshWiring(
   const sortRefusal = useSortRefusal(records.query.isError, records.query.error, layout.tableState)
 
   const handleRefresh = useGridRefresh(ctx.queryClient, queryKey, sortRefusal.clearReadError)
+  const handleRowDeleted = useCallback(
+    (recordId: string) => removeRowThenRefreshOnce(ctx.queryClient, queryKey, recordId),
+    [ctx.queryClient, queryKey]
+  )
 
   // The two out-of-band "re-read now" channels — a sibling crud-form's
   // `sovrium:crud-success` (matched by table name) and a sibling fetch action's
@@ -43,6 +49,7 @@ export function useRefreshWiring(
     sourceId: ctx.params.searchSourceId,
     endpoint: ctx.params.dataSource.system?.endpoint,
     onRefresh: handleRefresh,
+    onRowDeleted: handleRowDeleted,
   })
 
   // Realtime mode: subscribe to live change events for the bound table. Each

@@ -5,15 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+// sovrium-library: block/data-table-toolbar@0.38.0#db405e294f03
+
 // Records — the operator's own rows, one grid per declared table.
 //
 // TWO pages, because the surface answers two different questions:
 //
-//   `/tables`         the bare collection. Nothing useful to show: the sidebar's
+//   `/records`         the bare collection. Nothing useful to show: the sidebar's
 //                     auto-expanded Records disclosure IS the table picker, so
 //                     this 302s to the first table. It renders only for an app
 //                     that declares NO tables, and then it is an empty state.
-//   `/tables/:table`  one table's Airtable-grade record grid + the record-detail
+//   `/records/:table`  one table's Airtable-grade record grid + the record-detail
 //                     drawer a row click opens.
 //
 // ─── WHAT IT TOOK TO WRITE THIS AS CONFIG ──────────────────────────────────
@@ -41,9 +43,8 @@
 // gated on `!isSystemSource` by construction. The DB
 // binding is what keeps them, which is why `columnsFrom` exists at all.
 
-import { fillHost, pageHeading } from '../../components/data-page'
+import { consolePage, emptyState, fillHost } from '../../components/data-page'
 import { dataTable, recordSheet } from '../../components/data-table-blocks'
-import { withShell } from '../../components/shell'
 import { TABLES_OVERVIEW_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -59,8 +60,75 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
  */
 const RECORD_DRAWER_ID = 'record-detail-drawer'
 
+/** The channel the toolbar publishes on and the grid listens to. */
+const RECORDS_CHANNEL = 'records-filter'
+
+/**
+ * The toolbar above the grid, INSTALLED from the library's `data-table-toolbar`
+ * block (shadcn's "tasks" toolbar row): the search box and the filter bar on
+ * the left, Export CSV, Import CSV and New on the right. `Console Block Parity`
+ * holds it to the block; re-install with
+ * `sovrium library add block/data-table-toolbar --update`.
+ *
+ * NO facet: this page is written once for every table, and a facet names one
+ * choice field that most tables do not have. The filter bar offers whatever
+ * fields the table the address names declares.
+ *
+ * The bindings are the table (`$param.table`), the channel and the copy.
+ *
+ * NO New and NO Import button yet. The record drawer opened from no row is not
+ * a create form, and no page action opens the grid's create dialog; and the
+ * import action does not yet hide itself from a reader who may not create,
+ * which a read-only operator must never be shown. Both stay on the grid's own
+ * controls until the page actions can carry them.
+ */
+export const recordsToolbarCopy = {
+  type: 'container',
+  element: 'div',
+  props: {
+    role: 'toolbar',
+    'aria-label': '$t:admin.tables.toolbar',
+    className: 'flex flex-wrap items-center gap-2',
+  },
+  children: [
+    {
+      type: 'search-input',
+      placeholder: '$t:admin.tables.search',
+      props: {
+        'aria-label': '$t:admin.tables.search',
+        className: 'h-8 w-full sm:w-[150px] lg:w-[250px]',
+      },
+      publishes: { bindTo: 'records-filter', param: 'q' },
+    },
+    {
+      type: 'filter-bar',
+      publishes: { bindTo: 'records-filter' },
+      fieldsFrom: { table: '$param.table' },
+    },
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex items-center gap-2 sm:ml-auto' },
+      children: [
+        {
+          type: 'button',
+          label: '$t:admin.tables.export',
+          variant: 'outline',
+          size: 'sm',
+          action: {
+            type: 'fetch',
+            mode: 'download',
+            url: '/api/tables/$param.table/export?format=csv',
+            filename: '$param.table.csv',
+          },
+        },
+      ],
+    },
+  ],
+} as const
+
 /** The Records crumb label, shared by both pages of the surface. */
-const BREADCRUMB = { tables: '$t:admin.crumb.tables' } as const
+const BREADCRUMB = { records: '$t:admin.crumb.records' } as const
 
 /**
  * The whole-page empty state for an app that declares no tables.
@@ -69,35 +137,11 @@ const BREADCRUMB = { tables: '$t:admin.crumb.tables' } as const
  * than by its copy — the same shape every other Data surface's empty state uses.
  */
 const noTablesState = (): PageComponent =>
-  ({
-    type: 'container',
-    element: 'section',
-    props: {
-      'aria-label': '$t:admin.tables.empty.heading',
-      className:
-        'border-border bg-card flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center',
-    },
-    children: [
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-foreground text-md font-medium' },
-        content: '$t:admin.tables.empty.heading',
-      },
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-muted-foreground max-w-md text-md leading-relaxed' },
-        content: '$t:admin.tables.empty.body',
-      },
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-foreground-subtle mt-1 max-w-md text-md italic' },
-        content: '$t:admin.tables.empty.hint',
-      },
-    ],
-  }) as PageComponent
+  emptyState(
+    '$t:admin.tables.empty.heading',
+    '$t:admin.tables.empty.body',
+    '$t:admin.tables.empty.hint'
+  )
 
 /**
  * The table list `redirectToFirst` reads its first row from.
@@ -131,33 +175,30 @@ const tableDirectory = (): PageComponent =>
     props: { 'data-testid': 'admin-tables-directory', className: 'flex flex-col gap-1' },
     dataSource: { system: { endpoint: TABLES_OVERVIEW_ENDPOINT, rowsKey: 'by_table' } },
     listDisplay: {
-      itemTemplate: { title: '{name}', subtitle: '{rowCount} records' },
-      emptyMessage: 'No tables',
+      itemTemplate: { title: '{label}', subtitle: '$t:admin.tables.rowCount' },
+      emptyMessage: '$t:admin.tables.none',
     },
   }) as PageComponent
 
 /**
- * `/tables` — the bare collection.
+ * `/records` — the bare collection.
  *
- * `hrefTemplate` is MOUNT-RELATIVE (`/tables/{name}`), like every other href the
+ * `hrefTemplate` is MOUNT-RELATIVE (`/records/{name}`), like every other href the
  * preset writes: the mount moves it onto the console's base at boot, so the
  * config never spells `/_admin` and never doubles it.
  */
-const directoryPage: PageConfig = withShell(
-  {
-    id: 'dashboard-data-tables',
-    name: 'dashboard-data-tables',
-    path: '/tables',
-    meta: { title: '$t:admin.meta.tables', lang: 'en-US' },
-    redirectToFirst: { hrefTemplate: '/tables/{name}' },
-    components: [
-      pageHeading('$t:admin.tables.heading', '$t:admin.tables.blurb'),
-      noTablesState(),
-      tableDirectory(),
-    ],
-  } as PageConfig,
-  { breadcrumb: BREADCRUMB }
-)
+const directoryPage: PageConfig = consolePage({
+  id: 'dashboard-data-tables',
+  path: '/records',
+  title: '$t:admin.meta.tables',
+  heading: ['$t:admin.tables.heading', '$t:admin.tables.blurb'],
+  page: {
+    requires: ['tables'],
+    redirectToFirst: { hrefTemplate: '/records/{name}' },
+  },
+  shell: { breadcrumb: BREADCRUMB },
+  body: [noTablesState(), tableDirectory()],
+})
 
 /**
  * The record grid for the table the URL names.
@@ -178,8 +219,8 @@ const directoryPage: PageConfig = withShell(
  */
 const recordGrid = (): PageComponent =>
   dataTable({
-    props: { 'aria-label': 'Records $param.table' },
-    dataSource: { table: '$param.table' },
+    props: { 'aria-label': '$t:admin.common.records $param.table' },
+    dataSource: { table: '$param.table', bindTo: RECORDS_CHANNEL, sharedFilter: {} },
     columnsFrom: 'table',
     // ─── THE GRID OWNS THE SCROLL ──────────────────────────────────────────
     //
@@ -190,7 +231,7 @@ const recordGrid = (): PageComponent =>
     // sits under a band of KPIs, chips or filters that must keep their natural
     // height.
     //
-    // What it fixes is not tidiness. Before this, `/tables/:table` at 1440×900
+    // What it fixes is not tidiness. Before this, `/records/:table` at 1440×900
     // put a 1255px block inside a 900px column, so the column scrolled and the
     // column HEAD went with it: every row below the fold was an unlabelled
     // tuple. The pager sat at 1322, 422px below a 900px viewport, so the
@@ -236,25 +277,16 @@ const recordGrid = (): PageComponent =>
     // worse than no control. The canvas draws `Trash · 23` as a second view of
     // this page; when that view ships, this action ships with it.
     selection: { mode: 'multiple' },
-    // The `search` BLOCK is what renders the searchbox — `toolbar.search` alone
-    // does not, a trap `data-links-surface` records too.
-    search: { enabled: true, placeholder: 'Search rows' },
     // Without this a no-match search falls back to `emptyMessage` and tells the
     // operator the table is empty seconds after they watched it render a row.
-    noMatchMessage: 'No record matches “{query}”',
-    // The reader's transient narrowing: Filter and Sort. Both last for the
-    // visit only and are stored nowhere; a lasting grouping or sort is a view
-    // declared on the table.
-    toolbar: {
-      filters: true,
-      sort: true,
-    },
+    noMatchMessage: '$t:admin.tables.noMatch',
     // The island caps at 25 rows with or without this block; what the block adds
     // is the PAGER and the "1–25 of 28" summary. A grid may cap; it may not cap
     // silently.
     pagination: { pageSize: 25, pageSizeOptions: [25, 50, 100] },
     onRowClick: { action: 'openSheet', component: RECORD_DRAWER_ID },
-    emptyMessage: 'No records',
+    // No `emptyMessage`: the grid names the table itself ("Contacts has no
+    // records yet"), which a page written once for every table cannot.
   }) as PageComponent
 
 /**
@@ -273,43 +305,40 @@ const recordGrid = (): PageComponent =>
 const recordDrawer = (): PageComponent =>
   recordSheet({
     id: RECORD_DRAWER_ID,
-    props: { title: 'Record details' },
+    props: { title: '$t:admin.tables.details' },
     dataSource: { table: '$param.table' },
     canEdit: true,
   }) as PageComponent
 
-/** `/tables/:table` — one table's grid, mounted full-width. */
-const gridPage: PageConfig = withShell(
-  {
-    id: 'dashboard-data-tables-table',
-    name: 'dashboard-data-tables-table',
-    path: '/tables/:table',
-    // The title cannot name the table: the route-param pass walks `components`
-    // and `layout`, deliberately not `meta`, at parity with the `$query` and
-    // `$app` passes. Widening one family without the others would leave three
-    // `$`-references with three different reaches.
-    meta: { title: '$t:admin.meta.tables', lang: 'en-US' },
-    components: [
-      pageHeading('$t:admin.tables.heading', '$t:admin.tables.blurb'),
-      // `fillHost`, not `fullWidth`, and `fill: true` on the shell: the two
-      // halves of the bounded parent `layout: 'fill'` requires and does not
-      // create. Measured at 1440×900 — with any ONE of the three missing, the
-      // column scrolls its full 439px and the grid ends 422px below the fold,
-      // exactly as it did before this wave. There is no partial credit here.
-      fillHost([recordGrid(), recordDrawer()]),
-    ],
-  } as PageConfig,
-  { breadcrumb: BREADCRUMB, fill: true }
-)
+/** `/records/:table` — one table's grid, mounted full-width. */
+const gridPage: PageConfig = consolePage({
+  id: 'dashboard-data-tables-table',
+  path: '/records/:table',
+  title: '$t:admin.meta.tables',
+  heading: ['$t:admin.tables.heading', '$t:admin.tables.blurb'],
+  page: {
+    requires: ['tables'],
+  },
+  shell: { breadcrumb: BREADCRUMB, fill: true },
+  body: [
+    // `fillHost`, not `fullWidth`, and `fill: true` on the shell: the two
+    // halves of the bounded parent `layout: 'fill'` requires and does not
+    // create. Measured at 1440×900 — with any ONE of the three missing, the
+    // column scrolls its full 439px and the grid ends 422px below the fold,
+    // exactly as it did before this wave. There is no partial credit here.
+    // The toolbar is its own row above the grid; the grid listens on its channel.
+    fillHost([recordsToolbarCopy as PageComponent, recordGrid(), recordDrawer()]),
+  ],
+})
 
 /**
- * Both pages, DIRECTORY FIRST.
+ * Every page, DIRECTORY FIRST.
  *
  * Order is load-bearing: `findMatchingRoute` takes the first pattern that
- * matches, with no static-over-dynamic precedence, and `/tables/:table` does not
- * match `/tables` — so the two are disjoint and the order is free today. It is
+ * matches, with no static-over-dynamic precedence, and `/records/:table` does not
+ * match `/records` — so the two are disjoint and the order is free today. It is
  * written this way to read as the operator meets them, and any future literal
- * sub-path (`/tables/new`) MUST be inserted ahead of the `:table` page or the
+ * sub-path (`/records/new`) MUST be inserted ahead of the `:table` page or the
  * param page will swallow it.
  */
 export default [directoryPage, gridPage] satisfies readonly PageConfig[]

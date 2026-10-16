@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { KeyboardEvent, MouseEvent } from 'react'
+import type { MouseEvent } from 'react'
 
 export type SortState = 'asc' | 'desc' | false
 
@@ -28,11 +28,14 @@ export function ariaSortFor(
   return 'none'
 }
 
-/** The instruction a sort control gives, read off where the column is now. */
-export function sortActionLabel(sorted: SortState): string {
-  if (sorted === 'asc') return 'Sort descending'
-  if (sorted === 'desc') return 'Clear sort'
-  return 'Sort ascending'
+/**
+ * The instruction a sort control gives, read off where the column is now: its
+ * catalogue key and the English the control falls back to.
+ */
+export function sortActionLabel(sorted: SortState): readonly [key: string, english: string] {
+  if (sorted === 'asc') return ['datatable.sortDescending', 'Sort descending']
+  if (sorted === 'desc') return ['datatable.clearSort', 'Clear sort']
+  return ['datatable.sortAscending', 'Sort ascending']
 }
 
 /**
@@ -49,35 +52,6 @@ export function buildSortClick(
 ): (event: MouseEvent<HTMLButtonElement>) => void {
   return (event) => {
     event.stopPropagation()
-    toggle?.(event)
-  }
-}
-
-/**
- * Enter or Space on a focused column header sorts it, exactly as a click does.
- *
- * It routes through the SAME `getToggleSortingHandler` the `<th>`'s `onClick`
- * already holds, so the keyboard cannot drift from the pointer: one gesture,
- * one cycle, one place to change it. `shiftKey` reaches the handler intact, so
- * multi-sort works from the keyboard on the grids that allow it.
- *
- * `preventDefault` is what keeps Space from scrolling the page out from under a
- * reader who just pressed it, and the `target !== currentTarget` guard keeps a
- * key pressed inside the header — the resize handle, a future control — from
- * bubbling up and sorting as well. Same guard, same reason, as the row action's
- * in `data-row.tsx`.
- *
- * Module scope, like `buildSortClick` above and for the same reason: the arrow
- * is then not created in the rendering scope, which is what `react-perf`'s
- * `jsx-no-new-function-as-prop` measures.
- */
-export function buildSortKeyDown(
-  toggle: ((event: unknown) => void) | undefined
-): (event: KeyboardEvent<HTMLTableCellElement>) => void {
-  return (event) => {
-    if (event.target !== event.currentTarget) return
-    if (event.key !== 'Enter' && event.key !== ' ') return
-    event.preventDefault()
     toggle?.(event)
   }
 }

@@ -10,7 +10,7 @@ import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { qualifiedAuthTable } from './dialect-ddl'
 import {
   isRelationshipField,
-  isUserField,
+  isSingleUser,
   relationshipFieldCreatesForeignKey,
   shouldUseSerial,
 } from './sql-field-predicates'
@@ -266,7 +266,7 @@ export const generateForeignKeyConstraints = (
   // {@link USER_FIELD_ON_DELETE}): an assignment names a PERSON, it is not that
   // person's content, so shedding the identifier and keeping the record is the
   // right outcome — and it is what keeps an assigned account erasable at all.
-  const userFieldConstraints = fields.filter(isUserField).map((field) => {
+  const userFieldConstraints = fields.filter(isSingleUser).map((field) => {
     const constraintName = `${tableConstraintPrefix(tableName)}_${field.name}_fkey`
     return `CONSTRAINT ${constraintName} FOREIGN KEY (${quoteSqlIdentifier(field.name)}) REFERENCES ${qualifiedAuthTable('user')}(id)${USER_FIELD_ON_DELETE}`
   })

@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { hc } from 'hono/client'
 import type { chainRecordRoutesMethods } from '@/presentation/api/tables/record-routes'
 import type { chainTableRoutesMethods } from '@/presentation/api/tables/table-routes'
 import type { chainViewRoutesMethods } from '@/presentation/api/tables/view-routes'
+import type { hc } from 'hono/client'
 
 /**
  * Narrowed RPC type for table record operations only.
@@ -30,43 +30,14 @@ type TableRoutesType = ReturnType<typeof chainTableRoutesMethods>
 type ViewRoutesType = ReturnType<typeof chainViewRoutesMethods>
 
 /**
- * Create a typed RPC client for table record operations.
- * Uses narrowed types to avoid TypeScript instantiation depth overflow.
- *
- * @example
- * ```typescript
- * const client = createRecordsClient(window.location.origin)
- * const res = await client.api.tables[':tableId'].records.$get({
- *   param: { tableId: 'my-table' },
- *   query: { page: '1', limit: '25' },
- * })
- * ```
+ * The client `hc<T>()` returns for the record routes: the shape every island
+ * reads records through. Only the TYPE comes from Hono; the runtime is
+ * `createRecordsClient` in `@/presentation/islands/runtime/rpc-client`.
  */
-export const createRecordsClient = (baseUrl: string) => hc<RecordRoutesType>(baseUrl)
+export type RecordsClient = ReturnType<typeof hc<RecordRoutesType>>
 
-/**
- * Create a typed RPC client for table-level operations.
- *
- * @example
- * ```typescript
- * const client = createTableClient(window.location.origin)
- * const res = await client.api.tables[':tableId'].permissions.$get({
- *   param: { tableId: 'my-table' },
- * })
- * ```
- */
-export const createTableClient = (baseUrl: string) => hc<TableRoutesType>(baseUrl)
+/** The client `hc<T>()` returns for the table-level routes (list, get, permissions). */
+export type TableClient = ReturnType<typeof hc<TableRoutesType>>
 
-/**
- * Create a typed RPC client for reading through a table's declared views.
- *
- * @example
- * ```typescript
- * const client = createViewRecordsClient(window.location.origin)
- * const res = await client.api.tables[':tableId'].views[':viewId'].records.$get({
- *   param: { tableId: 'campaigns', viewId: 'open_campaigns' },
- *   query: { page: '1', limit: '25' },
- * })
- * ```
- */
-export const createViewRecordsClient = (baseUrl: string) => hc<ViewRoutesType>(baseUrl)
+/** The client `hc<T>()` returns for the declared-view routes (definition and records). */
+export type ViewRecordsClient = ReturnType<typeof hc<ViewRoutesType>>

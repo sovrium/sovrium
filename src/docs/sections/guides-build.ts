@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import accessibilityBody from '@/docs/guides/accessibility.md' with { type: 'file' }
 import buildACrmBody from '@/docs/guides/build-a-crm.md' with { type: 'file' }
 import guidesBody from '@/docs/guides/guides.md' with { type: 'file' }
 import migrateFromAirtableBody from '@/docs/guides/migrate-from-airtable.md' with { type: 'file' }
@@ -152,6 +153,28 @@ export const section = defineSection({
       body: migrateFromZapierBody,
       documents: [],
       stories: [],
+    }),
+    defineArticle({
+      slug: 'accessibility',
+      title: 'Build an accessible app',
+      description:
+        'What Sovrium guarantees for accessibility on every page, what stays yours, and how to check your app against WCAG 2.1 AA and RGAA 4.1.',
+      keywords: [
+        'sovrium',
+        'accessibility',
+        'a11y',
+        'rgaa',
+        'wcag',
+        'screen reader',
+        'keyboard',
+        'contrast',
+        'axe',
+      ],
+      order: 10_050,
+      sidebarLabel: 'Accessibility',
+      body: accessibilityBody,
+      documents: [],
+      stories: ['US-ACCESSIBILITY-RGAA-CRITERIA'],
     }),
   ],
 })

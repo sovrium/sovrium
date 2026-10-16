@@ -74,6 +74,7 @@ export function NavigateMenuItem({
       href={path}
       target="_blank"
       rel="noopener noreferrer"
+      aria-describedby="sovrium-new-tab-notice"
     />
   ) : (
     <a href={path} />

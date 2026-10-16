@@ -14,11 +14,18 @@ import { isSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
  * Must be a root-relative path (leading `/`). Query strings and fragments are
  * NOT part of the match key — the incoming query string is preserved and
  * carried onto the target, so encoding one here would be silently ignored.
+ *
+ * A segment written `:name` matches any ONE segment and captures it, exactly as
+ * a page path's `:name` does, so one rule retires a whole family of URLs
+ * (`/tables/:table` → `/records/:table`). The captured value is written into the
+ * target wherever `to` names the same `:name`. A rule whose `from` is a literal
+ * path wins over a parametrised one that would also match, so
+ * `/users/invitations` can be retired separately from `/users/:email`.
  */
 const RedirectFromSchema = Schema.String.pipe(
   Schema.annotate({
     description:
-      "Root-relative path to redirect FROM (e.g. '/products/platform'). Matched locale-agnostically unless it already begins with a configured language segment.",
+      "Root-relative path to redirect FROM (e.g. '/products/platform', '/tables/:table'). A ':name' segment matches any one segment and can be reused in 'to'. Matched locale-agnostically unless it already begins with a configured language segment.",
   }),
   Schema.check(
     Schema.isPattern(/^\/[^\s?#]*$/, {
@@ -63,7 +70,7 @@ const RedirectFromSchema = Schema.String.pipe(
 const RedirectToSchema = Schema.String.pipe(
   Schema.annotate({
     description:
-      "Redirect target — a root-relative path (e.g. '/') or an absolute http(s) URL. A path target inherits the request's language prefix; an absolute URL is used verbatim.",
+      "Redirect target — a root-relative path (e.g. '/', '/records/:table?tab=access') or an absolute http(s) URL. A ':name' declared in 'from' is replaced by the segment it captured, in the path or the query. A path target inherits the request's language prefix; an absolute URL is used verbatim.",
   }),
   Schema.check(
     Schema.isPattern(/^(?:\/(?!\/)[^\s#]*|https?:\/\/[^\s]+)$/, {

@@ -6,10 +6,12 @@
  */
 
 import { analyticsIsEnabled } from '@/domain/models/app/analytics/analytics-enabled'
+import { TEMPLATE_ASSET_KINDS, resolveAssetKind } from '@/domain/models/app/assets/asset'
 import {
   componentTreeHasMatch,
   type TreeNode,
 } from '@/domain/models/app/pages/component-tree-has-type'
+import { pruneSidebarEntriesToDroppedPages } from '@/domain/models/app/pages/sidebar-requires-service'
 import type { App } from '@/domain/models/app'
 import type { PageCapability } from '@/domain/models/app/pages/requires'
 
@@ -29,6 +31,36 @@ const isResetRequestForm = (node: TreeNode): boolean => {
 const passwordResetIsOffered = (app: App): boolean =>
   (app.auth?.strategies ?? []).some((strategy) => strategy.type === 'emailAndPassword') &&
   componentTreeHasMatch(app, isResetRequestForm)
+
+/**
+ * What a capability is asked ABOUT, beyond the app itself.
+ *
+ * Empty for every question asked at the level of the whole app — a page's
+ * `requires`, a component bound to nothing. `table` is the table the gated
+ * thing is bound to, already a concrete name: a `$param.table` binding has been
+ * substituted by the route-param pass before any gate runs. Only
+ * `auth.scopeTables` reads it; every other capability is a fact about the app
+ * and answers the same whatever table is named.
+ *
+ * @public
+ */
+export interface CapabilityScope {
+  readonly table?: string
+}
+
+/**
+ * `auth.scopeTables`, read at the level the question is asked.
+ *
+ * Bound to a table: that table is one whose records are limited to the
+ * accounts granted them. Not bound: the app limits at least one table that way.
+ * A table name that is not a scope table — including one the app does not
+ * declare at all — answers `false`, so an affordance about grants never shows
+ * on a table that has none to show.
+ */
+const scopeTablesAreDeclared = (app: App, scope: CapabilityScope): boolean => {
+  const scoped = app.auth?.scopeTables ?? []
+  return scope.table === undefined ? scoped.length > 0 : scoped.includes(scope.table)
+}
 
 /**
  * Whether a host app declares one capability.
@@ -53,7 +85,9 @@ const passwordResetIsOffered = (app: App): boolean =>
  * the same shape for the same reason — its schema is `Boolean | Struct`, so
  * only the literal `false` is excluded and an options object still counts.
  */
-const CAPABILITY_PREDICATES: Readonly<Record<PageCapability, (app: App) => boolean>> = {
+const CAPABILITY_PREDICATES: Readonly<
+  Record<PageCapability, (app: App, scope: CapabilityScope) => boolean>
+> = {
   auth: (app) => app.auth !== undefined,
   'auth.apiKeys': (app) => app.auth?.apiKeys === true,
   'auth.twoFactor': (app) => app.auth?.twoFactor !== undefined && app.auth.twoFactor !== false,
@@ -66,6 +100,7 @@ const CAPABILITY_PREDICATES: Readonly<Record<PageCapability, (app: App) => boole
   // `allowSignUp` defaults to open, so only an explicit `false` closes it
   'auth.signUp': (app) => app.auth !== undefined && app.auth.allowSignUp !== false,
   'auth.passwordReset': passwordResetIsOffered,
+  'auth.scopeTables': scopeTablesAreDeclared,
   tables: (app) => (app.tables?.length ?? 0) > 0,
   forms: (app) => (app.forms?.length ?? 0) > 0,
   links: (app) => (app.links?.length ?? 0) > 0,
@@ -77,6 +112,23 @@ const CAPABILITY_PREDICATES: Readonly<Record<PageCapability, (app: App) => boole
   // analytics endpoint 404s. The shared predicate is the one `api-routes.ts`
   // gates those endpoints on, `false` included.
   analytics: analyticsIsEnabled,
+  decisions: (app) => (app.decisions?.length ?? 0) > 0,
+  pages: (app) => (app.pages?.length ?? 0) > 0,
+  components: (app) => (app.components?.length ?? 0) > 0,
+  'assets.templates': (app) =>
+    (app.assets ?? []).some((entry) => {
+      const kind = resolveAssetKind(entry)
+      return kind !== undefined && TEMPLATE_ASSET_KINDS.includes(kind)
+    }),
+  'design.brand': (app) =>
+    app.design?.logo !== undefined ||
+    app.design?.colorRoles !== undefined ||
+    app.design?.imagery !== undefined ||
+    app.design?.principles !== undefined ||
+    app.design?.zones !== undefined,
+  'design.voice': (app) => app.design?.voice !== undefined,
+  data: (app) =>
+    (app.tables?.length ?? 0) > 0 || (app.forms?.length ?? 0) > 0 || (app.buckets?.length ?? 0) > 0,
 }
 
 /**
@@ -84,9 +136,15 @@ const CAPABILITY_PREDICATES: Readonly<Record<PageCapability, (app: App) => boole
  *
  * @param app - the app the page is SERVED FOR: the operator's app for a mounted
  *   embedded app, the app itself when it is served standalone.
+ * @param scope - what the question is about beyond the app: the table the
+ *   gated thing is bound to, if any (see {@link CapabilityScope}). Omitted, the
+ *   question is about the whole app.
  */
-export const isCapabilityMet = (app: App, capability: PageCapability): boolean =>
-  CAPABILITY_PREDICATES[capability](app)
+export const isCapabilityMet = (
+  app: App,
+  capability: PageCapability,
+  scope: CapabilityScope = {}
+): boolean => CAPABILITY_PREDICATES[capability](app, scope)
 
 /**
  * Whether every capability a page requires holds for its host app.
@@ -119,6 +177,10 @@ export const pageRequirementsMet = (
  * Every predicate reads the decoded config with no I/O, so the decision is a
  * boot-time one and a page cannot appear and disappear between two requests.
  *
+ * A sidebar entry whose destination is a dropped page is dropped with it, and
+ * a group it leaves empty with that — one declaration decides both the route
+ * and the way to it.
+ *
  * Returns the SAME object when nothing is dropped, so an app with no `requires`
  * anywhere — which is every app that has not opted in — pays one `every` over
  * its pages and no copy at all.
@@ -132,5 +194,9 @@ export const prunePagesByRequirements = <T extends App>(app: T, hostApp: App = a
   const { pages } = app
   if (pages === undefined) return app
   const kept = pages.filter((page) => pageRequirementsMet(hostApp, page.requires))
-  return kept.length === pages.length ? app : { ...app, pages: kept }
+  if (kept.length === pages.length) return app
+  // The way to a page follows the page: a sidebar entry leading to one of the
+  // dropped pages goes with it (see `sidebar-requires-service.ts`).
+  const dropped = pages.filter((page) => !kept.includes(page)).map((page) => page.path)
+  return pruneSidebarEntriesToDroppedPages({ ...app, pages: kept }, dropped)
 }

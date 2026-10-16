@@ -62,7 +62,7 @@ export const SCHEME_DEEP_LINK_SCRIPT =
   '}catch(e){}})();'
 
 /** The label the section root carries in every page's trail. */
-const SECTION_LABEL = 'Design system'
+const SECTION_LABEL = '$t:admin.common.designSystem'
 
 /** The derived trail for one console page: the section, then its own noun. */
 export const designSystemBreadcrumb = (

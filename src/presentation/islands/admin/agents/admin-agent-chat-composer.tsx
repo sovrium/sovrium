@@ -45,6 +45,7 @@ import {
 import { computeMessageScrollerClasses } from '@/presentation/design/message-scroller-default-classes'
 import { ChatTurnActions, type ChatTurnAction } from './admin-agent-chat-actions'
 import { useAgentChat, type AgentChatTurn } from './admin-agent-chat-data'
+import { useAgentConversationString as useWord } from './admin-agent-conversations-strings'
 
 /** Shared empty-actions reference — a fresh `[]` per render would remount the list. */
 const NO_ACTIONS: ReadonlyArray<ChatTurnAction> = []
@@ -80,10 +81,11 @@ function Bubble({ turn }: { readonly turn: AgentChatTurn }): ReactElement {
 
 /** A single conversation turn — a `message`; assistant replies are `article` landmarks. */
 function ChatTurn({ turn }: { readonly turn: AgentChatTurn }): ReactElement {
+  const reply = useWord('reply', 'Agent reply')
   if (turn.role === 'assistant') {
     return (
       <article
-        aria-label="Agent reply"
+        aria-label={reply}
         data-slot="message"
         data-align="start"
         className={computeMessageClasses()}
@@ -128,7 +130,7 @@ function Conversation({ turns }: { readonly turns: ReadonlyArray<AgentChatTurn> 
       ref={frameRef}
       data-slot="message-scroller"
       role="log"
-      aria-label="Conversation"
+      aria-label={useWord('conversation', 'Conversation')}
       aria-live="polite"
       className={`${computeMessageScrollerClasses()} ${AI_CHAT_TRANSCRIPT_FIT}`}
     >
@@ -157,7 +159,7 @@ function SendAddon({ disabled }: { readonly disabled: boolean }): ReactElement {
         disabled={disabled}
         className={SEND_BUTTON}
       >
-        Send
+        {useWord('send', 'Send')}
       </button>
     </div>
   )
@@ -197,13 +199,13 @@ function InputRow({
       >
         <textarea
           rows={1}
-          aria-label="Message the agent"
+          aria-label={useWord('messageLabel', 'Message the agent')}
           data-slot="input-group-control"
           value={draft}
           onChange={handleChange}
           onKeyDown={submitOnEnter}
           disabled={isSending}
-          placeholder="Message the agent…"
+          placeholder={useWord('message', 'Message the agent…')}
           className={computeAiChatTextareaClasses()}
         />
         <SendAddon disabled={draft.trim().length === 0 || isSending} />

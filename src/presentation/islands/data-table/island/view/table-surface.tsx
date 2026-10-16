@@ -5,36 +5,23 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { BulkActionBar } from '../bulk-actions'
+import { HiddenBulkActionsPlaceholder } from '../bulk-actions'
 import { GridBody } from './grid-body'
-import { FilterPanel, SortPanel } from './grid-panels'
 import type { TableSurfaceProps } from '../view-props'
 
 /**
- * Everything below the dialogs: the bulk-action bar, then the data region.
- *
- * One guard covers the whole data region, not one per element. The six sites
- * it replaced were already contiguous and already tested the same predicate,
- * so a single wrapper is exactly equivalent — and, unlike six copies, cannot
- * drift out of step with itself.
+ * Everything below the banners: the rows and the bars that frame them. The
+ * selection is no longer a band above the header row — it takes the bottom
+ * bar's left half once rows are checked (`GridBody`).
  */
 export function TableSurface(props: TableSurfaceProps) {
   return (
     <>
-      {props.bulkActionsConfig && props.bulkActionsConfig.length > 0 && (
-        <BulkActionBar
-          bulkActions={props.bulkActionsConfig}
-          selectedCount={props.selectedCount}
-          onExecute={props.onBulkExecute}
-        />
-      )}
-      {!props.importDialogOpen && (
-        <>
-          {props.filterOverlayOpen && <FilterPanel {...props.panels} />}
-          {props.sortOverlayOpen && <SortPanel {...props.panels} />}
-          <GridBody {...props.body} />
-        </>
-      )}
+      {props.bulkActionsConfig !== undefined &&
+        (props.body.selection?.selectedCount ?? 0) === 0 && (
+          <HiddenBulkActionsPlaceholder bulkActions={props.bulkActionsConfig} />
+        )}
+      <GridBody {...props.body} />
     </>
   )
 }

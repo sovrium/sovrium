@@ -27,8 +27,13 @@
 
 import { executeFetchAction } from '@/presentation/islands/runtime/action-executor'
 import { runErrorOutcome } from '@/presentation/islands/runtime/action-outcome'
-import { checkEndpointFormRules } from '@/presentation/islands/runtime/endpoint-form-validation'
+import { bindEndpointFormAutosave } from '@/presentation/islands/runtime/endpoint-form-autosave'
+import {
+  checkEndpointFormRules,
+  markRefusedField,
+} from '@/presentation/islands/runtime/endpoint-form-validation'
 import { fetchSuccessLeaves } from '@/presentation/islands/runtime/fetch-action-effects'
+import { substituteResponse } from '@/presentation/islands/runtime/fetch-action-substitution'
 import { withPending } from '@/presentation/islands/runtime/pending-control'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 import type { ExecuteFetchActionOptions } from '@/presentation/islands/runtime/fetch-action-effects'
@@ -47,6 +52,7 @@ export type EndpointToastResponse = {
 type EndpointSuccessResponse = EndpointToastResponse & {
   readonly close?: boolean
   readonly reset?: boolean
+  readonly reload?: boolean
   readonly navigate?: string
 }
 
@@ -61,6 +67,48 @@ type EndpointFormConfig = {
 
 /** The marker every switch control carries. */
 const SWITCH_SELECTOR = 'input[data-control="switch"]'
+
+/** Every endpoint-bound form on the document. */
+const ENDPOINT_FORM_SELECTOR = 'form[data-action-type="endpoint"]'
+
+/** Where a reloading form leaves word of its success for the page that replaces it. */
+const RELOAD_TOAST_KEY = 'sovrium:reload-toast'
+
+/**
+ * A success that RELOADS the page, until now, toasted into the document it was about
+ * to throw away, so the reader saw nothing. And the toast cannot simply be
+ * carried as text: a reload is how a language change takes effect, and the
+ * text was resolved in the language being left. So the form leaves only WHICH
+ * form succeeded; the recomposed page reads that form's own success message —
+ * now in the page's new language — and shows it there.
+ */
+function carryAcrossReload(form: HTMLFormElement): void {
+  const index = [...document.querySelectorAll(ENDPOINT_FORM_SELECTOR)].indexOf(form)
+  try {
+    window.sessionStorage.setItem(RELOAD_TOAST_KEY, JSON.stringify({ index, at: Date.now() }))
+  } catch {
+    // Storage refused: the success goes unannounced, as it did before.
+  }
+}
+
+/** Show the success a form carried across a reload, from the recomposed page's own config. */
+function showToastCarriedAcrossReload(
+  dispatchToast: (response: EndpointToastResponse | undefined) => void
+): void {
+  try {
+    const raw = window.sessionStorage.getItem(RELOAD_TOAST_KEY)
+    if (raw === null) return
+    window.sessionStorage.removeItem(RELOAD_TOAST_KEY)
+    const { index, at } = JSON.parse(raw) as { readonly index?: unknown; readonly at?: unknown }
+    if (typeof at !== 'number' || Date.now() - at > 60_000 || typeof index !== 'number') return
+    const form = document.querySelectorAll(ENDPOINT_FORM_SELECTOR)[index]
+    dispatchToast(
+      parseEndpointFormConfig(form?.getAttribute('data-endpoint-config') ?? null)?.onSuccess
+    )
+  } catch {
+    // A payload that is not ours: nothing to show.
+  }
+}
 
 /** Parse the `data-endpoint-config` JSON attribute into a config object. */
 function parseEndpointFormConfig(raw: string | null): EndpointFormConfig | undefined {
@@ -99,7 +147,7 @@ function readSwitchValues(form: HTMLFormElement): Record<string, boolean> {
  * Keep every switch's `aria-checked` in step with its native `checked` state.
  * The checkbox already exposes its state to assistive technology; the attribute
  * is what the switch contract names, and what the server drew it with. A switch
- * never submits on change: the form's own button saves it.
+ * sends on change only on a form that says so (`endpoint-form-autosave.ts`).
  */
 function syncSwitchState(event: Event): void {
   const { target } = event
@@ -116,18 +164,32 @@ function syncSwitchState(event: Event): void {
  */
 function resetOnSuccess(form: HTMLFormElement, onSuccess: EndpointSuccessResponse | undefined) {
   if (onSuccess?.reset !== true) return
+  // A value typed before an island in the form mounted was written into the
+  // markup (`pre-mount-input.ts`), so `reset` alone would restore IT; the
+  // authored default the server drew beside it is what the form goes back to.
+  form.querySelectorAll<HTMLInputElement>('input[data-default-value]').forEach((input) => {
+    input.setAttribute('value', input.getAttribute('data-default-value') ?? '')
+  })
   form.reset()
   form.querySelectorAll<HTMLInputElement>(SWITCH_SELECTOR).forEach((control) => {
     control.setAttribute('aria-checked', control.checked ? 'true' : 'false')
   })
+  // A form that resets is ready for the NEXT entry: the caret goes back to its
+  // first field rather than being left on a submit nobody is about to press.
+  form.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea')?.focus()
+}
+
+/** What one endpoint form sends: every field as typed, every switch as a boolean. */
+function endpointBody(form: HTMLFormElement): Record<string, unknown> {
+  return {
+    ...(Object.fromEntries(new FormData(form)) as Record<string, unknown>),
+    ...readSwitchValues(form),
+  }
 }
 
 /** The fetch action one endpoint form sends: its config, with what was typed as the body. */
 function endpointAction(form: HTMLFormElement, config: EndpointFormConfig): FetchAction {
-  const body = {
-    ...(Object.fromEntries(new FormData(form)) as Record<string, unknown>),
-    ...readSwitchValues(form),
-  }
+  const body = endpointBody(form)
   return {
     type: 'fetch',
     url: config.url,
@@ -158,25 +220,39 @@ function sendHolding(
  *
  * The submit is pending while the request is open (`withPending`), so a
  * second press or Enter sends nothing; a refusal gives it back with the focus
- * on it before `onError`.
+ * on it before `onError`, then marks the field the refusal is about, which
+ * takes the focus in turn. A form that sends on change has no submit (`null`).
  */
 async function submitEndpointForm(
   form: HTMLFormElement,
   submit: HTMLElement | null,
   dispatchToast: (response: EndpointToastResponse | undefined) => void
-): Promise<void> {
-  if (submit?.getAttribute('data-pending') === 'true') return
+): Promise<{ readonly ok: boolean; readonly leaves: boolean } | undefined> {
+  if (submit?.getAttribute('data-pending') === 'true') return undefined
   const config = parseEndpointFormConfig(form.getAttribute('data-endpoint-config'))
-  if (!config || !checkEndpointFormRules(form)) return
+  if (!config || !checkEndpointFormRules(form)) return undefined
   const { onSuccess } = config
   // The success runs inside the executor, in the shared order: the toast, the
   // status and refetch, the reset, the close, then the navigation.
-  const result = await sendHolding(submit, endpointAction(form, config), {
+  const action = endpointAction(form, config)
+  const result = await sendHolding(submit, action, {
     origin: form,
-    successToast: () => dispatchToast(onSuccess),
+    // The message may quote what came back (`Invitation sent to
+    // $response.user.email`), the way `status.message` and `navigate` can.
+    successToast:
+      onSuccess?.reload === true
+        ? () => carryAcrossReload(form)
+        : (body) =>
+            dispatchToast(
+              onSuccess && { ...onSuccess, message: substituteResponse(onSuccess.message, body) }
+            ),
     successEffects: () => resetOnSuccess(form, onSuccess),
   })
-  if (result?.ok === false) runErrorOutcome(submit, () => dispatchToast(config.onError))
+  if (result?.ok === false) {
+    runErrorOutcome(submit, () => dispatchToast(config.onError))
+    markRefusedField(form, result.body)
+  }
+  return result && { ok: result.ok, leaves: fetchSuccessLeaves(result, action.onSuccess) }
 }
 
 /**
@@ -188,11 +264,16 @@ async function submitEndpointForm(
 export function setupEndpointFormHandlers(
   dispatchToast: (response: EndpointToastResponse | undefined) => void
 ): void {
+  showToastCarriedAcrossReload(dispatchToast)
   document.addEventListener('change', syncSwitchState)
+  bindEndpointFormAutosave({
+    send: (form) => submitEndpointForm(form, null, dispatchToast),
+    bodyOf: endpointBody,
+  })
   document.addEventListener('submit', (event) => {
     const { target } = event
     if (!(target instanceof Element)) return
-    const form = target.closest<HTMLFormElement>('form[data-action-type="endpoint"]')
+    const form = target.closest<HTMLFormElement>(ENDPOINT_FORM_SELECTOR)
     if (!form) return
     event.preventDefault()
     const { submitter } = event as SubmitEvent

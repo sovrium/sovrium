@@ -38,6 +38,7 @@ import {
   computeInputGroupClasses,
   computeInputGroupFieldClasses,
 } from '@/presentation/design/input-group-default-classes'
+import { useApiKeyWord as useWord } from './api-key-strings'
 import type { ReactElement } from 'react'
 
 interface ApiKeyRevealProps {
@@ -65,12 +66,17 @@ const COPY_ADDON_CLASS = computeInputGroupAddonClasses({ align: 'inline-end' })
  */
 function useCopy(value: string): readonly [string, () => void] {
   const [state, setState] = useState('')
+  const copied = useWord('copied', 'Copied to your clipboard.')
+  const failed = useWord(
+    'copyFailed',
+    'Could not copy — select the key above and copy it manually.'
+  )
   const copy = useCallback(() => {
     navigator.clipboard?.writeText(value).then(
-      () => setState('Copied to your clipboard.'),
-      () => setState('Could not copy — select the key above and copy it manually.')
+      () => setState(copied),
+      () => setState(failed)
     )
-  }, [value])
+  }, [value, copied, failed])
   return [state, copy]
 }
 
@@ -87,16 +93,16 @@ export function ApiKeyReveal({ value, onDismiss }: ApiKeyRevealProps): ReactElem
   return (
     <div
       role="group"
-      aria-label="Your new API key"
+      aria-label={useWord('newKey', 'Your new API key')}
       className={PANEL_CLASS}
     >
       <p className={computeFieldLabelClasses()}>
-        Copy this key now — it is shown once and cannot be recovered.
+        {useWord('copyNow', 'Copy this key now — it is shown once and cannot be recovered.')}
       </p>
       <div
         data-slot="input-group"
         role="group"
-        aria-label="API key value"
+        aria-label={useWord('value', 'API key value')}
         className={computeInputGroupClasses()}
       >
         <code
@@ -117,7 +123,7 @@ export function ApiKeyReveal({ value, onDismiss }: ApiKeyRevealProps): ReactElem
             onClick={copy}
             className={computeInputGroupActionClasses()}
           >
-            Copy
+            {useWord('copy', 'Copy')}
           </button>
         </div>
       </div>
@@ -136,7 +142,7 @@ export function ApiKeyReveal({ value, onDismiss }: ApiKeyRevealProps): ReactElem
           onClick={onDismiss}
           className={computeButtonDefaultClasses({ size: 'sm' })}
         >
-          Done
+          {useWord('done', 'Done')}
         </button>
       </div>
     </div>

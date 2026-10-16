@@ -37,6 +37,7 @@ fields:
     label: Event
   - kind: table-field
     column: name
+    autocomplete: name
     required: true
     label: Your name
   - kind: table-field

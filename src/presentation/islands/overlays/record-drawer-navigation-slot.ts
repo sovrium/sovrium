@@ -7,6 +7,7 @@
 
 import { createElement, Fragment, type ReactElement } from 'react'
 import { DrawerNavigation, type DrawerNavigationProps } from './record-drawer-navigation'
+import type { DrawerBuiltInLabels } from './record-drawer-labels'
 import type { RawRecord } from './record-drawer-record-read'
 
 export type { DrawerNavigationProps }
@@ -17,7 +18,10 @@ export type { DrawerNavigationProps }
  * option renders exactly what it rendered before.
  */
 export function withDrawerNavigation(
-  props: DrawerNavigationProps & { readonly id?: string },
+  props: DrawerNavigationProps & {
+    readonly id?: string
+    readonly builtInLabels?: DrawerBuiltInLabels
+  },
   current: { readonly record: RawRecord; readonly recordId: string | undefined },
   related: ReactElement | undefined
 ): ReactElement | undefined {
@@ -30,6 +34,7 @@ export function withDrawerNavigation(
       navigation: props.navigation,
       record: current.record,
       recordId: current.recordId,
+      labels: props.builtInLabels,
     }),
     related
   )

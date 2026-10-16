@@ -34,6 +34,8 @@ export interface AccountLinkControlProps {
   readonly provider: string
   readonly submitLabel: string
   readonly pendingLabel: string
+  /** The refusal's fallback (`accountLink.failed`), in the page language, resolved server-side. */
+  readonly uiStrings?: Readonly<Record<string, string>>
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
@@ -53,14 +55,15 @@ const findAccount = async (provider: string): Promise<string | null> => {
 const runLinkMethod = async (
   method: string,
   provider: string,
-  accountId: string | null
+  accountId: string | null,
+  failed: string | undefined
 ): Promise<string | undefined> => {
   const here = globalThis.location.pathname
   const result =
     method === 'linkAccount'
       ? await authClient.linkSocial({ provider, callbackURL: here, errorCallbackURL: here })
       : await authClient.unlinkAccount({ accountId: accountId ?? '' })
-  return result.error ? (result.error.message ?? 'Request failed') : undefined
+  return result.error ? (result.error.message ?? failed) : undefined
 }
 
 /** The connect or disconnect control, drawn while it applies. */
@@ -85,7 +88,12 @@ export function AccountLinkControl(props: AccountLinkControlProps): ReactElement
     if (pressWhilePending(event)) return
     event.preventDefault()
     setPending(true)
-    void runLinkMethod(method, provider, account ?? null).then((refusal) => {
+    void runLinkMethod(
+      method,
+      provider,
+      account ?? null,
+      props.uiStrings?.['accountLink.failed']
+    ).then((refusal) => {
       setPending(false)
       setError(refusal)
       if (refusal === undefined && method === 'unlinkAccount') {

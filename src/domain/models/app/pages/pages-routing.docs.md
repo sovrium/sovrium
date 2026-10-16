@@ -23,7 +23,7 @@ A path starts with `/` and allows **only lowercase letters**. `/users/:userId` i
 
 ## Dynamic segments
 
-A `:param` segment captures exactly one path segment — it never spans a `/`. `/blog/:slug` matches `/blog/hello` but not `/blog/2026/hello`; use `/blog/:slug*` for the latter.
+A `:param` segment captures exactly one path segment — it never spans a `/`. `/blog/:slug` matches `/blog/hello` but not `/blog/2026/hello`; use `/blog/:slug*` for the latter. The captured value is percent-decoded: `/users/:email` reached at `/users/ada%40example.com` captures `ada@example.com`, and a breadcrumb derived from the address labels that segment decoded while still linking to the address as written. A segment that is not valid percent-encoding, such as `100%`, is kept as it arrived.
 
 Dynamic routes are usually paired with a `collection` block, so one page definition generates a route per record:
 

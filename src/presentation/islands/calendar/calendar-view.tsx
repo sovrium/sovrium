@@ -51,6 +51,8 @@ interface CalendarViewProps {
    */
   readonly maxEventsPerDay?: number
   readonly calendarEvent?: CalendarEventConfig
+  /** Publishes the event a reader selects, on a calendar that declares `publishes`. */
+  readonly select?: (recordId: unknown) => void
   readonly calendarInteraction?: CalendarInteraction
   /** Records' source table — required for drag-persist + create-modal POST. */
   readonly tableName?: string
@@ -80,7 +82,7 @@ interface CalendarViewProps {
  */
 export function CalendarViewComponent(props: CalendarViewProps): ReactElement {
   const { events, defaultView = 'month', calendarEvent, calendarInteraction } = props
-  const { onEventClick, onAgendaPick } = useEventClicks(calendarEvent)
+  const { onEventClick, onAgendaPick } = useEventClicks(calendarEvent, props.select)
   const { open, clickedDate, handleDateClick, closeModal } = useDateClickModal(
     calendarInteraction,
     props.dateField === undefined ? undefined : props.zoneOf?.(props.dateField)

@@ -8,6 +8,7 @@
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { deriveLinkTableName } from '@/domain/models/app/tables/table-derived-name-validation'
+import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 
 /**
  * Generate junction table name for many-to-many relationship
@@ -83,6 +84,7 @@ interface JunctionKey {
   readonly column: string
   readonly keyName: string
   readonly references: string
+  readonly configName: string
 }
 
 /**
@@ -102,6 +104,7 @@ const junctionKeys = (
     const name = sanitizeTableName(configName)
     return {
       column,
+      configName,
       keyName: `${junctionTableName}_${column}_fkey`,
       references: quoteSqlIdentifier(
         tableUsesView?.get(configName) === true ? `${name}_base` : name
@@ -119,18 +122,27 @@ const junctionKeys = (
  *   see {@link junctionKeyColumns} for a table linked to itself)
  * - Composite primary key on both columns
  * - Foreign key constraints to both tables
+ *
+ * Each key column takes the type of the key it references, read from
+ * `tablePrimaryKeyTypes` (CONFIG name → `primaryKey.type`, built from the
+ * defaulted tables): a table listed in `auth.scopeTables` is keyed by text, and
+ * PostgreSQL refuses a foreign key from an integer column onto it. A table the
+ * map does not name keeps the default serial key's `INTEGER`.
  */
 export const generateJunctionTableDDL = (
   sourceTable: string,
   relatedTable: string,
-  tableUsesView?: ReadonlyMap<string, boolean>
+  tableUsesView?: ReadonlyMap<string, boolean>,
+  tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 ): string => {
   const junctionTableName = generateJunctionTableName(sourceTable, relatedTable)
   const [source, related] = junctionKeys(sourceTable, relatedTable, tableUsesView)
+  const columnType = (key: JunctionKey): string =>
+    resolvePrimaryKeyColumnType(tablePrimaryKeyTypes?.get(key.configName))
 
   const columns = [
-    `${source.column} INTEGER NOT NULL`,
-    `${related.column} INTEGER NOT NULL`,
+    `${source.column} ${columnType(source)} NOT NULL`,
+    `${related.column} ${columnType(related)} NOT NULL`,
     `PRIMARY KEY (${source.column}, ${related.column})`,
     ...[source, related].map(
       (key) =>

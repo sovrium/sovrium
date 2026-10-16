@@ -145,7 +145,7 @@ const exceptionsTable = (): PageComponent =>
   dataTable({
     props: {
       id: 'organisation-matrix-exceptions',
-      'aria-label': 'Declared narrowings of a grant',
+      'aria-label': '$t:admin.organisation.narrowings.region',
     },
     dataSource: {
       system: { endpoint: ORGANISATION_GRAPH_ENDPOINT, rowsKey: 'exceptions', idKey: 'id' },
@@ -205,9 +205,9 @@ const noExceptions = (): PageComponent =>
     visibility: { record: { field: 'exceptions', isEmpty: true } },
     children: [
       emptyState(
-        'No narrowings.',
-        'No table holds a column back from a role, and no table filters which records a grant covers.',
-        'Every cell in the grid above is the whole truth about that grant.'
+        '$t:admin.organisation.narrowings.none',
+        '$t:admin.organisation.narrowings.noneBody',
+        '$t:admin.organisation.narrowings.whole'
       ),
     ],
   }) as PageComponent
@@ -427,6 +427,10 @@ const mapLens = (): PageComponent =>
     // click; `downstream` would make every resource in the third column select
     // to nothing, since a resource is a sink.
     selection: { mode: 'single', reach: 'both' },
+    // The nodes a structural finding names, marked on the drawing itself so the
+    // findings list above and the map agree at a glance. `inFinding` is computed
+    // by the read, because a page cannot test membership in `findings[].nodes`.
+    flag: { field: 'inFinding', label: '$t:admin.organisation.graph.flag' },
     legend: true,
     label: '$t:admin.organisation.map.label',
     emptyMessage: '$t:admin.organisation.map.empty',
@@ -520,6 +524,10 @@ const processesLens = (): PageComponent =>
       sortBy: 'label',
     },
     selection: { mode: 'single', reach: 'both' },
+    // Same mark as the Map. No finding kind names an automation or a step
+    // today, so this lens draws no mark until one does — declared now so the
+    // two drawings never disagree when one starts to.
+    flag: { field: 'inFinding', label: '$t:admin.organisation.graph.flag' },
     label: '$t:admin.organisation.processes.label',
     emptyMessage: '$t:admin.organisation.processes.empty',
   }) as PageComponent

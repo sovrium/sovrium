@@ -48,10 +48,14 @@
 
 import templates from './config/components/templates'
 import chromeStrings from './config/i18n/chrome'
+import commonStrings from './config/i18n/common'
 import consoleStrings from './config/i18n/console'
 import dataStrings from './config/i18n/data'
+import designSystemStrings from './config/i18n/design-system'
 import developerStrings from './config/i18n/developers'
 import frStrings from './config/i18n/fr'
+import surfaceStrings from './config/i18n/surfaces'
+import acceptInvitation from './config/pages/accept-invitation'
 import apiKeys from './config/pages/api-keys'
 import { dataPages } from './config/pages/data/data-pages'
 import { decisionPages } from './config/pages/decisions'
@@ -62,20 +66,22 @@ import forgotPassword from './config/pages/forgot-password'
 import gdpr from './config/pages/gdpr'
 import home from './config/pages/home'
 import login from './config/pages/login'
+import notFound from './config/pages/not-found'
 import profile from './config/pages/profile'
 import resetPassword from './config/pages/reset-password'
+import { consoleRedirects } from './config/redirects'
 import type { AppEncoded as AppConfig } from '@/domain/models/app'
 
 export default {
   name: 'sovrium-admin-dashboard',
   description: 'Sovrium Native Admin Dashboard — the dogfooded operator console.',
 
-  // One locale, and no plan for more yet. The console's chrome is English
-  // throughout, so declaring a second supported locale would advertise a
-  // translation that does not exist. Localising later means adding the code here
-  // and its table beside the ones below — there is no per-deployment override
-  // seam, and deliberately none: the console is platform-owned and reads the
-  // same on every install of a release.
+  // Two locales, English and French. Every string the console renders is a
+  // `$t:` key with a value in both tables — `config/i18n/parity.test.ts` holds
+  // the key sets equal and every referenced key present — so the operator's
+  // saved language reaches the whole console, not part of it. There is no
+  // per-deployment override seam, and deliberately none: the console is
+  // platform-owned and reads the same on every install of a release.
   //
   // Carried over VERBATIM, down to `detectBrowser: false`, from the
   // `OPERATOR_CONSOLE_LANGUAGES` constant the deleted `dashboard-surface-builder.ts`
@@ -88,17 +94,17 @@ export default {
   // the console into a language it does not have. Dropping any one of the three
   // changes the rendered document.
   //
-  // `translations` carries the console's OWN string table, keyed under the one
-  // supported code. It is what makes a `$t:admin.*` token in a preset page
-  // resolve through the ordinary interpreter path — no console special-casing in
-  // the renderer, and one place to name a second locale from.
+  // `translations` carries the console's OWN string tables, one per supported
+  // code. They are what make a `$t:admin.*` token in a preset page resolve
+  // through the ordinary interpreter path — no console special-casing in the
+  // renderer.
   //
-  // The table is SPLIT BY AREA and merged here: `en.ts` holds the shell and the
-  // account cluster, `data.ts` the operator-data surfaces. One alphabetised
-  // object appended to by every migration in flight is a merge conflict per
-  // commit; the merge is what keeps a key's address stable while its HOME stays
-  // an authoring convenience. Keys are namespaced `admin.<surface>.<slot>`, so
-  // the two halves cannot collide.
+  // The English table is SPLIT BY AREA and merged here (`chrome`, `console`,
+  // `data`, `developers`, `common`, `surfaces`, `design-system`); French
+  // mirrors it file for file and merges in `fr.ts`. One object appended to by
+  // every migration in flight is a merge conflict per commit; the merge keeps
+  // a key's address stable while its HOME stays an authoring convenience. Keys
+  // are namespaced `admin.<surface>.<slot>`, so the files cannot collide.
   languages: {
     default: 'en',
     supported: [
@@ -112,6 +118,9 @@ export default {
         ...consoleStrings,
         ...dataStrings,
         ...developerStrings,
+        ...commonStrings,
+        ...surfaceStrings,
+        ...designSystemStrings,
       },
       fr: frStrings,
     },
@@ -177,5 +186,13 @@ export default {
     login,
     forgotPassword,
     resetPassword,
+    acceptInvitation,
+    // Inside the shell, for a signed-in operator on an address no page answers.
+    notFound,
   ],
+
+  // The addresses the console retired when its sections took the names the
+  // sidebar gives them, each answering a permanent move to its new home. The
+  // table and why it is shaped the way it is: `config/redirects.ts`.
+  redirects: consoleRedirects,
 } satisfies AppConfig

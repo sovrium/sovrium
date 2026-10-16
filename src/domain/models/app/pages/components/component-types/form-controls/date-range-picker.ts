@@ -45,6 +45,7 @@
  */
 
 import { Schema } from 'effect'
+import { SharedFilterRangePublisherSchema } from '../../data-source-publishers'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
 import { visibilityFields } from '../modules/visibility'
@@ -182,4 +183,11 @@ export const dateRangePickerFields = {
       examples: [['today', 'last-7-days', 'this-month', 'last-month']],
     })
   ),
+  /**
+   * Narrow the data components on a channel to the picked period: two
+   * conditions on one date field (`{ bindTo, field }`, both ends included), or
+   * the two ends as request params (`{ bindTo, params: { from, to } }`).
+   * Clearing the period withdraws both.
+   */
+  publishes: Schema.optional(SharedFilterRangePublisherSchema),
 } as const

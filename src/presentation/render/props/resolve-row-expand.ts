@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import {
+  resolveInterpreterString,
+  resolveInterpreterStringOverrides,
+} from '@/domain/models/app/languages/translation-resolver'
 import { callerTableOf, fieldEntriesForReader } from './caller-table-inputs'
 import { resolveRecordDrawerFields, type DerivedRecordField } from './resolve-record-drawer-fields'
 import type { Languages } from '@/domain/models/app/languages'
@@ -143,7 +146,7 @@ export function resolveRowExpandDrawerProps(params: {
     canEdit: expand.canEdit !== false,
     saveLabel: resolveInterpreterString('recordDrawer.save', currentLang, languages),
     savingLabel: resolveInterpreterString('form.saving', currentLang, languages),
-    runningLabel: resolveInterpreterString('action.running', currentLang, languages),
+    actionStrings: resolveInterpreterStringOverrides(['action.'], currentLang, languages),
     closeLabel: resolveInterpreterString('recordDrawer.close', currentLang, languages),
   }
 }

@@ -40,6 +40,10 @@ import {
   withFormulasOver,
   type LookupLink,
 } from '@/domain/models/app/tables/lookup-link-service'
+import {
+  ruledRelatedTablesIn,
+  withRelatedTextRules,
+} from '@/domain/models/app/tables/related-text-filter-service'
 import { projectWhenToFilter } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { relatedReaderOf, type LinkReader } from './linked-row-visibility'
 import { loadCurrentUserContext, rowRuleScopeOf } from './permissions/row-level-enforcement'
@@ -48,6 +52,7 @@ import type { DataSourceRepository } from '@/application/ports/repositories/tabl
 import type {
   LookupReadList,
   LookupReadMask,
+  QueryFilter,
   QueryFilterNode,
 } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
@@ -123,7 +128,7 @@ const chainedLookupsOf = (
   )
 
 /** `table`'s row-level read rule projected for `reader`; `undefined` when it carries none. */
-const projectedRuleOf = (
+export const projectedRuleOf = (
   app: App,
   table: Table,
   reader: LinkReader
@@ -305,3 +310,24 @@ export const lookupReadMasks = (
     )
     return [...refusedMasks, ...formulaMasks, ...ruledMasks, ...chainedMasks]
   }).pipe(Effect.withSpan('tables.lookup-read-masks', { attributes: { 'table.name': tableName } }))
+
+/**
+ * `filter` with each link-name condition under its related table's row rule
+ * carrying that rule, projected for `reader` ({@link projectedRuleOf}) — one
+ * projection per related table — so a name matches only the linked rows the
+ * reader may read (`related-text-filter-service.ts`).
+ */
+export const withRuledRelatedText = (
+  query: { readonly app: App; readonly filter?: QueryFilter | undefined },
+  reader: LinkReader
+): Effect.Effect<QueryFilter | undefined, never, DataSourceRepository | AuthRepository> =>
+  Effect.gen(function* () {
+    const { app, filter } = query
+    const names = ruledRelatedTablesIn(filter)
+    if (filter === undefined || names.length === 0) return filter
+    const tables = (app.tables ?? []).filter((table) => names.includes(table.name))
+    const rules = yield* Effect.forEach(tables, (table) =>
+      projectedRuleOf(app, table, reader).pipe(Effect.map((rule) => [table.name, rule] as const))
+    )
+    return withRelatedTextRules(filter, new Map(rules))
+  }).pipe(Effect.withSpan('tables.ruled-related-text'))

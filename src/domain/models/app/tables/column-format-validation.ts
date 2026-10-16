@@ -25,6 +25,7 @@ const COLUMN_FORMAT_LITERALS: Readonly<Record<ColumnFormat, true>> = {
   percentage: true,
   compact: true,
   bytes: true,
+  duration: true,
   'relative-date': true,
   'relative-time': true,
   'short-date': true,

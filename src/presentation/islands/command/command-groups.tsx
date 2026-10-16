@@ -11,9 +11,15 @@
  * on, so typing narrows the items across groups and hides a group left with no
  * match. Choosing an item closes the command, then goes where its `href` says
  * or runs its action (a toast or a navigation).
+ *
+ * Beside a declared `search` the same groups are drawn above the results
+ * ({@link SearchedGroups}), narrowed by the palette's own token match because
+ * the list's filter is off there. In both, an item's `label` and `href` may
+ * carry bare `$query`, the words typed so far: such an item always matches
+ * them, and with nothing typed it reads its `emptyLabel`, or is not drawn.
  */
 
-import { useCallback, type ReactElement } from 'react'
+import { useCallback, useState, type ReactElement } from 'react'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { LucideGlyph } from '@/presentation/design/lucide-glyph'
 import {
@@ -26,10 +32,13 @@ import {
   CommandShortcut,
 } from '../parts/command-primitives'
 import { renderToast } from '../runtime/toast'
+import { actionMatchesQuery } from './command-actions-data'
+import { CommandHints, type CommandHintWords } from './command-hints'
 
 /** One authored item, as the server serialised it. */
 export interface AuthoredCommandItem {
   readonly label: string
+  readonly emptyLabel?: string
   readonly iconNode?: unknown
   readonly href?: string
   readonly shortcut?: readonly string[]
@@ -48,6 +57,32 @@ export interface AuthoredCommandGroup {
   readonly label: string
   readonly items: readonly AuthoredCommandItem[]
 }
+
+/** Bare `$query`; a page's `$query.<name>` is resolved on the server and never reaches here. */
+const QUERY_TERM = /\$query(?![.\w])/g
+
+/**
+ * The item as drawn for the words typed so far, or `undefined` when it is not
+ * drawn. `replace` takes a FUNCTION so a `$&` among the words stays literal.
+ */
+const itemForQuery = (
+  item: AuthoredCommandItem,
+  query: string
+): AuthoredCommandItem | undefined => {
+  const words = query.trim()
+  const href =
+    item.href === undefined
+      ? {}
+      : { href: item.href.replace(QUERY_TERM, () => encodeURIComponent(words)) }
+  if (item.label.search(QUERY_TERM) === -1) return { ...item, ...href }
+  if (words.length > 0)
+    return { ...item, ...href, label: item.label.replace(QUERY_TERM, () => words) }
+  return item.emptyLabel === undefined ? undefined : { ...item, ...href, label: item.emptyLabel }
+}
+
+/** Whether typing keeps an item: one reading the typed words always matches them. */
+const keptByQuery = (item: AuthoredCommandItem, query: string): boolean =>
+  item.label.search(QUERY_TERM) !== -1 || actionMatchesQuery(item.label, query.trim())
 
 /** Go to a path of this instance, or nowhere. */
 const go = (path: string | undefined): void => {
@@ -104,37 +139,78 @@ function AuthoredItem({
   )
 }
 
-/** The authored command: a search field over the declared groups. */
-export function GroupsPalette({
+/**
+ * The declared groups as drawn for `query`. `narrow` filters the items itself,
+ * for a list whose own filter is off; a group left with no item is not drawn.
+ */
+export function SearchedGroups({
   groups,
+  query,
+  narrow,
   close,
 }: {
   readonly groups: readonly AuthoredCommandGroup[]
+  readonly query: string
+  readonly narrow: boolean
   readonly close: () => void
 }): ReactElement {
+  const drawn = groups.map((group) => ({
+    label: group.label,
+    items: group.items
+      .filter((item) => !narrow || keptByQuery(item, query))
+      .flatMap((item) => itemForQuery(item, query) ?? []),
+  }))
   return (
-    <Command>
-      <CommandInput
-        placeholder="Type a command or search…"
-        aria-label="Search commands"
-      />
-      <CommandList>
-        <CommandEmpty>No results found.</CommandEmpty>
-        {groups.map((group) => (
+    <>
+      {drawn
+        .filter((group) => group.items.length > 0)
+        .map((group) => (
           <CommandGroup
             key={group.label}
             heading={group.label}
           >
-            {group.items.map((item) => (
+            {group.items.map((item, index) => (
               <AuthoredItem
-                key={item.label}
+                key={`${String(index)}:${item.label}`}
                 item={item}
                 close={close}
               />
             ))}
           </CommandGroup>
         ))}
+    </>
+  )
+}
+
+/** The authored command: a search field over the declared groups. */
+export function GroupsPalette({
+  groups,
+  hints,
+  close,
+}: {
+  readonly groups: readonly AuthoredCommandGroup[]
+  readonly hints: CommandHintWords | undefined
+  readonly close: () => void
+}): ReactElement {
+  const [query, setQuery] = useState('')
+  return (
+    <Command>
+      <CommandInput
+        value={query}
+        onValueChange={setQuery}
+        placeholder={hints?.['commandPlaceholder'] ?? 'Type a command or search…'}
+        aria-label={hints?.['commandLabel'] ?? 'Search commands'}
+      />
+      <CommandList>
+        <CommandEmpty>{hints?.['empty'] ?? 'No results found.'}</CommandEmpty>
+        <SearchedGroups
+          groups={groups}
+          query={query}
+          narrow={false}
+          close={close}
+        />
       </CommandList>
+      <CommandHints words={hints} />
     </Command>
   )
 }

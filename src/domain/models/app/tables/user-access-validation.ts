@@ -142,3 +142,41 @@ export const validateUserAccessInput = (
   validateTableSlug(input, context) ??
   validateRecordIds(input) ??
   validateRole(input, context)
+
+/** The fields of a grant a change may name: everything but its account and its table. */
+const CHANGEABLE_FIELDS: ReadonlySet<string> = new Set(['record_ids', 'role'])
+
+/**
+ * Validate a change to an existing `user_access` row against the active auth
+ * config.
+ *
+ * A change names `record_ids`, `role`, or both, and each one it names obeys the
+ * rule a new grant does. It may not name `user_id` or `table_slug`: a grant
+ * keeps its account and its table, because moving access to someone else, or
+ * to another table, is a revocation and a new grant — so a body naming either
+ * is refused rather than silently ignored.
+ */
+export const validateUserAccessChange = (
+  input: Readonly<Record<string, unknown>>,
+  context: UserAccessValidationContext
+): UserAccessValidationError | undefined => {
+  const fixed = (['user_id', 'table_slug'] as const).find((field) => Object.hasOwn(input, field))
+  if (fixed !== undefined) {
+    return {
+      code: 'VALIDATION_ERROR',
+      message: `${fixed} cannot be changed: revoke the grant and grant again instead`,
+      field: fixed,
+    }
+  }
+  if (!Object.keys(input).some((field) => CHANGEABLE_FIELDS.has(field))) {
+    return {
+      code: 'VALIDATION_ERROR',
+      message: 'A change names record_ids, role, or both',
+      field: 'record_ids',
+    }
+  }
+  return (
+    (Object.hasOwn(input, 'record_ids') ? validateRecordIds(input) : undefined) ??
+    (Object.hasOwn(input, 'role') ? validateRole(input, context) : undefined)
+  )
+}

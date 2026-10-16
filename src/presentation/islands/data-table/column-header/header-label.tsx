@@ -6,7 +6,9 @@
  */
 
 import { flexRender } from '@tanstack/react-table'
+import { computeTableSortButtonClasses } from '@/presentation/design/table-default-classes'
 import { headerLabelAlignClass } from '../column-align'
+import { useGridString } from '../island/grid-strings'
 import { SortGlyph } from './sort-glyph'
 import { buildSortClick, sortActionLabel } from './sort-state'
 import type { DataTableHeader } from '../island/table-features'
@@ -16,75 +18,53 @@ import type { ReactElement } from 'react'
  * The column label, and — where the column can be sorted — the control that
  * sorts it.
  *
- * The `<th>` has carried `onClick` since the grid shipped, so a reader could
- * always sort by clicking anywhere in the header — but nothing SAID so. A column
- * announced sortable through `aria-sort` offered a sighted reader no mark to aim
- * at and no cursor change to discover. The glyph button is that mark.
+ * A sortable header is shadcn/ui's data-table header: ONE button wrapping the
+ * column's label and its sort glyph. It is in the tab order and answers Enter
+ * and Space as any button does, so the header cell itself is no longer a
+ * second, unannounced tab stop.
  *
- * ─── IT IS DELIBERATELY OUT OF THE ACCESSIBILITY TREE ─────────────────────
+ * ─── THE BUTTON IS NAMED EXACTLY THE COLUMN LABEL ─────────────────────────
  *
- * `aria-hidden` with `tabIndex={-1}`: the control is redundant with the `<th>`
- * that contains it, and a redundant control that duplicates its container's
- * action is exactly what `aria-hidden` is for. No focusable element is hidden,
- * so the usual prohibition does not apply.
+ * A `columnheader`'s accessible name is computed from its CONTENTS, so the
+ * button's name becomes the column's. Named after the action (`Sort
+ * ascending`) it renamed every column in every grid; named after the label it
+ * leaves the header named exactly as before, and `aria-sort` on the `<th>`
+ * announces the state. The glyph is `aria-hidden`, so it contributes nothing;
+ * `title` gives a pointer reader the action as a description.
  *
- * It is not squeamishness. A `columnheader`'s accessible name is computed from
- * its CONTENTS, so ANY name this button carries becomes part of the column's,
- * and three spellings were measured against the suite before this one:
+ * `sortable` is false on an empty grid: with no rows there is nothing to
+ * order, so no header offers to order it.
  *
- * - Button wrapping the label, named `Sort ascending` — renamed every column
- *   header in every grid after the action. 22 tests, and a screen-reader user
- *   heard the action where the field name belongs.
- * - Button wrapping the label, unnamed, with `aria-label` on the `<th>` — the
- *   W3C pattern plus an explicit header name. A button field draws a `Ship`
- *   button in every row and names its column `Ship`, so the header grew a second
- *   `Ship` button doing something else entirely; and the `<th>`'s `aria-label`
- *   is what `getByLabel('Name')` reads, so a grid beside a form began answering
- *   to the form's field names.
- * - Label outside, button named after the action — the header's name became
- *   `name Sort ascending`. Substring lookups survived that; an ANCHORED one
- *   (`{ name: /^name$/i }`) did not, and a column header whose name is not its
- *   column is wrong whether or not a test notices.
- *
- * Contributing NO name is the only spelling under which a column header is still
- * named exactly after its column. The accessibility tree is byte-identical to
- * what it was before this control existed.
- *
- * What that left open was the KEYBOARD, and it had been open since the grid
- * shipped: a `<th>` is not focusable and takes no Enter, so a column announced
- * sortable was never sortable without a pointer. Naming this button would not
- * have fixed it — the fix is a focusable HEADER, and `HeaderCell` below is where
- * it lives: a sortable `<th>` carries `tabIndex={0}` and answers Enter or Space
- * through the same toggle its `onClick` holds. `tabIndex` contributes no
- * accessible name, so the header is still named exactly after its column and
- * this control can stay out of the tree.
- *
- * `onClick` stops propagating before invoking the same handler the `<th>` holds,
- * so a press fires exactly once whether it lands on the glyph or on the padding
- * beside the label.
+ * `onClick` stops propagating before invoking the same handler the `<th>`
+ * holds, so a press fires exactly once whether it lands on the button or on
+ * the padding beside it.
  */
-export function HeaderLabel({ header }: { readonly header: DataTableHeader }): ReactElement {
+export function HeaderLabel({
+  header,
+  sortable,
+}: {
+  readonly header: DataTableHeader
+  readonly sortable: boolean
+}): ReactElement {
   const sorted = header.column.getIsSorted()
+  const action = useGridString(...sortActionLabel(sorted))
   const label = header.isPlaceholder
     ? undefined
     : flexRender(header.column.columnDef.header, header.getContext())
   const rowClass = `flex items-center gap-1 ${headerLabelAlignClass(header.column.columnDef.meta?.align)}`
-  if (!header.column.getCanSort()) {
+  if (!sortable) {
     return <div className={rowClass}>{label}</div>
   }
-  const action = sortActionLabel(sorted)
   return (
     <div className={rowClass}>
-      {label}
       <button
         type="button"
         data-sort-control="true"
-        aria-hidden="true"
-        tabIndex={-1}
         title={action}
-        className="inline-flex cursor-pointer items-center"
+        className={computeTableSortButtonClasses()}
         onClick={buildSortClick(header.column.getToggleSortingHandler())}
       >
+        {label}
         <SortGlyph sorted={sorted} />
       </button>
     </div>

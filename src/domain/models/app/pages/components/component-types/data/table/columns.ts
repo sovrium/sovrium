@@ -25,7 +25,8 @@ import { SelectOptionSourceBindingSchema } from '../../form-controls/select-opti
  *
  * Each format corresponds to a field type:
  * - Text: truncate
- * - Number: currency, percentage, compact (1.2K), bytes (11 KB)
+ * - Number: currency, percentage, compact (1.2K), bytes (11 KB), duration
+ *   (180 ms, 1.4 s, 2 min 18 s)
  * - Date: relative-date (PAST-only "2 days ago"), relative-time (signed,
  *   locale-aware "dans 5 j" / "il y a 5 j" — works for FUTURE dates),
  *   short-date, long-date, datetime
@@ -38,6 +39,11 @@ import { SelectOptionSourceBindingSchema } from '../../form-controls/select-opti
  * (`@/domain/models/app/tables/cell-value-format`), so one number cannot print two ways on
  * two surfaces of the same page. Available on a data-table column AND on a
  * `record-field`, so a size shows in a row template as well as in a grid.
+ *
+ * `duration` is an ELAPSED time read as one compact figure in the page locale.
+ * A value bound to a `duration` field is that field's stored seconds; any other
+ * number is milliseconds — the unit the engine records its own timings in (an
+ * automation run's `durationMs`). The figure is never guessed from its size.
  *
  * `relative-time` is the bidirectional counterpart to `relative-date`: where
  * `relative-date` only ever renders past offsets in English, `relative-time`
@@ -52,6 +58,7 @@ export const ColumnFormatSchema = Schema.Literals([
   'percentage',
   'compact',
   'bytes',
+  'duration',
   'relative-date',
   'relative-time',
   'short-date',
@@ -63,7 +70,7 @@ export const ColumnFormatSchema = Schema.Literals([
 ]).annotate({
   title: 'Column Format',
   description:
-    'Display format override for a rendered value (a table column or a record-field). bytes = binary B/KB/MB/GB, NOT the SI compact 11.5K; relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable; short-date = day and short month in the page language order (Sep 22, 22 sept.), with the year only when the date falls in another year (Mar 5, 2024); time-ms = the time of day to the millisecond (14:03:07.512) in the operator timezone, for log and event timestamps.',
+    'Display format override for a rendered value (a table column or a record-field). bytes = binary B/KB/MB/GB (o/ko/Mo/Go on a French page), NOT the SI compact 11.5K; duration = an elapsed time as one compact figure (180 ms, 1.4 s, 2 min 18 s, 1 h 05 min), read as seconds on a duration field and as milliseconds on any other number; relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable; short-date = day and short month in the page language order (Sep 22, 22 sept.), with the year only when the date falls in another year (Mar 5, 2024); time-ms = the time of day to the millisecond (14:03:07.512) in the operator timezone, for log and event timestamps.',
 })
 
 // ---------------------------------------------------------------------------
@@ -457,7 +464,10 @@ export const FieldColumnSchema = Schema.Struct({
   ),
   /** Allow sorting on this column */
   sortable: Schema.optional(
-    Schema.Boolean.annotate({ description: 'Allow column sorting (default: true)' })
+    Schema.Boolean.annotate({
+      description:
+        "Allow column sorting (default: true). A sortable column's header is a button named after the column: click it, or Tab to it and press Enter, to cycle ascending, descending and unsorted. Its arrow shows on the sorted column, and on another while its header is pointed at or focused; a grid with no rows offers no sort button. A column bound to a `button` field is never sortable: it stores no value to order by.",
+    })
   ),
   /** Allow filtering on this column */
   filterable: Schema.optional(

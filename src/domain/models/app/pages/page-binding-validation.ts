@@ -17,6 +17,7 @@ import {
   systemRowTemplateViolations,
   visibilityPolarityViolations,
 } from './component-rule-validation'
+import { derivedColumnViolations } from './derived-columns-validation'
 import { queryVisibilityViolations } from './query-visibility-validation'
 import { boundNodesOf, describeNode } from './record-binding-walk'
 import { recordReferenceViolations } from './record-reference-validation'
@@ -98,8 +99,8 @@ const QUERY_PROP_NAME = /^[a-z][a-z0-9-]*$/
  *  8. **Inline select editors.** An `editSelect` states its choices exactly
  *     once: a literal `options` array OR a resolved `optionsSource`.
  *
- *  9. **Derived data-table columns.** `columnsFrom` is exclusive with an
- *     authored `columns`, and needs a DB-table binding to derive from.
+ *  9. **Derived data-table columns.** `columnsFrom` must have something to
+ *     derive from (`derived-columns-validation.ts`).
  *
  * 10. **The current-item marker.** `activeWhen` and `activeProps` are useless
  *     apart, and a comparison between two literals answers the same on every
@@ -740,48 +741,9 @@ function formFieldOptionViolations(
     .filter(isRecord)
     .flatMap((field) => {
       if (field['options'] === undefined || field['optionsSource'] === undefined) return []
-      const name = typeof field['field'] === 'string' ? field['field'] : 'unnamed'
+      const name = String(field['field'] ?? field['name'] ?? 'unnamed') // a filter bar's is `name`
       return [
         `${label} declares a form field "${name}" with both options and optionsSource — keep one: a literal list OR a resolved source`,
-      ]
-    })
-}
-
-// ---------------------------------------------------------------------------
-// 9. Derived data-table columns
-// ---------------------------------------------------------------------------
-
-/**
- * `columnsFrom: 'table'` derives one column per declared field of the bound
- * table, which is what makes a records grid over ANY table one page definition
- * rather than one per table.
- *
- * Two rules, both about what the derivation can actually read. It needs a
- * DB-table binding: a system source describes an endpoint's shape rather than a
- * declared table, so there are no fields to derive from and the grid would
- * render no columns at all — the silent failure this refuses. And it is
- * exclusive with an authored `columns`, for the breadcrumb reason again.
- */
-function derivedColumnViolations(
-  nodes: readonly Record<string, unknown>[],
-  label: string
-): readonly string[] {
-  return nodes
-    .filter((node) => node['columnsFrom'] !== undefined)
-    .flatMap((node) => {
-      const { dataSource } = node
-      const boundToTable = isRecord(dataSource) && typeof dataSource['table'] === 'string'
-      return [
-        ...(node['columns'] !== undefined
-          ? [
-              `${label} declares a data-table with both columns and columnsFrom — keep one: authored columns OR columns derived from the bound table`,
-            ]
-          : []),
-        ...(boundToTable
-          ? []
-          : [
-              `${label} declares columnsFrom without a dataSource.table — a system source describes an endpoint's shape, not a declared table, so there are no fields to derive columns from`,
-            ]),
       ]
     })
 }

@@ -25,8 +25,7 @@
  *   - {@link buildRecordPage} runs the enrichment ladder in the ONE order that
  *     works, and does it after pagination so each enricher covers one page.
  *
- * The many-to-many and related-label enrichers it calls live in
- * `record-link-enrichment.ts`, shared with the single read and both writes.
+ * Its many-to-many and related-label enrichers live in `record-link-enrichment.ts`.
  */
 
 import { Effect } from 'effect'
@@ -46,7 +45,7 @@ import {
   withLookupKeyColumns,
 } from './hidden-lookup-omission'
 import { processRecords, buildPaginationMeta, DEFAULT_PAGE_SIZE } from './list-helpers'
-import { lookupReadMasks } from './lookup-read-masks'
+import { lookupReadMasks, withRuledRelatedText } from './lookup-read-masks'
 import { orderedAnswerFor, readRecordGroups } from './record-groups'
 import {
   enrichRecordsWithManyToMany,
@@ -374,7 +373,7 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
   })
 
 export function createListRecordsProgram(
-  config: ListRecordsConfig
+  input: ListRecordsConfig
 ): Effect.Effect<
   ListRecordsResponse,
   DatabaseError,
@@ -382,12 +381,13 @@ export function createListRecordsProgram(
 > {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
+    const { reader } = linkReadOptions(input)
+    const config = { ...input, filter: yield* withRuledRelatedText(input, reader) }
     const { session, tableName, filter, includeDeleted, aggregate, groupBy } = config
 
     const { total, preSliced, lookupMasks, ...read } = yield* readListRows(config, repo)
     // On the RAW rows, before field permissions and `?fields=` can drop a
     // lookup's key — and before the groups below are keyed on its value.
-    const { reader } = linkReadOptions(config)
     const records = yield* omitHiddenColumnLookups(config.app, tableName, read.records, reader)
     const { records: pageRecords, pagination } = yield* buildRecordPage(config, records, {
       total,

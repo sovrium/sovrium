@@ -79,17 +79,6 @@ import type { App } from '@/domain/models/app'
 import type { TypeField } from '@/domain/models/app/design/type-introspection'
 
 /**
- * Where a type's own page lives in the console, MOUNT-RELATIVE.
- *
- * Relative because the same page is served in two worlds: standalone at the
- * site root under `bun run app:admin`, and under `/_admin` inside an operator's
- * app. An absolute `/_admin/...` would be wrong in the first and redundant in
- * the second — the mount walk prefixes the relative form at render time, which
- * is correct in both.
- */
-export const detailHref = (type: string): string => `/design-system/ui-kit/${type}`
-
-/**
  * The values of one lifted axis, as rows.
  *
  * Empty for a type that declares no such axis, and empty for one whose field is
@@ -263,7 +252,6 @@ export const listComponentTypes = (app: App): readonly ComponentTypeSummary[] =>
         // a blank strip under the card, on the one field
         // whose whole point is that it is always there.
         purpose: purposeOf(type),
-        href: detailHref(type),
         variantCount: axisValues(introspection.variant).length,
         sizeCount: axisValues(introspection.size).length,
         stateCount: statesOfType(type, category).length,

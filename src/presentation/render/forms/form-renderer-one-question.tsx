@@ -43,6 +43,7 @@ import { FormFieldElement, type PrefillValue, type ResolvedFormField } from './f
 import { attachSectionsToNextField, type FieldWithSections } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
 import { IdempotencyKeyInput } from './form-idempotency-key'
+import { RequiredLegend } from './form-required-legend'
 
 interface OneQuestionBodyProps {
   readonly title: string
@@ -56,6 +57,10 @@ interface OneQuestionBodyProps {
   readonly titleAs?: 'h1' | 'h2' | 'h3'
   /** Drawn inside a host page: the form's script mints its idempotency key. */
   readonly embedded?: boolean
+  /** The legend explaining the asterisk, in the page language. */
+  readonly requiredLegend?: string
+  /** The summary screen's heading, in the page language. */
+  readonly reviewAnswersLabel?: string
 }
 
 function FormQuestionWrapper({
@@ -112,17 +117,19 @@ function FormProgressBar({ totalQuestions }: { readonly totalQuestions: number }
 
 function FormSummaryScreen({
   resolvedFields,
+  heading,
 }: {
   readonly resolvedFields: ReadonlyArray<ResolvedFormField>
+  readonly heading: string
 }) {
   return (
     <section
       className="form-summary"
       data-form-summary="true"
       hidden={true}
-      aria-label="Review your answers"
+      aria-label={heading}
     >
-      <h2>Review your answers</h2>
+      <h2>{heading}</h2>
       <dl>
         {resolvedFields.map((field) => (
           <div
@@ -172,6 +179,8 @@ function OneQuestionForm({
   prefillMap,
   lockPrefill,
   embedded,
+  requiredLegend,
+  reviewAnswersLabel = 'Review your answers',
 }: {
   readonly formAttributes: Readonly<Record<string, string>>
   readonly transformedVisible: ReadonlyArray<FieldWithSections>
@@ -179,6 +188,8 @@ function OneQuestionForm({
   readonly prefillMap: Readonly<Record<string, PrefillValue>>
   readonly lockPrefill: boolean
   readonly embedded: boolean | undefined
+  readonly requiredLegend: string | undefined
+  readonly reviewAnswersLabel: string | undefined
 }) {
   return (
     <form
@@ -186,6 +197,10 @@ function OneQuestionForm({
       data-layout="one-question"
     >
       <IdempotencyKeyInput embedded={embedded} />
+      <RequiredLegend
+        text={requiredLegend}
+        fields={transformedVisible.map((group) => group.field)}
+      />
       {transformedVisible.map(({ field, sections }, index) => (
         <FormQuestionWrapper
           key={field.name}
@@ -209,7 +224,10 @@ function OneQuestionForm({
       {/* Summary screen is rendered INSIDE the form so the Submit
           button natively triggers the form's submit event (which the
           one-question runtime intercepts via a synchronous XHR). */}
-      <FormSummaryScreen resolvedFields={transformedVisible.map((group) => group.field)} />
+      <FormSummaryScreen
+        resolvedFields={transformedVisible.map((group) => group.field)}
+        heading={reviewAnswersLabel}
+      />
     </form>
   )
 }
@@ -223,6 +241,8 @@ export function FormBodyOneQuestion({
   lockPrefill,
   titleAs = 'h1',
   embedded,
+  requiredLegend,
+  reviewAnswersLabel,
 }: OneQuestionBodyProps) {
   const TitleTag = titleAs
   // Filter out hidden fields from the question count — they render
@@ -249,6 +269,8 @@ export function FormBodyOneQuestion({
         prefillMap={prefillMap}
         lockPrefill={lockPrefill}
         embedded={embedded}
+        requiredLegend={requiredLegend}
+        reviewAnswersLabel={reviewAnswersLabel}
       />
       <button
         type="button"

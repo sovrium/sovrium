@@ -10,7 +10,7 @@ import {
   body,
   flex,
   grid,
-  h4,
+  itemTitle,
   iconTile,
   linkButton,
   param,
@@ -84,7 +84,10 @@ export const entry = defineLibraryEntry({
               stack(
                 ITEMS.map(([icon, title, text]) =>
                   flex(
-                    [iconTile(icon), stack([h4(title), body(text, 'text-sm sm:text-md')], 'gap-1')],
+                    [
+                      iconTile(icon),
+                      stack([itemTitle(title), body(text, 'text-sm sm:text-md')], 'gap-1'),
+                    ],
                     'items-start gap-4 border-b border-border py-5 last:border-b-0'
                   )
                 ),

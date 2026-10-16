@@ -82,37 +82,12 @@
  */
 
 /**
- * The keyboard focus ring, composed from the SAME shadcn role utilities the
- * recipes compose it from.
- *
- * Not imported from them, and that is a boundary fact rather than a choice: a
- * `presentation-util` may reach neither a `presentation-island`
- * (`islands/recipes/shared-tokens-default-classes.ts`, where the island copy
- * lives) nor a `presentation-component`
- * (`ui/sections/renderers/element-renderers/recipes/*`, where the SSR copies
- * live), and widening that rule for a five-token string would be a much larger
- * permission than the need.
- *
- * So the string is re-composed here, and the drift risk that creates is closed
- * by a test rather than by a comment: `component-floor.test.ts` asserts that
- * every token below appears VERBATIM in the recipe output it is meant to
- * replay, and that every token is already a build-time CSS candidate. A
- * divergence fails a unit test rather than silently emitting a class the
- * stylesheet has never seen.
- */
-const FOCUS_VISIBLE_RING = [
-  'focus-visible:outline-none',
-  'focus-visible:ring-2',
-  'focus-visible:ring-offset-2',
-  'focus-visible:ring-ring',
-  'focus-visible:ring-offset-background',
-].join(' ')
-
-/**
  * shadcn/ui's focus affordance on a form control: the border takes the ring
  * colour and a 3px ring at half its strength draws around it. The block the
- * input, textarea and select-trigger recipes emit, verbatim — and the button
- * recipe too, which is why the language switcher's `link` part replays it.
+ * input, textarea and select-trigger recipes emit, verbatim — and base-nova's
+ * button recipe too, which is why the button root, a form's submit and the
+ * language switcher's `link` part all replay it. `component-floor.test.ts`
+ * asserts every token appears verbatim in the recipe it replays.
  */
 const CONTROL_FOCUS_RING =
   'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
@@ -131,9 +106,8 @@ const LINK_FOCUS_CLASS = [
  * element.
  */
 const ROOT_FLOOR: Readonly<Record<string, string>> = {
-  // `<button>` — the recipe's own `FOCUS_CLASS` is byte-identical to the shared
-  // island token, which is why one constant serves both.
-  button: FOCUS_VISIBLE_RING,
+  // `<button>` — base-nova's button focus block, which the recipe emits.
+  button: CONTROL_FOCUS_RING,
   // `<input>` / `<textarea>` — shadcn/ui's control focus block, which
   // `computeInputDefaultClasses` and `computeTextareaDefaultClasses` emit.
   input: CONTROL_FOCUS_RING,
@@ -207,7 +181,7 @@ const PART_FLOOR: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   'language-switcher': { link: CONTROL_FOCUS_RING },
   // The submit of a hosted form and of a page form — both drawn with the
   // button recipe, whose block this is.
-  form: { submit: FOCUS_VISIBLE_RING },
+  form: { submit: CONTROL_FOCUS_RING },
 }
 
 /** Shared empty map, so an unfloored type costs no allocation per render. */

@@ -18,6 +18,8 @@ auth:
 
 Every property is optional — `- type: emailAndPassword` on its own is a valid, working strategy. `minPasswordLength` defaults to 8 and accepts 6 to 128; `maxPasswordLength` defaults to 128 and accepts 8 to 256. Both bounds are enforced at their own extremes, so a configuration cannot ask for a four-character minimum.
 
+The minimum is also said where it applies. Every password field that sets a password — signing up, choosing a new password from a reset link, accepting an invitation, and any page form field marked `autocomplete: new-password` — shows "At least 8 characters" under it, with your `minPasswordLength` in place of 8, worded in the page language. The sign-in field asks for a password the reader already has and shows nothing.
+
 ## Verification before sign-in
 
 With `requireEmailVerification: true`, signing up creates the account but not a usable session. A verification email is sent, rendered from the `verification` template, and sign-in is refused until the link is followed.

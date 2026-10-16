@@ -31,6 +31,7 @@ import {
 } from '@/infrastructure/logging/request-effect'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import { handleClick } from '@/presentation/api/analytics/click-handlers'
+import { toEventsResponse } from '@/presentation/api/analytics/events-response'
 import { handleTargets } from '@/presentation/api/analytics/targets-handlers'
 import { getRequestClientIp } from '@/presentation/api/middleware/client-ip'
 import { unauthorized, validationError, notFound } from '@/presentation/api/runtime/auth-helpers'
@@ -429,7 +430,8 @@ function parseEventsQuery(c: Context):
  * A named program rather than an inline `Effect.gen` so `handleEvents` stays
  * inside its line budget once the repository arrives from the server runtime
  * instead of from a per-call layer. The requirement is DECLARED here and
- * discharged at the call site, which is the shape E1 asks for.
+ * discharged at the call site, which is the shape E1 asks for. A page the
+ * response schema refuses fails like a failed read.
  */
 const readEvents = (
   appName: string,
@@ -437,7 +439,7 @@ const readEvents = (
 ) =>
   Effect.gen(function* () {
     const repo = yield* AnalyticsRepository
-    return yield* repo.listEvents({
+    const page = yield* repo.listEvents({
       appName,
       eventType: params.eventType,
       eventName: params.eventName,
@@ -446,6 +448,7 @@ const readEvents = (
       from: params.from,
       to: params.to,
     })
+    return yield* toEventsResponse(page)
   })
 
 /**
@@ -482,19 +485,7 @@ async function handleEvents(c: Context, appName: string, app: Roles): Promise<Re
     )
   }
 
-  const events = result.success.events.map((event) => ({
-    id: event.id,
-    app_name: event.appName,
-    event_type: event.eventType,
-    event_name: event.eventName,
-    org_id: event.orgId,
-    visitor_hash: event.visitorHash,
-    session_hash: event.sessionHash,
-    timestamp: event.timestamp,
-    properties: event.properties,
-  }))
-
-  return c.json({ events, pagination: result.success.pagination }, 200)
+  return c.json(result.success, 200)
 }
 
 /**

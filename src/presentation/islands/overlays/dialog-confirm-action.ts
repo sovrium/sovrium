@@ -17,6 +17,7 @@
  */
 
 import { automationPressHeaders } from '../runtime/automation-press-headers'
+import { toastWriteRefusal } from '../runtime/write-refusal'
 
 /**
  * Automation action the alert-dialog's confirm button dispatches. Mirrors the
@@ -45,11 +46,14 @@ export interface DialogConfirmAction {
 export function dispatchConfirmAction(action: DialogConfirmAction | undefined): void {
   if (action?.type === 'crud' && action.operation === 'delete' && action.table && action.recordId) {
     // The records API applies the table's own delete permission; a refusal
-    // answers 404 and the record simply stays.
+    // answers 404 and the record simply stays. A refusal because the writes
+    // were too many is told, with the seconds to wait.
     void fetch(
       `/api/tables/${encodeURIComponent(action.table)}/records/${encodeURIComponent(action.recordId)}`,
       { method: 'DELETE', credentials: 'same-origin' }
-    ).catch(() => undefined)
+    )
+      .then((response) => toastWriteRefusal(response))
+      .catch(() => undefined)
     return
   }
   if (action?.type !== 'automation' || !action.name) return

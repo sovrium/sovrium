@@ -102,6 +102,20 @@ A file is read with the app's own access to storage, so the caller of a trigger 
 
 A call is checked when the config loads: an unknown operation, a parameter the operation does not declare, a missing required parameter or a literal of the wrong type refuses the config, naming the step. A value produced by a template is checked when the step runs.
 
+A parameter declared `object` or `array` filled with one whole template, such as `payload: '{{steps.build.quote}}'`, receives the object or the list that template names, as it is: nested values keep their types, and nothing is turned into text. A template with anything around it renders to text, and a text value fails the type check of an `object` or `array` parameter when the step runs.
+
+```yaml
+- name: send-quote
+  type: connection
+  operator: call
+  props:
+    connection: qonto
+    operation: create-quote
+    params:
+      payload: '{{steps.build.quote}}' # the object a previous step returned
+      items: '{{steps.build.lines}}' # its line items, as a list
+```
+
 What the next step reads:
 
 - `steps.<name>.data` is the decoded response body. With `paginate: all`, or `paginate: N` for at most N pages, it is instead the items of every page read, concatenated in order, following the operation's `pagination` (page number, offset, cursor, the `Link` header, or the id of the last item read — `style: lastItem`, which stops when `hasMorePath` reads false).

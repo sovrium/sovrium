@@ -29,9 +29,26 @@
  * departures in `sidebar-default-classes.ts`). Folded to icons it squares to 32 px, so its
  * `overflow-hidden` clips the label away under the glyph: the label stays in
  * the document and keeps naming the link.
+ *
+ * Its ink is spelled out (`text-sidebar-foreground`) where base-nova lets it
+ * inherit from the box: the row is an `<a>`, and the base layer paints every
+ * bare link in the app's primary colour, so an inherited ink turned every
+ * resting row into a coloured link. The ink matches the nested row's, and
+ * only the current row is marked, by the accent fill.
  */
 const SIDEBAR_ENTRY_CLASS =
-  'peer/menu-button group/menu-button flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]/sidebar:size-8! group-data-[collapsible=icon]/sidebar:p-2! [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate'
+  'peer/menu-button group/menu-button flex h-8 w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground ring-sidebar-ring outline-hidden transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]/sidebar:size-8! group-data-[collapsible=icon]/sidebar:p-2! [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate'
+
+/**
+ * A resting row's glyph, a step quieter than its label, so the label carries
+ * the row; hovering the row brings the glyph up to the row's hover ink. The
+ * current row keeps its glyph at full ink, with its label.
+ */
+const SIDEBAR_ENTRY_REST_GLYPH =
+  '[&_svg]:text-sidebar-foreground/70 hover:[&_svg]:text-sidebar-accent-foreground'
+
+/** A resting row: the row and its quieter glyph. */
+const SIDEBAR_ENTRY_REST_CLASS = `${SIDEBAR_ENTRY_CLASS} ${SIDEBAR_ENTRY_REST_GLYPH}`
 
 /** The row for the page being viewed: base-nova's active fill, weight and ink. */
 const SIDEBAR_ENTRY_CURRENT_CLASS = [
@@ -53,7 +70,7 @@ const SIDEBAR_SUB_ENTRY_CURRENT_CLASS = [
  * current one takes the sidebar accent's fill, weight and ink.
  */
 export const computeSidebarEntryClasses = (isCurrent = false): string =>
-  isCurrent ? SIDEBAR_ENTRY_CURRENT_CLASS : SIDEBAR_ENTRY_CLASS
+  isCurrent ? SIDEBAR_ENTRY_CURRENT_CLASS : SIDEBAR_ENTRY_REST_CLASS
 
 /**
  * Compute the className for a nested navigation entry `<a>` — anything a
@@ -103,7 +120,7 @@ const SIDEBAR_DISCLOSURE_TOGGLE_CLASS =
  * The chevron travels wrapped in {@link SIDEBAR_TOGGLE_CHEVRON_SLOT_CLASS}, so
  * the rail can stop painting it along with the label and the badge.
  */
-const SIDEBAR_TOGGLE_ROW_CLASS = `col-span-2 ${SIDEBAR_ENTRY_CLASS}`
+const SIDEBAR_TOGGLE_ROW_CLASS = `col-span-2 ${SIDEBAR_ENTRY_REST_CLASS}`
 
 /**
  * The label inside a toggle row, which GROWS.

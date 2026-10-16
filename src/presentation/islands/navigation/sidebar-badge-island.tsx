@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { computeSidebarEntryBadgeClasses } from '@/presentation/design/sidebar-menu-default-classes'
+import { applyDestructiveCount } from './sidebar-collapsible-count'
+import type { ReactElement } from 'react'
 
 /**
  * The live count beside a sidebar entry.
@@ -27,6 +30,14 @@ interface SidebarBadgeIslandProps {
   readonly endpoint?: string
   /** Dot path to the count inside the response envelope. */
   readonly valuePath?: string
+  /**
+   * `destructive`: a count of failures. The host is a bare box, so this island
+   * draws the badge itself — only when the count is non-zero — and tells the
+   * collapsible group around it (see `sidebar-collapsible-count.ts`).
+   */
+  readonly variant?: 'secondary' | 'destructive'
+  /** The sidebar's own `parts.badge` class, for the badge this island draws. */
+  readonly part?: string
 }
 
 /**
@@ -76,10 +87,46 @@ async function fetchCount(endpoint: string, valuePath: string): Promise<number |
   }
 }
 
+/** The destructive count: the badge itself, drawn only when there is a failure. */
+function DestructiveCount({
+  count,
+  part,
+}: {
+  readonly count: number | undefined
+  readonly part: string | undefined
+}): ReactElement {
+  const anchor = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const host = anchor.current?.parentElement
+    if (count !== undefined && host !== null && host !== undefined) {
+      applyDestructiveCount(host, count)
+    }
+  }, [count])
+  return (
+    <>
+      <span
+        ref={anchor}
+        hidden
+      />
+      {count !== undefined && count > 0 && (
+        <span
+          data-slot="sidebar-menu-badge"
+          data-component-type="badge"
+          className={`${computeSidebarEntryBadgeClasses('destructive')}${part === undefined ? '' : ` ${part}`}`}
+        >
+          {count}
+        </span>
+      )}
+    </>
+  )
+}
+
 export default function SidebarBadgeIsland({
   endpoint,
   valuePath = 'total',
-}: SidebarBadgeIslandProps): string | undefined {
+  variant = 'secondary',
+  part,
+}: SidebarBadgeIslandProps): ReactElement | string | undefined {
   const [count, setCount] = useState<number | undefined>(undefined)
 
   useEffect(() => {
@@ -93,6 +140,14 @@ export default function SidebarBadgeIsland({
     }
   }, [endpoint, valuePath])
 
+  if (variant === 'destructive') {
+    return (
+      <DestructiveCount
+        count={count}
+        part={part}
+      />
+    )
+  }
   // The host `<span>` is server-rendered with the badge's own styling, so the
   // island contributes the number and nothing else — wrapping it in an element
   // here would nest a second badge inside the first.

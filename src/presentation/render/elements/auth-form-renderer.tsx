@@ -38,6 +38,7 @@ import {
   type AuthFormRenderContext,
 } from './auth-form-action'
 import { boundTableOf, resolveAuthFormFields } from './auth-form-fields'
+import { passwordRuleText, renderAuthFieldRule, withPasswordRule } from './password-rule'
 import { renderTwoFactorNotice, twoFactorNoticeOf, type TwoFactorNotice } from './two-factor-notice'
 import type { ElementProps } from './html-element-renderer'
 import type { Languages } from '@/domain/models/app/languages'
@@ -106,7 +107,7 @@ function applyFieldOverrides(
  * French console shows `Se connecter` / `Connexion…`, never a hardcoded
  * `Loading...`.
  */
-function resolveAuthLabels(
+export function resolveAuthLabels(
   action: AuthFormAction,
   method: string,
   lang?: string,
@@ -245,13 +246,15 @@ function renderAuthFormField(field: AuthFormField): ReactElement {
           autoComplete={field.autoComplete}
           inputMode={field.inputMode}
           aria-invalid="false"
-          aria-describedby={errorId}
+          aria-required={field.required || undefined}
+          aria-describedby={field.rule ? `${errorId}-rule ${errorId}` : errorId}
           // The 'default' state; the island re-applies the recipe with 'error' on a
           // failed field, so the SSR paint and the hydrated control stay identical.
           className={computeInputDefaultClasses({ state: 'default' })}
           {...(field.placeholder && { placeholder: field.placeholder })}
         />
       </label>
+      {renderAuthFieldRule(field)}
       <div
         id={errorId}
         hidden
@@ -346,11 +349,12 @@ export function renderAuthForm(
   // The base field set (a second-factor step names its code by `factor`), then overrides.
   const variant = action.strategy ?? action.factor
   const baseFields = resolveAuthFormFields(method, tables, component, variant)
-  const fields = withAuthFieldHints(applyFieldOverrides(baseFields, action.fields, context), {
+  const hinted = withAuthFieldHints(applyFieldOverrides(baseFields, action.fields, context), {
     method,
     ...(variant !== undefined && { variant }),
     ...(action._passkeyAutofill === true && { passkeyAutofill: true }),
   })
+  const fields = withPasswordRule(hinted, passwordRuleText(component, lang, languages))
   const islandProps = buildIslandPropsJson({
     table: boundTableOf(component),
     method,

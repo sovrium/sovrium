@@ -9,12 +9,12 @@
 //
 // THREE pages, and the third is the interesting one:
 //
-//   `/agents`          the bare collection, which always 302s — there is always
+//   `/conversations`          the bare collection, which always 302s — there is always
 //                      a first agent, because the built-in `system` agent
 //                      leads the projection.
-//   `/agents/system`   the built-in System Agent, whose viewer holds every
+//   `/conversations/system`   the built-in System Agent, whose viewer holds every
 //                      conversation no declared agent claimed.
-//   `/agents/:agent`   one declared agent's viewer.
+//   `/conversations/:agent`   one declared agent's viewer.
 //
 // ─── WHY `system` IS ITS OWN PAGE AND NOT A BRANCH ─────────────────────────
 //
@@ -27,7 +27,7 @@
 //
 // Route ORDER answers it instead, at no cost: `findMatchingRoute` takes the
 // first pattern that matches, with no static-over-dynamic precedence, so a
-// literal page listed BEFORE the `:agent` page wins `/agents/system` and the
+// literal page listed BEFORE the `:agent` page wins `/conversations/system` and the
 // param page never sees it. Order is therefore load-bearing here in a way it is
 // not on the other surfaces — reversing these two silently deletes the sentence.
 //
@@ -37,16 +37,64 @@
 // declared agent. This copy names what the operator will actually find in the
 // list, and that stays true whatever a future transport does.
 
-import { fullWidth, pageHeading } from '../../components/data-page'
-import { withShell } from '../../components/shell'
-import { AGENTS_ENDPOINT } from '../../system-sources'
+import { consolePage, fullWidth, toolbarRow } from '../../components/data-page'
+import { AGENTS_ENDPOINT, USERS_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
 /** One node of a page's component tree, as the config type expresses it. */
 type PageComponent = NonNullable<PageConfig['components']>[number]
 
 /** The Conversations crumb label, shared by all three pages of the surface. */
-const BREADCRUMB = { agents: '$t:admin.crumb.agents' } as const
+const BREADCRUMB = { conversations: '$t:admin.crumb.conversations' } as const
+
+/**
+ * The shared-filter channel the Person select publishes on and the viewer
+ * island subscribes to. A plain name no element owns, the same mechanism as the
+ * run-history filter bar on Automations.
+ */
+const CONVERSATIONS_FILTER_CHANNEL = 'conversations-filter'
+
+/**
+ * The Person facet: who had the conversation, narrowing the list by `userId`.
+ *
+ * Its choices are the ACCOUNT DIRECTORY, not the conversations read. The
+ * option projection does not de-duplicate, so reading people off the threads
+ * would list someone once per conversation; and a page of threads would only
+ * offer the people who happen to be on it. The directory names each account
+ * once, sorted by name, up to the endpoint's page ceiling. Someone with no
+ * conversation with this agent can still be picked, and the viewer then says
+ * so with its own empty state, which is an honest answer rather than a gap.
+ *
+ * The caption sits INLINE, so the row stays the 40 px control row: the label
+ * wraps the control, which makes "Person" the control's accessible name, and
+ * the caption's own bottom margin (written for a caption above) is cancelled;
+ * the control takes the rest of the label's width, which is full on a phone
+ * and bounded from `sm` up so it never stretches across the content column.
+ * The empty choice submits `''`, which the channel omits, so the viewer opens
+ * on everyone.
+ */
+const personFilter = (): PageComponent =>
+  ({
+    type: 'native-select',
+    props: {
+      id: 'conversations-person-filter',
+      label: '$t:admin.conversations.person',
+      className:
+        'flex w-full items-center gap-2 sm:w-72 [&>[data-slot=label]]:mb-0 [&>[data-slot=label]]:shrink-0 [&>[data-slot=native-select-wrapper]]:min-w-0 [&>[data-slot=native-select-wrapper]]:flex-1',
+    },
+    emptyOption: { label: '$t:admin.conversations.everyone' },
+    publishes: { bindTo: CONVERSATIONS_FILTER_CHANNEL, param: 'userId' },
+    dataSource: {
+      system: {
+        endpoint: USERS_ENDPOINT,
+        rowsKey: 'users',
+        idKey: 'id',
+        query: { limit: 200, sort: 'name', order: 'asc' },
+      },
+      valueKey: 'id',
+      labelKey: 'name',
+    },
+  }) as PageComponent
 
 /**
  * The conversation viewer, scoped to ONE agent.
@@ -68,7 +116,7 @@ const conversationViewer = (agent: string): PageComponent =>
     props: {
       className: 'flex flex-col gap-4',
       'data-island': 'admin-agent-conversations',
-      'data-island-props': `{"agentNames":["${agent}"]}`,
+      'data-island-props': `{"agentNames":["${agent}"],"dataSource":{"bindTo":"${CONVERSATIONS_FILTER_CHANNEL}","sharedFilter":{"params":["userId","q"]}}}`,
     },
     children: [
       {
@@ -89,19 +137,24 @@ const conversationViewer = (agent: string): PageComponent =>
 
 /** One agent's viewer page, differing only in its blurb and its bound name. */
 const viewerPage = (id: string, path: string, agent: string, blurb: string): PageConfig =>
-  withShell(
-    {
-      id,
-      name: id,
-      path,
-      meta: { title: '$t:admin.meta.agents', lang: 'en-US' },
-      components: [
-        pageHeading('$t:admin.agents.heading', blurb),
-        fullWidth(conversationViewer(agent)),
-      ],
-    } as PageConfig,
-    { breadcrumb: BREADCRUMB }
-  )
+  consolePage({
+    id,
+    path,
+    title: '$t:admin.meta.agents',
+    heading: ['$t:admin.agents.heading', blurb],
+    page: {
+      requires: ['agents'],
+    },
+    shell: { breadcrumb: BREADCRUMB },
+    body: [
+      fullWidth({
+        type: 'container',
+        element: 'div',
+        props: { className: 'flex min-w-0 flex-col gap-2' },
+        children: [toolbarRow([personFilter()]), conversationViewer(agent)],
+      } as PageComponent),
+    ],
+  })
 
 /**
  * The agent list `redirectToFirst` reads its first row from.
@@ -121,25 +174,26 @@ const agentDirectory = (): PageComponent =>
     dataSource: { system: { endpoint: AGENTS_ENDPOINT, rowsKey: 'items' } },
     listDisplay: {
       itemTemplate: { title: '{name}' },
-      emptyMessage: 'No agents',
+      emptyMessage: '$t:admin.agents.none',
     },
   }) as PageComponent
 
-/** `/agents` — the bare collection, which always redirects. */
-const directoryPage: PageConfig = withShell(
-  {
-    id: 'dashboard-data-agents',
-    name: 'dashboard-data-agents',
-    path: '/agents',
-    meta: { title: '$t:admin.meta.agents', lang: 'en-US' },
-    redirectToFirst: { hrefTemplate: '/agents/{name}' },
-    components: [pageHeading('$t:admin.agents.heading', '$t:admin.agents.blurb'), agentDirectory()],
-  } as PageConfig,
-  { breadcrumb: BREADCRUMB }
-)
+/** `/conversations` — the bare collection, which always redirects. */
+const directoryPage: PageConfig = consolePage({
+  id: 'dashboard-data-agents',
+  path: '/conversations',
+  title: '$t:admin.meta.agents',
+  heading: ['$t:admin.agents.heading', '$t:admin.agents.blurb'],
+  page: {
+    requires: ['agents'],
+    redirectToFirst: { hrefTemplate: '/conversations/{name}' },
+  },
+  shell: { breadcrumb: BREADCRUMB },
+  body: [agentDirectory()],
+})
 
 /**
- * All three pages, with the LITERAL `/agents/system` ahead of `/agents/:agent`.
+ * All three pages, with the LITERAL `/conversations/system` ahead of `/conversations/:agent`.
  *
  * That order is the whole mechanism behind the System Agent's own
  * blurb. See the header note before reordering.
@@ -148,13 +202,13 @@ export default [
   directoryPage,
   viewerPage(
     'dashboard-data-agents-system',
-    '/agents/system',
+    '/conversations/system',
     'system',
     '$t:admin.agents.blurbSystem'
   ),
   viewerPage(
     'dashboard-data-agents-agent',
-    '/agents/:agent',
+    '/conversations/:agent',
     '$param.agent',
     '$t:admin.agents.blurb'
   ),

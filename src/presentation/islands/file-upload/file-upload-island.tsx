@@ -11,7 +11,7 @@ import {
   computeFileUploadErrorClasses,
   computeFileUploadTriggerClasses,
 } from '@/presentation/design/file-upload-default-classes'
-import { FileNameList } from './file-name-list'
+import { FileNameList, type FailedChipStrings } from './file-name-list'
 import { DropZone } from './file-upload-dropzone'
 import { useFileUploadState } from './use-file-upload-state'
 import type {
@@ -36,7 +36,20 @@ interface FileUploadIslandProps {
   readonly onSuccess?: FetchSuccessResponse
   /** Failure toast dispatched when the upload resolves non-2xx. */
   readonly onError?: FetchToastResponse
+  /** The `fileUpload.*` strings, resolved server-side where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
 }
+
+/** The button's text when the author declared no `label`: the page's word, else English. */
+const uploadButtonWord = (strings: FileUploadIslandProps['uiStrings']): string =>
+  strings?.['fileUpload.button'] ?? 'Upload file'
+
+/** A failed chip's words: the page's when the host sent them, else English. */
+const failedChipStrings = (strings: Readonly<Record<string, string>> = {}): FailedChipStrings => ({
+  failed: strings['fileUpload.failed'] ?? 'Upload failed',
+  retry: strings['fileUpload.retry'] ?? 'Retry',
+  remove: strings['fileUpload.remove'] ?? 'Remove',
+})
 
 interface UploadInputProps {
   readonly inputRef: Ref<HTMLInputElement>
@@ -105,13 +118,15 @@ function ButtonLabel({
 
 interface FileUploadFeedbackProps {
   readonly error: string | undefined
-  readonly fileNames: readonly string[]
+  readonly upload: ReturnType<typeof useFileUploadState>
+  readonly strings: FailedChipStrings
 }
 
 /** The inline validation-error / picked-filename region below the control. */
 function FileUploadFeedback({
   error,
-  fileNames,
+  upload,
+  strings,
 }: FileUploadFeedbackProps): ReactElement | undefined {
   if (error) {
     return (
@@ -123,8 +138,16 @@ function FileUploadFeedback({
       </p>
     )
   }
-  if (fileNames.length > 0) return <FileNameList fileNames={fileNames} />
-  return undefined
+  if (upload.fileNames.length === 0) return undefined
+  return (
+    <FileNameList
+      fileNames={upload.fileNames}
+      failedNames={upload.failedNames}
+      strings={strings}
+      onRetry={upload.retry}
+      onRemove={upload.remove}
+    />
+  )
 }
 
 /**
@@ -146,24 +169,15 @@ function FileUploadFeedback({
  * is in flight, which is the island's whole progress affordance; it re-enables
  * when the request settles.
  */
-export default function FileUploadIsland({
-  accept,
-  maxFiles,
-  maxFileSize,
-  dropZone = false,
-  disabled = false,
-  label,
-  id,
-  uploadAction,
-  onSuccess,
-  onError,
-}: FileUploadIslandProps): ReactElement {
+export default function FileUploadIsland(props: FileUploadIslandProps): ReactElement {
+  const { accept, maxFiles, maxFileSize, dropZone = false, disabled = false } = props
+  const { label, id, uiStrings } = props
   const inputRef = useRef<HTMLInputElement>(null)
-  const upload = useFileUploadState({ maxFiles, maxFileSize, uploadAction, onSuccess, onError })
+  const upload = useFileUploadState(props)
   const browse = useCallback(() => inputRef.current?.click(), [])
   const allowMultiple = typeof maxFiles === 'number' ? maxFiles > 1 : false
   const inputId = id ? `${id}-input` : undefined
-  const buttonText = label ?? 'Upload file'
+  const buttonText = label ?? uploadButtonWord(uiStrings)
   const controlsDisabled = disabled || upload.submitting
 
   return (
@@ -176,9 +190,10 @@ export default function FileUploadIsland({
       {dropZone ? (
         <DropZone
           disabled={controlsDisabled}
-          hint={fileUploadDropzoneHint({ accept, maxFiles, maxFileSize })}
+          hint={fileUploadDropzoneHint({ accept, maxFiles, maxFileSize }, uiStrings)}
           onBrowse={browse}
           onDropFiles={upload.handleFiles}
+          strings={uiStrings}
         />
       ) : (
         <ButtonLabel
@@ -199,7 +214,8 @@ export default function FileUploadIsland({
       />
       <FileUploadFeedback
         error={upload.error}
-        fileNames={upload.fileNames}
+        upload={upload}
+        strings={failedChipStrings(uiStrings)}
       />
     </div>
   )

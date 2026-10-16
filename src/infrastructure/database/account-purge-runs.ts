@@ -30,6 +30,8 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
+import { idsListing } from './account-purge-user-lists'
 import { nowEpochMsSqlLiteral } from './sql/dialect-ddl'
 import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
 import { getExistingColumnNames } from './sql/dialect-introspection'
@@ -52,6 +54,8 @@ export interface ErasureReachTable {
   readonly createdByColumns: readonly string[]
   /** Columns naming the user on somebody else's row: updated-by, deleted-by, `user` fields. */
   readonly namingColumns: readonly string[]
+  /** The `user` fields holding several people: a record lists her among them. */
+  readonly listColumns?: readonly string[]
   /** The tables whose rows the config deletes with this table's (`onDelete: 'cascade'`). */
   readonly cascadedBy: readonly CascadingChild[]
 }
@@ -109,6 +113,15 @@ const existingColumns = async (
   const existing = await getExistingColumnNames(tx as RawSqlRunner, table, candidates)
   return candidates.filter((column) => existing.has(column))
 }
+
+/** The list columns of `table` that exist. */
+const listColumnsOf = (
+  tx: Readonly<DrizzleTransaction>,
+  table: ErasureReachTable
+): Promise<readonly string[]> =>
+  (table.listColumns ?? []).length === 0
+    ? Promise.resolve([])
+    : existingColumns(tx, table.name, table.listColumns ?? [])
 
 /** `ids` added to the record set of `table`. */
 const withIds = (records: ErasedRecords, table: string, ids: readonly string[]): ErasedRecords =>
@@ -184,7 +197,8 @@ export const collectErasedRecords = async (
       table.namingColumns.filter((column) => present.has(column)),
       userId
     )
-    return { table: table.name, own, naming }
+    const listed = await idsListing(tx, table.name, await listColumnsOf(tx, table), userId)
+    return { table: table.name, own, naming: [...naming, ...listed] }
   })
   const own = named.reduce<ErasedRecords>((acc, row) => withIds(acc, row.table, row.own), new Map())
   const cascaded = await withCascades({ tx, tables, removed: own, depth: 0 })
@@ -274,9 +288,14 @@ interface ReachField {
   readonly relatedTable?: unknown
   readonly onDelete?: unknown
   readonly relationType?: unknown
+  readonly allowMultiple?: unknown
 }
 
-/** The `user` fields of `tableName`: a person named on somebody else's record. */
+/**
+ * The one-person `user` fields of `tableName`: a person named on somebody
+ * else's record. A field holding several people is a list, read apart
+ * (`account-purge-user-lists.ts`).
+ */
 export const userFieldNames = (
   tables:
     | ReadonlyArray<{ readonly name: string; readonly fields: ReadonlyArray<ReachField> }>
@@ -284,7 +303,7 @@ export const userFieldNames = (
   tableName: string
 ): readonly string[] =>
   (tables?.find((table) => table.name === tableName)?.fields ?? [])
-    .filter((field) => field.type === 'user')
+    .filter((field) => field.type === 'user' && !isUserListField(field))
     .map((field) => field.name)
 
 /**

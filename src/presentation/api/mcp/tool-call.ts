@@ -26,6 +26,7 @@ import { Effect } from 'effect'
 import { createListRecordsProgram } from '@/application/use-cases/tables/list-records-program'
 import {
   loadCurrentUserContext,
+  rowRuleScopeOf,
   toSessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { createGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
@@ -229,11 +230,11 @@ async function executeTool(input: ExecuteToolInput): Promise<McpToolResult> {
 
   if (operation === 'list') return executeList(branch)
   if (operation === 'create') return executeCreate(branch)
-  // An id no key of the table could hold names no record — answered as the
-  // records API answers it, before any query runs.
+  // An id no key of the table could hold names no record, as the records API answers it.
   const recordId = envelope.args['id']
   const spelled = typeof recordId === 'number' ? String(recordId) : recordId
-  if (typeof spelled === 'string' && spelled !== '' && !isRecordKeyShaped(spelled, table)) {
+  const scope = app.auth?.scopeTables
+  if (typeof spelled === 'string' && spelled !== '' && !isRecordKeyShaped(spelled, table, scope)) {
     return toolFailure(-32_603, RECORD_NOT_FOUND)
   }
   if (operation === 'read') return executeRead(branch)
@@ -516,11 +517,9 @@ function synthesizeSession(userId: string | undefined): UserSession {
 }
 
 /**
- * Resolve a `CurrentUserContext` from the authenticated caller. Returns
- * `undefined` when no userId is available — only the unreachable fail-closed
- * fallback caller, since every credential `/mcp` accepts names a user. The
- * row-level gates read an absent context as "no identity" and DENY every row
- * a rule governs, the same way that caller is already denied every tool.
+ * Resolve a `CurrentUserContext` from the authenticated caller, or `undefined`
+ * with no userId (only the unreachable fail-closed fallback caller): the
+ * row-level gates read an absent context as "no identity" and DENY every row.
  */
 async function resolveUserContextOrUndefined(
   userId: string | undefined,
@@ -533,7 +532,8 @@ async function resolveUserContextOrUndefined(
     { userId },
     { role: authority.role, isUnrestricted: isAdminEquivalent(authority.role, app) }
   )
+  const scope = rowRuleScopeOf(table, app.tables)
   return Effect.runPromise(
-    provideTableLive(loadCurrentUserContext(projection, table.rowLevelPermissions))
+    provideTableLive(loadCurrentUserContext(projection, table.rowLevelPermissions, scope))
   )
 }

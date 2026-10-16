@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every trigger an automation can start from (9) and every action a step can run (124), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
+Every trigger an automation can start from (9) and every action a step can run (128), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
 
 ## Contents
 
@@ -19,7 +19,7 @@ Read: `sovrium docs automation-triggers`
 | --- | --- |
 | `webhook` | Trigger automation via incoming HTTP webhook |
 | `cron` | Trigger automation on a schedule using cron expressions |
-| `record` | Trigger automation when records are created, updated, or deleted. The run reads the row as stored at trigger.data.record (id, created_at, updated_at and the stamped columns included) and, for a record created through the records API or written by an automation step, who made the write at trigger.user ({ id, role }, or system for a write no person made). |
+| `record` | Trigger automation when records are created, updated, or deleted. The run reads the row as stored at trigger.data.record (id, created_at, updated_at and the stamped columns included) and, for a record created through the records API or written by an automation step, who made the write at trigger.user ({ id, role, email, name }; id and role read system, email and name empty, for a write no person made). |
 | `auth` | Trigger automation on authentication events (sign-up, sign-in, etc.) |
 | `form` | Trigger automation when a top-level form is submitted. The `form` property references forms[].name (HARD BREAK: was a page path). |
 | `manual` | Admin-initiated workflow execution via button or API call |
@@ -63,6 +63,10 @@ Read: `sovrium docs automation-actions`
 | `auth` | `registerOAuthClient` | Register a consent-less, PKCE-only sign-in client for another app, returning its client id and secret |
 | `auth` | `rotateOAuthClientSecret` | Replace a sign-in client's secret; the old one stops working at once |
 | `auth` | `deleteOAuthClient` | Delete a sign-in client; sign-in through it and its tokens stop working |
+| `auth` | `grantAccess` | Give an account access to one record of a scope table under a role; granting it again changes nothing |
+| `auth` | `revokeAccess` | Take one record of a scope table away from an account's grants; revoking it again changes nothing |
+| `auth` | `listGrantees` | List the accounts granted access to one record of a scope table, as { grantees, count } |
+| `auth` | `inviteUser` | Invite a person by email to create their own password and join with a role; reports whether an invitation was sent |
 | `analytics` | `track` | Track custom events in the built-in analytics system |
 | `link` | `create` | Mint a tracked short link and return its address for a later step to use. Fails the step rather than shadowing a config-declared slug or overwriting one a live link already holds. |
 | `link` | `update` | Apply a sparse edit to an existing runtime link. Omitted props are left unchanged; the slug names the target and cannot be renamed. |

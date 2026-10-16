@@ -62,8 +62,8 @@
 // `visibility.record` takes ONE field, so a gate needing two (an Office kind
 // AND its extension) is two nested nodes, the outer on `rendersAs`.
 
-import { emptyState, pageHeading } from '../../components/data-page'
-import { withShell } from '../../components/shell'
+import { CARD_LIST_CLASS, CARD_SURFACE } from '../../components/card'
+import { consolePage, emptyState } from '../../components/data-page'
 import { TEMPLATES_ENDPOINT, TEMPLATE_PREVIEW_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -130,7 +130,7 @@ const templateRow = (): PageComponent =>
   ({
     type: 'link',
     props: {
-      href: '/templates/$record.path',
+      href: '/templates/$record.previewPath',
       'data-testid': 'template-row-$record.path',
       className:
         'hover:bg-background-hover flex flex-col gap-1 px-4 py-3 no-underline md:flex-row md:items-baseline md:justify-between md:gap-6',
@@ -186,7 +186,7 @@ const templateList = (): PageComponent =>
     props: {
       'aria-label': '$t:admin.templates.list.region',
       'data-testid': 'templates-list',
-      className: 'border-border divide-border bg-card divide-y overflow-hidden rounded-lg border',
+      className: `${CARD_LIST_CLASS}`,
     },
     dataSource: { system: { endpoint: TEMPLATES_ENDPOINT, rowsKey: 'templates', idKey: 'path' } },
     children: [templateRow()],
@@ -219,24 +219,19 @@ const directoryBody = (): PageComponent =>
     ],
   }) as PageComponent
 
-const directory = withShell(
-  {
-    id: 'dashboard-data-templates',
-    name: 'dashboard-data-templates',
-    path: '/templates',
-    meta: { title: '$t:admin.meta.templates', lang: 'en-US' },
+const directory = consolePage({
+  id: 'dashboard-data-templates',
+  path: '/templates',
+  title: '$t:admin.meta.templates',
+  heading: ['$t:admin.templates.heading', '$t:admin.templates.blurb'],
+  showBlurb: true,
+  page: {
+    requires: ['assets.templates'],
     dataSource: { system: { endpoint: TEMPLATES_ENDPOINT } },
-    components: [
-      // The blurb is painted: it is the only place an operator learns that
-      // what they are about to open is a RENDER with sample data, and that the
-      // template itself changes in the config — the two facts that make the
-      // read-only posture an explanation rather than a missing button.
-      pageHeading('$t:admin.templates.heading', '$t:admin.templates.blurb', { showBlurb: true }),
-      directoryBody(),
-    ],
-  } as PageConfig,
-  { breadcrumb: BREADCRUMB }
-) satisfies PageConfig
+  },
+  shell: { breadcrumb: BREADCRUMB },
+  body: [directoryBody()],
+}) satisfies PageConfig
 
 // ─── THE PREVIEW ───────────────────────────────────────────────────────────
 
@@ -271,7 +266,7 @@ const previewFrame = (): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    props: { className: 'border-border overflow-hidden rounded-lg border' },
+    props: { className: `${CARD_SURFACE}` },
     children: [
       {
         type: 'iframe',
@@ -279,7 +274,7 @@ const previewFrame = (): PageComponent =>
           'data-testid': 'template-preview',
           sandbox: '',
           srcDoc: `${FRAME_POLICY}$record.content`,
-          title: 'Preview of $record.path',
+          title: '$t:admin.templates.previewOf $record.path',
           // `bg-white!`: the platform's iframe recipe paints a subtle ground,
           // and a document whose own canvas is transparent would sit on it.
           className: 'block h-[70vh] min-h-80 w-full border-0 bg-white!',
@@ -329,7 +324,7 @@ const noSampleNotice = (): PageComponent =>
     {
       'data-testid': 'template-no-sample',
       role: 'note',
-      className: 'border-border bg-card flex flex-col gap-1 rounded-lg border p-4',
+      className: `${CARD_SURFACE} flex flex-col gap-1 p-4`,
     }
   )
 
@@ -366,38 +361,36 @@ const fileTemplatePanel = (): PageComponent =>
     ],
     {
       'data-testid': 'template-file-panel',
-      className: 'border-border bg-card flex flex-col gap-2 rounded-lg border p-4',
+      className: `${CARD_SURFACE} flex flex-col gap-2 p-4`,
     }
   )
 
-const preview = withShell(
-  {
-    id: 'dashboard-data-template-preview',
-    name: 'dashboard-data-template-preview',
-    path: '/templates/:path*',
-    // The list page's key: `meta.title` is resolved before the record is
-    // fetched, so a `$record.` token here would ship verbatim.
-    meta: { title: '$t:admin.meta.templates', lang: 'en-US' },
+const preview = consolePage({
+  id: 'dashboard-data-template-preview',
+  path: '/templates/:path*',
+  title: '$t:admin.meta.templates',
+  heading: ['$record.path', '$t:admin.templates.preview.blurb'],
+  page: {
+    requires: ['assets.templates'],
     dataSource: { system: { endpoint: TEMPLATE_PREVIEW_ENDPOINT, param: 'path' } },
-    components: [
-      pageHeading('$record.path', '$t:admin.templates.preview.blurb'),
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex max-w-5xl flex-col gap-4 pt-2' },
-        children: [
-          text('p', 'text-foreground font-mono text-sm break-all', '$record.path'),
-          noSampleNotice(),
-          gated({ field: 'rendersAs', neq: 'none' }, [previewCaption(), previewFrame()], {
-            className: 'flex flex-col gap-2',
-          }),
-          fileTemplatePanel(),
-        ],
-      } as PageComponent,
-    ],
-  } as PageConfig,
-  { breadcrumb: BREADCRUMB }
-) satisfies PageConfig
+  },
+  shell: { breadcrumb: BREADCRUMB },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex max-w-5xl flex-col gap-4 pt-2' },
+      children: [
+        text('p', 'text-foreground font-mono text-sm break-all', '$record.path'),
+        noSampleNotice(),
+        gated({ field: 'rendersAs', neq: 'none' }, [previewCaption(), previewFrame()], {
+          className: 'flex flex-col gap-2',
+        }),
+        fileTemplatePanel(),
+      ],
+    } as PageComponent,
+  ],
+}) satisfies PageConfig
 
 /** Both pages, directory first. */
 export default [directory, preview] as readonly PageConfig[]

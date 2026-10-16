@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// sovrium-library: block/console-shell@0.37.0#7487564a20d0
+// sovrium-library: block/console-shell@0.37.0#69912ec11a38
 
 // The console's frame, INSTALLED from the library's `console-shell` block —
 // shadcn's sidebar-07 (a sidebar that collapses to icons, the account at its
@@ -26,7 +26,9 @@
 // menu (the session's name, email and picture, the console's own items), the
 // content column's `id` — `#admin-surface-content` is the SPA nav's swap
 // target — the derived breadcrumb, the search control's copy and the scheme
-// toggle's testid. Two bindings are left EMPTY here and filled by `withShell`
+// toggle's testid. The operator's role badges and the read-only notice are
+// the block's optional `roleLabel`, `readOnlyRoleLabel` and `readOnlyNotice`,
+// set to the console's copy keys. Two bindings are left EMPTY here and filled by `withShell`
 // (`./shell.ts`): the sidebar's `groups` (`./sidebar-nav.ts`) and the body
 // slot after the header, which is each page's own content.
 //
@@ -57,21 +59,14 @@ export const consoleShellCopy = {
           },
           children: [
             {
+              // The app's mark: its `design.logo`, else a monogram of its
+              // display name, filled in by the engine (`data-app-mark`).
               type: 'container',
               props: {
                 className:
-                  'flex aspect-square size-8 flex-none items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground',
-                'aria-hidden': 'true',
+                  'flex aspect-square size-8 flex-none items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground data-[app-mark=logo]:bg-transparent',
+                'data-app-mark': 'tile',
               },
-              children: [
-                {
-                  type: 'icon',
-                  props: {
-                    name: 'layout-dashboard',
-                    size: 16,
-                  },
-                },
-              ],
             },
             {
               type: 'flex',
@@ -138,22 +133,11 @@ export const consoleShellCopy = {
               },
             },
             {
-              separator: true,
-            },
-            {
-              label: '$t:admin.shell.giveFeedback',
-              icon: 'message-square',
+              label: '$t:admin.shell.myData',
+              icon: 'download',
               action: {
                 type: 'navigate',
-                path: 'https://github.com/sovrium/sovrium/issues/new?labels=feedback',
-              },
-            },
-            {
-              label: '$t:admin.shell.reportBug',
-              icon: 'bug',
-              action: {
-                type: 'navigate',
-                path: 'https://github.com/sovrium/sovrium/issues/new?labels=bug',
+                path: '/gdpr',
               },
             },
             {
@@ -210,6 +194,18 @@ export const consoleShellCopy = {
               ],
             },
             {
+              type: 'badge',
+              badgeVariant: 'secondary',
+              visibility: { capability: 'edit-operations' },
+              content: '$t:admin.shell.role.admin',
+            },
+            {
+              type: 'badge',
+              badgeVariant: 'outline',
+              visibility: { unlessCapability: 'edit-operations' },
+              content: '$t:admin.shell.role.viewer',
+            },
+            {
               type: 'icon',
               props: {
                 name: 'chevrons-up-down',
@@ -252,8 +248,11 @@ export const consoleShellCopy = {
               type: 'breadcrumb',
               separator: '›',
               props: {
+                // Below `sm` the trail keeps its root and the page being
+                // viewed, and drops the crumbs between them with their
+                // separators: a phone reads where it is, not the whole path.
                 className:
-                  'min-w-0 flex-1 overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate',
+                  'min-w-0 flex-1 overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden',
                 'data-testid': 'breadcrumb',
               },
               derive: 'path',
@@ -275,8 +274,11 @@ export const consoleShellCopy = {
                     type: 'button',
                     'aria-label': '$t:admin.shell.search',
                     'data-command-palette-trigger': 'true',
+                    // An icon button on a phone, where the breadcrumb needs
+                    // the width; the labelled field from `sm` up. The button's
+                    // own label names it at every width.
                     className:
-                      'relative h-8 w-full justify-start gap-2 rounded-md px-2 text-sm font-normal text-muted-foreground shadow-none sm:w-56',
+                      'relative size-8 shrink-0 justify-center gap-2 rounded-md px-0 text-sm font-normal text-muted-foreground shadow-none sm:w-56 sm:justify-start sm:px-2',
                   },
                   children: [
                     {
@@ -290,11 +292,23 @@ export const consoleShellCopy = {
                       type: 'text',
                       element: 'span',
                       props: {
-                        className: 'flex-1 text-left',
+                        className: 'hidden flex-1 text-left sm:inline',
                       },
                       content: '$t:admin.shell.searchPlaceholder',
                     },
                   ],
+                },
+                {
+                  // Said where every page shows it, to the one reader it is
+                  // true for: an operator without the console's write tier.
+                  type: 'text',
+                  element: 'span',
+                  visibility: { unlessCapability: 'edit-operations' },
+                  props: {
+                    className: 'hidden text-xs text-muted-foreground md:inline',
+                    'data-testid': 'read-only-notice',
+                  },
+                  content: '$t:admin.shell.readOnly',
                 },
                 {
                   type: 'theme-toggle',

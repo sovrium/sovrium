@@ -52,7 +52,7 @@ import {
   buildTablePrimaryKeyTypesMap,
 } from '../table-operations'
 import * as viewGenerators from '../views/view-generators'
-import { applySchemaDefaults } from './apply-schema-defaults'
+import { applySchemaDefaults, withScopeTableKeys } from './apply-schema-defaults'
 import { reconcileCommandSearchIndexes } from './command-search-fts'
 import { dropCommandSearchFtsObjects } from './command-search-fts-clear'
 import { ensureCommentReadStateTable } from './comment-read-state-table'
@@ -256,11 +256,12 @@ const collectJunctionTableSpecs = (
   sortedTables: readonly Table[],
   tableUsesView: ReadonlyMap<string, boolean>
 ): ReadonlyMap<string, JunctionTableSpec> => {
+  const keyTypes = buildTablePrimaryKeyTypesMap(sortedTables) // key columns typed as their keys
   const junctionSpecs = sortedTables.flatMap((table) => {
     const manyToManyFields = table.fields.filter(isManyToManyRelationship)
     return manyToManyFields.map((field) => {
       const junctionTableName = generateJunctionTableName(table.name, field.relatedTable)
-      const ddl = generateJunctionTableDDL(table.name, field.relatedTable, tableUsesView)
+      const ddl = generateJunctionTableDDL(table.name, field.relatedTable, tableUsesView, keyTypes)
       // PostgreSQL: a rebuild of either end dropped the link table's keys (CASCADE).
       const restoreKeys = isSqliteRuntime()
         ? []
@@ -268,9 +269,7 @@ const collectJunctionTableSpecs = (
       return [junctionTableName, { name: junctionTableName, ddl, restoreKeys }] as const
     })
   })
-
-  // Deduplicate by junction table name (keep first occurrence)
-  return new Map(junctionSpecs)
+  return new Map(junctionSpecs) // deduplicated by link table name, first kept
 }
 
 /** Create junction tables for many-to-many relationships */
@@ -465,14 +464,14 @@ const executeMigrationSteps = (
     yield* recomputeFormulasForOlderEngine(tx, tablesForCreation) // Step 6.5
 
     // Step 7: Add FK constraints for circular dependencies
-    yield* addCircularFKConstraints(tx, sortedTables, circularTables, tableUsesView)
+    yield* addCircularFKConstraints(tx, tablesForCreation, circularTables, tableUsesView)
 
     // Step 8: Create junction tables for many-to-many relationships
-    const junctionTableSpecs = collectJunctionTableSpecs(sortedTables, tableUsesView)
+    const junctionTableSpecs = collectJunctionTableSpecs(tablesForCreation, tableUsesView)
     yield* createJunctionTables(tx, junctionTableSpecs)
 
     // Steps 9-11: Create all views
-    yield* createAllViews(tx, sortedTables, viewGenerators)
+    yield* createAllViews(tx, tablesForCreation, viewGenerators)
 
     // Steps 11.5-11.7: Create the config-gated engine-managed system tables
     // (user_access / _webhook_deliveries / comment_read_state).
@@ -577,7 +576,7 @@ const initializeSchemaInternal = (
     const shouldSkipMigration = yield* checkShouldSkipMigration(
       dialectConfig,
       currentChecksum,
-      tables,
+      withScopeTableKeys(tables, app),
       sanitizeTableName
     )
 

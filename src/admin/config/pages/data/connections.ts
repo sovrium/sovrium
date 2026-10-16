@@ -30,9 +30,8 @@
 // Connections are OBSERVED here, never configured ([internal ref]: the console is a
 // pure DATA console; connections are declared in the config file).
 
-import { pageHeading } from '../../components/data-page'
-import { dataTable, STATUS_BADGE } from '../../components/data-table-blocks'
-import { withShell } from '../../components/shell'
+import { consolePage } from '../../components/data-page'
+import { dataTable, STATUS_BADGE, toolbarSearch } from '../../components/data-table-blocks'
 import type { Page as PageConfig } from '@/domain/models/app'
 
 /**
@@ -75,8 +74,9 @@ const oauthAuthorizeAction = {
  * console's language.
  */
 const CONNECTIONS_COLUMNS = [
-  { field: 'name', label: '$t:admin.connections.col.connection' },
-  { field: 'provider', label: '$t:admin.connections.col.provider' },
+  // One column names the connection: the server joins its name and provider
+  // ("crm · hubspot"), or prints the name alone when the two are the same.
+  { field: 'label', label: '$t:admin.connections.col.connection' },
   {
     field: 'type',
     label: '$t:admin.connections.col.type',
@@ -95,17 +95,21 @@ const CONNECTIONS_COLUMNS = [
       'expiring-soon': '$t:admin.connections.status.expiringSoon',
       expired: '$t:admin.connections.status.expired',
       'reconnect-needed': '$t:admin.connections.status.reconnectNeeded',
+      'not-connected': '$t:admin.connections.status.notConnected',
     },
     cellStyle: [
-      { when: { eq: 'active' }, className: STATUS_BADGE.positive },
-      { when: { eq: 'expiring-soon' }, className: STATUS_BADGE.caution },
-      { when: { eq: 'expired' }, className: STATUS_BADGE.destructive },
+      { when: { eq: 'active' }, className: STATUS_BADGE.quiet.positive },
+      { when: { eq: 'expiring-soon' }, className: STATUS_BADGE.quiet.caution },
+      { when: { eq: 'expired' }, className: STATUS_BADGE.loud },
       // A token the provider gave no refresh token for (LinkedIn, Meta): it
       // lapses and nothing but a new authorization restores it. That is the
       // one status that is ALWAYS a call to action — `expired` heals itself on
       // the next call — so it takes the consequence tone, and the row offers
       // Reconnect (`rowAction === 'reconnect'`).
-      { when: { eq: 'reconnect-needed' }, className: STATUS_BADGE.destructive },
+      { when: { eq: 'reconnect-needed' }, className: STATUS_BADGE.loud },
+      // Declared and never authorised: nothing has failed, there is just
+      // nothing to call with yet. The row offers Connect.
+      { when: { eq: 'not-connected' }, className: STATUS_BADGE.quiet.neutral },
     ],
   },
   {
@@ -182,25 +186,32 @@ const CONNECTIONS_COLUMNS = [
   },
 ] as const
 
-export default withShell(
-  {
-    id: 'dashboard-data-connections',
-    name: 'dashboard-data-connections',
-    path: '/connections',
-    meta: { title: '$t:admin.meta.connections', lang: 'en-US' },
-    components: [
-      pageHeading('$t:admin.connections.heading', '$t:admin.connections.blurb'),
-      dataTable({
-        props: { id: 'admin-connections-grid', 'aria-label': '$t:admin.connections.region' },
-        dataSource: {
-          system: { endpoint: '/api/admin/connections', rowsKey: 'connections', idKey: 'id' },
+export default consolePage({
+  id: 'dashboard-data-connections',
+  path: '/connections',
+  // The search box publishes `q` on the channel the grid listens to.
+  toolbar: [toolbarSearch('connections-filter', '$t:admin.connections.search')],
+  title: '$t:admin.meta.connections',
+  heading: ['$t:admin.connections.heading', '$t:admin.connections.blurb'],
+  page: {
+    requires: ['connections'],
+  },
+  shell: { breadcrumb: { connections: '$t:admin.crumb.connections' } },
+  body: [
+    dataTable({
+      props: { id: 'admin-connections-grid', 'aria-label': '$t:admin.connections.region' },
+      dataSource: {
+        system: {
+          endpoint: '/api/admin/connections',
+          rowsKey: 'connections',
+          idKey: 'id',
+          bindTo: 'connections-filter',
+          sharedFilter: {},
         },
-        columns: CONNECTIONS_COLUMNS,
-        search: { enabled: true, placeholder: '$t:admin.connections.search' },
-        noMatchMessage: '$t:admin.connections.noMatch',
-        emptyMessage: '$t:admin.connections.empty',
-      }),
-    ],
-  } as PageConfig,
-  { breadcrumb: { connections: '$t:admin.crumb.connections' } }
-) satisfies PageConfig
+      },
+      columns: CONNECTIONS_COLUMNS,
+      noMatchMessage: '$t:admin.connections.noMatch',
+      emptyMessage: '$t:admin.connections.empty',
+    }),
+  ],
+}) satisfies PageConfig

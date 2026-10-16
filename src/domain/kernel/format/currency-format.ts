@@ -84,40 +84,117 @@ const formatMagnitude = (
     : integerPart
 }
 
+/** English pages stay on the hand-written path: `Intl` prints `CA$` where the symbol table prints `$`. */
+const isEnglish = (locale: string): boolean => /^en(-|$)/i.test(locale)
+
 /**
- * Whether an amount is grouped in the page language rather than by the
- * hand-written path below: a locale was given (the records API passes none and
- * stays locale-neutral), the field declares no separator (a declaration always
- * wins, `none` included), and the page is not English. English stays on the
- * hand-written path so nothing an English reader saw moves — `Intl` would
- * print `CA$` for CAD on an `en-US` page where the symbol table prints `$`.
- * A tag `Intl` rejects throws, and the caller falls back.
+ * Whether the page language decides part of how an amount reads, rather than
+ * the hand-written path below alone: a locale was given (the records API passes
+ * none and stays locale-neutral), the page is not English — so nothing an
+ * English reader saw moves — and the field leaves at least one of the two
+ * language-dependent choices undeclared: where the symbol goes, or how the
+ * digits are grouped. A declaration always wins for the choice it names; the
+ * language fills in the other. A tag `Intl` rejects throws, and the caller
+ * falls back.
  */
-const groupsInLocale = (
+const followsLocale = (
   locale: string | undefined,
   options: CurrencyDisplayOptions
 ): locale is string =>
-  locale !== undefined && options.thousandsSeparator === undefined && !/^en(-|$)/i.test(locale)
+  locale !== undefined &&
+  !isEnglish(locale) &&
+  (options.thousandsSeparator === undefined || options.symbolPosition === undefined)
+
+/** The digits as the page language writes them, at the field's precision. */
+const localeNumberFormat = (
+  locale: string,
+  options: CurrencyDisplayOptions,
+  currencyStyle: boolean
+): Intl.NumberFormat => {
+  const precision = options.precision ?? 2
+  return new Intl.NumberFormat(locale, {
+    ...(currencyStyle ? { style: 'currency', currency: options.currency ?? 'USD' } : {}),
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision,
+  })
+}
+
+/**
+ * The language's currency pattern — symbol placement and the space beside it —
+ * with the grouping and decimal glyphs the field's declared separator implies.
+ * A French page puts `9 600` before its euro sign whether the separator came
+ * from the language or from the field, so declaring `thousandsSeparator` no
+ * longer drags the symbol to the front.
+ */
+const formatInLocalePattern = (
+  magnitude: number,
+  locale: string,
+  options: CurrencyDisplayOptions,
+  thousands: ThousandsSeparator
+): string =>
+  localeNumberFormat(locale, options, true)
+    .formatToParts(magnitude)
+    .map((part) =>
+      part.type === 'group'
+        ? SEPARATOR_CHARS[thousands]
+        : part.type === 'decimal'
+          ? decimalSeparatorFor(thousands)
+          : part.value
+    )
+    .join('')
+
+/** {@link formatInLocalePattern} for a signed amount, the sign as the field declares it. */
+const regroupInLocale = (
+  value: number,
+  locale: string,
+  options: CurrencyDisplayOptions,
+  thousands: ThousandsSeparator
+): string =>
+  applyNegative(
+    formatInLocalePattern(Math.abs(value), locale, options, thousands),
+    value < 0,
+    options.negativeFormat ?? 'minus'
+  )
 
 /**
  * Format an amount in the page language. With no declared symbol position,
- * `Intl` places the symbol as that language does (`48 500 €` in French). A
+ * `Intl` places the symbol as that language does (`48 500 €` in French) — and
+ * a declared separator then only regroups the digits inside that pattern. A
  * declared position keeps its meaning: `Intl` then only groups the number, and
  * the symbol goes where the field says. A declared negative format is applied
  * around whichever of the two came out, so declaring parentheses never moves
  * the symbol to the front of a French amount.
  */
 const formatInLocale = (value: number, locale: string, options: CurrencyDisplayOptions): string => {
-  const precision = options.precision ?? 2
-  const placesSymbol = options.symbolPosition !== undefined
-  const signs = options.negativeFormat !== undefined
-  const number = new Intl.NumberFormat(locale, {
-    ...(placesSymbol ? {} : { style: 'currency', currency: options.currency ?? 'USD' }),
-    minimumFractionDigits: precision,
-    maximumFractionDigits: precision,
-  }).format(placesSymbol || signs ? Math.abs(value) : value)
-  if (placesSymbol) return placeSymbolAndSign(value, number, options)
-  return signs ? applyNegative(number, value < 0, options.negativeFormat ?? 'minus') : number
+  if (options.symbolPosition !== undefined) return placeOnLocaleDigits(value, locale, options)
+  if (options.thousandsSeparator !== undefined) {
+    return regroupInLocale(value, locale, options, options.thousandsSeparator)
+  }
+  return formatLocaleCurrency(value, locale, options)
+}
+
+/** A declared symbol position: the language groups the digits, the field places the symbol. */
+const placeOnLocaleDigits = (
+  value: number,
+  locale: string,
+  options: CurrencyDisplayOptions
+): string =>
+  placeSymbolAndSign(
+    value,
+    localeNumberFormat(locale, options, false).format(Math.abs(value)),
+    options
+  )
+
+/** Nothing declared but perhaps the sign: the language writes the whole amount. */
+const formatLocaleCurrency = (
+  value: number,
+  locale: string,
+  options: CurrencyDisplayOptions
+): string => {
+  const format = localeNumberFormat(locale, options, true)
+  return options.negativeFormat === undefined
+    ? format.format(value)
+    : applyNegative(format.format(Math.abs(value)), value < 0, options.negativeFormat)
 }
 
 /** Put the currency symbol and the sign around an already-formatted magnitude. */
@@ -139,16 +216,17 @@ const placeSymbolAndSign = (
  *
  * An amount is grouped by thousands unless the field declares
  * `thousandsSeparator` — whole-unit amounts included, so `precision: 0` reads
- * `€48,500`. `locale` is the page language: given, and with no declared
- * separator, a non-English page groups and places the symbol as its language
- * does. The records API passes none and always groups with a comma.
+ * `€48,500`. `locale` is the page language: given, a non-English page groups
+ * the digits and places the symbol as its language does, except for whichever
+ * of the two the field declares. The records API passes none and always
+ * groups with a comma.
  */
 export const formatCurrencyValue = (
   value: number,
   options: CurrencyDisplayOptions = {},
   locale?: string
 ): string => {
-  if (groupsInLocale(locale, options)) {
+  if (followsLocale(locale, options)) {
     try {
       return formatInLocale(value, locale, options)
     } catch {

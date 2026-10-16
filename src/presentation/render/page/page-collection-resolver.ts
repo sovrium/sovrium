@@ -26,6 +26,7 @@ import { resolvePageWindow } from '@/domain/models/app/pages/window-props'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { resolveActiveMarkers } from '@/presentation/render/resolve/active-marker-resolver'
 import { resolvePageAppVars } from '@/presentation/render/resolve/app-vars-resolver'
+import { resolveAddressedDrawerTitle } from '@/presentation/render/resolve/drawer-record-title-resolver'
 import { resolvePageInvitation } from '@/presentation/render/resolve/invitation-resolver'
 import { resolveCollectionPage } from '@/presentation/render/resolve/page-collection-resolver'
 import { resolvePageQueryProps } from '@/presentation/render/resolve/query-props-resolver'
@@ -34,6 +35,7 @@ import {
   readRowsForCaller,
   type CallerRowsQuery,
 } from '@/presentation/render/resolve/record-read-gate'
+import { resolveRouteBoundForms } from '@/presentation/render/resolve/route-bound-form-resolver'
 import { resolveRouteBoundTables } from '@/presentation/render/resolve/route-bound-table-resolver'
 import { resolvePageRouteParams } from '@/presentation/render/resolve/route-param-props-resolver'
 import { attachmentAddressing } from '@/presentation/render/resolve/row-attachment-addresses'
@@ -58,7 +60,7 @@ import type { SystemRecordFetcher } from '@/presentation/render/resolve/page-sys
  * Five passes, and the order between the first and the rest is load-bearing.
  *
  *  - **P7** binds a grid to the table the URL names and derives that table's
- *    columns. It runs FIRST because the generic `$param` pass below would erase
+ *    columns, then a grid's answer columns from the form it names. It runs FIRST because the generic `$param` pass below would erase
  *    the very reference its 404 decision depends on: after substitution a
  *    route-bound table is indistinguishable from a literal one.
  *  - **P4 / G1 / P11 / P8** then substitute the declared `$query.<name>`
@@ -82,18 +84,22 @@ function prepareRequestPage(input: {
   readonly app: App
   readonly routeParams: Readonly<Record<string, string>>
   readonly session: SessionInfo | undefined
+  /** The language the page is served in, which a route-bound grid's label speaks. */
+  readonly lang: string
   readonly requestQuery?: Readonly<Record<string, string>>
   readonly hostApp?: App
   readonly requestOrigin?: string
   readonly basePath?: string
   readonly engineVersion?: string
   readonly requestPath?: string
+  readonly callerCapabilities?: readonly CallerCapability[]
 }): Page | 'not-found' {
   const {
     matchedPage,
     app,
     routeParams,
     session,
+    lang,
     requestQuery,
     hostApp,
     requestOrigin,
@@ -101,7 +107,12 @@ function prepareRequestPage(input: {
     engineVersion,
     requestPath,
   } = input
-  const routeBound = resolveRouteBoundTables(matchedPage, app, routeParams, session)
+  const boundTables = resolveRouteBoundTables(matchedPage, app, { routeParams, session, lang })
+  if (boundTables === 'not-found') return 'not-found'
+  // Answer columns come from the forms the admin API serves: a mount's host's.
+  const { callerCapabilities } = input
+  const formsRequest = { app: hostApp ?? app, routeParams, lang, session, callerCapabilities }
+  const routeBound = resolveRouteBoundForms(boundTables, formsRequest)
   if (routeBound === 'not-found') return 'not-found'
 
   // R3 runs LAST, and that ordering is the whole primitive: `activeWhen.value`
@@ -208,19 +219,15 @@ export async function resolveCollectionAndFilter(
   // P7 then the four `$`-reference passes, in one step — see
   // `prepareRequestPage`. `'not-found'` is the route-bound-table 404.
   const invited = await resolveRequestBoundPasses(input)
-  const prepared = prepareRequestPage({ ...input, matchedPage: invited })
-  if (prepared === 'not-found') return undefined
-  const matchedPage = resolveSidebarState(prepared, cookies)
   // Pure pass-throughs to `resolveAndFilterPage` — the per-request locale and
   // query context, grouped so it reads as one thing.
   const { detectedLanguage, requestQuery } = input
-  // The page's served language rides on `db` to every `$record.` text site.
-  const { lang } = resolvePageLanguage(
-    matchedPage,
-    app.languages,
-    detectedLanguage,
-    input.urlLanguage
-  )
+  // The page's served language, resolved ONCE: a route-bound grid's label
+  // speaks it, and it rides on `db` to every `$record.` text site.
+  const { lang } = resolvePageLanguage(invited, app.languages, detectedLanguage, input.urlLanguage)
+  const prepared = prepareRequestPage({ ...input, matchedPage: invited, lang })
+  if (prepared === 'not-found') return undefined
+  const matchedPage = resolveSidebarState(prepared, cookies)
   const recordText = { locale: lang, tables: app.tables, languages: app.languages }
   const db = { ...input.db, recordText }
   // Editorial-role preview bypasses `collection.filter` so admins/editors can
@@ -239,7 +246,11 @@ export async function resolveCollectionAndFilter(
   ) {
     return undefined
   }
-  const rawPage = collectionResolution.kind === 'match' ? collectionResolution.page : matchedPage
+  // A sheet the address opens is named by its record in the page sent.
+  const rawPage = await resolveAddressedDrawerTitle(
+    collectionResolution.kind === 'match' ? collectionResolution.page : matchedPage,
+    { app, session, db, requestQuery }
+  )
   // The collection record, for an embedded form's `inlinePrefill` `$record.*`
   // tokens (`resolvePageParentRecord` handles `dataSource: single` only).
   const collectionRecord =

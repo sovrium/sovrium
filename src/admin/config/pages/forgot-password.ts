@@ -144,8 +144,7 @@ export const forgotPasswordCopy = {
                         ],
                         onSuccess: {
                           toast: {
-                            message:
-                              'If an account exists for that address, a reset link has been sent.',
+                            message: '$t:admin.forgotPassword.sent',
                             variant: 'success',
                           },
                         },

@@ -16,6 +16,7 @@ import { useInlineSaveWiring } from './setup/use-inline-save-wiring'
 import { useRecordsQuery } from './setup/use-records-query'
 import { useRefreshWiring } from './setup/use-refresh-wiring'
 import { useSystemQueryParams } from './setup/use-system-query-params'
+import { usePinnedOnNarrow } from './use-narrow-viewport'
 import { useDataTableUiState } from './use-ui-state'
 import type { IslandSetupParams, SetupContext } from './setup/setup-params'
 
@@ -60,16 +61,17 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
   })
 
   const gridRecords = useGridRecords(ctx, layout, records)
-  const allColumns = buildGridColumns(ctx, layout, gridRecords, refresh)
+  const allColumns = usePinnedOnNarrow(buildGridColumns(ctx, layout, gridRecords, refresh))
   const grid = useGridInstance(ctx, layout, gridRecords, {
     allColumns,
     effective,
     records,
     inlineEditing,
     sortRefusal: refresh.sortRefusal,
+    publishedQuery: system.sharedFilterParams['q'],
   })
 
-  const actions = useGridActions(ctx, layout, grid, refresh)
+  const actions = useGridActions(ctx, grid, refresh)
   const inlineSave = useInlineSaveWiring(ctx, inlineEditing, gridRecords)
 
   return buildIslandSetupResult({
@@ -84,5 +86,6 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     actions,
     inlineEditing,
     inlineSave,
+    system,
   })
 }

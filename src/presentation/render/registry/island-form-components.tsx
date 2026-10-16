@@ -39,6 +39,7 @@ function buildCheckboxProps(rawProps: RawProps, elementProps: ElemProps, compone
     disabled: rawProps?.disabled,
     label: controlLabel(rawProps),
     name: rawProps?.name,
+    ariaLabel: elementProps['aria-label'] as string | undefined,
     ...baseProps(elementProps),
   }
 }
@@ -48,9 +49,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
   'record-picker': recordPickerComponent,
   ...selectComponents,
   accordion: ({ component, elementProps, currentLang, languages }) => {
-    // `accordionType`, `defaultOpen`, and `children` are top-level schema
-    // properties (siblings of `props`), not inside `props`, so read from
-    // `component` directly — same pattern as the tabs renderer.
+    // `accordionType`, `defaultOpen`, `children` are top-level fields, as in tabs.
     const c = asRecord(component)
     const props = {
       items: buildAccordionItems(c['children'], currentLang, languages),
@@ -124,9 +123,8 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       tabsOrientation,
       tabsVariant: c['tabsVariant'] === 'line' ? 'line' : 'default',
       layout,
-      // Thread the author's `props['aria-label']` onto the `<Tabs.List>` so the
-      // rendered `role="tablist"` carries an accessible name (e.g. the admin
-      // dashboard's per-domain "Onglets du domaine" tab bar).
+      // The author's `props['aria-label']` (read, like a switch's, off `elementProps`
+      // where `$t:` is resolved) names the island's `role="tablist"`.
       ariaLabel: elementProps['aria-label'] as string | undefined,
       ...baseProps(elementProps, designStyles),
     }
@@ -283,6 +281,8 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       label: controlLabel(rawProps),
       name: rawProps?.name,
       ariaLabelledBy: rawProps?.['aria-labelledby'],
+      ariaLabel: elementProps['aria-label'] as string | undefined,
+      publishes: pickFromComponent(c, rawProps, 'publishes'),
       ...baseProps(elementProps),
     }
     return (
@@ -301,9 +301,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
   },
 
   slider: ({ rawProps, elementProps, component }) => {
-    // `min`, `max`, `step`, `defaultValue`, `showValue` are all top-level
-    // schema fields per slider.ts.
-    const c = asRecord(component)
+    const c = asRecord(component) // `min`…`showValue` are top-level fields (slider.ts)
     const props = {
       min: pickFromComponent(c, rawProps, 'min'),
       max: pickFromComponent(c, rawProps, 'max'),
@@ -312,6 +310,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       showValue: pickFromComponent(c, rawProps, 'showValue'),
       disabled: rawProps?.disabled,
       label: rawProps?.label ?? rawProps?.fieldLabel,
+      publishes: pickFromComponent(c, rawProps, 'publishes'),
       ...baseProps(elementProps),
     }
     return (
@@ -339,6 +338,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         pickFromComponent(c, rawProps, 'variant'),
       size: pickFromComponent(c, rawProps, 'size'),
       label: controlLabel(rawProps) ?? rawProps?.['aria-label'],
+      publishes: pickFromComponent(c, rawProps, 'publishes'),
       ...baseProps(elementProps),
     }
     return (
@@ -360,8 +360,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
   },
 
   'toggle-group': ({ rawProps, elementProps, component }) => {
-    // Top-level fields per toggle-group.ts; `OptionsSchema` `{ label, value }` becomes
-    // the island's `{ id, label }` items (a raw `items` array is accepted too).
+    // `OptionsSchema` `{ label, value }` becomes the island's `{ id, label }` items.
     const c = asRecord(component)
     const rawOptions = pickFromComponent(c, rawProps, 'options') ?? rawProps?.items
     const items = Array.isArray(rawOptions)
@@ -383,6 +382,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
       spacing: pickFromComponent(c, rawProps, 'spacing'),
       label: rawProps?.['aria-label'],
       defaultValue: pickFromComponent(c, rawProps, 'defaultValue'),
+      publishes: pickFromComponent(c, rawProps, 'publishes'),
       ...baseProps(elementProps),
     }
     return (

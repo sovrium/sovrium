@@ -31,25 +31,28 @@ const columnBodyId = (idPrefix: string, value: string): string =>
 /**
  * The column title — plain text, or, on a board that declares
  * `kanbanGroupBy.collapsed`, the WAI-ARIA disclosure a swimlane header uses:
- * `<h3><button aria-expanded aria-controls>`, the whole label the hit target.
+ * `<h2><button aria-expanded aria-controls>`, the whole label the hit target.
  * `expanded` is `undefined` on a board whose columns do not fold.
  */
 function ColumnTitle({
   value,
+  label,
   bodyId,
   expanded,
   onToggle,
 }: {
   readonly value: string
+  /** What the header prints: the option's label, else its stored value. */
+  readonly label: string
   readonly bodyId: string | undefined
   readonly expanded: boolean | undefined
   readonly onToggle: ((value: string) => void) | undefined
 }): ReactElement {
   if (expanded === undefined || !onToggle || bodyId === undefined) {
-    return <h3 className={KANBAN_COLUMN_TITLE_CLASSES}>{value}</h3>
+    return <h2 className={KANBAN_COLUMN_TITLE_CLASSES}>{label}</h2>
   }
   return (
-    <h3 className={KANBAN_COLUMN_TITLE_CLASSES}>
+    <h2 className={KANBAN_COLUMN_TITLE_CLASSES}>
       <button
         type="button"
         aria-expanded={expanded}
@@ -58,9 +61,9 @@ function ColumnTitle({
         onClick={() => onToggle(value)}
       >
         <LaneChevron expanded={expanded} />
-        {value}
+        {label}
       </button>
-    </h3>
+    </h2>
   )
 }
 
@@ -74,9 +77,11 @@ function ColumnTitle({
  * `justify-between`, a truncating label and a right-aligned count left the
  * accent dot stranded mid-row.
  *
- * The `<h3>` stays an `<h3>`: `data-kanban` specs resolve it with
- * `getByRole('heading', { name })`, so the heading semantics are a contract and
- * only the type step moves.
+ * The title is a heading — `data-kanban` specs resolve it with
+ * `getByRole('heading', { name })`, so the heading semantics are a contract —
+ * and an `<h2>`: a board sits under its page's `<h1>`, and a column title one
+ * level below it keeps the outline unbroken (RGAA 9.1), with a card's own
+ * `<h3>` title under it.
  *
  * EXPORTED because a two-axis board draws this row ONCE above all its lanes
  * rather than once per cell — the columns are labelled in one place and every
@@ -113,6 +118,7 @@ export function KanbanColumnHeader({
       ) : undefined}
       <ColumnTitle
         value={column.value}
+        label={column.label ?? column.value}
         bodyId={bodyId}
         expanded={expanded}
         onToggle={onToggle}

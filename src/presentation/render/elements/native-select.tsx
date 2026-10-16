@@ -54,6 +54,10 @@ export interface NativeSelectProps {
   readonly multiple?: unknown
   readonly disabled?: unknown
   readonly label?: unknown
+  /** The id of the `field` label naming the control when it draws no label. */
+  readonly labelledBy?: unknown
+  /** `props['aria-label']`: the control's name when it has no label and no field label. */
+  readonly ariaLabel?: unknown
   readonly id?: unknown
   readonly className?: unknown
   readonly 'data-testid'?: unknown
@@ -149,6 +153,8 @@ export function renderSsrSelectPlaceholder(props: NativeSelectProps): ReactEleme
       // schema, and narrowing to a string here would silently DROP a numeric or
       // boolean default that the pre-extraction renderer passed through.
       defaultValue={toDefaultValue(props.defaultValue, false)}
+      aria-labelledby={str(props.labelledBy)}
+      aria-label={str(props.labelledBy) === undefined ? str(props.ariaLabel) : undefined}
       disabled
     >
       {renderSsrSelectOptions(
@@ -178,6 +184,12 @@ export function renderNativeSelect(
       multiple={multiple}
       disabled={props.disabled === true ? true : undefined}
       id={str(props.id)}
+      aria-labelledby={str(props.label) === undefined ? str(props.labelledBy) : undefined}
+      aria-label={
+        str(props.label) === undefined && str(props.labelledBy) === undefined
+          ? str(props.ariaLabel)
+          : undefined
+      }
       name={name}
       data-testid={str(props['data-testid'])}
       {...publisherAttributes(props.publishes)}

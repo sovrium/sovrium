@@ -22,7 +22,7 @@
  */
 
 import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
-import { titleCaseAppName } from '@/domain/models/app/pages/app-vars'
+import { appLabelOf } from '@/domain/models/app/pages/app-vars'
 import {
   invitationConditionHolds,
   invitationVarValues,
@@ -137,7 +137,7 @@ const factsFor = async (
  * operator's zone (`SOVRIUM_TIMEZONE`, UTC by default).
  */
 const varContextFor = (page: Page, app: App): InvitationVarContext => ({
-  workspace: titleCaseAppName(app.name),
+  workspace: appLabelOf(app),
   lang: page.meta?.lang ?? app.languages?.default ?? 'en',
   timeZone: parseSovriumTimezone().zoneId,
   now: new Date(),
@@ -150,13 +150,16 @@ export async function resolvePageInvitation(
     readonly app: App
     readonly db: DataSourceDb
     readonly requestQuery?: Readonly<Record<string, string>>
+    /** The app a mount serves this page for, whose name `$invitation.workspace` prints. */
+    readonly hostApp?: App
   }
 ): Promise<Page> {
   const { invitation } = page as { readonly invitation?: { readonly param?: string } }
   if (invitation === undefined) return page
   const param = invitation.param ?? 'token'
   const facts = await factsFor(input, input.requestQuery?.[param])
-  const values = invitationVarValues(facts, varContextFor(page, input.app))
+  // On a mount the workspace is the OPERATOR's app, never the console preset.
+  const values = invitationVarValues(facts, varContextFor(page, input.hostApp ?? input.app))
   const substitute = (text: string) => substituteInvitationVars(text, values)
   const components =
     page.components === undefined

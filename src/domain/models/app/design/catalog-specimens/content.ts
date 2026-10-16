@@ -163,14 +163,14 @@ const CONTENT_SPECIMENS: readonly CatalogSpecimen[] = [
     component: component({ type: 'qr-code', value: 'https://sovrium.com', size: 72 }),
   },
   {
-    // ONE specimen for the merged type. The subscriber scope is the one drawn
+    // ONE specimen for the merged type. The publishing box is the one drawn
     // because it is the shape a preview can honestly show: a page-scoped input
     // needs a prebuilt index this console has none of, so drawing it would
     // present an empty result list as if it were the component working.
     type: 'search-input',
     component: component({
       type: 'search-input',
-      scope: 'subscribers',
+      publishes: { bindTo: 'design-system-kit-search', param: 'q' },
       props: { id: 'design-system-kit-search', placeholder: 'Search…' },
     }),
   },

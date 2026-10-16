@@ -19,6 +19,9 @@ components:
         children:
           - type: form
             formRef: register
+            # The form is the whole page, so its title is the page heading.
+            props:
+              headingLevel: h1
           - type: link
             props:
               href: /

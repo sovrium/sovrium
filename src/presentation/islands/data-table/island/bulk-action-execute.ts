@@ -6,6 +6,7 @@
  */
 
 import { renderToast } from '../../runtime/toast'
+import { toastWriteRefusal } from '../../runtime/write-refusal'
 import type { DataTableInstance } from './table-features'
 import type { DataTableBulkAction } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { QueryClient } from '@tanstack/react-query'
@@ -13,6 +14,8 @@ import type { QueryClient } from '@tanstack/react-query'
 interface BulkActionContext {
   readonly queryClient: QueryClient
   readonly queryKey: readonly unknown[]
+  /** The page-language strings, for a refusal's toast. */
+  readonly strings?: Readonly<Record<string, string>> | undefined
 }
 
 type BulkCrudAction = {
@@ -73,28 +76,30 @@ function renderBulkToast(crudAction: BulkCrudAction, outcome: 'success' | 'error
 
 /**
  * Execute a bulk action against the records API and report its outcome in
- * place: the configured success/error toast is rendered, and the table query is
+ * place: the configured success/error toast is rendered (a refusal because the
+ * writes were too many says so instead, with the seconds to wait), and the table query is
  * invalidated on success so the rows refresh without a page reload.
  *
  * The endpoints are authorized per field and per value, so a bulk update can
  * legitimately be refused (a field the caller may not write, an engine-managed
  * readonly column, a value its column rejects). Every such refusal arrives as a
  * normal response with `ok: false`, which is why the outcome is decided from the
- * response rather than from whether the request threw.
+ * response rather than from whether the request threw. Resolves `true` when the
+ * write went through.
  */
 export async function executeBulkAction(
   table: DataTableInstance,
   action: DataTableBulkAction,
-  { queryClient, queryKey }: BulkActionContext
-): Promise<void> {
+  { queryClient, queryKey, strings }: BulkActionContext
+): Promise<boolean> {
   // OpenDrawerAction uses `action: openSheet` instead of `type`; only the
   // `crud` variant supports the bulk-records workflow, so any non-typed or
   // non-crud action is a no-op.
-  if (!('type' in action.action) || action.action.type !== 'crud') return
+  if (!('type' in action.action) || action.action.type !== 'crud') return false
 
   const crudAction = action.action as BulkCrudAction
   const endpoint = buildBulkEndpoint(crudAction.table, crudAction.operation)
-  if (!endpoint) return
+  if (!endpoint) return false
 
   const ids = table
     .getFilteredSelectedRowModel()
@@ -108,10 +113,12 @@ export async function executeBulkAction(
     if (response.ok) {
       renderBulkToast(crudAction, 'success')
       await queryClient.invalidateQueries({ queryKey })
-    } else {
-      renderBulkToast(crudAction, 'error')
+      return true
     }
+    if (!toastWriteRefusal(response, strings)) renderBulkToast(crudAction, 'error')
+    return false
   } catch {
     renderBulkToast(crudAction, 'error')
+    return false
   }
 }

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
 import {
   submitAuthForm,
@@ -20,6 +20,7 @@ import {
   type AuthFormField,
   type FieldErrors,
 } from './auth-form-validation'
+import { applySignInHint, handOverResetEmail, rememberResetEmail } from './sign-in-hint'
 
 /**
  * Inputs needed to drive an auth form's validation + submission lifecycle.
@@ -70,6 +71,12 @@ export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult
   const [summaryErrors, setSummaryErrors] = useState<FieldErrors>({})
   const [state, setState] = useState<AuthState>({ isPending: false })
 
+  // After a password reset in this browser, the sign-in form opens holding the
+  // address the reset was asked for, the password field focused (see ./sign-in-hint).
+  useEffect(() => {
+    if (method === 'login') applySignInHint(document.querySelector('[data-action-method=login]'))
+  }, [method])
+
   const handleBlur = (name: string, value: string): void => {
     const field = fields.find((f) => f.name === name)
     if (!field) return
@@ -90,6 +97,8 @@ export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult
     setFieldErrors(validationErrors)
     setSummaryErrors(validationErrors)
     if (Object.keys(validationErrors).length > 0) return
+    if (method === 'resetPassword') rememberResetEmail(Object.values(current)[0] ?? '')
+    if (method === 'setNewPassword') handOverResetEmail()
     void submitAuthForm({
       method,
       strategy,

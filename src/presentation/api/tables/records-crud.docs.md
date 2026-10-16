@@ -99,6 +99,8 @@ A stale token answers `409` with a message telling the caller to reload and retr
 
 The token is checked as part of the write itself: two edits made from the same read cannot both be applied — the second answers `409`. The comparison is made to the millisecond, the precision `updatedAt` is answered with.
 
+A `409` also answers a write that lost to a concurrent one. On PostgreSQL, when two transactions wait on each other — a record write meeting the erasure of the account it names, for example — the database aborts one of them; the aborted write stores nothing and answers `409`, and the request can be sent again.
+
 The comparison is **skipped entirely** in three cases: the token is absent, the stored row carries no timestamp, or either value will not parse as one. Locking is therefore opt-in per request rather than a property of the table, and a client that omits the token silently gets last-write-wins. That is a deliberate default — making it mandatory would break every integration that writes a row it did not first read — but it means the protection exists only where a client asks for it.
 
 The column the token is compared against is bumped by the server on every write from any source, so a change made through the admin console or by an automation invalidates a token held by an API client just as another API write would.

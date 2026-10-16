@@ -18,6 +18,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useDebouncedValue } from '../../hooks/use-debounced-value'
+import { useLazySharedFilter } from '../../hooks/use-lazy-shared-filter'
 import { subscribe } from '../../runtime/event-bus'
 import { READ_ONCE_QUERY_OPTIONS } from '../../runtime/query-client'
 import {
@@ -30,6 +31,7 @@ import {
   type ListState,
   type ThreadState,
 } from './admin-agent-conversations-data'
+import type { SharedFilterBindingConfig } from '../../hooks/use-shared-filter'
 
 /**
  * The "New conversation" compose state. `agent` is `''`
@@ -100,10 +102,17 @@ function filterConversations(
  *
  * `search` is a REQUEST parameter here, not a post-filter: it is threaded into
  * every per-agent fetch, so changing it re-reads rather than re-narrowing.
+ *
+ * `dataSource` is the page binding every data component takes: with `bindTo` +
+ * `sharedFilter`, what the page's composed controls publish on that channel (a
+ * Person select's `userId`, a search box's `q`) joins every per-agent request.
+ * The read waits for the channel to be read, so the first request is already
+ * the narrowed one.
  */
 function useConversationList(
   agentNames: ReadonlyArray<string>,
-  search: string
+  search: string,
+  dataSource: SharedFilterBindingConfig
 ): {
   readonly list: ListState
   readonly reloadList: () => void
@@ -111,14 +120,20 @@ function useConversationList(
   const queryClient = useQueryClient()
   // Stable key component (the names array identity varies per render).
   const namesKey = agentNames.join(' ')
+  const { extraParams: shared, ready } = useLazySharedFilter(dataSource, undefined)
+  // The bag is rebuilt on every render; its serialisation is the stable key, so
+  // the reload callback (and the bus subscription under it) only churns when
+  // what the page publishes actually changes.
+  const sharedKey = JSON.stringify(shared)
   const listKey = useMemo(
-    () => ['admin-agent-conversations', 'list', namesKey, search] as const,
-    [namesKey, search]
+    () => ['admin-agent-conversations', 'list', namesKey, search, sharedKey] as const,
+    [namesKey, search, sharedKey]
   )
 
   const listQuery = useQuery({
     queryKey: listKey,
-    queryFn: () => loadAllConversations(namesKey ? namesKey.split(' ') : [], search),
+    queryFn: () => loadAllConversations(namesKey ? namesKey.split(' ') : [], search, shared),
+    enabled: ready,
     ...READ_ONCE_QUERY_OPTIONS,
   })
 
@@ -235,7 +250,8 @@ function useSelectedThread(
  * left-rail agent picker.
  */
 export function useAgentConversations(
-  agentNames: ReadonlyArray<string>
+  agentNames: ReadonlyArray<string>,
+  dataSource: SharedFilterBindingConfig
 ): AgentConversationsController {
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
   // Two search values, deliberately. `search` is what the operator sees in the
@@ -244,7 +260,7 @@ export function useAgentConversations(
   // declared agent out on every character typed.
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS)
-  const { list, reloadList } = useConversationList(agentNames, debouncedSearch)
+  const { list, reloadList } = useConversationList(agentNames, debouncedSearch, dataSource)
   const [agent, setAgent] = useState('')
   const { thread, reloadThread } = useSelectedThread(list, selectedId)
   const { newConversation, onStartNewConversation, onPickNewAgent, cancelNewConversation } =

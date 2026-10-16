@@ -118,6 +118,6 @@ Covers whole-submission failures: the write was rejected, or the request did not
 
 ### Field errors are a different channel
 
-An invalid email or a missing required value comes back as a per-field error list and is rendered inline against the offending input. `onError` fires **alongside** it as the whole-form summary, not instead of it — so an error message written here should read as a summary rather than as the only thing the submitter will see.
+An invalid email or a missing required value comes back as a per-field error list and is rendered inline against the offending input. `onError` fires **alongside** it as the whole-form summary, not instead of it — so an error message written here should read as a summary rather than as the only thing the submitter will see. A submit refused in the browser before anything is sent — a required field left empty — marks the fields, moves the focus to the first, and shows a `message` you declared in `onError`, but never the default "Submission failed.": nothing failed, the form is waiting for answers. A toast is announced once, as a polite status or, for an `error` variant, as an alert.
 
 A field the server refuses is marked `aria-invalid` and points at its reason, which names the field by its label.

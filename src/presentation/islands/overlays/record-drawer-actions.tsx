@@ -7,47 +7,76 @@
 
 /**
  * The record drawer's footer actions (CAP-1): a row of buttons below the record
- * body, each firing against the loaded record — a `fetch`, or an `openSheet`
- * that hands the same record to the drawer it names — behind an optional
- * confirm gate. Split out of `record-drawer-content.tsx`, which composes it.
+ * body, each firing against the loaded record — a `fetch`, a `crud` delete or
+ * update (`record-drawer-crud.ts`), or an `openSheet` that hands the same
+ * record to the drawer it names — behind an optional confirm gate. Split out of `record-drawer-content.tsx`, which composes it.
  */
 
-import { useCallback, useState, type ReactElement } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useCallback, useMemo, useState, type ReactElement } from 'react'
 import {
   substituteRecordVars,
   withRecordText,
 } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  computeButtonDefaultClasses,
+  type ButtonVariant,
+} from '@/presentation/design/button-default-classes'
 import { executeFetchAction } from '../runtime/action-executor'
 import { dispatch } from '../runtime/event-bus'
 import { InlineConfirmDialog, ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
 import { renderToast } from '../runtime/toast'
+import { runDrawerCrud } from './record-drawer-crud'
+import type { DrawerBuiltInLabels } from './record-drawer-labels'
 import type { Action, FetchAction } from '@/domain/models/app/pages/components/action'
+import type { CrudAction } from '@/domain/models/app/pages/components/action-operations'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
+import type { FieldCondition } from '@/domain/models/app/tables/condition-operators'
 
 type RawRecord = Record<string, unknown>
+
+/**
+ * The words a footer draws and says on its own, in the page language the SSR
+ * host resolved: the Cancel of its questions, and what a refused write toasts.
+ */
+type DrawerActionWords = Pick<DrawerBuiltInLabels, 'cancel' | 'writeRefusal'>
 
 /** A footer action button the drawer renders below the record body (CAP-1). */
 export interface DrawerAction {
   readonly label: string
   readonly action: Action
-  readonly variant?: string
+  /** The `button` variant it is drawn in; none draws an outline button. */
+  readonly variant?: ButtonVariant
   /** Confirm gate before firing — the legacy STRING prompt or the rich OBJECT form. */
   readonly confirm?: string | ConfirmObject
+  /** Drawn only on a record meeting it (`record-drawer-visibility.ts`). */
+  readonly visibleWhen?: FieldCondition
+}
+
+/** What a footer action does to the sheet it belongs to once it has run. */
+interface DrawerSettle {
+  /** Close the sheet. */
+  readonly onLeave: () => void
+  /** Read the record again: the action wrote it and the sheet stays open. */
+  readonly onWritten: () => void
 }
 
 /**
  * A footer `fetch`: its toast either way, and on success the executor's shared
  * outcome — `navigate` with `$record.*` read from the record the drawer shows
  * (`action-outcome.ts`). `close` closes this drawer, which the footer belongs
- * to. A refusal closes nothing.
+ * to; otherwise a request the sheet sent itself reads the record again, so its
+ * fields and `visibleWhen` buttons follow the write. A refusal closes nothing.
  */
 async function runDrawerFetch(
   action: FetchAction,
   record: RawRecord,
-  onLeave: () => void
+  settle: DrawerSettle
 ): Promise<void> {
   const result = await executeFetchAction(action, { record, renderToast })
-  if (result?.ok === true && action.onSuccess?.close === true) onLeave()
+  if (result?.ok !== true) return
+  if (action.onSuccess?.close === true) settle.onLeave()
+  else if ((action.mode ?? 'fetch') === 'fetch') settle.onWritten()
 }
 
 /**
@@ -56,9 +85,19 @@ async function runDrawerFetch(
  * resolves against `record` at CLICK time (the drawer loads its record lazily).
  * An `openSheet` action closes this drawer and opens the one it names.
  */
-function dispatchDrawerAction(action: Action, record: RawRecord, onLeave: () => void): void {
+function dispatchDrawerAction(
+  action: Action,
+  record: RawRecord,
+  settle: DrawerSettle,
+  words: DrawerActionWords
+): void {
+  const { onLeave } = settle
   if ('type' in action && action.type === 'fetch') {
-    void runDrawerFetch(action as FetchAction, record, onLeave)
+    void runDrawerFetch(action as FetchAction, record, settle)
+    return
+  }
+  if ('type' in action && action.type === 'crud') {
+    void runDrawerCrud(action as CrudAction, record, settle, words.writeRefusal)
     return
   }
   // `openSheet` hands the SAME record to the drawer it names — a detail drawer
@@ -70,8 +109,11 @@ function dispatchDrawerAction(action: Action, record: RawRecord, onLeave: () => 
   }
 }
 
-const ACTION_BUTTON_CLASS =
-  'border-border text-foreground hover:bg-muted rounded border px-3 py-1.5 text-md transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+const NO_WORDS: DrawerActionWords = {}
+
+/** The class a footer action is drawn with: a `button` of its variant, outline by default. */
+const actionButtonClass = (variant: ButtonVariant | undefined): string =>
+  computeButtonDefaultClasses({ variant: variant ?? 'outline' })
 
 /**
  * A single footer action button. A `confirm`-bearing action arms the shared
@@ -82,18 +124,20 @@ function DrawerActionButton({
   item,
   record,
   disabled,
-  onLeave,
+  settle,
+  words,
 }: {
   readonly item: DrawerAction
   readonly record: RawRecord
   /** The record has not loaded yet: `$record.*` would resolve against nothing. */
   readonly disabled: boolean
-  readonly onLeave: () => void
+  readonly settle: DrawerSettle
+  readonly words: DrawerActionWords
 }): ReactElement {
   const [confirming, setConfirming] = useState(false)
   const fire = useCallback(
-    () => dispatchDrawerAction(item.action, record, onLeave),
-    [item.action, record, onLeave]
+    () => dispatchDrawerAction(item.action, record, settle, words),
+    [item.action, record, settle, words]
   )
 
   if (item.confirm && confirming) {
@@ -106,6 +150,7 @@ function DrawerActionButton({
           config={item.confirm}
           record={record}
           fallbackConfirmLabel={item.label}
+          {...(words.cancel === undefined ? {} : { fallbackCancelLabel: words.cancel })}
           onConfirm={fire}
           onCancel={() => setConfirming(false)}
         />
@@ -115,6 +160,7 @@ function DrawerActionButton({
       <InlineConfirmDialog
         prompt={substituteRecordVars(item.confirm, withRecordText(record))}
         confirmLabel={item.label}
+        {...(words.cancel === undefined ? {} : { cancelLabel: words.cancel })}
         onConfirm={fire}
         onCancel={() => setConfirming(false)}
       />
@@ -125,7 +171,7 @@ function DrawerActionButton({
     <button
       type="button"
       data-component-type="button"
-      className={ACTION_BUTTON_CLASS}
+      className={actionButtonClass(item.variant)}
       disabled={disabled}
       onClick={() => (item.confirm ? setConfirming(true) : fire())}
     >
@@ -140,12 +186,23 @@ export function DrawerActions({
   record,
   loading,
   onLeave,
+  words = NO_WORDS,
 }: {
   readonly actions: ReadonlyArray<DrawerAction>
   readonly record: RawRecord
   readonly loading: boolean
   readonly onLeave: () => void
+  readonly words?: DrawerActionWords | undefined
 }): ReactElement | null {
+  const queryClient = useQueryClient()
+  const settle = useMemo<DrawerSettle>(
+    () => ({
+      onLeave,
+      onWritten: () =>
+        void queryClient.invalidateQueries({ queryKey: ['record-drawer', 'table-record'] }),
+    }),
+    [onLeave, queryClient]
+  )
   if (actions.length === 0) return null
   return (
     <div className="border-border mt-2 flex flex-wrap gap-2 border-t pt-4">
@@ -155,7 +212,8 @@ export function DrawerActions({
           item={item}
           record={record}
           disabled={loading}
-          onLeave={onLeave}
+          settle={settle}
+          words={words}
         />
       ))}
     </div>

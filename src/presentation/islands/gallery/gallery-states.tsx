@@ -15,13 +15,28 @@ import {
 } from '@/presentation/design/gallery-default-classes'
 import type { ReactElement } from 'react'
 
-export function GalleryMissingTable(): ReactElement {
+/** The gallery's own words in the page language (`gallery.*`, `component.*`), where they differ from English. */
+export type GalleryStrings = Readonly<Record<string, string>> | undefined
+
+export function GalleryMissingTable({
+  strings,
+}: {
+  readonly strings: GalleryStrings
+}): ReactElement {
+  const [before, after] = (
+    strings?.['gallery.missingTable'] ?? 'Gallery is missing required {setting} configuration.'
+  ).split('{setting}')
   return (
     <div className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm">
       <p>
-        Gallery is missing required <code>dataSource.table</code> configuration.
+        {before}
+        <code>dataSource.table</code>
+        {after}
       </p>
-      <p className="mt-1 opacity-80">Add it to this component in your app config, then redeploy.</p>
+      <p className="mt-1 opacity-80">
+        {strings?.['component.configHint'] ??
+          'Add it to this component in your app config, then redeploy.'}
+      </p>
     </div>
   )
 }
@@ -36,11 +51,12 @@ export function GalleryMissingTable(): ReactElement {
  * band, then a padded body), which is what makes the swap a fill change rather
  * than a reflow.
  */
-export function GalleryLoading(): ReactElement {
+export function GalleryLoading({ strings }: { readonly strings: GalleryStrings }): ReactElement {
   return (
     <div
       className={`${computeGalleryGridClasses()} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`}
-      aria-label="Loading gallery..."
+      data-loading-status=""
+      aria-label={strings?.['gallery.loading'] ?? 'Loading gallery...'}
       role="status"
     >
       {Array.from({ length: 6 }).map((_, i) => (
@@ -69,16 +85,27 @@ export function GalleryLoading(): ReactElement {
   )
 }
 
-export function GalleryError({ error }: { readonly error: unknown }): ReactElement {
+export function GalleryError({
+  error,
+  strings,
+}: {
+  readonly error: unknown
+  readonly strings: GalleryStrings
+}): ReactElement {
   return (
     <div
       className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm"
       role="alert"
     >
       <p>
-        Failed to load gallery records: {error instanceof Error ? error.message : String(error)}
+        {(strings?.['gallery.loadFailed'] ?? 'Failed to load gallery records: {error}').replace(
+          '{error}',
+          () => (error instanceof Error ? error.message : String(error))
+        )}
       </p>
-      <p className="mt-1 opacity-80">Refresh the page to try again.</p>
+      <p className="mt-1 opacity-80">
+        {strings?.['component.refreshToRetry'] ?? 'Refresh the page to try again.'}
+      </p>
     </div>
   )
 }
@@ -87,7 +114,13 @@ export function GalleryError({ error }: { readonly error: unknown }): ReactEleme
  * No card to draw: shadcn/ui's `Empty`, its title the author's `emptyMessage`
  * — or, undeclared, a title and a line saying where records will come from.
  */
-export function GalleryEmpty({ message }: { readonly message: string | undefined }): ReactElement {
+export function GalleryEmpty({
+  message,
+  strings,
+}: {
+  readonly message: string | undefined
+  readonly strings: GalleryStrings
+}): ReactElement {
   return (
     <div
       data-slot="empty"
@@ -102,14 +135,14 @@ export function GalleryEmpty({ message }: { readonly message: string | undefined
           data-slot="empty-title"
           className={GALLERY_EMPTY_CLASSES.title}
         >
-          {message ?? 'No records yet.'}
+          {message ?? strings?.['gallery.empty'] ?? 'No records yet.'}
         </div>
         {message === undefined && (
           <p
             data-slot="empty-description"
             className={GALLERY_EMPTY_CLASSES.description}
           >
-            Records added to this table will appear here.
+            {strings?.['gallery.emptyHint'] ?? 'Records added to this table will appear here.'}
           </p>
         )}
       </div>

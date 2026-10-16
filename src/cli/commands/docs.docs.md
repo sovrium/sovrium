@@ -12,7 +12,7 @@ sovrium docs search llms                      # find the article that covers a t
 sovrium docs config llms.full                 # look one option up
 sovrium docs env DATABASE_URL                 # one environment variable
 sovrium docs cli migrate                      # one command
-sovrium docs admin /tables                    # which console page a route serves
+sovrium docs admin /records                   # which console page a route serves
 sovrium docs --list-sections                  # the section slugs, and how many articles each holds
 sovrium docs --section tables --full          # one section in full, repeatable
 sovrium docs --full                           # the whole manual, for a context window

@@ -15,6 +15,7 @@ import {
 import { useState } from 'react'
 import { computeTableCellClasses } from '@/presentation/design/table-default-classes'
 import type { RowHeight } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type { GridRowHeight } from '@/presentation/design/table-body-default-classes'
 
 /**
  * The class each row height paints on a BODY cell.
@@ -27,10 +28,11 @@ import type { RowHeight } from '@/domain/models/app/pages/components/component-t
  * delegates each entry to the recipe, so the declared row height and the
  * paint cannot disagree.
  */
-export const ROW_HEIGHT_CLASSES: Record<RowHeight, string> = {
+export const ROW_HEIGHT_CLASSES: Record<GridRowHeight, string> = {
   short: computeTableCellClasses({ rowHeight: 'short' }),
   medium: computeTableCellClasses({ rowHeight: 'medium' }),
   tall: computeTableCellClasses({ rowHeight: 'tall' }),
+  'extra-tall': computeTableCellClasses({ rowHeight: 'extra-tall' }),
 }
 
 interface UseDataTableStateParams {

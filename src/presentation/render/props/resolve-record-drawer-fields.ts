@@ -9,6 +9,11 @@ import { declaredFieldDescription, declaredFieldLabel } from '@/presentation/des
 import { readColumnOptions } from '@/presentation/render/forms/form-field-resolver'
 import { resolveOptionBadgePaints, type OptionBadgePaints } from './option-badge-paints'
 import { resolveValueCurrency } from './resolve-chart-field-context'
+import {
+  controlOverlay,
+  readOnlyTypeOverlay,
+  type DrawerControlOverlay,
+} from './resolve-record-drawer-controls'
 import { resolveSourceTable } from './resolve-type-specific-inputs'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { Languages } from '@/domain/models/app/languages'
@@ -17,7 +22,7 @@ import type { Tables } from '@/domain/models/app/tables'
 import type { BadgeForm } from '@/presentation/design/option-chip-paint'
 
 /** One control per declared field — the shape the record-drawer binds inputs to. */
-export type DerivedRecordField = {
+export type DerivedRecordField = DrawerControlOverlay & {
   readonly name: string
   readonly type: string
   /** Resolved display name for the panel entry; absent means "keep the raw name". */
@@ -51,6 +56,8 @@ export type DerivedRecordField = {
    * and an optional link offers a Clear control.
    */
   readonly required?: boolean
+  /** A computed, AI or stamped field of a derived sheet: drawn as its value, never sent. */
+  readonly readOnly?: true
 }
 
 /**
@@ -218,6 +225,7 @@ function enrichDeclaredFields(
       ...relationshipOverlay(boundField),
       ...requiredOverlay(boundField),
       ...attachmentOverlay(boundField),
+      ...controlOverlay(boundField, locale),
     }
   })
 }
@@ -247,7 +255,15 @@ export function resolveRecordDrawerFields(
 ): ReadonlyArray<DerivedRecordField> | undefined {
   if (!component) return undefined
   const table = resolveSourceTable(component, tables)
-  if (!table) return undefined
+  return table === undefined ? undefined : deriveTableEntries(table, tables, locale)
+}
+
+/** One derived entry per declared field of `table` — see {@link resolveRecordDrawerFields}. */
+export function deriveTableEntries(
+  table: Tables[number],
+  tables: Tables | undefined,
+  locale: DrawerFieldLocale = {}
+): ReadonlyArray<DerivedRecordField> {
   return table.fields.map((field) => {
     const declared = field as Readonly<Record<string, unknown>>
     const label = declaredFieldLabel(declared)
@@ -264,6 +280,8 @@ export function resolveRecordDrawerFields(
       ...relationshipOverlay(declared),
       ...requiredOverlay(declared),
       ...attachmentOverlay(declared),
+      ...controlOverlay(declared, locale),
+      ...readOnlyTypeOverlay(declared),
     }
   })
 }

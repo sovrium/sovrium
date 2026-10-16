@@ -109,6 +109,8 @@ Clicks land in the same analytics store as your page views and honour the same s
 
 Read the numbers in the operator console at `/_admin/links`: clicks over time, referrers, devices, campaigns and the raw click log, for all links together or one link at a time.
 
+Every row of the admin catalog, `GET /api/admin/links`, and the detail of one link carry `clicks`: the clicks recorded for that link over the last 30 days, up to the moment of the read. It is a rolling window, not a lifetime total — a click older than 30 days, or one your `retentionDays` already removed, is not counted — and a link nobody clicked reads `0`. The whole page is counted in one query, however many links it lists. A link's clicks over time, its referrers and its devices are read from the analytics endpoints, not from the catalog.
+
 ## Creating links outside config
 
 Links declared in config belong to the app. They ship with it and are versioned with it. Two other paths create links for campaigns that come and go faster than a deploy: the operator console, and the `link` automation action, which mints one while a workflow is running.

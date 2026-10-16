@@ -27,7 +27,8 @@ sovrium init my-expenses --template expenses
 - **Review** (finance) — what waits on finance first, spend by category (rejected claims
   left out) and by month, then every claim with the person who filed it, its receipt, and
   Approve and Reject on each waiting row. Opening a claim shows the receipt beside the
-  amount. A claim filed in the app also starts an approval run that only an admin can
+  amount, with Approve and Reject at the foot while it waits; a decided claim shows no
+  buttons, and a rejected one shows why. A claim filed in the app also starts an approval run that only an admin can
   resolve — listed below the queue, where approving it resumes the run and marks the claim
   Approved.
 - **Reimburse** (finance) — the approved claims, oldest first. Mark each one repaid once the
@@ -76,7 +77,9 @@ Sign in as **camille.roux@halden.example** (admin, runs finance) or
    Approve it, and it turns Approved on Léa's page. Only finance can resolve it: Léa, who
    filed it, cannot.
 4. Open the Lyon dinner on Review to see the receipt beside the amount, then approve or
-   reject it — a rejection takes a reason, which Léa reads on her claim.
+   reject it — a rejection takes a reason, which Léa reads on her claim. Each sheet decides
+   what it shows from the claim itself: a `visibleWhen` on a field or a footer button, such as
+   `{ field: status, eq: Pending }`, draws it only on a claim that matches.
 5. On **Reimburse**, mark the approved claims repaid once the transfer has gone out.
 
 "Spent this quarter" and "Repaid this quarter" add up every claim that was not rejected, and

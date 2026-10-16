@@ -78,6 +78,7 @@ function NavDropdownChild({ child }: { readonly child: NavChild }): ReactElement
       href={child.href ?? '#'}
       target={child.target}
       rel={child.rel}
+      aria-describedby={child.target === '_blank' ? 'sovrium-new-tab-notice' : undefined}
       data-slot="navigation-menu-link"
       className={computeNavMenuChildLinkClasses()}
     >
@@ -158,6 +159,7 @@ function NavTopLink({
         href={item.href ?? '#'}
         target={item.target}
         rel={item.rel}
+        aria-describedby={item.target === '_blank' ? 'sovrium-new-tab-notice' : undefined}
         data-slot="navigation-menu-link"
         className={computeNavMenuTriggerClasses(triggerClassName)}
       >

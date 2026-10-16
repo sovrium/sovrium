@@ -31,6 +31,41 @@ export const usageSubjectSchema = Schema.Literals(['type', 'component']).annotat
 })
 
 /**
+ * The kind of thing a subject is, as a reader groups a gallery.
+ *
+ * ─── DERIVED, NEVER DECLARED ──────────────────────────────────────────────
+ *
+ * A template declares no kind of its own, and a key for one would be a second
+ * place to say what its ROOT TYPE already says. So the read derives it: from
+ * the template's root `type` for a `component` subject, and from the type
+ * itself for a `type` subject — one rule, so the two questions cannot sort one
+ * type two ways:
+ *
+ *  - `card`          — a `card` root
+ *  - `form`          — a `form` root, or a root from the form-controls family
+ *  - `navigation`    — a root the registry places in its `navigation` category
+ *  - `data-view`     — a root the registry places in its `data` category
+ *  - `page-section`  — anything else: a container, a section, a hero …
+ *
+ * ─── WHY THE READ, AND NOT THE PAGE ───────────────────────────────────────
+ *
+ * The page that groups by it has no way to compute it: a config page cannot
+ * look a type up in the registry, and `visibility.record` compares a field
+ * against a literal. Published as a closed vocabulary because the page writes
+ * one literal per group, and a sixth value would be a row drawn in no group.
+ */
+export const usageKindSchema = Schema.Literals([
+  'page-section',
+  'card',
+  'form',
+  'navigation',
+  'data-view',
+]).annotate({
+  description:
+    'The kind a subject belongs to, derived from its root type: `card` (a card root), `form` (a form root, or a form control), `navigation` (a root in the navigation family), `data-view` (a root in the data family), or `page-section` (anything else). Never declared: a template carries no kind of its own.',
+})
+
+/**
  * How many of the operator's routes write one subject, and which.
  *
  * ─── ROUTES RATHER THAN A BARE COUNT ───────────────────────────────────────
@@ -63,6 +98,7 @@ export const usageRowSchema = Schema.Struct({
     description: 'The type literal or the template name, exactly as an author writes it in config',
     examples: ['button', 'section-header'],
   }),
+  kind: usageKindSchema,
   count: Schema.Int.annotate({
     description:
       'How many of the operator’s routes write this subject anywhere in their component tree',
@@ -188,6 +224,12 @@ export const usageQuerySchema = Schema.Struct({
   identifier: 'UsageQuery',
 })
 
+/** How many rows of this response are of one kind — a gate a page can compare with `0`. */
+const usageKindCount = (kind: string) =>
+  Schema.Int.annotate({
+    description: `How many rows of \`items\` are of kind \`${kind}\`. Zero, never absent, when none is; the five kind counts sum to \`total\`.`,
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
+
 /** Usage over the operator's pages — the shared envelope. */
 export const usageResponseSchema = Schema.Struct({
   items: Schema.Array(usageRowSchema).annotate({
@@ -206,6 +248,19 @@ export const usageResponseSchema = Schema.Struct({
     description:
       'Every (subject, name, route) pair in this response, flattened — the row-shaped copy of `items[].routes` a config page can bind. EMPTY when no subject in this response is written anywhere.',
   }),
+  // ─── HOW MANY ROWS OF EACH KIND, FLAT ─────────────────────────────────
+  //
+  // A gallery grouped by kind draws a group's heading only when the group has
+  // a row, and no rows binding can answer "were there any": zero rows render
+  // zero rows. The page answers it from its own RECORD — this envelope — with
+  // `visibility.record`, which names ONE flat field and compares it with a
+  // literal. Hence five flat integers rather than a map: `$record.` walks no
+  // path. Each counts `items` by `kind`, so the five sum to `total`.
+  pageSectionCount: usageKindCount('page-section'),
+  cardCount: usageKindCount('card'),
+  formCount: usageKindCount('form'),
+  navigationCount: usageKindCount('navigation'),
+  dataViewCount: usageKindCount('data-view'),
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',
@@ -287,6 +342,8 @@ export const typeLadderResponseSchema = Schema.Struct({
 
 /** @public */
 export type UsageSubject = typeof usageSubjectSchema.Type
+/** @public */
+export type UsageKind = typeof usageKindSchema.Type
 /** @public */
 export type UsageRow = typeof usageRowSchema.Type
 /** @public */

@@ -63,18 +63,16 @@ export interface RenderFileUploadIslandConfig {
 }
 
 export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): ReactElement {
-  const { props, islandProps, dropZone, disabled, label } = config
+  const { props, islandProps, dropZone, disabled, label, accept, maxFiles } = config
   const id = props.id as string | undefined
-  const ariaLabel = (props['aria-label'] as string | undefined) ?? label ?? 'Upload file'
+  const strings = islandProps['uiStrings'] as Readonly<Record<string, string>> | undefined
+  const fallback = strings?.['fileUpload.button'] ?? 'Upload file'
+  const ariaLabel = (props['aria-label'] as string | undefined) ?? label ?? fallback
   const className = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
   const buttonText = label ?? ariaLabel
   const maxFileSize = islandProps['maxFileSize'] as number | undefined
-  const dropzoneHint = fileUploadDropzoneHint({
-    accept: config.accept,
-    maxFiles: config.maxFiles,
-    maxFileSize,
-  })
+  const dropzoneHint = fileUploadDropzoneHint({ accept, maxFiles, maxFileSize }, strings)
   const controlState = disabled === true ? 'disabled' : 'default'
   const ariaDisabled = disabled === true ? 'true' : undefined
 
@@ -108,6 +106,7 @@ export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): Re
           <FileUploadDropzoneParts
             hint={dropzoneHint}
             disabled
+            strings={strings}
           />
         </div>
       ) : (
@@ -253,9 +252,11 @@ export function renderDatePickerIsland(config: RenderDatePickerIslandConfig): Re
       ? `${label} — ${placeholder}`
       : label
     : (placeholder ?? 'Pick a date')
+  // The id is the trigger's, never the host's: the island's trigger carries it too (RGAA 8.2).
   const trigger = (
     <button
       type="button"
+      id={id}
       disabled
       aria-haspopup="dialog"
       // The trigger of an open control reports itself open. On the live
@@ -269,7 +270,6 @@ export function renderDatePickerIsland(config: RenderDatePickerIslandConfig): Re
   )
   return (
     <span
-      id={id}
       className={className}
       data-testid={testId}
       data-component="date-picker"

@@ -133,6 +133,11 @@ export interface ShellOptions {
    * adds no padding of its own.
    */
   readonly flush?: boolean
+  /**
+   * One short fact about the page, in the top bar beside the trail — a count
+   * the reader should see whichever view of the page is open below.
+   */
+  readonly topbarFact?: PageComponent
 }
 
 /**
@@ -151,6 +156,40 @@ const spaNavHost = (): PageComponent =>
       'data-island-props': '{}',
     },
     children: [{ type: 'text', element: 'span', props: { className: 'sr-only' }, content: '' }],
+  }) as PageComponent
+
+/**
+ * The offline notice the SPA nav places in the content region when a
+ * navigation cannot reach the server, kept hidden OUTSIDE the region so it is
+ * served once, in the page's language, and survives every swap. The nav clones
+ * its child under the top bar and wires `data-spa-retry`; back online, it
+ * retries the navigation by itself.
+ */
+const offlineNotice = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    props: { className: 'hidden', 'data-spa-offline-template': 'true' },
+    children: [
+      {
+        type: 'container',
+        element: 'div',
+        props: {
+          role: 'status',
+          className:
+            'border-border bg-muted text-foreground m-4 flex items-center justify-between gap-4 rounded-md border px-4 py-3 text-sm',
+        },
+        children: [
+          { type: 'text', element: 'p', content: '$t:admin.offline.message' },
+          {
+            type: 'button',
+            variant: 'outline',
+            content: '$t:admin.offline.retry',
+            props: { type: 'button', 'data-spa-retry': 'true' },
+          },
+        ],
+      },
+    ],
   }) as PageComponent
 
 /** The body's own block: 16px all round, a 24px rhythm between sections. */
@@ -242,6 +281,7 @@ const siteHeader = (options: ShellOptions): PageComponent => {
           ? { unlinked: options.breadcrumbUnlinked }
           : {}),
       },
+      ...(options.topbarFact === undefined ? [] : [options.topbarFact]),
       end,
     ],
   } as PageComponent
@@ -285,6 +325,7 @@ export function withShell(page: PageConfig, options: ShellOptions = {}): PageCon
           },
           palette,
           spaNavHost(),
+          offlineNotice(),
         ],
       },
     ],

@@ -617,6 +617,59 @@ export const GraphSelectionSchema = Schema.Struct({
     'Makes the drawing’s nodes selectable and says which way the reach highlight walks from the selected one. Absent: the drawing is not selectable. The highlight is internal state — only the selected node’s id reaches the shared-filter bus.',
 })
 
+/**
+ * The one fact a node may carry beside its kind and state — drawn as a mark on
+ * the node and named in the accessible twin.
+ *
+ * It mirrors `MatrixCellFlagSchema` deliberately: the same two keys, both
+ * required, for the same reason. A `field` with no `label` is a mark a
+ * screen-reader user cannot read, and a `label` with no `field` is a word
+ * attached to nothing, so neither half is expressible alone.
+ *
+ * ─── WHY NOT `state` ───────────────────────────────────────────────────────
+ *
+ * A node already carries `state` (`active` / `paused` / `disabled`), drawn as
+ * weight and never as colour. Overloading it would make a paused automation
+ * and a flagged one the same mark. The flag is a SECOND channel: one caution
+ * mark, one word, independent of the state.
+ *
+ * ─── ONE BOOLEAN, ONE WORD — NOT A TONE ────────────────────────────────────
+ *
+ * The mark has no severity. A field naming a tone per node (critical, warning,
+ * notice) would be a bigger primitive whose every value the renderer would
+ * have to draw distinctly; a single caution mark answers "which of these needs
+ * a look", which is the question a flag exists for.
+ *
+ * `field` is an OPEN string for the reason this whole file gives: it names a
+ * field of the bound graph's nodes, which the platform does not know.
+ *
+ * @example
+ * ```yaml
+ * flag:
+ *   field: deprecated
+ *   label: Deprecated
+ * ```
+ */
+export const GraphNodeFlagSchema = Schema.Struct({
+  /** Boolean node field whose truth marks the node */
+  field: Schema.String.annotate({
+    description:
+      'Boolean field on each node whose truth marks it. Names a field of the bound graph’s nodes, so it is an open string; a node from tables carries its `flagField` value under `flag`.',
+    examples: ['flag', 'deprecated'],
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  /** The word the accessible twin and the marked node’s `title` use */
+  label: Schema.String.annotate({
+    description:
+      'The word for a marked node, written in its accessible-twin row and as the marked node’s `title`. Required alongside `field`: a mark nobody can name is a mark a screen-reader user cannot read. Accepts a $t: key.',
+    examples: ['Deprecated'],
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+}).annotate({
+  identifier: 'GraphNodeFlag',
+  title: 'Graph Node Flag',
+  description:
+    'Marks each node whose `field` is true with one caution mark, in either layout, and names it: the node’s accessible-twin row says `label` and the drawn node carries it as its `title`. A node whose field is false or absent is drawn unmarked.',
+})
+
 // ---------------------------------------------------------------------------
 // Type exports
 //

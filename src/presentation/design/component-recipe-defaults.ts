@@ -25,13 +25,9 @@
  * recipe already lives in this directory (`input-default-classes.ts`), so there
  * is nothing to copy and nothing to drift.
  *
- * `button` reports the STRUCTURAL HEAD of its recipe. Its recipe lives in
- * `ui/sections/renderers/element-renderers/recipes/`, which is a
- * `presentation-component` and therefore closed to a `presentation-util` — the
- * same boundary `component-floor.ts` hits, and it is answered the same way: the
- * string is re-composed here and pinned by a test that asserts it appears
- * VERBATIM in the real recipe's output, so a divergence fails a unit test
- * rather than publishing a class list the renderer never emitted.
+ * `button` reports the STRUCTURAL HEAD of its recipe — base-nova's base, which
+ * the recipe exports — pinned by a test that asserts it appears VERBATIM in
+ * the real recipe's output for every variant.
  *
  * The HEAD specifically, and not an approximation of the whole: everything
  * after it in `filledClasses` varies with the instance's variant, size and
@@ -65,17 +61,16 @@
  * compiled stylesheet.)
  */
 
+import { BUTTON_BASE } from './button-default-classes'
 import { computeInputDefaultClasses } from './input-default-classes'
 
 /**
- * The invariant head of `computeButtonDefaultClasses`' filled branch.
+ * The invariant head of `computeButtonDefaultClasses`: base-nova's base.
  *
- * Pinned verbatim by `component-recipe-defaults.test.ts` against the real
- * recipe's output. Do not "tidy" the spacing: the test asserts containment of
- * this exact string.
+ * Pinned by `component-recipe-defaults.test.ts` against the real recipe's
+ * output for every variant.
  */
-export const BUTTON_ROOT_RECIPE_HEAD =
-  'inline-flex items-center justify-center gap-1.5 border font-medium whitespace-nowrap'
+export const BUTTON_ROOT_RECIPE_HEAD = BUTTON_BASE
 
 /**
  * The `swatch` root — a chip, the token's name, and whatever notations were

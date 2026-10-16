@@ -36,7 +36,6 @@ export const carouselFields = {
   visibility: galleryFields.visibility,
   dataSource: galleryFields.dataSource,
   autoSave: galleryFields.autoSave,
-  search: galleryFields.search,
   galleryCard: galleryFields.galleryCard,
   emptyMessage: galleryFields.emptyMessage,
 } as const

@@ -65,9 +65,10 @@ export function carryToast(toast: CarriedToast): void {
 /**
  * The toast a previous page carried here, cleared as it is read — or
  * `undefined` when there is none, it is older than a minute, or the storage
- * refuses. Self-contained like {@link carryToast}: the inline page runtime
- * inlines it through `String(takeCarriedToast)`, so the key and the lifetime
- * are written in its body (the unit test holds them to the constants above).
+ * refuses. The inline page runtime carries a literal TRANSCRIPTION of it
+ * (`render/scripts/carried-toast-reader-script.ts`), whose test executes both
+ * over the same stored payloads; the key and the lifetime are written in its
+ * body like {@link carryToast}'s (the unit test holds them to the constants).
  * The message comes back as a string for a renderer that sets it as TEXT; a
  * variant outside the renderers' list and a duration that is not a positive
  * delay are dropped.

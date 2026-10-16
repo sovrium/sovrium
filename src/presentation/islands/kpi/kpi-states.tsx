@@ -20,13 +20,14 @@ import type { ReactElement } from 'react'
  * host, the one element that names the KPI.
  */
 
-export function KpiLoading(): ReactElement {
+export function KpiLoading({ label }: { readonly label: string | undefined }): ReactElement {
   return (
     <div
       className={KPI_STACK_CLASSES}
       ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'loading' })}
       role="status"
-      aria-label="Loading KPI..."
+      data-loading-status=""
+      aria-label={label ?? 'Loading KPI...'}
     >
       {/* Two skeletons in the card header, where the label and the figure
           will sit, sized to the lines they stand in for. */}
@@ -47,12 +48,17 @@ export function KpiLoading(): ReactElement {
   )
 }
 
+/** The KPI's own words in the page language (`kpi.*`, `component.*`), where they differ from English. */
+type KpiStrings = Readonly<Record<string, string>> | undefined
+
 export function KpiError({
   error,
   label,
+  strings,
 }: {
   readonly error: unknown
   readonly label?: string
+  readonly strings: KpiStrings
 }): ReactElement {
   // GAP-I1: preserve the server-known label even in the error branch, so a
   // genuine fetch failure degrades the value region without dropping the card's
@@ -73,8 +79,15 @@ export function KpiError({
         </div>
       )}
       <div>
-        <p>Failed to load KPI records: {error instanceof Error ? error.message : String(error)}</p>
-        <p className="mt-1 opacity-80">Refresh the page to try again.</p>
+        <p>
+          {(strings?.['kpi.loadFailed'] ?? 'Failed to load KPI records: {error}').replace(
+            '{error}',
+            () => (error instanceof Error ? error.message : String(error))
+          )}
+        </p>
+        <p className="mt-1 opacity-80">
+          {strings?.['component.refreshToRetry'] ?? 'Refresh the page to try again.'}
+        </p>
       </div>
     </div>
   )
@@ -121,15 +134,18 @@ export function KpiRateLimited({
   )
 }
 
-export function KpiMissingTable(): ReactElement {
+export function KpiMissingTable({ strings }: { readonly strings: KpiStrings }): ReactElement {
   return (
     <div
       className="border-destructive/30 bg-destructive/10 text-destructive rounded-xl border p-3 text-sm"
       ref={useNamedHostAttributes<HTMLDivElement>('kpi', { 'data-kpi-state': 'missing-table' })}
       role="alert"
     >
-      <p>KPI is missing a dataSource.table binding.</p>
-      <p className="mt-1 opacity-80">Add it to this component in your app config, then redeploy.</p>
+      <p>{strings?.['kpi.missingTable'] ?? 'KPI is missing a dataSource.table binding.'}</p>
+      <p className="mt-1 opacity-80">
+        {strings?.['component.configHint'] ??
+          'Add it to this component in your app config, then redeploy.'}
+      </p>
     </div>
   )
 }

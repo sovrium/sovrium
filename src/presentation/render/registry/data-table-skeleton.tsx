@@ -44,11 +44,13 @@ function SkeletonCells({ kind }: { readonly kind: 'header' | 'data' }): ReactEle
  * pulse bars, so the grid that hydrates over it keeps its shape. It is laid out
  * with CSS table display rather than a `<table>` element: a `<table>` in a grid
  * host is the sign the grid has hydrated, and a placeholder must not give it.
+ * `label` is its status name in the page language (`datatable.loadingTable`).
  */
-export function DataTableSkeleton(): ReactElement {
+export function DataTableSkeleton({ label }: { readonly label: string }): ReactElement {
   return (
     <div
-      aria-label="Loading data table..."
+      data-loading-status=""
+      aria-label={label}
       role="status"
       data-slot="table-container"
       className={computeStaticTableContainerClasses()}

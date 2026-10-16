@@ -5,14 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { GraphFlagDot } from '@/presentation/islands/graph/graph-flag-dot'
 import { COLUMN_WIDTH, NODE_HEIGHT } from '@/presentation/islands/graph/graph-layout'
 import {
   DIMMED_OPACITY,
   GRAPH_EDGE_CLASS,
   edgeWidthOf,
+  flagMark,
   nodeBoxClassOf,
   nodeClassOf,
   nodeOpacityOf,
+  nodeTitleOf,
   stateMark,
   useNodeInteraction,
 } from '@/presentation/islands/graph/graph-node-interaction'
@@ -124,7 +127,12 @@ function LaneCaption({
           {node.detail}
         </text>
       )}
-      <title>{node.detail === undefined ? node.label : `${node.label} — ${node.detail}`}</title>
+      <GraphFlagDot
+        flag={node.flag}
+        x={GLYPH_CX + GLYPH_RADIUS + 2}
+        y={top + GLYPH_DY - GLYPH_RADIUS}
+      />
+      <title>{nodeTitleOf(node)}</title>
     </>
   )
 }
@@ -157,6 +165,7 @@ export function LaneIdentity({
       data-graph-node={node.id}
       data-graph-node-kind={node.kind}
       {...stateMark(node.state)}
+      {...flagMark(node.flag)}
       {...marks}
       {...interaction}
       className={nodeClassOf(selectable)}
@@ -234,6 +243,7 @@ export function LaneStation({
       data-graph-node-kind={station.kind}
       data-graph-station={station.index}
       {...stateMark(station.state)}
+      {...flagMark(station.flag)}
       {...marks}
       {...interaction}
       className={nodeClassOf(selectable)}
@@ -256,7 +266,12 @@ export function LaneStation({
         station={station}
         clipId={clipId}
       />
-      <title>{station.label}</title>
+      <GraphFlagDot
+        flag={station.flag}
+        x={station.x + COLUMN_WIDTH - 9}
+        y={station.y + 9}
+      />
+      <title>{nodeTitleOf(station)}</title>
     </g>
   )
 }

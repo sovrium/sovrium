@@ -67,7 +67,7 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 
 /** This page's own slug and the noun it carries in the trail and the `h1`. */
 const SLUG = 'foundations'
-const TITLE = 'Foundations'
+const TITLE = '$t:admin.common.foundations'
 
 /**
  * The seven regions, in reading order — the rail is derived from this list.
@@ -89,13 +89,13 @@ const TITLE = 'Foundations'
  * because they are the only one about the window rather than the page.
  */
 const SECTIONS: readonly RailSection[] = [
-  { id: 'colour', title: 'Colour' },
-  { id: 'type', title: 'Type' },
-  { id: 'space', title: 'Space' },
-  { id: 'shape', title: 'Shape' },
-  { id: 'elevation', title: 'Elevation' },
-  { id: 'motion', title: 'Motion' },
-  { id: 'breakpoints', title: 'Breakpoints' },
+  { id: 'colour', title: '$t:admin.ds.found.colour' },
+  { id: 'type', title: '$t:admin.common.type' },
+  { id: 'space', title: '$t:admin.ds.found.space' },
+  { id: 'shape', title: '$t:admin.ds.found.shape' },
+  { id: 'elevation', title: '$t:admin.ds.found.elevation' },
+  { id: 'motion', title: '$t:admin.ds.found.motion' },
+  { id: 'breakpoints', title: '$t:admin.ds.found.breakpoints' },
 ]
 
 /** A region, addressed by name rather than by its position in the list above. */
@@ -144,11 +144,11 @@ const copyControl = (label: string): PageComponent =>
       className:
         'text-foreground-subtle hover:text-foreground shrink-0 font-mono text-[10px] leading-none',
       'data-copy-code': 'true',
-      'data-copied-label': 'Copied',
+      'data-copied-label': '$t:admin.common.copied',
       'aria-label': label,
       ...kitType('button'),
     },
-    content: 'copy',
+    content: '$t:admin.ds.found.copyShort',
   }) as PageComponent
 
 /** The value block's own `data-copy-target`, which the notation below wraps. */
@@ -213,13 +213,13 @@ const contrastBadge = (input: {
       'data-design-contrast-against': input.against,
     },
     children: [
-      mono(`on ${input.against} · ${input.ratio}:1 `, ''),
+      mono(`$t:admin.ds.found.on ${input.against} · ${input.ratio}:1 `, ''),
       {
         type: 'text',
         element: 'span',
         props: { className: '' },
         visibility: { record: { field: input.level.slice('$record.'.length), eq: 'fail' } },
-        content: 'fails AA',
+        content: '$t:admin.ds.found.failsAa',
       } as PageComponent,
       {
         type: 'text',
@@ -259,16 +259,16 @@ const schemeBlock = (input: {
       'data-design-color-gamut': input.gamut,
     },
     children: [
-      copyableNotation(input.hex, `Copy the hex value (${input.hex})`, {
+      copyableNotation(input.hex, `$t:admin.ds.found.copyHex (${input.hex})`, {
         record: { field: input.gamutField, eq: 'srgb' },
       }),
-      copyableNotation(input.value, `Copy the declared value (${input.value})`),
+      copyableNotation(input.value, `$t:admin.ds.found.copyValue (${input.value})`),
       {
         type: 'text',
         element: 'span',
         props: { className: 'text-foreground-subtle text-[10px] leading-snug' },
         visibility: { record: { field: input.gamutField, eq: 'wide' } },
-        content: 'Outside sRGB — no faithful hex',
+        content: '$t:admin.ds.found.outsideSrgb',
       } as PageComponent,
       {
         type: 'container',
@@ -379,10 +379,7 @@ const darkContrastNote = (): PageComponent =>
         type: 'text',
         element: 'p',
         props: { className: `text-foreground-subtle ${MEASURE_MD} text-md leading-relaxed` },
-        content:
-          'This app declares no dark colours, so these values come from the platform cascade and ' +
-          'cannot be measured here. Declare design.darkColors to publish dark values and their ' +
-          'contrast.',
+        content: '$t:admin.ds.found.noDark',
       },
     ],
   }) as PageComponent
@@ -431,7 +428,7 @@ const seriesBlock = (): readonly PageComponent[] => [
     element: 'div',
     props: { className: 'flex flex-col gap-2', 'data-design-series': 'true' },
     children: [
-      microLabel('Data series'),
+      microLabel('$t:admin.ds.found.series'),
       {
         type: 'container',
         element: 'div',
@@ -485,7 +482,7 @@ const stateVocabularyBlock = (): readonly PageComponent[] => [
     element: 'div',
     props: { className: 'flex flex-col gap-2', 'data-design-state-vocabulary': 'true' },
     children: [
-      microLabel('State'),
+      microLabel('$t:admin.common.state'),
       {
         type: 'container',
         element: 'div',
@@ -521,7 +518,7 @@ const densityBlock = (): readonly PageComponent[] => [
     element: 'div',
     props: { className: 'flex flex-col gap-2', 'data-design-density-demo': 'true' },
     children: [
-      microLabel('Density'),
+      microLabel('$t:admin.ds.found.density'),
       {
         type: 'container',
         element: 'div',
@@ -546,7 +543,7 @@ const densityBlock = (): readonly PageComponent[] => [
                   style: { height: 'var(--sv-density-button-h)' },
                   'data-design-density-slot': 'button-h',
                 },
-                content: 'Small button',
+                content: '$t:admin.ds.found.smallButton',
               },
               mono('density.buttonH', 'text-foreground-subtle font-mono text-[11px]'),
             ],
@@ -570,7 +567,7 @@ const densityBlock = (): readonly PageComponent[] => [
                     type: 'text',
                     element: 'span',
                     props: { className: 'text-md' },
-                    content: 'A field, at control height',
+                    content: '$t:admin.ds.found.fieldSample',
                   },
                 ],
               } as PageComponent,
@@ -614,14 +611,12 @@ const colourSection = (): PageComponent =>
   ])
 
 /** The sentence every face is set in, long enough to show how it sets a paragraph. */
-const TYPE_SPECIMEN_SENTENCE =
-  'The quick brown fox jumps over the lazy dog, and keeps reading long enough to show how this ' +
-  'face sets a paragraph.'
+const TYPE_SPECIMEN_SENTENCE = '$t:admin.ds.found.paragraph'
 
 /** Type: one specimen per declared face, set in that face. */
 const typeSection = (): PageComponent =>
   anchoredSection(region('type'), [
-    microLabel('Faces'),
+    microLabel('$t:admin.ds.found.faces'),
     {
       type: 'container',
       element: 'div',
@@ -653,14 +648,14 @@ const typeSection = (): PageComponent =>
         } as PageComponent,
       ],
     } as PageComponent,
-    microLabel('Ladder'),
+    microLabel('$t:admin.ds.found.ladder'),
     ...typeScaleBlock(),
-    microLabel('Emphasis'),
+    microLabel('$t:admin.ds.found.emphasis'),
     ...emphasisBlock(),
   ])
 
 /** The one sentence every ladder step is set in. */
-const LADDER_SENTENCE = 'The quick brown fox jumps over the lazy dog'
+const LADDER_SENTENCE = '$t:admin.ds.found.pangram'
 
 /** Where an author reads what declaring a type scale buys them. */
 const TYPE_SCALE_DOC_HREF = 'https://sovrium.com/en/docs/design-type-scale'
@@ -713,7 +708,7 @@ const platformLadder = (): PageComponent =>
     element: 'div',
     props: { className: 'flex flex-col gap-2' },
     children: [
-      microLabel('Platform ladder, in force'),
+      microLabel('$t:admin.ds.found.platformLadder'),
       {
         type: 'container',
         element: 'div',
@@ -809,10 +804,7 @@ const typeScaleBlock = (): readonly PageComponent[] => [
             props: { className: 'flex flex-col gap-3' },
             visibility: { record: { field: 'count', eq: 0 } },
             children: [
-              note(
-                'This app declares no type scale, so text renders at the platform ladder ' +
-                  'below and no named step of its own is emitted.'
-              ),
+              note('$t:admin.ds.found.noTypeScale'),
               {
                 type: 'link',
                 props: {
@@ -820,7 +812,7 @@ const typeScaleBlock = (): readonly PageComponent[] => [
                   className:
                     'text-foreground hover:text-muted-foreground self-start text-sm font-medium',
                 },
-                content: 'Declare design.typeScale.steps to publish your own →',
+                content: '$t:admin.ds.found.declareSteps',
               },
               platformLadder(),
             ],
@@ -870,13 +862,7 @@ const spacingBlock = (): readonly PageComponent[] => [
         element: 'div',
         props: { className: 'contents' },
         visibility: { record: { field: 'declared', eq: false } },
-        children: [
-          note(
-            'This app declares no spacing scale. Sovrium components space themselves with ' +
-              'Tailwind utilities rather than through a token, so there is nothing to override ' +
-              'until you declare design.spacing.'
-          ),
-        ],
+        children: [note('$t:admin.ds.found.noSpacing')],
       } as PageComponent,
     ],
   } as PageComponent,
@@ -925,13 +911,13 @@ const breakpointsBlock = (): readonly PageComponent[] => [
     props: { className: 'flex flex-col', 'data-design-breakpoint-list': 'true' },
     children: [
       ledgerTable({
-        props: { 'aria-label': 'Breakpoints' },
+        props: { 'aria-label': '$t:admin.ds.found.breakpoints' },
         dataSource: tokenRows('breakpoint'),
         columns: [
-          { field: 'leaf', label: 'Breakpoint' },
-          { field: 'value', label: 'Switches at' },
+          { field: 'leaf', label: '$t:admin.ds.found.breakpoint' },
+          { field: 'value', label: '$t:admin.ds.found.switchesAt' },
         ],
-        emptyMessage: 'No breakpoint published.',
+        emptyMessage: '$t:admin.ds.found.noBreakpoint',
       }),
     ],
   } as PageComponent,
@@ -978,7 +964,7 @@ const motionBlock = (): readonly PageComponent[] => [
     element: 'div',
     props: { className: 'flex flex-col gap-2', 'data-design-durations': 'true' },
     children: [
-      microLabel('Duration'),
+      microLabel('$t:admin.ds.found.duration'),
       {
         type: 'container',
         element: 'div',
@@ -1007,7 +993,7 @@ const motionBlock = (): readonly PageComponent[] => [
     element: 'div',
     props: { className: 'flex flex-col gap-2', 'data-design-easing-curves': 'true' },
     children: [
-      microLabel('Easing'),
+      microLabel('$t:admin.ds.found.easing'),
       {
         type: 'container',
         element: 'div',
@@ -1065,7 +1051,7 @@ const surfacesBlock = (): readonly PageComponent[] => [
     element: 'div',
     props: { className: 'grid gap-4 md:grid-cols-2' },
     children: [
-      inPlace('Card on the page background', [
+      inPlace('$t:admin.ds.found.cardSample', [
         {
           type: 'container',
           element: 'article',
@@ -1077,12 +1063,12 @@ const surfacesBlock = (): readonly PageComponent[] => [
               type: 'text',
               element: 'p',
               props: { className: 'text-foreground text-md font-medium' },
-              content: 'Raised surface',
+              content: '$t:admin.ds.found.raised',
             },
           ],
         } as PageComponent,
       ]),
-      inPlace('Subtle surface', [
+      inPlace('$t:admin.ds.found.subtle', [
         {
           type: 'container',
           element: 'div',
@@ -1094,7 +1080,7 @@ const surfacesBlock = (): readonly PageComponent[] => [
               type: 'text',
               element: 'p',
               props: { className: 'text-foreground text-md font-medium' },
-              content: 'Subtle surface',
+              content: '$t:admin.ds.found.subtle',
             },
           ],
         } as PageComponent,
@@ -1128,19 +1114,19 @@ const emphasisBlock = (): readonly PageComponent[] => [
     props: { className: 'flex flex-col' },
     children: [
       emphasisRow(
-        'Primary',
+        '$t:admin.ds.found.primary',
         'text-foreground text-md font-medium',
-        'The one action a reader is meant to take on this screen.'
+        '$t:admin.ds.found.primaryDesc'
       ),
       emphasisRow(
-        'Muted',
+        '$t:admin.ds.found.muted',
         'text-muted-foreground text-md',
-        'Present, readable, and clearly not the thing to click.'
+        '$t:admin.ds.found.mutedDesc'
       ),
       emphasisRow(
-        'Disabled',
+        '$t:admin.common.disabled',
         'text-foreground-disabled text-md',
-        'Visible so its position is stable, dimmed so it reads as inert.'
+        '$t:admin.ds.found.disabledDesc'
       ),
     ],
   } as PageComponent,
@@ -1212,14 +1198,14 @@ const disclosureSection = (): readonly PageComponent[] => [
     type: 'text',
     element: 'h3',
     props: { className: 'text-foreground text-md font-semibold tracking-tight' },
-    content: 'Declared, and not a token',
+    content: '$t:admin.ds.found.notToken',
   } as PageComponent,
   {
     type: 'container',
     element: 'div',
     props: { className: 'flex flex-col gap-2' },
     children: [
-      microLabel('Inert — validated, then read by no renderer'),
+      microLabel('$t:admin.ds.found.inert'),
       {
         type: 'container',
         element: 'div',
@@ -1234,7 +1220,7 @@ const disclosureSection = (): readonly PageComponent[] => [
     element: 'div',
     props: { className: 'flex flex-col gap-2' },
     children: [
-      microLabel('Shipped, with no faithful DTCG form'),
+      microLabel('$t:admin.ds.found.noDtcg'),
       {
         type: 'container',
         element: 'div',
@@ -1252,11 +1238,8 @@ const foundations: PageConfig = withShell(
     name: 'design-system-foundations',
     path: `/design-system/${SLUG}`,
     meta: {
-      lang: 'en-US',
       title: TITLE,
-      description:
-        'Every token this app renders with, drawn at the value it resolves to in the scheme you ' +
-        'are reading.',
+      description: '$t:admin.ds.found.blurb',
     },
     scripts: { inlineScripts: [{ code: SCHEME_DEEP_LINK_SCRIPT, position: 'head' }] },
     // The ONE gate no rows binding can answer: whether this app declared a dark

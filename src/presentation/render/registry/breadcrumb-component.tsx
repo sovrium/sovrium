@@ -6,6 +6,7 @@
  */
 
 import { Fragment, type ReactElement } from 'react'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import {
   BREADCRUMB_ELLIPSIS_CLASSES,
   BREADCRUMB_ELLIPSIS_TRIGGER_CLASSES,
@@ -262,7 +263,7 @@ const collapsedCrumb = (content: ReactElement, separator: string): ReactElement 
  * — the two forms then share one set of markup and accessibility semantics and
  * cannot drift apart.
  *
- * THE AUTHOR'S `aria-label` WINS, and `Breadcrumb` is the default: a SECOND
+ * THE AUTHOR'S `aria-label` WINS, and `breadcrumb.label` is the default: a SECOND
  * trail in the same document (a specimen of this type, a sub-trail inside a
  * panel) must be able to name itself, since two navigation landmarks sharing
  * one name is a defect for anyone cycling landmarks.
@@ -290,7 +291,9 @@ export function renderBreadcrumb({
   const separator = comp?.separator ?? '/'
   const { 'data-testid': dataTestId, ...rest } = omitInternalMarkers(elementPropsWithSpacing)
   const className = rest.className as string | undefined
-  const ariaLabel = (rest['aria-label'] as string | undefined) ?? 'Breadcrumb'
+  const ariaLabel =
+    (rest['aria-label'] as string | undefined) ??
+    resolveInterpreterString('breadcrumb.label', currentLang, languages)
   const trail = collapseTrail(items, comp?.maxItems)
   const drawn = [...trail.head, ...trail.tail]
   const crumb = crumbRenderer(drawn.length - 1, separator, currentLang, languages)
@@ -313,7 +316,7 @@ export function renderBreadcrumb({
               renderCollapsedCrumbs(trail.hidden, comp?.collapse, {
                 currentLang,
                 languages,
-                label: 'More',
+                label: resolveInterpreterString('breadcrumb.more', currentLang, languages),
               }),
               separator
             )}

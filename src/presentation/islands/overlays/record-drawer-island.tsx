@@ -59,23 +59,27 @@
  * still blank pre-load registers no edit and silently reverts on arrival.)
  */
 
-import { optionalBodyProps, recordTitle } from './record-drawer-body-props'
-import { DrawerContent, type DrawerContentProps } from './record-drawer-content'
-import { withDrawerNavigation, type DrawerNavigationProps } from './record-drawer-navigation-slot'
-import { useRelatedSlot, type RelatedSlotProps } from './record-drawer-related-slot'
-import { useRecordSave } from './record-drawer-save'
+import { DrawerBody } from './record-drawer-body'
 import { DialogSurface, RegionSurface } from './record-drawer-surfaces'
-import { useRecordDrawer, useDrawerRecord, useDrawerHandlers } from './use-record-drawer'
+import { useRecordSheet } from './use-record-drawer-sheet'
 import type { DrawerAction } from './record-drawer-actions'
 import type { RecordDrawerField } from './record-drawer-field'
+import type { GenericSheet } from './record-drawer-generic'
+import type { DrawerBuiltInLabels } from './record-drawer-labels'
+import type { DrawerNavigationProps } from './record-drawer-navigation-slot'
+import type { RelatedSlotProps } from './record-drawer-related-slot'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
 import type { RecordTextFields } from '@/domain/models/app/tables/record-text-service'
 import type { ReactElement } from 'react'
 
-interface RecordDrawerIslandProps extends RelatedSlotProps, DrawerNavigationProps {
+export interface RecordDrawerIslandProps extends RelatedSlotProps, DrawerNavigationProps {
   readonly id?: string
   /** Accessible NAME of the surface (CAP-2). Defaults to the legacy label. */
   readonly title?: string
+  /** The sheet declares no title: its record names it. */
+  readonly titleFromRecord?: boolean
+  /** A generic sheet's tabs, menu, footer and "Linked from". */
+  readonly generic?: GenericSheet
   /** Accessible ROLE of the surface (CAP-2): `dialog` (default) | `region`. */
   readonly role?: 'dialog' | 'region'
   readonly table?: string
@@ -116,34 +120,26 @@ interface RecordDrawerIslandProps extends RelatedSlotProps, DrawerNavigationProp
   readonly saveLabel?: string
   /** The Save's in-flight word (`form.saving`). */
   readonly savingLabel?: string
-  /** A button field's in-flight word (`action.running`). */
-  readonly runningLabel?: string
+  /** A button field's `action.*` words (in-flight, outcome), where they differ from English. */
+  readonly actionStrings?: Readonly<Record<string, string>>
   readonly closeLabel?: string
   /** A refused save's message (`form.operationFailed`). */
   readonly saveFailedLabel?: string
   /** What a drawer says of a record it cannot show (`recordDrawer.notFound`). */
   readonly notFoundLabel?: string
+  /** The other words the drawer draws on its own (`record-drawer-labels.ts`). */
+  readonly builtInLabels?: DrawerBuiltInLabels
   /** The author's `props.className`, added to the surface the reader sees. */
   readonly className?: string
 }
 
-const EMPTY_FIELDS: ReadonlyArray<RecordDrawerField> = []
-const EMPTY_ACTIONS: ReadonlyArray<DrawerAction> = []
 /** Platform-default (English) fallbacks — the SSR host normally supplies these. */
 const DEFAULT_TITLE = 'Record details'
 const DEFAULT_SAVE_LABEL = 'Save'
 const DEFAULT_CLOSE_LABEL = 'Close'
-const DEFAULT_NOT_FOUND_LABEL = 'This record could not be found.'
 
-/**
- * Build the shared record body (CAP-1 actions + CAP-3 structured fields + the
- * read-only display) — both surfaces and both bindings render THIS one body.
- * Lifted out of the island component so that function stays inside the
- * per-function line budget islands are held to.
- */
-function renderDrawerBody(props: DrawerContentProps): ReactElement {
-  return <DrawerContent {...props} />
-}
+/** The surface's interpreter-provided strings, resolved against the app language by the host. */
+export type DrawerLabels = ReturnType<typeof resolveDrawerLabels>
 
 /**
  * The surface's three interpreter-provided strings. The SSR host resolves them
@@ -164,72 +160,32 @@ function resolveDrawerLabels(props: RecordDrawerIslandProps): {
   }
 }
 
-/**
- * A record the records API answers `404` — missing, or one its reader may not
- * read — shows the same state either way: nothing to edit, nothing to save.
- */
-function notFoundBody(label: string | undefined): ReactElement {
-  return <p className="text-muted-foreground text-md">{label ?? DEFAULT_NOT_FOUND_LABEL}</p>
-}
-
 /** Record-drawer island — the schema-derived record-detail/edit drawer. */
 export default function RecordDrawerIsland(props: RecordDrawerIslandProps): ReactElement | null {
-  const {
-    id,
-    role = 'dialog',
-    table,
-    system,
-    recordFields = EMPTY_FIELDS,
-    actions = EMPTY_ACTIONS,
-    canEdit = true,
-  } = props
   const labels = resolveDrawerLabels(props)
-  const drawer = useRecordDrawer(id, table, system, props.deepLink !== false)
-  const { open, setOpen, recordId, values, setValues, loading } = drawer
-  const record = useDrawerRecord(system, recordId, drawer.record, props.recordText)
-  const { error, setError, onChange, onClose } = useDrawerHandlers(setValues, setOpen)
-  const saved = { recordFields, values, table, recordId, setOpen, setError }
-  const onSave = useRecordSave({ ...saved, failedLabel: props.saveFailedLabel })
-  const slot = useRelatedSlot(
-    props,
-    { open, recordId, save: labels.save, saving: labels.saving },
-    onClose
-  )
-  const related = withDrawerNavigation(props, { record, recordId }, slot)
-  const body = drawer.notFound
-    ? notFoundBody(props.notFoundLabel)
-    : renderDrawerBody({
-        fields: recordFields,
-        values,
-        record,
-        canEdit,
-        loading,
-        actions,
-        onChange,
-        onSave,
-        onClose,
-        saveLabel: labels.save,
-        savingLabel: labels.saving,
-        ...(props.runningLabel === undefined ? {} : { runningLabel: props.runningLabel }),
-        ...optionalBodyProps(error, table, props.childrenHtml, related),
-      })
-
+  const sheet = useRecordSheet(props, labels)
   const surface = {
-    title: recordTitle(labels.title, record),
-    body,
+    title: sheet.stacked?.title ?? sheet.title,
+    body: (
+      <DrawerBody
+        props={props}
+        labels={labels}
+        sheet={sheet}
+      />
+    ),
     closeLabel: labels.close,
-    open,
+    open: sheet.drawer.open,
     className: props.className,
   }
-  return role === 'region' ? (
+  return props.role === 'region' ? (
     <RegionSurface
       {...surface}
-      onClose={onClose}
+      onClose={sheet.content.onClose}
     />
   ) : (
     <DialogSurface
       {...surface}
-      onOpenChange={setOpen}
+      onOpenChange={sheet.drawer.setOpen}
     />
   )
 }

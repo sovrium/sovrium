@@ -106,6 +106,7 @@ export function formatSummaryValue(
   return formatCellValue(value, column.format, context.locale, {
     currency: resolveCurrencyOptions(context.fieldMeta?.[item.field]),
     timeZone: resolvePageTimezone(),
+    durationUnit: context.fieldMeta?.[item.field]?.type === 'duration' ? 'seconds' : undefined,
   })
 }
 

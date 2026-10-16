@@ -100,7 +100,7 @@ export const section = defineSection({
       slug: 'search-components',
       title: 'Search Components',
       description:
-        'The components that put a search box on a page — `search-input` and its two scopes, the `list` result display, the ⌘K palette, and the in-component toolbar box.',
+        'The components that put a search box on a page — `search-input` and its two roles, the `list` result display, and the ⌘K palette.',
       keywords: [
         'sovrium',
         'search-input',

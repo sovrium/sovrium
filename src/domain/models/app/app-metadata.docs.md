@@ -1,11 +1,12 @@
 # App Metadata
 
-> The `name`, `version`, `description` and `badge` root properties — naming rules, Semantic Versioning, and the "Built with Sovrium" badge with its one-line removal.
+> The `name`, `displayName`, `version`, `description` and `badge` root properties — naming rules, the name people read, Semantic Versioning, and the "Built with Sovrium" badge with its one-line removal.
 
-Four scalar root properties shape your application's identity. Only `name` is required. The first three anchor the append-only version history; `badge` controls the attribution pill.
+Five scalar root properties shape your application's identity. Only `name` is required. `name`, `version` and `description` anchor the append-only version history; `displayName` is the name people read; `badge` controls the attribution pill.
 
 ```yaml
 name: '@acme/crm'
+displayName: Acme CRM # optional — the name people read
 version: 2.1.0
 description: 'A CRM workspace for managing contacts, deals, and tasks.'
 badge: false # optional — removes the "Built with Sovrium" badge
@@ -20,6 +21,19 @@ Scoped names are allowed — `@acme/dashboard` — and the whole string, scope i
 ```yaml
 name: '@acme/dashboard'
 ```
+
+## `displayName`
+
+The name people read, where `name` stays the identifier: `Acme CRM` for an app named `acme-crm`, `Café Dupont` for `cafe-dupont`. Capitals, spaces, accents and apostrophes are all accepted — everything `name` refuses because it also has to work in an address.
+
+```yaml
+name: acme-crm
+displayName: Acme CRM
+```
+
+It is what the app's chrome prints: the operator console's sidebar and breadcrumb, the sign-in card, the default home page's heading and title, and `$app.label` in a page's text. `$app.name` still prints `name`.
+
+One line, at most 100 characters, neither blank nor starting or ending with a space. Optional: without it, each of those surfaces prints what it printed before the key existed — `name` exactly as declared, or for `$app.label` the name in title case (`acme-crm` → `Acme Crm`).
 
 ## `version`
 

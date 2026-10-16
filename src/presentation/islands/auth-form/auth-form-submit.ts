@@ -13,6 +13,7 @@ import { showSuccessToast } from '../parts/crud-form/toast'
 import { authClient } from '../runtime/auth-client'
 import { type AuthFormField } from './auth-form-validation'
 import { successMoveAddress } from './auth-success-move'
+import { signInDestination } from './sign-in-destination'
 import { trackSignIn } from './sign-in-in-flight'
 
 // Re-exported so existing importers of `auth-form-submit` keep working.
@@ -50,18 +51,6 @@ function pickCredentials(
     password: passwordField ? (values[passwordField.name] ?? '') : '',
   }
 }
-
-/**
- * Where a sign-in sends the reader: the page's own `?callbackURL=` when it is a
- * same-origin path — the way back a page that sent the reader here to sign in
- * (the OAuth consent screen) asked for — and the form's configured destination
- * otherwise. The query value is untrusted, so only `toSafeRedirectPath` output
- * is ever used; anything else falls back to `configured`.
- */
-const signInDestination = (configured: string | undefined): string | undefined =>
-  toSafeRedirectPath(
-    new URLSearchParams(globalThis.location?.search ?? '').get('callbackURL') ?? undefined
-  ) ?? configured
 
 /**
  * The banner a password sign-in shows when the account still owes its second

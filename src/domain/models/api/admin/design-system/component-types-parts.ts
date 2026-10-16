@@ -331,15 +331,11 @@ export const componentTypeRouteSchema = Schema.Struct({
 /**
  * Another catalogued type in the same category — the "related" rail.
  *
- * EVERY sibling, in category order, never a prev/next pair. The page draws them
- * as a list of links rather than as two arrows, and a pair would make the
- * section's meaning depend on where the reader entered it.
+ * EVERY sibling, in category order, never a prev/next pair: a pair would make
+ * the list's meaning depend on where the reader entered it.
  *
- * `href` rides along rather than being composed from `type`, because composing
- * it is a string operation and a config page has none: a template writing
- * `/design-system/ui-kit/$record.type` would work only while the console keeps
- * that exact shape, which is the coupling `href` on the summary row already
- * exists to remove.
+ * No `href`: the per-type console page a sibling once linked to is gone, and an
+ * address that answers 404 is worse than none.
  *
  * The type ITSELF is excluded. A "related" list that includes the page you are
  * on documents a relationship a reader cannot use, and the exclusion is a
@@ -350,11 +346,6 @@ export const componentTypeSiblingSchema = Schema.Struct({
   type: Schema.String.annotate({
     description: 'The sibling type literal, exactly as an author writes it in config',
     examples: ['checkbox'],
-  }),
-  href: Schema.String.annotate({
-    description:
-      'Mount-relative route of that sibling’s own page, carried rather than composed — a config page has no string operations.',
-    examples: ['/design-system/ui-kit/checkbox'],
   }),
 }).annotate({
   strictKeys: true,

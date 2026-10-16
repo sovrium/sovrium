@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { NavigateActionSchema, ToastActionSchema } from '../../action-client'
+import { VisibilitySchema } from '../../visibility'
 import { coreFields } from '../modules/core'
 import { visibilityFields } from '../modules/visibility'
 
@@ -112,14 +113,48 @@ export type CommandPaletteSearch = Schema.Schema.Type<typeof CommandPaletteSearc
  * so is absent from `ENGINE_COMPONENT_TYPES`: a `design.components` entry for
  * it could only ever be a no-op.
  */
-/** One authored command: what it is called, its icon and keys, and where it goes or what it does. */
+/**
+ * One authored command: what it is called, its icon and keys, and where it goes
+ * or what it does.
+ *
+ * ─── `$query` — THE WORDS TYPED SO FAR ─────────────────────────────────────
+ *
+ * An item's `label` and `href` may carry `$query`, replaced in the browser by
+ * what the reader has typed into the palette (URL-encoded in `href`). It is the
+ * palette's OWN term and only its own: bare `$query`, with no `.name`, is not
+ * the page's `$query.<name>` URL property, which is resolved on the server and
+ * never reaches an item. An item reading the typed words always matches them,
+ * so typing never narrows it away.
+ *
+ * With nothing typed, a sentence about the typed words would read broken, so
+ * such an item shows `emptyLabel` instead — or is not drawn when it declares
+ * none.
+ *
+ * ─── `visibility` — THE SAME GATE A COMPONENT TAKES ───────────────────────
+ *
+ * The struct every component carries, resolved on the server before the
+ * palette's config reaches the browser: an item or a group whose conditions do
+ * not hold is absent from the page, not hidden in it. That is how an "ask the
+ * assistant" row exists only where a model can answer and the reader may act.
+ */
 const CommandItemSchema = Schema.Struct({
   label: Schema.String.pipe(
     Schema.annotate({
-      description: "The item's label, which typing matches; accepts a $t: key",
-      examples: ['Invoices'],
+      description:
+        "The item's label, which typing matches; accepts a $t: key. May carry `$query`, the words typed so far, in which case typing never narrows the item away.",
+      examples: ['Invoices', 'Ask "$query" about this app'],
     }),
     Schema.check(Schema.isMinLength(1))
+  ),
+  emptyLabel: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'The label shown while nothing is typed, for an item whose `label` carries `$query`. Absent, such an item is not drawn until the reader types. Accepts a $t: key.',
+        examples: ['Ask about this app'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
   ),
   icon: Schema.optional(
     Schema.String.annotate({
@@ -128,7 +163,11 @@ const CommandItemSchema = Schema.Struct({
     })
   ),
   href: Schema.optional(
-    Schema.String.annotate({ description: 'Where choosing the item goes', examples: ['/invoices'] })
+    Schema.String.annotate({
+      description:
+        'Where choosing the item goes. May carry `$query`, replaced by the words typed so far, URL-encoded.',
+      examples: ['/invoices', '/?q=$query'],
+    })
   ),
   shortcut: Schema.optional(
     Schema.Array(Schema.String).annotate({
@@ -142,6 +181,7 @@ const CommandItemSchema = Schema.Struct({
         'What choosing the item does instead of going somewhere: a toast or a navigation. The command closes first.',
     })
   ),
+  visibility: Schema.optional(VisibilitySchema),
 }).annotate({
   identifier: 'CommandItem',
   title: 'Command Item',
@@ -161,6 +201,7 @@ const CommandGroupSchema = Schema.Struct({
     Schema.annotate({ description: "The group's commands, in order" }),
     Schema.check(Schema.isMinLength(1))
   ),
+  visibility: Schema.optional(VisibilitySchema),
 }).annotate({
   identifier: 'CommandGroup',
   title: 'Command Group',
@@ -178,12 +219,16 @@ export const commandPaletteFields = {
   /**
    * Authored groups of commands, in place of the built-in quick actions:
    * typing narrows the items across groups, and hides a group left empty.
+   *
+   * In search mode they are KEPT, drawn above the endpoint's result groups and
+   * narrowed by typing exactly as without `search`, so a searching palette can
+   * offer rows of its own. An app wanting the results alone drops `groups`.
    */
   groups: Schema.optional(
     Schema.Array(CommandGroupSchema).pipe(
       Schema.annotate({
         description:
-          'Named groups of authored commands shown in place of the built-in quick actions; typing narrows the items across groups. Ignored in search mode.',
+          'Named groups of authored commands shown in place of the built-in quick actions; typing narrows the items across groups. With `search`, they are drawn above the result groups and narrowed the same way.',
       }),
       Schema.check(Schema.isMinLength(1))
     )

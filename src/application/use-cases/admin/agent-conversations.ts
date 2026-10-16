@@ -52,14 +52,17 @@ function toIso(raw: Readonly<Date> | string): string {
 
 /**
  * Build a canonical conversation list item from a raw row. Pure — the row is
- * supplied by the caller (sourced via the repository). Omits `userId`,
- * `agentId`, and `metadata` by construction (the row never carried them — S4).
+ * supplied by the caller (sourced via the repository). Names the owner by id
+ * and display name; omits their email, `agentId` and `metadata` by
+ * construction (the row never carried them — S4).
  */
 function buildConversationItem(row: AdminAgentConversationRow): AgentConversationListItem {
   return {
     id: row.id,
     title: row.title,
     sessionId: row.sessionId,
+    userId: row.userId,
+    userName: row.userName,
     messageCount: row.messageCount,
     lastActivityAt: toIso(row.updatedAt),
     createdAt: toIso(row.createdAt),
@@ -145,6 +148,8 @@ export interface AgentConversationsListInput {
    * and length-checked by `searchTermSchema`. `undefined` means "no search".
    */
   readonly q?: string | undefined
+  /** Exact account id narrowing the list to that account's conversations. */
+  readonly userId?: string | undefined
   readonly cursor?: string | undefined
   readonly limit: number
 }
@@ -166,6 +171,7 @@ function buildListFilters(
     ...(input.from !== undefined ? { from: input.from } : {}),
     ...(input.to !== undefined ? { to: input.to } : {}),
     ...(input.q !== undefined ? { q: input.q } : {}),
+    ...(input.userId !== undefined ? { userId: input.userId } : {}),
     ...(decoded !== null ? { cursor: decoded } : {}),
     limit: input.limit,
   }

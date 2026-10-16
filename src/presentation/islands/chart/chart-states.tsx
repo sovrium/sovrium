@@ -18,18 +18,22 @@ import type { ReactElement } from 'react'
 // them.
 const SHELL_CLASSES = computeChartShellClasses()
 
+/** The chart's own words in the page language (`chart.*`, `component.*`), where they differ from English. */
+export type ChartStrings = Readonly<Record<string, string>> | undefined
+
 /**
  * Chart render states. None carries `data-component="chart"`: the island host
  * names the chart once, whatever state is drawn inside it.
  */
 
-export function ChartLoading(): ReactElement {
+export function ChartLoading({ strings }: { readonly strings: ChartStrings }): ReactElement {
   return (
     <div
       className={SHELL_CLASSES}
       data-chart-state="loading"
       role="status"
-      aria-label="Loading chart..."
+      data-loading-status=""
+      aria-label={strings?.['chart.loading'] ?? 'Loading chart...'}
     >
       <div className="bg-muted mb-3 h-4 w-32 animate-pulse rounded" />
       <div className="flex h-48 items-end gap-3">
@@ -44,15 +48,28 @@ export function ChartLoading(): ReactElement {
   )
 }
 
-export function ChartError({ error }: { readonly error: unknown }): ReactElement {
+export function ChartError({
+  error,
+  strings,
+}: {
+  readonly error: unknown
+  readonly strings: ChartStrings
+}): ReactElement {
   return (
     <div
       className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
       data-chart-state="error"
       role="alert"
     >
-      <p>Failed to load chart records: {error instanceof Error ? error.message : String(error)}</p>
-      <p className="mt-1 opacity-80">Refresh the page to try again.</p>
+      <p>
+        {(strings?.['chart.loadFailed'] ?? 'Failed to load chart records: {error}').replace(
+          '{error}',
+          () => (error instanceof Error ? error.message : String(error))
+        )}
+      </p>
+      <p className="mt-1 opacity-80">
+        {strings?.['component.refreshToRetry'] ?? 'Refresh the page to try again.'}
+      </p>
     </div>
   )
 }
@@ -75,13 +92,23 @@ export interface ChartEmptyStateConfig {
  * screen-reader user can navigate to the "no data" region. Absent `emptyState`
  * keeps the plain unnamed `<div>` (purely additive, no regression).
  */
+/** The empty chart's line and its guidance, the page's when the host sent them. */
+const chartEmptyWords = (strings: ChartStrings) => ({
+  empty: strings?.['chart.empty'] ?? 'No data to chart yet.',
+  hint:
+    strings?.['chart.emptyHint'] ?? "Records matching this chart's data source will appear here.",
+})
+
 export function ChartEmpty({
   message,
   emptyState,
+  strings,
 }: {
   readonly message: string | undefined
   readonly emptyState?: ChartEmptyStateConfig
+  readonly strings: ChartStrings
 }): ReactElement {
+  const { empty, hint } = chartEmptyWords(strings)
   if (emptyState) {
     return (
       <section
@@ -90,11 +117,9 @@ export function ChartEmpty({
         role="region"
         aria-label={emptyState.name}
       >
-        <p>{emptyState.title ?? message ?? 'No data to chart yet.'}</p>
+        <p>{emptyState.title ?? message ?? empty}</p>
         {emptyState.title === undefined && message === undefined && (
-          <p className="mt-1 opacity-80">
-            Records matching this chart&apos;s data source will appear here.
-          </p>
+          <p className="mt-1 opacity-80">{hint}</p>
         )}
       </section>
     )
@@ -104,38 +129,40 @@ export function ChartEmpty({
       className="border-border bg-muted text-muted-foreground text-md rounded border p-6 text-center"
       data-chart-state="empty"
     >
-      <p>{message ?? 'No data to chart yet.'}</p>
-      {message === undefined && (
-        <p className="mt-1 opacity-80">
-          Records matching this chart&apos;s data source will appear here.
-        </p>
-      )}
+      <p>{message ?? empty}</p>
+      {message === undefined && <p className="mt-1 opacity-80">{hint}</p>}
     </div>
   )
 }
 
-export function ChartMissingTable(): ReactElement {
+export function ChartMissingTable({ strings }: { readonly strings: ChartStrings }): ReactElement {
   return (
     <div
       className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
       data-chart-state="missing-table"
       role="alert"
     >
-      <p>Chart is missing a dataSource.table binding.</p>
-      <p className="mt-1 opacity-80">Add it to this component in your app config, then redeploy.</p>
+      <p>{strings?.['chart.missingTable'] ?? 'Chart is missing a dataSource.table binding.'}</p>
+      <p className="mt-1 opacity-80">
+        {strings?.['component.configHint'] ??
+          'Add it to this component in your app config, then redeploy.'}
+      </p>
     </div>
   )
 }
 
-export function ChartMissingAxes(): ReactElement {
+export function ChartMissingAxes({ strings }: { readonly strings: ChartStrings }): ReactElement {
   return (
     <div
       className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
       data-chart-state="missing-axes"
       role="alert"
     >
-      <p>Chart is missing xAxis or yAxis configuration.</p>
-      <p className="mt-1 opacity-80">Add it to this component in your app config, then redeploy.</p>
+      <p>{strings?.['chart.missingAxes'] ?? 'Chart is missing xAxis or yAxis configuration.'}</p>
+      <p className="mt-1 opacity-80">
+        {strings?.['component.configHint'] ??
+          'Add it to this component in your app config, then redeploy.'}
+      </p>
     </div>
   )
 }

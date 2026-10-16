@@ -7,6 +7,7 @@
 
 import { readsAsDay } from '@/domain/models/app/tables/min-max-order-service'
 import { toStringRelationshipValue } from '@/domain/models/app/tables/record-id-service'
+import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
 import { formatFieldForDisplay, type FormatResult } from './display-formatter'
 import type { App } from '@/domain/models/app'
 
@@ -212,11 +213,10 @@ const getFieldType = (
  * Does this field carry JSON-as-TEXT on SQLite and a native array/object on
  * PostgreSQL?
  *
- * Two answers, one question: a member of {@link JSON_DESERIALIZED_FIELD_TYPES},
- * or the single rollup aggregation that yields an array (see
- * {@link ARRAY_VALUED_ROLLUP_AGGREGATION}). Kept as one predicate so the read
- * path has ONE place to ask, rather than the type Set growing a parallel
- * aggregation check at each call site.
+ * Three answers, one question: a member of {@link JSON_DESERIALIZED_FIELD_TYPES},
+ * a `user` field holding several people (a list column, like a multi-select),
+ * or the one rollup aggregation yielding an array ({@link ARRAY_VALUED_ROLLUP_AGGREGATION}).
+ * Kept as one predicate so the read path has ONE place to ask.
  */
 const isJsonDeserializedField = (
   app: Readonly<App>,
@@ -227,7 +227,7 @@ const isJsonDeserializedField = (
     ?.find((t) => t.name === tableName)
     ?.fields.find((f) => f.name === fieldName)
   if (!field) return false
-  if (JSON_DESERIALIZED_FIELD_TYPES.has(field.type)) return true
+  if (JSON_DESERIALIZED_FIELD_TYPES.has(field.type) || isUserListField(field)) return true
   return (
     field.type === 'rollup' &&
     'aggregation' in field &&

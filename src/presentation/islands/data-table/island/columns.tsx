@@ -8,9 +8,8 @@
 import { computeTableRowNumberClasses } from '@/presentation/design/table-default-classes'
 import { resolvePageLocale } from '../../runtime/page-locale'
 import { autoGenerateColumns, autoGenerateColumnsFromFields } from '../auto-columns'
-import { stopClickPropagation } from '../cell-click'
 import { mapColumnsToColumnDefs } from '../formatting'
-import { GridCheckbox } from '../selection/grid-checkbox'
+import { SelectAllCheckbox, SelectRowCheckbox } from '../selection/selection-checkboxes'
 import type { DataTableColumnDef } from './table-features'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { TableRecord } from '../../runtime/types'
@@ -26,29 +25,19 @@ function buildSelectionColumn(mode?: string): DataTableColumnDef {
     header:
       mode === 'multiple'
         ? ({ table: t }) => (
-            <GridCheckbox
-              interactive
+            <SelectAllCheckbox
               checked={t.getIsAllRowsSelected()}
               indeterminate={t.getIsSomeRowsSelected()}
               onChange={t.getToggleAllRowsSelectedHandler()}
-              aria-label="Select all rows"
             />
           )
         : '',
     cell: ({ row }) => (
-      <GridCheckbox
-        interactive
+      <SelectRowCheckbox
+        n={row.index + 1}
         checked={row.getIsSelected()}
         disabled={!row.getCanSelect()}
         onChange={row.getToggleSelectedHandler()}
-        // The checkbox owns its own click, on the same terms an editable cell
-        // does. Without this the click ALSO reaches the row, so on a grid whose
-        // rows carry an action — a row-click navigation, or a `rowExpand` — the
-        // reader ticking three rows to act on them would open (and re-open) a
-        // record panel per tick. Selecting is a gesture about the row, not a
-        // gesture on it.
-        onClick={stopClickPropagation}
-        aria-label={`Select row ${row.index + 1}`}
       />
     ),
     enableSorting: false,

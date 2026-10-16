@@ -45,17 +45,27 @@
  * @see src/presentation/islands/graph/graph-island.tsx — the half that hydrates
  */
 
+import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { GraphIslandHost } from '@/presentation/render/registry/graph-island-host'
+import { islandLoadingLabel } from '@/presentation/render/registry/island-loading-label'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { GraphComponent } from '@/presentation/render/registry/graph-island-host'
 import type { GraphView } from '@/presentation/render/resolve/graph-projection'
 import type { ReactElement } from 'react'
 
-/** What the drawing says when no `emptyMessage` was declared. */
-const DEFAULT_EMPTY_MESSAGE = 'Nothing to show.'
+/** One of the graph's own words (`graph.*`), in the page language. */
+type GraphWord = (key: string) => string
 
-/** What the notice says when the read did not succeed for this caller. */
-const UNAVAILABLE_MESSAGE = 'This map could not be read.'
+/** The accessible twin's six column headings, in order (see `graph-twin.tsx`). */
+const TWIN_HEADING_KEYS = [
+  'graph.node',
+  'graph.kind',
+  'graph.column',
+  'graph.group',
+  'graph.detail',
+  'graph.reaches',
+] as const
 
 const NOTICE_CLASS =
   'mb-2 rounded-md border border-error-border bg-error-bg px-3 py-2 text-sm text-error-fg'
@@ -68,17 +78,19 @@ const NOTICE_CLASS =
  * unresolved source: a generic "some data is missing" would leave an operator
  * unable to tell which half of the map to distrust.
  */
-const noticeMessage = (view: GraphView): string | undefined => {
-  if (view.kind === 'unavailable') return UNAVAILABLE_MESSAGE
+const noticeMessage = (view: GraphView, word: GraphWord): string | undefined => {
+  if (view.kind === 'unavailable') return word('graph.unavailable')
   if (view.degraded.length === 0) return undefined
-  return `Some sources could not be read: ${view.degraded.join(', ')}`
+  return fillPlaceholders(word('graph.degraded'), { sources: view.degraded.join(', ') })
 }
 
 export const islandGraphComponent: ComponentRenderer = (config): ReactElement => {
   const component = config.component as GraphComponent | undefined
   const view: GraphView = component?.graphView ?? { kind: 'unavailable' }
   const elementProps = config.elementPropsWithSpacing
-  const notice = noticeMessage(view)
+  const word: GraphWord = (key) =>
+    resolveInterpreterString(key, config.currentLang, config.languages)
+  const notice = noticeMessage(view, word)
   // The name goes on ONE element: the island host while there is a drawing
   // (the element the island stands in for), else this wrapper — an empty or
   // unavailable map has no host to carry it.
@@ -103,13 +115,17 @@ export const islandGraphComponent: ComponentRenderer = (config): ReactElement =>
           data-graph-empty=""
           className="text-foreground-subtle text-sm"
         >
-          {component?.emptyMessage ?? DEFAULT_EMPTY_MESSAGE}
+          {component?.emptyMessage ?? word('graph.empty')}
         </p>
       ) : undefined}
       {!drawn ? undefined : (
         <GraphIslandHost
           component={component}
           view={view}
+          loadingLabel={
+            islandLoadingLabel('map.loading', config.currentLang, config.languages).status
+          }
+          twinHeadings={TWIN_HEADING_KEYS.map(word)}
         />
       )}
     </div>

@@ -14,7 +14,8 @@ import {
 } from '../hooks/use-records-query'
 
 /**
- * Fetches all records for the kanban board in a single page.
+ * Fetches all records for the kanban board in a single page — narrowed by what
+ * the page's controls publish on the board's channel, when it listens to one.
  *
  * Kanban boards display all records up-front (grouped into columns); the shared
  * records query requests a large single page rather than paginating client-side.
@@ -25,14 +26,11 @@ import {
  * to the table (`useLiveRefresh`).
  */
 export function useKanbanRecords(dataSource: RecordsDataSource | undefined) {
-  const query = useRecordsQuery(
-    'kanban',
-    dataSource,
-    useLazySharedFilter(
-      { bindTo: dataSource?.bindTo, sharedFilter: dataSource?.sharedFilter },
-      buildFilterParam(dataSource?.filter)
-    )
+  const shared = useLazySharedFilter(
+    { bindTo: dataSource?.bindTo, sharedFilter: dataSource?.sharedFilter },
+    buildFilterParam(dataSource?.filter)
   )
+  const query = useRecordsQuery('kanban', dataSource, shared)
   useLiveRefresh(dataSource, query.refetch)
   return query
 }

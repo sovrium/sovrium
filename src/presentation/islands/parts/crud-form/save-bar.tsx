@@ -38,15 +38,20 @@ function useLeaveGuard(bar: HTMLElement | null, changes: number): void {
 export interface SaveBarState {
   readonly changes: number
   readonly onDiscard: () => void
+  /** The form's interface strings in the page language, where they differ from English. */
+  readonly words?: Readonly<Record<string, string>> | undefined
 }
 
 const BAR_CLASS = computeFormSaveBarClasses()
 
 /** "1 unsaved change", "2 unsaved changes", or that there is nothing to save. */
-const changesText = (changes: number): string =>
-  changes === 0
-    ? 'No unsaved changes'
-    : `${String(changes)} unsaved change${changes === 1 ? '' : 's'}`
+const changesText = (changes: number, words: SaveBarState['words']): string => {
+  if (changes === 0) return words?.['form.noUnsavedChanges'] ?? 'No unsaved changes'
+  const counted = words?.[changes === 1 ? 'form.unsavedChange' : 'form.unsavedChanges']
+  return counted === undefined
+    ? `${String(changes)} unsaved change${changes === 1 ? '' : 's'}`
+    : counted.replace('{count}', String(changes))
+}
 
 /**
  * The bar `stickyActions` pins to the bottom of the view while the form is on
@@ -75,7 +80,7 @@ export function SaveBar({
         role="status"
         className="text-muted-foreground mr-auto font-mono text-sm"
       >
-        {changesText(bar.changes)}
+        {changesText(bar.changes, bar.words)}
       </span>
       <button
         type="button"
@@ -83,7 +88,7 @@ export function SaveBar({
         disabled={bar.changes === 0}
         className={computeButtonDefaultClasses({ variant: 'secondary' })}
       >
-        Discard
+        {bar.words?.['form.discard'] ?? 'Discard'}
       </button>
       {submit}
     </div>

@@ -6,10 +6,10 @@
  */
 
 import { useSystemCursorPages } from '../../../hooks/use-system-cursor-pages'
-import { useRuntimeFilter, type RuntimeFilter } from '../../faceted-filter/runtime-filter'
 import { buildSummaryAggregateParam } from '../../summary-aggregate'
 import { useDataTableQuery } from '../../use-data-table-query'
 import { buildGroupByParam, buildLabelsParam } from '../island-setup-helpers'
+import { usePageResetOnNarrowing } from './use-page-reset-on-narrowing'
 import type { SetupContext } from './setup-params'
 import type { EffectiveLayout } from './use-effective-layout'
 import type { EffectiveQuery } from './use-effective-query'
@@ -28,17 +28,15 @@ export type RecordsQuery = ReturnType<typeof useRecordsQuery>
  * the cursor. Its feed key names everything that decides which rows are listed
  * and in what order, so a change of sort, filter, search, grouping or page size starts
  * again from the first page rather than appending a different list's rows under
- * the old one.
- *
- * The reader's narrowing (`RuntimeFilter`) is part of that key.
+ * the old one. What the page's controls publish on the grid's channel is part
+ * of that key.
  */
 function resolveLoadMoreFeed(
   ctx: SetupContext,
   layout: EffectiveLayout,
   effective: EffectiveQuery,
-  feed: { readonly system: SystemQueryParams; readonly runtime: RuntimeFilter }
+  system: SystemQueryParams
 ) {
-  const { system, runtime } = feed
   const { dataSource, paginationConfig } = ctx.params
   const style = paginationConfig?.style
   // `infinite` appends through the same continuation as `loadMore`; only what
@@ -50,10 +48,10 @@ function resolveLoadMoreFeed(
     ctx.tableKey,
     effective.sorting,
     effective.filter,
-    runtime.key,
     tableState.globalFilter,
     tableState.pagination.pageSize,
     system.sharedFilterParams,
+    ctx.ui.view,
   ]
   return { identity }
 }
@@ -102,14 +100,17 @@ export function useRecordsQuery(
   const { dataSource, summaryConfig, groupByConfig } = ctx.params
   const { tableState } = layout
 
-  // The bound view's grouping, fixed for the life of the grid: no reader
-  // control changes it.
-  const effectiveGroupByConfig: ViewGroupBy | undefined = groupByConfig
+  // The bound view's grouping, unless the reader regrouped the grid from its
+  // bottom bar for the visit (`ui.grouping`, never saved).
+  const effectiveGroupByConfig = sessionGroupBy(ctx.ui.grouping, groupByConfig)
 
-  // A table-bound grid sends the reader's narrowing with every request, so the
-  // rows, the pager and the summary all count the narrowed set.
-  const runtime = useRuntimeFilter(ctx.ui, Boolean(dataSource.system), tableState.setPagination)
-  const loadMoreFeed = resolveLoadMoreFeed(ctx, layout, effective, { system, runtime })
+  // Narrowed by a control on the page, or switched to another view: back to the
+  // first page, so a numbered grid never asks for a page past the end of the set.
+  usePageResetOnNarrowing(
+    JSON.stringify([system.sharedFilterParams ?? {}, ctx.ui.view]),
+    tableState.setPagination
+  )
+  const loadMoreFeed = resolveLoadMoreFeed(ctx, layout, effective, system)
 
   const cursorPages = useSystemCursorPages(
     loadMoreFeed?.identity ?? systemFeedIdentity(ctx, layout, effective, system)
@@ -123,7 +124,6 @@ export function useRecordsQuery(
 
   const query = useDataTableQuery({
     ...requestParams(ctx, effectiveGroupByConfig, loadMoreFeed),
-    ...(runtime.filter && { runtimeFilter: runtime.filter }),
     ...(dataSource.system && {
       system: dataSource.system,
       systemQuery: system.systemQuery,
@@ -153,10 +153,27 @@ export function useRecordsQuery(
     cursorPages,
     effectiveGroupByConfig,
     loadMore: loadMoreFeed !== undefined,
-    // The builder's rows already narrowed the request, so the rows must not be
-    // narrowed a second time in the browser.
-    filteredOnServer: runtime.builderOnServer,
   }
+}
+
+/**
+ * The grouping the grid draws: the configured one, unless the reader picked
+ * another for the visit — a field, or none at all.
+ */
+function sessionGroupBy(
+  session: SetupContext['ui']['grouping'],
+  configured: ViewGroupBy | undefined
+): ViewGroupBy | undefined {
+  if (session === undefined) return configured
+  return session.field === undefined ? undefined : ({ field: session.field } as ViewGroupBy)
+}
+
+/** The view the rows are read through: the configured one, unless the reader switched. */
+function sessionViewOf(
+  session: SetupContext['ui']['view'],
+  configured: string | undefined
+): string | undefined {
+  return session === undefined ? configured : session.id
 }
 
 /**
@@ -176,9 +193,10 @@ function requestParams(
   const aggregateParam = buildSummaryAggregateParam(summaryConfig)
   const groupByParam = buildGroupByParam(groupBy)
   const labelsParam = buildLabelsParam(columnConfig)
+  const view = sessionViewOf(ctx.ui.view, ctx.isViewBound ? dataSource.view : undefined)
   return {
     table: ctx.tableKey,
-    ...(ctx.isViewBound && dataSource.view !== undefined && { view: dataSource.view }),
+    ...(view !== undefined && { view }),
     ...(aggregateParam !== undefined && { aggregateParam }),
     ...(groupByParam !== undefined && { groupByParam }),
     ...(labelsParam !== undefined && !dataSource.system && { labelsParam }),

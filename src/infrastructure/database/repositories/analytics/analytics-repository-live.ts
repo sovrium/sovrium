@@ -13,6 +13,7 @@ import {
 } from '@/application/ports/repositories/analytics/analytics-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
+import { countEventsByName } from '@/infrastructure/database/analytics-event-counts'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { analyticsEvents as analyticsEventsPg } from '@/infrastructure/database/drizzle/schema/analytics-events'
 import { analyticsEvents as analyticsEventsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/analytics-events'
@@ -100,12 +101,9 @@ const computePercentages = (
 export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
   recordEvent: (input) =>
     wrap(async () => {
-      // Drizzle query-builder INSERT — works under both Postgres (via the
-      // bun-sql driver) and SQLite (via the bun-sqlite driver). The raw
-      // `db.execute(sql\`INSERT INTO …\`)` path is Postgres-only (see
-      // `db-bun.ts`: SQLite drizzle clients do not expose `.execute()`), so
-      // we use `.insert(table).values(...)` which the dialect-resolved
-      // `analyticsEvents` table targets correctly on both engines.
+      // Query-builder INSERT, not `db.execute(sql…)`: SQLite drizzle clients
+      // have no `.execute()` (see `db-bun.ts`), and the dialect-resolved
+      // `analyticsEvents` table targets both engines correctly.
       // `properties` is wrapped in `jsonbLiteral` so Postgres parses
       // the JSON as a jsonb OBJECT (not string) — `->>` extraction
       // requires this. See `recordPageView` for full rationale.
@@ -383,6 +381,8 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
 
       return result.length
     }),
+
+  countEventsByName,
 
   listEvents: (params) =>
     wrap(async () => {

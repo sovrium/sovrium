@@ -90,9 +90,15 @@ const islandProps = (
 export function GraphIslandHost({
   component,
   view,
+  loadingLabel,
+  twinHeadings,
 }: {
   readonly component: GraphComponent
   readonly view: Extract<GraphView, { kind: 'drawing' }>
+  /** The skeleton's status name in the page language (`map.loading`). */
+  readonly loadingLabel: string
+  /** The twin's column headings in the page language (`graph.node` … `graph.reaches`). */
+  readonly twinHeadings: readonly string[]
 }): ReactElement {
   return (
     <>
@@ -108,7 +114,8 @@ export function GraphIslandHost({
            * real column heights would shift twice instead of once. */}
           <div
             className="flex gap-12 py-2"
-            aria-label="Loading map..."
+            data-loading-status=""
+            aria-label={loadingLabel}
             role="status"
           >
             {SKELETON_NODES.map((_column, index) => (
@@ -127,7 +134,10 @@ export function GraphIslandHost({
           </div>
         </div>
       </div>
-      <GraphTwin rows={view.twinRows} />
+      <GraphTwin
+        rows={view.twinRows}
+        headings={twinHeadings}
+      />
     </>
   )
 }

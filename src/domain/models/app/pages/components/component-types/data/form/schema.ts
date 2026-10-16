@@ -79,7 +79,7 @@ export const FormFieldControlSchema = Schema.Literals([
 ]).annotate({
   title: 'Form Field Control',
   description:
-    'Explicit input control for an endpoint-bound form field (text/email/password/number/tel/url/textarea/select/switch/rating). `rating` is a row of five stars that submits a whole number from 1 to 5. `switch` is an on/off switch that submits a JSON boolean — `true` when on, `false` when off, never omitted — and takes no options. Omitted for table-bound forms (control derived from the column type).',
+    'Explicit input control for an endpoint-bound form field (text/email/password/number/tel/url/textarea/select/switch/rating). `rating` is accepted but drawn as a plain text box on an endpoint form; a table-bound form draws a `rating` column as a scale. `switch` is an on/off switch that submits a JSON boolean — `true` when on, `false` when off, never omitted — and takes no options. Omitted for table-bound forms (control derived from the column type).',
 })
 
 /** The controls a `minLength` / `maxLength` rule means something on: the ones a visitor types text into. */
@@ -256,10 +256,17 @@ export const FormFieldConfigSchema = Schema.Struct({
    * asks for the current password or a new one.
    */
   autocomplete: Schema.optional(FormFieldAutocompleteSchema),
-  /** Render as non-editable display */
+  /**
+   * Shown but not editable, on a table-bound form and an endpoint form alike,
+   * and the value is still submitted. A text control carries the browser's
+   * `readonly`; a `select` or `switch`, which has no `readonly` of its own, is
+   * drawn `disabled` with `aria-readonly="true"` and its value still travels.
+   * Not a security boundary: the rules on the receiving end protect the data.
+   */
   readOnly: Schema.optional(
     Schema.Boolean.annotate({
-      description: 'If true, field is displayed but not editable',
+      description:
+        'If true, the field is shown but cannot be edited, and its value is still submitted — on a table-bound form and on an endpoint form alike. A text control carries the browser `readonly` attribute; a `select` or `switch` is drawn disabled with `aria-readonly="true"`, its value still sent. Not a security boundary: the rules on the receiving end protect the data.',
     })
   ),
   /** Disable the field input */
@@ -279,10 +286,16 @@ export const FormFieldConfigSchema = Schema.Struct({
         'Default value for create mode. Supports static values or $variable references. A `switch` field takes a boolean or a `$session.<field>` reference.',
     })
   ),
-  /** Submit value without rendering input */
+  /**
+   * Submitted without being drawn — no control, no label — on a table-bound
+   * form and an endpoint form alike: an `<input type="hidden">` carrying the
+   * `defaultValue`. A browser does not check `required` on a hidden control,
+   * so a hidden required field must carry a `defaultValue` (see the check below).
+   */
   hidden: Schema.optional(
     Schema.Boolean.annotate({
-      description: 'If true, field value is submitted but input is not rendered',
+      description:
+        'If true, no control and no label are drawn and the value is still submitted — an `<input type="hidden">` carrying `defaultValue`, on a table-bound form and on an endpoint form alike. A browser does not check `required` on a hidden control, so a hidden field that is `required` must carry a `defaultValue`, or the configuration is refused.',
     })
   ),
   /**
@@ -323,6 +336,21 @@ export const FormFieldConfigSchema = Schema.Struct({
         field.maxLength === undefined ||
         field.minLength <= field.maxLength ||
         'minLength must not exceed maxLength'
+    ),
+    // A hidden control is never filled by the visitor, so a required one with
+    // nothing to carry can only ever fail — and a browser does not check
+    // `required` on a hidden input, so it would fail silently at the endpoint.
+    Schema.makeFilter(
+      (field: {
+        readonly field: string
+        readonly hidden?: boolean
+        readonly required?: boolean
+        readonly defaultValue?: unknown
+      }) =>
+        field.hidden !== true ||
+        field.required !== true ||
+        field.defaultValue !== undefined ||
+        `hidden field '${field.field}' is required but has no defaultValue: give it a defaultValue or drop required`
     )
   )
 

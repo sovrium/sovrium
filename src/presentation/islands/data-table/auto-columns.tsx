@@ -5,12 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveDisplayLabel } from '@/presentation/design/field-display'
+import { resolveColumnLabel } from '@/presentation/design/field-display'
 import { readDisplayLabel } from '../runtime/record-display-label'
-import { FIELD_TYPE_TO_CELL_RENDERER } from './cell-renderer-registry'
+import { cellRendererOf } from './cell-renderer-registry'
 import { buildButtonCellRenderer } from './cells/button-cell'
 import { buildCellFieldOptions } from './cells/cell-field-options'
 import { typePlacementOf } from './cells/type-placement'
+import { columnSortable } from './column-presentation'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { DataTableCellContext, DataTableColumnDef } from './island/table-features'
 import type { TableRecord } from '../runtime/types'
@@ -39,9 +40,13 @@ function buildAutoCellRenderer(
 
   const fieldType = fieldMeta?.[field]?.type
   if (!fieldType) return undefined
-  const renderer = FIELD_TYPE_TO_CELL_RENDERER[fieldType]
+  const renderer = cellRendererOf(fieldType)
   if (!renderer) return undefined
-  const fieldOptions = buildCellFieldOptions(fieldMeta?.[field], options.locale)
+  const fieldOptions = buildCellFieldOptions(
+    fieldMeta?.[field],
+    options.locale,
+    resolveColumnLabel(undefined, fieldMeta?.[field]?.label, field)
+  )
   return ({ getValue, row }: DataTableCellContext) =>
     renderer({ value: readDisplayLabel(row.original, field) ?? getValue(), fieldOptions })
 }
@@ -89,14 +94,13 @@ function buildAutoColumn(field: string, options: AutoColumnOptions): DataTableCo
   const cellRenderer = buildAutoCellRenderer(field, options)
   // A button column's header is the button's own label — `ship_button` is a
   // config identifier, not something to show a reader. Otherwise the field's
-  // declared `label`, then the RAW name verbatim (never humanized: that would
-  // restyle every heading in every already-shipped app with no config edit).
+  // declared `label`, then the name made readable (`unit_price` → `Unit Price`).
   const meta = options.fieldMeta?.[field]
-  const header = meta?.button?.label ?? resolveDisplayLabel(undefined, meta?.label, field)
+  const header = meta?.button?.label ?? resolveColumnLabel(undefined, meta?.label, field)
   return {
     accessorKey: field,
     header,
-    enableSorting: true,
+    enableSorting: columnSortable({ field }, options.fieldMeta),
     meta: autoColumnMeta(field, meta, options.editable === true),
     ...(cellRenderer && { cell: cellRenderer }),
   } satisfies DataTableColumnDef

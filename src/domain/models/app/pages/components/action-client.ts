@@ -6,49 +6,14 @@
  */
 
 /*
- * The five Action variants the browser resolves on its own — `filter`,
- * `navigate`, `toast`, `openSheet` and `fill`. None of them invokes an engine
+ * The Action variants the browser resolves on its own — `navigate`, `toast`,
+ * `openSheet`, `openImport` and `fill`. None of them invokes an engine
  * operation, which is what separates them from the variants in
  * `action-operations.ts` and from the arbitrary HTTP call in `action-fetch.ts`.
  */
 
 import { Schema } from 'effect'
 import { ActionResponseSchema, ToastVariantSchema } from './action-response'
-
-/**
- * Filter action - cross-component data filtering
- *
- * @example
- * ```yaml
- * action:
- *   type: filter
- *   targetDataSource: product-list
- *   field: category
- *   operator: eq
- * ```
- */
-export const FilterActionSchema = Schema.Struct({
-  type: Schema.Literal('filter').annotate({
-    description: 'Which kind of action this is. It decides which of the other keys apply.',
-  }),
-  /** Target data source ID to apply filter to */
-  targetDataSource: Schema.String.annotate({
-    description: 'ID of the data source to filter (matches dataSource.targetId)',
-  }),
-  /** Field to filter on */
-  field: Schema.String.annotate({
-    description: 'Field name to apply the filter to',
-  }),
-  /** Filter operator */
-  operator: Schema.optional(
-    Schema.Literals(['eq', 'neq', 'contains', 'gt', 'lt', 'gte', 'lte']).annotate({
-      description: 'Comparison operator (defaults to eq)',
-    })
-  ),
-}).annotate({
-  title: 'Filter Action',
-  description: 'Cross-component filter action targeting a data source',
-})
 
 /**
  * Navigate Action
@@ -213,6 +178,42 @@ export const OpenDrawerActionSchema = Schema.Struct({
 })
 
 /**
+ * Open-import action — opens the CSV import dialog for one table.
+ *
+ * Once a grid's toolbar is composed from page controls, Import is a plain
+ * button whose action names the table;
+ * the dialog, the column mapping and the chunked write are the grid's own,
+ * reused unchanged. Discriminated on `action`, like `openSheet`, because it
+ * opens a surface rather than running an operation.
+ *
+ * The button is drawn only for a reader the table lets create records — the
+ * gate the grid's Import used — and the import route refuses anyone else.
+ *
+ * @example
+ * ```yaml
+ * - type: button
+ *   label: Import
+ *   action: { action: openImport, table: contacts }
+ * ```
+ */
+export const OpenImportActionSchema = Schema.Struct({
+  action: Schema.Literal('openImport').annotate({
+    description: 'Set to `openImport` to open the CSV import dialog for `table`.',
+  }),
+  table: Schema.String.pipe(
+    Schema.annotate({
+      description: 'The table the imported rows are written to (validated against app.tables)',
+      examples: ['contacts'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+}).annotate({
+  title: 'Open Import Action',
+  description:
+    'Opens the CSV import dialog for one table: choose a file, map its columns to the table’s fields, and write the rows. Drawn only for a reader the table lets create records. Discriminated by the `action: openImport` literal (not `type`).',
+})
+
+/**
  * Fill action - writes a value into a form control on the same page.
  *
  * The composer pattern: a list of reusable scripts beside a message form, where
@@ -284,11 +285,11 @@ export const FillActionSchema = Schema.Struct({
 })
 
 /** @public */
-export type FilterAction = Schema.Schema.Type<typeof FilterActionSchema>
-/** @public */
 export type NavigateAction = Schema.Schema.Type<typeof NavigateActionSchema>
 /** @public */
 export type ToastAction = Schema.Schema.Type<typeof ToastActionSchema>
+/** @public */
+export type OpenImportAction = Schema.Schema.Type<typeof OpenImportActionSchema>
 /** @public */
 export type OpenDrawerAction = Schema.Schema.Type<typeof OpenDrawerActionSchema>
 /** @public */

@@ -21,7 +21,7 @@ import { PreviewStep } from './preview-step'
 import { UploadStep } from './upload-step'
 import { runImport, buildRecordsFromCsv } from './use-import'
 import { useImportCsvDialogState } from './use-state'
-import type { ColumnMapping } from './types'
+import type { ColumnMapping, ImportResult } from './types'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
 interface ImportCsvDialogProps {
@@ -30,6 +30,8 @@ interface ImportCsvDialogProps {
   readonly tableFields?: readonly string[]
   readonly tableName: string
   readonly fieldMeta?: FieldMetaMap
+  /** Called once the rows were written, with what the import created. */
+  readonly onImported?: (result: ImportResult) => void
 }
 
 /**
@@ -71,6 +73,7 @@ export function ImportCsvDialog({
   tableFields,
   tableName,
   fieldMeta,
+  onImported,
 }: ImportCsvDialogProps) {
   const state = useImportCsvDialogState()
 
@@ -101,11 +104,12 @@ export function ImportCsvDialog({
           uniqueField: state.uniqueField,
         })
         state.setImportResult(result)
+        onImported?.(result)
       } finally {
         state.setIsImporting(false)
       }
     })()
-  }, [state, fieldMeta, tableName])
+  }, [state, fieldMeta, tableName, onImported])
 
   if (!open) return undefined
 

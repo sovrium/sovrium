@@ -40,7 +40,6 @@ import {
 } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { adminNestedSteps } from '@/application/use-cases/automations/run/nested-step-record'
-import { withWriteOnlyValuesMasked } from '@/application/use-cases/automations/run/write-only-values'
 import {
   bucketRowsByTimestamp,
   buildDenseBucketGrid,
@@ -63,74 +62,13 @@ import {
   type PeriodPreset,
   type PeriodWindow,
 } from '@/domain/models/api/admin/envelope/period-preset'
-import {
-  runStatusSchema,
-  stepLogEntrySchema,
-  type RunStatus,
-} from '@/domain/models/api/automations'
+import { stepLogEntrySchema, type RunStatus } from '@/domain/models/api/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { redactRunTriggerData } from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
-import {
-  runTriggerOf,
-  triggerNameFilterOf,
-} from '@/domain/models/app/automations/trigger-entries-service'
+import { triggerNameFilterOf } from '@/domain/models/app/automations/trigger-entries-service'
+import { buildAdminRunItem, toIso } from './automations-run-item'
 import { decodeRunsCursor, encodeRunsCursor } from './automations-runs-query'
+import type { ConsoleLanguage } from './operator-language'
 import type { App } from '@/domain/models/app'
-
-// ─── Shared item helpers ───────────────────────────────────────────────────────
-
-/**
- * Convert a database timestamp (Date or string) to canonical ISO 8601 UTC.
- * Postgres returns `Date`, SQLite returns either Date (when mode: timestamp_ms)
- * or string depending on the driver. We normalize for the response shape.
- */
-function toIso(value: Readonly<Date> | string | null | undefined): string | null {
-  if (value === null || value === undefined) return null
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString()
-}
-
-/**
- * Best-effort coercion of a string-status to the canonical RunStatus enum.
- * The DB stores arbitrary text on `automation_runs.status` (default 'pending');
- * malformed values fall back to 'pending' so the response always validates.
- */
-function coerceStatus(raw: unknown): RunStatus {
-  const parsed = decodeSafe(runStatusSchema)(raw)
-  return parsed.success ? parsed.data : 'pending'
-}
-
-/**
- * Build a canonical admin run item from a joined DB row.
- *
- * The public `runSchema` requires every field — including `startedAt`. For runs
- * that never reached the scheduler (rare race in tests where the webhook
- * returned before the engine wrote `started_at`), we fall back to `createdAt` so
- * the schema does not reject the row.
- */
-function buildAdminRunItem(app: App, row: AdminAutomationRunRow): AutomationRunAdminItem {
-  // The run's trigger (`runTriggerOf`) and hidden credential headers, read off the live config.
-  const def = (app.automations ?? []).find((a) => a.name === row.automationName)
-  const startedAtIso = toIso(row.startedAt) ?? toIso(row.createdAt) ?? new Date().toISOString()
-  // The erasure marker the public run reads carry, present only when set.
-  const valuesErasedAt = toIso(row.valuesErasedAt)
-  return {
-    id: row.id,
-    automationName: row.automationName,
-    status: coerceStatus(row.status),
-    ...runTriggerOf(def, row.triggerName),
-    triggerData: withWriteOnlyValuesMasked(app, redactRunTriggerData(row.triggerData ?? null, def)),
-    startedAt: startedAtIso,
-    completedAt: toIso(row.completedAt),
-    durationMs: row.durationMs,
-    attempt: 1,
-    error: row.error,
-    ...(valuesErasedAt === null ? {} : { valuesErasedAt }),
-    _admin: {
-      lastModifiedBy: null,
-      deletedAt: null,
-    },
-  }
-}
 
 // ─── Overview series helpers ────────────────────────────────────────────────────
 
@@ -334,7 +272,8 @@ function deriveRunsNextCursor(
 
 export const BuildAdminRunsList = (
   app: App,
-  input: AdminRunsListInput
+  input: AdminRunsListInput,
+  language: ConsoleLanguage
 ): Effect.Effect<AdminRunsListOutcome, AdminAutomationsDatabaseError, AdminAutomationsRepository> =>
   Effect.gen(function* () {
     const repo = yield* AdminAutomationsRepository
@@ -362,7 +301,11 @@ export const BuildAdminRunsList = (
     })
 
     const pageRows = rows.slice(0, input.limit)
-    const items = pageRows.map((row) => buildAdminRunItem(app, row))
+    // How far each run got: ONE grouped count over the page's step rows.
+    const steps = yield* repo.countStepsByRunIds(pageRows.map((row) => row.id))
+    const items = pageRows.map((row) =>
+      buildAdminRunItem(app, row, steps.get(row.id) ?? 0, language)
+    )
 
     const nextCursor = deriveRunsNextCursor(rows.length, pageRows, input.limit)
 
@@ -451,7 +394,8 @@ function buildAdminRunStep(step: {
  */
 export const BuildAdminRunDetail = (
   app: App,
-  runId: string
+  runId: string,
+  language: ConsoleLanguage
 ): Effect.Effect<
   AdminRunDetailOutcome,
   AdminAutomationsDatabaseError,
@@ -474,7 +418,8 @@ export const BuildAdminRunDetail = (
     )
     const steps = stepRows.map(buildAdminRunStep)
 
-    const item = buildAdminRunItem(app, row)
+    const ran = steps.filter((step) => step.status !== 'skipped').length
+    const item = buildAdminRunItem(app, row, ran, language)
     const parsed = decodeSafe(automationsRunsDetailWithStepsResponseSchema)({ ...item, steps })
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const

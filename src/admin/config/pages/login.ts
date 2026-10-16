@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// sovrium-library: block/login-03@0.37.0#56d380093c82
+// sovrium-library: block/login-03@0.37.0#2d692db279be
 
 // The public operator sign-in surface, INSTALLED from the library's `login-03`
 // block (shadcn's login on a muted ground: the app's mark above a card).
@@ -20,7 +20,8 @@
 //
 // ─── THE BINDINGS ───────────────────────────────────────────────────────────
 //
-// The mark's icon, the card's title and description, and the ways in. The
+// The mark, the card's title and description, the testid of the block's
+// `statusLine` (set to the console's session-ended copy), and the ways in. The
 // block's field group lists every way an app may offer (social buttons,
 // passkey, magic link, single sign-on, sign-up), each gated on what the app
 // declares; the console's field group is its own: Sovrium Cloud, the "or"
@@ -57,28 +58,15 @@ export const loginCopy = {
           },
           children: [
             {
-              // Sovrium's own mark, served by the engine at a root path (the
-              // mount does not rewrite it), one ground per colour scheme.
+              // The app's mark — its `design.logo`, else a monogram of its
+              // display name — the same the sidebar head draws, filled in by
+              // the engine (`data-app-mark`).
               type: 'container',
-              props: { className: 'flex size-6 items-center justify-center' },
-              children: [
-                {
-                  type: 'image',
-                  props: {
-                    src: '/assets/brand/sovrium/mark-light-outline.svg',
-                    alt: 'Sovrium',
-                    className: 'block size-6 shrink-0 dark:hidden',
-                  },
-                },
-                {
-                  type: 'image',
-                  props: {
-                    src: '/assets/brand/sovrium/mark-dark-outline.svg',
-                    alt: 'Sovrium',
-                    className: 'hidden size-6 shrink-0 dark:block',
-                  },
-                },
-              ],
+              props: {
+                className:
+                  'flex size-6 items-center justify-center overflow-hidden rounded-md bg-primary text-xs font-semibold text-primary-foreground data-[app-mark=logo]:bg-transparent',
+                'data-app-mark': 'tile',
+              },
             },
             {
               type: 'text',
@@ -131,6 +119,20 @@ export const loginCopy = {
                     },
                     { type: 'text', element: 'span', content: '.' },
                   ],
+                },
+                // Only when the reader was SENT here, carrying `next`: their
+                // session ended while they were using the console, and signing
+                // in brings them back to where they were.
+                {
+                  type: 'text',
+                  element: 'p',
+                  visibility: { query: { name: 'next', eq: 'set' } },
+                  props: {
+                    role: 'status',
+                    className: 'text-sm font-medium text-foreground',
+                    'data-testid': 'login-session-ended',
+                  },
+                  content: '$t:admin.login.sessionEnded',
                 },
               ],
             },
@@ -253,6 +255,10 @@ export default {
   id: 'dashboard-login',
   name: 'dashboard-login',
   path: '/login',
+  // `next` is only ever asked whether it is there: any value reads `set`, its
+  // absence `none`. Where it leads is decided by the sign-in form, which holds
+  // it to the console's own paths.
+  query: { next: { default: 'none', enum: ['none', 'set'], onUnknown: 'set' } },
   meta: {
     title: '$t:admin.meta.login',
     noindex: true,

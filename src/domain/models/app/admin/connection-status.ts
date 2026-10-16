@@ -118,6 +118,20 @@ export const deriveConnectionHealth = (
     : deriveConnectionStatus(soonestExpiryMs(tokens.map((token) => token.expiresAt)), now)
 
 /**
+ * The connection-level status the console lists: {@link deriveConnectionHealth}
+ * of its tokens, except that an `oauth2` connection holding no token at all is
+ * `not-connected` — nobody has authorized it, so nothing can call the provider
+ * yet. A static-secret connection (apiKey, basic, bearer) never holds a token
+ * and stays `active`.
+ */
+export const deriveConnectionListStatus = (
+  type: string,
+  tokens: readonly TokenHealthInput[],
+  now: number = Date.now()
+): ConnectionStatus =>
+  type === 'oauth2' && tokens.length === 0 ? 'not-connected' : deriveConnectionHealth(tokens, now)
+
+/**
  * Compute the SOONEST expiry across a connection's token rows as an epoch-
  * millisecond timestamp, or `null` when there are no token rows OR no token
  * recorded an expiry (long-lived tokens). This is the value the connection-level

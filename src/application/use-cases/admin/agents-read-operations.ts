@@ -165,6 +165,7 @@ const decodeConversationsList = (raw: Readonly<Record<string, unknown>>, app: Ap
       from: raw['from'],
       to: raw['to'],
       q: raw['q'],
+      userId: raw['userId'],
     }),
     {
       onNone: () =>
@@ -173,7 +174,7 @@ const decodeConversationsList = (raw: Readonly<Record<string, unknown>>, app: Ap
           reason: 'malformed',
           message: 'Invalid query parameters',
         }) as const,
-      onSome: ({ cursor, limit, from, to, q }) =>
+      onSome: ({ cursor, limit, from, to, q, userId }) =>
         ({
           _tag: 'Ok',
           input: {
@@ -181,6 +182,7 @@ const decodeConversationsList = (raw: Readonly<Record<string, unknown>>, app: Ap
             ...(from !== undefined ? { from } : {}),
             ...(to !== undefined ? { to } : {}),
             ...(q !== undefined ? { q } : {}),
+            ...(userId !== undefined ? { userId } : {}),
             ...(cursor !== undefined ? { cursor } : {}),
             limit,
           } satisfies AgentConversationsListInput,
@@ -194,11 +196,11 @@ const conversationsList = defineAdminRead<AgentConversationsListInput>({
   method: 'get',
   path: '/api/admin/agents/:name/conversations',
   pathParams: ['name'],
-  queryParams: ['cursor', 'limit', 'from', 'to', 'q'],
+  queryParams: ['cursor', 'limit', 'from', 'to', 'q', 'userId'],
   tool: {
     suffix: 'agent_conversations_list',
     description:
-      "List one agent's conversations newest first with their message counts, as GET /api/admin/agents/:name/conversations answers them (admin-only, read-only).",
+      "List one agent's conversations newest first with their message counts and the account that held each, as GET /api/admin/agents/:name/conversations answers them (admin-only, read-only).",
     inputSchema: {
       type: 'object',
       properties: {
@@ -214,6 +216,11 @@ const conversationsList = defineAdminRead<AgentConversationsListInput>({
           description: 'Only conversations active before this ISO 8601 instant.',
         },
         q: { type: 'string', description: 'Case-insensitive search over the title and session.' },
+        userId: {
+          type: 'string',
+          minLength: 1,
+          description: 'Only the conversations this account id held.',
+        },
         limit: {
           type: 'integer',
           minimum: 1,
@@ -229,7 +236,9 @@ const conversationsList = defineAdminRead<AgentConversationsListInput>({
     summary: "List one agent's conversations",
     description:
       'Cursor-paginated conversations of one agent, newest activity first, each with its ' +
-      'message count; `q` narrows server-side and is echoed back as `appliedQuery`. An ' +
+      'message count and the account that held it (id and display name); `q` narrows ' +
+      'server-side and is echoed back as `appliedQuery`, and `userId` narrows to one ' +
+      'account. An ' +
       'agent the config does not declare is answered 404 and writes no audit event. Admin only.',
     operationIdBase: 'listAdminAgentConversations',
     paramsSchema: adminReadPathParams({ name: 'The agent name' }),

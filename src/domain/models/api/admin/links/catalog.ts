@@ -110,6 +110,10 @@ export const adminLinkSchema = Schema.Struct({
         'Click cap, or null when uncapped. Counted over the analytics event store within its retention window, so it is retention-bounded and best-effort under burst (DEC-084 D6).',
     }).pipe(Schema.check(Schema.isGreaterThan(0)))
   ),
+  clicks: Schema.Int.annotate({
+    description:
+      'Clicks recorded for this link over the last 30 days, counted up to the moment of the read from the analytics event store (one `link_click` event per credited redirect). A rolling window, not a lifetime total: an older click, or one the retention policy has purged, is not counted. Per-link series, referrers and devices are not part of the catalog.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   _admin: adminEnvelopeSchema.annotate({ description: 'Canonical admin envelope.' }),
 }).annotate({ identifier: 'AdminLink' })
 

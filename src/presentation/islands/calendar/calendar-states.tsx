@@ -8,17 +8,31 @@
 import { computeCalendarToolbarClasses } from '@/presentation/design/calendar-default-classes'
 import type { ReactElement } from 'react'
 
+/** The calendar's own words in the page language (`calendar.*`, `component.*`), where they differ from English. */
+export type CalendarStrings = Readonly<Record<string, string>> | undefined
+
 /** One pulsing bone: shadcn/ui's `Skeleton`. */
 const BONE = 'bg-muted animate-pulse rounded-md'
 
-export function CalendarMissingDateField(): ReactElement {
+export function CalendarMissingDateField({
+  strings,
+}: {
+  readonly strings: CalendarStrings
+}): ReactElement {
+  const [before, after] = (
+    strings?.['calendar.missingDateField'] ??
+    'Calendar is missing required {setting} configuration.'
+  ).split('{setting}')
   return (
     <div className="border-border bg-card text-foreground rounded-lg border p-3 text-sm">
       <p>
-        Calendar is missing required <code>dateField</code> configuration.
+        {before}
+        <code>dateField</code>
+        {after}
       </p>
       <p className="text-muted-foreground mt-1">
-        Add it to this component in your app config, then redeploy.
+        {strings?.['component.configHint'] ??
+          'Add it to this component in your app config, then redeploy.'}
       </p>
     </div>
   )
@@ -30,11 +44,12 @@ export function CalendarMissingDateField(): ReactElement {
  * recipe with a bone per control (the arrows' group, Today, the title, the
  * views), then the grid in the border colour, 36px day cells.
  */
-export function CalendarLoading(): ReactElement {
+export function CalendarLoading({ strings }: { readonly strings: CalendarStrings }): ReactElement {
   return (
     <div
       className="w-full"
-      aria-label="Loading calendar..."
+      data-loading-status=""
+      aria-label={strings?.['calendar.loading'] ?? 'Loading calendar...'}
       role="status"
     >
       <div className={computeCalendarToolbarClasses()}>
@@ -71,16 +86,27 @@ export function CalendarLoading(): ReactElement {
   )
 }
 
-export function CalendarError({ error }: { readonly error: unknown }): ReactElement {
+export function CalendarError({
+  error,
+  strings,
+}: {
+  readonly error: unknown
+  readonly strings: CalendarStrings
+}): ReactElement {
   return (
     <div
       className="border-destructive/30 bg-card text-destructive rounded-lg border p-3 text-sm"
       role="alert"
     >
       <p>
-        Failed to load calendar records: {error instanceof Error ? error.message : String(error)}
+        {(strings?.['calendar.loadFailed'] ?? 'Failed to load calendar records: {error}').replace(
+          '{error}',
+          () => (error instanceof Error ? error.message : String(error))
+        )}
       </p>
-      <p className="text-muted-foreground mt-1">Refresh the page to try again.</p>
+      <p className="text-muted-foreground mt-1">
+        {strings?.['component.refreshToRetry'] ?? 'Refresh the page to try again.'}
+      </p>
     </div>
   )
 }

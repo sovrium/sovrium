@@ -60,12 +60,18 @@ const SIDEBAR_DRAWER_TRIGGER_CLASS =
  * height, 18 rem wide as base-nova's mobile sidebar is, on the sidebar ground,
  * over base-nova's sheet scrim.
  *
+ * Open, it is a column — header, then the navigation's own node filling the
+ * rest — so the sidebar keeps its desktop anatomy inside: the close button and
+ * the footer stay in view and only the groups scroll. `open:flex` rather than
+ * `flex`, because a display class would override the user agent's `display:
+ * none` on a CLOSED dialog.
+ *
  * `m-0` and `max-h-none` undo the user-agent centring of a modal dialog; the
  * width leaves a strip of the page visible beside the panel, which is both the
  * reader's cue that the page is still there and the backdrop they tap to leave.
  */
 const SIDEBAR_DRAWER_PANEL_CLASS =
-  'm-0 h-full max-h-none w-72 max-w-[85vw] overflow-y-auto border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground shadow-lg backdrop:bg-black/10'
+  'm-0 h-full max-h-none w-72 max-w-[85vw] flex-col overflow-hidden open:flex border-r border-sidebar-border bg-sidebar p-0 text-sidebar-foreground shadow-lg backdrop:bg-black/10'
 
 /** Compute the className for the menu button: shown only below the breakpoint. */
 export const computeSidebarDrawerTriggerClasses = (below: SidebarRailBreakpoint): string =>
@@ -82,3 +88,27 @@ export const computeSidebarDrawerBodyClasses = (below: SidebarRailBreakpoint): s
 
 /** Compute the className for the drawer panel (`<dialog>`). */
 export const computeSidebarDrawerPanelClasses = (): string => SIDEBAR_DRAWER_PANEL_CLASS
+
+/**
+ * The drawer's header row: its close button at the end edge, above the
+ * navigation, on the sidebar ground.
+ */
+export const computeSidebarDrawerHeaderClasses = (): string =>
+  'flex shrink-0 items-center justify-end p-2'
+
+/**
+ * The node the navigation moves into: the rest of the panel's height. A
+ * sidebar's surface fills it and scrolls its own groups; anything taller with
+ * no scroller of its own (the docs navigation) scrolls here.
+ */
+export const computeSidebarDrawerContentClasses = (): string =>
+  'flex min-h-0 flex-1 flex-col overflow-y-auto'
+
+/**
+ * The rule above a sidebar's footer, drawn only inside the drawer (`in-[dialog]`):
+ * in a full-height panel the footer can sit right under the last entry, and the
+ * rule sets the reader's account apart from the navigation. Inline, the footer
+ * is pinned at the panel's foot and needs none. base-nova's `SidebarSeparator`.
+ */
+export const computeSidebarDrawerSeparatorClasses = (): string =>
+  'mx-2 hidden h-px shrink-0 bg-sidebar-border in-[dialog]:block'

@@ -7,7 +7,6 @@
 
 import { Schema } from 'effect'
 import { AutoSaveConfigSchema } from '../../auto-save'
-import { ComponentSearchSchema } from '../../component-search'
 import { DataSourceSchema } from '../../data-source'
 import { SystemSourceSchema } from '../../system-source'
 
@@ -25,6 +24,11 @@ import { SystemSourceSchema } from '../../system-source'
  *  - `chart` / `kpi` replace it with their own series-/scalar-shaped system source;
  *  - `form` (a WRITE surface) overrides it back to the DB-only `DataSourceSchema`,
  *    because a write surface must never read from a system endpoint.
+ *
+ * No `search` box rides here any more: a data component draws no control of
+ * its own. A `search-input` publishing on a shared-filter channel narrows every
+ * component subscribed to it (`dataSource.bindTo` + `sharedFilter`), and the
+ * removed key is refused with that pointer (`removed-keys.ts`).
  */
 export const dataBoundFields = {
   dataSource: Schema.optional(
@@ -44,5 +48,4 @@ export const dataBoundFields = {
     })
   ),
   autoSave: Schema.optional(AutoSaveConfigSchema),
-  search: Schema.optional(ComponentSearchSchema),
 } as const

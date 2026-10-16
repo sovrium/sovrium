@@ -64,8 +64,14 @@ export class CSSCompiler extends Context.Service<
     readonly versionedFileName: (app: App) => string
     /**
      * Persist compiled CSS where a production `start` reads it instead of
-     * compiling at boot, and answer the path written.
+     * compiling at boot, and answer the path written. The file opens with a
+     * line recording the engine and the app's design that compiled it, so a
+     * later `start` under another engine or design sets it aside rather than
+     * serving it; `app` is what that line is derived from.
      */
-    readonly writePrecompiled: (css: string) => Effect.Effect<string, PrecompiledCssWriteError>
+    readonly writePrecompiled: (
+      css: string,
+      app?: App
+    ) => Effect.Effect<string, PrecompiledCssWriteError>
   }
 >()('CSSCompiler') {}

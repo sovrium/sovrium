@@ -66,9 +66,8 @@
 // admin API (Developers → API), which is why there is no create form.
 
 import { sectionCard } from '../../components/dashboard-blocks'
-import { pageHeading, tabQuery, tabbedBody, tabPanel, toolbarRow } from '../../components/data-page'
-import { dataTable, STATUS_BADGE } from '../../components/data-table-blocks'
-import { withShell } from '../../components/shell'
+import { consolePage, kpiStrip, tabPanel, toolbarRow } from '../../components/data-page'
+import { dataTable, STATUS_BADGE, toolbarSearch } from '../../components/data-table-blocks'
 import { USERS_ENDPOINT, USERS_OVERVIEW_ENDPOINT } from '../../system-sources'
 import { accountPage } from './users-account'
 import {
@@ -86,8 +85,14 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 /** Id of the directory grid — the `onSuccess.refetch` target of every row write. */
 const USERS_GRID_ID = 'admin-users-grid'
 
+/** The channel the directory's search box publishes on and its grid listens to. */
+const USERS_CHANNEL = 'users-filter'
+
 /** Id of the pending-invitations grid — its own `onSuccess.refetch` target. */
 const INVITATIONS_GRID_ID = 'admin-invitations-grid'
+
+/** The invite dialog's id: what both Invite buttons open. */
+const INVITE_DIALOG_ID = 'admin-invite-dialog'
 
 /**
  * The always-visible directory columns — the READ half, painted for every
@@ -105,22 +110,22 @@ const INVITATIONS_GRID_ID = 'admin-invitations-grid'
  * so `valueLabels` is never a server mutation.
  */
 const USERS_COLUMNS = [
-  { field: 'email', label: 'Email' },
-  { field: 'name', label: 'Name' },
-  { field: 'role', label: 'Role' },
-  { field: 'groups', label: 'Groups' },
+  { field: 'email', label: '$t:admin.common.email' },
+  { field: 'name', label: '$t:admin.common.name' },
+  { field: 'role', label: '$t:admin.common.role' },
+  { field: 'groups', label: '$t:admin.common.groups' },
   {
     field: 'banned',
-    label: 'Status',
-    valueLabels: { false: 'active', true: 'banned' },
+    label: '$t:admin.common.status',
+    valueLabels: { false: '$t:admin.users.state.active', true: '$t:admin.users.state.banned' },
     cellStyle: [
       {
         when: { eq: false },
-        className: STATUS_BADGE.positive,
+        className: STATUS_BADGE.quiet.positive,
       },
       {
         when: { eq: true },
-        className: STATUS_BADGE.destructive,
+        className: STATUS_BADGE.quiet.negative,
       },
     ],
   },
@@ -147,21 +152,21 @@ const USERS_COLUMNS = [
     // Open into the gated column would hide the console's only route to
     // `/users/:email` from exactly the operator who is allowed to read it.
     type: 'actions',
-    label: 'Account',
+    label: '$t:admin.users.col.account',
     // `mode: 'navigate'` on a FETCH action: a top-level `type: 'navigate'` is
     // INERT on a button, because the dispatcher emits data attributes for
     // `automation` / `auth` / `crud` / `fetch` only. Same lever the Invite
     // affordance below uses, and for the same reason.
     actions: [
       {
-        label: 'Open',
+        label: '$t:admin.common.open',
         action: { type: 'fetch', mode: 'navigate', url: '/users/$record.email' },
       },
     ],
   },
   {
     type: 'actions',
-    label: 'Actions',
+    label: '$t:admin.common.actions',
     // The whole column, or nothing. Gating the items individually would
     // leave a labelled "Actions" header over empty cells — a column
     // announcing a power the caller does not have, which is the greyed-out
@@ -193,35 +198,37 @@ const USERS_COLUMNS = [
 ] as const
 
 /**
- * The entry point to the invitation lifecycle.
+ * The Invite gesture: the page's primary action, last in the control row.
  *
- * A BUTTON that navigates rather than a link, because it is a directory-level
- * gesture in the same family as the row controls beside it, and because the
- * invitation surface is a working area rather than a document to browse to.
- *
- * `mode: 'navigate'` on a `fetch` action is the dispatch the shared action
- * executor implements as `location.assign`, and the same one the CSV export
- * uses. A top-level `type: 'navigate'` action reads better and is INERT on a
- * standalone button: the button builders emit data attributes for
- * `automation` / `auth` / `crud` / `fetch` only, so it would render a control
- * that does nothing.
- *
- * The url is MOUNT-RELATIVE like every other console path — the boot walk moves
- * it onto whichever base is serving the console.
+ * It opens the invite DIALOG on the page the operator is reading, rather than
+ * sending them to another half of it. Inviting is one short form; a dialog keeps
+ * the directory behind it in view, and closing it lands exactly where they were.
+ * The click is the dialog's own trigger (`interactions.click.modal`), a
+ * declaration rather than a script.
  */
 const inviteAffordance = (): PageComponent =>
   ({
     type: 'button',
-    label: 'Invite',
-    variant: 'secondary',
+    label: '$t:admin.users.invite.open',
     visibility: { capability: 'administer-accounts' },
-    // `?tab=invitations` rather than `/users/invitations`: the same destination
-    // either way, but this one keeps the operator on the route they are already
-    // reading and opens the half that holds the form. The sibling route stays
-    // reachable for the bookmarks that name it; nothing inside the console
-    // needs to send anyone there any more.
-    action: { type: 'fetch', mode: 'navigate', url: '/users?tab=invitations' },
-    props: { className: 'self-start' },
+    props: { interactions: { click: { modal: INVITE_DIALOG_ID } } },
+  }) as PageComponent
+
+/**
+ * The directory as CSV: this same endpoint's `?format=csv`, saved as a file.
+ */
+const exportAffordance = (): PageComponent =>
+  ({
+    type: 'button',
+    label: '$t:admin.common.exportCsv',
+    variant: 'outline',
+    action: {
+      type: 'fetch',
+      mode: 'download',
+      url: `${USERS_ENDPOINT}?format=csv`,
+      filename: 'users.csv',
+    },
+    props: { className: 'sm:ml-auto' },
   }) as PageComponent
 
 /**
@@ -232,28 +239,13 @@ const inviteAffordance = (): PageComponent =>
 const overviewKpi = (label: string, valuePath: string): PageComponent =>
   sectionCard({ label, endpoint: USERS_OVERVIEW_ENDPOINT, valuePath })
 
-/**
- * The KPI strip: a named region over the three account figures.
- *
- * All three read the SAME endpoint and the same (absent) query, so the
- * system-value hook collapses them into ONE request — it keys its cache on the
- * endpoint and query and deliberately NOT on the per-tile value path.
- */
-const kpiStrip = (): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      role: 'region',
-      'aria-label': '$t:admin.users.metrics.region',
-      className: 'grid grid-cols-1 gap-4 sm:grid-cols-3',
-    },
-    children: [
-      overviewKpi('Accounts', 'totals.users'),
-      overviewKpi('Active (24h)', 'totals.active_24h'),
-      overviewKpi('New (period)', 'totals.new_in_period'),
-    ],
-  }) as PageComponent
+/** The three account figures, over the directory. Same endpoint, so one request. */
+const accountFigures = (): PageComponent =>
+  kpiStrip('$t:admin.users.metrics.region', [
+    overviewKpi('$t:admin.users.kpi.accounts', 'totals.users'),
+    overviewKpi('$t:admin.users.kpi.active', 'totals.active_24h'),
+    overviewKpi('$t:admin.users.kpi.new', 'totals.new_in_period'),
+  ])
 
 /**
  * The directory grid.
@@ -263,29 +255,32 @@ const kpiStrip = (): PageComponent =>
  * disabled over the eight it was hiding. The endpoint reports how many accounts
  * MATCH; the pager needs that number, not this page's length.
  *
- * Search goes to the SERVER — the grid forwards its box as `?q=` over email and
- * name, and the response's `appliedQuery` is what tells it the narrowing
- * already ran so it must not repeat it in memory over the page it holds.
- *
- * `toolbar.export` paints the CSV affordance, a `mode: navigate` to this same
- * endpoint's `?format=csv`.
+ * Search goes to the SERVER — the search box above publishes `q` on
+ * {@link USERS_CHANNEL}, the grid sends it to the endpoint over email and name,
+ * and the response's `appliedQuery` is what tells it the narrowing already ran
+ * so it must not repeat it in memory over the page it holds.
  */
 const usersGrid = (): PageComponent =>
   dataTable({
     props: { id: USERS_GRID_ID, 'aria-label': '$t:admin.users.region' },
     dataSource: {
-      system: { endpoint: USERS_ENDPOINT, rowsKey: 'users', idKey: 'id', totalKey: 'total' },
+      system: {
+        endpoint: USERS_ENDPOINT,
+        rowsKey: 'users',
+        idKey: 'id',
+        totalKey: 'total',
+        bindTo: USERS_CHANNEL,
+        sharedFilter: {},
+      },
     },
     columns: USERS_COLUMNS,
-    search: { enabled: true, placeholder: 'Search users' },
-    toolbar: { search: true, export: true, sort: true },
     pagination: { pageSize: 25 },
     // The grid owns the scroll: the invite row and the KPI strip above it keep
     // their natural height, the rows take the rest, and the pager stays on
     // screen instead of sitting below twenty-five rows of directory.
     layout: 'fill',
-    emptyMessage: 'No users yet',
-    noMatchMessage: 'No user matches “{query}”',
+    emptyMessage: '$t:admin.users.empty',
+    noMatchMessage: '$t:admin.users.noMatch',
   }) as PageComponent
 
 /**
@@ -303,46 +298,60 @@ const usersGrid = (): PageComponent =>
 const inviteForm = (): PageComponent =>
   ({
     type: 'form',
-    props: { 'aria-label': '$t:admin.invitations.form.region' },
+    // The dialog is the frame: the form's own card border is dropped inside it.
+    props: {
+      'aria-label': '$t:admin.invitations.form.region',
+      className: 'border-0 bg-transparent p-0',
+    },
     endpoint: {
       url: '/api/auth/admin/invite-user',
       method: 'POST',
-      submitLabel: 'Send invitation',
+      submitLabel: '$t:admin.users.invite.send',
+      // The toast names who was invited, read off the answer; `reset` empties
+      // the form and puts the caret back on the address for the next one.
       onSuccess: {
         type: 'toast',
         variant: 'success',
-        message: 'Invitation sent',
+        message: '$t:admin.invitations.sent',
         refetch: INVITATIONS_GRID_ID,
+        close: true,
+        reset: true,
       },
-      onError: { type: 'toast', variant: 'destructive', message: 'Could not send the invitation' },
+      onError: { type: 'toast', variant: 'destructive', message: '$t:admin.users.invite.failed' },
     },
     fields: [
-      { field: 'email', control: 'email', label: 'Email address' },
-      { field: 'name', control: 'text', label: 'Full name (optional)' },
+      { field: 'email', control: 'email', label: '$t:admin.users.invite.email' },
+      { field: 'name', control: 'text', label: '$t:admin.users.invite.name' },
       // The picker IS the write boundary: `validateInviteInput` accepts exactly
       // this set and enumerates it back in its own 400.
-      { field: 'role', control: 'select', label: 'Role', optionsSource: ROLE_OPTIONS_SOURCE },
+      // Preselected on `viewer`, the least-privileged role every app carries:
+      // an invitation sent without a second look grants the least, never the
+      // most. Choosing more is a deliberate step.
+      {
+        field: 'role',
+        control: 'select',
+        label: '$t:admin.common.role',
+        optionsSource: ROLE_OPTIONS_SOURCE,
+        defaultValue: 'viewer',
+      },
     ],
   }) as PageComponent
 
-/** The invite form under a labelled heading, so the page reads as two sections. */
-const inviteSection = (): PageComponent =>
+/**
+ * The invite dialog: the form, opened from either half's Invite button.
+ *
+ * Inviting is an account administration: `invite-user` answers only an
+ * admin-equivalent caller, so nobody else is offered the dialog either. A sent
+ * invitation closes it and clears it, and the invitations grid refreshes behind.
+ */
+const inviteDialog = (): PageComponent =>
   ({
-    type: 'container',
-    element: 'section',
-    props: {
-      'aria-label': '$t:admin.invitations.form.region',
-      className: 'border-border flex flex-col gap-3 rounded-lg border p-4',
-    },
-    children: [
-      {
-        type: 'text',
-        element: 'h2',
-        props: { className: 'text-xl font-semibold' },
-        content: '$t:admin.invitations.form.region',
-      },
-      inviteForm(),
-    ],
+    type: 'dialog',
+    title: '$t:admin.invitations.form.region',
+    description: '$t:admin.invitations.form.blurb',
+    visibility: { capability: 'administer-accounts' },
+    props: { id: INVITE_DIALOG_ID },
+    children: [inviteForm()],
   }) as PageComponent
 
 /**
@@ -364,27 +373,27 @@ const invitationsGrid = (): PageComponent =>
       system: { endpoint: '/api/admin/invitations', rowsKey: 'items', idKey: 'id' },
     },
     columns: [
-      { field: 'email', label: 'Email' },
-      { field: 'role', label: 'Role' },
+      { field: 'email', label: '$t:admin.common.email' },
+      { field: 'role', label: '$t:admin.common.role' },
       {
         field: 'status',
-        label: 'Status',
+        label: '$t:admin.common.status',
         cellStyle: [
           {
             when: { eq: 'pending' },
-            className: STATUS_BADGE.positive,
+            className: STATUS_BADGE.quiet.progress,
           },
           {
             when: { eq: 'expired' },
-            className: STATUS_BADGE.destructive,
+            className: STATUS_BADGE.loud,
           },
         ],
       },
-      { field: 'invitedBy', label: 'Invited by' },
-      { field: 'expiresAt', label: 'Expires' },
+      { field: 'invitedBy', label: '$t:admin.users.invite.by' },
+      { field: 'expiresAt', label: '$t:admin.common.expires', format: 'datetime' },
       {
         type: 'actions',
-        label: 'Actions',
+        label: '$t:admin.common.actions',
         // Same gate as the directory's: the whole `/api/admin/invitations`
         // surface 404s an admin-tier-but-not-equivalent operator.
         capability: 'administer-accounts',
@@ -393,20 +402,20 @@ const invitationsGrid = (): PageComponent =>
             // No confirm: sending a second copy of an invitation the operator
             // already meant to send is not destructive, and a dialog here would
             // stand in front of the commonest recovery from "it never arrived".
-            label: 'Resend',
+            label: '$t:admin.users.invite.resend',
             action: {
               type: 'fetch',
               method: 'POST',
               url: '/api/admin/invitations/$record.id/resend',
               onSuccess: {
                 type: 'toast',
-                message: 'Invitation sent again',
+                message: '$t:admin.users.invite.resent',
                 refetch: INVITATIONS_GRID_ID,
               },
             },
           },
           {
-            label: 'Revoke',
+            label: '$t:admin.common.revoke',
             // Gated, because revoking is irreversible in the sense that
             // matters: the link already in the invitee's inbox stops working,
             // and they will click it before anyone tells them not to. The
@@ -416,12 +425,11 @@ const invitationsGrid = (): PageComponent =>
             // the dialog's affordance can never be mistaken — by an operator or
             // by a test — for the button that opened it.
             confirm: {
-              title: 'Revoke this invitation?',
-              message:
-                'The link already sent stops working immediately. You can invite this person again afterwards.',
+              title: '$t:admin.users.invite.revokeConfirm',
+              message: '$t:admin.users.invite.revokeMessage',
               role: 'alertdialog',
-              confirmLabel: 'Confirm',
-              cancelLabel: 'Cancel',
+              confirmLabel: '$t:admin.common.confirm',
+              cancelLabel: '$t:admin.common.cancel',
             },
             action: {
               type: 'fetch',
@@ -429,7 +437,7 @@ const invitationsGrid = (): PageComponent =>
               url: '/api/admin/invitations/$record.id',
               onSuccess: {
                 type: 'toast',
-                message: 'Invitation revoked',
+                message: '$t:admin.users.invite.revoked',
                 refetch: INVITATIONS_GRID_ID,
               },
             },
@@ -437,7 +445,7 @@ const invitationsGrid = (): PageComponent =>
         ],
       },
     ],
-    emptyMessage: 'No invitations outstanding',
+    emptyMessage: '$t:admin.users.invite.none',
   }) as PageComponent
 
 /**
@@ -447,17 +455,25 @@ const invitationsGrid = (): PageComponent =>
  * invitation lifecycle is the thing they come back for.
  */
 const TABS = [
-  { id: 'members', label: 'Members' },
-  { id: 'invitations', label: 'Invitations' },
+  { id: 'members', label: '$t:admin.users.tab.members' },
+  { id: 'invitations', label: '$t:admin.users.tab.invitations' },
 ] as const
 
 /** The Members panel: the account figures, the directory, and the Invite gesture. */
 const membersPanel = (): PageComponent =>
-  tabPanel([toolbarRow([inviteAffordance()]), kpiStrip(), usersGrid()])
+  tabPanel([
+    toolbarRow([
+      toolbarSearch(USERS_CHANNEL, '$t:admin.users.search'),
+      exportAffordance(),
+      inviteAffordance(),
+    ]),
+    accountFigures(),
+    usersGrid(),
+  ])
 
 /** The Invitations panel: issue one, see what is outstanding, take one back. */
 const invitationsPanel = (): PageComponent =>
-  tabPanel([inviteSection(), invitationsGrid()], { scroll: true })
+  tabPanel([toolbarRow([inviteAffordance()]), invitationsGrid()], { scroll: true })
 
 /**
  * Both routes render the SAME body; only the tab a bare URL opens on differs.
@@ -478,22 +494,23 @@ const usersPage = (config: {
   readonly heading: readonly [string, string]
   readonly breadcrumb: Readonly<Record<string, string>>
 }): PageConfig =>
-  withShell(
-    {
-      id: config.id,
-      name: config.id,
-      path: config.path,
-      meta: { title: config.title, lang: 'en-US' },
-      query: tabQuery(TABS, config.defaultTab),
-      components: [
-        pageHeading(config.heading[0], config.heading[1]),
-        tabbedBody('$t:admin.users.tabs.region', TABS, [membersPanel(), invitationsPanel()], {
-          fill: true,
-        }),
-      ],
-    } as PageConfig,
-    { breadcrumb: config.breadcrumb, fill: true }
-  )
+  consolePage({
+    id: config.id,
+    path: config.path,
+    title: config.title,
+    heading: config.heading,
+    tabs: {
+      label: '$t:admin.users.tabs.region',
+      specs: TABS,
+      panels: [membersPanel(), invitationsPanel()],
+      defaultId: config.defaultTab,
+      fill: true,
+    },
+    // The dialog renders in a portal, so where it sits in the tree changes
+    // nothing on screen; after the strip, it is one dialog for both halves.
+    body: [inviteDialog()],
+    shell: { breadcrumb: config.breadcrumb, fill: true },
+  })
 
 /** `/users` — the account directory, with the invitation lifecycle beside it. */
 const directoryPage: PageConfig = usersPage({
@@ -506,30 +523,11 @@ const directoryPage: PageConfig = usersPage({
 })
 
 /**
- * `/users/invitations` — the retained address, opening on the Invitations tab.
+ * The directory and one account.
  *
- * The same strip as `/users`, with the other half selected. It keeps its own
- * document title and its two-segment breadcrumb, so a bookmark still says what
- * it is looking at; what it no longer is, is a second body that could disagree
- * with the one above.
+ * `/users/invitations` is no page any more: it answers a permanent move to
+ * `/users?tab=invitations` (`config/redirects.ts`), and a redirect is resolved
+ * before any page, so the literal can never reach `/users/:email` as an account
+ * called "invitations".
  */
-const invitationsPage: PageConfig = usersPage({
-  id: 'dashboard-data-invitations',
-  path: '/users/invitations',
-  title: '$t:admin.meta.invitations',
-  defaultTab: 'invitations',
-  heading: ['$t:admin.invitations.heading', '$t:admin.invitations.blurb'],
-  breadcrumb: { users: '$t:admin.crumb.users', invitations: '$t:admin.crumb.invitations' },
-})
-
-/**
- * Three pages, and the ORDER IS NOW LOAD-BEARING.
- *
- * It was free while the two patterns were disjoint. `/users/:email` ends that:
- * `findMatchingRoute` takes the FIRST pattern that matches and has no
- * static-over-dynamic precedence, so `/users/invitations` listed after it would
- * be swallowed — the param page would render for the literal address, with
- * `email = 'invitations'` and an empty grid. The literal sub-path comes first,
- * and any future one goes with it.
- */
-export default [directoryPage, invitationsPage, accountPage] satisfies readonly PageConfig[]
+export default [directoryPage, accountPage] satisfies readonly PageConfig[]

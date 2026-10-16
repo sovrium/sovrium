@@ -46,6 +46,7 @@ export {
   isFieldNotNull,
   isRelationshipField,
   isUserField,
+  isSingleUser,
   isUserReferenceField,
   relationshipFieldCreatesForeignKey,
 } from './sql-field-predicates'

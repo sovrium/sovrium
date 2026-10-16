@@ -11,7 +11,7 @@
  *
  * Encodes the body the `roles.list` read (`application/use-cases/admin/
  * roles-read-operations.ts`) answers, over HTTP and as an MCP tool: `{ roles, total }`, each
- * row `{ name }`, sorted by `localeCompare`. The set is
+ * row `{ name, description }`, sorted by `localeCompare`. The set is
  * `assignableRoleNames(app)` — the built-ins, the admin-tier names and every
  * name declared in `app.auth.roles[]` — so it is a projection of
  * CONFIGURATION, not of data: it says nothing about who holds which role.
@@ -31,6 +31,12 @@ export const adminRoleItemSchema = Schema.Struct({
     description:
       'An assignable role name: a built-in (`admin`, `member`, `viewer`), an admin-tier name, or one declared in `auth.roles`. The name is the identity; no numeric id exists.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  description: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'What the role is for, verbatim from `auth.roles[].description`. Null for a role declared without a description, and for every built-in and admin-tier name, which the configuration cannot redeclare.',
+    })
+  ),
 }).annotate({ identifier: 'AdminRoleItem' })
 
 /**

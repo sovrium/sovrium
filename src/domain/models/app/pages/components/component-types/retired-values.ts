@@ -6,8 +6,9 @@
  */
 
 /**
- * The option VALUES a component type stopped accepting when its vocabulary took
- * shadcn/ui's names, each with the sentence that names the replacement.
+ * The option VALUES a component type stopped accepting — when its vocabulary
+ * took shadcn/ui's names, or when the page composed its controls on a
+ * shared-filter channel — each with the sentence that names the replacement.
  *
  * A retired value is not an unknown key: the decoder refuses it as a literal
  * mismatch and lists what the option accepts now, which tells an author what is
@@ -36,6 +37,10 @@ const RETIRED_VALUES: ReadonlyMap<string, string> = new Map([
   [
     'card.variant=bubble',
     '`variant: bubble` is now its own type: use `type: bubble`, with `align: start` or `align: end`.',
+  ],
+  [
+    'search-input.scope=subscribers',
+    '`scope: subscribers` has been removed: a search box no longer waits for a component to name its id. Declare `publishes: { bindTo: <channel>, param: q }` on the box instead of `scope`, and subscribe the data components with `dataSource.bindTo: <channel>` and `sharedFilter: {}`.',
   ],
 ])
 
@@ -87,16 +92,26 @@ export const appendRetiredValueHint = (
 }
 
 /**
- * The message for a row-click action written under its retired name, or
- * `undefined`. The action union is discriminated by `action`, not `type`, so
- * the reporter sees it as a rejected union value rather than a refused literal.
+ * The message for a page action written under a retired name or a removed
+ * type, or `undefined`. The action union mixes `type`- and `action`-keyed
+ * members, so the reporter sees either as a rejected union value rather than
+ * a refused literal.
+ *
+ * The `filter` page action is recognised by its `targetDataSource`, which only
+ * it carried: an automation's `filter` step (`operator: continue`) is a live
+ * action of another union and must never be pointed elsewhere.
  *
  * @param input - The rejected value, as the author wrote it.
  */
-export const migrationHintForRetiredAction = (input: unknown): string | undefined =>
-  childAt(input, 'action') === 'openDrawer'
-    ? '`action: openDrawer` is now `action: openSheet`, the name shadcn/ui gives the panel that slides in from an edge.'
-    : undefined
+export const migrationHintForRetiredAction = (input: unknown): string | undefined => {
+  if (childAt(input, 'action') === 'openDrawer') {
+    return '`action: openDrawer` is now `action: openSheet`, the name shadcn/ui gives the panel that slides in from an edge.'
+  }
+  if (childAt(input, 'type') === 'filter' && childAt(input, 'targetDataSource') !== undefined) {
+    return '`action: { type: filter, targetDataSource }` has been removed: no page ever acted on it. Give the control that should narrow the data `publishes: { bindTo: <channel>, field, operator }` and subscribe the data component with `dataSource.bindTo: <channel>` and `sharedFilter: {}`.'
+  }
+  return undefined
+}
 
 /** Every retired `type.key=value`, for the test that pins each message. @internal */
 export const RETIRED_VALUE_KEYS: readonly string[] = [...RETIRED_VALUES.keys()]

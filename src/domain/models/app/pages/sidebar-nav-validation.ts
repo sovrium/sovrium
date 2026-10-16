@@ -326,6 +326,24 @@ function headingLevelViolations(
   })
 }
 
+/**
+ * `collapsible` needs a `label`: the label IS the control that opens the
+ * group, so a label-less collapsible group would fold away with nothing to
+ * reopen it. Located by index, for the reason given above.
+ */
+function collapsibleViolations(
+  groups: readonly Readonly<Record<string, unknown>>[],
+  label: string
+): readonly string[] {
+  return groups.flatMap((group, index) =>
+    group['collapsible'] === true && typeof group['label'] !== 'string'
+      ? [
+          `${label} declares sidebar group #${index + 1} as collapsible but with no label — the label is the control that opens a collapsible group, so this one would fold away with nothing to reopen it. Give the group a label, or drop collapsible`,
+        ]
+      : []
+  )
+}
+
 /** The breakpoint ladder `rail.below` and `drawer.below` both name, narrowest first. */
 const BREAKPOINT_ORDER: readonly string[] = ['sm', 'md', 'lg', 'xl', '2xl']
 
@@ -368,6 +386,7 @@ export function sidebarNavigationViolations(
   return [
     ...drawerRailOrderViolations(nodes, label),
     ...headingLevelViolations(groups, label),
+    ...collapsibleViolations(groups, label),
     ...landmarkContiguityViolations(groups, label),
     ...landmarkNameCollisionViolations(groups, label),
     ...groups.flatMap((group) => [

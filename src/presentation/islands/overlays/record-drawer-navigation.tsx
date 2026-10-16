@@ -26,6 +26,7 @@ import {
   withDisplayLabels,
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { dispatch, subscribe } from '@/presentation/islands/runtime/event-bus'
+import type { DrawerBuiltInLabels } from './record-drawer-labels'
 import type { RawRecord } from './record-drawer-record-read'
 import type { ReactElement } from 'react'
 
@@ -37,6 +38,14 @@ export interface DrawerNavigationProps {
     /** The record's own page, with `$record.<field>` tokens (`/orders/$record.id`). */
     readonly fullPage?: string
   }
+}
+
+/** The English words, which a page in another language receives resolved from the host. */
+const ENGLISH_WORDS = {
+  previous: 'Previous',
+  next: 'Next',
+  fullPage: 'Open full page',
+  navigation: 'Record navigation',
 }
 
 const STEP_CLASS =
@@ -53,30 +62,37 @@ subscribe('sovrium:open-drawer', (detail) => {
   OPENING_LISTS.set(detail.id, detail.siblings ?? [])
 })
 
+/** The record's own page, its `$record.*` filled, once the record has loaded. */
+const fullPageHref = (fullPage: string | undefined, record: RawRecord): string | undefined =>
+  fullPage === undefined || record['id'] === undefined
+    ? undefined
+    : toSafeRedirectPath(substituteRecordVars(fullPage, withDisplayLabels(record)))
+
 export function DrawerNavigation({
   id,
   navigation,
   record,
   recordId,
+  labels,
 }: {
   readonly id: string | undefined
   readonly navigation: NonNullable<DrawerNavigationProps['navigation']>
   readonly record: RawRecord
   readonly recordId: string | undefined
+  /** The page-language words; English when the host gave none. */
+  readonly labels?: DrawerBuiltInLabels | undefined
 }): ReactElement {
+  const words = { ...ENGLISH_WORDS, ...labels }
   const siblings = (id === undefined ? undefined : OPENING_LISTS.get(id)) ?? []
   const index = recordId === undefined ? -1 : siblings.indexOf(recordId)
   const stepTo = (next: string | undefined): void => {
     if (id && next !== undefined)
       dispatch('sovrium:open-drawer', { id, record: { id: next }, siblings })
   }
-  const href =
-    navigation.fullPage === undefined || record['id'] === undefined
-      ? undefined
-      : toSafeRedirectPath(substituteRecordVars(navigation.fullPage, withDisplayLabels(record)))
+  const href = fullPageHref(navigation.fullPage, record)
   return (
     <nav
-      aria-label="Record navigation"
+      aria-label={words.navigation}
       className="flex items-center gap-2"
     >
       {navigation.siblings === true && index !== -1 && (
@@ -87,7 +103,7 @@ export function DrawerNavigation({
             disabled={index === 0}
             onClick={() => stepTo(siblings[index - 1])}
           >
-            Previous
+            {words.previous}
           </button>
           <button
             type="button"
@@ -95,7 +111,7 @@ export function DrawerNavigation({
             disabled={index === siblings.length - 1}
             onClick={() => stepTo(siblings[index + 1])}
           >
-            Next
+            {words.next}
           </button>
         </>
       )}
@@ -104,7 +120,7 @@ export function DrawerNavigation({
           href={href}
           className="text-foreground ml-auto text-sm font-medium underline underline-offset-2"
         >
-          Open full page
+          {words.fullPage}
         </a>
       )}
     </nav>

@@ -5,11 +5,45 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sessionHoldsCapability } from '@/domain/models/app/pages/component-session-visibility-service'
 import {
   normalizeSidebarPath,
   sidebarEntryMatches,
 } from '@/domain/models/app/pages/sidebar-active-match'
+import type { App } from '@/domain/models/app'
+import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
+import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
+
+/**
+ * Who is reading, for an entry gated by `capability`: the session the powers
+ * derive from, or — on a mounted console page, which renders session-less —
+ * the powers the mount already resolved (`granted`), which win when present.
+ */
+export interface SidebarCaller {
+  readonly session: SessionInfo | undefined
+  readonly app: App
+  readonly granted?: readonly CallerCapability[] | undefined
+}
+
+/** Whether the caller holds a power: the stated set when there is one, else the session's. */
+type HoldsPower = (capability: string) => boolean
+
+/** The request an entry is judged against: where the reader is, and what they may do. */
+interface Scope {
+  readonly fullPath: string
+  readonly holds: HoldsPower
+}
+
+const holdsPower =
+  (caller: SidebarCaller | undefined): HoldsPower =>
+  (capability) => {
+    if (caller === undefined) return false
+    const power = capability as CallerCapability
+    return caller.granted !== undefined
+      ? caller.granted.includes(power)
+      : sessionHoldsCapability(power, caller.session, caller.app)
+  }
 
 /**
  * Drop every sidebar entry whose `showWhen` section the reader is not inside.
@@ -49,21 +83,23 @@ import type { Page } from '@/domain/models/app/pages'
 export function resolveSidebarScopedEntries(
   page: Page,
   requestPath: string,
-  basePath?: string
+  basePath?: string,
+  caller?: SidebarCaller
 ): Page {
   if (!hasScopedEntry(page.components) && !hasScopedEntry(page.layout)) return page
+  const holds = holdsPower(caller)
   // Compared in the MOUNT's own space, exactly as the current-entry pass is:
   // `showWhen.section` is rewritten onto the base at boot by the same walk that
   // rewrites every href beside it, while the path this function receives has had
   // that base stripped.
-  const fullPath = normalizeSidebarPath(`${basePath ?? ''}${requestPath}`)
+  const scope: Scope = { fullPath: normalizeSidebarPath(`${basePath ?? ''}${requestPath}`), holds }
   return {
     ...page,
     ...(page.components !== undefined
-      ? { components: transform(page.components, fullPath) as Page['components'] }
+      ? { components: transform(page.components, scope) as Page['components'] }
       : {}),
     ...(page.layout !== undefined
-      ? { layout: transform(page.layout, fullPath) as Page['layout'] }
+      ? { layout: transform(page.layout, scope) as Page['layout'] }
       : {}),
   }
 }
@@ -78,26 +114,26 @@ export function resolveSidebarScopedEntries(
 function hasScopedEntry(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(hasScopedEntry)
   if (!isRecord(value)) return false
-  if (isRecord(value['showWhen'])) return true
+  if (isRecord(value['showWhen']) || typeof value['capability'] === 'string') return true
   return Object.values(value).some(hasScopedEntry)
 }
 
-function transform(value: unknown, fullPath: string): unknown {
-  if (Array.isArray(value)) return value.map((entry) => transform(entry, fullPath))
+function transform(value: unknown, scope: Scope): unknown {
+  if (Array.isArray(value)) return value.map((entry) => transform(entry, scope))
   if (!isRecord(value)) return value
 
   const mapped = Object.fromEntries(
-    Object.entries(value).map(([key, child]) => [key, transform(child, fullPath)])
+    Object.entries(value).map(([key, child]) => [key, transform(child, scope)])
   )
   if (value['type'] !== 'sidebar' || !Array.isArray(value['groups'])) return mapped
 
-  return { ...mapped, groups: scopeGroups(value['groups'], fullPath) }
+  return { ...mapped, groups: scopeGroups(value['groups'], scope) }
 }
 
-function scopeGroups(groups: readonly unknown[], fullPath: string): readonly unknown[] {
+function scopeGroups(groups: readonly unknown[], scope: Scope): readonly unknown[] {
   return groups.map((group) => {
     if (!isRecord(group) || !Array.isArray(group['items'])) return group
-    return { ...group, items: scopeEntries(group['items'], fullPath) }
+    return { ...group, items: scopeEntries(group['items'], scope) }
   })
 }
 
@@ -118,12 +154,12 @@ function scopeGroups(groups: readonly unknown[], fullPath: string): readonly unk
  * shaped exactly as it went in — an empty `children: []` would turn a plain
  * entry into an expandable one with nothing in it.
  */
-function scopeEntries(entries: readonly unknown[], fullPath: string): readonly unknown[] {
+function scopeEntries(entries: readonly unknown[], scope: Scope): readonly unknown[] {
   return entries
-    .filter((entry) => isInScope(entry, fullPath))
+    .filter((entry) => isInScope(entry, scope))
     .map((entry) => {
       if (!isRecord(entry) || !Array.isArray(entry['children'])) return entry
-      const children = scopeEntries(entry['children'], fullPath)
+      const children = scopeEntries(entry['children'], scope)
       // Every child gated out leaves a list with nothing in it. The field is
       // dropped rather than published empty, so the row degrades to the plain
       // link it would have been — a disclosure whose toggle opens onto nothing
@@ -135,13 +171,17 @@ function scopeEntries(entries: readonly unknown[], fullPath: string): readonly u
     })
 }
 
-/** Whether an entry declares no gate, or declares one the reader is inside. */
-function isInScope(entry: unknown, fullPath: string): boolean {
+/** Whether an entry declares no gate, or only gates the reader passes. */
+function isInScope(entry: unknown, scope: Scope): boolean {
   if (!isRecord(entry)) return true
+  // A power the reader lacks removes the entry, and its subtree with it — the
+  // same predicate the route behind it applies, so the navigation never offers
+  // a destination the server would answer with a 404.
+  if (typeof entry['capability'] === 'string' && !scope.holds(entry['capability'])) return false
   const { showWhen } = entry
   if (!isRecord(showWhen)) return true
   const { section } = showWhen
-  return typeof section !== 'string' || sidebarEntryMatches(section, 'prefix', fullPath)
+  return typeof section !== 'string' || sidebarEntryMatches(section, 'prefix', scope.fullPath)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

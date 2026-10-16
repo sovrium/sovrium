@@ -67,6 +67,15 @@ const withState = (recipe: string, state: InputState): string =>
 export const computeInputDefaultClasses = (input: InputDefaultClassesInput = {}): string =>
   withState(INPUT_RECIPE, input.state ?? 'default')
 
+/**
+ * The input recipe alone, for an input that carries its own state attributes
+ * — which base-nova styles from the recipe itself. Equal to
+ * {@link computeInputDefaultClasses} at the default state, without the state
+ * table: the always-loaded client runtime draws its type-to-confirm textbox
+ * with this and pays only for the one string.
+ */
+export const computeInputRecipeClasses = (): string => INPUT_RECIPE
+
 /** The default className for a textarea; same state contract as the input. */
 export const computeTextareaDefaultClasses = (input: InputDefaultClassesInput = {}): string =>
   withState(TEXTAREA_RECIPE, input.state ?? 'default')

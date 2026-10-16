@@ -143,7 +143,7 @@ export function relatedCallerModeOf(
  * (the API's `requireAuthOrGuestComment` gate); anyone else goes through the
  * shared evaluators a grid bound to the table uses.
  */
-function callerAccess(
+export function callerAccess(
   table: Table,
   tables: Tables | undefined,
   caller: RelatedCaller

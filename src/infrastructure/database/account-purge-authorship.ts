@@ -12,6 +12,7 @@ import {
   deletedByFieldNames,
   updatedByFieldNames,
 } from '@/domain/models/app/tables/authorship-fields'
+import { userListFieldNames } from '@/domain/models/app/tables/user-list-field-service'
 import { AUTHORSHIP_FIELDS } from '@/infrastructure/database/table-queries/mutation-helpers/authorship-helpers'
 import {
   cascadingChildren,
@@ -20,6 +21,7 @@ import {
   type ErasureReachTable,
 } from './account-purge-runs'
 import { signatureFieldNames } from './account-purge-signatures'
+import { removeFromUserLists } from './account-purge-user-lists'
 import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
 import { getExistingColumnNames } from './sql/dialect-introspection'
 import type { DrizzleTransaction } from '@/infrastructure/database'
@@ -87,6 +89,8 @@ export interface PurgeTableAuthorship {
   readonly shedColumns: readonly string[]
   /** The `user` fields: a person named on somebody else's row (`ON DELETE SET NULL`). */
   readonly userColumns?: readonly string[]
+  /** The `user` fields holding several people: her id is taken out of each list. */
+  readonly userListColumns?: readonly string[]
   /** The tables whose rows the config deletes with this table's. */
   readonly cascadedBy?: readonly CascadingChild[]
   /** The `signature` fields: her name and image are stripped from the ones she gave. */
@@ -101,6 +105,7 @@ export const erasureReach = (
     name: table.name,
     createdByColumns: table.createdByColumns,
     namingColumns: [...table.shedColumns, ...(table.userColumns ?? [])],
+    listColumns: table.userListColumns ?? [],
     cascadedBy: table.cascadedBy ?? [],
   }))
 
@@ -108,6 +113,7 @@ export const erasureReach = (
 interface ProbedAuthorship {
   readonly createdBy: readonly string[]
   readonly shed: readonly string[]
+  readonly lists: readonly string[]
 }
 
 /**
@@ -133,6 +139,7 @@ export const resolvePurgeTableAuthorship = (
     ]),
   ],
   userColumns: userFieldNames(tables, tableName),
+  userListColumns: userListFieldNames(tables?.find((table) => table.name === tableName)?.fields),
   cascadedBy: cascadingChildren(tables, tableName),
   signatureColumns: signatureFieldNames(tables, tableName),
 })
@@ -165,19 +172,24 @@ async function authorshipColumnsByTable(
   const runner = tx as RawSqlRunner
   const probed = await Promise.all(
     sanitized.map(async (table) => {
-      const candidates = [...new Set([...table.createdByColumns, ...table.shedColumns])]
+      const lists = table.userListColumns ?? []
+      const candidates = [...new Set([...table.createdByColumns, ...table.shedColumns, ...lists])]
       const existing = await getExistingColumnNames(runner, table.name, candidates)
       return [
         table.name,
         {
           createdBy: table.createdByColumns.filter((column) => existing.has(column)),
           shed: table.shedColumns.filter((column) => existing.has(column)),
+          lists: lists.filter((column) => existing.has(column)),
         },
       ] as const
     })
   )
   return new Map(
-    probed.filter(([, columns]) => columns.createdBy.length > 0 || columns.shed.length > 0)
+    probed.filter(
+      ([, columns]) =>
+        columns.createdBy.length > 0 || columns.shed.length > 0 || columns.lists.length > 0
+    )
   )
 }
 
@@ -218,5 +230,23 @@ export async function sweepAppTableAuthorship(
         sql`UPDATE ${sql.identifier(tableName)} SET ${sql.identifier(column)} = NULL WHERE ${sql.identifier(column)} = ${userId}`
       )
     }
+  }
+}
+
+/**
+ * Take the erased account out of every list of people, the others kept in
+ * their order. Run AFTER the account row is deleted, as a one-person field's
+ * `ON DELETE SET NULL` is: on PostgreSQL that delete waits for every write
+ * still holding the account (its in-transaction confirmation), so this edit
+ * reads each list such a write stored, and a later write finds no account.
+ */
+export async function removeFromEveryUserList(
+  tx: Readonly<DrizzleTransaction>,
+  userId: string,
+  appTables: readonly PurgeTableAuthorship[]
+): Promise<void> {
+  const tables = await authorshipColumnsByTable(tx, appTables)
+  for (const [tableName, columns] of tables) {
+    await removeFromUserLists(tx, tableName, columns.lists, userId)
   }
 }

@@ -6,7 +6,7 @@
  */
 
 import { appRegion, span } from '@/library/manifest/app-block-kit'
-import { asComponent, flex, PLACE_NOTE, stack } from '@/library/manifest/block-kit'
+import { asComponent, flex, PLACE_NOTE } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 
 interface InlineAlert {
@@ -26,14 +26,14 @@ const alert = ({
 }: InlineAlert): Readonly<Record<string, unknown>> => ({
   type: 'alert',
   alertVariant: variant,
+  // shadcn's Alert anatomy: the title in its own row, the sentence and the
+  // action in the description, painted by the variant at full contrast.
+  title,
   props: { className: 'w-full max-w-3xl' },
   children: [
     flex(
       [
-        stack(
-          [span(title, 'text-md font-semibold'), span(description, 'text-sm opacity-80')],
-          'min-w-0 flex-1 gap-0.5'
-        ),
+        span(description, 'min-w-0 flex-1'),
         {
           type: 'link',
           props: {

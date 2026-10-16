@@ -95,7 +95,7 @@ export const entry = defineLibraryEntry({
     THEME_NOTE,
   ],
   params: [
-    stringParam('headline', 'The heading above the grid. Empty to omit.', '[Projects]'),
+    stringParam('headline', 'The page heading above the grid. Empty to omit.', '[Projects]'),
     stringParam('table', 'The table the records are read from.', 'projects'),
     stringParam('titleField', 'The text field naming each record.', 'title'),
     stringParam('statusField', 'The status or single-select field.', 'status'),
@@ -142,7 +142,8 @@ export const entry = defineLibraryEntry({
       panel([
         stack(
           [
-            ...(p('headline') === '' ? [] : [panelHead(p('headline'))]),
+            // The page's own heading: the grid and its sheet are the whole page.
+            ...(p('headline') === '' ? [] : [panelHead(p('headline'), '', 'h1')]),
             {
               type: 'table',
               dataSource: { table: p('table') },

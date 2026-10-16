@@ -18,7 +18,7 @@ import { LOGIN_RELATIVE_PATH } from '@/application/use-cases/mount/embedded-app-
 import { appRequiresEmail } from '@/domain/models/app'
 import { mountHref } from '@/domain/models/app/admin/mount-hrefs'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { compileCSS } from '@/infrastructure/css/compiler'
+import { compileCSS, type CompiledCSS } from '@/infrastructure/css/compiler'
 import { renderStartupSummary } from '@/infrastructure/logging/startup-summary'
 import { isEmailConfigured } from '@/infrastructure/process/env'
 import { getSovriumVersion } from '@/infrastructure/process/version'
@@ -77,6 +77,18 @@ const collectDatabasePhases = (
 > => {
   if (report) return Effect.succeed(report.phases)
   return runDatabaseStartup(app, parseDatabaseDialectConfig())
+}
+
+/**
+ * The CSS line of the startup report. "loaded from file" is the pre-compiled
+ * fast path; "compiled" is the default; and a compile that had to set a stale
+ * pre-compiled file aside says so, because the operator who ran `sovrium
+ * build` expects the first and needs to know why they got the second.
+ */
+const cssStartupLabel = (result: CompiledCSS, sizeKB: number): string => {
+  if (result.precompiled) return `CSS loaded from file (${sizeKB} KB)`
+  if (result.staleIgnored) return `CSS compiled (${sizeKB} KB, stale pre-compiled file ignored)`
+  return `CSS compiled (${sizeKB} KB)`
 }
 
 /**
@@ -143,9 +155,7 @@ const collectInfraPhases = (
     // CSS phase
     const cssResult = yield* compileCSS(app)
     const cssSizeKB = Math.round(cssResult.css.length / 1024)
-    const cssLabel = cssResult.precompiled
-      ? `CSS loaded from file (${cssSizeKB} KB)`
-      : `CSS compiled (${cssSizeKB} KB)`
+    const cssLabel = cssStartupLabel(cssResult, cssSizeKB)
 
     // NOTE: the AI compute NOTIFY listener is NOT started here any more. It is a
     // scoped layer on the domain runtime (`database/ai-compute-listener.ts`),

@@ -19,11 +19,14 @@ import { ListContinuation } from './list-continuation'
 import { useListRowClick } from './list-row-click'
 import { ListError, ListLoading, ListMissing, type ListStrings } from './list-status'
 import { useListRecords, type ListRecordsDataSource } from './use-list-records'
+import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
 import type { ReactElement } from 'react'
 
 interface ListIslandProps extends ListRowInputs {
   /** What a click on an item does — a grid row's `onRowClick`. */
   readonly onRowClick?: unknown
+  /** The channel the list publishes the item a reader selects on. */
+  readonly publishes?: SharedFilterPublisherConfig
   readonly dataSource?: ListRecordsDataSource
   /**
    * Declarative item template (title / subtitle / image / badge / metadata) —
@@ -115,7 +118,7 @@ function renderListStatus(input: {
   readonly hideWhenEmpty: boolean | undefined
   readonly drawnCount: number
 }): ReactElement | null | undefined {
-  if (!hasDataBinding(input.dataSource)) return <ListMissing />
+  if (!hasDataBinding(input.dataSource)) return <ListMissing strings={input.strings} />
   const empty = input.isLoading || input.drawnCount === 0
   if (input.hideWhenEmpty === true && empty && !input.isError) return null
   if (input.isLoading) return <ListLoading strings={input.strings} />
@@ -156,6 +159,7 @@ export default function ListIsland({
   maxItems,
   hideWhenEmpty,
   onRowClick,
+  publishes,
   uiStrings,
   ...rowInputs
 }: ListIslandProps): ReactElement | null {
@@ -170,10 +174,9 @@ export default function ListIsland({
     retry,
     total,
   } = useListRecords(dataSource)
-  // The declared cap, applied to what is DRAWN: a page is a transport concern
-  // and the cap a display one, so the last visible row ignores page boundaries.
+  // The cap applies to what is DRAWN, whatever the page boundaries.
   const drawn = maxItems === undefined ? records : records.slice(0, maxItems)
-  const onItemEvent = useListRowClick(onRowClick, drawn, dataSource?.table)
+  const onItemEvent = useListRowClick(onRowClick, drawn, dataSource?.table, publishes)
 
   const status = renderListStatus({
     dataSource,

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { readFileSync } from 'node:fs'
 import { resolvePackagePath } from './package-paths'
 
 /**
@@ -28,12 +29,19 @@ declare const __SOVRIUM_VERSION__: string | undefined
  * Never throws: a missing/unreadable `package.json` degrades to `'0.0.0'`
  * rather than crashing boot.
  */
-export const getSovriumVersion = async (): Promise<string> => {
+export const getSovriumVersion = async (): Promise<string> => getSovriumVersionSync()
+
+/**
+ * {@link getSovriumVersion}, synchronously — for a caller that cannot wait,
+ * such as the stylesheet URL a page links while it renders. Same precedence,
+ * same `'0.0.0'` fallback, never throws.
+ */
+export const getSovriumVersionSync = (): string => {
   if (typeof __SOVRIUM_VERSION__ !== 'undefined') {
     return __SOVRIUM_VERSION__
   }
   try {
-    const { version } = (await Bun.file(resolvePackagePath('package.json')).json()) as {
+    const { version } = JSON.parse(readFileSync(resolvePackagePath('package.json'), 'utf8')) as {
       version?: string
     }
     return typeof version === 'string' && version.length > 0 ? version : '0.0.0'

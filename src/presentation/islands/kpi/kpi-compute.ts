@@ -79,7 +79,8 @@ export function aggregateKpi(records: readonly TableRecord[], config: KpiAggrega
  *   `scale: '100'` to render a 0–1 fraction as a percent (e.g. `0.95` -> `95 %`).
  * - `compact` uses the page language's compact notation (`12K`, `1,2 M` in French).
  * - `bytes` renders a byte count as a compact human-readable string
- *   (binary `B/KB/MB/GB`) — e.g. `0` -> `0 B`, `1536` -> `2 KB`. THE SAME
+ *   (binary `B/KB/MB/GB`, `o/ko/Mo/Go` on a French page) — e.g. `0` -> `0 B`,
+ *   `1536` -> `1.5 KB` (`1,5 ko`). THE SAME
  *   `formatByteCount` a column / `record-field` `format: 'bytes'` spends, so a
  *   tile and a row on one page cannot print one number two ways.
  * - `number` (default) inserts thousands separators in the page's language
@@ -98,8 +99,8 @@ export function formatKpiValue(
   const formatters: Readonly<Record<KpiFormatType, () => string>> = {
     number: () => new Intl.NumberFormat(tag, fractionDigits(options)).format(value),
     currency: () => formatKpiCurrency(value, options?.currency, tag, display),
-    percentage: () => formatPercentage(value, options),
-    bytes: () => formatByteCount(value),
+    percentage: () => formatPercentage(value, options, tag),
+    bytes: () => formatByteCount(value, tag),
     compact: () => new Intl.NumberFormat(tag, { notation: 'compact' }).format(value),
   }
   return formatters[format?.type ?? 'number']()
@@ -154,7 +155,8 @@ function fractionDigits(
 }
 
 /**
- * Formats a value as a percentage with a trailing `%` and grouping separators.
+ * Formats a value as a percentage in the page language — `66.7%` in English,
+ * `66,7 %` in French — with its grouping separators.
  *
  * An optional `scale` multiplier (a stringified number) scales the raw value
  * before formatting and rounds the result to a whole percent, so a 0–1 fraction
@@ -165,14 +167,21 @@ function fractionDigits(
  */
 function formatPercentage(
   value: number,
-  options: Readonly<Record<string, string>> | undefined
+  options: Readonly<Record<string, string>> | undefined,
+  locale: string
 ): string {
   const scale = Number(options?.scale)
   const digits = fractionDigits(options)
   const scaled = Number.isFinite(scale) && scale !== 0 ? value * scale : undefined
   const declared = Object.keys(digits).length > 0
   const display = scaled === undefined ? value : declared ? scaled : Math.round(scaled)
-  return `${new Intl.NumberFormat('en-US', digits).format(display)}%`
+  // `percent` style multiplies by 100 and defaults to whole percents; the value
+  // is already a percent, and an undeclared ceiling keeps a number's three digits.
+  return new Intl.NumberFormat(locale, {
+    style: 'percent',
+    maximumFractionDigits: Math.max(3, digits.minimumFractionDigits ?? 0),
+    ...digits,
+  }).format(display / 100)
 }
 
 /**

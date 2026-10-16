@@ -134,12 +134,21 @@ export const variablesUnsetCell = (app: App): Cell =>
       .map((status) => status.key)
   )
 
+/** The listed statuses only an operator's (re)authorization resolves. */
+const NEEDS_OPERATOR: ReadonlySet<string> = new Set([
+  'expired',
+  'reconnect-needed',
+  'not-connected',
+])
+
 /**
- * `tokensExpired` — connections whose derived status is `expired` (STATE).
+ * `tokensExpired` — connections waiting on an operator to (re)connect them
+ * (STATE): status `expired`, `reconnect-needed` (nothing can renew the token),
+ * or `not-connected` (an OAuth2 connection nobody has authorized yet).
  *
- * `expiring-soon` is deliberately NOT counted: that credential still works,
- * and a cell that conflated the two would cry wolf every time a token entered
- * its renewal window.
+ * `expiring-soon` is deliberately NOT counted: that credential still works and
+ * the runtime refreshes it on its own, and a cell that counted it would cry
+ * wolf every time a token entered its renewal window.
  *
  * The detail names the connection and its provider — never the token (S4).
  */
@@ -153,7 +162,7 @@ export const tokensExpiredBlock: Effect.Effect<
       outcome._tag === 'Ok'
         ? cellOf(
             outcome.body.connections
-              .filter((connection) => connection.status === 'expired')
+              .filter((connection) => NEEDS_OPERATOR.has(connection.status))
               .map((connection) => `${connection.name} · ${connection.provider}`)
           )
         : EMPTY_CELL

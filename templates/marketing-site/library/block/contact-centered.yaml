@@ -1,4 +1,4 @@
-# sovrium-library: block/contact-centered@0.37.0
+# sovrium-library: block/contact-centered@0.38.0
 # sovrium-library-params: consent=%5BConsent%20line%2C%20linked%20to%20the%20privacy%20policy%5D&form=contact&headline=Contact&subheadline=One%20line%20on%20who%20reads%20this.&submitLabel=Send%20message&successMessage=Message%20sent.%20We%20will%20reply%20soon.
 name: contact-centered
 type: container
@@ -46,9 +46,11 @@ children:
           - field: name
             control: text
             label: Name
+            autocomplete: name
           - field: email
             control: email
             label: Email
+            autocomplete: email
           - field: message
             control: textarea
             label: Message

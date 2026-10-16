@@ -42,10 +42,18 @@ const TABLE_CELL_BASE = [
   'overflow-hidden text-ellipsis whitespace-nowrap',
 ].join(' ')
 
-const TABLE_CELL_HEIGHT: Readonly<Record<RowHeight, string>> = {
+/**
+ * The heights a grid draws its rows at: the three an author may declare
+ * (`rowHeight`), and `extra-tall`, which only a reader picks — from the bottom
+ * bar's Row height, for the visit — to read a long text's two lines in full.
+ */
+export type GridRowHeight = RowHeight | 'extra-tall'
+
+const TABLE_CELL_HEIGHT: Readonly<Record<GridRowHeight, string>> = {
   short: 'h-9',
   medium: 'h-11',
   tall: 'h-14',
+  'extra-tall': 'h-20',
 }
 
 /**
@@ -54,14 +62,17 @@ const TABLE_CELL_HEIGHT: Readonly<Record<RowHeight, string>> = {
  * SUPERSEDES `ROW_HEIGHT_CLASSES` for the body cell — that map now delegates
  * here, so the density control and this recipe cannot disagree.
  *
- * `h-9` / `h-11` / `h-14` are 36 / 44 / 56px. On a `<td>` a `height` is a
+ * `h-9` / `h-11` / `h-14` / `h-20` are 36 / 44 / 56 / 80px. On a `<td>` a `height` is a
  * MINIMUM rather than a cap (CSS table sizing treats it as such), so a cell
  * whose content genuinely needs more still gets it; what the declaration buys
  * is that a row of ordinary values is always exactly its density's height
  * instead of whatever its padding happened to sum to.
  */
-export const computeTableCellClasses = ({ rowHeight }: { readonly rowHeight: RowHeight }): string =>
-  `${TABLE_CELL_BASE} ${TABLE_CELL_HEIGHT[rowHeight]}`
+export const computeTableCellClasses = ({
+  rowHeight,
+}: {
+  readonly rowHeight: GridRowHeight
+}): string => `${TABLE_CELL_BASE} ${TABLE_CELL_HEIGHT[rowHeight]}`
 
 // ──────────────────────────────────────────────────────────────────────────────
 // BODY — the `<tbody>` the rows are bucketed into

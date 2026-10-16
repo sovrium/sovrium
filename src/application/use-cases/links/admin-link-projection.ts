@@ -15,12 +15,14 @@
  * just-written link cannot describe the same entry three ways.
  *
  * What is absent is deliberate: no `password` and no hash of one (the catalog
- * entry does not carry it), and no click metrics (those are read from the
- * analytics endpoints, the one aggregation path over the click store).
+ * entry does not carry it). The one click figure is `clicks`, the last 30 days
+ * counted by the caller; series, referrers and devices stay on the analytics
+ * endpoints, the one aggregation path over the click store.
  */
 
 import { linkTargets } from '@/domain/models/app/links'
-import { primaryDestination, toIsoOrNull, type CatalogEntry, type CatalogState } from './catalog'
+import { primaryDestination, toIsoOrNull } from './catalog'
+import type { CountedLinkEntry } from './read-link-catalog'
 import type { AdminLink } from '@/domain/models/api/admin/links'
 
 /** The fixed, non-configurable base path a link is served at. */
@@ -34,7 +36,7 @@ const LINK_PREFIX = '/l/'
  * creator would answer the operator's "who last touched this?" with a
  * confidently wrong name.
  */
-export const toAdminLink = (entry: Readonly<CatalogEntry>, state: CatalogState): AdminLink => ({
+export const toAdminLink = ({ entry, state, clicks }: CountedLinkEntry): AdminLink => ({
   slug: entry.slug,
   shortUrl: `${LINK_PREFIX}${entry.slug}`,
   destination: primaryDestination(entry),
@@ -45,21 +47,22 @@ export const toAdminLink = (entry: Readonly<CatalogEntry>, state: CatalogState):
   validFrom: toIsoOrNull(entry.link.lifecycle?.validFrom),
   validUntil: toIsoOrNull(entry.link.lifecycle?.validUntil),
   maxClicks: entry.link.lifecycle?.maxClicks ?? null,
+  clicks,
   _admin: { lastModifiedBy: null, deletedAt: entry.deletedAt },
 })
 
 /** Project an entry onto the detail contract. */
-export const toAdminLinkDetail = (entry: Readonly<CatalogEntry>, state: CatalogState) => ({
-  ...toAdminLink(entry, state),
-  targets: linkTargets(entry.link).map((target, index) => ({
+export const toAdminLinkDetail = (row: CountedLinkEntry) => ({
+  ...toAdminLink(row),
+  targets: linkTargets(row.entry.link).map((target, index) => ({
     index,
     to: target.to,
     // An absent weight is 1, not 0: treating it as 0 would drop a declared
     // destination out of the rotation while it still reads as participating.
     weight: Math.max(1, Math.trunc(target.weight ?? 1)),
   })),
-  utm: entry.utm,
-  notes: entry.notes,
-  expiredTo: entry.link.lifecycle?.expiredTo ?? null,
-  qrUrl: `${LINK_PREFIX}${entry.slug}.svg`,
+  utm: row.entry.utm,
+  notes: row.entry.notes,
+  expiredTo: row.entry.link.lifecycle?.expiredTo ?? null,
+  qrUrl: `${LINK_PREFIX}${row.entry.slug}.svg`,
 })

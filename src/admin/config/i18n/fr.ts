@@ -17,9 +17,10 @@
 // split along the SAME seam, one twin per English file (`fr-chrome.ts` beside
 // `chrome.ts`, and so on), each in the English file's key order, so a missing key
 // is still visible by reading two files side by side, and this file merges the
-// four in the order the English table is merged. `design-system.ts` is
-// deliberately NOT mirrored — that file is being authored concurrently, and
-// translating a moving target is how a catalogue acquires a stale half.
+// files in the order the English table is merged. Three later pairs —
+// `common.ts`, `surfaces.ts` and `design-system.ts` — hold the copy that had
+// shipped as English literals in the page config, and are mirrored the same
+// way. `parity.test.ts` holds the two key sets equal.
 //
 // ─── IT IS WIRED, AND THE SERVER NOW COMPOSES IT (re-measured 2026-09-19) ───
 //
@@ -91,13 +92,19 @@
 // operator reads `Erreur: …` as machine translation.
 
 import frChrome from './fr-chrome'
+import frCommon from './fr-common'
 import frConsole from './fr-console'
 import frData from './fr-data'
+import frDesignSystem from './fr-design-system'
 import frDevelopers from './fr-developers'
+import frSurfaces from './fr-surfaces'
 
 export default {
   ...frChrome,
   ...frConsole,
   ...frData,
   ...frDevelopers,
+  ...frCommon,
+  ...frSurfaces,
+  ...frDesignSystem,
 } as const

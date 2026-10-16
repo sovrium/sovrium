@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SharedFilterPublisherSchema } from '../../data-source-publishers'
 import { ToggleTypeSchema } from '../../form-controls'
 import { ComponentSizeSchema } from '../../shared-schemas'
 import { coreFields } from '../modules/core'
@@ -34,4 +35,10 @@ export const toggleFields = {
   size: Schema.optional(ComponentSizeSchema),
   /** The toggle's look; borderless when omitted. */
   toggleVariant: Schema.optional(ToggleVariantSchema),
+  /**
+   * Narrow the data components on a channel while the toggle is pressed —
+   * read exactly as a `switch` reads it: the condition (`value`, default
+   * `true`) while pressed, nothing once released.
+   */
+  publishes: Schema.optional(SharedFilterPublisherSchema),
 } as const

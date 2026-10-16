@@ -30,10 +30,11 @@
  * say".
  *
  * **PII posture (S4)**: these schemas are the single shaping choke point — the
- * response carries ONLY the operator-facing fields below. The list item
- * deliberately OMITS `userId` (the operator view is conversation-content
- * focused, not a per-user audit), `agentId` (unused by writers), and `metadata`
- * (internal store bookkeeping). The detail messages expose `role`, `content`,
+ * response carries ONLY the operator-facing fields below. The list item names
+ * the person who held the conversation (`userId` + `userName`, the account's
+ * display name — never its email) so an admin can tell one person's threads
+ * from another's and narrow the list to them with `?userId=`; it OMITS
+ * `agentId` (unused by writers) and `metadata` (internal store bookkeeping). The detail messages expose `role`, `content`,
  * `status`, `model`, `tokenCount`, and `toolCalls` — the chat-transcript fields
  * — but never `conversationId` or the raw row.
  *
@@ -87,6 +88,14 @@ export const agentConversationListItemSchema = Schema.Struct({
         "The durable store's session key (`ai_conversations.session_id`) — half of the `(userId, sessionId)` thread identity. `null` for conversations created without a session id.",
     })
   ),
+  userId: Schema.String.annotate({
+    description:
+      'Id of the account that held this conversation (`ai_conversations.user_id`). Every conversation belongs to exactly one account; it is deleted with that account. The value `?userId=` narrows by.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  userName: Schema.String.annotate({
+    description:
+      'Display name of that account, as the users directory shows it. Its email is not carried here.',
+  }),
   messageCount: Schema.Int.annotate({
     description:
       'Number of messages in this conversation (`COUNT(ai_messages.id)` for the conversation). Lets the operator gauge thread length without opening it.',
@@ -144,6 +153,12 @@ export const agentConversationsListQuerySchema = Schema.Struct({
       description:
         'Optional inclusive ISO 8601 upper bound on `lastActivityAt` (the conversation `updated_at`). Omit for no upper bound.',
     })
+  ),
+  userId: optionalField(
+    Schema.String.annotate({
+      description:
+        'Optional exact account id: only the conversations that account held. AND-combined with the window, `q` and the cursor. An id no conversation carries answers an empty page, not an error.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   q: searchTermSchema.annotate({
     description:

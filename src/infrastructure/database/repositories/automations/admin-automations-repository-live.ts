@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, desc, eq, gte, lt, type SQL } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, lt, ne, type SQL } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   AdminAutomationsDatabaseError,
@@ -14,14 +14,17 @@ import {
   type AdminAutomationRunRow,
   type AdminRunsListFilters,
 } from '@/application/ports/repositories/automations/admin-automations-repository'
+import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   automationDefinitions as automationDefinitionsPg,
+  automationRunSteps as automationRunStepsPg,
   automationRuns as automationRunsPg,
 } from '@/infrastructure/database/drizzle/schema/automation'
 import {
   automationDefinitions as automationDefinitionsSqlite,
+  automationRunSteps as automationRunStepsSqlite,
   automationRuns as automationRunsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
@@ -37,6 +40,7 @@ const automationDefinitions = resolveDialectSchema(
   automationDefinitionsPg,
   automationDefinitionsSqlite
 )
+const automationRunSteps = resolveDialectSchema(automationRunStepsPg, automationRunStepsSqlite)
 
 /** Wrap a DB promise, adapting failures to AdminAutomationsDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminAutomationsDatabaseError({ cause }))
@@ -196,4 +200,21 @@ export const AdminAutomationsRepositoryLive = Layer.succeed(AdminAutomationsRepo
         .limit(1)) as ReadonlyArray<AdminAutomationRunRow>
       return rows[0]
     }),
+
+  countStepsByRunIds: (runIds) =>
+    runIds.length === 0
+      ? wrap(async () => new Map<string, number>())
+      : wrap(async () => {
+          const rows = await db
+            .select({ runId: automationRunSteps.runId, steps: count() })
+            .from(automationRunSteps)
+            .where(
+              and(
+                inArray(automationRunSteps.runId, [...runIds]),
+                ne(automationRunSteps.status, 'skipped')
+              )
+            )
+            .groupBy(automationRunSteps.runId)
+          return new Map(rows.map((row) => [row.runId, toFiniteCount(row.steps)] as const))
+        }),
 })

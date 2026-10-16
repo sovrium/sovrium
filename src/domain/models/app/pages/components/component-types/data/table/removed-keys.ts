@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { removedSearchMessage } from '../../modules/removed-keys'
+
 /**
  * The `table` page-component keys that no longer exist, and what replaces each.
  *
@@ -15,10 +17,14 @@
  * saves. Every data component binds either to a view (`dataSource.view`) or
  * directly to the table. So the grid lost everything that let it switch, save
  * or reshape what it shows: the view-type switcher, its labels, the board and
- * calendar mappings that only served the switcher, its own grouping, and the
- * toolbar's saved-views menu, density toggle, column toggle and group-by
- * picker. What a reader does from the toolbar — search, filter, sort — narrows
- * the rows for one visit and is stored nowhere.
+ * calendar mappings that only served the switcher, and its own grouping.
+ *
+ * Then it lost its controls altogether: the `toolbar` and the `search`
+ * box. A control is a page component publishing on a shared-filter channel the
+ * grid subscribes to, so one set of controls narrows every data component on
+ * the channel. A reader may still regroup, hide a column or change the row
+ * height for the visit — grid session state, never saved — but nothing in the
+ * config asks for it.
  *
  * ## Why a table of messages rather than an alias
  *
@@ -34,6 +40,16 @@
  * Name the replacement a reader can write today, in the config they hold open.
  * The test beside this file pins that every message names its destination.
  */
+
+/**
+ * What replaced the grid's own toolbar. ONE sentence for the whole key: once
+ * `toolbar` is unknown the reporter refuses it as a whole and never reaches a
+ * sub-key, so this message also names where every sub-key went — the 0.39
+ * controls (search, filters, sort, facets, export, refresh) and the 0.31 ones
+ * (view switcher, saved views, column toggle, density, group-by picker).
+ */
+const TOOLBAR_MESSAGE =
+  '`toolbar` has been removed: a grid no longer draws its own controls. Compose them on the page — the library block `block/data-table-toolbar` gives the usual search box, facet, filter bar, Export and New — and subscribe the grid to their channel with `dataSource.bindTo` and `sharedFilter: {}`. A refresh button becomes `dataSource.refreshMode`. The older toolbar keys moved too: a board, a calendar or a gallery is a `kanban`, `event-calendar` or `gallery` component beside the grid; a saved view is one of the table’s `views[]`, bound with `dataSource.view`; the fields shown are the grid’s `columns`; the row height is the grid’s `rowHeight`; a lasting grouping is `groupBy` on one of the table’s `views[]`. A reader may still regroup the grid, hide a column or change the row height for the visit, from the grid itself: that is the grid’s session state, never saved.'
 
 /** Keys removed from a `type: table` component itself. */
 const REMOVED_ON_TABLE: ReadonlyMap<string, string> = new Map([
@@ -55,57 +71,23 @@ const REMOVED_ON_TABLE: ReadonlyMap<string, string> = new Map([
   ],
   [
     'groupBy',
-    '`groupBy` has been removed from `table`. Grouping is configuration on the table: declare `groupBy` on one of its `views[]` (it takes `thenBy` and `collapsed` too) and bind the grid to it with `dataSource.view`.',
+    '`groupBy` has been removed from `table`. A lasting grouping is configuration on the table: declare `groupBy` on one of its `views[]` (it takes `thenBy` and `collapsed` too) and bind the grid to it with `dataSource.view`. A reader may still regroup the grid for the visit; that grouping is the grid’s session state and is never saved.',
   ],
-])
-
-/** Keys removed from a `table` component's `toolbar`. */
-const REMOVED_ON_TOOLBAR: ReadonlyMap<string, string> = new Map([
-  [
-    'viewSwitcher',
-    '`toolbar.viewSwitcher` has been removed: a board, a calendar and a gallery are separate components. Add a `kanban`, `event-calendar` or `gallery` beside the grid, each with its own `dataSource`.',
-  ],
-  [
-    'views',
-    '`toolbar.views` has been removed: readers no longer save views. A lasting way of looking at the table is one of its `views[]`, declared in the config and bound with `dataSource.view`.',
-  ],
-  [
-    'columnToggle',
-    '`toolbar.columnToggle` has been removed. The fields a grid shows are its `columns`, or the `fields` of the view it binds with `dataSource.view`.',
-  ],
-  [
-    'density',
-    '`toolbar.density` has been removed. Set the row height once with the grid’s `rowHeight`.',
-  ],
-  [
-    'groupBy',
-    '`toolbar.groupBy` has been removed: readers no longer regroup a grid. Declare `groupBy` on one of the table’s `views[]` and bind the grid to it with `dataSource.view`.',
-  ],
+  ['toolbar', TOOLBAR_MESSAGE],
+  ['search', removedSearchMessage('table')],
 ])
 
 /**
  * The migration message for a removed table key, or `undefined` when this
  * module has nothing to say about it.
  *
- * @param path - Dotted path of the NODE holding the key, e.g.
- *   `pages[0].components[2]` or `pages[0].components[2].toolbar`.
  * @param discriminant - The node's `type` literal when it has one (`table`).
  * @param key - The property name the author wrote.
  */
 export const migrationHintForRemovedTableKey = (
-  path: string,
   discriminant: string | undefined,
   key: string
-): string | undefined => {
-  if (discriminant === 'table') return REMOVED_ON_TABLE.get(key)
-  if (discriminant === undefined && /components\[\d+\]\.toolbar$/.test(path)) {
-    return REMOVED_ON_TOOLBAR.get(key)
-  }
-  return undefined
-}
+): string | undefined => (discriminant === 'table' ? REMOVED_ON_TABLE.get(key) : undefined)
 
 /** Every removed key, for the test that pins each message names a destination. @internal */
-export const REMOVED_TABLE_KEYS = {
-  table: [...REMOVED_ON_TABLE.keys()],
-  toolbar: [...REMOVED_ON_TOOLBAR.keys()],
-} as const
+export const REMOVED_TABLE_KEYS: readonly string[] = [...REMOVED_ON_TABLE.keys()]

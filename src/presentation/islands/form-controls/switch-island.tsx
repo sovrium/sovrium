@@ -12,6 +12,8 @@ import {
   computeSwitchThumbClasses,
   computeSwitchTrackClasses,
 } from '@/presentation/islands/form-controls/toggle-default-classes'
+import { useLazySharedFilterPublisher } from '@/presentation/islands/hooks/use-lazy-shared-filter-publisher'
+import type { SharedFilterPublisherConfig } from '@/presentation/islands/hooks/use-shared-filter-publisher'
 import type { ReactElement } from 'react'
 
 interface SwitchIslandProps {
@@ -25,6 +27,10 @@ interface SwitchIslandProps {
   readonly 'data-testid'?: string
   /** The id of an element naming the switch, such as a field's title. */
   readonly ariaLabelledBy?: string
+  /** The author's `aria-label`, naming a switch that carries no visible label. */
+  readonly ariaLabel?: string
+  /** The channel the control publishes its value on, as a condition or a param. */
+  readonly publishes?: SharedFilterPublisherConfig
 }
 
 /** shadcn/ui `Label`, beside the switch. */
@@ -35,6 +41,11 @@ const SWITCH_LABEL = 'inline-flex items-center gap-2 text-sm leading-none font-m
  * `data-slot="switch"` with its `data-size` on the root, `data-slot="switch-thumb"`
  * on the thumb. Keyboard support (Space to toggle) and the ARIA switch role are
  * Base UI's. Track and thumb recipes live in `toggle-default-classes.ts`.
+ *
+ * The author's `id` goes to `Switch.Root`, which hands it to the control Base UI
+ * treats as labelable, so a page `label` whose `for` names that id names the
+ * switch and toggles it. The wrapper is a `<label>` only when it has a caption:
+ * an empty wrapping label would be found first and name the switch with nothing.
  */
 export default function SwitchIsland({
   checked,
@@ -46,20 +57,26 @@ export default function SwitchIsland({
   id,
   'data-testid': testId,
   ariaLabelledBy,
+  ariaLabel,
+  publishes,
 }: SwitchIslandProps): ReactElement {
+  const publish = useLazySharedFilterPublisher(publishes)
+  const Wrapper = label ? 'label' : 'span'
   return (
-    <label
+    <Wrapper
       className={resolveClasses(
         cn(SWITCH_LABEL, disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'),
         className
       )}
-      id={id}
       data-testid={testId}
-      data-slot="label"
+      data-slot={label ? 'label' : undefined}
     >
       <Switch.Root
+        id={id}
+        aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
         defaultChecked={checked}
+        onCheckedChange={(on) => publish(on)}
         disabled={disabled}
         name={name}
         className={computeSwitchTrackClasses()}
@@ -72,6 +89,6 @@ export default function SwitchIsland({
         />
       </Switch.Root>
       {label && <span>{label}</span>}
-    </label>
+    </Wrapper>
   )
 }

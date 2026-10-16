@@ -54,6 +54,9 @@ export const entry = defineLibraryEntry({
           type: 'flex',
           props: {
             className: 'flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center',
+            // The alert's description is muted by default; on the primary band
+            // the line keeps the primary foreground, the pair its contrast is set for.
+            style: { color: 'var(--color-primary-foreground)' },
           },
           children: [
             span(p('message'), ''),

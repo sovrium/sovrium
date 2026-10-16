@@ -7,7 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useCallback } from 'react'
-import { createRecordsClient } from '@/presentation/api/client'
+import { createRecordsClient } from '@/presentation/islands/runtime/rpc-client'
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
 import { useLiveRefresh } from '../hooks/use-realtime-subscription'
 import { retryUnlessRateLimited } from '../runtime/read-failure'

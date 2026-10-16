@@ -35,7 +35,6 @@ import { StorageService } from '@/application/ports/services/storage-service'
 import { BuildConnectionsList } from '@/application/use-cases/admin/connections'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { coerceTimestampToMs } from '@/domain/kernel/time/time-series-bucketing'
-import { deriveConnectionStatus } from '@/domain/models/app/admin/connection-status'
 import { summariseRunError } from '@/domain/models/app/automations/failure-summary-service'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
@@ -263,7 +262,11 @@ export const databaseBytesBlock: Effect.Effect<number, never, StorageFootprintRe
     return footprint.totalBytes
   }).pipe(orZero('database', 0), Effect.withSpan('notifications.weekly-digest.database'))
 
-/** How many declared connections report a healthy status now. */
+/**
+ * How many declared connections report a healthy status now — the `active`
+ * status the connections list derives, so an OAuth2 connection nobody has
+ * authorized (`not-connected`) is not counted healthy.
+ */
 export const connectionsBlock: Effect.Effect<
   Connections,
   never,
@@ -272,9 +275,7 @@ export const connectionsBlock: Effect.Effect<
   Effect.map((outcome) => {
     if (outcome._tag !== 'Ok') return { healthy: 0, total: 0 }
     const { connections } = outcome.body
-    const healthy = connections.filter(
-      (connection) => deriveConnectionStatus(connection.expiresAt) === 'active'
-    ).length
+    const healthy = connections.filter((connection) => connection.status === 'active').length
     return { healthy, total: connections.length }
   }),
   orZero('connections', { healthy: 0, total: 0 }),

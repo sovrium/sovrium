@@ -5,23 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isValidEmail } from '@/domain/kernel/sanitize/email-validation'
 import { resolvePasswordPolicy } from '@/domain/models/app/auth/password-policy'
-import {
-  assignableRoleNames,
-  isAdminEquivalent,
-  isAssignableRole,
-} from '@/domain/models/app/auth/roles'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   buildInvitationLink,
   invitationLinkTarget,
   type InvitationLinkPage,
 } from '@/domain/models/app/pages/invitation-link-service'
 import { logError } from '@/infrastructure/logging/logger'
+import { validateInviteInput } from './invitation-input'
 import {
   findOrCreateInvitedUser,
   mintInvitationToken,
-  type InviteUserFailure,
   type InviteUserResult,
 } from './invitation-issuance'
 import type {
@@ -51,88 +46,16 @@ export const buildAcceptInvitationUrl = (
 ): string => buildInvitationLink(baseURL, token, invitationLinkTarget(pages))
 
 /**
- * A legible stand-in display name for an invitation issued without one.
- *
- * The address's local part with its separators turned into spaces — enough for
- * an operator to recognise the row in a directory, and never presented as a
- * name the person chose.
+ * The pages an invitation link may open: the app's own first, then the
+ * invitation pages of what is mounted on this server (the console's).
  */
-const displayNameFromEmail = (email: string): string => {
-  const local = email.split('@')[0] ?? email
-  const spaced = local.replaceAll(/[._-]+/g, ' ').trim()
-  return spaced.length > 0 ? spaced : email
-}
-
-/**
- * Validate the inviteUser request body.
- *
- * Returns a sanitized payload, or an error result the route can hand back
- * directly. Keeping validation here means the route handler stays focused
- * on HTTP plumbing.
- */
-const validateInviteInput = (
-  body: {
-    readonly email?: unknown
-    readonly name?: unknown
-    readonly role?: unknown
-    readonly password?: unknown
-  },
-  app: AdminRoleResolvable
-): { readonly email: string; readonly name: string; readonly role: string } | InviteUserFailure => {
-  if (typeof body.email !== 'string' || body.email.trim().length === 0) {
-    return { status: 'invalid-input', message: 'email is required' }
-  }
-  const email = body.email.trim().toLowerCase()
-  if (!isValidEmail(email)) {
-    return { status: 'invalid-input', message: 'email must be a valid email address' }
-  }
-  // A display name is accepted but not demanded. The operator issuing an
-  // invitation reliably knows the address and often not how the person spells
-  // their own name, so requiring it puts a guess in front of the one fact that
-  // is certain — and a guessed name is worse than none, since the invitee never
-  // gets to correct it (the accept page asks only for a password). Falling back
-  // to the address's local part gives the account a legible label until then.
-  //
-  // Strictly more permissive than the previous "name is required": a supplied
-  // name still wins, so no caller that worked before behaves differently.
-  const name =
-    typeof body.name === 'string' && body.name.trim().length > 0
-      ? body.name.trim()
-      : displayNameFromEmail(email)
-  if (typeof body.role !== 'string' || body.role.trim().length === 0) {
-    return { status: 'invalid-input', message: 'role is required' }
-  }
-  // The invitation must carry a role this app actually knows.
-  //
-  // `invite-user` is a Sovrium-owned Hono route chained AHEAD of Better Auth, so
-  // Better Auth's `before` hook — and therefore `validateAssignableRole`
-  // (`admin-role-guards.ts`) — never runs on it. Without this check the
-  // invitation path is a hole straight through the closed role vocabulary
-  // `isAssignableRole` exists to enforce: a typo (`'custmer-member'`) is stored
-  // verbatim and mints an account matching no permission rule, while an invented
-  // name (`'superadmin'`) reads as privileged to a human auditor while
-  // conferring nothing. Checked HERE, before any user record or token is minted,
-  // so a refusal leaves no pending grant behind.
-  //
-  // Same predicate and same message shape as the Better Auth write boundary, so
-  // the two paths cannot drift into disagreeing about what a valid role is.
-  const role = body.role.trim()
-  if (!isAssignableRole(role, app)) {
-    const valid = [...assignableRoleNames(app)].toSorted().join(', ')
-    return {
-      status: 'invalid-input',
-      message: `Role '${role}' is not assignable. Valid roles: ${valid}.`,
-    }
-  }
-  // Reject any password field — invitation flow is passwordless by design.
-  if (body.password !== undefined) {
-    return {
-      status: 'invalid-input',
-      message: 'password is not accepted for invitations; the customer sets their own',
-    }
-  }
-  return { email, name, role }
-}
+const linkPagesOf = (params: {
+  readonly app: { readonly pages?: readonly InvitationLinkPage[] | undefined }
+  readonly services: InvitationServices
+}): readonly InvitationLinkPage[] => [
+  ...(params.app.pages ?? []),
+  ...(params.services.linkPages ?? []),
+]
 
 /**
  * Issue an admin invitation: create or reuse the user, generate and store a
@@ -162,6 +85,8 @@ export const inviteUser = async (params: {
    * invitations existed.
    */
   readonly inviterRole?: string | undefined
+  /** How long the link lives, overriding `auth.invitationTokenExpiry` (an automation step's `expiresIn`). */
+  readonly expiresInMs?: number | undefined
   /**
    * The app whose role vocabulary the invitation's `role` must belong to, and
    * whose invitation page the emailed link opens.
@@ -183,7 +108,7 @@ export const inviteUser = async (params: {
   if ('status' in findOrCreate) {
     return findOrCreate
   }
-  const { user } = findOrCreate
+  const { user, existed } = findOrCreate
 
   // A scoped inviter passes their tenant on; an admin-equivalent one has none to
   // pass. Gating on `isAdminEquivalent` keeps the long-standing admin-issued
@@ -212,11 +137,11 @@ export const inviteUser = async (params: {
   await params.emailHandlers.invitation({
     email: user.email,
     name: user.name,
-    url: buildAcceptInvitationUrl(params.baseURL, token, params.app.pages),
+    url: buildAcceptInvitationUrl(params.baseURL, token, linkPagesOf(params)),
     inviterName: params.inviterName,
   })
 
-  return { status: 'invited', user, token }
+  return { status: 'invited', user, token, existed }
 }
 
 /**

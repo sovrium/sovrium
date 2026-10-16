@@ -6,47 +6,42 @@
  */
 
 /**
- * Records-API create helper for the data-table's two create surfaces — the
- * toolbar modal ([internal ref], dogfooded by the admin Données
- * surface [internal ref]) and the trailing add-row. Both POST
- * to the EXISTING record CRUD endpoint `POST /api/tables/:t/records`, so
- * neither builds new backend, and both coerce through the ONE shared rule in
- * `shared/field-value-coercion.ts` so a typed column never 500s on create.
+ * Records-API create helper for the data-table's trailing add-row. It POSTs to
+ * the EXISTING record CRUD endpoint `POST /api/tables/:t/records`, so it builds
+ * no new backend; the add-row coerces its values through the ONE shared rule in
+ * `runtime/field-value-coercion.ts` first, so a typed column never 500s on
+ * create.
  */
-
-import {
-  coerceFieldValues as coerceWithRule,
-  isNumericFieldType as isNumeric,
-} from '../../runtime/field-value-coercion'
-
-/** True when a field's value should serialize as a JSON number. */
-export function isNumericFieldType(type: string): boolean {
-  return isNumeric(type)
-}
-
-/**
- * Coerce a create-form value map (all string-valued, the way `<input>` /
- * `<select>` report) into the JSON shape the records API expects.
- *
- * The modal's typed controls cannot produce a value the shared rule refuses —
- * a numeric column renders `<input type="number">` — so a refusal here can
- * only come from a field with no metadata, and it is passed through for the
- * server to judge rather than silently dropped.
- */
-export function coerceFieldValues(
-  values: Record<string, string>,
-  fieldTypes: ReadonlyMap<string, string>
-): Record<string, unknown> {
-  const { accepted, refused } = coerceWithRule(values, fieldTypes)
-  const passedThrough = Object.fromEntries(refused.map(({ field }) => [field, values[field]]))
-  return { ...accepted, ...passedThrough }
-}
 
 /** What a create attempt came back with. */
 export interface CreateOutcome {
   readonly ok: boolean
   /** The server's own message on a refusal, when it sent one. */
   readonly message?: string
+  /**
+   * Each refused field's message, keyed by field name — read off the
+   * `errors[]` of the canonical validation envelope
+   * (`{ success: false, code: 'VALIDATION_ERROR', message, errors: [{ field, message }] }`).
+   * Absent when the refusal named no field.
+   */
+  readonly fieldErrors?: Readonly<Record<string, string>>
+}
+
+/** One entry of the validation envelope's `errors[]`, as far as it can be trusted. */
+interface FieldErrorEntry {
+  readonly field?: unknown
+  readonly message?: unknown
+}
+
+/** The `errors[]` entries that name a field and say something about it. */
+function fieldErrorsOf(errors: unknown): Readonly<Record<string, string>> | undefined {
+  if (!Array.isArray(errors)) return undefined
+  const entries = (errors as readonly FieldErrorEntry[]).flatMap((entry) =>
+    typeof entry?.field === 'string' && typeof entry.message === 'string'
+      ? [[entry.field, entry.message] as const]
+      : []
+  )
+  return entries.length === 0 ? undefined : Object.fromEntries(entries)
 }
 
 /**
@@ -55,7 +50,8 @@ export interface CreateOutcome {
  *
  * The message on a refusal is read off the canonical error envelope so a
  * surface that shows refusals inline (the add-row) can name what the server
- * objected to rather than reporting a bare status.
+ * objected to rather than reporting a bare status, and its `errors[]` so the
+ * create dialog can draw each one under its own field.
  */
 export async function postRecord(
   table: string,
@@ -67,14 +63,12 @@ export async function postRecord(
     body: JSON.stringify({ fields }),
   })
   if (res.ok) return { ok: true }
-  const body = (await res.json().catch(() => undefined)) as { message?: string } | undefined
-  return { ok: false, ...(body?.message && { message: body.message }) }
-}
-
-/** Create a record from a field map; returns true on a successful (2xx) create. */
-export async function createRecord(
-  table: string,
-  fields: Record<string, unknown>
-): Promise<boolean> {
-  return (await postRecord(table, fields)).ok
+  const body = (await res.json().catch(() => undefined)) as
+    { readonly message?: string; readonly errors?: unknown } | undefined
+  const fieldErrors = res.status < 500 ? fieldErrorsOf(body?.errors) : undefined
+  return {
+    ok: false,
+    ...(body?.message && { message: body.message }),
+    ...(fieldErrors && { fieldErrors }),
+  }
 }

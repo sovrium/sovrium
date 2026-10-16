@@ -18,6 +18,11 @@ import { handleListSpecimenTableRecords } from './specimen-handlers'
 import { gateUnreadableTable } from './table-read-gate'
 import { chainTableRoutesMethods } from './table-routes'
 import { handleCreateUserAccessRecord, handleListUserAccessRecords } from './user-access-handlers'
+import {
+  handleDeleteUserAccessRecord,
+  handleGetUserAccessRecord,
+  handleUpdateUserAccessRecord,
+} from './user-access-record-handlers'
 import { chainViewRoutesMethods } from './view-routes'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono, Next } from 'hono'
@@ -113,6 +118,15 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(
   const honoWithUserAccess = honoApp
     .post('/api/tables/user_access/records', (c) => handleCreateUserAccessRecord(c, resolveApp()))
     .get('/api/tables/user_access/records', (c) => handleListUserAccessRecords(c, resolveApp()))
+    .get('/api/tables/user_access/records/:grantId', (c) =>
+      handleGetUserAccessRecord(c, resolveApp())
+    )
+    .patch('/api/tables/user_access/records/:grantId', (c) =>
+      handleUpdateUserAccessRecord(c, resolveApp())
+    )
+    .delete('/api/tables/user_access/records/:grantId', (c) =>
+      handleDeleteUserAccessRecord(c, resolveApp())
+    )
 
   // The design-system catalogue's fixture, under a RESERVED table name, and
   // registered here for exactly the reason above: it is a platform constant

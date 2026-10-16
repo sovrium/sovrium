@@ -8,6 +8,7 @@
 import { NavItemBadge } from '@/presentation/design/nav-item-badge'
 import { NavChevronDown } from '@/presentation/design/nav-menu-parts'
 import { computeNavMenuTriggerClasses } from '@/presentation/design/navigation-menu-default-classes'
+import { describeNewTab } from '@/presentation/design/new-tab-attributes'
 import type { BadgeVariant } from '@/presentation/design/badge-default-classes'
 import type { ReactElement } from 'react'
 
@@ -70,6 +71,7 @@ export function renderSsrNavItem(
       href={item.href}
       target={item.target}
       rel={item.rel}
+      {...describeNewTab(item.target)}
       data-slot="navigation-menu-link"
       className={computeNavMenuTriggerClasses(triggerClassName)}
     >

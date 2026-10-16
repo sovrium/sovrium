@@ -38,6 +38,8 @@ interface TreeIslandProps extends TreeConfig {
   readonly publishes?: SharedFilterPublisherConfig
   readonly emptyMessage?: string
   readonly label: string
+  /** Every word the tree draws, in the page language, its name filled in (`tree.*`). */
+  readonly uiStrings: Readonly<Record<string, string>>
 }
 
 type TreeState = ReturnType<typeof useTreeState>
@@ -104,7 +106,7 @@ function TreeList({
  * the island's mount budget has no room for an inline icon.
  */
 function TreeFilter(props: {
-  readonly label: string
+  readonly words: TreeIslandProps['uiStrings']
   readonly value: string
   readonly onChange: (value: string) => void
 }): ReactElement {
@@ -117,8 +119,8 @@ function TreeFilter(props: {
       <input
         type="search"
         data-slot="input-group-control"
-        aria-label={`Filter ${props.label.toLocaleLowerCase()}`}
-        placeholder="Filter"
+        aria-label={props.words['tree.filterLabel']}
+        placeholder={props.words['tree.filter']}
         value={props.value}
         onChange={(event) => props.onChange(event.target.value)}
         className={computeInputGroupFieldClasses()}
@@ -134,20 +136,21 @@ const treePhase = (pending: boolean, roots: number): 'loading' | 'empty' | 'read
 
 export default function TreeIsland(props: TreeIslandProps): ReactElement {
   const query = useRecordsQuery('tree', props.dataSource)
+  const words = props.uiStrings
   const state = useTreeState({
     ...props,
     rows: query.data?.records,
     table: props.dataSource?.table,
   })
   if (query.isError) {
-    return <p role="alert">{`${props.label} could not be loaded. Refresh to try again.`}</p>
+    return <p role="alert">{words['tree.loadFailed']}</p>
   }
   const phase = treePhase(query.isPending, state.forest.rootIds.length)
   return (
     <div className="flex flex-col gap-2">
       {props.search !== false && (
         <TreeFilter
-          label={props.label}
+          words={words}
           value={state.filter}
           onChange={state.setFilter}
         />
@@ -157,10 +160,10 @@ export default function TreeIsland(props: TreeIslandProps): ReactElement {
           aria-busy="true"
           className={QUIET}
         >
-          Loading…
+          {words['tree.loading']}
         </p>
       )}
-      {phase === 'empty' && <p className={QUIET}>{props.emptyMessage ?? 'Nothing here yet.'}</p>}
+      {phase === 'empty' && <p className={QUIET}>{props.emptyMessage ?? words['tree.empty']}</p>}
       {phase === 'ready' && (
         <TreeList
           state={state}

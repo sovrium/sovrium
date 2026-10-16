@@ -6,7 +6,6 @@
  */
 
 import { AutoSaveConfigSchema } from '@/domain/models/app/pages/components/auto-save'
-import { ComponentSearchSchema } from '@/domain/models/app/pages/components/component-search'
 import componentsOverviewBody from '@/domain/models/app/pages/components/component-types/component-types.docs.md' with { type: 'file' }
 import contentComponentsBody from '@/domain/models/app/pages/components/component-types/content/content-components.docs.md' with { type: 'file' }
 import mediaComponentsBody from '@/domain/models/app/pages/components/component-types/content/media-components.docs.md' with { type: 'file' }
@@ -77,7 +76,7 @@ export const section = defineSection({
       order: 3202,
       sidebarLabel: 'Shared Modules',
       body: componentModulesBody,
-      documents: [VisibilitySchema, AutoSaveConfigSchema, ComponentSearchSchema],
+      documents: [VisibilitySchema, AutoSaveConfigSchema],
       stories: [
         'US-DESIGN-COMPONENT-CLASSES',
         'US-DESIGN-COMPONENT-CLASSES-CONTENT-PARTS',

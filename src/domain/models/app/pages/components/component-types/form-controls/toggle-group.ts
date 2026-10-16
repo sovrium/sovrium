@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SharedFilterPublisherSchema } from '../../data-source-publishers'
 import { OptionsSchema, OrientationSchema, ToggleTypeSchema } from '../../form-controls'
 import { ComponentSizeSchema } from '../../shared-schemas'
 import { coreFields } from '../modules/core'
@@ -33,4 +34,13 @@ export const toggleGroupFields = {
       examples: [0, 1, 2],
     }).pipe(Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 0, maximum: 8 })))
   ),
+  /**
+   * Narrow the data components on a channel from the pressed item.
+   *
+   * The published value is the pressed item's `value`; under
+   * `toggleType: multiple` it is the pressed values joined by commas, which the
+   * `in` operator of the condition form reads as "any of". Nothing pressed
+   * withdraws the contribution.
+   */
+  publishes: Schema.optional(SharedFilterPublisherSchema),
 } as const

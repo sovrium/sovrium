@@ -15,6 +15,14 @@ export interface KanbanColumnData {
    * groupBy option (`{ value, color }`). Absent for plain-string options.
    */
   readonly color?: string
+  /** The option's label in the page language, when it reads differently from `value`. */
+  readonly label?: string
+}
+
+/** What a column header reads beside its value, both keyed by the stored value. */
+export interface KanbanHeaderPaint {
+  readonly colors?: Readonly<Record<string, string>>
+  readonly labels?: Readonly<Record<string, string>>
 }
 
 /**
@@ -30,16 +38,21 @@ export interface KanbanColumnData {
  * Records whose grouping field is null/undefined/empty are bucketed under
  * 'Uncategorized' so they stay visible on the board.
  *
- * When `columnColors` is provided (a colored `status` groupBy), each column
- * carries its option `color` so the header can render an accent swatch.
+ * With `paint.colors` (a colored `status` groupBy), each column carries its
+ * option `color` so the header can render an accent swatch; with
+ * `paint.labels`, its option `label`, which the header prints instead of the value.
  */
 export function groupRecords(
   records: readonly TableRecord[],
   field: string,
   columnOptions: readonly string[] | undefined,
-  columnColors?: Readonly<Record<string, string>>
+  paint?: KanbanHeaderPaint
 ): readonly KanbanColumnData[] {
-  const colorFor = (value: string): string | undefined => columnColors?.[value]
+  // The header's accent and label: both keyed by the stored value, never by the label.
+  const decorate = (value: string) => ({
+    ...(paint?.colors?.[value] ? { color: paint.colors[value] } : {}),
+    ...(paint?.labels?.[value] ? { label: paint.labels[value] } : {}),
+  })
 
   // Build a value -> records map preserving insertion order
   const buckets = records.reduce<ReadonlyMap<string, readonly TableRecord[]>>((acc, record) => {
@@ -56,7 +69,7 @@ export function groupRecords(
     const declared = columnOptions.map((value) => ({
       value,
       records: buckets.get(value) ?? [],
-      ...(colorFor(value) ? { color: colorFor(value) } : {}),
+      ...decorate(value),
     }))
     const undeclared = Array.from(buckets.entries())
       .filter(([value]) => !columnOptions.includes(value))
@@ -67,6 +80,6 @@ export function groupRecords(
   return Array.from(buckets.entries()).map(([value, columnRecords]) => ({
     value,
     records: columnRecords,
-    ...(colorFor(value) ? { color: colorFor(value) } : {}),
+    ...decorate(value),
   }))
 }

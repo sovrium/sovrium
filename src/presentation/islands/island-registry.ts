@@ -231,6 +231,10 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // them. `check-island-drift.ts` asserts `ISLAND_COMPONENT_TYPES ⊆ ISLANDS`,
   // which is what forces the key and not the path.
   table: lazy(() => import('./data-table/island/data-table-island')),
+  // A button whose action is `openImport`: the button and the CSV import
+  // dialog it opens. Keyed by the action, not by a component type — the gate is
+  // `opensImport` in `page-island-detection.ts`.
+  'open-import': lazy(() => import('./data-table/import-csv-dialog/open-import-island')),
   // `resizable` — two panels and a handle through react-resizable-panels. It
   // takes over the SSR-rendered static split by MOVING each pane's nodes into
   // its panel, so the nested islands inside each pane survive the takeover.
@@ -307,6 +311,9 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // container server-side (the SSR path), so this island only mounts for the
   // self-binding system variant. Lazy-loaded (eco R2) — tiny fetch-and-render.
   'record-field-system': lazy(() => import('./record-field-system-island')),
+  // `record-field-button` — a `record-field` naming a `button` field on a record
+  // page: the grid's button, mounted only where the server found it admitted.
+  'record-field-button': lazy(() => import('./record-field-button-island')),
   // `page-record-system` (CAP-2) — a PAGE whose page-level `dataSource.system`
   // binds it to ONE record from a system DETAIL endpoint. A pure side-effect
   // enhancer: it fetches the detail record and distributes `$record.*` into the

@@ -113,14 +113,15 @@ They resolve **once** per render, against a single instant. Panels that each rea
 
 `$currentUser` resolves per request during server rendering and is never cached across users.
 
-| Path                               | Value                                                                 |
-| ---------------------------------- | --------------------------------------------------------------------- |
-| `$currentUser.id`                  | The signed-in user's id.                                              |
-| `$currentUser.email`               | Their email address.                                                  |
-| `$currentUser.role`                | Their role name.                                                      |
-| `$currentUser.isUnrestricted`      | `true` for a global admin, who bypasses assignment scoping.           |
-| `$currentUser.assignments.<table>` | The record ids the user is assigned to in that table. Pair with `in`. |
-| `$currentUser.activeAssignment`    | The tenant switcher's active scope, or nothing.                       |
+| Path                                      | Value                                                                      |
+| ----------------------------------------- | -------------------------------------------------------------------------- |
+| `$currentUser.id`                         | The signed-in user's id.                                                   |
+| `$currentUser.email`                      | Their email address.                                                       |
+| `$currentUser.role`                       | Their role name.                                                           |
+| `$currentUser.isUnrestricted`             | `true` for a global admin, who bypasses assignment scoping.                |
+| `$currentUser.assignments.<table>`        | The record ids the user is assigned to in that table. Pair with `in`.      |
+| `$currentUser.assignments.<table>.<role>` | The same, from the grants made under that role only (one of `auth.roles`). |
+| `$currentUser.activeAssignment`           | The tenant switcher's active scope, or nothing.                            |
 
 ```yaml
 name: my-app
@@ -178,7 +179,7 @@ A page declaring `invitation: {}` looks up the invitation whose token is in its 
 
 `$invitation.workspace` names the app the way `$app.label` does — `acme-console` reads `Acme Console`. `$invitation.expiresAt` is the deadline as a long date in the page's language and the instance time zone (`SOVRIUM_TIMEZONE`, UTC by default): `14 March 2031`, or `14 mars 2031` on a French page. `$invitation.expiresAt.relative` is the time from now in the same language — `in 3 days`, `in 5 hours`, `2 days ago` — counted in whole days, else hours, else minutes. `$invitation.expiresAt.iso` keeps the ISO 8601 instant, for a `<time datetime>` attribute or anything else a machine reads.
 
-This page is also where the app's invitation emails send people: an invitation, and its resend, links to the first page declaring `invitation`, with the token under the key `param` names. A page whose path holds a `:param` segment is passed over, since a link cannot fill it; an app with no other such page keeps the built-in `/accept-invitation`.
+This page is also where the app's invitation emails send people: an invitation, and its resend, links to the first page declaring `invitation`, with the token under the key `param` names. A page whose path holds a `:param` segment is passed over, since a link cannot fill it; an app with no other such page links to the operator console's invitation page when the console is served and declares one (`/_admin/accept-invitation`), and to the built-in `/accept-invitation` otherwise. On the console's page, `$invitation.workspace` prints your app's name, never the console's.
 
 A component's `visibility.condition` may read these too: `{ field: $invitation.status, operator: eq, value: invalid }` draws that part only for a link that matches no invitation, so one page can carry the pending, expired and invalid screens and send only the one that applies.
 

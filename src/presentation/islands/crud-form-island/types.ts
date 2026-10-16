@@ -91,6 +91,8 @@ export interface CrudFormIslandProps {
   readonly uiStrings?: FormStrings
   /** A delete button's in-flight word, resolved in the page language (its `pendingLabel` first). */
   readonly pendingLabel?: string
+  /** An edit form's accessible name (`Edit <label>`), resolved server-side. */
+  readonly formName?: string
   /**
    * Optional auto-save configuration. When `saveMode` is `auto` or `onBlur`,
    * field edits are persisted automatically (debounced or on blur) without an

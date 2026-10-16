@@ -31,33 +31,28 @@ import brand from './brand'
 import componentsIndex, { componentDetail } from './components'
 import foundations from './foundations'
 import overview from './overview'
-import typePage from './type-page'
-import uiKit from './ui-kit'
 import voice from './voice'
 
 /**
  * Every design-system page the preset carries, in reading order.
  *
- * SEVEN pages. `/design-system/agents` is retired: the share link, the
+ * SIX pages. `/design-system/agents` is retired: the share link, the
  * two export documents and the CLI block are the `Share and export` section at
  * the foot of the Overview, because a hand-over is what a reader does after
  * reading what they have. The route is gone rather than redirected — a page
  * nothing links to is not a page nobody opens, it is an unaudited one.
  *
-
- * `typePage` is last because it is not a console page at all: it is the
- * per-TYPE family — one route per catalogued type, all served by one
- * declaration whose `:type` segment is vouched for by `page.params`. It rides
- * in this module for the module's own reason, that a per-page import list makes
- * every landing a diff on `app.ts`.
+ * The UI kit is gone the same way, and for a firmer reason: it documented the
+ * engine's component catalogue, which is shadcn's and ships in `sovrium docs`,
+ * and it never showed anything specific to the operator's app. Its addresses
+ * answer 404 rather than a redirect, because there is no page left that says
+ * what they said.
  */
 export const designSystemPages = [
   overview,
   foundations,
-  uiKit,
   brand,
   voice,
   componentsIndex,
   componentDetail,
-  typePage,
 ]

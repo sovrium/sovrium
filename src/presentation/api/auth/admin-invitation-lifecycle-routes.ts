@@ -127,7 +127,7 @@ const createResendInvitationHandler =
         baseURL: resolveBaseURL(c),
         inviterName: authorized.session.user.name ?? 'An administrator',
         id: c.req.param('id') ?? '',
-        pages: app?.pages,
+        pages: [...(app?.pages ?? []), ...(invitations.linkPages ?? [])],
       })
       if (result.status !== 'ok') return respondToActionFailure(c, result)
       return respondValidated(

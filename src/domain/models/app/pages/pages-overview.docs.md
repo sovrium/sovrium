@@ -41,6 +41,8 @@ pages:
       - { type: text, element: h1, content: 'About' }
 ```
 
+Every page opens with a skip link, the first stop of the keyboard: hidden until it takes focus, it moves the focus past the header and the navigation to the page's main content. It reads "Skip to main content" in the language the page declares — "Aller au contenu principal" in French, renamed under `sovrium.page.skipToContent` — and wears the app's `primary` colours.
+
 ## App variables
 
 `$vars.*` are fixed at author time and `$query.*` reads the URL. Neither can say what app is serving the page — so a page wanting its own product name in the chrome had to hardcode it, and every copy went stale on its own. `$app.*` closes that with seven tokens, usable anywhere a string is: content, props, an `href` — including inside a component template, which resolves them for the page it is placed on exactly as a component written inline does.
@@ -48,7 +50,7 @@ pages:
 | Token                | Value                                                                                                             |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `$app.name`          | The config `name` — an npm-style slug, right in a URL or an id.                                                   |
-| `$app.label`         | That name in display form, title-cased, for page chrome.                                                          |
+| `$app.label`         | The name people read: `displayName` when declared, else that name title-cased, for page chrome.                   |
 | `$app.version`       | The declared `version`, or nothing when none is declared.                                                         |
 | `$app.origin`        | The scheme and host **this request** arrived on.                                                                  |
 | `$app.basePath`      | The base this app is served at — empty at a site root, `/_admin` for a mounted console.                           |
@@ -85,7 +87,16 @@ pages:
       - { type: text, element: h1, content: 'API keys' }
 ```
 
-The vocabulary is a closed set, so a typo is a startup error naming the accepted values rather than a page that silently never appears: `auth`, `auth.apiKeys`, `auth.twoFactor`, `auth.groups`, `tables`, `forms`, `links`, `automations`, `agents`, `buckets`, `connections`, `analytics`.
+The vocabulary is a closed set, so a typo is a startup error naming the accepted values rather than a page that silently never appears: `auth`, `auth.apiKeys`, `auth.twoFactor`, `auth.groups`, `auth.passkeys`, `auth.magicLink`, `auth.oauth`, `auth.sso`, `auth.signUp`, `auth.passwordReset`, `auth.scopeTables`, `tables`, `forms`, `links`, `automations`, `agents`, `buckets`, `connections`, `analytics`, `decisions`, `pages`, `components`, `assets.templates`, `design.brand`, `design.voice`, `data`.
+
+Four of them read more than one key:
+
+- `assets.templates` holds when at least one `assets` entry is a template — html, svg, partial, text, docx, xlsx or pptx. A font, a picture or a data file renders nothing to preview.
+- `design.brand` holds when `design` declares its identity half: a logo, colour roles, imagery, principles or a zone map. Colour, type and radius tokens alone are a theme, not a brand.
+- `design.voice` holds when `design.voice` is declared.
+- `data` holds when the app stores something whose readers can be granted: at least one table, form or bucket. The list is AND, so this is how one page asks for "any of the three".
+
+The way to a page follows the page. A sidebar entry whose destination is a page the host does not meet is dropped with it, and a sidebar group left with no entry draws no heading, so the navigation never offers a page the app refuses to serve. A link to a path that is no page of the app is left alone.
 
 A declared-but-empty collection counts as absent — an empty `tables` list is not "this instance has tables", and a page that lists them would have nothing to list.
 

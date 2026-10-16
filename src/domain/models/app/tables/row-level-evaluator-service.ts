@@ -29,6 +29,9 @@
  * Operators supported here mirror `RowLevelFilterOperatorSchema`:
  *   - `eq`  / `neq` — scalar comparison
  *   - `in`          — array membership (value MUST resolve to an array)
+ *   - `contains`    — the FIELD holds several values and one of them is the
+ *     value (or one of a list); answered, like a chain, by the ids a
+ *     per-request lookup admits (`chainMatches`), never by a text match
  *
  * These are mapped to the table repository's filter operators:
  *   - `eq`  → `equals`
@@ -37,7 +40,12 @@
  */
 
 import { normalizeCurrentUserRef } from '@/domain/models/app/pages/current-user-ref'
-import { chainLeafKey, isRowRuleChain, parseRowRuleChain } from './row-rule-chain-service'
+import {
+  chainLeafKey,
+  isLookupLeaf,
+  isRowRuleChain,
+  parseRowRuleChain,
+} from './row-rule-chain-service'
 import type {
   RowLevelPermissions,
   RowLevelPredicate,
@@ -106,12 +114,51 @@ export const rulesNameCurrentUser = (
     (when) => when !== undefined && ruleNamesCurrentUser(when, name)
   )
 
+/** One `$currentUser.assignments` reference: a scope table, and the grant role it keeps, if any. */
+export interface AssignmentScope {
+  readonly tableSlug: string
+  readonly role?: string | undefined
+}
+
+/**
+ * The key a reader's assignments map holds one reference under: the table
+ * (`projects`) for every grant in it, `<table>.<role>` (`projects.client`) for
+ * the grants made under one role — the string form's own spelling.
+ */
+export const assignmentScopeKey = ({ tableSlug, role }: AssignmentScope): string =>
+  role === undefined ? tableSlug : `${tableSlug}.${role}`
+
+/** The scope an {@link assignmentScopeKey} names. A table name holds no `.`. */
+export const parseAssignmentScopeKey = (key: string): AssignmentScope => {
+  const dot = key.indexOf('.')
+  return dot === -1
+    ? { tableSlug: key }
+    : { tableSlug: key.slice(0, dot), role: key.slice(dot + 1) }
+}
+
+/**
+ * The assignment keys ({@link assignmentScopeKey}) a row-level `when` reads,
+ * in either spelling, across every condition of a group, each once — what a
+ * door must load before it can judge the rule.
+ */
+export const assignmentScopeKeysOfRule = (when: RowLevelWhen | undefined): readonly string[] => {
+  if (when === undefined) return []
+  if (isPredicateGroup(when)) {
+    return [...new Set(when.conditions.flatMap(assignmentScopeKeysOfRule))]
+  }
+  const path = normalizeCurrentUserRef(when.value)?.path
+  return path?.kind === 'assignment' ? [assignmentScopeKey(path)] : []
+}
+
 export interface CurrentUserContext {
   readonly userId: string
   readonly email: string | undefined
   readonly role: string
   readonly isUnrestricted: boolean
-  /** Map of scopeTable → flattened record-id list from user_access rows. */
+  /**
+   * Map of {@link assignmentScopeKey} → flattened record-id list from the
+   * user_access rows of that table (and role, when the key names one).
+   */
   readonly assignments: ReadonlyMap<string, readonly string[]>
   /** Most recent active-assignment record id (from cookie / session). */
   readonly activeAssignment?: string
@@ -122,9 +169,11 @@ export interface CurrentUserContext {
    */
   readonly signedOut?: boolean
   /**
-   * For each `<relationship>.<column>` leaf of the rules (`chainLeafKey`): the
-   * ids of the related rows the leaf admits, looked up once for this reader. A
-   * chain leaf with no entry admits no row — see `row-rule-chain-service.ts`.
+   * For each lookup leaf of the rules (`chainLeafKey`): the ids the leaf
+   * admits, looked up once for this reader — the related rows of a
+   * `<relationship>.<column>` chain, or the rows whose field holds the value of
+   * a `contains`. A lookup leaf with no entry admits no row — see
+   * `row-rule-chain-service.ts`.
    */
   readonly chainMatches?: ReadonlyMap<string, readonly unknown[]>
 }
@@ -173,6 +222,8 @@ export type ResolvedPredicateValue =
  *  - `id`, `email`, `role`, `isUnrestricted` → scalar from session
  *  - `assignments.<tableSlug>`                → readonly string[] (flattened
  *    record_ids); empty array if the user has no rows for that scope
+ *  - `assignments.<tableSlug>.<role>`         → the same, from the rows granted
+ *    under that role only
  *  - `activeAssignment`                       → string (from session/cookie)
  *
  * Unrecognized references collapse to `undefined`, and so does a reference
@@ -232,7 +283,7 @@ const resolveRefScalar = (
   }
 
   if (path.kind === 'assignment') {
-    return ctx.assignments.get(path.tableSlug) ?? []
+    return ctx.assignments.get(assignmentScopeKey(path)) ?? []
   }
 
   // activeAssignment
@@ -242,8 +293,11 @@ const resolveRefScalar = (
 /**
  * Map a row-level operator to the table repository's filter operator.
  *
- * Returns `undefined` for unsupported operators so the caller can
- * conservatively reject the request rather than silently widening access.
+ * Returns `undefined` for an operator no column filter answers: `contains` is
+ * membership in a field holding several values, never the repository's text
+ * `contains`, so it is projected from its lookup instead
+ * ({@link projectPredicateToFilter}). Any other unknown operator is rejected
+ * conservatively rather than silently widening access.
  */
 export const mapRowLevelOperator = (
   operator: RowLevelPredicate['operator']
@@ -273,9 +327,9 @@ export const projectPredicateToFilter = (
       readonly value: unknown
     }
   | undefined => {
+  if (isLookupLeaf(predicate)) return projectLookupLeaf(predicate, ctx)
   const op = mapRowLevelOperator(predicate.operator)
   if (!op) return undefined
-  if (isRowRuleChain(predicate.field)) return projectChainLeaf(predicate, ctx)
 
   const resolved = resolvePredicateValue(predicate.value, ctx)
   if (resolved === undefined) return undefined
@@ -355,27 +409,30 @@ export const projectWhenToFilter = (
 }
 
 /**
- * A chain leaf as the SQL list asks it: the row's relationship is one of the
- * related rows the leaf admits. `undefined` (no row visible) when the chain
- * cannot be followed or was not looked up for this reader.
+ * A lookup leaf ({@link isLookupLeaf}) as the SQL list asks it, by the ids its
+ * lookup admitted: a chain — the row's relationship is one of the related rows
+ * the leaf admits; a `contains` on the table's own field — the row is one of
+ * the rows whose field holds the value. `undefined` (no row visible) when the
+ * chain cannot be followed or the leaf was not looked up for this reader.
  */
-const projectChainLeaf = (
+const projectLookupLeaf = (
   predicate: RowLevelPredicate,
   ctx: CurrentUserContext
 ): RowLevelLeafClause | undefined => {
-  const chain = parseRowRuleChain(predicate.field)
   const ids = ctx.chainMatches?.get(chainLeafKey(predicate))
-  if (chain === undefined || ids === undefined) return undefined
-  return { field: chain.relation, operator: 'in', value: ids }
+  if (ids === undefined) return undefined
+  if (!isRowRuleChain(predicate.field)) return { field: 'id', operator: 'in', value: ids }
+  const chain = parseRowRuleChain(predicate.field)
+  return chain === undefined ? undefined : { field: chain.relation, operator: 'in', value: ids }
 }
 
-/** A chain leaf against one record: its relationship points at an admitted related row. */
-const evaluateChainLeaf = (
+/** A lookup leaf against one record: the row (or the row it points to) is an admitted one. */
+const evaluateLookupLeaf = (
   record: Readonly<Record<string, unknown>>,
   predicate: RowLevelPredicate,
   ctx: CurrentUserContext
 ): boolean => {
-  const clause = projectChainLeaf(predicate, ctx)
+  const clause = projectLookupLeaf(predicate, ctx)
   if (clause === undefined) return false
   return compareValues('in', record[clause.field], clause.value as ResolvedPredicateValue)
 }
@@ -389,7 +446,7 @@ const evaluateTriple = (
   predicate: RowLevelPredicate,
   ctx: CurrentUserContext
 ): boolean => {
-  if (isRowRuleChain(predicate.field)) return evaluateChainLeaf(record, predicate, ctx)
+  if (isLookupLeaf(predicate)) return evaluateLookupLeaf(record, predicate, ctx)
   const resolved = resolvePredicateValue(predicate.value, ctx)
   if (resolved === undefined) return false
 

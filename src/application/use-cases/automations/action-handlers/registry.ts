@@ -17,7 +17,13 @@ import {
   handleAuthCreateUser,
   handleAuthUnbanUser,
 } from './auth'
+import {
+  handleAuthGrantAccess,
+  handleAuthListGrantees,
+  handleAuthRevokeAccess,
+} from './auth-grants'
 import { handleAuthAddToGroup, handleAuthRemoveFromGroup } from './auth-groups'
+import { handleAuthInviteUser } from './auth-invite-user'
 import {
   handleAuthDeleteOAuthClient,
   handleAuthRegisterOAuthClient,
@@ -195,12 +201,16 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['auth/assignRole', handleAuthAssignRole],
   ['auth/banUser', handleAuthBanUser],
   ['auth/createUser', handleAuthCreateUser],
+  ['auth/inviteUser', handleAuthInviteUser],
   ['auth/unbanUser', handleAuthUnbanUser],
   ['auth/addToGroup', handleAuthAddToGroup],
   ['auth/removeFromGroup', handleAuthRemoveFromGroup],
   ['auth/registerOAuthClient', handleAuthRegisterOAuthClient],
   ['auth/rotateOAuthClientSecret', handleAuthRotateOAuthClientSecret],
   ['auth/deleteOAuthClient', handleAuthDeleteOAuthClient],
+  ['auth/grantAccess', handleAuthGrantAccess],
+  ['auth/revokeAccess', handleAuthRevokeAccess],
+  ['auth/listGrantees', handleAuthListGrantees],
   ['filter/continue', handleFilterContinue],
   ['record/create', handleRecordCreate],
   ['record/read', handleRecordRead],

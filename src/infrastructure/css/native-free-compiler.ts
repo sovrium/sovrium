@@ -24,8 +24,12 @@
  *     class is in the candidate list. The native oxide scanner that normally
  *     discovers candidates by scanning the filesystem is unavailable, so the
  *     candidate list is the union of:
- *       1. BUILTIN_CSS_CANDIDATES — scanned from the Sovrium source tree at
- *          build time (covers components and client-side islands).
+ *       1. CORE_CSS_CANDIDATES — the classes every page needs, scanned from
+ *          the Sovrium source tree at build time — plus the classes of each
+ *          COMPONENT_CSS_GROUPS entry attributed to a component type the app
+ *          declares (`resolveNativeFreeCandidates`). The whole BUILTIN set
+ *          goes only to the operator console and to a config whose types
+ *          cannot be read.
  *       2. classes authored in the operator's app config (`className` props).
  *   - `Polyfills.All` reproduces lightningcss's `@property` / `color-mix()`
  *     lowering in pure JS.
@@ -37,12 +41,16 @@
 import typography from '@tailwindcss/typography'
 import { Effect } from 'effect'
 import { compile, type Polyfills } from 'tailwindcss'
+import { isOperatorConsoleApp } from '@/domain/models/app/admin/admin-data-nav'
 import {
   componentClassesCandidates,
   designComponentClassCandidates,
 } from '@/domain/models/app/design/components'
+import { collectDeclaredComponentTypes } from '@/domain/models/app/pages/declared-component-types'
 import {
   BUILTIN_CSS_CANDIDATES,
+  COMPONENT_CSS_GROUPS,
+  CORE_CSS_CANDIDATES,
   SHADCN_TAILWIND_CSS,
   TAILWIND_INDEX_CSS,
   TW_ANIMATE_CSS,
@@ -194,13 +202,58 @@ const collectAppCandidates = (app?: App): readonly string[] => [
   ...componentClassesCandidates(app),
 ]
 
+/** Sorted and deduplicated — the engine's `build()` is order-sensitive. */
+const sortedUnion = (...lists: readonly (readonly string[])[]): readonly string[] =>
+  [...new Set(lists.flat())].toSorted()
+
 /**
- * Resolve the full candidate list for native-free compilation: the build-time
- * source-tree scan unioned with the classes authored in the operator's app.
+ * The candidate list for an app whose component types can be read: the core
+ * set, the classes of every group attributed to a type the app declares, and
+ * the classes the app authors itself. A declared type no group names (a
+ * `section`, a field type) adds nothing; an app that declares nothing gets the
+ * core set alone.
  */
-export const resolveNativeFreeCandidates = (app?: App): readonly string[] => [
-  ...new Set([...BUILTIN_CSS_CANDIDATES, ...collectAppCandidates(app)]),
-]
+const narrowedCandidates = (app: App, declared: ReadonlySet<string>): readonly string[] =>
+  sortedUnion(
+    CORE_CSS_CANDIDATES,
+    ...COMPONENT_CSS_GROUPS.filter((group) => group.types.some((type) => declared.has(type))).map(
+      (group) => group.classes
+    ),
+    collectAppCandidates(app)
+  )
+
+/**
+ * Per-`App`-instance memo of {@link resolveNativeFreeCandidates}. The resolver
+ * runs at boot and on every stylesheet request, each time walking the whole
+ * config; the result is a pure function of the instance.
+ */
+const candidatesByApp = new WeakMap<App, readonly string[]>()
+
+/**
+ * Resolve the candidate list for native-free compilation.
+ *
+ * No app is the generic, app-free compile — the whole built-in set, which the
+ * test fleet's shared pre-compiled file is built from and must stay a superset
+ * of every narrowed set. The operator console is served the whole set too,
+ * before any walk: its surfaces are fresh `App`s per request, and its pages
+ * are the console's own, not something a type walk should narrow. Every other
+ * app gets the core set plus the groups of the types it declares (see
+ * `collectDeclaredComponentTypes`), falling back to the whole set when a type
+ * cannot be read from the config. The app's own authored classes are always
+ * included.
+ */
+export const resolveNativeFreeCandidates = (app?: App): readonly string[] => {
+  if (app === undefined) return BUILTIN_CSS_CANDIDATES
+  const cached = candidatesByApp.get(app)
+  if (cached !== undefined) return cached
+  const declared = isOperatorConsoleApp(app) ? 'all' : collectDeclaredComponentTypes(app)
+  const resolved =
+    declared === 'all'
+      ? sortedUnion(BUILTIN_CSS_CANDIDATES, collectAppCandidates(app))
+      : narrowedCandidates(app, declared)
+  candidatesByApp.set(app, resolved)
+  return resolved
+}
 
 /**
  * Whether the app authors any utility class NOT already covered by the

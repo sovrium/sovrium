@@ -47,7 +47,6 @@ import {
   type CallerReader,
   type CallerTableGate,
 } from '@/domain/models/app/tables/caller-record-gate-service'
-import { filterWithFieldLiterals } from '@/domain/models/app/tables/checkbox-literal-service'
 import {
   lookupKeyColumnsFor,
   relatedValuesRefusedTo,
@@ -59,6 +58,7 @@ import {
   type ReadAccessPlan,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { readFilterOf } from '@/domain/models/app/tables/user-list-field-service'
 import { admittedWindow, visitorRowRule } from '@/domain/models/app/tables/visitor-row-rule-service'
 import {
   rowCheckOf,
@@ -150,7 +150,7 @@ export function callerRecordGateOf(input: {
   if (gate.kind === 'refused') return { kind: 'refused' }
   return {
     kind: 'open',
-    rowCheck: rowCheckOf(gate.rule, reader, db),
+    rowCheck: rowCheckOf(gate.rule, reader, { app, tableName, db }),
     project: app.auth
       ? projectOne(projectionOf(app, tableName, reader, { plan: gate.plan, db }))
       : async (record) => withoutPlanColumns(gate.plan, record),
@@ -295,8 +295,8 @@ export async function readRowsForCaller(input: {
   const withTotal = input.withTotal === true
   const table = (app.tables ?? []).find((t) => t.name === tableName) as TableLike | undefined
   // A trashed row is drawn on no page (live rows only, unless asked); a system
-  // source has no trash. A filter literal is read through its field's type.
-  const filter = filterWithFieldLiterals(input.query.filter, table?.fields)
+  // source has no trash. A filter is compiled as `readFilterOf` reads it.
+  const filter = readFilterOf(input.query.filter, table?.fields)
   const query = { ...input.query, filter, liveOnly: input.query.liveOnly ?? table !== undefined }
   if (table === undefined) return readUncheckedRows(tableName, query, { db, withTotal })
   if (!app.auth) return readFullAccessRows(app, table, query, { db, withTotal })
@@ -307,7 +307,7 @@ export async function readRowsForCaller(input: {
       : callerTableGate(app, tableName, reader)
   if (gate.kind === 'refused') return NO_ROWS
   const { plan } = gate
-  const check = rowCheckOf(gate.rule, reader, db)
+  const check = rowCheckOf(gate.rule, reader, { app, tableName, db })
   // A hosted form is granted the columns its choices are built from, by the
   // form; a visitor's read answers to her own gates, lookups included.
   if (input.authority === 'form') {

@@ -194,11 +194,16 @@ const isMountLocalPath = (value: string): boolean =>
 /**
  * Join a mount's base path with a path relative to that mount.
  *
+ * The root keeps no trailing slash, with or without a query or fragment:
+ * `/?q=x` on `/_admin` is `/_admin?q=x`, exactly as `/` is `/_admin`.
+ *
  * @param basePath - the mount's base, without a trailing slash (`/_admin`).
  * @param relative - a mount-relative path beginning with `/`; `/` is the root.
  */
 export const mountHref = (basePath: string, relative: string): string =>
-  relative === '/' ? basePath : `${basePath}${relative}`
+  relative === '/' || relative.startsWith('/?') || relative.startsWith('/#')
+    ? `${basePath}${relative.slice(1)}`
+    : `${basePath}${relative}`
 
 /**
  * Map a request path to the path within the mounted app.
@@ -286,6 +291,7 @@ export const rewriteConsoleRootHrefs = <T>(value: T, basePath: string): T => {
  */
 export const rewriteConsoleRootPath = (path: string, basePath: string): string => {
   if (basePath === CONSOLE_ROOT_SENTINEL) return path
-  if (path !== CONSOLE_ROOT_SENTINEL && !path.startsWith(`${CONSOLE_ROOT_SENTINEL}/`)) return path
-  return mountHref(basePath, path.slice(CONSOLE_ROOT_SENTINEL.length) || '/')
+  const rest = path.slice(CONSOLE_ROOT_SENTINEL.length)
+  if (!path.startsWith(CONSOLE_ROOT_SENTINEL) || !/^(?:$|[/?#])/.test(rest)) return path
+  return mountHref(basePath, rest.startsWith('/') ? rest : `/${rest}`)
 }

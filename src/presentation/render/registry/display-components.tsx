@@ -88,8 +88,9 @@ export const displayComponents: Partial<Record<DispatchableComponentType, Compon
 
   // `empty` — shadcn/ui's anatomy: a header holding the title and the
   // description, and a content slot under it for what the author adds (a call
-  // to action, most often). Each part names itself with `data-slot`; the
-  // heading stays an `<h3>` so the title keeps its heading role.
+  // to action, most often). Each part names itself with `data-slot`. The title
+  // is a `<div>`, as shadcn's EmptyTitle is: an empty state sits anywhere in a
+  // page, and a heading of a fixed level would break the page outline (RGAA 9.1).
   empty: ({ elementProps, content, renderedChildren, component }) => {
     const media = renderEmptyMedia(component)
     const title = elementProps['emptyTitle'] as string | undefined
@@ -114,12 +115,12 @@ export const displayComponents: Partial<Record<DispatchableComponentType, Compon
           >
             {media}
             {title ? (
-              <h3
+              <div
                 data-slot="empty-title"
                 className={computeEmptyStateTitleClasses()}
               >
                 {title}
-              </h3>
+              </div>
             ) : undefined}
             {description ? (
               <p

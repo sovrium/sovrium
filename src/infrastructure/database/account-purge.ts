@@ -6,11 +6,16 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { transactionConflictOf } from '@/domain/errors/transaction-conflict-error'
 import { adminRoleNamesFor } from '@/domain/models/app/auth/roles/role-write-validation'
 import { db } from '@/infrastructure/database'
-import { logInfo } from '@/infrastructure/logging/logger'
+import { logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { settleAuditTrail } from './account-purge-audit'
-import { erasureReach, sweepAppTableAuthorship } from './account-purge-authorship'
+import {
+  erasureReach,
+  removeFromEveryUserList,
+  sweepAppTableAuthorship,
+} from './account-purge-authorship'
 import { deleteFormSubmissionsOf } from './account-purge-form-submissions'
 import {
   LIVE_ERASURE_SEAMS,
@@ -20,6 +25,7 @@ import {
 import {
   eraseUnderLastAdminRail,
   lockAdminCandidates,
+  lockErasedAccount,
   readErasureSubject,
   type PurgeOutcome,
 } from './account-purge-rail'
@@ -30,11 +36,11 @@ import {
   deleteAiToolCallRows,
   deleteCensusRows,
   deleteUserOwnedGatedSystemRows,
-  deleteVerificationRows,
   shedDesignSystemShareMinterIdentifier,
   shedGrantIssuerIdentifier,
   shedLinkAuthorIdentifier,
 } from './account-purge-steps'
+import { deleteVerificationRows } from './account-purge-verification'
 import { scrubWhatErasureReaches } from './account-purge-webhooks'
 import { executeRaw } from './sql/dialect-execute'
 import { authTableRef, systemTableRef } from './sql/dialect-sql'
@@ -120,8 +126,8 @@ async function readStoredAvatarImage(userId: string): Promise<string | null> {
  *      ({@link shedGrantIssuerIdentifier}); then the `system.ai_activity_logs`
  *      rows naming the user by id or address ({@link deleteAiActivityRows})
  *   5. `system._admin_search_index` — the operator-search projection of the user
- *   6. `auth.verification` rows (matched by the user's email identifier, and
- *      every outstanding account-deletion token holding the user's id)
+ *   6. `auth.verification` rows: every pending token naming the user by id or
+ *      by address (`account-purge-verification.ts`)
  *   7. `auth.two_factor` and `auth.passkey` rows (second-factor and passkey keys)
  *   8. `auth.session` rows
  *   9. `auth.account` rows, then `audit_log.actor_email` cleared on every
@@ -251,9 +257,10 @@ async function eraseAccountRows(
           WHERE type = 'user' AND entity_id = ${userId}`
   )
 
-  // 6. Verification rows: by the user's email identifier, and every
-  //    outstanding account-deletion link — see {@link deleteVerificationRows}.
-  await deleteVerificationRows(tx, userId)
+  // 6. Her pending tokens — reset, deletion and invitation links, trusted
+  //    devices, emailed codes — by her id or her address; see
+  //    {@link deleteVerificationRows}.
+  await deleteVerificationRows(tx, userId, erasedEmail)
 
   // 6b. Shed this user's identifier from OTHER people's sessions.
   //     `auth.session.impersonated_by` records an ADMIN who impersonated the
@@ -284,8 +291,56 @@ async function eraseAccountRows(
   // 11. The parent auth.user row — FK fires on commit, null-ifying actor_id
   //    and shedding every `type: 'user'` assignment on records this user did
   //    not author.
-  await executeRaw(tx, sql`DELETE FROM ${authTableRef('user')} WHERE id = ${userId}`)
+  //    12. Then her id leaves every list of people, once no write can still store it.
+  await deleteAccountRow(tx, userId, appTables)
   return erasedObjectKeys
+}
+
+/**
+ * The account row itself, then her id out of every list of people. The list
+ * edit runs after the delete, as `ON DELETE SET NULL` does for a one-person
+ * field: the delete waits for every write still holding the account, so the
+ * edit reads the lists those writes stored (`removeFromEveryUserList`).
+ */
+async function deleteAccountRow(
+  tx: Readonly<DrizzleTransaction>,
+  userId: string,
+  appTables: readonly PurgeTableAuthorship[]
+): Promise<void> {
+  await executeRaw(tx, sql`DELETE FROM ${authTableRef('user')} WHERE id = ${userId}`)
+  await removeFromEveryUserList(tx, userId, appTables)
+}
+
+/** How many times an erasure is run before a conflict reaches the caller. */
+const ERASURE_ATTEMPTS = 3
+
+/** The pause before the next attempt, multiplied by the attempts already made. */
+const ERASURE_RETRY_BACKOFF_MS = 25
+
+/**
+ * Run the erasure's transaction, and run it again when the database aborted it
+ * on a conflict with a concurrent write — her own, still in flight while she is
+ * erased. Nothing was committed by the aborted attempt, so the next one starts
+ * from the same rows. Any other failure, and a conflict on the last attempt,
+ * reaches the caller unchanged.
+ */
+async function runErasureTransaction<T>(
+  userId: string,
+  run: () => Promise<T>,
+  attempt = 1
+): Promise<T> {
+  try {
+    return await run()
+  } catch (error) {
+    const sqlState = transactionConflictOf(error)
+    if (sqlState === undefined || attempt >= ERASURE_ATTEMPTS) throw error
+    logWarning(`[account-purge] Erasure of ${userId} met a concurrent write; running it again`, {
+      attempt: String(attempt),
+      sqlState,
+    })
+    await Bun.sleep(ERASURE_RETRY_BACKOFF_MS * attempt)
+    return runErasureTransaction(userId, run, attempt + 1)
+  }
 }
 
 /**
@@ -315,17 +370,20 @@ export async function purgeAccount(
   const storedAvatarImage = await readStoredAvatarImage(userId)
 
   let objectKeys: readonly string[] = []
-  const outcome = await seams.inTransaction(async (tx) =>
-    eraseUnderLastAdminRail(userId, app, {
-      readSubject: () => readErasureSubject(tx, userId),
-      lockAdminCandidates: () => lockAdminCandidates(tx, adminRoleNamesFor(app)),
-      // The email is captured BEFORE the user row goes: it lands in the
-      // `account.deletion.purged` metadata so operators can answer "who was
-      // erased?" once the row and the audit `actor_id`s are gone.
-      erase: async (subject) => {
-        objectKeys = await eraseAccountRows(tx, userId, subject?.email, appTables)
-      },
-    })
+  const outcome = await runErasureTransaction(userId, () =>
+    seams.inTransaction(async (tx) =>
+      eraseUnderLastAdminRail(userId, app, {
+        readSubject: () => readErasureSubject(tx, userId),
+        lockAdminCandidates: () => lockAdminCandidates(tx, adminRoleNamesFor(app)),
+        holdSubject: () => lockErasedAccount(tx, userId),
+        // The email is captured BEFORE the user row goes: it lands in the
+        // `account.deletion.purged` metadata so operators can answer "who was
+        // erased?" once the row and the audit `actor_id`s are gone.
+        erase: async (subject) => {
+          objectKeys = await eraseAccountRows(tx, userId, subject?.email, appTables)
+        },
+      })
+    )
   )
   if (outcome._tag === 'Refused') return outcome
 

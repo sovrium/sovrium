@@ -58,9 +58,9 @@ const consoleTopbar = {
   type: 'container',
   element: 'div',
   guidance: {
-    usage: 'Wrap every admin page with it, through the shell.',
-    when: 'When a page has a place in the navigation tree — which is all of them.',
-    dont: 'Do not put page actions here; they belong to data-page-header.',
+    usage: '$t:admin.ds.tpl.shell.usage',
+    when: '$t:admin.ds.tpl.shell.when',
+    dont: '$t:admin.ds.tpl.shell.dont',
   },
   props: {
     className:
@@ -108,7 +108,7 @@ const consoleTopbar = {
             name: 'search',
             size: 16,
             className: 'text-muted-foreground size-8 rounded-md p-2',
-            'aria-label': 'Search',
+            'aria-label': '$t:admin.common.search',
           },
         },
         {
@@ -117,7 +117,7 @@ const consoleTopbar = {
             name: 'moon',
             size: 16,
             className: 'text-muted-foreground size-8 rounded-md p-2',
-            'aria-label': 'Toggle theme',
+            'aria-label': '$t:admin.common.toggleTheme',
           },
         },
       ],
@@ -137,9 +137,9 @@ const dataPageHeader = {
   type: 'container',
   element: 'div',
   guidance: {
-    usage: 'Put it above any grid, list or board that reads a collection.',
-    when: 'When the page is ONE collection; a page with two grids heads each one instead.',
-    dont: 'Do not repeat the breadcrumb here — console-topbar already carries it.',
+    usage: '$t:admin.ds.tpl.header.usage',
+    when: '$t:admin.ds.tpl.header.when',
+    dont: '$t:admin.ds.tpl.header.dont',
   },
   props: { className: 'bg-background flex flex-col gap-3.5 px-8 py-6' },
   children: [
@@ -170,14 +170,14 @@ const dataPageHeader = {
           children: [
             {
               type: 'button',
-              label: 'Export CSV',
+              label: '$t:admin.common.exportCsv',
               variant: 'outline',
               size: 'sm',
               props: { type: 'button', disabled: true },
             },
             {
               type: 'button',
-              label: 'New record',
+              label: '$t:admin.common.newRecord',
               variant: 'default',
               size: 'sm',
               props: { type: 'button', disabled: true },
@@ -241,9 +241,9 @@ const emptyStateCard = {
   type: 'container',
   element: 'div',
   guidance: {
-    usage: 'Use it wherever a collection can legitimately be empty on a fresh install.',
-    when: 'When the emptiness is normal; a FAILED read is an error state, not this.',
-    dont: 'Do not ship it without the next action — an empty state with no way forward is a dead end.',
+    usage: '$t:admin.ds.tpl.empty.usage',
+    when: '$t:admin.ds.tpl.empty.when',
+    dont: '$t:admin.ds.tpl.empty.dont',
   },
   props: { className: 'flex justify-center p-8' },
   children: [
@@ -292,9 +292,9 @@ const auditRow = {
   type: 'container',
   element: 'div',
   guidance: {
-    usage: 'Use it for any reverse-chronological list of things that happened.',
-    when: 'When the row is an EVENT; a row that is a record belongs in a table.',
-    dont: 'Do not make the timestamp relative — an operator correlating with a log needs the clock time.',
+    usage: '$t:admin.ds.tpl.timeline.usage',
+    when: '$t:admin.ds.tpl.timeline.when',
+    dont: '$t:admin.ds.tpl.timeline.dont',
   },
   props: {
     className: 'border-border flex items-center gap-2.5 border-b px-8 py-3 last:border-b-0',

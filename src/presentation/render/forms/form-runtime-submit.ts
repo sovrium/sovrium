@@ -16,7 +16,9 @@
  * spinner and the in-flight word — `display.pendingLabel` or the built-in
  * `form.sending` — and a second press or Enter is ignored. A refusal shows the
  * field errors, puts the focus on the first refused field (else on the submit,
- * given back by then), and only then shows `onError`.
+ * given back by then), and only then shows `onError`. A refusal before sending
+ * (a required field left empty) shows the field errors and focuses the first,
+ * and announces no generic failure: only an `onError` message the form declares.
  *
  * Assumes the surrounding IIFE provides `form`, `config`, `S`, `FAILED`,
  * `onError`, `clearFieldErrors`, `validateForm`, `showFieldError`,
@@ -96,7 +98,11 @@ export const FORM_RUNTIME_SUBMIT_SCRIPT = `
     clearFieldErrors()
     var validation = validateForm()
     if (!validation.ok) {
-      renderOnError(onError.message || FAILED)
+      // A refusal before sending is the field errors and the focus on the first
+      // one; nothing was sent, so no generic failure is announced over them.
+      // An onError message the form declares still shows.
+      if (validation.firstError) validation.firstError.focus()
+      if (config.onError && config.onError.message) renderOnError(config.onError.message)
       return
     }
     var fetchInit

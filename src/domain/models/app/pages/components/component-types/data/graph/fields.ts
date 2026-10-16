@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { SharedFilterPublisherSchema } from '../../../data-source'
+import { SharedFilterPublisherSchema } from '../../../data-source-publishers'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
 import { i18nFields } from '../../modules/i18n'
@@ -17,6 +17,7 @@ import {
   GraphDataSourceSchema,
   GraphLanesSchema,
   GraphLayoutSchema,
+  GraphNodeFlagSchema,
   GraphSelectionSchema,
 } from './schema'
 
@@ -96,6 +97,12 @@ export const graphFields = {
   lanes: Schema.optional(GraphLanesSchema),
   /** Makes nodes selectable, and says which way the reach highlight walks */
   selection: Schema.optional(GraphSelectionSchema),
+  /**
+   * Marks every node whose named boolean field is true, and names the mark in
+   * words. See {@link GraphNodeFlagSchema} — in both layouts, a marked node
+   * carries one caution mark beside its state, and its twin row says `label`.
+   */
+  flag: Schema.optional(GraphNodeFlagSchema),
   /**
    * Publishes the SELECTED NODE's id on a shared-filter channel.
    *

@@ -5,10 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { FieldLabels } from './panel-field-labels'
+import type { SelectionExportProps } from './selection-export'
 import type { TableContentProps } from './table-content'
 import type { DataTableColumnDef, DataTableInstance } from './table-features'
-import type { DataTableToolbarBarProps } from './toolbar/toolbar-bar'
 import type { SaveIndicatorSettings } from './use-island-setup'
 import type { useDataTableUiState } from './use-ui-state'
 import type { EditingCell, FieldMetaMap, SaveStatus } from '../../hooks/use-inline-editing'
@@ -16,15 +15,14 @@ import type { DetectedConflict } from '../../hooks/use-realtime-reconciliation'
 import type { RealtimeConnectionState } from '../../hooks/use-realtime-subscription'
 import type { CellCommit, DataTableRowClickAction, InlineAutoSave } from '../data-row-types'
 import type { SummaryAggregations } from '../summary-aggregate'
+import type { SessionControlsProps } from '../view-options/session-controls'
 import type {
   DataTableBulkAction,
   DataTableColumn,
   DataTableLayout,
   DataTablePagination,
-  ComponentSearch,
   DataTableSelection,
   DataTableSummaryItem,
-  DataTableToolbar,
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
 
@@ -45,9 +43,7 @@ export interface DataTableViewProps {
   readonly allColumns: readonly DataTableColumnDef[]
   readonly totalRecords: number
   readonly isLoading: boolean
-  readonly searchConfig?: ComponentSearch
   readonly selectionConfig?: DataTableSelection
-  readonly toolbarConfig?: DataTableToolbar
   readonly bulkActionsConfig?: readonly DataTableBulkAction[]
   readonly paginationConfig?: DataTablePagination
   /**
@@ -77,7 +73,10 @@ export interface DataTableViewProps {
   readonly tableFields?: readonly string[]
   readonly fieldMeta?: FieldMetaMap
   readonly globalFilter: string
-  readonly setGlobalFilter: (value: string) => void
+  /** The grid listens to a channel the page's controls publish on. */
+  readonly subscribed: boolean
+  /** A control on the page narrows the grid: its result count is announced. */
+  readonly narrowed: boolean
   readonly striped: boolean
   /**
    * Field whose declared option colours fill each row, plus the resolved
@@ -107,7 +106,6 @@ export interface DataTableViewProps {
    */
   readonly noMatchMessage?: string
   readonly selectedCount: number
-  readonly showSearch: boolean
   readonly editingCell?: EditingCell
   readonly autoSave?: InlineAutoSave
   readonly saveError?: string
@@ -133,25 +131,22 @@ export interface DataTableViewProps {
   readonly onCellCommit: CellCommit
   readonly onRefresh: () => void
   /**
-   * Toolbar create flow. `canCreate` gates the
-   * primary "Nouvel enregistrement" button (absent — not disabled — when the
-   * role may not create). `creating` drives the create modal; `onCreate` opens
-   * it, `onCancelCreate` closes it, `onSubmitCreate` POSTs the filled fields.
+   * The reader may add a row: the server did not deny create for their role
+   * and the grid is bound to a table it can write to. Gates the trailing
+   * add-row line.
    */
   readonly canCreate: boolean
   /**
-   * Interpreter-provided create-record label, resolved server-side
-   * against the active language. Labels the toolbar create button and the create
-   * modal's title/aria-label so they localize to the app language.
+   * The reader may delete the table's records (decided on the server, like
+   * {@link canCreate}): the selection then offers Delete.
    */
-  readonly newRecordLabel: string
-  /** Interpreter-provided create-dialog footer labels (same resolution). */
-  readonly saveLabel: string
-  readonly cancelLabel: string
-  readonly creating: boolean
-  readonly onCreate: () => void
-  readonly onCancelCreate: () => void
-  readonly onSubmitCreate: (values: Record<string, string>) => void
+  readonly canDelete: boolean
+  /**
+   * The grid reads through a table VIEW. The export route is the table's,
+   * gated on the table's own read grant — which a visitor on a public view does
+   * not hold — so the selection export is not offered.
+   */
+  readonly isViewBound: boolean
   /**
    * Read-only system-source grid:
    * the rows come from a read endpoint, not a DB table. When true, the
@@ -162,10 +157,9 @@ export interface DataTableViewProps {
    */
   readonly readOnly?: boolean
   /**
-   * System read-endpoint (`dataSource.system.endpoint`) for the CSV export. When
-   * present (a read-only system source) AND `toolbar.export` is enabled, the
-   * toolbar renders an "Exporter" affordance that navigates the browser to
-   * `{endpoint}?format=csv` instead of the DB-table records-export dropdown.
+   * System read-endpoint (`dataSource.system.endpoint`). Its presence tells
+   * the selection export there is no DB table to route a selection through, so
+   * it serialises the rows the grid already holds.
    */
   readonly systemExportEndpoint?: string
   readonly onBulkExecute: (action: DataTableBulkAction) => void
@@ -190,8 +184,10 @@ export interface DataTableViewProps {
 // view's props pass through no hook at all — so `useViewProps` speaks both
 // vocabularies and translates once, rather than deforming either side.
 
-/** Alerts and indicators drawn above the toolbar. */
+/** Alerts and indicators drawn above the grid. */
 export interface StatusBannersProps {
+  /** The save status shown in its own row (`saveIndicatorPosition: toolbar`). */
+  readonly toolbarSaveStatus?: SaveStatus
   readonly showToastIndicator: boolean
   readonly indicatorStatus: SaveStatus
   readonly saveError?: string
@@ -216,35 +212,6 @@ export interface StatusBannersProps {
   readonly connectionStatus?: RealtimeConnectionState
 }
 
-/**
- * The create-record dialog.
- *
- * The CSV import dialog shares this bag but renders from its own component, so
- * that it keeps its position as the container's LAST child: these are
- * overlays, and reordering equal-z siblings changes which one wins.
- */
-export interface ViewDialogsProps {
-  readonly creating: boolean
-  readonly tableFields: readonly string[]
-  readonly fieldMeta?: FieldMetaMap
-  readonly newRecordLabel: string
-  readonly saveLabel: string
-  readonly cancelLabel: string
-  readonly onCancelCreate: () => void
-  readonly onSubmitCreate: (values: Record<string, string>) => void
-  readonly tableName: string
-  readonly ui: ReturnType<typeof useDataTableUiState>
-}
-
-/** The runtime filter-builder and multi-sort panels. */
-export interface GridPanelsProps {
-  readonly tableFields: readonly string[]
-  /** Each field as its column header names it (`panel-field-labels.ts`). */
-  readonly fieldLabels: FieldLabels
-  readonly fieldMeta?: FieldMetaMap
-  readonly ui: ReturnType<typeof useDataTableUiState>
-}
-
 /** The rows themselves, plus the footer. */
 export interface GridBodyProps {
   readonly grid: TableContentProps
@@ -266,25 +233,36 @@ export interface GridBodyProps {
    */
   readonly isLoadingMore: boolean
   readonly onLoadMore?: () => void
+  /**
+   * What acts on the checked rows, on a grid whose rows can be checked: drawn in
+   * the bottom bar's left half once anything is checked. Its presence alone
+   * draws the bottom bar on a grid that numbers no pages.
+   */
+  readonly selection?: GridSelection
+  /** The reader's Group by · Hide fields · Row height, in the bottom bar. */
+  readonly session: SessionControlsProps
 }
 
-/** Everything below the dialogs: the bulk-action bar, the panels, the rows. */
-export interface TableSurfaceProps {
-  readonly bulkActionsConfig?: readonly DataTableBulkAction[]
+/** The selection's half of the bottom bar. */
+export interface GridSelection {
+  readonly bulkActions: readonly DataTableBulkAction[]
   readonly selectedCount: number
-  readonly onBulkExecute: (action: DataTableBulkAction) => void
-  /** The whole data region is suppressed while the import dialog is open. */
-  readonly importDialogOpen: boolean
-  readonly filterOverlayOpen: boolean
-  readonly sortOverlayOpen: boolean
-  readonly panels: GridPanelsProps
+  readonly onExecute: (action: DataTableBulkAction) => void
+  /** The selection export the bar offers, absent when the grid offers none. */
+  readonly selectionExport?: SelectionExportProps
+  /** The table Delete removes rows from; absent when the reader may not delete. */
+  readonly deleteFrom?: string
+}
+
+/** Everything below the banners: the rows and the bars that frame them. */
+export interface TableSurfaceProps {
+  /** The author's bulk actions, kept in the DOM hidden while nothing is checked. */
+  readonly bulkActionsConfig?: readonly DataTableBulkAction[]
   readonly body: GridBodyProps
 }
 
 /** What {@link useViewProps} resolves the island's flat props into. */
 export interface ViewRegions {
   readonly banners: StatusBannersProps
-  readonly toolbar: DataTableToolbarBarProps
-  readonly dialogs: ViewDialogsProps
   readonly surface: TableSurfaceProps
 }

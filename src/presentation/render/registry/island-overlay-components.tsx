@@ -130,7 +130,7 @@ export const islandOverlayComponents: Partial<
     const childrenHtml = typeof formRefHtml === 'string' ? formRefHtml : toHtml(slots['$children'])
     const footerHtml = toHtml(slots['footer'])
     const propsJson = JSON.stringify({
-      ...buildDialogProps(rawProps, elementProps, childrenHtml, component),
+      ...buildDialogProps(rawProps, elementProps, childrenHtml, context),
       closeLabel: overlayCloseLabel(context),
       ...(footerHtml === '' ? {} : { footerHtml }),
       ...((component as { readonly showCloseButton?: unknown } | undefined)?.showCloseButton ===
@@ -159,9 +159,8 @@ export const islandOverlayComponents: Partial<
   },
 
   'alert-dialog': (context) => {
-    const { rawProps, elementProps, component, routeParams } = withTranslatedProps(context)
-    const dialogProps = buildAlertDialogProps(rawProps, elementProps, component, routeParams)
-    const propsJson = JSON.stringify(dialogProps)
+    const { rawProps, elementProps } = withTranslatedProps(context)
+    const propsJson = JSON.stringify(buildAlertDialogProps(rawProps, elementProps, context))
 
     return (
       <div

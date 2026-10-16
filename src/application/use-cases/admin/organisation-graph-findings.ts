@@ -35,7 +35,9 @@
 import {
   OP_ORDER,
   UNNAMED_PRINCIPAL_LABEL,
+  personNodeId,
   principalLabel,
+  teamNodeId,
   unique,
   type OpLetter,
   type ResourceTarget,
@@ -93,6 +95,7 @@ const publicWriteFindings = (
     severity: 'critical' as const,
     blastRadius: 'unbounded' as const,
     subjects: [target.label],
+    nodes: [target.nodeId],
     message: `The ${RESOURCE_NOUN[target.kind]} "${target.label}" accepts writes from callers who are not signed in.`,
   }))
 
@@ -122,6 +125,7 @@ const openRungReadFindings = (
       severity: 'warning' as const,
       blastRadius: principalCount,
       subjects: [target.label],
+      nodes: [target.nodeId],
       message: `The ${RESOURCE_NOUN[target.kind]} "${target.label}" is readable through the open rung rather than through a named role or team.`,
     }))
 
@@ -161,6 +165,7 @@ const singleBridgeFindings = (
         severity: 'notice' as const,
         blastRadius: 1,
         subjects: [name, left, right],
+        nodes: [personNodeId(bridge), teamNodeId(left), teamNodeId(right)],
         message: `${name} is the only person standing in both "${left}" and "${right}".`,
       },
     ]
@@ -192,3 +197,16 @@ export const deriveFindings = (
     ...openRungReadFindings(targets, principals.length),
     ...singleBridgeFindings(memberships, principals),
   ].toSorted((left, right) => blastRank(right.blastRadius) - blastRank(left.blastRadius))
+
+/**
+ * The findings counted, overall and per severity — every severity present,
+ * zero rather than absent, so a page binds the three without a fallback.
+ */
+export const countFindings = (findings: readonly AdminOrganisationGraphFinding[]) => ({
+  findingsCount: findings.length,
+  findingsBySeverity: {
+    critical: findings.filter((finding) => finding.severity === 'critical').length,
+    warning: findings.filter((finding) => finding.severity === 'warning').length,
+    notice: findings.filter((finding) => finding.severity === 'notice').length,
+  },
+})

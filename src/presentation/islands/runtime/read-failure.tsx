@@ -32,13 +32,20 @@ const statusOf = (error: unknown): unknown =>
 export const isRateLimitedRead = (error: unknown): boolean => statusOf(error) === 429
 
 /**
+ * Whether a read was refused because the caller's session has ended (401).
+ * Asking again cannot succeed until the reader signs in, so it is not retried
+ * either, and a console answers it by leaving for its sign-in page.
+ */
+export const isSessionEndedRead = (error: unknown): boolean => statusOf(error) === 401
+
+/**
  * The island QueryClient's two retries, withheld from a rate-limited read: it is
  * not worth asking again before its `Retry-After`, and asking at once only
  * spends the budget and holds the widget empty for the length of the backoff.
  * The widget offers its own Retry instead.
  */
 export const retryUnlessRateLimited = (failureCount: number, error: Error): boolean =>
-  !isRateLimitedRead(error) && failureCount < 2
+  !isRateLimitedRead(error) && !isSessionEndedRead(error) && failureCount < 2
 
 /**
  * The notice's English words. The page-language text comes from the server

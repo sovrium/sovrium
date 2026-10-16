@@ -119,7 +119,10 @@ import { TOKENS as T, withVarFallback as v } from '@/presentation/design/css-var
 // visible the moment two charts sit in one column. There is one height in the
 // chart subtree, and it is `CHART_BODY`.
 const CHART_SHELL = [
-  'relative w-full',
+  // `h-full` takes a height the HOST declares (`props.className: h-64`) and is
+  // auto otherwise; the column flex lets the body shrink to fit it rather than
+  // overflow onto what follows. No fixed height, still: see the note above.
+  'relative flex h-full w-full flex-col',
   'border',
   'border-border',
   `rounded-[${v('radius-md', T.radiusMd)}]`,
@@ -139,13 +142,15 @@ const CHART_SHELL = [
  */
 export const computeChartShellClasses = (): string => CHART_SHELL
 
-const CHART_BODY = 'relative aspect-[2/1] min-h-40 w-full'
+// `max-h-full` caps the body at a box with a definite height (a declared host
+// height); a column flex item also shrinks to it. Neither binds otherwise.
+const CHART_BODY = 'relative aspect-[2/1] max-h-full min-h-40 w-full'
 
 // A body sitting BESIDE the legend is a flex item on the main axis, so it must
 // claim the leftover width rather than declare its own. `min-w-0` is the
 // load-bearing half: without it the item's automatic minimum size is its content
 // width, the SVG never yields, and a wide legend pushes the plot out of the card.
-const CHART_BODY_BESIDE = 'relative aspect-[2/1] min-h-40 min-w-0 flex-1'
+const CHART_BODY_BESIDE = 'relative aspect-[2/1] max-h-full min-h-40 min-w-0 flex-1'
 
 /**
  * Compute the default className for the shell's measured interior — the
@@ -202,8 +207,9 @@ export const computeChartBodyClasses = ({
 // Canvas gaps: 6px between a stacked legend and the plot, 12px between a side
 // legend and the plot — wider, because a horizontal gap has no line-height air
 // of its own to borrow.
-const CHART_LAYOUT_STACKED = 'flex flex-col gap-1.5'
-const CHART_LAYOUT_BESIDE = 'flex flex-row items-start gap-3'
+// `min-h-0` lets the box shrink inside a card capped by its host's height.
+const CHART_LAYOUT_STACKED = 'flex min-h-0 flex-col gap-1.5'
+const CHART_LAYOUT_BESIDE = 'flex min-h-0 flex-row items-start gap-3'
 
 /**
  * Compute the className for the shell's layout box — the flex container holding
@@ -243,6 +249,14 @@ export const CHART_AXIS_STROKE = `var(--border, ${T.border})`
  * value.
  */
 export const CHART_AXIS_LABEL_FILL = `var(--muted-foreground, ${T.mutedForeground})`
+
+/**
+ * Fill for a tick label (the category names and the value-axis figures). The
+ * ticks are drawn by the chart's own tick renderers, so they carry the role as
+ * an attribute rather than relying on a container selector over recharts'
+ * markup, which moved between majors and left the ticks black on a dark card.
+ */
+export const CHART_AXIS_TICK_FILL = `var(--muted-foreground, ${T.mutedForeground})`
 
 /** Axis-title size. Canvas 9px → the `text-2xs` rung (10/14). */
 export const CHART_AXIS_LABEL_FONT_SIZE = 10

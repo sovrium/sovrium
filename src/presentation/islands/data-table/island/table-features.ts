@@ -18,7 +18,7 @@ import {
   type Row,
 } from '@tanstack/react-table'
 import { sortingFeatures } from '../column-header/sorting-features'
-import { filteringFeatures } from '../faceted-filter/filtering-features'
+import { filteringFeatures } from '../filtering/filtering-features'
 import { paginationFeatures } from '../pagination/pagination-features'
 import { selectionFeatures } from '../selection/selection-features'
 import { viewOptionsFeatures } from '../view-options/view-options-features'
@@ -33,7 +33,7 @@ export type { DataTableColumnMeta } from '../table/column-meta'
  * into the instance and shipped to the client.
  *
  * Each slot owns its slice (sorting in `column-header/`, filtering in
- * `faceted-filter/`, pagination, selection, and the visibility / ordering /
+ * `filtering/`, pagination, selection, and the visibility / ordering /
  * sizing trio in `view-options/`); this file only spreads them, and each slice
  * carries the rationale for what it registers and what it leaves out.
  *

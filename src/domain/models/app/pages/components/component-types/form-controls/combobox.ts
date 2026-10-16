@@ -35,6 +35,7 @@ export const comboboxFields = {
   i18n: selectFields.i18n,
   options: selectFields.options,
   dataSource: selectFields.dataSource,
+  optionsFrom: selectFields.optionsFrom,
   publishes: selectFields.publishes,
   emptyOption: selectFields.emptyOption,
   defaultValue: selectFields.defaultValue,

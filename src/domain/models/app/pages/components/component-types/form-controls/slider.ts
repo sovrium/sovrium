@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SharedFilterPublisherSchema } from '../../data-source-publishers'
 import { coreFields } from '../modules/core'
 import { visibilityFields } from '../modules/visibility'
 
@@ -30,4 +31,10 @@ export const sliderFields = {
       description: 'Default value for form controls (select, radio-group, slider, etc.)',
     })
   ),
+  /**
+   * Narrow the data components on a channel from the slider's value — with
+   * `operator: lte`, "up to this price" is one slider. The value is published
+   * when the thumb is released, not on every step it passes.
+   */
+  publishes: Schema.optional(SharedFilterPublisherSchema),
 } as const

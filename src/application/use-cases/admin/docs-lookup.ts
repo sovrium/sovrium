@@ -251,7 +251,7 @@ export const renderCliVerb = (input: {
 
 /** One row of a console route inventory, with the article that carries it. */
 export interface AdminRouteEntry {
-  /** The route as the router matches it — `/_admin/tables`. */
+  /** The route as the router matches it — `/_admin/records`. */
   readonly route: string
   /** The row's second cell: what that page is, in one line. */
   readonly summary: string

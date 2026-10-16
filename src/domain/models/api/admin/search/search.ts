@@ -120,7 +120,7 @@ export const adminSearchResultSchema = Schema.Struct({
   }),
   href: Schema.String.annotate({
     description:
-      'The deep-link the UI navigates to when this result is selected (e.g. /_admin/tables/{name}?record={id}, /_admin/connections).',
+      'The deep-link the UI navigates to when this result is selected (e.g. /_admin/records/{name}?record={id}, /_admin/connections).',
   }),
   updatedAt: looseIsoDateTime({
     description:

@@ -29,6 +29,7 @@ import { resolveCustomHtmlSources } from '@/presentation/render/resolve/custom-h
 import { resolvePageDataSources } from '@/presentation/render/resolve/data-source-resolver'
 import { expandFieldSpecimens } from '@/presentation/render/resolve/field-specimen-resolver'
 import { resolveFilePreviews } from '@/presentation/render/resolve/file-preview-resolver'
+import { resolveFilterBarFieldsFrom } from '@/presentation/render/resolve/filter-bar-fields-from-resolver'
 import { resolveGraphs } from '@/presentation/render/resolve/graph-resolver'
 import { tablesEnvelopeReaderFor } from '@/presentation/render/resolve/graph-tables-envelope'
 import { resolveMatrixGraphs } from '@/presentation/render/resolve/matrix-graph-resolver'
@@ -37,8 +38,10 @@ import {
   applyPageLevelRecordBinding,
   type SystemRecordFetcher,
 } from '@/presentation/render/resolve/page-system-record-binding'
+import { resolveRecordButtonFields } from '@/presentation/render/resolve/record-button-field-resolver'
 import { recordAddresser } from '@/presentation/render/resolve/row-attachment-addresses'
 import { resolveSelectOptionSources } from '@/presentation/render/resolve/select-option-source-resolver'
+import { resolveSelectOptionsFrom } from '@/presentation/render/resolve/select-options-from-resolver'
 import {
   indexTemplatesByName,
   resolveSpecimenSubjects,
@@ -390,23 +393,22 @@ export async function resolveAndFilterPage(
 
   const filteredPage = await filterComponents(boundPage, hostRecord, input)
 
-  // A `specimen` that NAMES its subject
-  // has that name replaced by the engine's own catalogue specimen for the type,
-  // so from here down a named subject and a written-out one are ONE declaration
-  // and every pass below treats them identically. A `$param` naming a segment
+  // A `specimen` that NAMES its subject gets the engine's own catalogue specimen,
+  // so a named subject and a written-out one are ONE declaration below. A `$param` naming a segment
   // that is not a drawable type is the page's own 404 — an empty frame would
   // leave a reader believing the type has no specimen rather than no existence.
-  // A pages design primitives spec is the other polarity, chosen by
-  // {@link resolveNamedSubjects}.
+  // The other polarity is chosen by {@link resolveNamedSubjects}.
   const specimens = applySpecimenSubjects(filteredPage, rawPage, routeParams, app)
   if (specimens === undefined) return undefined
 
-  // B2: resolve every `select` option-source binding into a concrete `options`
-  // array BEFORE the rows-oriented walk below. The pass also REMOVES the
-  // binding, which keeps `resolveComponent` — it keys off
-  // `component.dataSource` — from sweeping a choice control into
-  // `resolveByMode` and mangling it as a record-rendering component.
-  const withSelectOptions = await resolveSelectOptionSources(specimens.page, {
+  // Bars' derived fields and choice controls' option sources, BEFORE the rows walk
+  // (each binding REMOVED). An address naming no table is the page's 404.
+  const fromFields = resolveSelectOptionsFrom(
+    resolveFilterBarFieldsFrom(specimens.page, { app, session }),
+    { app, session, routeParams }
+  )
+  if (fromFields === undefined) return undefined
+  const withSelectOptions = await resolveSelectOptionSources(fromFields, {
     app,
     session,
     cookies,
@@ -414,13 +416,10 @@ export async function resolveAndFilterPage(
     ...(input.fetchSystemRows !== undefined ? { fetchSystemRows: input.fetchSystemRows } : {}),
   })
 
-  // R5: clone an ARBITRARY child template once per row of a SYSTEM read
-  // endpoint, through the SAME `expandDataSourceChildren` the DB list path
-  // uses — so `$record.*` substitution and per-row `visibility.record` are one
-  // implementation across both row sources. Runs BEFORE `resolvePageDataSources`
-  // because it SPENDS the binding: the pass below keys off `component.dataSource`
-  // and would answer a `{ system }` one with a "table undefined not found"
-  // banner over the rows just rendered.
+  // Clone an ARBITRARY child template once per row of a SYSTEM read endpoint,
+  // through the SAME `expandDataSourceChildren` the DB list path uses — one
+  // `$record.*` substitution for both row sources, BEFORE `resolvePageDataSources`,
+  // which would answer a spent `{ system }` binding with "table undefined not found".
   const withSystemRows = await expandSystemRowTemplates(withSelectOptions, input.fetchSystemRows)
 
   const rowScoped = await applyRowScopedPasses(
@@ -437,5 +436,6 @@ export async function resolveAndFilterPage(
   })
   if (resolved === undefined) return undefined
   if ('unauthorized' in resolved) return { unauthorized: true }
-  return resolveFilePreviews(await resolveCustomHtmlSources(resolved), { app, db })
+  const withHtml = await resolveCustomHtmlSources(resolved)
+  return resolveFilePreviews(await resolveRecordButtonFields(withHtml, input), { app, db })
 }

@@ -20,16 +20,21 @@
  * fault — a 5xx, or a request that never completed — invites a retry.
  */
 
-/** A denial or an absent record; the same message covers both, as the API does. */
-const UNAVAILABLE = 'This action is not available on this record.'
+/** The button's `action.*` words in the page language, where they differ from English. */
+export type ButtonStrings = Readonly<Record<string, string>> | undefined
 
-/** The run started and the engine reported it did not finish cleanly. */
-const UNFINISHED = 'The action ran but did not complete.'
-
-/** The request never produced a usable answer. The one case worth retrying. */
-const UNREACHABLE = 'The action could not be run. Try again.'
-
-const COMPLETED = 'Action completed.'
+/**
+ * The four sentences, each the page's when the host sent it: a denial or an
+ * absent record (one sentence for both, as the API does), a run that did not
+ * finish cleanly, a request that never produced a usable answer (the one case
+ * worth retrying), and a clean run.
+ */
+const say = (strings: ButtonStrings) => ({
+  unavailable: strings?.['action.unavailable'] ?? 'This action is not available on this record.',
+  unfinished: strings?.['action.unfinished'] ?? 'The action ran but did not complete.',
+  unreachable: strings?.['action.unreachable'] ?? 'The action could not be run. Try again.',
+  completed: strings?.['action.completed'] ?? 'Action completed.',
+})
 
 export interface ButtonOutcome {
   readonly message: string
@@ -53,11 +58,11 @@ const INCOMPLETE_RUN_STATUSES: ReadonlySet<string> = new Set([
  * The outcome for a request that never reached a response — offline, aborted,
  * or a body that could not be read.
  */
-export const BUTTON_REQUEST_FAILED: ButtonOutcome = {
-  message: UNREACHABLE,
+export const buttonRequestFailed = (strings: ButtonStrings): ButtonOutcome => ({
+  message: say(strings).unreachable,
   variant: 'error',
   changed: false,
-}
+})
 
 /**
  * Read the engine's run status out of the response body.
@@ -78,13 +83,17 @@ async function readRunStatus(response: Response): Promise<string> {
  * Classify what the invoke endpoint answered into something a reader can act
  * on.
  */
-export async function classifyButtonResponse(response: Response): Promise<ButtonOutcome> {
+export async function classifyButtonResponse(
+  response: Response,
+  strings: ButtonStrings
+): Promise<ButtonOutcome> {
+  const words = say(strings)
   if (response.status === 404) {
-    return { message: UNAVAILABLE, variant: 'error', changed: false }
+    return { message: words.unavailable, variant: 'error', changed: false }
   }
-  if (!response.ok) return BUTTON_REQUEST_FAILED
+  if (!response.ok) return buttonRequestFailed(strings)
   const runStatus = await readRunStatus(response)
   return INCOMPLETE_RUN_STATUSES.has(runStatus)
-    ? { message: UNFINISHED, variant: 'error', changed: true }
-    : { message: COMPLETED, variant: 'success', changed: true }
+    ? { message: words.unfinished, variant: 'error', changed: true }
+    : { message: words.completed, variant: 'success', changed: true }
 }

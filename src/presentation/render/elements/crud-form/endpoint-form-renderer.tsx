@@ -50,7 +50,6 @@
  */
 
 import { type ReactElement } from 'react'
-import { autofillHintOverlay } from '@/domain/models/app/forms/form-autofill-hint-service'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import {
   computeSubmitButtonClasses,
@@ -58,22 +57,22 @@ import {
 } from '@/presentation/design/button-default-classes'
 import { fieldDescriptionId } from '@/presentation/design/field-display'
 import { computeFormHelpTextClasses } from '@/presentation/design/form-layout-classes'
-import {
-  computeInputDefaultClasses,
-  computeTextareaDefaultClasses,
-} from '@/presentation/design/input-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeFormClasses,
   computeFormFieldClasses,
   computeFormFieldLabelClasses,
-  computeFormSwitchClasses,
-  computeFormSwitchFieldClasses,
 } from '../../../design/forms-default-classes'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
 import { PENDING_LABEL_ATTR } from '../button-pending-label'
+import {
+  renderEndpointControl,
+  renderEndpointHiddenField,
+  renderEndpointSwitchField,
+} from './endpoint-form-controls'
 import { formPartOf, type FormPart } from './endpoint-form-parts'
-import { formRuleProps, hasRules, ruleProps } from './endpoint-form-rules'
+import { passwordAidOf, passwordRuleId, type PasswordAid } from './endpoint-form-password'
+import { formRuleProps, hasRules } from './endpoint-form-rules'
 import type { ElementProps } from '../html-element-renderer'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -91,6 +90,7 @@ interface EndpointConfig {
   readonly url: string
   readonly method?: 'POST' | 'PUT' | 'PATCH'
   readonly responseEnvelope?: string
+  readonly submitOn?: 'submit' | 'change'
   readonly submitLabel?: string
   readonly submitVariant?: ButtonVariant
   readonly onSuccess?: unknown
@@ -107,41 +107,34 @@ interface SerializedEndpointConfig {
 }
 
 /**
- * shadcn/ui's `Input` for an input or a native select and its `Textarea` for a
- * textarea — the recipes the table-bound form draws, so both forms are one size.
+ * A field's `description`, drawn as the help text under its control, then the
+ * password rule a field that sets a password states. Both sit OUTSIDE the
+ * `<label>`, so each sentence describes the control without also becoming part
+ * of its accessible name. The author's sentence never replaces the rule: the
+ * rule is what the server enforces, and a hand-written one can go stale.
  */
-const CONTROL_CLASS = computeInputDefaultClasses()
-const TEXTAREA_CLASS = computeTextareaDefaultClasses()
-
-/** A `select` option as read off an endpoint-bound field (`{ value, label? }`). */
-type EndpointFieldOption = { readonly value: string; readonly label?: string }
-
-/**
- * The `aria-describedby` for one field's control, or nothing when the field
- * carries no `description`. The id is the one {@link renderHelpText} stamps on
- * the sentence, so the control is DESCRIBED by it — the association a screen
- * reader announces with the field — rather than merely sitting near it.
- */
-function describedByProps(field: FormFieldConfig): Record<string, string> {
-  return field.description === undefined
-    ? {}
-    : { 'aria-describedby': fieldDescriptionId(field.field) }
-}
-
-/**
- * A field's `description`, drawn as the help text under its control. It sits
- * OUTSIDE the `<label>`, so the sentence describes the control without also
- * becoming part of its accessible name.
- */
-function renderHelpText(field: FormFieldConfig): ReactElement | undefined {
-  if (field.description === undefined) return undefined
+function renderHelpText(field: FormFieldConfig, aid: PasswordAid): ReactElement | undefined {
+  if (field.description === undefined && aid.rule === undefined) return undefined
+  const className = `help-text ${computeFormHelpTextClasses()}`
   return (
-    <small
-      id={fieldDescriptionId(field.field)}
-      className={`help-text ${computeFormHelpTextClasses()}`}
-    >
-      {field.description}
-    </small>
+    <>
+      {field.description !== undefined && (
+        <small
+          id={fieldDescriptionId(field.field)}
+          className={className}
+        >
+          {field.description}
+        </small>
+      )}
+      {aid.rule !== undefined && (
+        <small
+          id={passwordRuleId(field)}
+          className={className}
+        >
+          {aid.rule}
+        </small>
+      )}
+    </>
   )
 }
 
@@ -152,14 +145,20 @@ function renderHelpText(field: FormFieldConfig): ReactElement | undefined {
  * control's accessible name. A field with neither is returned exactly as
  * before, so its markup keeps its bytes.
  */
-function withHelpText(field: FormFieldConfig, labelled: ReactElement): ReactElement {
-  const help = renderHelpText(field)
-  if (help === undefined && !hasRules(field)) return labelled
+function withHelpText(
+  field: FormFieldConfig,
+  labelled: ReactElement,
+  aid: PasswordAid = {}
+): ReactElement {
+  const help = renderHelpText(field, aid)
+  // A field a refusal can be about draws its reason the way a broken rule does.
+  const ruled = hasRules(field) || aid.refused !== undefined
+  if (help === undefined && !ruled) return labelled
   return (
     <div
       key={field.field}
       className={computeFormFieldClasses()}
-      {...(hasRules(field) && { 'data-field-block': '' })}
+      {...(ruled && { 'data-field-block': '' })}
     >
       {labelled}
       {help}
@@ -167,144 +166,18 @@ function withHelpText(field: FormFieldConfig, labelled: ReactElement): ReactElem
   )
 }
 
-/** The marker the client session resolver fills a prefilled control from. */
-const SESSION_VALUE_ATTRIBUTE = 'data-session-value'
-
-/** The token that makes a `defaultValue` the CALLER's own rather than everyone's. */
-const SESSION_TOKEN_MARKER = '$session.'
-
 /**
- * The prefill props for one field's control — the whole of the identity rule,
- * in one place, so no control type can be given the safe half and miss the
- * dangerous one.
- *
- * A STATIC default is the same for every reader, so it costs the page nothing
- * and is rendered into the bytes as an ordinary `defaultValue`.
- *
- * A default naming `$session.*` is the caller's OWN value, and resolving it
- * during SSR would write whoever requested the page first into every cached
- * copy of it. So the server emits NO value and a marker carrying the TEMPLATE,
- * which the browser resolves against the caller's own session
- * (`islands/runtime/session-resolver.ts`). An anonymous caller resolves it to
- * the empty string, which is why the marker is an absence and never a literal:
- * a visitor reading `$session.name` in a form box is the visible failure.
- *
- * React needs `defaultValue` rather than `value` here — these are uncontrolled
- * controls with no `onChange`, and `value` would freeze them read-only. On a
- * `<select>` the same prop is what marks the matching `<option selected>`,
- * which is the only way a dropdown can carry a default at all.
+ * Render one endpoint field as a label-wrapped control (accessible name = label).
+ * A `hidden` field is the exception: it travels with the request and is drawn
+ * for nobody, so it gets no label, no help text and no rule room — only the
+ * hidden input itself.
  */
-function prefillProps(field: FormFieldConfig): Record<string, string> {
-  const declared = field.defaultValue
-  if (declared === undefined) return {}
-  const asText = String(declared)
-  if (asText.includes(SESSION_TOKEN_MARKER)) return { [SESSION_VALUE_ATTRIBUTE]: asText }
-  return { defaultValue: asText }
-}
-
-/**
- * The prefill props for a `switch`. The same identity rule as
- * {@link prefillProps}, in its on/off form: a boolean (or the string `'true'`)
- * is the same for every reader and is rendered as `checked`; a `$session.*`
- * default is the caller's own and is emitted as the TEMPLATE, the switch drawn
- * OFF, for the browser to set once it has read the caller's session. So the
- * served bytes never say `aria-checked="true"` for somebody's saved preference.
- *
- * `aria-checked` is written explicitly even though a native checkbox already
- * exposes its state: the attribute is what a switch's contract names, and the
- * client runtime keeps it in step with `checked` on every change.
- */
-function switchPrefillProps(field: FormFieldConfig): Record<string, string | boolean> {
-  const declared = field.defaultValue
-  if (typeof declared === 'string' && declared.includes(SESSION_TOKEN_MARKER)) {
-    return { [SESSION_VALUE_ATTRIBUTE]: declared, 'aria-checked': 'false' }
-  }
-  const on = declared === true || declared === 'true'
-  return { defaultChecked: on, 'aria-checked': on ? 'true' : 'false' }
-}
-
-/**
- * A `switch` field: a native checkbox carrying `role="switch"`, labelled by the
- * `<label>` that wraps it. It submits through the same endpoint runtime as every
- * other control, which reads it as a JSON boolean — `false` included, never
- * omitted (`islands/client.ts`), because an unchecked checkbox contributes
- * nothing to `FormData` and a partial update reads "absent" as "leave it alone".
- * It does NOT submit on change: the form's own submit button saves it, like
- * every other field.
- */
-function renderEndpointSwitchField(field: FormFieldConfig): ReactElement {
-  return (
-    <label
-      key={field.field}
-      className={computeFormSwitchFieldClasses()}
-    >
-      <input
-        type="checkbox"
-        role="switch"
-        name={field.field}
-        data-control="switch"
-        className={computeFormSwitchClasses()}
-        {...describedByProps(field)}
-        {...switchPrefillProps(field)}
-      />
-      <span className={computeFormFieldLabelClasses()}>{field.label ?? field.field}</span>
-    </label>
-  )
-}
-
-/** Render the inner control element for one endpoint field, keyed off its `control`. */
-function renderEndpointControl(field: FormFieldConfig, part: FormPart): ReactElement {
-  const name = field.field
-  const controlClass = part('input', field.control === 'textarea' ? TEXTAREA_CLASS : CONTROL_CLASS)
-  const { autocomplete } = autofillHintOverlay(field.control ?? 'text', field.autocomplete)
-  const prefill = {
-    ...describedByProps(field),
-    ...prefillProps(field),
-    ...ruleProps(field),
-    ...(autocomplete === undefined ? {} : { autoComplete: autocomplete }),
-  }
-  if (field.control === 'select') {
-    const options = (field.options ?? []) as readonly EndpointFieldOption[]
-    return (
-      <select
-        name={name}
-        className={controlClass}
-        {...prefill}
-      >
-        {options.map((option) => (
-          <option
-            key={option.value}
-            value={option.value}
-          >
-            {option.label ?? option.value}
-          </option>
-        ))}
-      </select>
-    )
-  }
-  if (field.control === 'textarea') {
-    return (
-      <textarea
-        name={name}
-        className={controlClass}
-        {...prefill}
-      />
-    )
-  }
-  // text / email / password / number / tel / url → a native typed input. The
-  // `control` literal IS the HTML input type for every remaining variant.
-  return (
-    <input
-      type={field.control ?? 'text'}
-      name={name}
-      className={controlClass}
-      {...prefill}
-    />
-  )
-}
-
-/** Render one endpoint field as a label-wrapped control (accessible name = label). */
-function renderEndpointField(field: FormFieldConfig, part: FormPart): ReactElement {
+function renderEndpointField(
+  field: FormFieldConfig,
+  part: FormPart,
+  aid: PasswordAid
+): ReactElement {
+  if (field.hidden === true) return renderEndpointHiddenField(field)
   if (field.control === 'switch') return withHelpText(field, renderEndpointSwitchField(field))
   return withHelpText(
     field,
@@ -315,8 +188,9 @@ function renderEndpointField(field: FormFieldConfig, part: FormPart): ReactEleme
       <span className={part('label', computeFormFieldLabelClasses())}>
         {field.label ?? field.field}
       </span>
-      {renderEndpointControl(field, part)}
-    </label>
+      {renderEndpointControl(field, part, aid)}
+    </label>,
+    aid
   )
 }
 
@@ -370,6 +244,9 @@ export function renderEndpointForm(
   )
   const part = formPartOf(designStyles)
   const endpointConfigJson = JSON.stringify(buildEndpointConfig(endpoint))
+  const aidContext = { component, responseEnvelope: endpoint.responseEnvelope, ...page }
+  const aids = fields.map((field) => passwordAidOf(field, aidContext))
+  const refusable = aids.some((aid) => aid.refused !== undefined)
 
   return (
     <form
@@ -378,20 +255,49 @@ export function renderEndpointForm(
       className={mergedClassName}
       data-action-type="endpoint"
       data-endpoint-config={endpointConfigJson}
-      {...formRuleProps(fields, designStyles?.parts['error'])}
+      {...(endpoint.submitOn === 'change' && { 'data-submit-on': 'change' })}
+      {...formRuleProps(fields, designStyles?.parts['error'], refusable)}
     >
-      {fields.map((field) => renderEndpointField(field, part))}
-      <button
-        type="submit"
-        disabled
-        data-awaits-script=""
-        {...{
-          [PENDING_LABEL_ATTR]: resolveInterpreterString('form.sending', page.lang, page.languages),
-        }}
-        className={part('submit', computeSubmitButtonClasses(endpoint.submitVariant))}
-      >
-        {endpoint.submitLabel ?? resolveInterpreterString('form.submit', page.lang, page.languages)}
-      </button>
+      {fields.map((field, index) => renderEndpointField(field, part, aids[index] ?? {}))}
+      {endpoint.submitOn === 'change' ? renderNoSubmit() : renderSubmit(endpoint, part, page)}
     </form>
+  )
+}
+
+/**
+ * A form that sends on change draws no button. It carries a submit that can
+ * never be pressed instead: a form's default button being disabled is what
+ * stops the browser's implicit submission, so Enter in a field sends nothing
+ * before the page script has run — and after it, the runtime sends on Enter
+ * itself. Hidden, it is in neither the page nor the accessibility tree.
+ */
+function renderNoSubmit(): ReactElement {
+  return (
+    <input
+      type="submit"
+      hidden
+      disabled
+    />
+  )
+}
+
+/** The form's submit, drawn disabled until the runtime that sends it has run. */
+function renderSubmit(
+  endpoint: EndpointConfig,
+  part: FormPart,
+  page: { readonly lang?: string; readonly languages?: Languages }
+): ReactElement {
+  return (
+    <button
+      type="submit"
+      disabled
+      data-awaits-script=""
+      {...{
+        [PENDING_LABEL_ATTR]: resolveInterpreterString('form.sending', page.lang, page.languages),
+      }}
+      className={part('submit', computeSubmitButtonClasses(endpoint.submitVariant))}
+    >
+      {endpoint.submitLabel ?? resolveInterpreterString('form.submit', page.lang, page.languages)}
+    </button>
   )
 }

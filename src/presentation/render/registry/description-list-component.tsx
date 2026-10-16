@@ -60,6 +60,8 @@ interface DescriptionItem {
   readonly detail?: string
   readonly field?: string
   readonly _recordValue?: unknown
+  /** A person or a linked record by name, when the bound record carries one. */
+  readonly _recordDisplay?: string
   readonly _recordTable?: string
   readonly action?: { readonly label: string; readonly href: string }
 }
@@ -73,6 +75,7 @@ interface DetailContext {
 /** The detail node of a row, or `undefined` when it is empty. */
 function detailOf(item: DescriptionItem, context: DetailContext): ReactNode {
   if (item.field === undefined) return item.detail === '' ? undefined : item.detail
+  if (item._recordDisplay !== undefined) return item._recordDisplay
   return renderFieldDetail({
     fieldName: item.field,
     value: item._recordValue,

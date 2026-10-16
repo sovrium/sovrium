@@ -58,7 +58,7 @@ Three of the five properties are read by shipped recipes, so declaring a ladder 
 
 **`controlH` and `buttonH` are emitted and read by nothing yet.** Both custom properties carry your values; no recipe consumes either. Declare them — the schema requires both — but do not expect a field or a button to change height because of them. It is written down here rather than left to be rediscovered as a bug.
 
-**Not the same as a grid's row height.** A `table` sets how tall its rows are with its own `rowHeight`; there is no reader-side density button, and a `toolbar.density` key is refused at load. `design.density` is the app-level ladder every surface is drawn from, a design decision by whoever wrote the config; `rowHeight` is one grid's choice inside it.
+**Not the same as a grid's row height.** A `table` sets how tall its rows are with its own `rowHeight`; there is no density key on the grid, and a `toolbar` key is refused at load. `design.density` is the app-level ladder every surface is drawn from, a design decision by whoever wrote the config; `rowHeight` is one grid's choice inside it.
 
 ## `byZone` — a step per zone
 

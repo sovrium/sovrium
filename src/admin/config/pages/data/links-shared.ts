@@ -8,6 +8,7 @@
 // What the Links directory and one link's deep-dive share: the grid id, the
 // analytics window and queries, and the KPI, trend and panel helpers.
 
+import { CARD_SURFACE } from '../../components/card'
 import { sectionCard } from '../../components/dashboard-blocks'
 import { dataTable } from '../../components/data-table-blocks'
 import { ANALYTICS_OVERVIEW_ENDPOINT } from '../../system-sources'
@@ -172,7 +173,7 @@ export const windowCopy = (): PageComponent =>
     type: 'text',
     element: 'p',
     props: { className: 'text-foreground-subtle text-sm' },
-    content: 'Measured over the $window.label.',
+    content: '$t:admin.analytics.measuredOver $window.label.',
   }) as PageComponent
 
 /**
@@ -212,10 +213,14 @@ export const trendChart = (query: Readonly<Record<string, string>>): PageCompone
     chartType: 'area',
     xAxis: { field: 'period', format: 'date' },
     series: [
-      { field: 'pageViews', label: 'Clicks' },
-      { field: 'uniqueVisitors', label: 'Unique visitors' },
+      { field: 'pageViews', label: '$t:admin.analytics.clicks' },
+      { field: 'uniqueVisitors', label: '$t:admin.analytics.uniqueVisitors' },
     ],
-    emptyState: { role: 'region', name: 'No data', title: 'No clicks recorded in this period' },
+    emptyState: {
+      role: 'region',
+      name: '$t:admin.common.noData',
+      title: '$t:admin.analytics.noClicksRecorded',
+    },
   }) as PageComponent
 
 /**
@@ -290,7 +295,7 @@ export const analyticsDisabledNote = (): PageComponent =>
     visibility: { unlessDeclares: 'analytics' },
     props: {
       'aria-label': '$t:admin.links.unavailable.region',
-      className: 'border-border bg-card mt-2 flex flex-col gap-2 rounded-lg border p-6',
+      className: `${CARD_SURFACE} mt-2 flex flex-col gap-2 p-6`,
     },
     children: [
       {

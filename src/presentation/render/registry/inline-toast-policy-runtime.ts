@@ -53,7 +53,8 @@
  *     removes ONLY itself, plus an `Escape` route to the most recent one.
  *  5. An `error` / `destructive` toast is announced assertively, via
  *     `role="alert"` and nothing else — pairing it with `aria-live` makes some
- *     assistive technology announce twice.
+ *     assistive technology announce twice. Every other toast is a polite
+ *     `role="status"`; the container is no live region.
  *
  * Two variant lists, not one, for the reason `toast-accessibility.ts` gives:
  * timing and announcement are separate concerns that happen to agree today. A
@@ -120,12 +121,18 @@ export const INLINE_TOAST_DISMISS_LABEL_FALLBACK = 'Dismiss'
  * "persist — arm no timer at all". `null` rather than `0`, for the reason
  * `resolveToastDuration` returns `undefined`: so a caller cannot hand the
  * result to `setTimeout` and dismiss instantly.
+ *
+ * The four values above are written into the string as LITERALS, not
+ * interpolated from the constants: a value spliced into script source through
+ * `JSON.stringify` is what CodeQL's `js/bad-code-sanitization` reports, however
+ * constant it is. The test executes the fragment and holds each literal to its
+ * constant, so the two spellings cannot drift.
  */
 export const INLINE_TOAST_POLICY_RUNTIME = `
-  var TOAST_DEFAULT_DURATION_MS = ${INLINE_TOAST_DEFAULT_DURATION_MS};
-  var TOAST_PERSISTENT_VARIANTS = ${JSON.stringify(INLINE_TOAST_PERSISTENT_VARIANTS)};
-  var TOAST_ASSERTIVE_VARIANTS = ${JSON.stringify(INLINE_TOAST_ASSERTIVE_VARIANTS)};
-  var TOAST_DISMISS_LABEL_FALLBACK = ${JSON.stringify(INLINE_TOAST_DISMISS_LABEL_FALLBACK)};
+  var TOAST_DEFAULT_DURATION_MS = 5000;
+  var TOAST_PERSISTENT_VARIANTS = ["error","destructive"];
+  var TOAST_ASSERTIVE_VARIANTS = ["error","destructive"];
+  var TOAST_DISMISS_LABEL_FALLBACK = "Dismiss";
 
   // An explicit positive duration wins; otherwise a failure persists;
   // otherwise the documented default. Returns null for "arm no timer".
@@ -142,8 +149,7 @@ export const INLINE_TOAST_POLICY_RUNTIME = `
     if (existing) return existing;
     var container = document.createElement('div');
     container.setAttribute('data-sonner-toaster', '');
-    container.setAttribute('role', 'status');
-    container.setAttribute('aria-live', 'polite');
+    container.setAttribute('data-toast-container', '');
     container.style.position = 'fixed';
     container.style.right = '16px';
     container.style.zIndex = '9999';
@@ -193,11 +199,16 @@ export const INLINE_TOAST_POLICY_RUNTIME = `
     var toast = document.createElement('div');
     toast.setAttribute('data-toast', '');
     if (variant) toast.setAttribute('data-variant', variant);
-    // role="alert" and nothing else: its implicit aria-live is already
-    // assertive, and pairing the two makes some readers announce twice. Set
-    // BEFORE the single insertion, because role="alert" announces on insert.
+    // Each toast is its own live region; the container is none, so a toast is
+    // announced once. role="alert" and nothing else: its implicit aria-live is
+    // already assertive, and pairing the two makes some readers announce
+    // twice. Set BEFORE the single insertion, because role="alert" announces
+    // on insert.
     if (variant && TOAST_ASSERTIVE_VARIANTS.indexOf(variant) !== -1) {
       toast.setAttribute('role', 'alert');
+    } else {
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
     }
     // The message keeps a node of its own on every renderer, so a caller can
     // address it without knowing which one built the toast, and so a dismiss

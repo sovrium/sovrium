@@ -6,11 +6,14 @@
  */
 
 import { useMemo } from 'react'
+import { useRecordSelectionToggle } from '../hooks/use-lazy-shared-filter-publisher'
 import { resolvePageTimezone } from '../runtime/page-timezone'
 import { CalendarError, CalendarLoading, CalendarMissingDateField } from './calendar-states'
 import { CalendarViewComponent } from './calendar-view'
 import { recordsToCalendarEvents } from './record-to-event'
 import { useCalendarRecords } from './use-calendar-records'
+import type { CalendarStrings } from './calendar-states'
+import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
 import type {
   CalendarEventConfig,
   CalendarInteraction,
@@ -22,6 +25,8 @@ import type { CalendarPartClasses } from '@/presentation/design/calendar-part-cl
 import type { ReactElement } from 'react'
 
 interface CalendarIslandProps {
+  /** The calendar's own words in the page language, where they differ from English. */
+  readonly uiStrings?: CalendarStrings
   readonly dataSource?: {
     /** DB-table binding — ABSENT for a system-source binding. */
     readonly table?: string
@@ -58,6 +63,8 @@ interface CalendarIslandProps {
   readonly calendarInteraction?: CalendarInteraction
   /** The author's classes for the calendar's pieces, resolved server-side. */
   readonly calendarClasses?: CalendarPartClasses
+  /** The channel the calendar publishes the event a reader selects on. */
+  readonly publishes?: SharedFilterPublisherConfig
 }
 
 /**
@@ -92,13 +99,17 @@ export default function CalendarIsland({
   calendarEvent,
   calendarInteraction,
   calendarClasses,
+  publishes,
+  uiStrings,
 }: CalendarIslandProps): ReactElement {
   const { data, isLoading, isError, error } = useCalendarRecords(dataSource)
+  const select = useRecordSelectionToggle(publishes)
   const { pageZone, zoneOf } = useZones(fieldTimeZones)
 
-  if (!dateField) return <CalendarMissingDateField />
-  if (isLoading) return <CalendarLoading />
-  if (isError) return <CalendarError error={error} />
+  const state = { error, strings: uiStrings }
+  if (!dateField) return <CalendarMissingDateField {...state} />
+  if (isLoading) return <CalendarLoading {...state} />
+  if (isError) return <CalendarError {...state} />
 
   const events = recordsToCalendarEvents(data?.records ?? [], {
     dateField,
@@ -123,6 +134,7 @@ export default function CalendarIsland({
       defaultView={defaultView}
       maxEventsPerDay={maxEventsPerDay}
       calendarEvent={calendarEvent}
+      {...(select !== undefined && { select })}
       calendarInteraction={isSystemSource ? undefined : calendarInteraction}
       tableName={dataSource?.table}
       dateField={dateField}

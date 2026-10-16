@@ -31,6 +31,7 @@ import { BootLedgerRepositoryLive } from '@/infrastructure/database/repositories
 import { countTokensEncryptedWithAnotherKey } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { initializeSchema } from '@/infrastructure/database/schema/schema-initializer'
 import { reconcileUserForeignKeys } from '@/infrastructure/database/schema/user-foreign-key-reconciler'
+import { reconcileUserListColumns } from '@/infrastructure/database/schema/user-list-column-reconciler'
 import { runStorageBucketBackfill } from '@/infrastructure/database/storage-bucket-backfill'
 import { reconcileTimestamptzColumns } from '@/infrastructure/database/timestamptz-column-reconciler'
 import { StartupMaintenanceError } from '@/infrastructure/errors/startup-maintenance-error'
@@ -159,6 +160,9 @@ export const runDatabaseStartup = (
     // operator upgrading the binary without editing their config never reaches
     // it — exactly the install still carrying the unerasable key.
     Effect.flatMap(() => reconcileUserForeignKeys(app)),
+    // Turn a `user` field with `allowMultiple` an older binary stored as one
+    // account into the list column it is now — same placement, same reason.
+    Effect.flatMap(() => reconcileUserListColumns(app)),
     // Record this boot in `system.boot_ledger` ([internal ref] amendment A6) — one row
     // per start whose app version or config hash differs from the row before
     // it, and NO row when neither did.

@@ -50,14 +50,29 @@ function componentIsSessionBound(record: Record<string, unknown>): boolean {
 }
 
 /**
- * True for a `select.native` that also PUBLISHES on a shared-filter channel
- * The platform control mounts no island, so its `change` → dispatch
- * is bound by the global vanilla runtime — and without this the declaration
- * would be inert on any page whose only other components are static, which is
- * precisely a filter bar over a read endpoint.
+ * True for a native select — `select.native` or the `native-select` type —
+ * that also PUBLISHES on a shared-filter channel. The platform control mounts
+ * no island, so its `change` → dispatch is bound by the global vanilla runtime
+ * — and without this the declaration would be inert on any page whose only
+ * other components are static or islands, which is precisely a facet over a
+ * read endpoint.
  */
 function componentIsNativeSelectPublisher(record: Record<string, unknown>): boolean {
-  return record['type'] === 'select' && record['native'] === true && Boolean(record['publishes'])
+  if (!record['publishes']) return false
+  return (
+    record['type'] === 'native-select' || (record['type'] === 'select' && record['native'] === true)
+  )
+}
+
+/**
+ * True for a control whose shared-filter publishing is the vanilla runtime's:
+ * a publishing `select.native`, or a `search-input` that publishes on a
+ * channel — the box mounts no island either, so its `input` → dispatch is the
+ * runtime's too.
+ */
+function componentIsVanillaPublisher(record: Record<string, unknown>): boolean {
+  if (componentIsNativeSelectPublisher(record)) return true
+  return record['type'] === 'search-input' && Boolean(record['publishes'])
 }
 
 /**
@@ -81,7 +96,7 @@ function componentSelfIsInteractive(record: Record<string, unknown>): boolean {
   if (typeof type === 'string' && INTERACTIVE_COMPONENT_TYPES.has(type)) return true
   if (record['action']) return true
   if (componentIsSessionBound(record)) return true
-  if (componentIsNativeSelectPublisher(record)) return true
+  if (componentIsVanillaPublisher(record)) return true
   if (componentDispatchesFill(record)) return true
   const props = record['props'] as Record<string, unknown> | undefined
   return Boolean(props?.['action'] || props?.['interactions'])

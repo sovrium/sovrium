@@ -155,11 +155,10 @@ export const THIRD_PARTY_NOTICES: readonly ThirdPartyNotice[] = [
     license: 'OFL-1.1',
     source:
       '@fontsource-variable/geist 5.3.0 and @fontsource-variable/geist-mono 5.3.0, latin subset, ' +
-      'inlined as woff2; geist 1.7.2 (npm tarball), dist/fonts/geist-sans/ Regular and Bold, ' +
-      'embedded as static woff2 for SVG text',
+      'embedded as woff2 files served at /assets/fonts/; geist 1.7.2 (npm tarball), ' +
+      'dist/fonts/geist-sans/ Regular and Bold, embedded as static woff2 for SVG text',
     embeddedIn: [
-      'src/infrastructure/css/theme/fonts/geist.ts',
-      'src/infrastructure/css/theme/fonts/geist-mono.ts',
+      'src/infrastructure/assets/web-fonts.ts',
       'src/infrastructure/assets/geist-sans-woff2.ts',
     ],
   },

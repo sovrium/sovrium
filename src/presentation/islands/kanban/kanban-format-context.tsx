@@ -22,6 +22,7 @@ export function KanbanFormatProvider({
   colorFieldColors,
   draggableEnabled,
   recordText,
+  select,
   children,
 }: {
   readonly fieldMeta: FieldMetaMap | undefined
@@ -29,6 +30,7 @@ export function KanbanFormatProvider({
   readonly colorFieldColors: Readonly<Record<string, string>> | undefined
   readonly draggableEnabled: boolean
   readonly recordText: RecordTextFields | undefined
+  readonly select?: ((recordId: unknown) => void) | undefined
   readonly children: ReactNode
 }): ReactElement {
   const value = useMemo<KanbanFormat>(
@@ -40,8 +42,9 @@ export function KanbanFormatProvider({
       ...(colorFieldColors ? { colorFieldColors } : {}),
       draggableEnabled,
       ...(recordText ? { recordText } : {}),
+      ...(select ? { select } : {}),
     }),
-    [fieldMeta, table, colorFieldColors, draggableEnabled, recordText]
+    [fieldMeta, table, colorFieldColors, draggableEnabled, recordText, select]
   )
   return <KanbanFormatContext.Provider value={value}>{children}</KanbanFormatContext.Provider>
 }

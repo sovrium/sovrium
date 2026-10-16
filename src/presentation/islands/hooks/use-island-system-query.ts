@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 
 /**
  * Dynamic query params for a system-source data-table, driven by an EXTERNAL
- * filter bar on the same page (mirrors {@link useIslandSearch}).
+ * filter bar on the same page.
  *
  * A sibling filter island dispatches an `island:system-query` CustomEvent whose
  * `detail.params` is the new query-param bag (e.g. `{ automationName, status }`)

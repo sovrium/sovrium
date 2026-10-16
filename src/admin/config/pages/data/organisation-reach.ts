@@ -94,6 +94,7 @@
 // would have needed a legend beside the table to say the same thing, and a
 // legend is a second place for the vocabulary to drift.
 
+import { CARD_SURFACE } from '../../components/card'
 import { emptyState } from '../../components/data-page'
 import { dataTable } from '../../components/data-table-blocks'
 import { ORGANISATION_GRAPH_ENDPOINT } from '../../system-sources'
@@ -336,24 +337,20 @@ const positionLegend = (): PageComponent =>
     props: { 'data-testid': 'organisation-reach-position-legend' },
     items: [
       {
-        term: 'Holds',
-        detail:
-          'How many roles and teams this principal stands in. The open rung is not counted — nobody holds *, which is what makes it open.',
+        term: '$t:admin.organisation.legend.holds',
+        detail: '$t:admin.organisation.legend.holdsDetail',
       },
       {
-        term: 'Reaches',
-        detail:
-          'How many distinct resources it can reach through those roles and teams. Each resource counts once, however many routes lead to it.',
+        term: '$t:admin.organisation.legend.reaches',
+        detail: '$t:admin.organisation.legend.reachesDetail',
       },
       {
-        term: 'Writes',
-        detail:
-          'How many of those it can change — create, update, delete or write. A read is not a write, and neither is model access.',
+        term: '$t:admin.organisation.legend.writes',
+        detail: '$t:admin.organisation.legend.writesDetail',
       },
       {
-        term: 'Duplicate routes',
-        detail:
-          'How many it reaches through more than one role or team. Not a fault: it is why revoking one grant can leave the access in place.',
+        term: '$t:admin.organisation.legend.duplicates',
+        detail: '$t:admin.organisation.legend.duplicatesDetail',
       },
     ],
   }) as PageComponent
@@ -391,7 +388,7 @@ const positionPanel = (): PageComponent =>
         type: 'container',
         element: 'div',
         props: {
-          className: 'border-border bg-card overflow-hidden rounded-lg border',
+          className: `${CARD_SURFACE}`,
           'data-testid': 'organisation-reach-position',
         },
         children: [
@@ -438,7 +435,7 @@ const chainsTable = (): PageComponent =>
   dataTable({
     props: {
       id: 'organisation-reach-chains',
-      'aria-label': 'Every relationship in the access graph',
+      'aria-label': '$t:admin.organisation.reach.graphRegion',
     },
     dataSource: {
       system: { endpoint: ORGANISATION_GRAPH_ENDPOINT, rowsKey: 'edges', idKey: 'id' },
@@ -570,19 +567,16 @@ const howToRead = (): PageComponent =>
     props: { 'data-testid': 'organisation-reach-legend' },
     items: [
       {
-        term: 'Source and target',
-        detail:
-          'Display names — a person, a role, a team, a table, a page, a form, or Everyone for the * rung. What the name does not say is which of those it is; the Matrix bands its rows by family and says so there.',
+        term: '$t:admin.organisation.legend.sourceTarget',
+        detail: '$t:admin.organisation.legend.sourceTargetDetail',
       },
       {
-        term: 'Permits',
-        detail:
-          'R read · C create · U update · D delete · W write · AI model access. Blank where the relationship is not a grant — a membership confers a role, it permits nothing by itself.',
+        term: '$t:admin.organisation.legend.permits',
+        detail: '$t:admin.organisation.legend.permitsDetail',
       },
       {
-        term: 'Route',
-        detail:
-          'Open rung means the grant is reached through * — anyone at all, signed in or not. Blank means it is reached through a named role or team, or that the relationship is not a grant.',
+        term: '$t:admin.organisation.legend.route',
+        detail: '$t:admin.organisation.legend.routeDetail',
       },
     ],
   }) as PageComponent
@@ -606,9 +600,9 @@ const noRelationships = (): PageComponent =>
     visibility: { record: { field: 'edges', isEmpty: true } },
     children: [
       emptyState(
-        'No relationships.',
-        'Nothing in this app grants anything to anybody: no role or team reaches a table, page, form or bucket, nobody stands in a role, and no automation has a step.',
-        'An app with pages but no relationships usually means the read failed — check the Findings tab for a degraded notice.'
+        '$t:admin.organisation.reach.none',
+        '$t:admin.organisation.reach.noneBody',
+        '$t:admin.organisation.reach.readFailed'
       ),
     ],
   }) as PageComponent
@@ -621,7 +615,7 @@ const noRelationships = (): PageComponent =>
  *
  * `aria-label` and the blurb are `$t:` keys now, closing the follow-up this
  * comment used to promise. They were literals to avoid two parallel waves
- * editing one catalogue file, and the console was `lang: 'en-US'` throughout, so
+ * editing one catalogue file, and the console rendered English throughout, so
  * the cost was an inconsistency of spelling and nothing more.
  *
  * It is more than that now: the console ships French, and the matrix, map and

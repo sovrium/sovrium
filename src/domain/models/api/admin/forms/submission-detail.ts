@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { coercedBoolean, coercedNumber } from '@/domain/models/api/combinators/coerce'
+import { booleanFlag, coercedNumber } from '@/domain/models/api/combinators/coerce'
 import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import { withDefault } from '../../combinators/schema-defaults'
 import { formSubmissionAdminItemSchema } from './submissions-list'
@@ -46,10 +46,10 @@ import { formSubmissionAdminItemSchema } from './submissions-list'
  * trail.
  */
 export const formSubmissionDetailQuerySchema = Schema.Struct({
-  reveal: coercedBoolean
+  reveal: booleanFlag
     .annotate({
       description:
-        'When true, include the submitted `body` field. Requires admin role AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true`. Returns 403 `body-capture-disabled` if the env var is unset/false; 403 if the caller is not an admin. Successful reveals emit `form.submission.body.revealed` (severity: critical).',
+        'When `true` (or `1`), include the submitted `body` field. Parsed strictly, as the list parses it: `false`, `0` and any other value mean no reveal. Requires admin role AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true`. Returns 403 `body-capture-disabled` if the env var is unset/false; 403 if the caller is not an admin. Successful reveals emit `form.submission.body.revealed` (severity: critical).',
     })
     .pipe(withDefault(false)),
   audit: optionalField(

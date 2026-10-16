@@ -17,8 +17,10 @@ import { FormDialogActions } from './form-dialog-actions'
 import type { Form } from '@/domain/models/app/forms'
 import type { ReactElement } from 'react'
 
-/** The two keys, as a hosted form declares them. */
-export type FormLayoutKeys = Pick<Form, 'labelPlacement' | 'stickyActions'>
+/** The two keys, as a hosted form declares them, and the save bar's words in the page language. */
+export type FormLayoutKeys = Pick<Form, 'labelPlacement' | 'stickyActions'> & {
+  readonly saveBarWords?: { readonly none: string; readonly discard: string }
+}
 
 /**
  * The `stickyActions` bar, as the server draws it: the count of changed fields,
@@ -27,7 +29,13 @@ export type FormLayoutKeys = Pick<Form, 'labelPlacement' | 'stickyActions'>
  * unsaved (`form-runtime-save-bar.ts`); without it the bar still keeps the
  * submit in view.
  */
-function FormSaveBar({ submitLabel }: { readonly submitLabel: string }): ReactElement {
+function FormSaveBar({
+  submitLabel,
+  words,
+}: {
+  readonly submitLabel: string
+  readonly words: FormLayoutKeys['saveBarWords']
+}): ReactElement {
   return (
     <div
       data-form-save-bar=""
@@ -38,7 +46,7 @@ function FormSaveBar({ submitLabel }: { readonly submitLabel: string }): ReactEl
         data-form-changes=""
         className="text-muted-foreground mr-auto font-mono text-sm"
       >
-        No unsaved changes
+        {words?.none ?? 'No unsaved changes'}
       </span>
       <button
         type="button"
@@ -46,7 +54,7 @@ function FormSaveBar({ submitLabel }: { readonly submitLabel: string }): ReactEl
         disabled
         className={computeButtonDefaultClasses({ variant: 'secondary' })}
       >
-        Discard
+        {words?.discard ?? 'Discard'}
       </button>
       <button
         type="submit"
@@ -81,7 +89,13 @@ export function FlatFormActions({
         submitLabel={submitLabel}
       />
     )
-  if (layoutKeys?.stickyActions === true) return <FormSaveBar submitLabel={submitLabel} />
+  if (layoutKeys?.stickyActions === true)
+    return (
+      <FormSaveBar
+        submitLabel={submitLabel}
+        words={layoutKeys.saveBarWords}
+      />
+    )
   return (
     <button
       type="submit"

@@ -51,7 +51,9 @@
 // once, while the Developer pages used one: a page whose title is an `h2` reads
 // to a screen reader as a section of some absent parent.
 
+import { CARD_SURFACE } from './card'
 import { dataPageHeader } from './page-header'
+import { withShell, type ShellOptions } from './shell'
 import { lineTabs } from './tabs-line'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -169,14 +171,19 @@ export function fillHost(children: readonly PageComponent[]): PageComponent {
  * columns — which is what an object-scoped page renders when the operator has
  * declared none of the objects it administers.
  */
-export function emptyState(title: string, body: string, hint: string): PageComponent {
+export function emptyState(
+  title: string,
+  body: string,
+  hint: string,
+  /** The region's name, when it is not the title itself. */
+  region: string = title
+): PageComponent {
   return {
     type: 'container',
     element: 'section',
     props: {
-      'aria-label': title,
-      className:
-        'border-border bg-card flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center',
+      'aria-label': region,
+      className: `${CARD_SURFACE} flex min-h-64 flex-col items-center justify-center gap-2 p-10 text-center`,
     },
     children: [
       {
@@ -392,4 +399,120 @@ export function toolbarRow(children: readonly PageComponent[]): PageComponent {
     },
     children,
   } as PageComponent
+}
+
+/**
+ * The KPI strip: a named region over a row of dashboard-01 section cards.
+ *
+ * One copy for every surface that leads with figures (Analytics, Users, Runs),
+ * which had grown three: a `section` of bare `kpi`s on one, two differently
+ * gridded regions of cards on the others. The tiles are the caller's — each
+ * reads its own endpoint — and this is the frame they share. The grid is
+ * chosen by the tile count so three tiles never leave a fourth column empty;
+ * the classes are spelled whole because the class harvest reads this file as
+ * text.
+ */
+export function kpiStrip(ariaLabel: string, tiles: readonly PageComponent[]): PageComponent {
+  return {
+    type: 'container',
+    element: 'div',
+    props: {
+      role: 'region',
+      'aria-label': ariaLabel,
+      className:
+        tiles.length === 4
+          ? 'grid grid-cols-2 gap-4 lg:grid-cols-4'
+          : 'grid grid-cols-1 gap-4 sm:grid-cols-3',
+    },
+    children: [...tiles],
+  } as PageComponent
+}
+
+// ─── THE PAGE TEMPLATE ─────────────────────────────────────────────────────
+//
+// Every operator surface is the same composition, top to bottom: the shell's
+// 48px bar (whose trail names the page), the `sr-only` heading and its
+// sentence, an optional 40px control row, an optional KPI strip, the body —
+// either a tab strip deep-linked to `?tab=` or plain blocks — and, on a grid
+// page, the fill chain that lets the grid own the scroll. It was written out
+// by hand on every page, and the pages drifted apart in the order of those
+// parts and in which of them they forgot. `consolePage` is that composition
+// once; a page states only what is its own.
+
+/** The tab strip of a {@link consolePage}: its name, its halves, their bodies. */
+export interface ConsolePageTabs {
+  readonly label: string
+  readonly specs: readonly TabSpec[]
+  readonly panels: readonly PageComponent[]
+  /** Which half a bare URL opens on. Defaults to the first. */
+  readonly defaultId?: string
+  /** Make the strip a link in the fill chain (see {@link tabbedBody}). */
+  readonly fill?: boolean
+  /** A gate on the whole strip, e.g. `{ declares: 'automations' }`. */
+  readonly visibility?: Readonly<Record<string, unknown>>
+}
+
+/** What a console page states about itself; everything else is the template. */
+export interface ConsolePageSpec {
+  readonly id: string
+  readonly path: string
+  /** The document title (`meta.title`). */
+  readonly title: string
+  /** The document description (`meta.description`), where the page has one. */
+  readonly description?: string
+  /** The `h1` and its orienting sentence. Absent on a page that draws its own. */
+  readonly heading?: readonly [string, string]
+  /** Paint the sentence (see {@link pageHeading}). */
+  readonly showBlurb?: boolean
+  /** The 40px control row's contents: search, filters, the primary action last. */
+  readonly toolbar?: readonly PageComponent[]
+  /** The figures above the body: the region's name and its section cards. */
+  readonly kpis?: { readonly label: string; readonly tiles: readonly PageComponent[] }
+  readonly tabs?: ConsolePageTabs
+  /** Blocks after the tab strip, or the whole body on a page without one. */
+  readonly body?: readonly PageComponent[]
+  /** Page fields the template does not own: `requires`, `dataSource`, `query`… */
+  readonly page?: Readonly<Record<string, unknown>>
+  readonly shell?: ShellOptions
+}
+
+/** The tab strip of a page, gated when the page gates it. */
+const pageTabStrip = (tabs: ConsolePageTabs): PageComponent => {
+  const strip = tabbedBody(tabs.label, tabs.specs, tabs.panels, tabs.fill ? { fill: true } : {})
+  return tabs.visibility === undefined
+    ? strip
+    : ({ ...(strip as Record<string, unknown>), visibility: tabs.visibility } as PageComponent)
+}
+
+/** What sits above the body: the heading, the control row, the figures. */
+const pageLead = (spec: ConsolePageSpec): readonly PageComponent[] => [
+  ...(spec.heading === undefined
+    ? []
+    : [pageHeading(spec.heading[0], spec.heading[1], { showBlurb: spec.showBlurb === true })]),
+  ...(spec.toolbar === undefined ? [] : [toolbarRow(spec.toolbar)]),
+  ...(spec.kpis === undefined ? [] : [kpiStrip(spec.kpis.label, spec.kpis.tiles)]),
+]
+
+/** One operator surface, composed from the parts every surface shares. */
+export function consolePage(spec: ConsolePageSpec): PageConfig {
+  const { tabs } = spec
+  return withShell(
+    {
+      id: spec.id,
+      name: spec.id,
+      path: spec.path,
+      meta: {
+        title: spec.title,
+        ...(spec.description === undefined ? {} : { description: spec.description }),
+      },
+      ...(tabs === undefined ? {} : { query: tabQuery(tabs.specs, tabs.defaultId) }),
+      ...spec.page,
+      components: [
+        ...pageLead(spec),
+        ...(tabs === undefined ? [] : [pageTabStrip(tabs)]),
+        ...(spec.body ?? []),
+      ],
+    } as PageConfig,
+    spec.shell
+  )
 }

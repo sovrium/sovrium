@@ -137,7 +137,17 @@ export default {
   // arrived empty and filled in.
   'admin.welcome.heading': 'Welcome[, $session.name]',
   'admin.welcome.heroRegion': 'Ask or search',
+  'admin.invitation.heading': 'Join the console',
+  'admin.invitation.invitedYouTo': 'invited you to',
+  'admin.invitation.signInAs': 'You will sign in as',
+  'admin.invitation.submit': 'Set password and join',
+  'admin.notFound.heading': 'Page not found',
+  'admin.notFound.body':
+    'Nothing in this console answers this address. The section may not exist in this app, or the link is out of date.',
+  'admin.notFound.back': 'Go to Overview',
   'admin.welcome.noAi': 'No AI provider configured — search the app instead.',
+  'admin.welcome.readOnlySearch':
+    'Search the app. The assistant is offered to roles that can make changes.',
   // The hero's palette trigger, named APART from the sidebar's.
   //
   // Both controls open the same palette, and Welcome is the one surface where
@@ -163,14 +173,17 @@ export default {
   'admin.welcome.pulse.failedRuns.where': 'Runs →',
   'admin.welcome.pulse.variablesUnset': 'Required variables unset',
   'admin.welcome.pulse.variablesUnset.where': 'Environment →',
-  'admin.welcome.pulse.tokensExpired': 'Tokens expired',
+  'admin.welcome.pulse.tokensExpired': 'Connections to reconnect',
   'admin.welcome.pulse.tokensExpired.where': 'Connections →',
   'admin.welcome.pulse.invitationsPending': 'Invitations pending',
   'admin.welcome.pulse.invitationsPending.where': 'Users →',
   'admin.welcome.pulse.recentSubmissions': 'New submissions',
   'admin.welcome.pulse.recentSubmissions.where': 'Submissions →',
-  'admin.welcome.pulse.automationsPaused': 'Automations paused',
-  'admin.welcome.pulse.automationsPaused.where': 'Runs →',
+  'admin.welcome.pulse.findingsCount': 'Findings',
+  'admin.welcome.pulse.findingsCount.where': 'findings →',
+  'admin.welcome.pulse.allClear': 'All clear',
+  'admin.welcome.pulse.allClear.body':
+    'No failed run, no unset variable, no connection to reconnect, nothing waiting.',
 
   // ── Welcome · the declaration tiles ─────────────────────────────────────
   'admin.welcome.counts.region': 'What this app declares',
@@ -225,14 +238,12 @@ export default {
   'admin.profile.language.label': 'Language',
   'admin.profile.language.hint': 'Follows your account to any browser you sign in from.',
   'admin.profile.language.formRegion': 'Change the console language',
-  'admin.profile.language.submit': 'Save',
   'admin.profile.language.saved': 'Language saved.',
   'admin.profile.language.savedDetail': 'Language saved. The console switches on your next page.',
   'admin.profile.language.failed': 'Could not save your language.',
 
   'admin.profile.notifications.label': 'Notifications',
   'admin.profile.notifications.hint': 'Every alert email links back here, where you turn them off.',
-  'admin.profile.notifications.submit': 'Save',
   'admin.profile.notifications.saved': 'Preference saved.',
   'admin.profile.notifications.failed': 'Could not save the preference.',
   'admin.profile.notifications.automationAlerts.label': 'Automation alerts',
@@ -258,6 +269,7 @@ export default {
   'admin.gdpr.identity.heading': 'My identity',
   'admin.gdpr.export.heading': 'Export my data',
   'admin.gdpr.export.submit': 'Generate export',
+  'admin.gdpr.export.failed': 'Couldn’t generate your export. Try again in a moment.',
   'admin.gdpr.erase.heading': 'Erase my account',
   'admin.gdpr.erase.submit': 'Request erasure',
   // The type-to-confirm gate. It repeats the irreversibility the row hint
@@ -303,6 +315,8 @@ export default {
   // Row vocabulary. Single words carrying a status, so they are short by
   // necessity rather than by restraint — and each is a different fact, which is
   // why "Set" and "From the environment" are two keys and not one sentence.
+  'admin.env.usedBy': 'Used by',
+  'admin.env.unused': 'Unused',
   'admin.env.required': 'Required',
   'admin.env.optional': 'Optional',
   'admin.env.set': 'Set',
@@ -346,6 +360,7 @@ export default {
   // `$app.label` resolves here pre-auth, to the app the console is mounted in.
   'admin.login.heading': 'Sign in',
   'admin.login.blurb': 'The operator console for ',
+  'admin.login.sessionEnded': 'Your session ended — sign in to continue.',
   'admin.login.submit': 'Sign in',
   // The in-flight label. BRAND §8's smallest and most often lost row: a pending
   // label that falls back to a generic default says the button is busy but not
@@ -389,5 +404,5 @@ export default {
   'admin.locked.audit.apiKeys.scopeNotice':
     'Long-lived credentials for scripts and services that call this instance on your behalf. Present one in the x-api-key header. A key carries your own role — it can never do more than you can.',
   'admin.locked.audit.env.secrecyNotice':
-    'Set a variable where you run this instance, then restart. The console reports what resolved; it never stores or reveals a value.',
+    'Set a variable in the environment you run this instance in, then restart. The console reports what resolved; it never stores or reveals a value.',
 } as const

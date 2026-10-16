@@ -46,7 +46,9 @@ The authorization-code flow, with PKCE, automatic token refresh, and a choice be
 
 `provider` names a known service and supplies the authorization and token URLs the connection leaves out: `airtable`, `github`, `google`, `hubspot`, `linkedin`, `microsoft`, `notion`, `salesforce` or `slack`. An explicit `authorizationUrl` or `tokenUrl` always wins over the preset. Any other provider name must come with both URLs, or the config is refused when it loads, naming the known ones.
 
-`redirectUri` defaults to the callback of the place the flow starts from: `<base URL>/api/connections/<name>/callback` when the app starts it, and `<base URL>/api/admin/connections/<name>/callback` when an operator clicks Connect in the console, which brings them back to the console's connections page. The base URL is `BASE_URL` when it is set and otherwise the address the request arrived on. Register the callback of every place you connect from — most providers accept several redirect addresses for one client. The same derived value is sent when the user is redirected and when the code is redeemed, as the provider requires. Set `redirectUri` only to use a different address; it then replaces the derived one in both places. `pkce: S256` is the one to choose where the provider supports it.
+`redirectUri` defaults to the callback of the place the flow starts from: `<base URL>/api/connections/<name>/callback` when the app starts it, and `<base URL>/api/admin/connections/<name>/callback` when an operator clicks Connect in the console, which brings them back to the page they clicked it on. The base URL is `BASE_URL` when it is set and otherwise the address the request arrived on. Register the callback of every place you connect from — most providers accept several redirect addresses for one client. The same derived value is sent when the user is redirected and when the code is redeemed, as the provider requires. Set `redirectUri` only to use a different address; it then replaces the derived one in both places. `pkce: S256` is the one to choose where the provider supports it.
+
+The console's Connect and Reconnect send the page they were pressed on as `returnTo` to `POST /api/admin/connections/<id>/authorize`. It travels in the OAuth state, and once the token is stored the callback redirects there. A `returnTo` that is not a path on this instance — another site, or a protocol-relative `//host` — is ignored, and the callback lands on `/_admin/connections`.
 
 ### Client credentials: no one authorizes anything
 
@@ -82,6 +84,8 @@ Meta — Facebook Pages, Instagram — answers the code exchange with a token th
 ### When nothing can renew the token
 
 Some providers — LinkedIn, Meta — issue no refresh token: the token simply lapses, and only a new authorization replaces it. Sovrium reports that ahead of time. From 7 days before such a token expires, `GET /api/connections/<name>/status` answers `reconnect-needed` for the caller, and the connection list in `/_admin/connections` shows the same status with a **Reconnect** action. Once it has lapsed, a step using it fails, naming the connection and saying it needs reconnecting, and the API is not called. A token that does carry a refresh token keeps its usual statuses: `expired` there only means the next call refreshes it.
+
+An OAuth2 connection nobody has authorized yet holds no token, and the console lists it as `not-connected` with a **Connect** action — never as `active`, since nothing can call the provider until someone connects it. The console's Overview does not count it as a healthy connection, and its attention list counts it with the expired and `reconnect-needed` ones as a connection waiting on an operator. An API-key, basic or bearer connection holds no token by design and reads `active`.
 
 ## API key
 

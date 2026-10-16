@@ -162,6 +162,7 @@ export function ProgressCell({
     <span
       role="progressbar"
       data-component-type="progress"
+      aria-label={fieldOptions?.columnLabel}
       aria-valuenow={percent}
       aria-valuemin={0}
       aria-valuemax={100}
@@ -320,6 +321,7 @@ export function UrlLinkCell({ value }: { value: unknown }): React.ReactNode {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      aria-describedby="sovrium-new-tab-notice"
       className={computeAttachmentLinkClasses()}
     >
       {text}

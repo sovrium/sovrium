@@ -22,6 +22,7 @@ import {
   V1_THEME_REGISTRATIONS,
   V1_TOKEN_LAYER,
 } from '@/infrastructure/css/theme/default-theme-layer'
+import { generateDensityLayer } from '@/infrastructure/css/theme/density-layer'
 import { SELF_HOSTED_FONT_FACES } from '@/infrastructure/css/theme/fonts'
 import { generateRichTextStyles } from '@/infrastructure/css/theme/rich-text-styles'
 import { scopedTokenLayer } from '@/infrastructure/css/theme/scoped-theme-layer'
@@ -29,7 +30,7 @@ import { generateSidebarShellStyles } from '@/infrastructure/css/theme/sidebar-s
 import {
   generateAuthorSvBridge,
   generateDarkColorOverrides,
-  generateDensityLayer,
+  generateSidebarRoleFollowers,
   generateMotionScale,
   generateSpacingScale,
   generateThemeBorderRadius,
@@ -194,7 +195,13 @@ function buildDefaultLayer(design?: Design): string {
   // before the font tokens reference them. Inlined here
   // (not in V1_TOKEN_LAYER) so the token layer remains a pure token block and
   // the existing "excludes @font-face" contract on V1_TOKEN_LAYER still holds.
-  return `${SELF_HOSTED_FONT_FACES}\n\n  ${tokenLayer}\n\n  ${ROLE_TOKEN_BRIDGE}`
+  // The sidebar's primary, foreground and ring follow the app's in both
+  // schemes — a departure from the registry, see `generateSidebarRoleFollowers`.
+  // After the token layer, whose dark block it must beat.
+  const sidebarFollowers = generateSidebarRoleFollowers(design?.colors, design?.darkColors)
+  return [SELF_HOSTED_FONT_FACES, tokenLayer, ROLE_TOKEN_BRIDGE, sidebarFollowers]
+    .filter(Boolean)
+    .join('\n\n  ')
 }
 
 /**

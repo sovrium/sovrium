@@ -6,7 +6,7 @@
  */
 
 import { buildCreateAuthorshipOverrides } from '@/domain/models/app/tables/authorship-fields'
-import { normalizeDateValuesIn } from '@/domain/models/app/tables/empty-date-service'
+import { storedValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -23,6 +23,6 @@ export const automationCreateFields = (
   fields: Readonly<Record<string, unknown>>,
   actorId: string
 ): Readonly<Record<string, unknown>> => ({
-  ...normalizeDateValuesIn(app.tables, tableName, fields),
+  ...storedValuesIn(app.tables, tableName, fields),
   ...buildCreateAuthorshipOverrides(app.tables, tableName, actorId),
 })

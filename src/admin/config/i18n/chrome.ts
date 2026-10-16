@@ -53,12 +53,16 @@ export default {
   // operator's identity is request-time and no config binding reaches it. The
   // seam is documented in `config/components/sidebar.ts`.
   'admin.shell.account': 'Account',
-  'admin.shell.myAccount': 'My account',
+  'admin.offline.message': 'You’re offline. Check your connection, then retry.',
+  'admin.offline.retry': 'Retry',
+  'admin.shell.readOnly': 'Read-only — your role is Viewer',
+  'admin.shell.role.admin': 'Admin',
+  'admin.shell.role.viewer': 'Viewer',
+  'admin.shell.myAccount': 'My profile',
+  'admin.shell.myData': 'My data',
   // No key for the language control: a `language-switcher` names itself with the
   // current language's own `label` (`English` / `Français`) and takes no caption
   // of its own. See `config/components/sidebar.ts` for what that costs.
-  'admin.shell.giveFeedback': 'Give feedback',
-  'admin.shell.reportBug': 'Report a bug',
   'admin.shell.signOut': 'Sign out',
 
   // ── Sidebar navigation ──────────────────────────────────────────────────
@@ -69,17 +73,19 @@ export default {
   // one. That is not thrift: a row and the trail it leads to disagreeing is a
   // defect nobody would catch, and one address makes the agreement structural.
   // A row that ever needs to diverge earns its own key on the day it does.
-  'admin.nav.welcome': 'Welcome',
-  'admin.nav.group.system': 'System',
-  'admin.nav.group.application': 'Application',
+  'admin.nav.overview': 'Overview',
+  'admin.nav.group.activity': 'Activity',
+  'admin.nav.group.data': 'Data',
+  'admin.nav.group.people': 'People',
+  'admin.nav.group.audience': 'Audience',
   'admin.nav.group.developers': 'Developers',
-  // `landmark` names the `<nav>` region for a screen reader; two groups share
-  // the `Data` landmark, which is why it is not the group label.
-  'admin.nav.landmark.data': 'Data',
-  'admin.nav.design': 'Design',
+  'admin.nav.group.design': 'Design',
+  // `landmark` names the `<nav>` region for a screen reader. Every group
+  // shares it, so the sidebar is one landmark rather than six.
+  'admin.nav.landmark.console': 'Console',
+  'admin.nav.designSystem': 'Design system',
   'admin.nav.design.overview': 'Overview',
   'admin.nav.design.foundations': 'Foundations',
-  'admin.nav.design.uiKit': 'UI kit',
   'admin.nav.design.components': 'Components',
   'admin.nav.design.brand': 'Brand',
   'admin.nav.design.voice': 'Voice',
@@ -95,24 +101,19 @@ export default {
   'admin.crumb.api': 'API',
   'admin.crumb.mcp': 'MCP',
   'admin.crumb.changelog': 'Changelog',
-  'admin.crumb.tables': 'Records',
-  'admin.crumb.buckets': 'Files',
-  'admin.crumb.agents': 'Conversations',
-  'admin.crumb.forms': 'Submissions',
+  'admin.crumb.records': 'Records',
+  'admin.crumb.files': 'Files',
+  'admin.crumb.conversations': 'Conversations',
+  'admin.crumb.submissions': 'Submissions',
   'admin.crumb.connections': 'Connections',
   'admin.crumb.organisation': 'Organisation',
   'admin.crumb.users': 'Users',
-  'admin.crumb.invitations': 'Invitations',
-  'admin.crumb.pages': 'Analytics',
+  'admin.crumb.analytics': 'Analytics',
   // The row, the trail and the heading all say Runs: the page is the run
   // history, and the automations catalogue is one view inside it.
-  'admin.crumb.automations': 'Runs',
-  // The `runs` segment of `/automations/runs/:id`: one run under the
-  // history. The id after it prints verbatim, and names the run.
-  'admin.crumb.automationRun': 'Run',
+  'admin.crumb.runs': 'Runs',
   'admin.crumb.links': 'Links',
   'admin.crumb.templates': 'Templates',
-  'admin.crumb.footprint': 'Footprint',
   // `/decisions/:id` gets NO entry of its own, deliberately: the id segment is
   // the record's own identifier, and the derived trail prints an unlabelled
   // segment verbatim — which is precisely what should name the document.
@@ -129,6 +130,8 @@ export default {
   // The `Data · ` middle segment mirrors the sidebar's grouping, so a browser
   // tab strip reads the same way the nav does.
   'admin.meta.welcome': 'Sovrium — Welcome',
+  'admin.meta.acceptInvitation': 'Sovrium — Accept invitation',
+  'admin.meta.notFound': 'Sovrium — Page not found',
   'admin.meta.organisation': 'Sovrium — Organisation',
   'admin.meta.profile': 'Sovrium — My profile',
   'admin.meta.gdpr': 'Sovrium — My data',
@@ -138,19 +141,20 @@ export default {
   'admin.meta.mcp': 'Sovrium — MCP',
   'admin.meta.changelog': 'Sovrium — Changelog',
   'admin.meta.release': 'Sovrium — Changelog · Release',
-  'admin.meta.tables': 'Sovrium — Data · Records',
-  'admin.meta.buckets': 'Sovrium — Data · Files',
-  'admin.meta.agents': 'Sovrium — Data · Conversations',
-  'admin.meta.forms': 'Sovrium — Data · Submissions',
-  'admin.meta.connections': 'Sovrium — Data · Connections',
-  'admin.meta.users': 'Sovrium — Data · Users',
-  'admin.meta.invitations': 'Sovrium — Data · Invitations',
-  'admin.meta.userAccount': 'Sovrium — Data · Account',
-  'admin.meta.pages': 'Sovrium — Data · Analytics',
-  'admin.meta.automations': 'Sovrium — Data · Runs',
-  'admin.meta.automationRun': 'Sovrium — Data · Run',
-  'admin.meta.links': 'Sovrium — Data · Links',
-  'admin.meta.templates': 'Sovrium — Data · Templates',
+  'admin.meta.tables': 'Sovrium — Records',
+  'admin.meta.buckets': 'Sovrium — Files',
+  'admin.meta.agents': 'Sovrium — Conversations',
+  'admin.meta.forms': 'Sovrium — Submissions',
+  'admin.meta.connections': 'Sovrium — Connections',
+  'admin.meta.users': 'Sovrium — Users',
+  'admin.meta.invitations': 'Sovrium — Invitations',
+  'admin.meta.userAccount': 'Sovrium — Account',
+  'admin.meta.recordAccess': 'Sovrium — Who has access',
+  'admin.meta.pages': 'Sovrium — Analytics',
+  'admin.meta.automations': 'Sovrium — Runs',
+  'admin.meta.automationRun': 'Sovrium — Run',
+  'admin.meta.links': 'Sovrium — Links',
+  'admin.meta.templates': 'Sovrium — Templates',
   'admin.meta.footprint': 'Sovrium — Footprint',
   'admin.meta.decisions': 'Sovrium — Decisions',
   'admin.meta.decision': 'Sovrium — Decision',

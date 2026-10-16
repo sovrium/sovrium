@@ -65,6 +65,7 @@ export const decodeSubmissionsList = (raw: Readonly<Record<string, unknown>>, ap
       from: raw['from'],
       to: raw['to'],
       include_deleted: raw['include_deleted'],
+      reveal: raw['reveal'],
       q: raw['q'],
     }),
     {
@@ -81,6 +82,7 @@ export const decodeSubmissionsList = (raw: Readonly<Record<string, unknown>>, ap
             q: query.q,
             cursor: query.cursor,
             limit: query.limit,
+            reveal: query.reveal,
           } satisfies SubmissionsListInput,
         }) as const,
     }

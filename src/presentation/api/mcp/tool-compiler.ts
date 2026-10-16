@@ -30,6 +30,7 @@ import {
   isAiAccessEnabled,
 } from '@/domain/models/app/auth/ai-access'
 import { triggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
+import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
 import type { App } from '@/domain/models/app'
 import type { ActionTemplate } from '@/domain/models/app/actions'
 import type {
@@ -512,10 +513,9 @@ const resolveExposedFields = (
 }
 
 /**
- * Map a Sovrium field type to a JSON Schema fragment suitable for the MCP
- * tool inputSchema. The mapping is deliberately coarse — the runtime relies
- * on PostgreSQL + the records-API for the authoritative validation; the
- * inputSchema only needs to give MCP clients enough hints to render forms.
+ * Map a Sovrium field type to a JSON Schema fragment for the MCP tool
+ * inputSchema. Deliberately coarse — the records API validates; the
+ * inputSchema only gives MCP clients enough hints to render forms.
  */
 const mapFieldToJsonSchema = (field: Fields[number]): Readonly<Record<string, unknown>> => {
   const fieldType = field.type
@@ -525,7 +525,7 @@ const mapFieldToJsonSchema = (field: Fields[number]): Readonly<Record<string, un
   if (fieldType === 'single-select' || fieldType === 'status') {
     return mapEnumStringField(field)
   }
-  if (fieldType === 'multi-select') return mapEnumArrayField(field)
+  if (fieldType === 'multi-select' || isUserListField(field)) return mapEnumArrayField(field)
   if (fieldType === 'array') return { type: 'array', items: {} }
   return { type: 'string' }
 }

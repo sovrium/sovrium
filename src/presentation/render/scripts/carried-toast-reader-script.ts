@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { takeCarriedToast } from '@/presentation/design/carried-toast'
 import { INLINE_TOAST_POLICY_RUNTIME } from '@/presentation/render/registry/inline-toast-policy-runtime'
 
 /**
@@ -28,6 +27,14 @@ import { INLINE_TOAST_POLICY_RUNTIME } from '@/presentation/render/registry/inli
  * or duration no renderer knows — the payload is data any script on this
  * origin could have written.
  *
+ * The reader itself is {@link TAKE_CARRIED_TOAST_SOURCE}, a literal
+ * transcription of `takeCarriedToast` (`design/carried-toast.ts`) rather than
+ * `String(takeCarriedToast)`: script source assembled from a function's text,
+ * or from a value spliced in through `JSON.stringify`, is what CodeQL's
+ * `js/bad-code-sanitization` reports, and the text of a function also changes
+ * with the bundler's minifier. The module's test runs the transcription and the
+ * function over the same stored payloads, so the two cannot drift.
+ *
  * The policy is shipped with its comment lines and indentation removed: it is
  * in the HTML of every page, and those bytes say nothing to a browser. The
  * strip is line-based and safe for that source, whose comments are whole lines
@@ -46,10 +53,25 @@ export function compactInlineScript(source: string): string {
 }
 
 /**
+ * `takeCarriedToast`, transcribed as browser JavaScript: the carried toast,
+ * cleared as it is read, or `undefined` when there is none, it is stale or
+ * from the future, its message is not a non-empty string, or the storage
+ * refuses. An unknown variant and a duration that is not a positive finite
+ * delay are dropped. Written terse, with one-letter names, because it ships in
+ * every page's HTML (`n` now, `k` the kept payload, `m`/`v`/`d`/`a` its message,
+ * variant, duration and timestamp, `s`/`r` the store and the raw value); its
+ * test holds it to the TypeScript function.
+ */
+export const TAKE_CARRIED_TOAST_SOURCE = `function(n=Date.now()){var t=function(k){var m=k.message,v=k.variant,d=k.duration,a=k.at;
+if(!(typeof a==="number"&&n>=a&&n-a<=60000)||typeof m!=="string"||m==="")return;
+return{message:m,variant:["default","success","info","warning","error","destructive"].indexOf(v)!==-1?v:void 0,duration:typeof d==="number"&&isFinite(d)&&d>0?d:void 0}};
+try{var s=sessionStorage,r=s.getItem("sovrium:flash-toast");if(r===null)return;s.removeItem("sovrium:flash-toast");return t(JSON.parse(r))}catch(e){}}`
+
+/**
  * The self-contained enhancer: an IIFE that does nothing unless a carried toast
  * waits, and then shows it once the document is parsed.
  */
-export const CARRIED_TOAST_READER_SCRIPT = `!function(){var takeCarriedToast=${compactInlineScript(String(takeCarriedToast))};
+export const CARRIED_TOAST_READER_SCRIPT = `!function(){var takeCarriedToast=${TAKE_CARRIED_TOAST_SOURCE};
 function raiseCarriedToast(){
 ${compactInlineScript(INLINE_TOAST_POLICY_RUNTIME)}
 var carried=takeCarriedToast();

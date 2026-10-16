@@ -39,11 +39,13 @@
 // wire, and the copy below stays here. `hasDefault` and `defaultValue` keep
 // their exact meanings for every existing consumer.
 //
-// ─── STATUS IS TYPOGRAPHY, NOT COLOUR ──────────────────────────────────────
+// ─── STATUS IS QUIET, EXCEPT WHEN A REQUIRED VALUE IS MISSING ──────────────
 //
 // The set/unset indicator is weight and de-emphasis, never a green/amber pill.
 // A console that paints "not set" amber implies the operator did something
-// wrong; most unset variables are optional and unset on purpose.
+// wrong; most unset variables are optional and unset on purpose. The one
+// exception is the console-wide LOUD state (`STATUS_BADGE.loud`): a variable
+// the app REQUIRES and does not have.
 //
 // ─── NO VALUE, NO CONTROL ([internal ref] A1) ─────────────────────────────────────
 //
@@ -53,8 +55,8 @@
 // to go.
 
 import { factsCard } from '../components/card-blocks'
-import { pageHeading } from '../components/data-page'
-import { withShell } from '../components/shell'
+import { consolePage, pageHeading } from '../components/data-page'
+import { STATUS_BADGE } from '../components/data-table-blocks'
 import { ENV_ENDPOINT } from '../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -141,7 +143,7 @@ const variableRow = (): PageComponent =>
             field: 'required',
             eq: false,
           }),
-          gatedText('span', 'text-muted-foreground text-sm', '· has a default', {
+          gatedText('span', 'text-muted-foreground text-sm', '$t:admin.env.hasDefault', {
             field: 'defaultState',
             eq: 'withheld',
           }),
@@ -153,9 +155,26 @@ const variableRow = (): PageComponent =>
           gatedText(
             'span',
             'text-muted-foreground font-mono text-sm break-all',
-            'Default $record.defaultValue',
+            '$t:admin.env.default $record.defaultValue',
             { field: 'defaultState', eq: 'disclosed' }
           ),
+          // What reads the variable: the config sites naming it. A variable
+          // nothing reads is worth knowing about — it can go, or it was
+          // meant to be wired and is not.
+          {
+            type: 'container',
+            element: 'div',
+            props: { className: 'text-muted-foreground flex gap-1 text-sm' },
+            visibility: { record: { field: 'usedBy', isNotEmpty: true } },
+            children: [
+              text('span', 'shrink-0', '$t:admin.env.usedBy'),
+              text('span', 'min-w-0 break-words', '$record.usedBy'),
+            ],
+          } as PageComponent,
+          gatedText('span', 'text-muted-foreground text-sm', '$t:admin.env.unused', {
+            field: 'usedBy',
+            isEmpty: true,
+          }),
         ],
       } as PageComponent,
       {
@@ -181,10 +200,32 @@ const variableRow = (): PageComponent =>
             field: 'isSet',
             eq: true,
           }),
-          gatedText('span', 'text-muted-foreground text-sm', '$t:admin.env.notSet', {
-            field: 'isSet',
-            eq: false,
-          }),
+          // Unset and REQUIRED is the one loud state on this page: the app
+          // needs a value it does not have. Unset and optional stays quiet.
+          {
+            type: 'container',
+            element: 'div',
+            props: { className: 'contents' },
+            visibility: { record: { field: 'required', eq: true } },
+            children: [
+              gatedText('span', STATUS_BADGE.loud, '$t:admin.env.notSet', {
+                field: 'isSet',
+                eq: false,
+              }),
+            ],
+          } as PageComponent,
+          {
+            type: 'container',
+            element: 'div',
+            props: { className: 'contents' },
+            visibility: { record: { field: 'required', eq: false } },
+            children: [
+              gatedText('span', 'text-muted-foreground text-sm', '$t:admin.env.notSet', {
+                field: 'isSet',
+                eq: false,
+              }),
+            ],
+          } as PageComponent,
           // The mask, never the value: "a value is configured" is itself the
           // operator's answer, and the constant is fixed-width so it cannot
           // become a length oracle.
@@ -222,20 +263,17 @@ const variablesCard = (): PageComponent =>
     } as PageComponent,
   })
 
-export default withShell(
-  {
-    id: 'dashboard-config-env',
-    name: 'dashboard-config-env',
-    path: '/env',
-    meta: { title: '$t:admin.meta.env', lang: 'en-US' },
-    components: [
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex max-w-3xl flex-col gap-8' },
-        children: [header(), variablesCard()],
-      },
-    ],
-  } as PageConfig,
-  { breadcrumb: { env: '$t:admin.crumb.env' } }
-) satisfies PageConfig
+export default consolePage({
+  id: 'dashboard-config-env',
+  path: '/env',
+  title: '$t:admin.meta.env',
+  shell: { breadcrumb: { env: '$t:admin.crumb.env' } },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex max-w-3xl flex-col gap-8' },
+      children: [header(), variablesCard()],
+    },
+  ],
+}) satisfies PageConfig

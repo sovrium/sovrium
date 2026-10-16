@@ -22,11 +22,9 @@ import {
   toRecordIdList,
   userAccessTableSql,
 } from '@/infrastructure/database/sql/user-access-rows'
-import { readManyToMany } from '@/infrastructure/database/table-queries'
-import {
-  emptyValueCondition,
-  nonEmptyValueCondition,
-} from '@/infrastructure/database/table-queries/filter-operators'
+import { readManyToMany, readManyToManyHolders } from '@/infrastructure/database/table-queries'
+import { buildFilterCondition } from '@/infrastructure/database/table-queries/data-source-filter-condition'
+import { readUserListHolders } from '@/infrastructure/database/table-queries/query-helpers/user-list-holders'
 import type { DataSourceQueryOptions } from '@/application/ports/repositories/tables/data-source-repository'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SQL } from 'drizzle-orm'
@@ -34,114 +32,10 @@ import type { SQL } from 'drizzle-orm'
 /** Wrap a DB promise, adapting failures to DataSourceDatabaseError. */
 const wrap = makeDbWrap((error) => new DataSourceDatabaseError({ cause: error }))
 
-/**
- * Return type of `sql.identifier()` — a safely-escaped SQL identifier chunk.
- * Same alias as `table-queries/filter-operators.ts`, and for the same reason:
- * `Name` is not a `SQL`, so a helper that accepts one has to say so.
- */
-type SqlIdentifier = Readonly<ReturnType<typeof sql.identifier>>
-
 // ============================================================================
-// SQL query builders (pure functions — no DB access)
+// SQL query builders (pure functions — no DB access); one filter's condition
+// is built in `table-queries/data-source-filter-condition.ts`
 // ============================================================================
-
-const DATA_SOURCE_OPERATOR_MAP: Readonly<Record<string, string>> = {
-  eq: '=',
-  neq: '!=',
-  gt: '>',
-  lt: '<',
-  gte: '>=',
-  lte: '<=',
-}
-
-/**
- * Bind an arbitrary filter value as a DRIVER PARAMETER rather than escaping it
- * into SQL text.
- *
- * Mirrors `formatSqlValue`'s type handling exactly, so switching from escaping
- * to binding changes no result: strings, numbers, booleans and `null` bind as
- * themselves (a bound `null` compares the way the `NULL` literal did — never
- * true), and every other shape binds as its JSON encoding, which is precisely
- * the string `formatSqlValue` would quote.
- */
-const bindValue = (value: unknown): Readonly<SQL> => {
-  if (
-    value === null ||
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  ) {
-    return sql`${value}`
-  }
-  return sql`${JSON.stringify(value)}`
-}
-
-/**
- * A `contains` LIKE pattern as a BOUND value.
- *
- * `formatLikePattern` escaped the value and wrapped the result in quotes; a
- * bound parameter needs neither, so the wildcards concatenate onto the raw
- * value. Note this leaves `%` and `_` inside the value as wildcards, exactly as
- * the escaped form did — `escapeSqlString` never touched LIKE metacharacters.
- */
-const bindLikePattern = (value: unknown): Readonly<SQL> => {
-  const stringValue = typeof value === 'string' ? value : String(value)
-  return sql`${`%${stringValue}%`}`
-}
-
-export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
-  const field = sql.identifier(sanitizeTableName(filter.field))
-  const { operator, value } = filter
-
-  if (operator === 'contains') {
-    // Case-folded on both sides: a bare `LIKE` is case-SENSITIVE on PostgreSQL
-    // and case-INSENSITIVE on SQLite, so the same page `dataSource.filters`
-    // block would bind different rows depending on the engine. Matches the
-    // records-API decision in `table-queries/filter-operators.ts`.
-    return sql`LOWER(${field}) LIKE LOWER(${bindLikePattern(value)})`
-  }
-
-  if (operator === 'in') {
-    return buildInClause(field, value)
-  }
-
-  // `isEmpty` / `isNotEmpty` take no value: the records API's own rule
-  // (NULL, empty text, an empty list — the `isEmpty`/`isNotEmpty` data-source filter design), so a server-drawn list and
-  // a grid over the same data source never disagree about emptiness.
-  if (operator === 'isEmpty') return emptyValueCondition(field)
-  if (operator === 'isNotEmpty') return nonEmptyValueCondition(field)
-
-  // The comparison operator reaches SQL only through this closed literal map,
-  // never as caller text; an unrecognised operator falls through to `=`.
-  const sqlOp = DATA_SOURCE_OPERATOR_MAP[operator]
-  if (sqlOp) {
-    // sql-literal: keyword -- `sqlOp` comes from the closed DATA_SOURCE_OPERATOR_MAP
-    return sql`${field} ${sql.raw(sqlOp)} ${bindValue(value)}`
-  }
-
-  return sql`${field} = ${bindValue(value)}`
-}
-
-/**
- * Build an `IN (...)` clause from a literal or an array.
- *
- * - Empty array  → `1 = 0` (always-false predicate, returns zero rows)
- * - Non-array    → `field = value` (single-value short-hand)
- * - Array        → `field IN ($1, $2, ...)` — one bound parameter per element
- *
- * Used by `$currentUser.assignments.<table>` resolution where the value is
- * the flattened record-id list from the multi-tenant `user_access` rows.
- */
-function buildInClause(field: SqlIdentifier, value: unknown): Readonly<SQL> {
-  if (Array.isArray(value)) {
-    if (value.length === 0) return sql`1 = 0`
-    return sql`${field} IN (${sql.join(
-      value.map((element) => bindValue(element)),
-      sql.raw(', ')
-    )})`
-  }
-  return sql`${field} = ${bindValue(value)}`
-}
 
 function buildOrderByClause(sort: readonly DataSort[]): Readonly<SQL> | undefined {
   if (sort.length === 0) return undefined
@@ -336,33 +230,18 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
     ),
 
   /**
-   * Z-1 ($currentUser.assignments.<table>) — flattens record_ids across all
-   * user_access rows that match the active user + scope table.
+   * Z-1 ($currentUser.assignments.<table>[.<role>]) — flattens record_ids
+   * across all user_access rows that match the active user + scope table (+
+   * grant role). Every value is bound: `tableSlug` can arrive from a cookie
+   * name, and this read decides which records the caller may see.
    *
    * Treats a missing `user_access` table as "no assignments" so apps that
    * don't declare `auth.scopeTables` don't crash.
    */
-  fetchUserAssignments: (userId, tableSlug) =>
-    wrap(async () => {
-      // Both values bound. `tableSlug` arrives from a COOKIE NAME on the
-      // scope-cookie path, which no charset check narrows, and this is the
-      // query that decides which records the caller may see — an authorization
-      // decision is the last place to rely on escaping rather than binding.
-      const query = sql`SELECT ${sql.identifier('record_ids')} FROM ${userAccessTableSql()} WHERE ${sql.identifier('user_id')} = ${userId} AND ${sql.identifier('table_slug')} = ${tableSlug}`
-      try {
-        const rows = await executeSqlQuery<Array<{ record_ids: unknown }>>(query)
-        const flattened = rows.flatMap((row) => toRecordIdList(row.record_ids))
-        return flattened
-      } catch (error) {
-        // Gracefully handle missing `user_access` table (e.g. when an app
-        // does not declare `auth.scopeTables`). Other SQL errors fall
-        // through to the outer catch.
-        if (isMissingUserAccessTable(error)) {
-          return [] as readonly string[]
-        }
-        throw error
-      }
-    }),
+  fetchUserAssignments: (userId, tableSlug, role) =>
+    readUserAccessRows([userId], tableSlug, role).pipe(
+      Effect.map((rows) => rows.flatMap((row) => toRecordIdList(row.record_ids)))
+    ),
 
   /**
    * Z-3 (row-level enforcement) — distinct user_access role names the user
@@ -394,11 +273,21 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
       }
     }),
 
-  fetchUsersAssignments: (userIds, tableSlug) =>
-    readUserAccessRows(userIds, tableSlug).pipe(
+  fetchUsersAssignments: (userIds, tableSlug, role) =>
+    readUserAccessRows(userIds, tableSlug, role).pipe(
       Effect.map((rows) =>
         groupByUser(rows.map((row) => [row.user_id, toRecordIdList(row.record_ids)] as const))
       )
+    ),
+
+  fetchManyToManyHolders: (input) =>
+    readManyToManyHolders(input).pipe(
+      Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
+    ),
+
+  fetchUserListHolders: (input) =>
+    readUserListHolders(input).pipe(
+      Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
     ),
 
   fetchUsersAccessRoles: (userIds) =>
@@ -429,7 +318,8 @@ interface UserAccessRow {
  */
 const readUserAccessRows = (
   userIds: readonly string[],
-  tableSlug: string | undefined
+  tableSlug: string | undefined,
+  role?: string
 ): Effect.Effect<readonly UserAccessRow[], DataSourceDatabaseError> =>
   wrap(async () => {
     const ids = [...new Set(userIds)]
@@ -438,10 +328,12 @@ const readUserAccessRows = (
       ids.map((id) => sql`${id}`),
       sql`, `
     )})`
-    const where =
+    const inTable =
       tableSlug === undefined
         ? inUsers
         : sql`${inUsers} AND ${sql.identifier('table_slug')} = ${tableSlug}`
+    const where =
+      role === undefined ? inTable : sql`${inTable} AND ${sql.identifier('role')} = ${role}`
     const query = sql`SELECT ${sql.identifier('user_id')}, ${sql.identifier('role')}, ${sql.identifier('record_ids')} FROM ${userAccessTableSql()} WHERE ${where}`
     try {
       return await executeSqlQuery<UserAccessRow[]>(query)

@@ -12,6 +12,7 @@ import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { ClientRuntimeScript } from '@/presentation/render/page/client-script-paths'
 import { DemoNotice } from '@/presentation/render/page/demo-notice'
 import { IslandEntryScript } from '@/presentation/render/page/island-entry-script'
+import { PageAccessibilityChrome } from '@/presentation/render/page/page-accessibility-chrome'
 import { PageBodyScripts } from '@/presentation/render/page/page-body-scripts'
 import { hasClientSideNavigation } from '@/presentation/render/page/page-island-detection'
 import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolver'
@@ -240,12 +241,9 @@ function selectSidebarSections(
 /**
  * Renders the toast container element when page.toasts is configured.
  *
- * The container is the page's ONE standing live region, and it stays exactly
- * one: a toast that has to be announced urgently carries `role="alert"` on
- * itself (`islands/runtime/toast-accessibility.ts`) rather than being served a
- * second container, because a second one would make the selector union
- * `[data-toast-container], [role="status"], [aria-live="polite"]` match twice
- * for every reader of it.
+ * The container is the page's ONE standing toast container, and no live region:
+ * each toast is its own (`role="status"`, or `role="alert"` when urgent —
+ * `islands/runtime/toast-accessibility.ts`), so a toast is announced once.
  *
  * `data-dismiss-label` is the server→client channel for the dismiss control's
  * accessible name. The renderers that build that control run in the browser and
@@ -262,8 +260,7 @@ function PageToastContainer({
   return (
     <div
       data-sonner-toaster=""
-      role="status"
-      aria-live="polite"
+      data-toast-container=""
       data-dismiss-label={getToastDismissLabel(lang)}
       {...(toasts.position !== undefined && { 'data-position': toasts.position })}
       style={TOAST_CONTAINER_STYLE}
@@ -339,20 +336,10 @@ function DynamicPageBody({
       {...(bodyStyle && { style: bodyStyle })}
       {...dataAttributes}
     >
-      {/*
-        Skip link (the pages accessibility requirement, WCAG 2.4.1 "bypass blocks"): the
-        FIRST focusable element in the page chrome. Visually hidden until
-        focused (`sr-only focus:not-sr-only`), it targets `#main-content` so
-        keyboard/AT users can jump straight past the header/nav to the main
-        region. `PageMain` renders `<main id="main-content" tabindex="-1">` so
-        activating the link moves focus into the main content region.
-      */}
-      <a
-        href="#main-content"
-        className="text-md sr-only z-50 rounded-md bg-neutral-900 px-4 py-2 font-medium text-neutral-50 focus:not-sr-only focus:absolute focus:top-2 focus:left-2"
-      >
-        Skip to main content
-      </a>
+      <PageAccessibilityChrome
+        lang={lang}
+        languages={languages}
+      />
       <PageBodyScripts
         page={page}
         design={design}

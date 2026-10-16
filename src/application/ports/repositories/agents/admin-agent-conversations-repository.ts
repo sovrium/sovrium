@@ -68,6 +68,10 @@ export interface AdminAgentConversationRow {
   readonly id: string
   readonly title: string | null
   readonly sessionId: string | null
+  /** The account that held the conversation. */
+  readonly userId: string
+  /** That account's display name (never its email). */
+  readonly userName: string
   readonly messageCount: number
   readonly updatedAt: Date | string
   readonly createdAt: Date | string
@@ -116,6 +120,8 @@ export interface AdminAgentConversationsListFilters {
   readonly from?: string | undefined
   readonly to?: string | undefined
   readonly q?: string | undefined
+  /** Exact account id: only the conversations that account held. */
+  readonly userId?: string | undefined
   readonly cursor?: { readonly value: string; readonly id: string } | undefined
   readonly limit: number
 }

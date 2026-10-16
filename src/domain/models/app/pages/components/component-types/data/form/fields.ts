@@ -173,6 +173,64 @@ export const FormEndpointSuccessResponseSchema = Schema.Struct({
 )
 
 /**
+ * When an endpoint form sends: on its submit button (`submit`, the default),
+ * or each time the reader changes a control (`change`).
+ *
+ * ─── WHY IT IS A FORM-LEVEL KEY ────────────────────────────────────────────
+ *
+ * A settings page is a column of one-control forms — a language, a
+ * notification switch — and a Save button under a switch asks the reader to
+ * confirm a choice they already made by flipping it. What sends is the FORM:
+ * one endpoint, one body, one `onSuccess`/`onError`. So the moment it sends is
+ * a property of the form, declared once beside `url`, rather than of each
+ * field (a per-field key would let one form send half its fields on change
+ * and the other half on a button, with one success path for both) or of a
+ * per-control `action` (which would duplicate the endpoint, the envelope and
+ * the outcome on every control of the form).
+ *
+ * ─── WHAT `change` MEANS, PER CONTROL ──────────────────────────────────────
+ *
+ * A switch or a select sends the moment it changes. A control
+ * the reader TYPES into sends once typing pauses, or at once when the field
+ * loses focus or the reader presses Enter — never once per keystroke. The
+ * whole form is sent, exactly as a submit would send it, and its rules
+ * (`required`, `minLength`) are checked first. A value the page fills in by
+ * itself (a `$session.<field>` default) is not a change and sends nothing.
+ * While a request is on its way, a further change waits for it and then sends
+ * once, with the latest values.
+ */
+export const FormEndpointSubmitOnSchema = Schema.Literals(['submit', 'change']).annotate({
+  title: 'Form Endpoint Submit On',
+  description:
+    "When an endpoint form sends. 'submit' (default): on its submit button. 'change': each time the reader changes a control — at once for a switch or a select, once typing pauses (or on leaving the field, or Enter) for a typed control — and no submit button is drawn. The whole form is sent and onSuccess/onError run as on a submit.",
+})
+
+/**
+ * The keys an endpoint form refuses beside `submitOn: 'change'`, and why.
+ *
+ * `submitLabel` and `submitVariant` describe a button such a form never draws,
+ * so accepting them in silence would let a configuration say something the
+ * page does not do. `onSuccess.reset` would put the control back to its
+ * default the moment its new value was saved, undoing on screen the change
+ * the reader just made.
+ */
+function submitOnChangeConflict(endpoint: {
+  readonly submitOn?: 'submit' | 'change'
+  readonly submitLabel?: string
+  readonly submitVariant?: string
+  readonly onSuccess?: { readonly reset?: boolean }
+}): true | string {
+  if (endpoint.submitOn !== 'change') return true
+  if (endpoint.submitLabel !== undefined || endpoint.submitVariant !== undefined) {
+    return "endpoint declares submitOn: 'change' beside submitLabel or submitVariant — a form that sends on change draws no submit button, so there is nothing to label or paint. Remove submitLabel and submitVariant, or send on the button with submitOn: 'submit'."
+  }
+  if (endpoint.onSuccess?.reset === true) {
+    return "endpoint declares submitOn: 'change' beside onSuccess.reset — the reset would put the control back to its default the moment its new value was saved. Remove reset, or send on the button with submitOn: 'submit'."
+  }
+  return true
+}
+
+/**
  * Custom-endpoint submit target for a `form` component.
  *
  * A `form` normally WRITES to its bound `app.tables` table (via the records API)
@@ -231,6 +289,11 @@ export const FormEndpointSchema = Schema.Struct({
    * enumeration-safe envelope.
    */
   responseEnvelope: Schema.optional(FetchResponseEnvelopeSchema),
+  /**
+   * When the form sends — see {@link FormEndpointSubmitOnSchema}. Omission is
+   * `submit`, so no existing form changes by a byte.
+   */
+  submitOn: Schema.optional(FormEndpointSubmitOnSchema),
   /** Submit button label (defaults to the form's standard submit label). */
   submitLabel: Schema.optional(
     Schema.String.annotate({
@@ -297,11 +360,14 @@ export const FormEndpointSchema = Schema.Struct({
   onSuccess: Schema.optional(FormEndpointSuccessResponseSchema),
   /** Toast shown when the submit resolves non-2xx or rejects. */
   onError: Schema.optional(FetchToastResponseSchema),
-}).annotate({
-  title: 'Form Endpoint',
-  description:
-    'Custom-endpoint submit target for a form: POST collected field values as JSON to an arbitrary url, with response-envelope tolerance and the shipped onSuccess effects (status + sibling refetch).',
-})
+}).pipe(
+  Schema.annotate({
+    title: 'Form Endpoint',
+    description:
+      "Custom-endpoint submit target for a form: POST collected field values as JSON to an arbitrary url, with response-envelope tolerance and the shipped onSuccess effects (status + sibling refetch). With submitOn: 'change' the form sends as the reader changes a control and draws no submit button, so submitLabel, submitVariant and onSuccess.reset are refused beside it.",
+  }),
+  Schema.check(Schema.makeFilter(submitOnChangeConflict))
+)
 
 export const formFields = {
   ...coreFields,

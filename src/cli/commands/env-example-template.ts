@@ -36,6 +36,8 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # SOVRIUM_DEV_CLOCK=                    # development only: ISO 8601 instant every "today" answers at
 # API_IP_RATE_LIMIT=1200                 # API requests per client address per window; raise when many users share one address
 # RATE_LIMIT_WINDOW_SECONDS=60           # seconds in every per-address rate-limit window; a whole number above zero
+# RATE_LIMIT_WRITES=120                 # record writes one caller may make per window; a batch is one write
+# RATE_LIMIT_READS=600                  # record reads one signed-in person may make per window
 
 # ── Running under a supervisor ─────────────────────────────────────────
 # A supervising process — the Sovrium desktop app, a systemd unit, a CI step —

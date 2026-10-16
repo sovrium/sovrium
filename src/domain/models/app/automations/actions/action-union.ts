@@ -282,7 +282,7 @@ export type Action =
         readonly locale?: string
         readonly attachments?: FileRefListDef<FileRef>
       }>)
-  // ── auth (9 operator variants) ──
+  // ── auth (13 operator variants) ──
   | (ActionBase & {
       readonly type: 'auth'
       readonly operator: 'createUser'
@@ -344,6 +344,41 @@ export type Action =
       readonly operator: 'deleteOAuthClient'
     } & Props<{
         readonly clientId: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'auth'
+      readonly operator: 'grantAccess'
+    } & Props<{
+        readonly userId: string
+        readonly table: string
+        readonly recordId: string
+        readonly role: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'auth'
+      readonly operator: 'revokeAccess'
+    } & Props<{
+        readonly userId: string
+        readonly table: string
+        readonly recordId: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'auth'
+      readonly operator: 'listGrantees'
+    } & Props<{
+        readonly table: string
+        readonly recordId: string
+        readonly role?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'auth'
+      readonly operator: 'inviteUser'
+    } & Props<{
+        readonly email: string
+        readonly name?: string
+        readonly role: string
+        readonly expiresIn?: string | number
+        readonly ifExists?: 'skip' | 'fail'
       }>)
   // ── analytics ──
   | (ActionBase & {

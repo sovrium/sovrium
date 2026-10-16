@@ -36,6 +36,8 @@ export interface KanbanFormat {
   readonly draggableEnabled?: boolean
   /** How each formatted field reads in a card's text, resolved by the server. */
   readonly recordText?: RecordTextFields
+  /** Publishes the card a reader selects, on a board that declares `publishes`. */
+  readonly select?: (recordId: unknown) => void
 }
 
 export const KanbanFormatContext = createContext<KanbanFormat>({

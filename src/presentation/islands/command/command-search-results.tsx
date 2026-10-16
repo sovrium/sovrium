@@ -26,26 +26,67 @@ import {
 } from './command-search-data'
 import type { SearchState } from './use-command-search'
 
-/** One result: an `option` named by its title, its kind as an aside. */
+/**
+ * The table a record result belongs to, read off its link
+ * (`…/tables/<name>?record=…`), when the host named that table.
+ */
+const tableOf = (result: AdminSearchResult): string | undefined =>
+  /\/(?:tables|records)\/([^/?#]+)/.exec(result.href)?.[1]
+
+const tableLabelOf = (
+  result: AdminSearchResult,
+  tableLabels: Readonly<Record<string, string>> | undefined
+): string | undefined => {
+  if (result.type !== 'record' || tableLabels === undefined) return undefined
+  const table = tableOf(result)
+  return table === undefined ? undefined : tableLabels[table]
+}
+
+/**
+ * The row's identity: its kind and its id — a record's qualified by its table
+ * (read off its link, else the link itself), since two tables' records share
+ * an id as soon as both hold a row. Not the link alone: every user or
+ * connection hit links to the same list page. A hit with no id falls back to
+ * its link and its position.
+ */
+const rowKeyOf = (result: AdminSearchResult, index: number): string => {
+  if (result.entityId === '') return `${result.type}:${result.href}:${String(index)}`
+  if (result.type !== 'record') return `${result.type}:${result.entityId}`
+  return `record:${tableOf(result) ?? result.href}:${result.entityId}`
+}
+
+/**
+ * One result: an `option` named by its title. A record row says which table it
+ * comes from, by the table's plural label, before its title; any other row
+ * carries its kind as an aside. `rowKey` is its identity (see `rowKeyOf`).
+ */
 function ResultItem({
   result,
+  rowKey,
   badge,
+  table,
   onSelect,
 }: {
   readonly result: AdminSearchResult
+  readonly rowKey: string
   readonly badge: string
+  readonly table: string | undefined
   readonly onSelect: (href: string) => void
 }): ReactElement {
   const select = useCallback(() => onSelect(result.href), [onSelect, result.href])
   return (
     <CommandItem
-      value={`${result.type}:${result.entityId}`}
+      value={rowKey}
       aria-label={result.title}
       onSelect={select}
       className="justify-between"
     >
-      <span className="text-foreground truncate font-medium">{result.title}</span>
-      <span className="text-muted-foreground shrink-0 text-xs">{badge}</span>
+      <span className="text-foreground truncate font-medium">
+        {table === undefined ? result.title : `${table} · ${result.title}`}
+      </span>
+      {table === undefined && (
+        <span className="text-muted-foreground shrink-0 text-xs">{badge}</span>
+      )}
     </CommandItem>
   )
 }
@@ -54,20 +95,24 @@ function ResultItem({
 function ResultGroup({
   group,
   kindLabels,
+  tableLabels,
   onSelect,
 }: {
   readonly group: AdminSearchGroup
   readonly kindLabels: Readonly<Record<string, string>> | undefined
+  readonly tableLabels: Readonly<Record<string, string>> | undefined
   readonly onSelect: (href: string) => void
 }): ReactElement {
   const badge = resultBadge(group.type)
   return (
     <CommandGroup heading={groupLabel(group.type, kindLabels)}>
-      {group.results.map((result) => (
+      {group.results.map((result, index) => (
         <ResultItem
-          key={`${result.type}:${result.entityId}`}
+          key={rowKeyOf(result, index)}
+          rowKey={rowKeyOf(result, index)}
           result={result}
           badge={badge}
+          table={tableLabelOf(result, tableLabels)}
           onSelect={onSelect}
         />
       ))}
@@ -102,26 +147,36 @@ export function SearchResults({
   query,
   search,
   kindLabels,
+  tableLabels,
+  words,
   onSelect,
 }: {
   readonly query: string
   readonly search: SearchState
   readonly kindLabels: Readonly<Record<string, string>> | undefined
+  readonly tableLabels: Readonly<Record<string, string>> | undefined
+  /** The palette's words in the page language (`startTyping`, `searching`, `noResultsFor`). */
+  readonly words?: Readonly<Record<string, string | undefined>> | undefined
   readonly onSelect: (href: string) => void
 }): ReactElement {
   const trimmed = query.trim()
+  const word = (key: string, english: string): string => words?.[key] ?? english
   if (trimmed.length === 0) {
     return (
       <StateLine>
-        Start typing to search records, submissions, files, automations and users.
+        {word(
+          'startTyping',
+          'Start typing to search records, submissions, files, automations and users.'
+        )}
       </StateLine>
     )
   }
   if (search.loading || search.resolvedQuery !== trimmed) {
-    return <StateLine status>Searching…</StateLine>
+    return <StateLine status>{word('searching', 'Searching…')}</StateLine>
   }
   if (search.groups.length === 0) {
-    return <StateLine status>{`No results for “${trimmed}”`}</StateLine>
+    const none = word('noResultsFor', 'No results for “{query}”')
+    return <StateLine status>{none.split('{query}').join(trimmed)}</StateLine>
   }
   return (
     <>
@@ -130,6 +185,7 @@ export function SearchResults({
           key={group.type}
           group={group}
           kindLabels={kindLabels}
+          tableLabels={tableLabels}
           onSelect={onSelect}
         />
       ))}

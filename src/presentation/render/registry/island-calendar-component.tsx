@@ -9,7 +9,7 @@ import { computeCalendarToolbarClasses } from '@/presentation/design/calendar-de
 import { declaredCalendarPartClasses } from '@/presentation/design/calendar-part-class-resolution'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
 import { calendarDayFloorAttributes } from './calendar-day-floor'
-import { renderComponentSearchBar } from './component-search-bar'
+import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
 
@@ -41,7 +41,8 @@ function extractCalendarProps(
     maxEventsPerDay: elementProps.maxEventsPerDay,
     calendarEvent: elementProps.calendarEvent,
     calendarInteraction: elementProps.calendarInteraction,
-    search: elementProps.search,
+    // The channel the calendar publishes the event a reader selects on.
+    publishes: elementProps.publishes,
   }
 }
 
@@ -65,11 +66,12 @@ const BONE = 'bg-muted animate-pulse rounded-md'
  * `[class*="header"], h2, [class*="title"]` and `.first()`, so a class named
  * that way here would capture the heading locator for the whole Suspense window.
  */
-function renderCalendarSkeleton(): ReactElement {
+function renderCalendarSkeleton(label: string): ReactElement {
   return (
     <div
       className="w-full"
-      aria-label="Loading calendar..."
+      data-loading-status=""
+      aria-label={label}
       role="status"
     >
       <div className={computeCalendarToolbarClasses()}>
@@ -121,11 +123,15 @@ const calendarView = (defaultView: unknown): string =>
  */
 export const islandCalendarComponent: ComponentRenderer = ({
   elementProps,
+  designStyles,
   currentLang,
   languages,
-  designStyles,
 }) => {
-  const islandProps = extractCalendarProps(elementProps, designStyles?.parts)
+  const loading = islandLoadingLabel('calendar.loading', currentLang, languages)
+  const islandProps = {
+    ...extractCalendarProps(elementProps, designStyles?.parts),
+    uiStrings: islandUiStrings('calendar', currentLang, languages),
+  }
   const propsJson = JSON.stringify(islandProps)
 
   return (
@@ -137,8 +143,7 @@ export const islandCalendarComponent: ComponentRenderer = ({
       className={hostClassName(elementProps)}
       {...calendarDayFloorAttributes(elementProps.dayMinHeight)}
     >
-      {renderComponentSearchBar(elementProps.search, { currentLang, languages })}
-      {renderCalendarSkeleton()}
+      {renderCalendarSkeleton(loading.status)}
     </div>
   )
 }

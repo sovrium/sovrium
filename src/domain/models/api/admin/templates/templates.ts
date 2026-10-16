@@ -29,6 +29,10 @@ const TEMPLATE_PREVIEW_KINDS = ['html', 'svg', 'text', 'email', 'none'] as const
 /** One template asset, as the console lists it. */
 export const adminTemplateSchema = Schema.Struct({
   path: Schema.String.annotate({ description: 'Asset path, as declared in `assets`' }),
+  previewPath: Schema.String.annotate({
+    description:
+      "The path to address the template's preview by: relative to the `templates/` directory when the asset lives there (`templates/invoice.html` reads `invoice.html`), otherwise the declared path unchanged — and the declared path too when another asset declares that short name, so a preview path always opens its own template. The preview route accepts it as well as the declared path, an exact declared path winning",
+  }),
   kind: Schema.Literals(['html', 'svg', 'partial', 'text', 'docx', 'xlsx', 'pptx']).annotate({
     description: 'What the template is',
   }),
@@ -56,7 +60,13 @@ export const adminTemplatesResponseSchema = Schema.Struct({
 /** @public */
 export type AdminTemplatesResponse = Schema.Schema.Type<typeof adminTemplatesResponseSchema>
 
-/** `GET /api/admin/templates/preview?path=…` */
+/**
+ * `GET /api/admin/templates/preview?path=…`
+ *
+ * `path` is a declared asset path or a listed `previewPath`; an exact declared
+ * path wins when both name a template. `path` in the response is always the
+ * declared one.
+ */
 export const adminTemplatePreviewResponseSchema = Schema.Struct({
   path: Schema.String.annotate({ description: 'Asset path of the previewed template' }),
   rendersAs: Schema.Literals(TEMPLATE_PREVIEW_KINDS).annotate({

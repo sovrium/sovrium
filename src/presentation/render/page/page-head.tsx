@@ -28,6 +28,7 @@ import {
   renderInlineScriptTag,
   renderScriptTag,
 } from '@/presentation/render/scripts/script-renderers'
+import { GoogleFonts, SansFontPreload, ThemeFonts } from './page-head-fonts'
 import { HeadAlternateLinks } from './page-head-seo'
 import { ThemeColorSchemeScript } from './theme-color-scheme-script'
 import type { GroupedScripts } from './page-scripts'
@@ -169,27 +170,6 @@ function BasicMetaTags({
 }
 
 /**
- * Renders font stylesheets from design configuration
- */
-function ThemeFonts({ design }: { readonly design: Design | undefined }): ReactElement | undefined {
-  if (!design?.typeScale?.families) return undefined
-
-  return (
-    <>
-      {Object.values(design.typeScale?.families).map((font, index) =>
-        font.url ? (
-          <link
-            key={`font-${index}`}
-            rel="stylesheet"
-            href={font.url}
-          />
-        ) : undefined
-      )}
-    </>
-  )
-}
-
-/**
  * Renders custom stylesheet link from meta.stylesheet
  */
 function CustomStylesheet({
@@ -204,36 +184,6 @@ function CustomStylesheet({
       rel="stylesheet"
       href={stylesheet}
     />
-  )
-}
-
-/**
- * Renders Google Fonts with performance optimizations
- * Includes preconnect hints for fonts.googleapis.com and fonts.gstatic.com
- */
-function GoogleFonts({
-  googleFonts,
-}: {
-  readonly googleFonts: string | undefined
-}): ReactElement | undefined {
-  if (!googleFonts) return undefined
-
-  return (
-    <>
-      <link
-        rel="preconnect"
-        href="https://fonts.googleapis.com"
-      />
-      <link
-        rel="preconnect"
-        href="https://fonts.gstatic.com"
-        crossOrigin="anonymous"
-      />
-      <link
-        rel="stylesheet"
-        href={googleFonts}
-      />
-    </>
   )
 }
 
@@ -389,6 +339,7 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
       <CustomStylesheet stylesheet={page.meta?.stylesheet} />
       <GoogleFonts googleFonts={page.meta?.googleFonts} />
       <ThemeFonts design={design} />
+      <SansFontPreload design={design} />
       <GlobalStyles
         directionStyles={directionStyles}
         cssHref={props.cssHref}

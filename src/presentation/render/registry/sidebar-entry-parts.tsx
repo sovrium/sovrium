@@ -90,6 +90,24 @@ export function renderBadge(
       </span>
     )
   }
+  if (badge.variant === 'destructive') {
+    // A count of failures is drawn only when there IS one, so the host is a
+    // bare box the island fills with the badge itself — or leaves empty at 0.
+    return (
+      <span
+        aria-hidden="true"
+        className="contents"
+        data-sidebar-badge-variant="destructive"
+        data-island="sidebar-badge"
+        data-island-props={JSON.stringify({
+          endpoint: badge.endpoint,
+          valuePath: badge.valuePath ?? 'total',
+          variant: 'destructive',
+          ...(part === undefined ? {} : { part }),
+        })}
+      />
+    )
+  }
   return (
     <span
       aria-hidden="true"

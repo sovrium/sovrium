@@ -48,6 +48,7 @@ interface ChartTableSource {
 type ChartDataSourceProp = ChartTableSource | { readonly system: ChartSystemSource }
 
 interface ChartIslandProps {
+  readonly uiStrings?: Readonly<Record<string, string>>
   readonly dataSource?: ChartDataSourceProp
   readonly chartType?: ChartType
   readonly xAxis?: ChartAxisConfig
@@ -100,11 +101,6 @@ interface ChartGuardResult {
 }
 
 /**
- * Walks the early-exit ladder (missing table -> loading -> error -> empty ->
- * missing axes). Returning `element` short-circuits rendering. Pulling the
- * guards out keeps the parent component below the cyclomatic-complexity cap.
- */
-/**
  * True when the chart still needs explicit `xAxis`/`yAxis` field bindings.
  * Charts with a `chartAggregate` derive both axes from the aggregate config
  * (`groupBy` -> X, aggregated value -> Y), and charts that declare a `series`
@@ -129,6 +125,7 @@ function isSystemSource(
   return Boolean(dataSource && 'system' in dataSource && dataSource.system)
 }
 
+/** The early-exit ladder: an `element` short-circuits rendering (keeps the parent simple). */
 function evaluateChartGuards(args: {
   readonly dataSource: ChartIslandProps['dataSource']
   readonly xAxis: ChartIslandProps['xAxis']
@@ -138,6 +135,7 @@ function evaluateChartGuards(args: {
   readonly emptyMessage: string | undefined
   readonly emptyState: ChartIslandProps['emptyState']
   readonly isLoading: boolean
+  readonly strings: ChartIslandProps['uiStrings']
   readonly isError: boolean
   readonly error: unknown
   readonly records: readonly unknown[]
@@ -145,19 +143,19 @@ function evaluateChartGuards(args: {
   // A system source has no declared table — the `app.tables` cross-validation /
   // missing-table guard is SKIPPED entirely; rows come from the endpoint instead.
   const hasTable = isSystemSource(args.dataSource) || Boolean(args.dataSource?.table)
-  if (!hasTable) return { element: <ChartMissingTable /> }
-  if (args.isLoading) return { element: <ChartLoading /> }
-  if (args.isError) return { element: <ChartError error={args.error} /> }
+  if (!hasTable) return { element: <ChartMissingTable {...args} /> }
+  if (args.isLoading) return { element: <ChartLoading {...args} /> }
+  if (args.isError) return { element: <ChartError {...args} /> }
   if (args.records.length === 0)
     return {
       element: (
         <ChartEmpty
+          {...args}
           message={args.emptyMessage}
-          emptyState={args.emptyState}
         />
       ),
     }
-  if (isMissingAxes(args)) return { element: <ChartMissingAxes /> }
+  if (isMissingAxes(args)) return { element: <ChartMissingAxes {...args} /> }
   return {}
 }
 
@@ -207,10 +205,11 @@ export default function ChartIsland({
   valueCurrency,
   aggregateRead,
   dataLabels,
+  uiStrings,
 }: ChartIslandProps): ReactElement {
   // Grouped by the database when the server says the read can answer it.
   // A view-bound chart reads the view's records, whatever the server resolved.
-  const viewBound = typeof (dataSource as { readonly view?: unknown }).view === 'string'
+  const viewBound = typeof (dataSource as ChartTableSource | undefined)?.view === 'string'
   const readAggregate = aggregateRead === true && !viewBound ? chartAggregate : undefined
   const { records, isLoading, isError, error } = useChartData(dataSource, readAggregate)
   const fields = useMemo(
@@ -227,6 +226,7 @@ export default function ChartIsland({
     emptyMessage,
     emptyState,
     isLoading,
+    strings: uiStrings,
     isError,
     error,
     records,

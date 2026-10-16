@@ -11,6 +11,7 @@ import {
   resolveInterpreterStringOverrides,
   resolveTranslationPattern,
 } from '@/domain/models/app/languages/translation-resolver'
+import { tableLabel } from '@/domain/models/app/tables/table-display-name-service'
 import { computeFormLayoutClasses } from '../../../design/forms-default-classes'
 import { resolveClasses } from '../../../design/resolve-classes'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
@@ -62,7 +63,7 @@ function formUiStrings(
 ): Readonly<Record<string, string>> | undefined {
   const { lang, languages } = context
   return resolveInterpreterStringOverrides(
-    ['form.', 'action.running'],
+    ['form.', 'action.', 'rateLimit.'],
     lang ?? languages?.default,
     languages
   )
@@ -167,13 +168,16 @@ export function renderCrudUpdateForm(
 ): ReactElement {
   const record = (props._record ?? {}) as Record<string, unknown>
   const isReadOnly = props._readOnly === true
+  const table = tables?.find((t) => t.name === action.table)
   const resolvedFields = updateFieldDefsForReader(
     readableFieldDefs(
       buildResolvedFieldDefs(tables, action.table, component, buckets),
       props._unreadableFields
     ),
-    { table: tables?.find((t) => t.name === action.table), component, readOnly: isReadOnly }
+    { table, component, readOnly: isReadOnly }
   )
+  // The form is named after ONE record's table, as its people read it.
+  const formName = `Edit ${tableLabel(table ?? { name: action.table }, (text) => localize(text, context))}`
   const rawFields = applyCrudFieldOverrides(resolvedFields, action.fields, context)
   const submitBtn = readSubmitButtonProps(action, context, component)
   const restProps = omitInternalMarkers(props) as Record<string, unknown>
@@ -202,6 +206,7 @@ export function renderCrudUpdateForm(
     sections,
     autoSave: readAutoSaveConfig(component),
     uiStrings: formUiStrings(context),
+    formName,
   })
   const formAction = buildUpdateFormAction(action.table, recordId)
 
@@ -212,7 +217,7 @@ export function renderCrudUpdateForm(
       data-island-props={islandProps}
     >
       <form
-        aria-label={`Edit ${action.table}`}
+        aria-label={formName}
         {...formNames(restProps as ElementProps)}
         method="POST"
         action={formAction}

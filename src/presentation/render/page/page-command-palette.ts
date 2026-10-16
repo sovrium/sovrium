@@ -14,6 +14,7 @@
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
 import { findDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
+import { tableLabelPlural } from '@/domain/models/app/tables/table-display-name-service'
 import {
   unreadableTableFields,
   unreadableTables,
@@ -181,4 +182,64 @@ export const withNavigablePages = (
       ...node,
       children: withNavigablePages(node.children, synthesized, app, session),
     } as Component
+  })
+
+/** What naming a search palette's tables needs to know about the render. */
+interface SearchLabelContext {
+  readonly hostApp: App
+  readonly session: SessionInfo | undefined
+  /** True on a mounted surface (the console), rendering another app's data. */
+  readonly mounted: boolean
+}
+
+/**
+ * Each table of `hostApp` this caller may read, named by its plural label in
+ * `lang` — what a SEARCH palette prints before a record row's title, so two
+ * records of two tables never read alike.
+ *
+ * On a mounted surface (the operator console) `hostApp` is the operator's app,
+ * whose tables the console's own config does not hold, and the page pass runs
+ * without the caller's session: the mount admits only the operators it serves,
+ * so every table is named. On an app's own page the caller's read rights
+ * decide, as they do for every other name the palette carries.
+ */
+const searchTableLabels = (
+  context: SearchLabelContext,
+  lang: string
+): Readonly<Record<string, string>> => {
+  const { hostApp, session, mounted } = context
+  const hidden = mounted ? [] : unreadableTables(hostApp, session)
+  const translate = (text: string) => resolveTranslationPattern(text, lang, hostApp.languages)
+  return Object.fromEntries(
+    (hostApp.tables ?? [])
+      .filter((table) => !hidden.includes(table.name))
+      .map((table) => [table.name, tableLabelPlural(table, translate)])
+  )
+}
+
+/**
+ * Stamp every SEARCH-mode palette with the readable tables' plural labels
+ * (`props._tableLabels`), at any depth. A palette in any other mode is left
+ * alone. Runs whether or not the app appends its own palette: a console that
+ * opts out of the appended one still declares its search palette.
+ */
+export const withSearchTableLabels = (
+  items: ReadonlyArray<Component | string>,
+  context: SearchLabelContext & { readonly lang: string }
+): ReadonlyArray<Component | string> =>
+  items.map((item) => {
+    if (typeof item === 'string') return item
+    if ('component' in item || '$ref' in item) return item
+    const node = item as Component & {
+      readonly search?: unknown
+      readonly props?: Record<string, unknown>
+      readonly children?: ReadonlyArray<Component | string>
+    }
+    if (node.type === 'command') {
+      if (node.search === undefined && node.props?.['adminSearch'] !== true) return item
+      const _tableLabels = searchTableLabels(context, context.lang)
+      return { ...node, props: { ...node.props, _tableLabels } } as Component
+    }
+    if (node.children === undefined) return item
+    return { ...node, children: withSearchTableLabels(node.children, context) } as Component
   })

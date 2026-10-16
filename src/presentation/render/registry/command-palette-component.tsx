@@ -6,10 +6,11 @@
  */
 
 import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import {
-  resolveInterpreterString,
-  resolveTranslationPattern,
-} from '@/domain/models/app/languages/translation-resolver'
+  resolvedTableLabels,
+  type TableDisplayNames,
+} from '@/domain/models/app/tables/table-display-name-service'
 import {
   COMMAND_GROUP_CLASSES,
   COMMAND_INPUT_CLASSES,
@@ -19,7 +20,13 @@ import {
   COMMAND_LIST_CLASSES,
   COMMAND_ROOT_CLASSES,
 } from '@/presentation/design/command-default-classes'
-import { renderAuthoredGroups } from './command-groups-host'
+import { authoredGroupsOf, renderAuthoredGroups } from './command-groups-host'
+import {
+  paletteHints,
+  paletteStrings,
+  tableLabelsOf,
+  type PaletteHints,
+} from './command-palette-words'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
 
@@ -35,8 +42,7 @@ const TEXT_FIELD_TYPES = new Set([
 ])
 
 /** Minimal table shape consumed by the quick-action creation dialogs. */
-interface PaletteTable {
-  readonly name: string
+interface PaletteTable extends TableDisplayNames {
   readonly fields?: ReadonlyArray<{
     readonly name: string
     readonly type: string
@@ -73,20 +79,25 @@ const ADMIN_SEARCH: PaletteSearch = { endpoint: '/api/admin/search' }
 
 /**
  * SEARCH mode: point ⌘K at a read endpoint instead of at the built-in quick
- * actions.
- *
- * Two things travel to the client and nothing else: the canonical
- * `data-command-palette-config` marker (so the page advertises exactly one
- * palette) carrying the declared binding, and the `command` island that hosts
- * the overlay, mounted with the page so the console's search is ready at once.
- *
- * The built-in quick-action payload is deliberately omitted: one ⌘K opens one
- * palette, which is why `search` is a MODE rather than an addition.
+ * actions. The `data-command-palette-config` marker carries the binding, and
+ * the `command` island mounts with the page carrying the authored `groups` it
+ * draws above the results — already gated, so a row a gate removed is in
+ * neither. The built-in quick actions are omitted: `search` is a MODE.
  */
-function renderSearchPalette(search: PaletteSearch): ReactElement {
+function renderSearchPalette(
+  search: PaletteSearch,
+  words: {
+    readonly hints: PaletteHints
+    readonly tableLabels: Readonly<Record<string, string>>
+    readonly groups: ReturnType<typeof authoredGroupsOf>
+  }
+): ReactElement {
   const configJson = serializeJsonForScript({ search })
   const islandProps = serializeJsonForScript({
     endpoint: search.endpoint,
+    hints: words.hints,
+    tableLabels: words.tableLabels,
+    ...(words.groups === undefined ? {} : { groups: words.groups }),
     ...(search.placeholder !== undefined ? { placeholder: search.placeholder } : {}),
     ...(search.kindLabels !== undefined ? { kindLabels: search.kindLabels } : {}),
   })
@@ -124,11 +135,11 @@ interface QuickAction {
  * instead of the palette.
  */
 const specimenQuickActions = (
-  tables: ReadonlyArray<{ readonly name: string }>,
+  tables: ReadonlyArray<{ readonly name: string; readonly labelPlural: string }>,
   pages: ReadonlyArray<PalettePage>
 ): readonly QuickAction[] => [
   ...tables.map((table) => ({
-    label: `Create new record in ${table.name}`,
+    label: `Create new record in ${table.labelPlural}`,
     action: `create-record:${table.name}`,
   })),
   ...pages.map((page) => ({
@@ -198,7 +209,7 @@ function renderSpecimenActionGroup(actions: readonly QuickAction[]): ReactElemen
  * nothing to offer.
  */
 function renderSpecimenOverlay(
-  tables: ReadonlyArray<{ readonly name: string }>,
+  tables: ReadonlyArray<{ readonly name: string; readonly labelPlural: string }>,
   pages: ReadonlyArray<PalettePage>,
   query: string
 ): ReactElement {
@@ -300,9 +311,9 @@ const unreadableTablesOf = (component: ComponentDispatchConfig['component']): re
 }
 
 /**
- * The tables the create dialogs offer — only those the reader may read — each
- * with its text columns, only those the reader may read. A control is labelled as the hosted form labels it: by
- * the column's label in the page language, its name when it has none.
+ * The tables the create dialogs offer — those the reader may read — each named
+ * in the page language, with its readable text columns labelled as the hosted
+ * form labels them: by the column's label, its name when it has none.
  */
 const paletteTables = (config: ComponentDispatchConfig) => {
   const lang = config.currentLang ?? config.languages?.default ?? ''
@@ -311,8 +322,10 @@ const paletteTables = (config: ComponentDispatchConfig) => {
   const readable = ((config.tables ?? []) as ReadonlyArray<PaletteTable>).filter(
     (table) => !hiddenTables.includes(table.name)
   )
+  const translate = (text: string) => resolveTranslationPattern(text, lang, config.languages)
   return readable.map((table) => ({
     name: table.name,
+    ...resolvedTableLabels(table, translate),
     fields: (table.fields ?? [])
       .filter((field) => TEXT_FIELD_TYPES.has(field.type))
       .filter((field) => !(unreadable[table.name] ?? []).includes(field.name))
@@ -323,20 +336,6 @@ const paletteTables = (config: ComponentDispatchConfig) => {
         }),
       })),
   }))
-}
-
-/**
- * The create dialog's own words in the page language, stamped into the inline
- * runtime's config as the confirm gate's labels are. `{table}` is filled there.
- */
-const paletteStrings = (config: ComponentDispatchConfig): Readonly<Record<string, string>> => {
-  const resolve = (key: string) =>
-    resolveInterpreterString(key, config.currentLang ?? config.languages?.default, config.languages)
-  return {
-    createTitle: resolve('commandPalette.createTitle'),
-    create: resolve('commandPalette.create'),
-    cancel: resolve('commandPalette.cancel'),
-  }
 }
 
 /**
@@ -357,17 +356,22 @@ export const commandPaletteComponent: ComponentRenderer = (
   const search = resolveSearchMode(config.component)
   const specimenQuery = specimenQueryOf(config.component)
   if (search !== undefined && specimenQuery === undefined) {
-    return renderSearchPalette(search)
+    return renderSearchPalette(search, {
+      hints: paletteHints(config),
+      tableLabels: tableLabelsOf(config.component),
+      groups: authoredGroupsOf(config),
+    })
   }
 
-  const authored = specimenQuery === undefined ? renderAuthoredGroups(config) : undefined
+  const authored =
+    specimenQuery === undefined ? renderAuthoredGroups(config, paletteHints(config)) : undefined
   if (authored !== undefined) return authored
   const tables = paletteTables(config)
   const componentProps = (config.component?.props ?? {}) as { readonly pages?: PalettePage[] }
   const pages = Array.isArray(componentProps.pages) ? componentProps.pages : []
   if (specimenQuery !== undefined) return renderSpecimenOverlay(tables, pages, specimenQuery)
   const paletteConfig = {
-    tables: tables.map((table) => ({ name: table.name, fields: table.fields })),
+    tables,
     pages: pages.map((page) => ({ name: page.name, path: page.path, title: page.title })),
     strings: paletteStrings(config),
   }
@@ -385,7 +389,7 @@ export const commandPaletteComponent: ComponentRenderer = (
       <div
         data-island-deferred="command"
         data-component-type="command"
-        data-island-props="{}"
+        data-island-props={serializeJsonForScript({ hints: paletteHints(config) })}
         className="hidden"
       >
         <span className="sr-only" />

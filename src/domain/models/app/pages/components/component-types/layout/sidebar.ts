@@ -8,9 +8,11 @@
 import { Schema } from 'effect'
 import { ComponentPropsSchema } from '../../props'
 import { SystemSourceSchema } from '../../system-source'
+import { CallerCapabilitySchema } from '../../visibility'
 import { coreFields } from '../modules/core'
 import { responsiveFields } from '../modules/responsive'
 import { visibilityFields } from '../modules/visibility'
+import { SidebarBadgeSourceSchema } from './sidebar-badge-source'
 import {
   SidebarActionSchema,
   SidebarSourceLoadingSchema,
@@ -18,55 +20,6 @@ import {
 } from './sidebar-shell'
 
 export const SidebarTypeLiteral = Schema.Literal('sidebar')
-
-/**
- * A live count beside a sidebar entry, fetched from a read endpoint.
- *
- * The alternative — a literal `badge: '12'` — is the other branch of
- * {@link SidebarNavItemSchema}'s `badge`. It is right for a static marker
- * ("Beta", "New") and wrong for a count, which is stale the moment the config
- * is written.
- *
- * `valuePath` is a dot path into the response envelope, so the same endpoint a
- * `table` already binds to can also feed the badge beside its own nav
- * entry — one endpoint, not two.
- *
- * Both fields' `examples` name REAL routes and envelope keys: an example is
- * the first thing an author copies.
- */
-export const SidebarBadgeSourceSchema = Schema.Struct({
-  /** Read endpoint whose response carries the count */
-  endpoint: Schema.String.pipe(
-    Schema.annotate({
-      description: 'Read endpoint whose response carries the badge count',
-      examples: ['/api/admin/tables/overview', '/api/admin/automations/runs'],
-    }),
-    Schema.check(
-      Schema.isMinLength(1),
-      Schema.isPattern(/^\//, {
-        message:
-          'sidebar badge endpoint must be a path starting with / — the badge reads this instance, never another origin',
-      })
-    )
-  ),
-  /** Dot path to the count within the response envelope (default: `total`) */
-  valuePath: Schema.optional(
-    Schema.String.pipe(
-      Schema.annotate({
-        description: "Dot path to the count in the response envelope (default: 'total')",
-        examples: ['total', 'totals.tables', 'summary.failed'],
-      }),
-      Schema.check(Schema.isMinLength(1))
-    )
-  ),
-}).annotate({
-  identifier: 'SidebarBadgeSource',
-  title: 'Sidebar Badge Source',
-  description: 'Read endpoint and value path feeding a live count beside a sidebar entry',
-})
-
-/** @public */
-export type SidebarBadgeSource = Schema.Schema.Type<typeof SidebarBadgeSourceSchema>
 
 /**
  * Extra attributes rendered onto one sidebar element.
@@ -250,6 +203,11 @@ const sidebarEntryFields = {
   ),
   props: sidebarPropsField,
   showWhen: sidebarShowWhenField,
+  /**
+   * Caller power this entry requires; absent, subtree included, for anyone else.
+   * Same set and SSR exclusion as `visibility.capability`; ANDed with `showWhen`.
+   */
+  capability: Schema.optional(CallerCapabilitySchema),
 } as const
 
 /**
@@ -526,9 +484,7 @@ export type SidebarItemSource = Schema.Schema.Type<typeof SidebarItemSourceSchem
  * anywhere inside the section, and a chevron beside it that opens the list. A
  * reader who clicks the label lands on a page they did not ask for and watches
  * the list open underneath as a side effect; a reader who wants the list has to
- * find the 16px target on the right. Sovrium's own design-system console is the
- * worked case: every kit category header navigated back to the page the reader
- * was already on, and took a selected fill for doing it.
+ * find the 16px target on the right.
  *
  * So the entry is a toggle when it has no destination, and the toggle is the
  * WHOLE row rather than a control beside a link. Two consequences follow, and
@@ -542,10 +498,6 @@ export type SidebarItemSource = Schema.Schema.Type<typeof SidebarItemSourceSchem
  *     the small chevron BESIDE a link, where "Data" alone would not say what
  *     the control does; a row whose visible text is the name needs no second
  *     one, and an `aria-label` there would shadow the words on the screen.
- *
- * Declaring `href` keeps every one of today's renderings byte for byte: the
- * label stays a link, the chevron stays beside it, and the current mark still
- * lands. This is an option, not a new default.
  */
 export const SidebarNavItemSchema = Schema.Struct({
   ...sidebarEntryFields,
@@ -747,6 +699,33 @@ export const SidebarGroupSchema = Schema.Struct({
   source: Schema.optional(SidebarGroupSourceSchema),
   /** A small icon control in the heading row (shadcn/ui's SidebarGroupAction). */
   action: Schema.optional(SidebarActionSchema),
+  /**
+   * Fold the group behind its own label — shadcn/ui's "collapsible sidebar
+   * group": a `SidebarGroup` inside a `Collapsible`, whose `SidebarGroupLabel`
+   * is the trigger.
+   *
+   * A sidebar that lists every destination of a large app does not fit a
+   * laptop screen, and shrinking every row until it does trades legibility for
+   * a scrollbar. Folding is the other answer, and it is only honest if what is
+   * folded away cannot be something the reader needed to see. So the open
+   * state is DERIVED, never stored:
+   *
+   *   - the group holding the CURRENT entry is open, so "where am I" is always
+   *     answered on screen;
+   *   - a group holding a non-zero `destructive` badge is open, so a failure is
+   *     never folded away on arrival;
+   *   - every other group is shut, its label a `button` with `aria-expanded`.
+   *
+   * The reader may open or shut any group; a shut group that holds a
+   * destructive count repeats it beside its label. Requires a `label`: the
+   * label IS the control, and a group with none has nothing to press.
+   */
+  collapsible: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Fold the group behind its label: shut by default, open while it holds the current entry or a non-zero destructive badge (default: false)',
+    })
+  ),
 }).annotate({
   identifier: 'SidebarGroup',
   title: 'Sidebar Group',

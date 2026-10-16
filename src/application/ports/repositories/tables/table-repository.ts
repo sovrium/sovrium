@@ -6,12 +6,12 @@
  */
 
 import { Context, type Effect } from 'effect'
+import type { RecordWriteExtras, UpdateRecordFailure } from './record-write-accounts'
 import type { TableFileReferences } from './table-file-references'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type {
   ForeignKeyViolationError,
   DatabaseError,
-  StaleWriteError,
   UniqueConstraintViolationError,
 } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
@@ -275,15 +275,12 @@ export class TableRepository extends Context.Service<
       includeDeleted?: boolean
     ) => Effect.Effect<Record<string, unknown> | null, DatabaseError>
 
-    /**
-     * Insert a record and the many-to-many `links` it names, in ONE transaction:
-     * when any link is refused, the record is not kept either.
-     */
+    /** Insert a record, its many-to-many `links` and its `accounts` in ONE transaction. */
     readonly createRecord: (
       session: Readonly<UserSession>,
       tableName: string,
       fields: Readonly<Record<string, unknown>>,
-      links?: readonly RecordLinkWrite[]
+      written?: RecordWriteExtras<RecordLinkWrite>
     ) => Effect.Effect<
       Record<string, unknown>,
       DatabaseError | UniqueConstraintViolationError | ForeignKeyViolationError
@@ -311,8 +308,9 @@ export class TableRepository extends Context.Service<
         readonly unlinks?: readonly RecordLinkWrite[]
         readonly expectedUpdatedAt?: string
         readonly auditContext?: Readonly<Record<string, string>>
+        readonly accounts?: RecordWriteExtras<RecordLinkWrite>['accounts']
       }
-    ) => Effect.Effect<Record<string, unknown>, DatabaseError | StaleWriteError>
+    ) => Effect.Effect<Record<string, unknown>, UpdateRecordFailure>
 
     readonly deleteRecord: (
       session: Readonly<UserSession>,

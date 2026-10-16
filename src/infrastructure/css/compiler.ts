@@ -7,19 +7,16 @@
 
 import { Effect } from 'effect'
 import {
-  getCSSCacheKey,
   getOrComputeCachedCSS,
   loadPrecompiledCSS,
+  warnStalePrecompiledOnce,
   type CompiledCSS,
 } from '@/infrastructure/css/cache/css-cache-service'
 import {
   designCacheKey,
   EMPTY_DESIGN_CACHE_KEY,
 } from '@/infrastructure/css/cache/design-cache-keys'
-import {
-  designSystemScopeKey,
-  getDesignSystemScope,
-} from '@/infrastructure/css/design-system-scope'
+import { getDesignSystemScope } from '@/infrastructure/css/design-system-scope'
 import {
   appAddsCandidatesBeyondBuiltin,
   compileCSSNativeFree,
@@ -32,6 +29,7 @@ import { logDebug, logError, logWarning } from '@/infrastructure/logging/logger'
 import { isDevCacheDisabled, isProduction as checkIsProduction } from '@/infrastructure/process/env'
 import { isCompiled, SOVRIUM_PACKAGE_ROOT } from '@/infrastructure/process/package-paths'
 import { buildSourceCSS } from './source-css'
+import { cssCompileKey, precompiledStampOf } from './versioned-css-path'
 import type { App } from '@/domain/models/app'
 import type { AcceptedPlugin, Result as PostcssResult } from 'postcss'
 
@@ -133,47 +131,59 @@ const logCompilationError = (error: unknown): CSSCompilationError => {
 const isProduction = checkIsProduction()
 
 /**
- * Whether the test-server pre-compiled CSS file (`SOVRIUM_CSS_FILE`) may be
- * served for this app instead of compiling per-app.
+ * Whether the GENERIC pre-compiled file — built by `compileCSSRaw()` with NO
+ * app, holding the builtin candidate set under the default design, as the test
+ * harness writes it once per run — is a sound substitute for this app's own
+ * compile. {@link acceptsPrecompiledStamp} asks this only of a file carrying
+ * the generic stamp; a file stamped with the app's OWN hash needs no shape
+ * test, the stamp already says the bytes are its.
  *
- * That file is built by `compileCSSRaw()` with NO app — it holds the builtin
- * candidate set only. Reusing it is sound ONLY when:
- *  - the app declares no CSS-bearing `design` key (the file is the default CSS), AND
- *  - the app authors no class beyond the builtin set; otherwise classes the
- *    build-time scan never saw (e.g. `max-w-6xl` or arbitrary `grid-cols-[…]`
- *    from a spec/operator fixture — the scan covers `src`+`examples`, not
- * `[internal ref]`) would be silently dropped from the served CSS, breaking layout.
+ * The generic compile IS this app's compile only when:
+ *  - the app declares no CSS-bearing `design` key — ONE clause through the
+ *    cache key, which enumerates every CSS-bearing key for its own reasons and
+ *    so cannot fall behind the schema the way a hand-listed predicate does; AND
+ *  - it carries no scoped design system: the `/_admin` console emits a whole
+ *    extra token layer the app-agnostic file cannot contain, and served that
+ *    file the operator's scope would resolve NOTHING — the half-themed failure
+ *    the scoped layer exists to prevent; AND
+ *  - it authors no class beyond the builtin set; otherwise classes the
+ *    build-time scan never saw (`max-w-6xl`, an arbitrary `grid-cols-[…]` from
+ *    a spec fixture) would be silently dropped from the served CSS.
  *
- * `ECO_DESIGN_LAYER` is NOT consulted here: the pre-compiled file is built in
- * the default (`on`) context, so serving it under `off` would leak the override
- * surface and break the with≡without parity contract (the prestyled-islands rule,
- * contract-without-theme-layer.spec.ts) for apps that widen the candidate set.
- * Layer-off now compiles per-app like layer-on (`buildDefaultLayer` still emits
- * the `@theme` registrations under `off`, so `@apply` resolves), so the
- * candidate-set check is the only gate that matters in both layer states.
+ * `ECO_DESIGN_LAYER` is NOT consulted: the file is built in the default (`on`)
+ * context and layer-off compiles per-app like layer-on (`buildDefaultLayer`
+ * still emits the `@theme` registrations under `off`), so the candidate-set
+ * check is the only gate that matters in both layer states.
  *
- * Exported for its co-located test only. Every clause here is the difference
- * between an authored design key TAKING EFFECT and being silently inert, and
- * that is worth asserting directly rather than inferring from a compiled
- * stylesheet — reaching it through `compileCSS` needs `SOVRIUM_CSS_FILE`, a
- * sentinel file on disk, and a cache key nothing earlier in the suite has
- * already populated.
+ * Exported for its co-located test: every clause is the difference between an
+ * authored design key TAKING EFFECT and being silently inert.
  */
 export const canServePrecompiledFile = (app?: App): boolean =>
-  // ONE clause covers every declared token, rather than a clause per key
-  // (`app.design === undefined`, `typeScale`, `density`, `components`, …), which
-  // falls behind the schema each time a key ships. The cache key already
-  // enumerates every CSS-bearing key for its own reasons, so asking it whether
-  // anything is declared cannot fall behind the way a hand-listed predicate does.
   designCacheKey(app?.design) === EMPTY_DESIGN_CACHE_KEY &&
-  // A SCOPED design system (the `/_admin` design-system console) emits a whole
-  // extra token layer that the app-agnostic pre-compiled file cannot contain.
-  // Without this clause the console — which declares no design of its own and
-  // may add no candidate beyond builtin — would be served that file and the
-  // operator's scope would resolve NOTHING, which is precisely the
-  // half-themed failure the scoped layer exists to prevent.
   getDesignSystemScope(app) === undefined &&
   !appAddsCandidatesBeyondBuiltin(app)
+
+/**
+ * Whether a pre-compiled file carrying `stamp` as its first line was built by
+ * THIS engine for THIS app, and may be served in place of a compile.
+ *
+ * Two stamps are accepted: the app's own ({@link precompiledStampOf}), which
+ * `sovrium build` writes; and the generic, app-free one, which the test
+ * harness writes once for every zero-config server — sound only where
+ * {@link canServePrecompiledFile} already says the generic compile IS this
+ * app's compile. No stamp (every file written before stamps existed) and any
+ * other hash mean another engine or another design: the file is stale.
+ *
+ * Exported for its co-located test: each clause is the difference between an
+ * upgrade serving last release's tokens and compiling the right ones.
+ *
+ * @param stamp - The hash the file's first line records, if it has one.
+ * @param app - The app about to be served.
+ */
+export const acceptsPrecompiledStamp = (stamp: string | undefined, app?: App): boolean =>
+  stamp !== undefined &&
+  (stamp === precompiledStampOf(app) ||
+    (stamp === precompiledStampOf() && canServePrecompiledFile(app)))
 
 /**
  * Internal CSS compilation logic (without caching)
@@ -232,6 +242,54 @@ export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilat
   })
 
 /**
+ * The pre-compiled file, or a compile: the one resolution every mode shares.
+ *
+ * The file is served only when its stamp says it IS the file this engine would
+ * write for this app ({@link acceptsPrecompiledStamp}). An upgrade that kept
+ * serving the previous release's stylesheet, old tokens included, until someone
+ * deleted the file is what the stamp exists to end (issue #200); and before the
+ * stamp carried that answer the app's SHAPE stood in for it, so a designed app
+ * was compiled around the very file `sovrium build` had just written for it.
+ *
+ * A file that is not this app's is one of two things. Stamped with another
+ * engine's or another design's hash, it is STALE: set aside with ONE warning
+ * per process, compiled around, and left on disk untouched — the operator asked
+ * for that file, and rewriting it behind their back is how the next surprise
+ * gets built. Carrying the generic stamp where the generic compile is not sound
+ * for this app, it was built for no config in particular and is simply not a
+ * fast path here: compiled around, silently — nothing is stale, and a designed
+ * app booting beside the harness's shared file has nothing to be told.
+ *
+ * @param app - The app being served.
+ * @param mayUsePrecompiledFile - Whether this mode reads the file at all.
+ */
+const precompiledOrCompile = (
+  app: App | undefined,
+  mayUsePrecompiledFile: boolean
+): Effect.Effect<CompiledCSS, CSSCompilationError> =>
+  Effect.gen(function* () {
+    if (!mayUsePrecompiledFile) return yield* compileCSSRaw(app)
+    const file = yield* loadPrecompiledCSS
+    if (file === undefined) {
+      if (isProduction) {
+        logWarning(
+          '[CSS] Pre-compiled CSS not found. Falling back to runtime compilation. ' +
+            'Run "sovrium build" for faster startup.'
+        )
+      }
+      return yield* compileCSSRaw(app)
+    }
+    if (acceptsPrecompiledStamp(file.stamp, app)) {
+      logDebug('[CSS] Loaded from pre-compiled file')
+      return { css: file.css, timestamp: Date.now(), precompiled: true }
+    }
+    if (file.stamp === precompiledStampOf()) return yield* compileCSSRaw(app)
+    yield* warnStalePrecompiledOnce(file.path)
+    const compiled = yield* compileCSSRaw(app)
+    return { ...compiled, staleIgnored: true }
+  })
+
+/**
  * Compiles Tailwind CSS using PostCSS with @tailwindcss/postcss plugin
  *
  * This function:
@@ -264,107 +322,42 @@ export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilat
  * Effect.runPromise(program)
  * ```
  */
-/**
- * Production CSS resolution: Memory cache → File cache (only when serving the
- * generic pre-compiled file is sound) → per-app runtime compilation.
- *
- * The pre-compiled file is built with the BUILTIN candidate set only (no app
- * theme, no app-authored classes). It is a valid substitute ONLY when the app
- * neither overrides the theme nor authors any class beyond builtin (see
- * `canServePrecompiledFile`). Without this gate, an app that widens the candidate
- * set — e.g. the docs app's `dark:hidden` / `dark:block` logo lockup, or a
- * `w-[calc(100%-2.5rem)]` arbitrary value — silently has those classes dropped
- * from the served CSS (the stale-precompiled-CSS bug). The dev branches honor
- * this gate too. Inside the binary there is no native PostCSS path, so
- * `compileCSSRaw` routes to the native-free engine.
- */
-const resolveProductionCSS = (
-  app: App | undefined,
-  cacheKey: string
-): Effect.Effect<CompiledCSS, CSSCompilationError> =>
-  getOrComputeCachedCSS(
-    cacheKey,
-    Effect.gen(function* () {
-      if (canServePrecompiledFile(app)) {
-        const precompiled = yield* loadPrecompiledCSS
-        if (precompiled) {
-          logDebug('[CSS] Loaded from pre-compiled file')
-          return precompiled
-        }
-        logWarning(
-          '[CSS] Pre-compiled CSS not found. Falling back to runtime compilation. ' +
-            'Run "sovrium build" for faster startup.'
-        )
-      }
-      // App widens the candidate set (or overrides the theme): the generic
-      // pre-compiled file would drop app-authored classes, so compile per-app.
-      return yield* compileCSSRaw(app)
-    })
-  )
-
 export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilationError> =>
   Effect.gen(function* () {
-    const design = app?.design
-    // Key on theme AND the app's authored class candidates: the compiled output
-    // depends on both, so a theme-only key serves stale CSS when classes change.
-    // …and on the SCOPED design system, if the app carries one: two operators
-    // with the same (absent) console theme and the same candidate set compile
-    // to DIFFERENT stylesheets once their own themes are scoped into it.
-    // …and on `design.density`, which emits its own `:root` + `[data-density]`
-    // blocks outside the theme entirely. Two apps with the same (absent) theme
-    // and the same candidate set compile to DIFFERENT stylesheets once one of
-    // them declares a ladder, so without this segment the second one served is
-    // handed the first one's CSS.
-    //
-    // …and on `design.typeScale`. The console design-cascade rule makes it
-    // load-bearing — the operator's ladder cascades onto the console, so two
-    // consoles with the same absent theme can differ by it. `getVersionedCssHash`'s OPERATOR branch still derives
-    // its URL from `getCSSCacheKey` alone and still does not vary with a ladder:
-    // a pre-existing gap on a different surface, left where it is because moving
-    // it changes the stylesheet URL of every app declaring one. The CONSOLE
-    // branch does cover it, through `designCascadeKey`.
-    const cacheKey =
-      getCSSCacheKey(design, resolveNativeFreeCandidates(app)) + designSystemScopeKey(app)
+    // Every input the compiled bytes depend on — the design (density and type
+    // ladder included, each of which emits outside the theme), the app's
+    // candidate set, and the scoped design system a console surface carries —
+    // in the ONE expression the pre-compiled stamp is also derived from
+    // (`cssCompileKey`), so the file is accepted exactly where the cache would
+    // have hit. `getVersionedCssHash`'s OPERATOR branch still does not vary
+    // with `design.typeScale`: a pre-existing gap on a different surface, left
+    // where it is because moving it changes the stylesheet URL of every app
+    // declaring one. The CONSOLE branch covers it through `designCascadeKey`.
+    const cacheKey = cssCompileKey(app)
 
-    if (isProduction) {
-      return yield* resolveProductionCSS(app, cacheKey)
-    }
-
-    // See `canServePrecompiledFile` — the test-server pre-compiled file is only
-    // a valid substitute when the app adds no candidates beyond builtin.
-    const canUsePrecompiledFile = canServePrecompiledFile(app)
+    // Production reads `output.css` in the data directory (or SOVRIUM_CSS_FILE);
+    // development reads the file only when SOVRIUM_CSS_FILE names one (test
+    // servers do). A console surface never reads it: the file is the OPERATOR
+    // app's, and the console's compile — scoped token layer and all — can never
+    // match it, so reading it could only raise a false stale warning. The gate
+    // on what the file holds is `precompiledOrCompile`'s.
+    const mayUsePrecompiledFile =
+      getDesignSystemScope(app) === undefined &&
+      (isProduction || Boolean(process.env.SOVRIUM_CSS_FILE))
 
     // Dev cache bypass: recompile every request so config edits appear without a
-    // restart. Still honor the pre-compiled file fast path for the default theme
-    // (test servers set SOVRIUM_CSS_FILE).
-    if (isDevCacheDisabled()) {
-      if (canUsePrecompiledFile && process.env.SOVRIUM_CSS_FILE) {
-        const precompiled = yield* loadPrecompiledCSS
-        if (precompiled) {
-          logDebug('[CSS] Loaded from pre-compiled file (dev, cache bypassed)')
-          return precompiled
-        }
-      }
-      return yield* compileCSSRaw(app)
+    // restart. Still honor the pre-compiled file fast path for the default theme.
+    if (!isProduction && isDevCacheDisabled()) {
+      return yield* precompiledOrCompile(app, mayUsePrecompiledFile)
     }
 
-    // Development: Memory cache → Pre-compiled file (if no theme) → PostCSS compilation
+    // Memory cache → pre-compiled file (when sound) → compilation
     const result = yield* getOrComputeCachedCSS(
       cacheKey,
-      Effect.gen(function* () {
-        // For default theme, try loading from pre-compiled file first (e.g. test servers)
-        if (canUsePrecompiledFile && process.env.SOVRIUM_CSS_FILE) {
-          const precompiled = yield* loadPrecompiledCSS
-          if (precompiled) {
-            logDebug('[CSS] Loaded from pre-compiled file (dev mode)')
-            return precompiled
-          }
-        }
-        return yield* compileCSSRaw(app)
-      })
+      precompiledOrCompile(app, mayUsePrecompiledFile)
     )
 
-    if (Date.now() - result.timestamp > 100) {
+    if (!isProduction && Date.now() - result.timestamp > 100) {
       logDebug('[CSS] Cache hit')
     }
 

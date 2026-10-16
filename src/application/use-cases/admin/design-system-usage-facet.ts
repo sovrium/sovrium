@@ -22,6 +22,7 @@ import {
   catalogedTypesOf,
 } from '@/domain/models/app/pages/components/component-types/catalog'
 import type {
+  UsageKind,
   UsageResponse,
   UsageRow,
   UsageSubject,
@@ -66,6 +67,60 @@ const subjectsIn = (node: unknown, subject: UsageSubject): readonly string[] => 
   ]
 }
 
+// ---------------------------------------------------------------------------
+// What kind of thing a subject is
+// ---------------------------------------------------------------------------
+
+/**
+ * The registry categories that name a kind of their own, keyed by type literal.
+ *
+ * Built once from the catalogue — the same partition the reference pages draw
+ * — so a type moved between categories changes its kind with no edit here.
+ */
+const typesIn = (category: 'form-controls' | 'navigation' | 'data'): ReadonlySet<string> =>
+  new Set(catalogedTypesOf(category))
+const FORM_CONTROL_TYPES = typesIn('form-controls')
+const NAVIGATION_TYPES = typesIn('navigation')
+const DATA_TYPES = typesIn('data')
+
+/**
+ * The kind of a root type, by the ONE rule both subjects share, first match
+ * wins: a `card` is a card; a `form`, or any form control, is a form; the
+ * registry's `navigation` category is navigation; its `data` category is a data
+ * view; anything else — a container, a section, a hero, a type the registry
+ * does not know — is a page section.
+ *
+ * `form` is tested before `data` because the registry files `form` under data;
+ * the operator grouping forms looks for it among the forms.
+ */
+export const usageKindOf = (rootType: string | undefined): UsageKind => {
+  if (rootType === undefined) return 'page-section'
+  if (rootType === 'card') return 'card'
+  if (rootType === 'form' || FORM_CONTROL_TYPES.has(rootType)) return 'form'
+  if (NAVIGATION_TYPES.has(rootType)) return 'navigation'
+  if (DATA_TYPES.has(rootType)) return 'data-view'
+  return 'page-section'
+}
+
+/** A template's root type, when it declares one as a string. */
+const rootTypeOf = (template: unknown): string | undefined => {
+  if (typeof template !== 'object' || template === null) return undefined
+  const { type } = template as Readonly<Record<string, unknown>>
+  return typeof type === 'string' ? type : undefined
+}
+
+/** How many rows of each kind — the five flat gates a grouped gallery reads. */
+const kindCounts = (rows: readonly UsageRow[]) => {
+  const of = (kind: UsageKind): number => rows.filter((row) => row.kind === kind).length
+  return {
+    pageSectionCount: of('page-section'),
+    cardCount: of('card'),
+    formCount: of('form'),
+    navigationCount: of('navigation'),
+    dataViewCount: of('data-view'),
+  }
+}
+
 /** The subjects a usage read answers for, in the order the console draws them. */
 const subjectNames = (app: App, subject: UsageSubject): readonly string[] =>
   subject === 'type'
@@ -108,6 +163,8 @@ export const usageFacet = (app: App, subject: UsageSubject, name?: string): Usag
       return {
         subject,
         name: candidate,
+        // A type IS its own root; a template's root is the type it declares.
+        kind: usageKindOf(subject === 'type' ? candidate : rootTypeOf(template)),
         count: routes.length,
         routes,
         heavy: template !== undefined && isHeavyTemplate(template),
@@ -124,5 +181,5 @@ export const usageFacet = (app: App, subject: UsageSubject, name?: string): Usag
     row.routes.map((route) => ({ subject: row.subject, name: row.name, route }))
   )
 
-  return { items: rows, total: rows.length, routeRows }
+  return { items: rows, total: rows.length, routeRows, ...kindCounts(rows) }
 }

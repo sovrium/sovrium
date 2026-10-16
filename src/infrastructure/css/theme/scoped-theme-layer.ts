@@ -87,6 +87,7 @@ import {
 import {
   generateAuthorSvBridge,
   generateDarkColorOverrides,
+  generateSidebarRoleFollowers,
   generateThemeBorderRadius,
   generateThemeColors,
   generateThemeFonts,
@@ -229,6 +230,10 @@ export const scopedTokenLayer = ({
     generateAuthorSvBridge(design?.colors, selector),
     rule(darkSelector, [blockBody(dark)]),
     generateDarkColorOverrides(design?.darkColors, darkSelector),
+    generateSidebarRoleFollowers(design?.colors, design?.darkColors, {
+      root: selector,
+      dark: darkSelector,
+    }),
   ]
     .filter(Boolean)
     .join('\n\n  ')

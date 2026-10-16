@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useMemo, type RefObject } from 'react'
+import { useCallback, useMemo, type FocusEvent as ReactFocusEvent, type RefObject } from 'react'
 import { resolveEditableFields } from './island-setup-helpers'
+import { nameClippedCell } from './scroll-edges'
 import { resolveTabTarget } from './tab-target'
 import { resolveAddRow } from './table-add-row-columns'
 import { canFillFrom, useFillHandle } from './use-fill-handle'
@@ -201,8 +202,14 @@ export function gridAttributes(params: {
       'data-navigable': 'true',
       onKeyDown: cursor.handleKeyDown,
       onMouseDown: cursor.handleMouseDown,
-      onFocus: cursor.handleFocus,
+      // Composed, never replaced: the cursor follows focus, and a clipped cell
+      // reached by keyboard names its value as a hover does.
+      onFocus: (event: ReactFocusEvent<HTMLTableElement>) => {
+        nameClippedCell(event)
+        cursor.handleFocus(event)
+      },
     }),
+    ...(!navigable && { onFocus: nameClippedCell }),
   }
 }
 

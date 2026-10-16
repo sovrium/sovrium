@@ -32,7 +32,13 @@
  * conditions are a TREE — a combinator over leaves — and a flat bag cannot say
  * which leaves an `or` groups.
  *
- * ## `fields` is declared, not derived
+ * ## `fields` is declared, or derived from ONE table
+ *
+ * Since 0.39 `fieldsFrom: { table }` derives them from one table's declared
+ * fields — the common case, a bar above one grid — and `fields` stays for a
+ * channel whose subscribers read different tables. Exactly one of the two.
+ *
+ * The original reasoning, which still governs `fields`:
  *
  * The bar has no table binding, so it cannot introspect a schema; the author
  * names the filterable fields and what KIND each is. That is more writing than
@@ -40,9 +46,9 @@
  * subscribers are two different tables sharing a channel — which is a thing the
  * shared-filter mechanism already permits and a derived field list would refuse.
  *
- * `kind` selects the operator subset offered, using the four categories the
- * grid's own builder already sorts field types into
- * (`islands/data-table/island/filter-operators.ts`).
+ * `kind` selects the operator subset offered, using the four categories field
+ * types are sorted into where the operators live
+ * (`src/presentation/design/filter-expression.ts`).
  *
  * ## Which subscribers exist TODAY, measured rather than assumed
  *
@@ -60,19 +66,17 @@
  * than here. Recorded rather than implied: a schema key that validates and does
  * nothing is the exact failure this type's `publishes.bindTo` refuses to risk.
  *
- * ## The operators are the SERVER's eight, not the grid's seventeen
+ * ## The operators are the SERVER's, not the grid's
  *
- * `eq neq contains gt lt gte lte in` — `FilterOperatorSchema`, what
- * `dataSource.filter[]` accepts and what the SQL WHERE builder executes. The
- * grid's overlay offers a longer spaced-English list (`starts with`, `between`,
- * `is any of`) because it filters rows already in the browser. A bar that
- * offered those would publish a filter the endpoint drops silently, which is a
- * filter that validates and narrows nothing — the exact failure
- * `SharedFilterPublisher.param` refuses to risk by having no default.
- *
- * `between` is two conditions and `is any of` is `in`; only `starts with` /
- * `ends with` have no server form, and they are recorded as deferred rather
- * than offered.
+ * A bar publishes only what `FilterOperatorSchema` names — what
+ * `dataSource.filter[]` accepts and what the SQL WHERE builder executes,
+ * `startsWith` (`starts with`) and `between` (one condition, a two-item
+ * value) among them. The grid's overlay offers a longer spaced-English list
+ * because it filters rows already in the browser; an operator with no server
+ * form, such as `ends with`, would publish a filter the endpoint drops
+ * silently, which is a filter that validates and narrows nothing — the exact
+ * failure `SharedFilterPublisher.param` refuses to risk by having no default.
+ * So it is deferred rather than offered, and `is any of` is `in`.
  *
  * Source: [internal ref]
  * Specs: the design system component filter bar specs, plus this type's own REGRESSION rollup
@@ -80,6 +84,7 @@
 
 import { Schema } from 'effect'
 import { FilterOperatorSchema } from '../../data-source'
+import { SelectOptionSourceBindingSchema } from '../form-controls/select-option-source'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
 import { visibilityFields } from '../modules/visibility'
@@ -142,7 +147,7 @@ const FilterFieldSchema = Schema.Struct({
     ).annotate({
       title: 'Choices',
       description:
-        'Choices offered for a `select` field. Unread under the other kinds — a number has no option list.',
+        'Choices offered for a `select` field. Unread under the other kinds — a number has no option list. To offer the rows of a table instead, declare `optionsSource` (the binding a page `select` reads) and leave this out: the two together are refused at boot.',
       examples: [
         [
           { value: 'paid', label: 'Paid' },
@@ -151,6 +156,21 @@ const FilterFieldSchema = Schema.Struct({
       ],
     })
   ),
+  /**
+   * The choices of a `select` field, read from rows instead of written down.
+   *
+   * The exact binding every other page-level choice list reads — a page
+   * `select`'s `dataSource`, a form field's and a grid column's
+   * `optionsSource` — resolved by the same server pass before render, so the
+   * rows go through the reader's own read gate and only label/value pairs
+   * reach the browser. Mutually exclusive with `options`, refused at boot by
+   * name rather than claimed here. Inert under the other kinds, like `options`.
+   *
+   * Not re-annotated here: annotating the shared binding mints a second,
+   * identical definition in the published JSON Schema. Its meaning for a bar
+   * is written in the component's manual article.
+   */
+  optionsSource: Schema.optional(SelectOptionSourceBindingSchema),
 }).annotate({
   identifier: 'FilterBarField',
   title: 'Filterable Field',
@@ -190,6 +210,18 @@ const FilterBarPublisherSchema = Schema.Struct({
     }),
     Schema.check(Schema.isMinLength(1))
   ),
+  /**
+   * Mirror the bar's conditions in the page address, as `?<channel>.filter=`,
+   * so a reload or a shared link opens with the same chips. Client-side,
+   * opt-in, and stored nowhere else.
+   */
+  url: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Mirror the bar’s conditions in the page address as ?<channel>.filter=, so a reload or a shared link opens with the same chips. Written in the browser with history.replaceState; nothing is stored per user.',
+      defaultNote: 'false',
+    })
+  ),
 }).annotate({
   identifier: 'FilterBarPublisher',
   title: 'Publishes',
@@ -214,24 +246,52 @@ export const filterBarFields = {
    */
   publishes: FilterBarPublisherSchema,
   /**
-   * The fields the bar offers.
+   * The fields the bar offers, written out.
    *
-   * Required and non-empty: a bar that offers no field can only ever show the
-   * conditions it was born with, which is a chip list and not a filter.
+   * Non-empty: a bar that offers no field can only ever show the conditions it
+   * was born with, which is a chip list and not a filter. Exactly one of
+   * `fields` and `fieldsFrom` is declared — the pairing is checked at load.
    */
-  fields: Schema.Array(FilterFieldSchema)
-    .pipe(Schema.check(Schema.isMinLength(1)))
-    .annotate({
-      title: 'Filterable Fields',
-      description:
-        'The fields the bar offers, in menu order. Declared rather than derived: the bar has no table binding, and one channel may drive subscribers over different tables.',
-      examples: [
-        [
-          { name: 'status', label: 'Status', kind: 'select' },
-          { name: 'amount', label: 'Amount', kind: 'number' },
+  fields: Schema.optional(
+    Schema.Array(FilterFieldSchema)
+      .pipe(Schema.check(Schema.isMinLength(1)))
+      .annotate({
+        title: 'Filterable Fields',
+        description:
+          'The fields the bar offers, in menu order. Written out when one channel drives subscribers over different tables; to offer one table’s fields, use fieldsFrom instead. Exactly one of the two is declared.',
+        examples: [
+          [
+            { name: 'status', label: 'Status', kind: 'select' },
+            { name: 'amount', label: 'Amount', kind: 'number' },
+          ],
         ],
-      ],
-    }),
+      })
+  ),
+  /**
+   * Derive the offered fields from a table instead of writing them out — the
+   * filter bar's counterpart of a grid's `columnsFrom`.
+   *
+   * One entry per declared field of the named table, in declaration order, each
+   * field's kind derived from its type and a choice field offering its declared
+   * options; a field the reader may not read is not offered, and its name never
+   * reaches the browser.
+   */
+  fieldsFrom: Schema.optional(
+    Schema.Struct({
+      table: Schema.String.pipe(
+        Schema.annotate({
+          description: 'The table whose declared fields the bar offers',
+          examples: ['invoices'],
+        }),
+        Schema.check(Schema.isMinLength(1))
+      ),
+    }).annotate({
+      identifier: 'FilterBarFieldsFrom',
+      title: 'Fields From',
+      description:
+        'Offer the declared fields of one table, in declaration order, with each field’s kind and options derived from its type; a field the reader may not read is not offered. Exclusive with fields.',
+    })
+  ),
   /**
    * The conditions the bar opens with.
    *

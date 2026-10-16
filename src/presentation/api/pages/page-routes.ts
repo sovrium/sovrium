@@ -299,11 +299,10 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
     const session = await extractSession(config, c.req.raw.headers)
     const cookies = getCookie(c)
     const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
-    // On exact `/:lang/...` matches, the URL prefix is authoritative for locale —
-    // it must beat the browser Accept-Language so `/en/...` never renders French,
-    // and it is passed on as `urlLanguage` so it also beats a page's own
-    // `meta.lang`.
+    // A `/:lang/` prefix beats Accept-Language and `meta.lang`. `/:lang/*` also
+    // matches a prefix-less `/archive`: there the remembered choice takes its rank.
     const urlLanguage = validateLanguageSubdirectory(app, path)
+    const ranked = urlLanguage ?? preferredLanguageFor(config, cookies, c, session)
     const base = {
       session,
       cookies,
@@ -315,17 +314,13 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
       const exact = await renderWithCache(
         config,
         path,
-        { ...base, detectedLanguage: urlLanguage ?? detectedLanguage },
+        { ...base, urlLanguage: ranked, detectedLanguage: urlLanguage ?? detectedLanguage },
         c
       )
       if (exact) return exact
       if (!urlLanguage) {
         return c.html(
-          await renderNotFoundPage(
-            app,
-            notFoundLanguage(config, c, base),
-            requestedPath(c.req.url)
-          ),
+          await renderNotFoundPage(app, ranked ?? detectedLanguage, requestedPath(c.req.url)),
           404
         )
       }

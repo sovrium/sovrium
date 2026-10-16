@@ -12,6 +12,7 @@ import {
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { toInertTemplateValue } from '@/presentation/design/session-template'
 import { substituteRecordVars } from '@/presentation/render/resolve/data-source-contracts'
+import { recordDisplayOf } from './record-display-labels'
 
 /**
  * `$record.*` template substitution for the non-prop/content/children surfaces of
@@ -214,8 +215,9 @@ function substituteRecordInConfirm(confirm: unknown, raw: Record<string, unknown
  * Build the spreadable `{ action?, fields?, confirmText? }` patch for a
  * collection-template component — substituting `$record.*` in an action's
  * `inputData`, a form's `fields[].defaultValue`, an alert dialog's
- * `confirmText` (the name a reader types to confirm a delete), a button's `confirm` gate and a derived
- * breadcrumb's `currentLabel` (the record's own name ending the trail). Keys are present
+ * `confirmText` (the name a reader types to confirm a delete), a button's `confirm` gate, a derived
+ * breadcrumb's `currentLabel` (the record's own name ending the trail) and an
+ * enumerated trail's `breadcrumbItems` labels. Keys are present
  * only when there is something to spread, so the caller can `...patch` without
  * clobbering absent fields.
  */
@@ -226,6 +228,7 @@ export function buildRecordTemplatePatch(
     readonly confirmText?: unknown
     readonly confirm?: unknown
     readonly currentLabel?: unknown
+    readonly breadcrumbItems?: unknown
     readonly type?: string
     readonly items?: unknown
   },
@@ -237,6 +240,7 @@ export function buildRecordTemplatePatch(
   confirmText?: string
   confirm?: unknown
   currentLabel?: string
+  breadcrumbItems?: unknown
   items?: unknown
 } {
   const items = withDescriptionFieldValues(component, record, tableName)
@@ -244,6 +248,7 @@ export function buildRecordTemplatePatch(
   const fields = substituteRecordInFields(component.fields, record)
   const confirm = substituteRecordInConfirm(component.confirm, record)
   const { confirmText, currentLabel } = component
+  const breadcrumbItems = substituteRecordInCrumbs(component.breadcrumbItems, record)
   return {
     ...(action !== undefined && { action }),
     ...(fields !== undefined && { fields }),
@@ -252,8 +257,27 @@ export function buildRecordTemplatePatch(
     ...(typeof currentLabel === 'string' && {
       currentLabel: substituteRecordVars(currentLabel, withRecordText(record)),
     }),
+    ...(breadcrumbItems !== undefined && { breadcrumbItems }),
     ...(items !== undefined && { items }),
   }
+}
+
+/**
+ * An enumerated breadcrumb's crumbs filled from the record: each `label` is
+ * prose and prints a value formatted, as a derived trail's `currentLabel` does;
+ * an `href` keeps the stored value. `undefined` when there are no crumbs.
+ */
+function substituteRecordInCrumbs(crumbs: unknown, record: Record<string, unknown>): unknown {
+  if (!Array.isArray(crumbs)) return undefined
+  const prose = withRecordText(record)
+  return crumbs.map((crumb: unknown) => {
+    if (crumb === null || typeof crumb !== 'object') return crumb
+    const { label } = crumb as { readonly label?: unknown }
+    return {
+      ...(mapStringsDeep(crumb, (value) => substituteRecordVars(value, record)) as object),
+      ...(typeof label === 'string' && { label: substituteRecordVars(label, prose) }),
+    }
+  })
 }
 
 /**
@@ -278,6 +302,7 @@ export function withDescriptionFieldValues(
       ...(typeof detail === 'string' && { detail: substituteRecordVars(detail, prose) }),
       ...(typeof field === 'string' && {
         _recordValue: record[field] ?? null,
+        _recordDisplay: recordDisplayOf(record, field),
         ...(tableName !== undefined ? { _recordTable: tableName } : {}),
       }),
     }

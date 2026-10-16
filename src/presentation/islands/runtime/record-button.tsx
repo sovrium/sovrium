@@ -18,23 +18,16 @@
  * technology.
  */
 
-import { useCallback, useState } from 'react'
 import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-operators'
-import { pendingControlProps } from '@/presentation/design/pending-state'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { renderPendingContent } from '@/presentation/design/spinner-mark'
-import { followAddress } from './follow-address'
-import { BUTTON_REQUEST_FAILED, classifyButtonResponse } from './record-button-outcome'
-import { renderToast } from './toast'
+import {
+  RECORD_BUTTON_CLASS,
+  RECORD_BUTTON_PENDING_CLASS,
+  RecordButtonCore,
+  type RecordButtonConfig,
+} from './record-button-core'
 
-/** The button field's config, carried from the table schema to the client. */
-export interface RecordButtonConfig {
-  readonly label: string
-  readonly action: 'url' | 'automation'
-  readonly url?: string
-  readonly automation?: string
-  readonly visibleWhen?: Readonly<Record<string, unknown>>
-}
+export type { RecordButtonConfig } from './record-button-core'
 
 export interface RecordButtonProps {
   readonly config: RecordButtonConfig
@@ -60,19 +53,9 @@ export interface RecordButtonProps {
   readonly onInvoked?: () => void
   /** The caption while the automation runs, in the page language; English when absent. */
   readonly pendingLabel?: string
+  /** The `action.*` words in the page language, where they differ from English. */
+  readonly strings?: Readonly<Record<string, string>>
 }
-
-const BASE_CLASS =
-  'text-primary hover:bg-primary-subtle rounded px-2 py-1 text-sm disabled:opacity-50'
-
-/**
- * While its run is in flight the button keeps its full ink: the 50 % fade above
- * means "cannot be pressed here", which a pending button is not — it is working.
- */
-const PENDING_CLASS = 'text-primary rounded px-2 py-1 text-sm cursor-progress'
-
-const invokeUrl = (table: string, recordId: string, fieldName: string): string =>
-  `/api/tables/${encodeURIComponent(table)}/records/${encodeURIComponent(recordId)}/buttons/${encodeURIComponent(fieldName)}`
 
 /**
  * A button field renders only on records satisfying its `visibleWhen`
@@ -92,48 +75,14 @@ function passesVisibilityGate(props: RecordButtonProps): boolean {
 }
 
 export function RecordButton(props: RecordButtonProps): React.ReactNode {
-  const { config, fieldName, table, recordId, className, onInvoked } = props
-  const [pending, setPending] = useState(false)
-
-  const canInvoke = config.action === 'automation' && Boolean(table) && Boolean(recordId)
-
-  const onClick = useCallback(() => {
-    if (config.action === 'url') {
-      if (config.url) followAddress(config.url)
-      return
-    }
-    if (!table || !recordId || pending) return
-    setPending(true)
-    void fetch(invokeUrl(table, recordId, fieldName), { method: 'POST' })
-      .then(classifyButtonResponse)
-      .catch(() => BUTTON_REQUEST_FAILED)
-      .then((outcome) => {
-        // The outcome goes to the shared toaster — an `aria-live` region — so
-        // it is announced rather than left in a `title` attribute that only a
-        // hovering mouse ever finds.
-        renderToast(outcome.message, outcome.variant)
-        if (outcome.changed) onInvoked?.()
-      })
-      .finally(() => {
-        setPending(false)
-      })
-  }, [config.action, config.url, table, recordId, fieldName, onInvoked, pending])
-
   if (!passesVisibilityGate(props)) return undefined
-
-  const disabled = config.action === 'automation' && !canInvoke
-
+  const { className, record: _record, ...core } = props
   return (
-    <button
-      type="button"
-      className={resolveClasses(pending ? PENDING_CLASS : BASE_CLASS, className)}
-      data-button-field={fieldName}
-      data-button-action={config.action}
-      disabled={disabled}
-      {...pendingControlProps(pending)}
-      onClick={onClick}
-    >
-      {pending ? renderPendingContent(props.pendingLabel ?? 'Running…') : config.label}
-    </button>
+    <RecordButtonCore
+      {...core}
+      classFor={(pending) =>
+        resolveClasses(pending ? RECORD_BUTTON_PENDING_CLASS : RECORD_BUTTON_CLASS, className)
+      }
+    />
   )
 }

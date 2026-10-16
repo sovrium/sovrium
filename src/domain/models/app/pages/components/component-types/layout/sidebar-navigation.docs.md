@@ -57,7 +57,7 @@ design:
 
 ### Badging an entry
 
-`badge` takes either a literal string — a status word your config can state truthfully, like `Beta` — or `{ endpoint, valuePath }` for a count it cannot. `valuePath` is a dot path into the response, defaulting to `total`. An entry badge, written or fetched, is marked `data-component-type="badge"`, like a `badge` component anywhere else on the page.
+`badge` takes either a literal string — a status word your config can state truthfully, like `Beta` — or `{ endpoint, valuePath }` for a count it cannot. `valuePath` is a dot path into the response, defaulting to `total`. An entry badge, written or fetched, is marked `data-component-type="badge"`, like a `badge` component anywhere else on the page. A fetched count takes a `variant`, shadcn/ui's Badge variant narrowed to two: `secondary`, the default, for a tally, and `destructive` for a count of things that went wrong — failed runs, expired tokens — as in `badge: { endpoint: /api/admin/automations/runs?status=failed, variant: destructive }`. A destructive count of zero is not drawn at all.
 
 ### Sections inside one landmark
 
@@ -99,6 +99,10 @@ Write it as a group rather than as an authored `link` child, for two reasons. Gr
 
 A label-less group may still fetch from a `source` and may still declare a `landmark`. What it may not carry is `headingLevel`.
 
+### Folding a group behind its label
+
+`collapsible: true` folds a group behind its own label — shadcn/ui's collapsible sidebar group, with the label as the control. A long navigation then fits a laptop screen without shrinking every row. The open state on arrival is decided for the reader, never stored: the group holding the current entry is open, a group holding a non-zero `destructive` count is open, and every other group is folded. The reader can open or fold any group, from the pointer or the keyboard. A folded group holding a destructive count shows that count beside its label, so a failure stays in sight. A collapsible group needs a `label`, since the label is what opens it; one without is refused at startup.
+
 ### Naming a row with attributes
 
 An entry carrying nothing but a label can only be reached _by_ that label — so every assertion, analytics hook and operator runbook is coupled to display copy that translation will move. A props bag gives the row a name that does not move: `items[].props` lands on the entry's own link (or its toggle button, when the entry declares no `href`), `items[].childrenProps` on a disclosure's list element, and `source.itemProps` on each fetched entry, with `{field}` placeholders filled from the row exactly as `hrefTemplate`'s are — and **not** percent-encoded, because it is an attribute rather than a URL.
@@ -137,11 +141,15 @@ The third level is **always open** and carries no toggle. A disclosure inside a 
 
 `showWhen` is the one gate in the product that reads the **request path**. Give it a section, and the entry is part of the navigation at that path and under it, and absent everywhere else.
 
-`section` is matched the way `activeMatch: prefix` matches: the request path equals it, or begins with it followed by `/`. So a row scoped to `/design-system/ui-kit` is still there at `/design-system/ui-kit/button` — a reader who drills into an object does not watch the navigation they arrived through disappear. It need not be any entry's own `href`, and it must start with `/`.
+`section` is matched the way `activeMatch: prefix` matches: the request path equals it, or begins with it followed by `/`. So a row scoped to `/handbook` is still there at `/handbook/onboarding` — a reader who drills into an object does not watch the navigation they arrived through disappear. It need not be any entry's own `href`, and it must start with `/`.
 
 A gated entry is **removed from the document**, not hidden. A navigation that ships every row and hides most of them is one whose landmark, tab order and screen-reader reading all disagree with what is on the screen.
 
 `showWhen` is available at any of the three levels. Pair it with a third level unless that list belongs in the chrome of every page — a third level that is always present is a sidebar that has become a site map.
+
+### Showing an entry only to a caller who may use it
+
+`capability` takes the same three powers as a component's `visibility.capability` — `admin-console`, `administer-accounts`, `edit-operations` — on the entry itself. A caller without the power gets a navigation without that row, and without everything nested under it; it is left out of the page, not hidden. Use it for a destination whose page would refuse the reader on every read, so the navigation never offers a page that can only say no. It composes with `showWhen` by AND, and an anonymous visitor holds no power. A value outside the three is refused at startup.
 
 ## Moving between pages without a reload
 
@@ -151,7 +159,7 @@ Two options change what happens when a reader follows one of the sidebar's links
 
 `collapsible: icon` folds the sidebar to a strip of its entries' icons, whose links keep their names; `collapsible: offcanvas` moves it off the page and gives its width to the content beside it; `none`, the default, never folds. A folding sidebar draws its `trigger` (`{ label, shortcut }`), and Control or Command with B folds it too unless `shortcut: false`; `railHandle: true` adds a thin rail along its inner edge that folds it when pressed. The fold is remembered in the `sidebar_state` cookie and the page is served already folded after a reload; `persist: none` forgets it. `side: right` places the sidebar after the content, and `variant` frames it as the default `sidebar`, a `floating` panel standing off the page edge, or an `inset` one. A sidebar that folds, stands on the right or is framed as a panel sits beside the content written next to it.
 
-`header` and `footer` are component lists drawn above the first group and at the foot of the sidebar, such as a workspace switcher and the account menu. A group's `action` and an entry's `menuAction` (`{ icon, label, href }`) draw a named icon control at the end of the heading row or the entry row. A disclosure's `source.loading: skeleton` draws placeholder rows while the list loads, instead of its `loadingLabel` line.
+`header` and `footer` are component lists drawn above the first group and at the foot of the sidebar, such as a workspace switcher and the account menu. The sidebar never grows taller than the screen: groups that do not fit scroll between the header and the footer, which stay in view, and the edge of the list fades while more lies below. A group's `action` and an entry's `menuAction` (`{ icon, label, href }`) draw a named icon control at the end of the heading row or the entry row. A disclosure's `source.loading: skeleton` draws placeholder rows while the list loads, instead of its `loadingLabel` line.
 
 ## `rail` — an icon rail on a narrow screen
 
@@ -175,7 +183,7 @@ Below the breakpoint the sidebar takes a fixed 56px width, every entry centres i
 
 **The labels are not removed.** They stay in the document and in the accessibility tree, and each row gains a `title` tooltip so a pointer reader can still name it. An entry whose accessible name changed with the viewport would be a link that resolves by name on a desktop and by nothing on a laptop — every deep link, runbook and test would hold at one width and silently fail at another while the page looked correct in both. Every row also keeps its tab stop and its `aria-current="page"` mark.
 
-**A drawer takes the sidebar out of the layout.** `drawer: { below: md }` removes the sidebar from the page at every width below the breakpoint and puts one menu button in its place. Pressing it opens the same groups, in the same order, as a modal panel over the page: focus moves into it and the page behind stops scrolling. Escape, a click on the backdrop, or following an entry closes it and puts focus back on the button — including an entry that stays on the same page. `label` names the button (a `$t:` key works) and defaults to "Menu"; the button reports `aria-expanded` and names the drawer with `aria-controls`. At the breakpoint and above the sidebar renders exactly as it does without the key. A reader whose browser runs no scripts keeps the sidebar in the layout at every width, since the menu button could open nothing for them.
+**A drawer takes the sidebar out of the layout.** `drawer: { below: md }` removes the sidebar from the page at every width below the breakpoint and puts one menu button in its place. Pressing it opens the same groups, in the same order, as a modal panel over the page: focus moves into it and the page behind stops scrolling. The panel carries a close button at its top, named "Close menu" in the page language (« Fermer le menu » in French, renamed under `sovrium.sidebar.drawerClose`), and a rule sets a declared `footer` apart from the entries. That button, Escape, a click on the backdrop, or following an entry closes it and puts focus back on the button — including an entry that stays on the same page. `label` names the button (a `$t:` key works) and defaults to "Menu"; the button reports `aria-expanded` and names the drawer with `aria-controls`. At the breakpoint and above the sidebar renders exactly as it does without the key. A reader whose browser runs no scripts keeps the sidebar in the layout at every width, since the menu button could open nothing for them.
 
 ```yaml
 - type: sidebar

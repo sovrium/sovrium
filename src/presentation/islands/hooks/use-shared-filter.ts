@@ -18,42 +18,26 @@ import {
  *.
  *
  * The DYNAMIC counterpart to a system source's static `query`: a data source
- * carrying `bindTo` + `sharedFilter` subscribes to a sibling PUBLISHER (a
- * `search-input` / selector / filter / period control whose component id equals
- * `bindTo`) and re-reads with the publisher's current value merged into its
- * request as the named param(s). ONE publisher can drive MANY sibling
- * subscribers (a DB-table grid + a system-source grid both re-read on the shared
- * change); each subscriber picks the subset of the published value it consumes
- * via `sharedFilter.params`.
+ * carrying `bindTo` + `sharedFilter` listens on the CHANNEL `bindTo` names and
+ * re-reads with what the channel's publishers hold merged into its request.
+ * ONE channel can drive MANY subscribers (a DB-table grid + a system-source
+ * grid both re-read on the shared change); each subscriber picks the subset it
+ * consumes via `sharedFilter.params`.
  *
- * Inert (returns a stable empty bag) unless BOTH `bindTo` and `sharedFilter` are
- * present — mirroring how `pollIntervalMs` is silently ignored without
- * `refreshMode: poll`. A legacy `bindTo` WITHOUT `sharedFilter` keeps driving
- * client-side search (handled elsewhere), never a request param.
+ * Inert (returns a stable empty bag) unless BOTH `bindTo` and `sharedFilter`
+ * are present — mirroring how `pollIntervalMs` is silently ignored without
+ * `refreshMode: poll`.
  *
- * It reuses — never reinvents — the existing publisher channels:
- *  - a scalar `search-input` publishes its value via the DOM `input` event on its
- *    `#<bindTo> input` (the same channel the legacy `useBoundQuery` reads), and
- *    via the `island:search` CustomEvent when it is an island;
- *  - a multi-param selector publishes a param BAG via the `island:system-query`
- *    CustomEvent (the channel the runs filter bar already dispatches);
- *  - a config `select` carrying `publishes: { bindTo, param }` contributes ONE
- *    key of a bag on that same event (`use-shared-filter-publisher.ts`).
- *
- * ONE CHANNEL, MANY CONTRIBUTORS. Bags arriving on a channel are MERGED rather
- * than replaced, which is what lets two sibling selects put both their params
- * into the SAME request.
- *
- * Mapping the published value to the merged request bag:
- *  - scalar value `v` + `params: [p1, p2]` -> `{ p1: v, p2: v }`
- *  - scalar value `v` + no `params`         -> `{}` (a scalar has no bag to merge)
- *  - bag value + `params: [k1]`             -> `{ k1: bag[k1] }` (a subset)
- *  - bag value + no `params`                -> the full bag verbatim
- * An empty published value clears the param (the key is dropped from the bag).
+ * ONE CHANNEL, MANY CONTRIBUTORS. Every publisher — a search box, a select, a
+ * filter bar, a selection — contributes its own keys to one bag, MERGED rather
+ * than replaced, which is what lets several controls narrow the same request.
+ * A subscriber with `params` takes that subset of the bag (a control's
+ * condition always rides along); one without takes the whole bag. An empty
+ * published value withdraws its key.
  */
 
 export interface SharedFilterBindingConfig {
-  /** The publisher component id this subscriber listens to. */
+  /** The channel this subscriber listens on. */
   readonly bindTo?: string
   /** Param mapping companion; presence (even `{}`) activates the binding. */
   readonly sharedFilter?: { readonly params?: readonly string[] }

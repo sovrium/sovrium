@@ -11,23 +11,18 @@ import {
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
 import { StaleWriteError } from '@/domain/errors'
-import { findConstraintFieldName } from '@/domain/errors/driver-failure'
 import {
   ForeignKeyViolationError,
-  DatabaseError,
-  UniqueConstraintViolationError,
+  type DatabaseError,
   type DrizzleTransaction,
+  type UniqueConstraintViolationError,
 } from '@/infrastructure/database'
 import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
 import { tryTransactionWithOutbox } from '@/infrastructure/webhooks/webhook-outbox-queries'
+import { confirmAccountsInTransaction } from '../mutation-helpers/account-confirmation'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
-import {
-  buildInsertClauses,
-  insertAndResolveRow,
-  isForeignKeyViolation,
-  isUniqueConstraintViolation,
-} from '../mutation-helpers/create-record-helpers'
+import { buildInsertClauses, insertAndResolveRow } from '../mutation-helpers/create-record-helpers'
 import {
   cascadeSoftDelete,
   cascadeSetNull,
@@ -48,6 +43,8 @@ import {
 } from '../mutation-helpers/update-transaction'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../statement/error-handling'
+import { wrapCreateRecordFailure } from './crud-write-failure'
+import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -90,9 +87,11 @@ async function executeCreateRecordWithLinksTx(
     readonly tableName: string
     readonly fields: Readonly<Record<string, unknown>>
     readonly links: readonly ManyToManyLink[]
+    readonly accounts?: readonly AccountReference[]
   }
 ): Promise<Readonly<Record<string, unknown>>> {
   const { session, tableName, fields, links } = input
+  await confirmAccountsInTransaction(tx, input.accounts)
   const row = await executeCreateRecordTx(tx, session, tableName, fields)
   const sourceId = row['id'] as string | number
   return writeManyToManyLinksInTransaction(tx, { sourceTable: tableName, sourceId, links }).then(
@@ -101,69 +100,23 @@ async function executeCreateRecordWithLinksTx(
 }
 
 /**
- * Convert a failed INSERT into the typed failure the API boundary answers from.
- *
- * The interesting half is the COLUMN. A constraint rejection is the caller's
- * own value clashing with a rule their config declared, so the only useful
- * answer names which value — and the column name is recoverable because the
- * constraint name is OURS (`check_<column>_<suffix>`, `<table>_<column>_fkey`),
- * handed back by the driver on `constraint` under PostgreSQL and inside the
- * message text under SQLite.
- *
- * Recovery goes through the shared {@link findConstraintFieldName} rather than
- * a private regex ladder, and is restricted to columns the caller ACTUALLY
- * SUBMITTED. That guard is what makes the echo safe (standing rule S4) and what
- * makes it unambiguous: `created_by` and `updated_by` are injected from the
- * session after the payload is taken, so an FK failure on one of them names no
- * column at all instead of disclosing a column the caller never sent.
- *
- * Order is the contract, and it is the pre-existing one: foreign-key BEFORE
- * unique. PostgreSQL attaches a `constraint` name to FK violations too, so the
- * looser uniqueness test would otherwise claim them.
- *
- * [internal ref] / a forms spec.
- */
-function wrapCreateRecordFailure(
-  error: unknown,
-  tableName: string,
-  submittedFields: readonly string[]
-): DatabaseError | UniqueConstraintViolationError | ForeignKeyViolationError {
-  if (error instanceof DatabaseError) return error
-  if (error instanceof UniqueConstraintViolationError) return error
-  if (error instanceof ForeignKeyViolationError) return error
-
-  const fieldName = findConstraintFieldName(error, submittedFields)
-
-  if (isForeignKeyViolation(error)) {
-    const message = fieldName
-      ? `referenced ${fieldName} does not exist`
-      : 'referenced record does not exist'
-    return new ForeignKeyViolationError(message, fieldName, error)
-  }
-  if (isUniqueConstraintViolation(error)) {
-    return new UniqueConstraintViolationError('Unique constraint violation', error, fieldName)
-  }
-  // Everything else — including the CHECK and NOT NULL rejections this path
-  // used to drop on the floor. The message is server-side log context only;
-  // the client is answered from `CONSTRAINT_MESSAGES` by the sanitizer, which
-  // reads `fieldName` off this error to name the offending column.
-  return new DatabaseError(`Failed to create record in ${tableName}`, error, fieldName)
-}
-
-/**
  * Create a new record
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
  * @param fields - Record fields
- * @param links - many-to-many links to store with the record, in the same transaction
+ * @param written - the many-to-many links to store with the record, and the accounts
+ *   its lists of people name, both in the record's own transaction
  * @returns Effect resolving to created record
  */
 export function createRecord(
   session: Readonly<Session>,
   tableName: string,
   fields: Readonly<Record<string, unknown>>,
-  links: readonly ManyToManyLink[] = []
+  written: {
+    readonly links?: readonly ManyToManyLink[]
+    readonly accounts?: readonly AccountReference[]
+  } = {}
 ): Effect.Effect<
   Record<string, unknown>,
   DatabaseError | UniqueConstraintViolationError | ForeignKeyViolationError
@@ -174,7 +127,10 @@ export function createRecord(
       tableName,
       tryTransactionWithOutbox({
         transaction: (tx) =>
-          executeCreateRecordWithLinksTx(tx, { session, tableName, fields, links }),
+          executeCreateRecordWithLinksTx(tx, {
+            ...{ session, tableName, fields, accounts: written.accounts },
+            links: written.links ?? [],
+          }),
         changesOf: (row) => [{ tableName, event: 'insert', recordId: String(row['id']), row }],
         // The caller's own keys, taken BEFORE authorship injection: only a
         // column they submitted may be named back to them (S4).
@@ -259,7 +215,10 @@ export function updateRecord(
   tableName: string,
   recordId: string,
   params: Readonly<UpdateRecordInput>
-): Effect.Effect<Record<string, unknown>, DatabaseError | StaleWriteError> {
+): Effect.Effect<
+  Record<string, unknown>,
+  DatabaseError | StaleWriteError | ForeignKeyViolationError
+> {
   const wrap = wrapDatabaseError(`Failed to update record in ${tableName}`)
   return Effect.gen(function* () {
     const { recordBefore, updatedRecord, rowWritten } = yield* traceDbQuery(
@@ -269,7 +228,10 @@ export function updateRecord(
         transaction: (tx) =>
           runUpdateRecordTransaction(tx, { session, tableName, recordId }, params),
         changesOf: (outcome) => updatedRowChanges(tableName, recordId, outcome),
-        catch: (error) => (error instanceof StaleWriteError ? error : wrap(error)),
+        catch: (error) =>
+          error instanceof StaleWriteError || error instanceof ForeignKeyViolationError
+            ? error
+            : wrap(error),
       })
     )
     if (!rowWritten) return updatedRecord

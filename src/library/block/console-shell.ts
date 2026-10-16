@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { asComponent } from '@/library/manifest/block-kit'
+import { asComponent, param, when } from '@/library/manifest/block-kit'
+import { stringParam } from '@/library/manifest/block-notes'
 import { defineLibraryEntry } from '@/library/manifest/define'
 import { crumbs, placeholderContent, userRow } from '@/library/manifest/navigation-block-kit'
 import {
@@ -22,7 +23,9 @@ const LARGE_ROW =
 /**
  * The identity row heading the sidebar: the app's mark, its name with the
  * release it runs, and the engine under it, linking to the console's home.
- * The release chip folds away when the app declares no version.
+ * The release chip folds away when the app declares no version. The mark tile
+ * is filled by the engine (`data-app-mark`): the app's `design.logo`, else a
+ * monogram of its display name.
  */
 const identityRow = (): BlockNode => ({
   type: 'link',
@@ -32,10 +35,9 @@ const identityRow = (): BlockNode => ({
       type: 'container',
       props: {
         className:
-          'flex aspect-square size-8 flex-none items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground',
-        'aria-hidden': 'true',
+          'flex aspect-square size-8 flex-none items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground data-[app-mark=logo]:bg-transparent',
+        'data-app-mark': 'tile',
       },
-      children: [{ type: 'icon', props: { name: 'gallery-vertical-end', size: 16 } }],
     },
     {
       type: 'flex',
@@ -78,7 +80,8 @@ const identityRow = (): BlockNode => ({
  * command menu. sidebar-16 draws a search field there; this is the same
  * control as a button, because the field it opens is the command menu's own.
  * No `⌘K` chip: base-nova's `Kbd` sets muted text on a muted ground, under
- * 4.5:1, and the shortcut opens the menu all the same.
+ * 4.5:1, and the shortcut opens the menu all the same. On a phone it is an
+ * icon button, leaving the trail the width; its label names it at every width.
  */
 const searchButton = (): BlockNode => ({
   type: 'button',
@@ -88,20 +91,63 @@ const searchButton = (): BlockNode => ({
     'aria-label': 'Search',
     'data-command-palette-trigger': 'true',
     className:
-      'relative h-8 w-full justify-start gap-2 rounded-md px-2 text-sm font-normal text-muted-foreground shadow-none sm:w-56',
+      'relative size-8 shrink-0 justify-center gap-2 rounded-md px-0 text-sm font-normal text-muted-foreground shadow-none sm:w-56 sm:justify-start sm:px-2',
   },
   children: [
     { type: 'icon', props: { name: 'search', size: 16 } },
-    { type: 'text', element: 'span', props: { className: 'flex-1 text-left' }, content: 'Search…' },
+    {
+      type: 'text',
+      element: 'span',
+      props: { className: 'hidden flex-1 text-left sm:inline' },
+      content: 'Search…',
+    },
   ],
 })
+
+/**
+ * The notice an operator without the write tier reads beside the search:
+ * shown to whoever does NOT hold `edit-operations`, from `md` up.
+ */
+const readOnlyNotice = (text: string): readonly BlockNode[] =>
+  when(text, {
+    type: 'text',
+    element: 'span',
+    visibility: { unlessCapability: 'edit-operations' },
+    props: { className: 'hidden text-xs text-muted-foreground md:inline' },
+    content: text,
+  })
+
+/**
+ * The account row with the operator's role after the name: `roleLabel` for an
+ * operator holding `edit-operations`, `readOnlyRoleLabel` for anyone else.
+ * Either badge is left out while its label is empty.
+ */
+const accountRow = (roleLabel: string, readOnlyRoleLabel: string): BlockNode => {
+  const row = userRow('shadcn', 'm@example.com', 'CN')
+  const children = row['children'] as readonly BlockNode[]
+  const badges = [
+    ...when(roleLabel, {
+      type: 'badge',
+      badgeVariant: 'secondary',
+      visibility: { capability: 'edit-operations' },
+      content: roleLabel,
+    }),
+    ...when(readOnlyRoleLabel, {
+      type: 'badge',
+      badgeVariant: 'outline',
+      visibility: { unlessCapability: 'edit-operations' },
+      content: readOnlyRoleLabel,
+    }),
+  ]
+  return { ...row, children: [...children.slice(0, -1), ...badges, ...children.slice(-1)] }
+}
 
 /**
  * sidebar-16's site header, on sidebar-07's inset: held at the top while the
  * page scrolls, with the trail, the search and the scheme toggle. It leaves the
  * sidebar's fold trigger its room at the start.
  */
-const siteHeader = (): BlockNode => ({
+const siteHeader = (notice: string): BlockNode => ({
   type: 'container',
   element: 'header',
   props: {
@@ -111,17 +157,22 @@ const siteHeader = (): BlockNode => ({
   children: [
     {
       ...crumbs([['Build Your Application', '/docs'], ['Data Fetching']]),
-      // One row whatever the width: the trail never wraps, and the FIRST crumb
-      // is the one that gives way, so the page the reader is on stays whole.
+      // One row whatever the width: the trail never wraps, the first and the
+      // last crumbs give way before the others, and below `sm` it keeps only
+      // its root and the page the reader is on.
       props: {
         className:
-          'min-w-0 flex-1 overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate',
+          'min-w-0 flex-1 overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden',
       },
     },
     {
       type: 'container',
       props: { className: 'ml-auto flex items-center gap-2' },
-      children: [searchButton(), { type: 'theme-toggle', variant: 'icon' }],
+      children: [
+        searchButton(),
+        ...readOnlyNotice(notice),
+        { type: 'theme-toggle', variant: 'icon' },
+      ],
     },
   ],
 })
@@ -141,13 +192,31 @@ export const entry = defineLibraryEntry({
     'The frame fills the viewport and the content column scrolls on its own, so the sidebar and the header stay put while a long page moves.',
     'The sidebar heads with the app: its mark, its name, the release it runs (hidden when the app declares none) and the engine under it.',
     "The search control opens the page's command menu: pair it with the `command` block.",
+    "Set `roleLabel` and `readOnlyRoleLabel` to show the operator's role after their name, and `readOnlyNotice` to tell an operator without `edit-operations` beside the search that they can only read. Each is left out while empty.",
     ...SHELL_NOTES,
   ],
-  params: [],
+  params: [
+    stringParam(
+      'roleLabel',
+      "The badge after the operator's name when they hold `edit-operations`; empty leaves it out.",
+      ''
+    ),
+    stringParam(
+      'readOnlyRoleLabel',
+      "The badge after the operator's name when they do not hold `edit-operations`; empty leaves it out.",
+      ''
+    ),
+    stringParam(
+      'readOnlyNotice',
+      'The notice beside the search for an operator without `edit-operations`; empty leaves it out.',
+      ''
+    ),
+  ],
   env: [],
   requires: [],
-  build: ({ name }) =>
-    asComponent(name, {
+  build: ({ name, params }) => {
+    const p = param(params)
+    return asComponent(name, {
       type: 'flex',
       props: {
         className: 'flex h-svh w-full flex-col items-stretch overflow-hidden md:flex-row',
@@ -158,14 +227,15 @@ export const entry = defineLibraryEntry({
           railHandle: true,
           header: [identityRow()],
           groups: [platformGroup()],
-          footer: [userRow('shadcn', 'm@example.com', 'CN')],
+          footer: [accountRow(p('roleLabel'), p('readOnlyRoleLabel'))],
         }),
         {
           type: 'container',
           element: 'div',
           props: { className: 'flex min-w-0 flex-1 flex-col overflow-y-auto bg-background' },
-          children: [siteHeader(), placeholderContent()],
+          children: [siteHeader(p('readOnlyNotice')), placeholderContent()],
         },
       ],
-    }),
+    })
+  },
 })

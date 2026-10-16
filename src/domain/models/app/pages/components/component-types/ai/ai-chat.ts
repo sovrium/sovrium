@@ -141,4 +141,32 @@ export const aiChatFields = {
   ),
   attachments: Schema.optional(AiChatAttachmentsSchema),
   voiceInput: Schema.optional(AiChatVoiceInputSchema),
+  /**
+   * The URL query parameter a link may carry the opening words in.
+   *
+   * A page arrived at with `?<draftParam>=<words>` opens the chat with those
+   * words in its message box and the box focused. Nothing is sent: a link must
+   * never make a reader send a message they did not write, so the words wait
+   * for the reader exactly as a clicked suggestion does. The parameter is read
+   * in the browser, once, when the chat mounts.
+   *
+   * It is a named parameter rather than a `page.query` property because
+   * `page.query` admits a closed list of values, and the words a reader typed
+   * are free text by definition.
+   */
+  draftParam: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Name of the URL query parameter whose value opens the chat with those words in its message box, focused and not sent. A page reached with `?q=Which runs failed` and `draftParam: q` shows "Which runs failed" ready to send.',
+        examples: ['q'],
+      }),
+      Schema.check(
+        Schema.isPattern(/^[a-z][a-z0-9_-]*$/, {
+          message:
+            'draftParam must be a lowercase query parameter name (letters, digits, - and _), such as q',
+        })
+      )
+    )
+  ),
 } as const

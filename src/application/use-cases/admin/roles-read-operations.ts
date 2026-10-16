@@ -30,7 +30,24 @@ import {
   type AdminReadOperation,
 } from '@/application/use-cases/admin/admin-read-operation'
 import { adminRolesResponseSchema } from '@/domain/models/api/admin/users/roles'
-import { assignableRoleNames } from '@/domain/models/app/auth/roles'
+import {
+  ADMIN_TIER_ROLE_NAMES,
+  assignableRoleNames,
+  BUILT_IN_ROLES,
+} from '@/domain/models/app/auth/roles'
+import type { App } from '@/domain/models/app'
+
+/** Names the configuration cannot redeclare, so it can never describe them. */
+const UNDESCRIBABLE: ReadonlySet<string> = new Set<string>([
+  ...BUILT_IN_ROLES,
+  ...ADMIN_TIER_ROLE_NAMES,
+])
+
+/** The declared `auth.roles[].description` of `name`, verbatim, else null. */
+const roleDescription = (app: App, name: string): string | null =>
+  UNDESCRIBABLE.has(name)
+    ? null
+    : ((app.auth?.roles ?? []).find((role) => role.name === name)?.description ?? null)
 
 const rolesList = defineAdminRead<undefined>({
   id: 'roles.list',
@@ -41,14 +58,15 @@ const rolesList = defineAdminRead<undefined>({
   tool: {
     suffix: 'roles_list',
     description:
-      'The role names this app may assign — the built-ins, the admin-tier names and every declared role — sorted by name, as GET /api/admin/roles answers them (admin-only, read-only).',
+      'The role names this app may assign — the built-ins, the admin-tier names and every declared role — sorted by name, each with its declared description (null when none), as GET /api/admin/roles answers them (admin-only, read-only).',
     inputSchema: { type: 'object', properties: {} },
   },
   openapi: {
     summary: 'List the assignable roles',
     description:
       'Every role name this app may assign, sorted by name: the built-ins, the admin-tier ' +
-      'names and every role declared in `auth.roles`. A projection of configuration — it ' +
+      'names and every role declared in `auth.roles`, each with the description its ' +
+      '`auth.roles` entry declares (null when none). A projection of configuration — it ' +
       'says nothing about who holds which role. Admin only.',
     operationIdBase: 'listAdminRoles',
     responseSchema: adminRolesResponseSchema,
@@ -62,7 +80,7 @@ const rolesList = defineAdminRead<undefined>({
     Effect.sync(() => {
       const names = [...assignableRoleNames(app)].toSorted((a, b) => a.localeCompare(b))
       return answerWithSchema(adminRolesResponseSchema, {
-        roles: names.map((name) => ({ name })),
+        roles: names.map((name) => ({ name, description: roleDescription(app, name) })),
         total: names.length,
       })
     }),

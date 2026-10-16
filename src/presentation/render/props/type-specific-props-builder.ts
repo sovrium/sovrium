@@ -7,15 +7,21 @@
 
 import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
 import { resolveLiftedTranslationTokens } from '../i18n/translation-handler'
+import { liftActionConfirms, liftColumnActionConfirms } from './action-confirm-lift'
 import {
   callerTableOf,
   withCallerWritableColumns,
   withoutInlineEditing,
 } from './caller-table-inputs'
-import { dataTableInterpreterStrings } from './data-table-interpreter-strings'
+import {
+  dataTableInterpreterStrings,
+  tableEmptyMessage,
+  viewSwitcherProps,
+} from './data-table-interpreter-strings'
 import { buildEmptyStateElementProps } from './empty-state-copy-builder'
+import { gridWriteGates } from './grid-write-gates'
 import { layoutIntentProps } from './layout-intent-props'
-import { withResolvedOptionLabels } from './option-labels'
+import { optionLabelMap, withResolvedOptionLabels } from './option-labels'
 import { withRelatedCreateGates } from './related-create-gates'
 import { timelineResizeFields } from './timeline-resize-fields'
 import { isViewBoundSource } from './view-binding-inputs'
@@ -105,14 +111,6 @@ const gridDrawingProps = (
 /** A bound grid, as the read-only gate reads it. */
 type GridWriteInput = ComponentOfType<'table'>
 
-/**
- * A grid declared `readOnly` is a reading for every reader: no create, no
- * import, no add-row line and no editor. Presentation only — the records API
- * answers as before. Otherwise the caller's own write gate stands.
- */
-const readOnlyOr = (component: GridWriteInput, gate: boolean | undefined): boolean | undefined =>
-  component.readOnly === true ? false : gate
-
 /** The grid's columns, with no inline editor where the grid or the reader forbids one. */
 const gridColumns = (component: GridWriteInput) =>
   component.readOnly === true
@@ -128,7 +126,14 @@ const lift =
   })
 
 /** A record gallery's keys: `gallery`, and `carousel`, which declares no grid ones. */
-const galleryBuilder = lift('dataSource', 'gridColumns', 'galleryCard', 'emptyMessage', 'layout')
+const galleryBuilder = lift(
+  'dataSource',
+  'gridColumns',
+  'galleryCard',
+  'emptyMessage',
+  'layout',
+  'publishes'
+)
 
 const TYPE_BUILDERS: {
   readonly [K in ComponentType]?: (args: BuilderArgs<ComponentOfType<K>>) => Record<string, unknown>
@@ -157,15 +162,15 @@ const TYPE_BUILDERS: {
       isViewBound: isViewBoundSource(component.dataSource),
       readOnly: component.readOnly,
       // No inline input on a field the reader may not write (`caller-table-inputs.ts`).
-      columns: gridColumns(component),
+      columns: liftColumnActionConfirms(gridColumns(component), args),
       selection: component.selection,
       pagination: component.pagination,
-      search: component.search,
       // The grouping is the bound view's, never the component's own.
       groupBy: resolved.dataTableGroupBy,
       summary: component.summary,
-      toolbar: component.toolbar,
-      bulkActions: component.bulkActions,
+      bulkActions: liftActionConfirms(component.bulkActions, args),
+      // The channel the grid publishes the reader's selected records on.
+      publishes: component.publishes,
       // Inline buttons, or one `…` menu per row, for the action column.
       rowActions: component.rowActions,
       ...gridDrawingProps(component),
@@ -175,6 +180,8 @@ const TYPE_BUILDERS: {
       rowColorField: component.rowColorField,
       rowColorFieldColors: resolved.colorFieldColors,
       emptyMessage: component.emptyMessage,
+      // An empty grid names its table unless the author wrote its own words.
+      tableEmptyMessage: tableEmptyMessage(resolved.dataTableNames, currentLang, languages),
       noMatchMessage: component.noMatchMessage,
       onRowClick: component.onRowClick,
       autoSave: component.autoSave,
@@ -186,26 +193,16 @@ const TYPE_BUILDERS: {
           ?._canCreateRelated
       ),
       tablePermissions: resolved.dataTablePermissions,
-      // Render-time create-permission gate, stamped
-      // into `props._canCreate` by the data-source resolver where the session role
-      // is known. Forwarded to the island so the toolbar offers the "Nouvel
-      // enregistrement" create affordance only when the current role may create.
-      // Absent (undefined) when auth is not configured → the island defaults to
-      // offering it (full-access model).
-      canCreate: readOnlyOr(component, (componentProps as { _canCreate?: boolean })?._canCreate),
-      // Render-time update-permission gate, stamped by
-      // the same data-source resolver. It is the permission-derived DEFAULT for a
-      // column's `editable` — the one `ColumnSchema.editable` has always been
-      // annotated with ("default: from table permissions"). An explicit `editable`
-      // on the column still wins in both directions; absent (auth not configured,
-      // or the table declares no `update` grant) the grid stays read-only.
-      canUpdate: readOnlyOr(component, (componentProps as { _canUpdate?: boolean })?._canUpdate),
+      // The create / update / delete gates the resolver stamped (`grid-write-gates.ts`).
+      ...gridWriteGates(component, componentProps),
+      // The view switcher, on a table that declares views (`viewSwitcher.allLabel`).
+      ...viewSwitcherProps(resolved, currentLang, languages),
       // The grid's interpreter-provided strings in the page language.
       ...dataTableInterpreterStrings(currentLang, languages),
     }
   },
 
-  kanban: ({ baseElementPropsWithType, component, resolved }) => ({
+  kanban: ({ baseElementPropsWithType, component, resolved, currentLang, languages }) => ({
     ...baseElementPropsWithType,
     dataSource: component.dataSource,
     kanbanGroupBy: component.kanbanGroupBy,
@@ -217,9 +214,11 @@ const TYPE_BUILDERS: {
     columnOptions: resolved.kanbanColumnOptions,
     columnColors: resolved.kanbanColumnColors,
     swimlaneOptions: resolved.kanbanSwimlaneOptions,
+    columnLabels: optionLabelMap(resolved.kanbanAxisFields?.column, languages, currentLang),
+    swimlaneLabels: optionLabelMap(resolved.kanbanAxisFields?.lane, languages, currentLang),
     colorFieldColors: resolved.colorFieldColors,
     fieldMeta: resolved.dataTableFieldMeta,
-    search: component.search,
+    publishes: component.publishes,
   }),
 
   'event-calendar': ({ baseElementPropsWithType, component, resolved }) => ({
@@ -236,7 +235,7 @@ const TYPE_BUILDERS: {
     maxEventsPerDay: component.maxEventsPerDay,
     calendarEvent: component.calendarEvent,
     calendarInteraction: component.calendarInteraction,
-    search: component.search,
+    publishes: component.publishes,
   }),
 
   gallery: galleryBuilder,
@@ -274,8 +273,12 @@ const TYPE_BUILDERS: {
     trend: component.trend,
     thresholds: component.thresholds,
     sparkline: component.sparkline,
-    // The rate-limited read notice in the page language, where it differs from English.
-    uiStrings: resolveInterpreterStringOverrides(['rateLimit.'], currentLang, languages),
+    // Its notices and states in the page language, where they differ from English.
+    uiStrings: resolveInterpreterStringOverrides(
+      ['rateLimit.', 'kpi.', 'component.'],
+      currentLang,
+      languages
+    ),
   }),
 
   // `timeline`, in BOTH shapes. A record-bound one lifts its display bindings

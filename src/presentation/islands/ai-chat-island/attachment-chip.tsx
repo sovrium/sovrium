@@ -90,6 +90,7 @@ const ChipTitle = ({ file }: { readonly file: ChatAttachment }): ReactElement =>
         href={`/api/ai/chat/attachments/${file.attachmentId}`}
         target="_blank"
         rel="noopener"
+        aria-describedby="sovrium-new-tab-notice"
       >
         {file.name}
       </a>

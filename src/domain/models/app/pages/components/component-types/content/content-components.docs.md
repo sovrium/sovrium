@@ -127,11 +127,11 @@ The links read in the muted foreground and turn to the foreground on hover, a de
 
 ## `search-input`
 
-The search box, in one of two scopes. `scope` is **required** and has no default, because the two look alike and mean different things: `subscribers` publishes the query to sibling components bound to this input, `page` searches the content of your public pages.
+The search box. It either searches pages or narrows data, and says which: `scope: page` searches the content of your pages, and `publishes: { bindTo, param: q }` sends what the reader types on a shared-filter channel, so every data component subscribed to that channel narrows to the records the full-text search matches, together with the channel's other controls. `debounceMs` waits for the reader to pause before sending, `minQueryLength` sends nothing below that length, and clearing the box takes the search back out. A box declaring neither, or both, is refused at load. `scope: subscribers`, where a sibling named this box's id, was removed in 0.39 and is refused at load, naming `publishes`.
 
 <!-- sovrium:options type:search-input -->
 
-A key belonging to the other scope is ignored rather than rejected. The full-text engine itself — indexing, weights, public search — is configured elsewhere; this is the UI building block. Reference: shadcn/ui Input Group, Popover. The box is one bordered group with a search glyph at its start, and in the `page` scope its results open in a list below it; Enter opens the first result and Escape clears the box.
+A key belonging to the other role is ignored rather than rejected. The full-text engine itself — indexing, weights, public search — is configured elsewhere; this is the UI building block. Reference: shadcn/ui Input Group, Popover. The box is one bordered group with a search glyph at its start, and under `scope: page` its results open in a list below it; Enter opens the first result and Escape clears the box.
 
 ## Markdown content is not a markdown page
 

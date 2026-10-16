@@ -21,6 +21,14 @@ import { renderIcon } from '../elements/icon-renderer'
 import { resolveChildTranslation } from '../i18n/translation-handler'
 import { toIslandChild } from './sidebar-disclosure-payload'
 import {
+  copy,
+  DEFAULT_COLLAPSE_LABEL,
+  DEFAULT_EMPTY_LABEL,
+  DEFAULT_ERROR_LABEL,
+  DEFAULT_EXPAND_LABEL,
+  DEFAULT_LOADING_LABEL,
+} from './sidebar-entry-copy'
+import {
   entrySlotAttributes,
   railTitle,
   renderBadge,
@@ -44,15 +52,6 @@ export interface SidebarI18n {
   /** The author's classes by part (`nav`, `link`, `groupLabel`, `badge`), states folded in. */
   readonly parts?: Readonly<Record<string, string>>
 }
-
-/** Default toggle names, both carrying the `{label}` a fixed string cannot. */
-const DEFAULT_EXPAND_LABEL = 'Expand {label}'
-const DEFAULT_COLLAPSE_LABEL = 'Collapse {label}'
-
-/** Default copy for the three states only a FETCHED child list can be in. */
-const DEFAULT_LOADING_LABEL = 'Loading…'
-const DEFAULT_ERROR_LABEL = "Couldn't load the list."
-const DEFAULT_EMPTY_LABEL = 'No items.'
 
 /** Whether the entry expands at all — authored children, or fetched ones. */
 export const isExpandable = (item: SidebarNavItem): boolean =>
@@ -169,9 +168,6 @@ export function renderEntry(
  * section — the open list with its current child already marked. A reader with
  * no JavaScript gets a navigation that has told them where they are.
  */
-/** Resolve a copy field, falling back to the default this component ships. */
-const copy = (value: string | undefined, fallback: string, i18n: SidebarI18n): string =>
-  resolveChildTranslation(value ?? fallback, i18n.currentLang, i18n.languages)
 
 /** A fetched disclosure's source as the island reads it, its three lines in the sidebar's language. */
 const sourcePayload = (

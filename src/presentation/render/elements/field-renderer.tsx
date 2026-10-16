@@ -20,7 +20,6 @@ import { computeFormRequiredMarkClasses } from '@/presentation/design/form-layou
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { toUncontrolledTextareaProps } from '../props/uncontrolled-form-props'
 import type { ElementProps } from './html-element-renderer'
-import type { Component } from '@/domain/models/app/pages/components'
 
 /**
  * Configuration for {@link renderField}.
@@ -69,6 +68,7 @@ const renderLabel = (config: RenderFieldConfig): ReactElement | undefined =>
     <label
       className={computeFieldLabelClasses()}
       htmlFor={config.controlId}
+      id={config.controlId ? `${config.controlId}-label` : undefined}
       data-slot="field-label"
     >
       {config.fieldLabel}
@@ -216,20 +216,6 @@ export function renderField(config: RenderFieldConfig): ReactElement {
       {renderParts(config)}
     </div>
   )
-}
-
-/**
- * Extract the `id` of the first child component for `<label htmlFor=...>` wiring.
- *
- * The Field component is a single-control wrapper, so the first child's `id`
- * is the natural target for label-click focus. Returns `undefined` if no
- * children are present or the first child has no `props.id`.
- */
-export function extractFirstChildId(component: Component | undefined): string | undefined {
-  const children = (component as { children?: readonly unknown[] } | undefined)?.children
-  if (!Array.isArray(children) || children.length === 0) return undefined
-  const firstChild = children[0] as { props?: { id?: string } } | undefined
-  return firstChild?.props?.id
 }
 
 /**

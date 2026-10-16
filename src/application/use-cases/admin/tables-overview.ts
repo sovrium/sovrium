@@ -73,11 +73,21 @@ const tablesOverviewSemaphore = Semaphore.makeUnsafe(
 
 /** Input for `buildTablesOverview`. */
 export interface BuildTablesOverviewInput {
-  /** Sanitized table name + display name pairs from the live App config. */
-  readonly tables: ReadonlyArray<{ readonly displayName: string; readonly dbName: string }>
+  /**
+   * Per table: its config `name` (`displayName`, the identifier links use), its
+   * sanitized database name, and the plural label a person reads.
+   */
+  readonly tables: ReadonlyArray<OverviewTable>
   readonly period: PeriodPreset
   /** Reference "now" — exposed for deterministic test fixtures. */
   readonly now: Date
+}
+
+/** One table as the overview reads it. */
+interface OverviewTable {
+  readonly displayName: string
+  readonly dbName: string
+  readonly label: string
 }
 
 /** Period spec — interval, count, and bucket size. */
@@ -101,7 +111,7 @@ function resolvePeriodSpec(period: PeriodPreset): PeriodSpec {
 
 /** Build the per-table breakdown rows in the canonical shape. */
 function buildByTable(
-  sortedTables: ReadonlyArray<{ readonly displayName: string; readonly dbName: string }>,
+  sortedTables: ReadonlyArray<OverviewTable>,
   aggregates: ReadonlyArray<TableAggregateRow>,
   perTableWrites: ReadonlyArray<number>
 ): ReadonlyArray<TableOverviewBreakdownItem> {
@@ -112,6 +122,7 @@ function buildByTable(
     const agg = aggregateByDbName.get(t.dbName)
     return {
       name: t.displayName,
+      label: t.label,
       rowCount: agg?.rowCount ?? 0,
       softDeletedCount: agg?.softDeletedCount ?? 0,
       lastWriteAt: agg?.lastWriteAt ?? null,
@@ -153,7 +164,7 @@ export const buildTablesOverview = (
     const repo = yield* TablesOverviewRepository
 
     // Sort by display name alphabetically — spec asserts contacts < deals etc.
-    const sortedTables: ReadonlyArray<{ readonly displayName: string; readonly dbName: string }> =
+    const sortedTables: ReadonlyArray<OverviewTable> =
       // eslint-disable-next-line functional/immutable-data, no-restricted-syntax -- single in-place sort on a freshly-spread copy; never mutates input
       [...input.tables].sort((a, b) => a.displayName.localeCompare(b.displayName))
     const dbNames = sortedTables.map((t) => t.dbName)

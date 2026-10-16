@@ -128,7 +128,22 @@ export function fillRoutePattern(pattern: string, params: RouteParams): string {
 }
 
 /**
- * Matches a URL path against a route pattern and extracts parameters
+ * A captured segment as the person wrote it: `enduser%40example.com` is the
+ * address `enduser@example.com`. A segment that is not valid percent-encoding
+ * (a bare `%`) is kept as it arrived rather than refused.
+ */
+export const decodeSegment = (value: string): string => {
+  if (!value.includes('%')) return value
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+/**
+ * Matches a URL path against a route pattern and extracts parameters — each
+ * one percent-decoded
  *
  * Pure function with no side effects
  *
@@ -183,7 +198,7 @@ export function matchRoute(pattern: string, urlPath: string): RouteMatch {
   const params = paramNames.reduce<Record<string, string>>((acc, name, i) => {
     const value = paramValues[i]
     if (name && value) {
-      return { ...acc, [name]: value }
+      return { ...acc, [name]: decodeSegment(value) }
     }
     return acc
   }, {})

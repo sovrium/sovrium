@@ -48,7 +48,11 @@ export type CurrentUserResolutionContext = {
    * resolved value feeds data filters. An optional reader would let a
    * caller silently disable that validation, so the type forbids it.
    */
-  readonly fetchAssignments: (userId: string, tableSlug: string) => Promise<readonly string[]>
+  readonly fetchAssignments: (
+    userId: string,
+    tableSlug: string,
+    role?: string
+  ) => Promise<readonly string[]>
   /**
    * Scope-table slugs declared in `auth.scopeTables`, in declaration
    * order. Mandatory so cookie values are matched against the configured
@@ -167,7 +171,7 @@ const resolveRef = async (
   }
 
   if (ref.path.kind === 'assignment') {
-    return ctx.fetchAssignments(session.userId, ref.path.tableSlug)
+    return ctx.fetchAssignments(session.userId, ref.path.tableSlug, ref.path.role)
   }
 
   // activeAssignment — read the active-scope cookie set by P-6 with

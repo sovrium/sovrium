@@ -8,6 +8,7 @@
 import { matchesConditionOperators } from '@/domain/models/app/tables/condition-operators'
 import { cn } from '@/presentation/design/class-merge'
 import type { CellMeta } from './data-row-types'
+import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type {
   CellStyleCondition,
   FieldColumn,
@@ -177,3 +178,18 @@ export const optionChipCellClassOf = (
   value: unknown,
   col: Pick<FieldColumn, 'cellStyle'>
 ): string => (col.cellStyle ? evaluateCellStyle(value, col.cellStyle) : '')
+
+/**
+ * Whether a field column offers to sort. A `button` field is an action, not a
+ * value: it stores nothing, so there is nothing to order rows by, and its
+ * header stays a plain label rather than a sort control that does nothing.
+ *
+ * @param column - The column as authored; `sortable: false` opts out.
+ * @param fieldMeta - The table's field metadata, carrying each field's type.
+ */
+export function columnSortable(
+  column: Pick<FieldColumn, 'field' | 'sortable'>,
+  fieldMeta: FieldMetaMap | undefined
+): boolean {
+  return column.sortable !== false && fieldMeta?.[column.field]?.type !== 'button'
+}

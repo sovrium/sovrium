@@ -29,13 +29,17 @@ export interface SsoButtonProvider {
 
 export interface SsoSignInFormProps {
   readonly providers: readonly SsoButtonProvider[]
+  /** Every word the control draws (`sso.*`), in the page language, resolved server-side. */
+  readonly uiStrings?: Readonly<Record<string, string>>
   readonly callbackUrl?: string
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
 }
 
-const SIGN_IN_FAILED = 'Sign in failed. Please try again.'
+type Words = Readonly<Record<string, string>>
+
+const NO_WORDS: Words = {}
 
 /**
  * Start an SSO sign-in and follow it to the provider. The server answers the
@@ -44,8 +48,10 @@ const SIGN_IN_FAILED = 'Sign in failed. Please try again.'
  */
 async function startSsoSignIn(
   providerId: string,
+  words: Words,
   callbackUrl?: string
 ): Promise<string | undefined> {
+  const failed = words['sso.signInFailed']
   const response = await fetch('/api/auth/sign-in/sso', {
     method: 'POST',
     credentials: 'same-origin',
@@ -56,20 +62,20 @@ async function startSsoSignIn(
       errorCallbackURL: window.location.pathname,
     }),
   }).catch(() => undefined)
-  if (response === undefined || !response.ok) return SIGN_IN_FAILED
+  if (response === undefined || !response.ok) return failed
   const body = (await response.json().catch(() => ({}))) as { readonly url?: unknown }
   const target = toSafeAssetUrl(body.url)
-  if (target === undefined) return SIGN_IN_FAILED
+  if (target === undefined) return failed
   window.location.assign(target)
   return undefined
 }
 
 /** The message for an address no provider owns. */
-const unroutableMessage = (email: string): string => {
+const unroutableMessage = (email: string, words: Words): string | undefined => {
   const domain = emailDomainOf(email)
   return domain === undefined
-    ? 'Enter your work email address.'
-    : `No sign-in provider is set up for ${domain}.`
+    ? words['sso.enterWorkEmail']
+    : words['sso.noProvider']?.replace('{domain}', domain)
 }
 
 function ProviderButton(props: {
@@ -92,10 +98,14 @@ function ProviderButton(props: {
   )
 }
 
-function WorkEmailField(props: { readonly inputId: string; readonly disabled: boolean }) {
+function WorkEmailField(props: {
+  readonly inputId: string
+  readonly disabled: boolean
+  readonly words: Words
+}) {
   return (
     <>
-      <label htmlFor={props.inputId}>Work email</label>
+      <label htmlFor={props.inputId}>{props.words['sso.workEmail']}</label>
       <input
         id={props.inputId}
         name="email"
@@ -108,7 +118,7 @@ function WorkEmailField(props: { readonly inputId: string; readonly disabled: bo
         {...pendingControlProps(props.disabled)}
         className={`${computeButtonDefaultClasses()} w-full`}
       >
-        Continue
+        {props.words['sso.continue']}
       </button>
     </>
   )
@@ -135,6 +145,7 @@ function SsoError({ message }: { readonly message: string | undefined }) {
  */
 export function SsoSignInForm(props: SsoSignInFormProps): React.ReactElement {
   const { providers, callbackUrl } = props
+  const words = props.uiStrings ?? NO_WORDS
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
 
@@ -142,13 +153,13 @@ export function SsoSignInForm(props: SsoSignInFormProps): React.ReactElement {
     (providerId: string): void => {
       setIsPending(true)
       setError(undefined)
-      void startSsoSignIn(providerId, callbackUrl).then((failure) => {
+      void startSsoSignIn(providerId, words, callbackUrl).then((failure) => {
         if (failure === undefined) return
         setError(failure)
         setIsPending(false)
       })
     },
-    [callbackUrl]
+    [callbackUrl, words]
   )
 
   const handleEmail = useCallback(
@@ -157,10 +168,10 @@ export function SsoSignInForm(props: SsoSignInFormProps): React.ReactElement {
       event.preventDefault()
       const email = String(new FormData(event.currentTarget).get('email') ?? '').trim()
       const provider = ssoProviderForEmail(providers, email)
-      if (provider === undefined) setError(unroutableMessage(email))
+      if (provider === undefined) setError(unroutableMessage(email, words))
       else start(provider.id)
     },
-    [providers, start]
+    [providers, start, words]
   )
 
   return (
@@ -175,6 +186,7 @@ export function SsoSignInForm(props: SsoSignInFormProps): React.ReactElement {
         <WorkEmailField
           inputId={`${props.id ?? 'sso'}-work-email`}
           disabled={isPending}
+          words={words}
         />
       )}
       <SsoError message={error} />

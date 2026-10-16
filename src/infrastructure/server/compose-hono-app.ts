@@ -21,7 +21,9 @@ import { requestId } from 'hono/request-id'
 import { AssetStore } from '@/application/ports/services/asset-store'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { requestedPath } from '@/domain/kernel/url/requested-path'
+import { mountedInvitationPages } from '@/domain/models/app/pages/invitation-link-service'
 import { resolvesToDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
+import { selfFramedPaths } from '@/domain/models/app/pages/self-framed-paths-service'
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 import { createInvitationServices } from '@/infrastructure/auth/better-auth/invitation-services'
 import { isIngestRequest } from '@/infrastructure/logging/ingest-request-scope'
@@ -40,7 +42,10 @@ import { catalogRequestCacheMiddleware } from '@/infrastructure/server/middlewar
 import { dbQueryCountMiddleware } from '@/infrastructure/server/middleware/db-query-count-header'
 import { hostRedirect } from '@/infrastructure/server/middleware/host-redirect'
 import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
-import { securityHeaders } from '@/infrastructure/server/middleware/security-headers'
+import {
+  sameOriginFraming,
+  securityHeaders,
+} from '@/infrastructure/server/middleware/security-headers'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
 import { readStatusDocument } from '@/infrastructure/server/status-file'
 import { reportException } from '@/infrastructure/telemetry/error-reporter'
@@ -212,6 +217,7 @@ export async function createHonoApp(
     .use('*', domainContextMiddleware(config.domainContext))
     .use('*', requestId())
     .use('*', securityHeaders)
+    .use('*', sameOriginFraming(selfFramedPaths(app)))
     .use('*', dbQueryCountMiddleware())
     .use('*', catalogRequestCacheMiddleware())
 
@@ -361,7 +367,10 @@ export async function createHonoApp(
                           // The admin-invitation store and engine over the same
                           // instance — built here so the invitation use-cases
                           // hold no query module and no engine type.
-                          invitations: createInvitationServices(authInstance),
+                          invitations: createInvitationServices(
+                            authInstance,
+                            mountedInvitationPages(adminMountsFor(app))
+                          ),
                         }
                       ),
                       app,

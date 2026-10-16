@@ -33,6 +33,8 @@ export interface ListIslandInputs {
   readonly currencies?: Readonly<Record<string, CurrencyDisplayOptions>>
   /** What a click on an item does — a grid row's `onRowClick`. */
   readonly onRowClick?: unknown
+  /** The channel the list publishes the item a reader selects on. */
+  readonly publishes?: unknown
   /** The badge field's chip paints, by option value, and the field they read. */
   readonly badgePaints?: OptionBadgePaints
   readonly badgeField?: string
@@ -49,6 +51,7 @@ interface MetadataEntry {
 interface ListShape {
   readonly dataSource?: { readonly table?: string }
   readonly onRowClick?: unknown
+  readonly publishes?: unknown
   readonly listDisplay?: {
     readonly itemTemplate?: {
       readonly badge?: string
@@ -111,7 +114,10 @@ export function resolveListIslandInputs(
   app: App | undefined
 ): ListIslandInputs {
   const list = component as ListShape
-  const click = list.onRowClick === undefined ? {} : { onRowClick: list.onRowClick }
+  const click = {
+    ...(list.onRowClick === undefined ? {} : { onRowClick: list.onRowClick }),
+    ...(list.publishes === undefined ? {} : { publishes: list.publishes }),
+  }
   const table = app?.tables?.find((candidate) => candidate.name === list.dataSource?.table)
   if (app === undefined || table === undefined) return click
   const currencies = resolveCurrencies(list, table, app.tables ?? [])

@@ -52,7 +52,7 @@ pages:
       - { type: container, element: main }
 ```
 
-YAML frontmatter between `---` delimiters is parsed and exposed as `$frontmatter.*`, usable in `meta` and sibling properties. Rendered markdown HTML is sanitized, consistently with the `text` and `alert` content components.
+YAML frontmatter between `---` delimiters is parsed and exposed as `$frontmatter.*`, usable in `meta` and sibling properties. A reference can stand alone or sit inside a longer value: `title: $frontmatter.title · Docs` gives every article its own document title. When `meta.title` is absent, or resolves to nothing for a file, the page takes the article's frontmatter `title`, so no article ships without a document title. Rendered markdown HTML is sanitized, consistently with the `text` and `alert` content components.
 
 `layout` picks the wrapper: `prose` (the default — a centred reading column), `docs`, `full`, or `none` for raw HTML. `prose` and `docs` share the same typography, so headings, lists, code and quotes read the same in both.
 

@@ -221,7 +221,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | Option | Kind | What it does |
 | --- | --- | --- |
 | `sovrium docs config redirects[]` | object | A single URL redirect: the retired path, its replacement, and the HTTP status to answer with. |
-| `sovrium docs config redirects[].from` | string | Root-relative path to redirect FROM (e.g. '/products/platform'). Matched locale-agnostically unless it already begins with a configured language segment. |
-| `sovrium docs config redirects[].to` | string | Redirect target — a root-relative path (e.g. '/') or an absolute http(s) URL. A path target inherits the request's language prefix; an absolute URL is used verbatim. |
+| `sovrium docs config redirects[].from` | string | Root-relative path to redirect FROM (e.g. '/products/platform', '/tables/:table'). A ':name' segment matches any one segment and can be reused in 'to'. Matched locale-agnostically unless it already begins with a configured language segment. |
+| `sovrium docs config redirects[].to` | string | Redirect target — a root-relative path (e.g. '/', '/records/:table?tab=access') or an absolute http(s) URL. A ':name' declared in 'from' is replaced by the segment it captured, in the path or the query. A path target inherits the request's language prefix; an absolute URL is used verbatim. |
 | `sovrium docs config redirects[].status` | enum | HTTP redirect status code. Defaults to 301 (Moved Permanently) when omitted. |
 | `sovrium docs config redirects[].localizeTarget` | boolean | Whether a root-relative target inherits the language prefix matched by 'from' (default: true). Set false when the target lives outside the locale namespace (e.g. '/_admin/login'), so it is emitted verbatim. |

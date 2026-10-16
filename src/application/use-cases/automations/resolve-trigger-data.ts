@@ -137,10 +137,10 @@ export interface TriggerData {
    */
   readonly event?: string
   /**
-   * The signed-in caller of a webhook (session cookie or `x-api-key`), as
-   * `{ id, role }`. Surfaces at `{{trigger.user.<field>}}` — a TOP-LEVEL key,
-   * never under `trigger.data`, so a request body cannot shadow it. Undefined
-   * for an anonymous call and for every other trigger.
+   * The person the run acts for — a webhook's credentialed caller, a records
+   * write's maker, a signed-in form submitter — as `{ id, role, email, name }`.
+   * Surfaces at `{{trigger.user.<field>}}`, a TOP-LEVEL key, never under
+   * `trigger.data`, so a body or a submitted value cannot shadow it.
    */
   readonly requester?: TriggerRequester
   /**
@@ -165,10 +165,17 @@ export interface RunTriggerEntry {
   readonly name: string
 }
 
-/** The identity a credentialed webhook call was made with. */
+/**
+ * The person a run acts for, as `{{trigger.user}}`: a signed-in form
+ * submitter, the maker of a records write, a credentialed webhook caller.
+ * `email` and `name` are completed from the account before the run starts
+ * (`requester-identity.ts`); the system has neither, and reads them empty.
+ */
 export interface TriggerRequester {
   readonly id: string
   readonly role: string
+  readonly email?: string
+  readonly name?: string
 }
 
 /**

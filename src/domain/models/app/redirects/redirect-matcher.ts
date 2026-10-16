@@ -87,6 +87,82 @@ const appendSearch = (location: string, search: string): string => {
   return location.includes('?') ? `${location}&${search.slice(1)}` : `${location}${search}`
 }
 
+/** The `:name` segments a `from` captured, by name. */
+type Captures = Readonly<Record<string, string>>
+
+const segmentsOf = (path: string): readonly string[] => path.split('/').filter(Boolean)
+
+/** Whether a rule's `from` carries a `:name` segment. */
+const isParametrised = (from: string): boolean =>
+  segmentsOf(from).some((segment) => segment.startsWith(':'))
+
+/**
+ * Match a request path against a `from`, capturing its `:name` segments.
+ *
+ * A `:name` matches exactly ONE non-empty segment, so `/tables/:table` answers
+ * neither the bare `/tables` nor `/tables/contacts/export`.
+ */
+const matchFrom = (from: string, path: string): Captures | undefined => {
+  if (!isParametrised(from)) return from === path ? {} : undefined
+  const expected = segmentsOf(from)
+  const actual = segmentsOf(path)
+  if (expected.length !== actual.length) return undefined
+  const pairs = expected.map((segment, index) => [segment, actual[index] ?? ''] as const)
+  if (pairs.some(([segment, value]) => !segment.startsWith(':') && segment !== value)) {
+    return undefined
+  }
+  return Object.fromEntries(
+    pairs
+      .filter(([segment]) => segment.startsWith(':'))
+      .map(([segment, value]) => [segment.slice(1), value])
+  )
+}
+
+/** A segment as the visitor meant it — the request path may still be encoded. */
+const decodeSegment = (value: string): string => {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+/**
+ * Write each captured segment into the target wherever it names the same
+ * `:name`, encoded for where it lands — a path segment and a query value both
+ * take `encodeURIComponent`, so `ada@example.com` arrives as `ada%40example.com`.
+ */
+const fillTarget = (to: string, captures: Captures): string =>
+  Object.keys(captures).length === 0
+    ? to
+    : to.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (whole, name: string) => {
+        const value = captures[name]
+        return value === undefined ? whole : encodeURIComponent(decodeSegment(value))
+      })
+
+/** A rule that answers `path`, with what it captured. */
+interface RuleMatch {
+  readonly rule: RedirectRule
+  readonly captures: Captures
+}
+
+/**
+ * The rule answering `path` among `rules`. A LITERAL `from` wins over a
+ * parametrised one that would also match, whatever the declaration order — so
+ * `/users/invitations` can be retired separately from `/users/:email`.
+ */
+const findRule = (rules: ReadonlyArray<RedirectRule>, path: string): RuleMatch | undefined => {
+  const literal = rules.find((rule) => !isParametrised(rule.from) && rule.from === path)
+  if (literal !== undefined) return { rule: literal, captures: {} }
+  return rules
+    .filter((rule) => isParametrised(rule.from))
+    .reduce<RuleMatch | undefined>((found, rule) => {
+      if (found !== undefined) return found
+      const captures = matchFrom(rule.from, path)
+      return captures === undefined ? undefined : { rule, captures }
+    }, undefined)
+}
+
 /**
  * Resolve a request path to its redirect, or `undefined` when no rule declares it.
  *
@@ -101,25 +177,28 @@ export const resolveRedirect = (
   path: string,
   search = ''
 ): RedirectResolution | undefined => {
-  const exact = rules.find((rule) => rule.from === path)
+  const exact = findRule(rules, path)
   if (exact !== undefined) {
     return {
-      location: appendSearch(exact.to, search),
-      status: exact.status ?? DEFAULT_REDIRECT_STATUS,
+      location: appendSearch(fillTarget(exact.rule.to, exact.captures), search),
+      status: exact.rule.status ?? DEFAULT_REDIRECT_STATUS,
     }
   }
 
   const { language, path: barePath } = stripLanguagePrefix(path, languageCodes)
   if (language === undefined) return undefined
 
-  const localeAgnostic = rules.find(
-    (rule) =>
-      rule.from === barePath && stripLanguagePrefix(rule.from, languageCodes).language === undefined
+  const localeAgnostic = findRule(
+    rules.filter((rule) => stripLanguagePrefix(rule.from, languageCodes).language === undefined),
+    barePath
   )
   if (localeAgnostic === undefined) return undefined
 
   return {
-    location: appendSearch(localizeTargetPath(localeAgnostic, language), search),
-    status: localeAgnostic.status ?? DEFAULT_REDIRECT_STATUS,
+    location: appendSearch(
+      fillTarget(localizeTargetPath(localeAgnostic.rule, language), localeAgnostic.captures),
+      search
+    ),
+    status: localeAgnostic.rule.status ?? DEFAULT_REDIRECT_STATUS,
   }
 }

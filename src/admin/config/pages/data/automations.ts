@@ -30,9 +30,8 @@
 // IS the name the specs address — "Filter by automation", "… trigger", "… status".
 
 import { sectionCard } from '../../components/dashboard-blocks'
-import { emptyState, pageHeading, tabQuery, tabbedBody, tabPanel } from '../../components/data-page'
-import { dataTable, STATUS_BADGE } from '../../components/data-table-blocks'
-import { withShell } from '../../components/shell'
+import { consolePage, emptyState, kpiStrip, tabPanel } from '../../components/data-page'
+import { dataTable, STATUS_BADGE, toolbarSearch } from '../../components/data-table-blocks'
 import {
   AUTOMATION_RUNS_ENDPOINT,
   AUTOMATIONS_ENDPOINT,
@@ -140,8 +139,16 @@ const CATALOG_COLUMNS = [
           // operator is told, which is the users directory's pattern too.
           onSuccess: {
             type: 'toast',
+            variant: 'success',
             message: '$t:admin.automations.catalog.pause.toast',
             refetch: CATALOG_GRID_ID,
+          },
+          // A refused pause is SAID, naming the automation, and the row is left
+          // as it was: still Active, still offering Pause.
+          onError: {
+            type: 'toast',
+            variant: 'destructive',
+            message: '$t:admin.automations.catalog.pause.failed',
           },
         },
       },
@@ -185,7 +192,6 @@ const catalogGrid = (): PageComponent =>
       system: { endpoint: AUTOMATIONS_ENDPOINT, rowsKey: 'items', idKey: 'name' },
     },
     columns: CATALOG_COLUMNS,
-    toolbar: { sort: true },
     emptyMessage: '$t:admin.automations.catalog.empty',
   }) as PageComponent
 
@@ -238,6 +244,9 @@ const filterBar = (): PageComponent =>
     element: 'div',
     props: { className: 'mb-4 flex flex-wrap items-end gap-3' },
     children: [
+      // The search box first, on the same channel: it publishes `q`, and the
+      // endpoint applies it over every run.
+      toolbarSearch(RUNS_FILTER_CHANNEL, '$t:admin.automations.runs.search'),
       filter('automation-filter', '$t:admin.automations.runs.filter.automation', 'automationName', {
         dataSource: {
           system: { endpoint: AUTOMATIONS_ENDPOINT, rowsKey: 'items', idKey: 'name' },
@@ -272,11 +281,10 @@ const filterBar = (): PageComponent =>
 /**
  * The run-history grid.
  *
- * ## Why the search box needs BOTH `search` and `toolbar.search`
+ * ## Search rides the filter channel
  *
- * The render guard is `showSearch && searchConfig` — `toolbar.search` alone
- * renders no box, and `search` alone leaves the toolbar without the affordance.
- * Declaring only one is the quiet way to ship an inert control.
+ * The search box sits in the filter bar above and publishes `q` on
+ * {@link RUNS_FILTER_CHANNEL}, beside the three selects; the grid forwards it.
  *
  * The term goes to the SERVER, which applies it over every run and echoes
  * `appliedQuery` — the signal that tells the grid to stand down from filtering
@@ -293,7 +301,7 @@ const runsGrid = (): PageComponent =>
         rowsKey: 'items',
         idKey: 'id',
         bindTo: RUNS_FILTER_CHANNEL,
-        sharedFilter: { params: ['automationName', 'triggerName', 'status'] },
+        sharedFilter: { params: ['q', 'automationName', 'triggerName', 'status'] },
       },
     },
     columns: [
@@ -327,41 +335,61 @@ const runsGrid = (): PageComponent =>
         // One outline-dot badge per status (`STATUS_BADGE`, shadcn's data-table
         // status cell): the word stays the reading and the dot marks the kind.
         cellStyle: [
-          { when: { eq: 'Success' }, className: STATUS_BADGE.positive },
+          { when: { eq: 'Success' }, className: STATUS_BADGE.quiet.positive },
           // The error role — the one status here that has to read at a glance.
-          { when: { eq: 'Failed' }, className: STATUS_BADGE.destructive },
-          { when: { eq: 'Partial' }, className: STATUS_BADGE.caution },
+          { when: { eq: 'Failed' }, className: STATUS_BADGE.loud },
+          { when: { eq: 'Partial' }, className: STATUS_BADGE.quiet.caution },
           // Someone has to answer before the run can go on.
-          { when: { eq: 'Waiting for approval' }, className: STATUS_BADGE.progress },
+          { when: { eq: 'Waiting for approval' }, className: STATUS_BADGE.quiet.progress },
           // A decision, not a fault: an approver said no, or the run was
           // stopped on purpose. Neither is painted as a failure.
-          { when: { in: ['Rejected', 'Cancelled'] }, className: STATUS_BADGE.neutral },
+          { when: { in: ['Rejected', 'Cancelled'] }, className: STATUS_BADGE.quiet.neutral },
           // Every retry spent: a failure, painted as one.
-          { when: { eq: 'Retries exhausted' }, className: STATUS_BADGE.destructive },
+          { when: { eq: 'Retries exhausted' }, className: STATUS_BADGE.loud },
           // It ran out of time rather than broke: a warning.
-          { when: { eq: 'Timed out' }, className: STATUS_BADGE.caution },
+          { when: { eq: 'Timed out' }, className: STATUS_BADGE.quiet.caution },
           // Not finished yet: queued, parked on a long wait (nobody has to act), or under way.
-          { when: { in: ['Queued', 'Waiting to resume'] }, className: STATUS_BADGE.neutral },
-          { when: { eq: 'Running' }, className: STATUS_BADGE.progress },
+          { when: { in: ['Queued', 'Waiting to resume'] }, className: STATUS_BADGE.quiet.neutral },
+          { when: { eq: 'Running' }, className: STATUS_BADGE.quiet.progress },
           // A filter stopped it, as written — not a fault.
-          { when: { eq: 'Skipped' }, className: STATUS_BADGE.neutral },
+          { when: { eq: 'Skipped' }, className: STATUS_BADGE.quiet.neutral },
         ],
       },
       { field: 'startedAt', label: '$t:admin.automations.runs.col.started', format: 'datetime' },
-      { field: 'durationMs', label: '$t:admin.automations.runs.col.duration', align: 'right' },
+      {
+        field: 'durationMs',
+        label: '$t:admin.automations.runs.col.duration',
+        align: 'right',
+        format: 'duration',
+      },
+      // How far the run got, as one reading: the server writes "2 of 3" in the
+      // page language from the run's step rows and the automation's declared
+      // steps, and just "2" once the automation has left the config.
+      { field: 'stepsLabel', label: '$t:admin.automations.runs.col.stepCount', align: 'right' },
+      { field: 'attempt', label: '$t:admin.automations.runs.col.attempt', align: 'right' },
+      { field: 'error', label: '$t:admin.automations.runs.col.error', format: 'truncate' },
       {
         type: 'actions',
         label: '',
         actions: [
           {
             label: '$t:admin.automations.runs.action.view',
-            action: { type: 'fetch', mode: 'navigate', url: '/automations/runs/$record.id' },
+            action: { type: 'fetch', mode: 'navigate', url: '/runs/$record.id' },
+          },
+          // The record the run acted on, when it acted on one. Two flat
+          // fields rather than one object, so the address writes itself.
+          {
+            label: '$t:admin.automations.runs.action.record',
+            visibleWhen: { field: 'recordId', isNotEmpty: true },
+            action: {
+              type: 'fetch',
+              mode: 'navigate',
+              url: '/records/$record.recordTable?record=$record.recordId',
+            },
           },
         ],
       },
     ],
-    search: { enabled: true, placeholder: '$t:admin.automations.runs.search' },
-    toolbar: { search: true, sort: true },
     // The grid owns the page's scroll on this surface: the KPI strip, the
     // filter bar and the read-window note keep their natural height above it
     // and the rows take whatever is left, so the column header stays pinned
@@ -421,36 +449,19 @@ const overviewKpi = (
  * that is what it printed before this line was corrected.
  */
 const runsKpiStrip = (): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      role: 'region',
-      'aria-label': '$t:admin.automations.metrics.region',
-      // Two-up at the narrowest width, not one-up. This strip sits ABOVE a
-      // `layout: 'fill'` grid, which takes whatever height the chrome above it
-      // leaves; one-up stacked all four cards and took 376px of a 665px pinned
-      // column at 375, which with the filter bar, the read-window note and the
-      // gaps over-subscribed the column and squeezed the grid to its 2px
-      // border. The rows were then clipped inside a zero-height scroller on a
-      // page that does not scroll, so the run feed was unreachable by any
-      // gesture. Four short figures read fine two-up, and it hands ~172px back.
-      className: 'grid grid-cols-2 gap-4 lg:grid-cols-4',
-    },
-    children: [
-      overviewKpi('$t:admin.automations.metrics.automations', 'totals.automations', {
-        type: 'number',
-      }),
-      overviewKpi('$t:admin.automations.metrics.runs24h', 'totals.runs_24h', { type: 'number' }),
-      overviewKpi('$t:admin.automations.metrics.failures24h', 'totals.failures_24h', {
-        type: 'number',
-      }),
-      overviewKpi('$t:admin.automations.metrics.successRate', 'totals.success_rate', {
-        type: 'percentage',
-        options: { scale: '100' },
-      }),
-    ],
-  }) as PageComponent
+  kpiStrip('$t:admin.automations.metrics.region', [
+    overviewKpi('$t:admin.automations.metrics.automations', 'totals.automations', {
+      type: 'number',
+    }),
+    overviewKpi('$t:admin.automations.metrics.runs24h', 'totals.runs_24h', { type: 'number' }),
+    overviewKpi('$t:admin.automations.metrics.failures24h', 'totals.failures_24h', {
+      type: 'number',
+    }),
+    overviewKpi('$t:admin.automations.metrics.successRate', 'totals.success_rate', {
+      type: 'percentage',
+      options: { scale: '100' },
+    }),
+  ])
 
 /**
  * The History panel: the run figures, the filter bar, the run feed and its
@@ -490,30 +501,17 @@ const historyPanel = (): PageComponent =>
 const catalogPanel = (): PageComponent => tabPanel([catalogGrid()], { scroll: true })
 
 /**
- * Everything that needs at least one declared automation.
+ * The page without a single declared automation: the empty state, and no tabs.
  *
- * `declares` EXCLUDES rather than hides, so exactly one of this and the empty
- * state below reaches the document. The predicate is the same one the retired
+ * The strip itself carries `declares: 'automations'` (see `runsPage`). It
+ * EXCLUDES rather than hides, so exactly one of the strip and this empty state
+ * reaches the document. The predicate is the same one the retired
  * builder tested — a non-empty `app.automations` — expressed as a capability
  * rather than recomputed here.
  *
  * The GATE is on the strip, not inside it: an app declaring no automations gets
  * the empty state and NO tab bar, rather than two triggers over two empty
  * tables. A strip is an offer of two answers, and there are none to offer.
- */
-const liveBody = (): PageComponent =>
-  ({
-    ...(tabbedBody('$t:admin.automations.tabs.region', TABS, [historyPanel(), catalogPanel()], {
-      fill: true,
-    }) as Record<string, unknown>),
-    visibility: { declares: 'automations' },
-  }) as PageComponent
-
-/**
- * The whole-page empty state.
- *
- * With no automations declared there is nothing to catalogue AND nothing to run,
- * so one region stands in for both sections.
  */
 const noAutomations = (): PageComponent =>
   ({
@@ -525,22 +523,21 @@ const noAutomations = (): PageComponent =>
     visibility: { unlessDeclares: 'automations' },
   }) as PageComponent
 
-const runsPage: PageConfig = withShell(
-  {
-    id: 'dashboard-data-automations',
-    name: 'dashboard-data-automations',
-    path: '/automations',
-    meta: { title: '$t:admin.meta.automations', lang: 'en-US' },
-    // `?tab=` is the address of each half. Without this block `$query.tab` is
-    // left verbatim and the strip silently opens on History for every link.
-    query: tabQuery(TABS),
-    components: [
-      pageHeading('$t:admin.automations.heading', '$t:admin.automations.blurb'),
-      liveBody(),
-      noAutomations(),
-    ],
-  } as PageConfig,
-  { breadcrumb: { automations: '$t:admin.crumb.automations' }, fill: true }
-)
+const runsPage: PageConfig = consolePage({
+  id: 'dashboard-data-automations',
+  path: '/runs',
+  title: '$t:admin.meta.automations',
+  heading: ['$t:admin.automations.heading', '$t:admin.automations.blurb'],
+  tabs: {
+    label: '$t:admin.automations.tabs.region',
+    specs: TABS,
+    panels: [historyPanel(), catalogPanel()],
+    fill: true,
+    visibility: { declares: 'automations' },
+  },
+  body: [noAutomations()],
+  page: { requires: ['automations'] },
+  shell: { breadcrumb: { runs: '$t:admin.crumb.runs' }, fill: true },
+})
 
 export const automationPages: readonly PageConfig[] = [runsPage, runPage]

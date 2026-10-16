@@ -25,6 +25,9 @@
  *   - {@link withPrincipalFigures} folds the four Reach figures onto each
  *     principal, because `$record.holds` resolves one segment and a consumer
  *     cannot walk `edges` to derive them.
+ *   - {@link withFindingMembership} folds `inFinding` onto every node, because a
+ *     lens marking the nodes a finding names reads one node field and cannot
+ *     test whether an id appears in `findings[].nodes`.
  *
  * The alternative considered and refused for the labels was a lookup table in
  * the config layer: it would rot on the first rename and would have to be
@@ -58,8 +61,12 @@
 
 import type {
   AdminOrganisationGraphEdge,
+  AdminOrganisationGraphFinding,
   AdminOrganisationGraphNode,
 } from '@/domain/models/api/admin/organisation/graph'
+
+/** A node as the projection builds it, before the findings fold sets `inFinding`. */
+export type ProjectedNode = Omit<AdminOrganisationGraphNode, 'inFinding'>
 
 /** The node kinds that ARE principals, and therefore the kinds that carry figures. */
 const PRINCIPAL_KINDS: ReadonlySet<string> = new Set(['person', 'agent'])
@@ -74,7 +81,7 @@ const PRINCIPAL_KINDS: ReadonlySet<string> = new Set(['person', 'agent'])
 const WRITE_OPS = /[CUDW]/
 
 /** Every node's label, by id — the join a declarative row binding cannot make. */
-const labelsById = (nodes: readonly AdminOrganisationGraphNode[]): ReadonlyMap<string, string> =>
+const labelsById = (nodes: readonly ProjectedNode[]): ReadonlyMap<string, string> =>
   new Map(nodes.map((node) => [node.id, node.label]))
 
 /**
@@ -87,7 +94,7 @@ const labelsById = (nodes: readonly AdminOrganisationGraphNode[]): ReadonlyMap<s
  */
 export const withEndpointLabels = (
   edges: readonly AdminOrganisationGraphEdge[],
-  nodes: readonly AdminOrganisationGraphNode[]
+  nodes: readonly ProjectedNode[]
 ): readonly AdminOrganisationGraphEdge[] => {
   const labels = labelsById(nodes)
   return edges.map((edge) => {
@@ -148,9 +155,24 @@ const figuresFor = (
  * a resource.
  */
 export const withPrincipalFigures = (
-  nodes: readonly AdminOrganisationGraphNode[],
+  nodes: readonly ProjectedNode[],
   edges: readonly AdminOrganisationGraphEdge[]
-): readonly AdminOrganisationGraphNode[] =>
+): readonly ProjectedNode[] =>
   nodes.map((node) =>
     PRINCIPAL_KINDS.has(node.kind) ? { ...node, ...figuresFor(node.id, edges) } : node
   )
+
+/**
+ * Fold membership of `findings[].nodes` onto every node — `false` rather than
+ * absent, so a lens reads one field and absence carries no meaning to guess.
+ *
+ * Folded over the WHOLE graph, before `?node=` narrows it, for the reason the
+ * figures are: the findings themselves ride through the narrowing untouched.
+ */
+export const withFindingMembership = (
+  nodes: readonly ProjectedNode[],
+  findings: readonly AdminOrganisationGraphFinding[]
+): readonly AdminOrganisationGraphNode[] => {
+  const named = new Set(findings.flatMap((finding) => finding.nodes))
+  return nodes.map((node) => ({ ...node, inFinding: named.has(node.id) }))
+}

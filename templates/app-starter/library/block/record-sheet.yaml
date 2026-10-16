@@ -1,5 +1,5 @@
-# sovrium-library: block/record-sheet@0.37.0
-# sovrium-library-params: childLabel=Tasks&childTable=tasks&emptyMessage=No%20record%20yet.%20Create%20one%20to%20see%20it%20here.&fullPagePath=%2Fprojects%2F%24record.id&headline=Projects&parentField=project&statusField=status&table=projects&titleField=title
+# sovrium-library: block/record-sheet@0.38.0
+# sovrium-library-params: childLabel=Tasks&childTable=tasks&emptyMessage=No%20record%20yet.%20Create%20one%20to%20see%20it%20here.&fullPagePath=%2Fprojects%2F%24record.id&headline=Projects&parentField=project&statusField=status&statusLabel=&table=projects&titleField=title&titleLabel=Name
 name: record-sheet
 type: container
 element: section
@@ -15,7 +15,7 @@ children:
           className: flex flex-col gap-1
         children:
           - type: text
-            element: h3
+            element: h1
             props:
               className: text-xl font-semibold text-foreground text-lg
             content: Projects

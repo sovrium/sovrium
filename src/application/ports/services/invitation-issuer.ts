@@ -5,11 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Context } from 'effect'
+import { Context, Data, type Effect } from 'effect'
 import type {
   InvitationAuthEngine,
+  InvitationMailer,
+  InvitationServices,
   InvitationStore,
 } from '@/application/ports/contracts/invitation-services'
+import type { App } from '@/domain/models/app'
 
 /**
  * What issuing an invitation needs: the invitation store, and the engine's
@@ -31,3 +34,28 @@ export class InvitationIssuer extends Context.Service<
   InvitationIssuer,
   InvitationIssuingServices
 >()('InvitationIssuer') {}
+
+/** The auth engine or its mailer could not be built for this app. `cause` is the error. */
+export class InvitationKitError extends Data.TaggedError('InvitationKitError')<{
+  readonly cause: unknown
+}> {}
+
+/** Everything an emailed invitation needs: the store and engine, and the mailer. */
+export interface InvitationKit {
+  readonly services: InvitationServices
+  readonly mailer: InvitationMailer
+}
+
+/**
+ * The emailed-invitation services for code that holds an app's CONFIG rather
+ * than a running engine — the `auth/inviteUser` automation step, reachable from
+ * the cron scheduler and the record-event dispatcher as well as from a request.
+ * Like `ConfigAccountProvisioner`, the implementation builds the engine from the
+ * config on demand, so a deployment without an `auth:` block never loads it.
+ */
+export class ConfigInvitationIssuer extends Context.Service<
+  ConfigInvitationIssuer,
+  {
+    readonly kitFor: (app: Readonly<App>) => Effect.Effect<InvitationKit, InvitationKitError>
+  }
+>()('ConfigInvitationIssuer') {}

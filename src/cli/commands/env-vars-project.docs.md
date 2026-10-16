@@ -70,10 +70,11 @@ It is opt-in, and it stays opt-in. A server is routinely launched with stdin alr
 
 Runtime artefacts live under one directory so a fresh project root stays clean.
 
-| Variable           | Default      | Description                                                        |
-| ------------------ | ------------ | ------------------------------------------------------------------ |
-| `SOVRIUM_DATA_DIR` | `./.sovrium` | Base directory for runtime artefacts, resolved to an absolute path |
-| `SOVRIUM_LOCK_DIR` | the data dir | Directory holding the server lock file                             |
+| Variable           | Default                 | Description                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SOVRIUM_DATA_DIR` | `./.sovrium`            | Base directory for runtime artefacts, resolved to an absolute path                                                                                                                                                                                                                                                                                                            |
+| `SOVRIUM_LOCK_DIR` | the data dir            | Directory holding the server lock file                                                                                                                                                                                                                                                                                                                                        |
+| `SOVRIUM_CSS_FILE` | `<data dir>/output.css` | Path of the pre-compiled stylesheet `sovrium build` writes and a production `sovrium start` serves instead of compiling. Unset, it is `output.css` inside the data directory, so `SOVRIUM_DATA_DIR` moves it with the database; set, it wins. A file whose first line records another engine version or design is ignored with one warning and the stylesheet compiled afresh |
 
 ```text
 .sovrium/
@@ -81,6 +82,7 @@ Runtime artefacts live under one directory so a fresh project root stays clean.
   encryption-key # per-install root secret — SOVRIUM_ENCRYPTION_KEY overrides
   lock           # server PID and config hash — SOVRIUM_LOCK_DIR overrides
   storage/       # local file uploads — STORAGE_LOCAL_DIRECTORY overrides
+  output.css     # pre-compiled stylesheet from `sovrium build` — SOVRIUM_CSS_FILE overrides
 ```
 
 `SOVRIUM_DATA_DIR` only moves the _fallback_ location. Each artefact keeps its own dedicated override, and that override always wins. The database URL is in **Env Vars: Core**; the storage directory is in **Env Vars: Services**.

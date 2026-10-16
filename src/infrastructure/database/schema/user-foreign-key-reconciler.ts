@@ -89,7 +89,7 @@ import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generator
 import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
 import { executeRaw } from '../sql/dialect-execute'
 import { getExistingColumns } from '../sql/sql-execution'
-import { isUserField } from '../sql/sql-field-predicates'
+import { isSingleUser } from '../sql/sql-field-predicates'
 import { generateForeignKeyConstraints } from '../sql/sql-key-constraints'
 import { buildTablePrimaryKeyTypesMap } from '../table-operations/column-generators'
 import { recreateTableWithDataEffect } from '../table-operations/migration-utils'
@@ -123,7 +123,7 @@ export interface UserForeignKeyCandidate {
 const collectTableCandidates = (table: Readonly<Table>): readonly UserForeignKeyCandidate[] => {
   const sanitized = sanitizeTableName(table.name)
   const relation = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
-  return table.fields.filter(isUserField).map((field) => ({ table, relation, column: field.name }))
+  return table.fields.filter(isSingleUser).map((field) => ({ table, relation, column: field.name }))
 }
 
 /** Every `type: 'user'` column declared anywhere in the app. */
@@ -141,7 +141,7 @@ export const collectUserForeignKeyCandidates = (
  * INTEGER foreign key onto a TEXT parent — the exact shape this repair exists
  * to remove, reintroduced by the repair itself.
  */
-const buildGeneratorMaps = (
+export const buildGeneratorMaps = (
   app: Readonly<App>
 ): {
   readonly tableUsesView: ReadonlyMap<string, boolean>
@@ -232,7 +232,7 @@ const probeSqliteDrift = (
 const correctedConstraint = (candidate: Readonly<UserForeignKeyCandidate>): string | undefined =>
   generateForeignKeyConstraints(
     candidate.table.name,
-    candidate.table.fields.filter((field) => isUserField(field) && field.name === candidate.column)
+    candidate.table.fields.filter((field) => isSingleUser(field) && field.name === candidate.column)
   )[0]
 
 /**

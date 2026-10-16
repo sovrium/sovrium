@@ -42,6 +42,13 @@ export interface AiChatSkeletonInput {
   readonly allowAttachments: boolean
   readonly suggestions: ReadonlyArray<string> | undefined
   readonly voiceInput: object | undefined
+  /**
+   * The URL parameter whose words the composer opens with. Marked on the
+   * skeleton's box as `data-draft-param` and read in the browser just before the
+   * island mounts (`pre-mount-input.ts`), so the server renders one page for
+   * every address and never reads the words itself.
+   */
+  readonly draftParam?: string | undefined
   readonly labels: AiChatLabels
 }
 
@@ -189,7 +196,7 @@ export const renderSkeletonBody = (
   input: AiChatSkeletonInput,
   specimen: AiChatSpecimenStatus | undefined
 ): ReactElement => {
-  const { placeholder, suggestions, labels } = input
+  const { placeholder, suggestions, labels, draftParam } = input
   return (
     <>
       {/* The transcript frame (`message-scroller`) — empty until the island
@@ -234,6 +241,10 @@ export const renderSkeletonBody = (
             data-ai-chat-input
             data-testid="chat-input"
             name="message"
+            {...(specimen === undefined &&
+              draftParam !== undefined && {
+                'data-draft-param': draftParam,
+              })}
             placeholder={placeholder}
             className={computeAiChatTextareaClasses()}
           />

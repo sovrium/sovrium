@@ -60,6 +60,15 @@ const FILTER_OPERATORS: Readonly<
     typeof cellValue === 'string' && typeof expected === 'string'
       ? cellValue.includes(expected)
       : false,
+  startsWith: (cellValue, expected) =>
+    typeof cellValue === 'string' && typeof expected === 'string'
+      ? cellValue.toLowerCase().startsWith(expected.toLowerCase())
+      : false,
+  between: (cellValue, expected) =>
+    Array.isArray(expected) && expected.length === 2
+      ? numericCompare(cellValue, expected[0], (a, b) => a >= b) &&
+        numericCompare(cellValue, expected[1], (a, b) => a <= b)
+      : false,
   in: (cellValue, expected) =>
     Array.isArray(expected) ? (expected as readonly unknown[]).includes(cellValue) : false,
   // Missing, null, `''`, `[]` and `{}` are empty — the one rule,

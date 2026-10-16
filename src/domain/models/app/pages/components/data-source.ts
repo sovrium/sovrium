@@ -16,17 +16,19 @@ export const FilterOperatorSchema = Schema.Literals([
   'eq',
   'neq',
   'contains',
+  'startsWith',
   'gt',
   'lt',
   'gte',
   'lte',
   'in',
+  'between',
   'isEmpty',
   'isNotEmpty',
 ]).annotate({
   title: 'Filter Operator',
   description:
-    'Comparison operator for filtering records. "in" expects an array value (e.g. resolved $currentUser.assignments.<table>). "isEmpty" keeps the records whose field holds no value and "isNotEmpty" the records whose field holds one; both take no value.',
+    'Comparison operator for filtering records. "contains" matches part of a text, ignoring case; on a user field holding several people it keeps the records whose list names the value. "startsWith" matches the beginning of a text, ignoring case. "in" expects an array value (e.g. resolved $currentUser.assignments.<table>). "between" expects a two-item value, [low, high], and keeps both ends. "isEmpty" keeps the records whose field holds no value and "isNotEmpty" the records whose field holds one; both take no value.',
 })
 
 /**
@@ -35,13 +37,15 @@ export const FilterOperatorSchema = Schema.Literals([
  *
  * - `scalar` — `$currentUser.id`, `.email`, `.role`, `.isUnrestricted`
  * - `assignment` — `$currentUser.assignments.<tableSlug>` returns UUID[]
- *   from `user_access` rows for that scope
+ *   from `user_access` rows for that scope; with `role`
+ *   (`$currentUser.assignments.<tableSlug>.<role>`) only the rows granted
+ *   under that role count
  * - `activeAssignment` — `$currentUser.activeAssignment` returns the
  *   `{ tableSlug, recordId }` object selected by the tenant switcher (P-6),
  *   or `null` when the user has only one assignment in any scope
  *
  * The `tableSlug` segment of an `assignment` path is validated against
- * `auth.scopeTables` at startup.
+ * `auth.scopeTables` at startup, and its `role` against `auth.roles`.
  */
 export const CurrentUserPathSchema = Schema.Union([
   Schema.Struct({
@@ -55,6 +59,12 @@ export const CurrentUserPathSchema = Schema.Union([
     tableSlug: Schema.String.annotate({
       description: 'Table the signed-in person is assigned through.',
     }).pipe(Schema.check(Schema.isMinLength(1))),
+    role: Schema.optional(
+      Schema.String.annotate({
+        description:
+          'Keep only the records the signed-in person is granted under this role (one of `auth.roles`); without it, every record granted in the table counts, whatever the role. String form: `$currentUser.assignments.<table>.<role>`.',
+      }).pipe(Schema.check(Schema.isMinLength(1)))
+    ),
   }),
   Schema.Struct({
     kind: Schema.Literal('activeAssignment'),
@@ -135,6 +145,7 @@ export const FilterLiteralSchema = Schema.Union([
  * request time, exactly as `$currentUser.*` already is):
  * - `'$currentUser.id'` -> `{ kind: 'currentUser', path: { kind: 'scalar', name: 'id' } }`
  * - `'$currentUser.assignments.<table>'` -> `{ kind: 'currentUser', path: { kind: 'assignment', tableSlug: '<table>' } }`
+ * - `'$currentUser.assignments.<table>.<role>'` -> `{ kind: 'currentUser', path: { kind: 'assignment', tableSlug: '<table>', role: '<role>' } }`
  * - `'$currentUser.activeAssignment'` -> `{ kind: 'currentUser', path: { kind: 'activeAssignment' } }`
  * - `'$param.<name>'` -> `{ kind: 'routeParam', name: '<name>' }`
  */
@@ -398,102 +409,6 @@ export const SharedFilterBindingSchema = Schema.Struct({
 export type SharedFilterBinding = Schema.Schema.Type<typeof SharedFilterBindingSchema>
 
 /**
- * Shared-filter PUBLISHER — the half `SharedFilterBindingSchema` subscribes to.
- *
- * ─── WHY THE SUBSCRIBER HALF ALONE IS NOT A FEATURE ────────────────────────
- *
- * `bindTo` + `sharedFilter` describes a component that CONSUMES a published
- * param bag, and the only thing that publishes one today is either a
- * `search-input` (a scalar, under its own component id) or a bespoke island with
- * no component type at all — `shared-filter-select`, which the automation-runs
- * console mounts from TypeScript. So a config author can declare a subscriber
- * and has no way to declare what it listens to. This is the missing half.
- *
- * ─── ONE CHANNEL, MANY CONTRIBUTORS ────────────────────────────────────────
- *
- * `bindTo` here names the CHANNEL the control publishes on — deliberately the
- * same key name a subscriber uses, because it is deliberately the same string,
- * and a validator comparing `bindTo` to `bindTo` is one a reader can check by
- * eye. It is NOT the publisher's own component id: the runs directory needs TWO
- * selectors ("Filter by automation", "Filter by status") driving ONE grid, and a
- * subscriber's `bindTo` names a single channel. Both selectors publish on
- * `runs-filter`, each contributing its own `param`, and the grid merges the bag.
- *
- * Making the channel explicit rather than defaulting to the control's `props.id`
- * is the point: a select's id is also its form-control id, and overloading it
- * would silently make every id-bearing select a publisher, with collisions
- * decided by whichever rendered last.
- *
- * ─── PUBLISHED, NOT REQUESTED ──────────────────────────────────────────────
- *
- * The publisher emits on the client bus; the subscriber's own `sharedFilter`
- * decides which keys it merges. So a channel may carry more than any one
- * subscriber consumes, which is what lets a period channel drive a KPI strip
- * reading `[from, to]` beside a chart reading `[from, to, granularity]`.
- *
- * @example
- * ```yaml
- * # Two selects on one channel
- * - type: select
- *   props: { id: automation-filter, label: Filter by automation }
- *   dataSource:
- *     system: { endpoint: /api/admin/automations, rowsKey: automations }
- *     valueKey: name
- *     labelKey: name
- *   publishes: { bindTo: runs-filter, param: automationName }
- * - type: select
- *   props: { id: status-filter, label: Filter by status }
- *   options: [{ value: completed, label: Success }, { value: failed, label: Failed }]
- *   publishes: { bindTo: runs-filter, param: status }
- * # ...and the grid that merges both
- * - type: table
- *   dataSource:
- *     system:
- *       endpoint: /api/admin/automations/runs
- *       bindTo: runs-filter
- *       sharedFilter: {}
- * ```
- */
-export const SharedFilterPublisherSchema = Schema.Struct({
-  /**
-   * The shared-filter CHANNEL this control publishes on — the same string a
-   * subscriber's `bindTo` names. Several controls may share one channel, each
-   * contributing its own `param`.
-   */
-  bindTo: Schema.String.pipe(
-    Schema.annotate({
-      description:
-        "Shared-filter channel id this control publishes on (the string a subscriber's bindTo names)",
-      examples: ['runs-filter', 'period'],
-    }),
-    Schema.check(Schema.isMinLength(1))
-  ),
-  /**
-   * The request-param key this control's current value is published under.
-   *
-   * Required, for the reason `labelKey` and `displayField` are: there is no
-   * defensible default. Guessing the control's `props.id` would publish
-   * `?automation-filter=` to an endpoint that reads `?automationName=`, which is
-   * a filter that validates and quietly narrows nothing.
-   */
-  param: Schema.String.pipe(
-    Schema.annotate({
-      description: "Request-param key this control's value is published under",
-      examples: ['automationName', 'status', 'period'],
-    }),
-    Schema.check(Schema.isMinLength(1))
-  ),
-}).annotate({
-  identifier: 'SharedFilterPublisher',
-  title: 'Shared Filter Publisher',
-  description:
-    'Marks a choice control as a shared-filter publisher: its current value is published on the named channel under `param`, and every data source whose bindTo names that channel merges it into each request.',
-})
-
-/** @public */
-export type SharedFilterPublisher = Schema.Schema.Type<typeof SharedFilterPublisherSchema>
-
-/**
  * Data Source Schema
  *
  * Binds a component to table data for read operations. Defines which table
@@ -693,18 +608,11 @@ export const DataSourceSchema = Schema.Struct({
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0))
     )
   ),
-  /** Publisher-side identifier for cross-component references */
-  targetId: Schema.optional(
-    Schema.String.annotate({
-      description:
-        "Publisher-side identifier for cross-component references — addressable by a FilterAction (targetDataSource) and by a sibling subscriber's bindTo (shared filter/period state)",
-    })
-  ),
-  /** ID of a publisher component whose value drives this data source */
+  /** The shared-filter channel whose publishers drive this data source */
   bindTo: Schema.optional(
     Schema.String.annotate({
       description:
-        'ID of a publisher component whose value drives this data source (cross-component binding). By default a `search-input` whose query string drives the search; when sharedFilter is also set, a shared filter/period selector whose published params are merged into every request',
+        'The shared-filter channel this data source listens to. With sharedFilter set, every control publishing on that channel (a search-input, a select, a filter-bar) narrows each request this source makes.',
     })
   ),
   /**

@@ -14,7 +14,7 @@
 
 import { useEffect, useRef } from 'react'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
-import { dispatch } from '@/presentation/islands/runtime/event-bus'
+import { dispatch, subscribe } from '@/presentation/islands/runtime/event-bus'
 import {
   holdsChromeOutsideRegion,
   isCurrentDocument,
@@ -23,8 +23,9 @@ import {
   withinApp,
   withinMount,
 } from './spa-nav-click'
+import { leaveForSignIn, sessionHasEnded, showOfflineNotice } from './spa-nav-recovery'
 import { subscribeSpaNavigation } from './spa-nav-request'
-import { performSpaSwap, type SpaRegion } from './spa-nav-swap'
+import { performSpaSwap, type SpaRegion, type SpaSwapOutcome } from './spa-nav-swap'
 
 /** Holds the in-flight nav AbortController so a rapid follow-up nav can cancel it. */
 interface NavController {
@@ -80,7 +81,9 @@ async function navigate(
   const outcome = await performSpaSwap(url, region, controller.signal)
   if (controller.signal.aborted) return
   if (!outcome.swapped) {
-    runFullNavigation(outcome.fallbackUrl, url)
+    if (!(await recover(outcome, url, controllerRef, region))) {
+      runFullNavigation(outcome.fallbackUrl, url)
+    }
     return
   }
   if (push) {
@@ -97,6 +100,40 @@ async function navigate(
   // location, so the same call is correct there too — and harmless, since a
   // subscriber that also listens for `popstate` re-derives the same answer.
   dispatch('sovrium:navigated', { path: window.location.pathname })
+}
+
+/** The path and query of `url`, resolved against this document. */
+const pathOf = (url: string): string => {
+  const parsed = new URL(url, window.location.href)
+  return `${parsed.pathname}${parsed.search}`
+}
+
+/**
+ * Answer a swap that did not happen the way the reader can act on, when the
+ * console can (`spa-nav-recovery.ts`): offline keeps the shell and offers
+ * Retry — and retries by itself once the browser is back online — and an ended
+ * session leaves for sign-in with `next`. Returns `false` to fall back to the
+ * full navigation, which is what an app's pages and every other refusal get.
+ */
+async function recover(
+  outcome: Extract<SpaSwapOutcome, { readonly swapped: false }>,
+  url: string,
+  controllerRef: NavController,
+  region: SpaRegion
+): Promise<boolean> {
+  if (region.scope !== 'mount' || outcome.refusal === undefined) return false
+  if (outcome.refusal === 'unauthorized') {
+    if (!(await sessionHasEnded())) return false
+    leaveForSignIn(pathOf(url))
+    return true
+  }
+  const retry = (): void => {
+    window.removeEventListener('online', retry)
+    void navigate(url, /* push */ true, controllerRef, region)
+  }
+  if (!showOfflineNotice(region.regionId, retry)) return false
+  window.addEventListener('online', retry)
+  return true
 }
 
 /** The part of a URL that identifies the DOCUMENT — everything but the fragment. */
@@ -149,6 +186,12 @@ export function useSpaNavigation(region: SpaRegion): void {
 
     document.addEventListener('click', onClick)
     window.addEventListener('popstate', onPopState)
+    // A read on the page answered 401: the console leaves for sign-in, carrying
+    // where the reader was. An app's pages have no sign-in of the console's.
+    const unsubscribeSessionEnded =
+      scope === 'mount'
+        ? subscribe('sovrium:session-ended', ({ path }) => leaveForSignIn(path))
+        : () => undefined
     const unsubscribe = subscribeSpaNavigation((url) => {
       const parsed = new URL(url, window.location.href)
       shownRef.current = `${parsed.pathname}${parsed.search}`
@@ -159,6 +202,7 @@ export function useSpaNavigation(region: SpaRegion): void {
       document.removeEventListener('click', onClick)
       window.removeEventListener('popstate', onPopState)
       unsubscribe()
+      unsubscribeSessionEnded()
       controller.current?.abort()
     }
   }, [regionId, scope])

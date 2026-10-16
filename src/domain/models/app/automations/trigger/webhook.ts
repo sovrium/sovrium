@@ -68,7 +68,7 @@ const WebhookAuthSchema = Schema.Struct({
   type: Schema.Literals(['bearer', 'apiKey', 'hmac', 'basic', 'session', 'projectKey']).pipe(
     Schema.annotate({
       description:
-        "Authentication mechanism for incoming webhooks. 'bearer', 'apiKey', 'hmac' and 'basic' check a shared secret. 'session': the caller must present a Sovrium session cookie or a user's API key in the x-api-key header (auth.apiKeys); the run sees the caller as trigger.user, and an anonymous caller is answered 404 with no run. 'projectKey': only with a `protocol`; each sender presents its own key, looked up in `keyField` of `table`, and the run sees the matching row as trigger.project. A missing or unknown key is answered 401 with no run.",
+        "Authentication mechanism for incoming webhooks. 'bearer', 'apiKey', 'hmac' and 'basic' check a shared secret. 'session': the caller must present a Sovrium session cookie or a user's API key in the x-api-key header (auth.apiKeys); the run sees the caller as trigger.user ({ id, role, email, name }), and an anonymous caller is answered 404 with no run. 'projectKey': only with a `protocol`; each sender presents its own key, looked up in `keyField` of `table`, and the run sees the matching row as trigger.project. A missing or unknown key is answered 401 with no run.",
     })
   ),
 

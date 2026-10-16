@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { normalizeRouteParamRef } from '@/domain/models/app/pages/route-param-ref'
 import {
   callerReaderFromSession,
@@ -15,6 +16,7 @@ import {
   CANONICAL_READ_POLICY,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { tableLabelPlural } from '@/domain/models/app/tables/table-display-name-service'
 import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
 import { WRITE_ONLY_PRESENCE_LABELS } from '@/presentation/render/props/write-only-presence-labels'
 import type { App } from '@/domain/models/app'
@@ -29,6 +31,8 @@ interface ResolutionContext {
   readonly app: App
   readonly routeParams: Readonly<Record<string, string>>
   readonly session: SessionInfo | undefined
+  /** The language the PAGE is served in — the one a `$t:` label resolves to. */
+  readonly lang: string
 }
 
 /**
@@ -75,18 +79,17 @@ interface ResolutionContext {
 export function resolveRouteBoundTables(
   page: Page,
   app: App,
-  routeParams: Readonly<Record<string, string>>,
-  session: SessionInfo | undefined
+  request: Omit<ResolutionContext, 'app'>
 ): RouteBoundTableResolution {
   const { components } = page
   if (!components || components.length === 0) return page
 
   const declared = new Set((app.tables ?? []).map((table) => table.name))
-  const bound = collectRouteBoundNames(components, routeParams)
+  const bound = collectRouteBoundNames(components, request.routeParams)
   if (bound.some((name) => !declared.has(name))) return 'not-found'
   if (bound.length === 0 && !hasDerivedColumns(components)) return page
 
-  const resolved = mapNodes(components, { app, routeParams, session })
+  const resolved = mapNodes(components, { ...request, app })
   return { ...page, components: resolved as Page['components'] }
 }
 
@@ -152,9 +155,12 @@ function resolveGridBindings(
   const ref = normalizeRouteParamRef(declaredTable)
   const tableName = ref === undefined ? declaredTable : (ctx.routeParams[ref.name] ?? '')
   const bound =
-    tableName === declaredTable
+    ref === undefined
       ? node
-      : { ...node, dataSource: { ...(node['dataSource'] as object), table: tableName } }
+      : {
+          ...namedByLabel(node, ref.name, tableName, ctx),
+          dataSource: { ...(node['dataSource'] as object), table: tableName },
+        }
 
   if (bound['columnsFrom'] !== 'table') return bound
 
@@ -166,6 +172,37 @@ function resolveGridBindings(
 }
 
 /**
+ * A route-bound grid's accessible name says the table as a PERSON reads it.
+ *
+ * `'aria-label': 'Records $param.table'` names the grid after the segment, and
+ * the segment is the identifier (`invoice_lines`). In the accessible name — and
+ * only there: an id, a testid or a URL is an address — the reference to the
+ * bound segment reads the table's plural label (`labelPlural` → `label` →
+ * `name`), its `$t:` key resolved in the language the PAGE is served in — the
+ * one every other text on it speaks. A table with
+ * no label reads its name, exactly as the generic pass would have written it.
+ */
+function namedByLabel(
+  node: Record<string, unknown>,
+  param: string,
+  tableName: string,
+  ctx: ResolutionContext
+): Record<string, unknown> {
+  const props = node['props'] as Readonly<Record<string, unknown>> | undefined
+  const accessibleName = props?.['aria-label']
+  const reference = `$param.${param}`
+  if (typeof accessibleName !== 'string' || !accessibleName.includes(reference)) return node
+  const table = (ctx.app.tables ?? []).find((declared) => declared.name === tableName)
+  const label =
+    table === undefined
+      ? tableName
+      : tableLabelPlural(table, (text) =>
+          resolveTranslationPattern(text, ctx.lang, ctx.app.languages)
+        )
+  return { ...node, props: { ...props, 'aria-label': accessibleName.replaceAll(reference, label) } }
+}
+
+/**
  * One column per declared field of the bound table, in declaration order,
  * honouring FIELD-LEVEL read permissions for the requesting session.
  *
@@ -174,6 +211,11 @@ function resolveGridBindings(
  * NAMES and no session: a field the caller may not read must yield no column,
  * exactly as an authored one would be dropped, or an explorer page becomes a
  * way around the field permissions the records API enforces.
+ *
+ * Every derived column is `editable: false`: a records explorer is READ in the
+ * grid and edited in the record drawer a row opens, so no cell turns into an
+ * input and no typed row trails the grid. The header is left to the grid,
+ * which prints the field's `label`, else its name made readable.
  *
  * Returns `undefined` — no `columns` key — when the caller may not read the
  * table at all, or when every field is restricted. An empty array is a value
@@ -190,7 +232,7 @@ function deriveColumns(
   const fields = columnFields(table, ctx)
   if (fields === undefined || fields.names.length === 0) return undefined
   return fields.names.map((field) =>
-    fields.presence.has(field) ? presenceColumn(field) : { field }
+    fields.presence.has(field) ? presenceColumn(field) : { field, editable: false }
   )
 }
 

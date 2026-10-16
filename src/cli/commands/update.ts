@@ -24,6 +24,7 @@
  * - `SOVRIUM_UPDATE_DOWNLOAD_HOST`  override the release-asset host (default github.com)
  * - `SOVRIUM_UPDATE_INSTALL_PATH`   replace this file instead of the running executable
  * - `SOVRIUM_UPDATE_DRY_RUN`   print the package-manager command instead of running it
+ * - `GH_TOKEN` / `GITHUB_TOKEN`  a token for the releases API (see `update-latest-version`)
  */
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -31,6 +32,7 @@ import { chmod, copyFile, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { Effect, Console } from 'effect'
+import { fetchLatestVersion, lookupFailure } from '@/cli/commands/update-latest-version'
 import {
   CHECKSUM_GUIDANCE,
   UNVERIFIED_NOTE,
@@ -38,14 +40,13 @@ import {
   announceSkippedChecksum,
   verifyRelease,
 } from '@/cli/commands/update-verify'
-import { UPDATE_HELP_TEXT } from '@/cli/runtime/command-help'
+import { UPDATE_HELP_TEXT } from '@/cli/runtime/update-help'
 import {
   RELEASE_DOWNLOAD_STALL_TIMEOUT_MS,
   isTrustedFinalUrl,
-  originFor,
 } from '@/domain/kernel/identity/release-signature'
 import { releaseAssetUrl } from '@/domain/models/process-env/release-download'
-import { withFetchStallTimeout, withFetchTimeout } from '@/infrastructure/egress/with-fetch-timeout'
+import { withFetchStallTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import {
   formatBytes,
   printDocument,
@@ -54,8 +55,6 @@ import {
   type CliFailure,
 } from '@/infrastructure/logging/cli-output'
 
-const GITHUB_REPO = 'sovrium/sovrium'
-const GITHUB_API_HOST_DEFAULT = 'api.github.com'
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const UPDATE_CHECK_FILE = join(homedir(), '.sovrium', 'last-update-check')
 
@@ -84,9 +83,6 @@ const isInstallMethod = (value: string | undefined): value is InstallMethod =>
 
 /** Whether all network access is disabled (offline / test mode). */
 const isNetworkDisabled = (): boolean => process.env.SOVRIUM_DISABLE_NETWORK === '1'
-
-/** GitHub API host, overridable for tests (point at an unroutable IP to force failure). */
-const githubApiHost = (): string => process.env.SOVRIUM_UPDATE_API_HOST || GITHUB_API_HOST_DEFAULT
 
 /**
  * What install-method detection reads from the running process.
@@ -152,29 +148,6 @@ export const detectInstallMethod = (): InstallMethod =>
     execPath: process.execPath,
     override: process.env.SOVRIUM_INSTALL_METHOD,
   })
-
-/**
- * Fetch the latest release version from GitHub.
- * Returns undefined on any error (timeout, network, disabled, etc.)
- */
-const fetchLatestVersion = async (): Promise<string | undefined> => {
-  if (isNetworkDisabled()) return undefined
-  try {
-    const response = await withFetchTimeout(
-      `${originFor(githubApiHost())}/repos/${GITHUB_REPO}/releases/latest`,
-      { redirect: 'follow' },
-      3000
-    )
-
-    if (!response.ok) return undefined
-
-    const data = (await response.json()) as { readonly tag_name?: string }
-    const tag = data.tag_name
-    return tag ? tag.replace(/^v/, '') : undefined
-  } catch {
-    return undefined
-  }
-}
 
 /**
  * Compare two semver strings. Returns true if b > a.
@@ -333,15 +306,16 @@ export const handleUpdateCommand = async (
 
   printProgress('Checking for updates', 'times out after 3s')
 
-  const latestVersion = await fetchLatestVersion()
-  if (!latestVersion) {
-    printFailure({
-      headline: 'Could not reach the GitHub releases API. Nothing was replaced.',
-      guidance:
-        'Check your network, or download the release directly from\n' +
-        '  https://github.com/sovrium/sovrium/releases',
-    })
+  const lookup = await fetchLatestVersion()
+  if (lookup.kind !== 'ok') {
+    printFailure(lookupFailure(lookup))
     process.exit(1)
+  }
+  const latestVersion = lookup.version
+  if (lookup.via === 'download') {
+    Effect.runSync(
+      Console.log(`GitHub API rate limit reached — found v${latestVersion} via the latest release.`)
+    )
   }
 
   if (!isNewerVersion(currentVersion, latestVersion)) {
@@ -620,8 +594,9 @@ export const checkForUpdatesInBackground = (currentVersion: string): void => {
 
   void (async () => {
     try {
-      const latest = await fetchLatestVersion()
-      if (!latest || !isNewerVersion(currentVersion, latest)) return
+      const lookup = await fetchLatestVersion()
+      if (lookup.kind !== 'ok' || !isNewerVersion(currentVersion, lookup.version)) return
+      const latest = lookup.version
 
       const sovriumDir = dirname(UPDATE_CHECK_FILE)
       await mkdir(sovriumDir, { recursive: true })

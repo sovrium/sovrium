@@ -11,11 +11,17 @@
  * `/assets/output.css` is served with a one-hour shared cache and no content
  * hash, so after a deploy every visitor can keep stale CSS for up to an hour.
  * This module derives a stable 8-hex content hash from exactly the inputs
- * that determine the compiled CSS — the design and the app's authored class
- * candidates (the same pair `getCSSCacheKey` keys the compile cache on) — so
- * the HTML can link `/assets/output-<hash>.css` and the route can serve it
- * `immutable`: a deploy that changes the CSS changes the URL, and a URL that
- * never changes content never needs revalidation.
+ * that determine the compiled CSS — the app's design and authored class
+ * candidates (the same pair `getCSSCacheKey` keys the compile cache on), AND
+ * the engine that compiles them ({@link engineCssFingerprint}) — so the HTML
+ * can link `/assets/output-<hash>.css` and the route can serve it `immutable`:
+ * a deploy that changes the CSS changes the URL, and a URL that never changes
+ * content never needs revalidation.
+ *
+ * The engine half is not optional. Keyed on the app alone, upgrading Sovrium
+ * under an unchanged config kept the URL while the bytes behind it changed (new
+ * token layer, new font URLs, a new Tailwind), and a returning browser held the
+ * previous release's stylesheet for a year under `immutable`.
  *
  * The hash is also the route's only signal of WHICH app is being asked for —
  * this server hosts two, the operator's and Sovrium's own `/_admin` console —
@@ -35,6 +41,8 @@ import { getCSSCacheKey } from '@/infrastructure/css/cache/css-cache-service'
 import { designSystemScopeKey } from '@/infrastructure/css/design-system-scope'
 import { mountIdentityKey } from '@/infrastructure/css/mount-identity'
 import { resolveNativeFreeCandidates } from '@/infrastructure/css/native-free-compiler'
+import { buildSourceCSS } from '@/infrastructure/css/source-css'
+import { getSovriumVersionSync } from '@/infrastructure/process/version'
 import type { App } from '@/domain/models/app'
 
 /** Per-`App`-instance memo — design and candidates are fixed per process. */
@@ -73,6 +81,42 @@ export const parseVersionedCssHash = (fileName: string | undefined): string =>
 /** The 8-hex digest of a compiled-CSS cache key. */
 const digest = (key: string): string =>
   createHash('sha256').update(key).digest('hex').slice(0, VERSIONED_CSS_HASH_LENGTH)
+
+/**
+ * The stylesheet hash for one app's CSS inputs as compiled by one engine.
+ *
+ * Exported as the pure seam the unit test drives: two engines, or two sets of
+ * app inputs, must never share a URL.
+ *
+ * @param appInputs - what the app contributes (design, candidates, scope).
+ * @param engine - {@link engineCssFingerprint} of the compiling engine.
+ */
+export const versionedCssHashOf = (appInputs: string, engine: string): string =>
+  digest(`${engine}\n${appInputs}`)
+
+/**
+ * What the ENGINE contributes to every stylesheet, as one string: its version,
+ * and the app-free source CSS it feeds the compiler (the default token layer,
+ * the component and utility layers, and the `@font-face` rules — whose URLs
+ * carry each font file's own content hash).
+ *
+ * The version covers everything that is not source text: the Tailwind release,
+ * the native-free compiler, an emitter that only fires under a declared design.
+ * The source text covers two builds that share a version number, so a font or
+ * token change made between releases still moves the URL. Exported for the test.
+ *
+ * @param version - the engine version.
+ * @param sourceCss - the app-free source CSS (`buildSourceCSS()`).
+ */
+export const engineCssFingerprintOf = (version: string, sourceCss: string): string =>
+  `${version}:${createHash('sha256').update(sourceCss).digest('hex')}`
+
+/** Computed once per process: neither input changes while it runs. */
+let engineFingerprint: string | undefined
+
+/** The running engine's {@link engineCssFingerprintOf}. */
+const engineCssFingerprint = (): string =>
+  (engineFingerprint ??= engineCssFingerprintOf(getSovriumVersionSync(), buildSourceCSS()))
 
 /**
  * The cache key standing in for EVERY `/_admin` operator-console surface.
@@ -145,12 +189,14 @@ const OPERATOR_CONSOLE_CSS_KEY = 'sovrium:operator-console'
  * @param app - a console surface app, possibly carrying a scope and a mount.
  */
 export const consoleCssHash = (app: App): string =>
-  digest(
-    `${OPERATOR_CONSOLE_CSS_KEY}${designSystemScopeKey(app)}${mountIdentityKey(app)}${designCascadeKey(app)}`
+  versionedCssHashOf(
+    `${OPERATOR_CONSOLE_CSS_KEY}${designSystemScopeKey(app)}${mountIdentityKey(app)}${designCascadeKey(app)}`,
+    engineCssFingerprint()
   )
 
 /**
- * The 8-hex content hash of the app's compiled-CSS inputs.
+ * The 8-hex content hash of the app's compiled-CSS inputs and the engine
+ * compiling them.
  *
  * Operator-console apps ({@link isOperatorConsoleApp}) collapse onto the fixed
  * {@link consoleCssHash} — see {@link OPERATOR_CONSOLE_CSS_KEY} for
@@ -161,11 +207,67 @@ export const consoleCssHash = (app: App): string =>
 export const getVersionedCssHash = (app: App): string => {
   const cached = hashByApp.get(app)
   if (cached !== undefined) return cached
-  const hash = isOperatorConsoleApp(app)
-    ? consoleCssHash(app)
-    : digest(getCSSCacheKey(app.design, resolveNativeFreeCandidates(app)))
+  const hash = isOperatorConsoleApp(app) ? consoleCssHash(app) : appCssInputsHash(app)
   hashByApp.set(app, hash)
   return hash
+}
+
+/**
+ * Everything ONE compile of this engine depends on that the app contributes:
+ * its design, its candidate set (the core utilities plus the component types
+ * it declares and the classes it authors), and the scoped design system a
+ * console surface carries. `compileCSS` keys its in-memory cache on this, and
+ * the pre-compiled stamp is its digest under the engine fingerprint — ONE
+ * expression for both, so a stamp can never claim a compile the cache would
+ * not have reused. No app means the generic, app-free compile `compileCSSRaw()`
+ * produces with no app.
+ *
+ * The scope segment is the empty string for every operator app, so it moves
+ * no operator URL; it is there so a console surface, whose stylesheet carries
+ * a token layer the operator's compile never does, can never key as the
+ * operator's file.
+ *
+ * `ECO_DESIGN_LAYER` is deliberately absent: it changes the engine's own
+ * default layer, which the engine fingerprint already hashes.
+ */
+export const cssCompileKey = (app?: App): string =>
+  getCSSCacheKey(app?.design, resolveNativeFreeCandidates(app)) + designSystemScopeKey(app)
+
+/** The 8-hex digest of {@link cssCompileKey} under this engine. */
+const appCssInputsHash = (app?: App): string =>
+  versionedCssHashOf(cssCompileKey(app), engineCssFingerprint())
+
+/** Per-`App`-instance memo of {@link precompiledStampOf}. */
+const stampByApp = new WeakMap<App, string>()
+
+/** {@link precompiledStampOf} with no app, computed once per process. */
+let genericStamp: string | undefined
+
+/**
+ * The stamp `sovrium build` writes as the first line of a pre-compiled
+ * stylesheet, and a later `start` compares against its own before serving it.
+ *
+ * It is {@link appCssInputsHash} — engine version, engine source CSS, design,
+ * candidates, scoped design system — for every app alike, console included:
+ * the stamp answers "would this engine compile these bytes for this config?",
+ * which is a question about the compile and not about the URL, so the
+ * console's shared URL identity ({@link consoleCssHash}) has no place in it.
+ * A console surface scoped onto an operator app stamps differently from that
+ * app — its compile carries the scoped token layer the operator's does not —
+ * so the operator's file can never pass as the console's.
+ *
+ * Without the stamp a file left by an earlier engine or an earlier design was
+ * served byte for byte after an upgrade, old tokens and all (issue #200).
+ *
+ * @param app - The parsed application schema; absent for the generic compile.
+ */
+export const precompiledStampOf = (app?: App): string => {
+  if (app === undefined) return (genericStamp ??= appCssInputsHash())
+  const cached = stampByApp.get(app)
+  if (cached !== undefined) return cached
+  const stamp = appCssInputsHash(app)
+  stampByApp.set(app, stamp)
+  return stamp
 }
 
 /**

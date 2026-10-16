@@ -14,6 +14,7 @@ interface DropZoneProps {
   readonly hint: string | undefined
   readonly onBrowse: () => void
   readonly onDropFiles: (files: FileList, zone: Element) => void
+  readonly strings: Readonly<Record<string, string>> | undefined
 }
 
 /**
@@ -21,7 +22,13 @@ interface DropZoneProps {
  * held over it. A file dropped on it goes through the same validation and
  * upload as a picked one.
  */
-export function DropZone({ disabled, hint, onBrowse, onDropFiles }: DropZoneProps): ReactElement {
+export function DropZone({
+  disabled,
+  hint,
+  onBrowse,
+  onDropFiles,
+  strings,
+}: DropZoneProps): ReactElement {
   const [over, setOver] = useState(false)
   const enter = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
@@ -56,6 +63,7 @@ export function DropZone({ disabled, hint, onBrowse, onDropFiles }: DropZoneProp
         hint={hint}
         disabled={disabled}
         onBrowse={onBrowse}
+        strings={strings}
       />
     </div>
   )

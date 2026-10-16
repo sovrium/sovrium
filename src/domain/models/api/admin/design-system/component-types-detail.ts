@@ -43,9 +43,6 @@ export const componentTypeDetailSchema = Schema.Struct({
   title: Schema.String.annotate({
     description: "Human-readable heading of this type's category — see the summary contract",
   }),
-  href: Schema.String.annotate({
-    description: 'Mount-relative route of this page in the console',
-  }),
   own: Schema.Array(componentTypeFieldSchema).annotate({
     description: 'The fields this type declares itself, in declaration order',
   }),
@@ -338,7 +335,7 @@ export const componentTypeDetailSchema = Schema.Struct({
   }),
   siblings: Schema.Array(componentTypeSiblingSchema).annotate({
     description:
-      'Every other catalogued type in this type’s category, in category order, each with its own address. EMPTY for a category of one.',
+      'Every other catalogued type in this type’s category, in category order, each named by its type literal alone — a sibling carries no address of its own. EMPTY for a category of one.',
   }),
   // EXACT PARITY WITH `pageCount` BESIDE `routes`, and for the identical
   // reason: `visibility.record` has no length operator, so `siblings.length` is

@@ -1,3 +1,211 @@
+## [0.39.0](https://github.com/sovrium/sovrium/compare/v0.38.0...v0.39.0) (2026-10-16)
+
+### Features
+
+- **admin**: name each connection with its provider on the Connections page
+- **automations**: say how many steps a run completed on the runs list
+- **admin**: save profile preferences as they change
+- **pages**: submit an endpoint form on change when it declares so
+- **admin**: ask the assistant about the app from the command palette
+- **admin**: mark the organisation nodes a finding names
+- **pages**: show a record field or a sheet action only when the record meets a condition
+- **ai**: open the assistant with the words a link carries
+- **pages**: keep a command palette's authored rows while searching, gate them, and carry the typed words
+- **admin**: say on every node of the organisation read whether a finding names it
+- **pages**: mark the nodes of a graph a field flags
+- **admin**: filter an agent's conversations by person
+- **admin**: show each bucket's upload rules and public state on its Files page
+- **admin**: lead from the Overview to Organisation by the findings count
+- **admin**: classify each design-system usage row by kind
+- **admin**: report structural findings and the attention item count on the attention read
+- **admin**: group the Components gallery by kind
+- **admin**: show only what needs attention on the Overview, or All clear
+- **admin**: count only the features an app declares on the Overview
+- **admin**: copy the $ref that places a reusable component
+- **admin**: invite a user from a dialog with the least-privileged role chosen
+- **admin**: answer a missing console page inside the console, and welcome invited operators
+- **auth**: open invitations on the operator console's own invitation page
+- **agents**: show each message's model and tool calls in the console conversation viewer
+- **admin**: count the organisation findings and name the nodes each one concerns
+- **admin**: reveal a form's answers in its submissions inbox
+- **admin**: remove the UI kit from the design-system console
+- **admin**: group the console's navigation by what the operator watches
+- **pages**: switch views, regroup and act on the selection from the grid's bottom bar
+- **pages**: draw every field type in the grid and name columns by their label
+- **automations**: say which record a run concerns and how far it got
+- **pages**: create a record from the drawer
+- **pages**: show a record's history, comments, access and linked records in the drawer
+- **pages**: title a record by its first text field
+- **pages**: draw every record field with its own control and read computed fields back
+- **links**: show each link's clicks over the last 30 days in the catalog
+- **library**: let the console shell and sign-in blocks carry a role badge, a read-only notice and a status line
+- **agents**: name the person behind each agent conversation
+- **env**: say where the configuration uses each environment variable
+- **buckets**: list each bucket's declared upload rules
+- **admin**: give each assignable role its declared description
+- **pages**: derive a grid's columns from a form's fields
+- **forms**: list each submission's answers to an admin who reveals them, with a total
+- **pages**: narrow every subscriber by each control's condition and publish selections
+- **pages**: take a select's options from a table field
+- **pages**: remove the integrated table toolbar and search box; page controls compose them
+- **pages**: open the CSV import from a button
+- **tables**: format a duration column
+- **library**: add the data-table toolbar block
+- **pages**: publish a search box on a shared channel and derive a filter bar's fields from its table
+- **automations**: add an inviteUser auth action that sends the invitation email
+- **app**: declare an optional display name
+- **pages**: let a select take its options from a table field
+- **pages**: hide a component or a sidebar row from a caller who holds a capability
+- **pages**: connect page controls to data components through the shared filter channel
+- **pages**: gate pages and sidebar rows on one declaration, fold groups, redirect retired paths under a mount
+- **pages**: compose data controls through the shared filter channel
+- **tables**: match a text filter on a link by the names of the linked records a member's row rule admits
+- **tables**: let row rules test membership in user fields holding several people
+- **tables**: store several people in a user field
+- **pages**: gate a sheet button and a bound component on the table's scope declaration
+- **admin**: offer "Who has access" only on scope tables
+- **pages**: add the auth.scopeTables page capability
+- **tables**: test membership in many-to-many relationships in row rules
+- **tables**: narrow assignment references to one grant role
+- **admin**: show who has access to scoped records in the console
+- **tables**: look up access grants by email, with account and record names
+- **tables**: show a table's label wherever it is named to a person
+- **pages**: let a filter bar's select field read its choices from a table
+- **automations**: grant, revoke and list access to scoped records
+- **cli**: seed access grants from seed/users.yaml
+- **tables**: read, change, revoke and look up access grants
+- **automations**: give trigger.user the acting person's email and name
+
+### Bug Fixes
+
+- **auth**: draw a refused password's reason under its own field
+- **admin**: count every connection that needs reconnecting on the Overview
+- **auth**: show the password rule under every password field
+- **pages**: translate the auth, form, map, palette and control copy that stayed English
+- **ai**: focus the assistant a link opens even with no words
+- **pages**: keep a mounted app's home link free of a trailing slash before its query
+- **admin**: drop search results that point at pages the console no longer has
+- **pages**: a publishing native-select filters even on a page with no other interactive component
+- **admin**: count an OAuth2 connection as active only once it is authorized
+- **admin**: translate the console's conversation list states
+- **pages**: translate the empty states and the remaining island copy
+- **pages**: separate the items of a list value with commas
+- **pages**: title the create drawer with the table's singular label
+- **tables**: name a clipped cell on keyboard focus as well as hover
+- **tables**: show the scroll edge of a wide grid in the dark theme
+- **pages**: draw a sheet footer action in the variant it declares
+- **pages**: make chart axis labels readable in the dark theme
+- **pages**: keep a chart inside the height its host declares
+- **pages**: show the chart's missing-binding message instead of crashing when it has no data source
+- **pages**: send a dashboard's shared system read once, not once per panel
+- **library**: install the navbar command block without arbitrary variants
+- **pages**: translate the filter bar's operators and the islands' error states
+- **tables**: stop offering a sort control on a button column
+- **pages**: translate the grid, breadcrumb and skeleton labels the console still showed in English
+- **pages**: format KPI percentages in the operator's language
+- **tables**: format a currency formula like a currency field in every grid
+- **tables**: place the currency symbol where the operator's language puts it when a field declares no position
+- **design**: darken the default light destructive colour to the WCAG AA contrast minimum
+- **automations**: mask the person a run acts for the way the record's persons are
+- **admin**: show the whole operator console in the operator's language
+- **css**: create the pre-compiled stylesheet's directory from its path, and derive the stamp from the compile key
+- **tables**: pin the first column and show a scroll edge when a table is wider than its container
+- **tables**: open a grid row in its drawer on small screens instead of cutting the actions column off
+- **css**: serve a designed app its own pre-compiled stylesheet and keep the file in the data directory
+- **forms**: a read-only select with no default submits the option it shows
+- **pages**: read a percent-encoded route segment as the value it encodes
+- **css**: ignore a precompiled stylesheet built by another engine or design
+- **forms**: honour hidden and readOnly fields on endpoint forms
+- **pages**: draw the record sheet's Activity and Access tabs on the operator console
+- **admin**: answer a missing console address inside the console shell
+- **auth**: open the sign-in form with the address a password reset was asked for
+- **pages**: let an iframe load a page or a file of the same app
+- **admin**: address a template preview without repeating its folder, and keep scripts out of it
+- **pages**: name a switch or checkbox by its aria-label or by a label pointing at its id
+- **theming**: let the sidebar follow the default primary and ring too
+- **pages**: save an untouched record on a table with every field type
+- **connections**: report unauthorized OAuth2 connections and return to the starting page
+- **pages**: keep the sidebar's anatomy inside the phone drawer
+- **pages**: key search palette rows by kind and id, not by link
+- **admin**: re-align the console shell and sign-in copies on their blocks
+- **forms**: parse the submission detail reveal flag strictly
+- **admin**: mark and name the console after the app it administers
+- **theming**: follow a system scheme change on a page that is already open
+- **account**: keep invitations an erased person sent, without her id
+- **theming**: let the sidebar's primary and ring follow the app's in both schemes
+- **pages**: show the palette's keys, name a record row's table, and key rows by link
+- **account**: remove a person's pending verification tokens when erasing them
+- **pages**: keep a long sidebar's footer in view and give its drawer a close button
+- **tables**: make a sortable column header a named sort button
+- **pages**: let a combobox caption label the field the reader types into
+- **theming**: draw one focus ring on a focused text input
+- **design**: draw the button component as shadcn's base-nova Button
+- **pages**: name a select by its aria-label when it has no caption
+- **pages**: render a page in the active language when it declares none
+- **pages**: format byte counts for the page locale
+- **pages**: name a derived filter bar's fields in words
+- **admin**: compose the console grids' toolbars from the library block
+- **admin**: keep the page name in the console's phone breadcrumb and make its search an icon
+- **design**: keep sidebar rows, breadcrumb links, the command input and KPI labels on their shadcn ink and box
+- **admin**: say what each console write did, and offer only what the operator may do
+- **pages**: name the item in action toasts, reset forms to the next entry, keep toasts off the focused control
+- **pages**: keep the console shell when navigation goes offline or the session ends
+- **pages**: mark a failed upload and offer to retry or remove it
+- **pages**: keep the new-record dialog open and show field errors when a save is refused
+- **pages**: show a failed grid read with a retry and never the response body
+- **pages**: draw the built-in labels of sheets and dialogs in the page language
+- **pages**: run a record sheet footer's crud delete and update once confirmed
+- **account**: retry an erasure that meets a concurrent write, and answer a losing write as a conflict
+- **pages**: give each field control one unique id and keep focus rings on flat designs
+- **library**: let the browser autofill the contact form blocks
+- **pages**: name every field control by its label and announce new-tab buttons
+- **library**: let the browser autofill the account settings block
+- **admin-console**: let the browser autofill the operator's own name on the profile page
+- **admin-console**: name the progress specimen and draw the CSV export as an outline button
+- **pages**: send a failed delete only once and say it failed
+- **account**: take the account lock first when erasing
+- **pages**: announce new tabs, keep focus visible and in dialogs, and fix page structure
+- **library**: keep block headings in order and their text at full contrast
+- **forms**: explain required fields and speak the page language
+- **tables**: count each records API request once, against the right budget
+- **pages**: ask before a delete whose crud action sets confirm in a grid or drawer
+- **pages**: treat % and \_ literally in a page filter's contains
+- **design**: dim an input group only when its field is disabled
+- **pages**: give every markdown article a document title
+- **pages**: give the page search box the combobox role its suggestions need
+- **tables**: put a grouped row's expanded state on its toggle button and name progress cells
+- **design**: raise the default muted text and field border to the WCAG AA contrast minimum
+- **pages**: keep a page usable when its deletes are refused for rate limit
+- **tables**: one write budget per caller for every record write, and room for signed-in reads
+- **admin-console**: make the Footprint section headings second-level
+- **css**: change the stylesheet URL when the engine changes
+- **pages**: judge contains and relationship row rules on pages and hosted forms as the records API does
+- **cli**: refuse an undeclared literal scope table or role in the access-grant actions at validation
+- **tables**: confirm the accounts a list of people names inside the write that stores it
+- **pages**: read contains on a user field holding several people as membership in page and automation filters
+- **cli**: report an unreadable releases reply in sovrium update with its status and content type
+- **tables**: match a text filter on a link only against live linked records
+- **automations**: apply concurrent access grants and revocations without losing any
+- **tables**: start many-to-many relationships to text-keyed tables on PostgreSQL
+- **automations**: close live connections when an automation changes a grant
+- **tables**: never label a granted record with a write-only value
+- **pages**: name a route-bound grid in the page's language
+- **tables**: match a text filter on a link by the linked record's name
+- **pages**: draw a button field placed in a record-field on a record page
+- **migrations**: keep inserts working on a scope table with a computed field
+- **pages**: name the bound record in a page's title, trail and field values
+- **tables**: address scope-table records by their generated text ids
+- **kanban**: head board columns and lanes with the option label
+- **cli**: name GitHub's rate limit in sovrium update and find the release anyway
+- **connections**: pass object and list parameters as values, not text
+
+### Performance Improvements
+
+- **css**: compile each app's stylesheet from the components it declares
+- **pages**: keep the shared filter publisher out of islands that never publish
+- **css**: serve the default fonts as cached woff2 files
+- **automations**: read the acting person's account once per batch write
+
 ## [0.38.0](https://github.com/sovrium/sovrium/compare/v0.37.0...v0.38.0) (2026-10-14)
 
 ### BREAKING CHANGES

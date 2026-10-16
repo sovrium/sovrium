@@ -17,6 +17,8 @@ import { FilterChip } from './filter-chip'
 import { useFilterBarState } from './use-filter-bar-state'
 import type { FilterBarCondition, FilterBarField } from '@/presentation/design/filter-expression'
 import type { ReactElement, RefObject } from 'react'
+/** The bar's own words in the page language, keyed `filterBar.*`; absent on an English page. */
+type Strings = Readonly<Record<string, string>> | undefined
 
 /**
  * `filter-bar` — one filter, many views.
@@ -58,6 +60,10 @@ interface FilterBarIslandProps {
   readonly conditions?: readonly FilterBarCondition[]
   readonly combinator?: 'and' | 'or'
   readonly allowAdd?: boolean
+  /** Mirror the conditions in the page address (`publishes.url`). */
+  readonly url?: boolean
+  /** The bar's own words (`filterBar.*`), server-resolved, where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
 }
 
 /** lucide's `circle-plus`, the add control's glyph. */
@@ -89,12 +95,16 @@ const POPOVER_CLASSES = `${computePopoverContentClasses()} ${FILTER_BAR_POPOVER_
  * builder stays inside the bar's own markup.
  */
 function AddFilter({
+  label,
+  strings,
   fields,
   open,
   addRef,
   onToggle,
   onApply,
 }: {
+  readonly label: string
+  readonly strings: Strings
   readonly fields: readonly FilterBarField[]
   readonly open: boolean
   readonly addRef: RefObject<HTMLButtonElement | null>
@@ -116,18 +126,19 @@ function AddFilter({
         className={FILTER_BAR_ADD_CLASSES}
       >
         {ADD_GLYPH}
-        Add filter
+        {label}
       </button>
       {open && (
         <div
           role="dialog"
-          aria-label="Add filter"
+          aria-label={label}
           data-slot="popover-content"
           data-open=""
           className={POPOVER_CLASSES}
         >
           <ConditionBuilder
             fields={fields}
+            strings={strings}
             onApply={onApply}
           />
         </div>
@@ -144,6 +155,9 @@ function AddFilter({
  * condition — the one most likely to have been forgotten.
  */
 function ChipRow({
+  addLabel,
+  removeLabel,
+  strings,
   conditions,
   fields,
   allowAdd,
@@ -153,6 +167,10 @@ function ChipRow({
   onToggle,
   onApply,
 }: {
+  /** The add control's name, and a chip's remove name with `{field}` still to fill. */
+  readonly addLabel: string
+  readonly removeLabel: string
+  readonly strings: Strings
   readonly conditions: readonly FilterBarCondition[]
   readonly fields: readonly FilterBarField[]
   readonly allowAdd: boolean
@@ -170,11 +188,15 @@ function ChipRow({
           index={index}
           condition={condition}
           field={fields.find((candidate) => candidate.name === condition.field)}
+          removeLabel={removeLabel}
+          strings={strings}
           onRemove={onRemove}
         />
       ))}
       {allowAdd && (
         <AddFilter
+          label={addLabel}
+          strings={strings}
           fields={fields}
           open={open}
           addRef={addRef}
@@ -193,8 +215,10 @@ export default function FilterBarIsland({
   conditions: initialConditions,
   combinator = 'and',
   allowAdd = true,
+  url = false,
+  uiStrings,
 }: FilterBarIslandProps): ReactElement {
-  const state = useFilterBarState({ bindTo, fields, combinator, initialConditions })
+  const state = useFilterBarState({ bindTo, url, fields, combinator, initialConditions })
 
   return (
     <div
@@ -202,6 +226,9 @@ export default function FilterBarIsland({
       onKeyDown={state.closeOnEscape}
     >
       <ChipRow
+        addLabel={uiStrings?.['filterBar.addFilter'] ?? 'Add filter'}
+        removeLabel={uiStrings?.['filterBar.removeFilter'] ?? 'Remove {field} filter'}
+        strings={uiStrings}
         conditions={state.conditions}
         fields={fields}
         allowAdd={allowAdd}

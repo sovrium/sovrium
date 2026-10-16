@@ -246,7 +246,7 @@ export const section = defineSection({
       slug: 'design-system-console',
       title: 'Design System Console',
       description:
-        'The console section that draws your design system at its rendered values — foundations, the UI kit, your own components, brand, voice — and the revocable link that publishes it to someone with no login.',
+        'The console section that draws your design system at its rendered values — foundations, your own components, brand, voice — and the revocable link that publishes it to someone with no login.',
       keywords: [
         'sovrium',
         'design system console',

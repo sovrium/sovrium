@@ -36,7 +36,11 @@ import {
   isProduction,
 } from './asset-cache-control'
 import { setupClientChunkRoutes } from './client-chunk-routes'
-import { setupBrandMarkRoute, setupDesignSystemSampleRoute } from './embedded-asset-routes'
+import {
+  setupBrandMarkRoute,
+  setupDesignSystemSampleRoute,
+  setupWebFontRoutes,
+} from './embedded-asset-routes'
 import { setupIslandRoutes } from './island-assets'
 import { setupPublicDirRoute } from './public-dir-route'
 import type { App } from '@/domain/models/app'
@@ -109,13 +113,15 @@ export function setupCSSRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono>
       // back out of the matched filename.
       .get(`/assets/:file{${VERSIONED_CSS_FILE_PATTERN}}`, async (c) => {
         // Content-versioned stylesheet URL (linked by rendered HTML). The hash
-        // is derived from the theme + candidate inputs that determine the CSS,
-        // so it both SELECTS the app to compile (see `resolveCssApp` — the
-        // operator's pages and Sovrium's console link different hashes and must
-        // get different stylesheets) and decides how long the answer may be
-        // cached. The CURRENT hash may be cached forever; a STALE hash (HTML
-        // cached from a previous deploy) still gets working CSS under the short
-        // header — never a 404 and never an unstyled page.
+        // is derived from the theme + candidate inputs that determine the CSS
+        // and from the engine compiling them (`versioned-css-path.ts`), so an
+        // upgrade moves the URL too. It both SELECTS the app to compile (see
+        // `resolveCssApp` — the operator's pages and Sovrium's console link
+        // different hashes and must get different stylesheets) and decides how
+        // long the answer may be cached. The CURRENT hash may be cached
+        // forever; a STALE hash (HTML cached from a previous deploy) still gets
+        // working CSS under the short header — never a 404 and never an
+        // unstyled page.
         try {
           const requestedHash = parseVersionedCssHash(c.req.param('file'))
           const cssApp = resolveCssApp(requestedHash, app)
@@ -295,8 +301,10 @@ export async function setupStaticAssets(
     setupClientBundleRoute(setupJavaScriptRoutes(setupCSSRoute(honoApp, app)))
   )
   const withEntries = await setupClientChunkRoutes(withHashed, assetCacheControl)
-  const withAssets = setupBrandMarkRoute(
-    setupDesignSystemSampleRoute(setupIslandRoutes(setupAnalyticsScriptRoute(withEntries, app)))
+  const withAssets = setupWebFontRoutes(
+    setupBrandMarkRoute(
+      setupDesignSystemSampleRoute(setupIslandRoutes(setupAnalyticsScriptRoute(withEntries, app)))
+    )
   )
   // `setupPublicDirRoute` is async: it realpath()s the directory once at mount
   // (see its docstring); a missing directory returns the app unchanged.

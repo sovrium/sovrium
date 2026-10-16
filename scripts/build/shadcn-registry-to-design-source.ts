@@ -33,7 +33,10 @@
  *
  * ## The one conversion: chart hues to `#rrggbb`
  *
- * Every value is emitted as the snapshot spells it, except `chart-1` …
+ * The four values {@link ACCESSIBILITY_FLOOR} names are raised to the WCAG
+ * 2.1 AA contrast minimum before anything else reads the snapshot.
+ *
+ * Every other value is emitted as the snapshot spells it, except `chart-1` …
  * `chart-5`. Two consumers need six-digit hex for those: `deriveOptionChipColors`
  * parses nothing else, and `Chart Palette Drift` compares byte for byte. The
  * conversion is `srgbHex` (`src/domain/kernel/color/color-contrast.ts`): Oklch →
@@ -123,6 +126,63 @@ export const RETIRED_SV_ROLE_TWINS: Readonly<Record<string, string>> = {
   'chart-3': 'chart-3',
   'chart-4': 'chart-4',
   'chart-5': 'chart-5',
+}
+
+/**
+ * The accessibility floor: the only places the default design departs from
+ * the pinned shadcn values, each because the shadcn value fails WCAG 2.1 AA
+ * (RGAA 4.1 criteria 3.2 and 3.3) on a surface the engine draws it on.
+ *
+ * - light `muted-foreground`: shadcn's `oklch(0.556 0 0)` is 4.35:1 on `muted`
+ *   and 4.12:1 on `background-inset`, under the 4.5:1 text minimum. `0.52`
+ *   clears 4.5:1 on `background`, `card`, `muted` and `background-inset`.
+ * - light `input`: shadcn's `oklch(0.922 0 0)` field border is 1.26:1 against
+ *   the page, under the 3:1 a control boundary needs. `0.65` reaches 3.2:1.
+ * - dark `input`: shadcn's `oklch(1 0 0 / 15%)` composites to 1.5:1 against
+ *   the dark page. The same translucent white at 40% reaches 3.7:1, and the
+ *   `bg-input/30` field fill it implies keeps the placeholder above 4.5:1.
+ * - light `destructive`: shadcn's `oklch(0.577 0.245 27.325)` is 4.76:1 as
+ *   text on the page but 3.99:1 on its own 10% tint, the resting fill of the
+ *   destructive button, badge, menu item and error notice (3.67:1 when that
+ *   tint sits over `muted`), and 4.37:1 as text on `muted`. `0.5` at the same
+ *   chroma and hue reaches 4.95:1 on the tint over `background` and `card`,
+ *   4.56:1 on the tint over `muted`, 5.46:1 as text on `muted`, and 5.96:1
+ *   for the white label of the solid destructive fill. The dark value already
+ *   clears 4.5:1 on its 20% tint over `background` (5.30:1) and `card`
+ *   (4.63:1), so it is not floored.
+ *
+ * Everything else is emitted as the snapshot spells it. The snapshot itself
+ * stays byte-equal to upstream: the floor is applied here, on the reading.
+ * Decisions: [internal ref] (the RGAA accessibility floor of the default design) and
+ * [internal ref] (its extension to the destructive tint).
+ */
+export const ACCESSIBILITY_FLOOR: {
+  readonly light: Readonly<Record<string, string>>
+  readonly dark: Readonly<Record<string, string>>
+} = {
+  light: {
+    'muted-foreground': 'oklch(0.52 0 0)',
+    input: 'oklch(0.65 0 0)',
+    destructive: 'oklch(0.5 0.245 27.325)',
+  },
+  dark: { input: 'oklch(1 0 0 / 40%)' },
+}
+
+/** One scheme's variables with the accessibility floor applied; a floor on an unknown name throws. */
+const withAccessibilityFloor = (
+  vars: CssVars,
+  floor: Readonly<Record<string, string>>,
+  scheme: string
+): CssVars => {
+  const unknown = Object.keys(floor).find((name) => !(name in vars))
+  if (unknown !== undefined) {
+    throw new Error(
+      `ACCESSIBILITY_FLOOR.${scheme} names --${unknown}, which the snapshot does not declare`
+    )
+  }
+  return Object.fromEntries(
+    Object.entries(vars).map(([name, value]) => [name, floor[name] ?? value])
+  )
 }
 
 /** `chart-1` … `chart-5`: the variables emitted as hex rather than as spelled. */
@@ -309,9 +369,14 @@ const registrations = (remainder: TokenBlock, colourNames: readonly string[]): T
  *   snapshot's variables where it carries colours.
  */
 export const shadcnRegistryToDesignSource = (
-  snapshot: ShadcnRegistrySnapshot,
+  pinned: ShadcnRegistrySnapshot,
   remainder: DesignRemainder
 ): DefaultDesignSource => {
+  const snapshot: ShadcnRegistrySnapshot = {
+    ...pinned,
+    light: withAccessibilityFloor(pinned.light, ACCESSIBILITY_FLOOR.light, 'light'),
+    dark: withAccessibilityFloor(pinned.dark, ACCESSIBILITY_FLOOR.dark, 'dark'),
+  }
   const colourNames = Object.keys(snapshot.light).filter((name) => name !== RADIUS_VARIABLE)
   const unknownTwin = Object.values(RETIRED_SV_ROLE_TWINS).find(
     (name) => !colourNames.includes(name)

@@ -11,7 +11,7 @@ import { columnPlacementClass } from '../column-align'
 import { FROZEN_CELL_CLASS, frozenHeaderStyle, type FrozenOffsets } from '../frozen-columns'
 import { HeaderLabel } from './header-label'
 import { ResizeHandle } from './resize-handle'
-import { ariaSortFor, buildSortKeyDown } from './sort-state'
+import { ariaSortFor } from './sort-state'
 import type { DataTableColumnMeta, DataTableHeader } from '../island/table-features'
 import type { CSSProperties } from 'react'
 
@@ -30,10 +30,13 @@ function headerCellStyle(
   return { ...sizing, ...frozenHeaderStyle(frozenOffsets[meta.field ?? ''] ?? 0) }
 }
 
-/** The class list of a header cell: the recipe, its alignment, sort and pin. */
-function headerCellClassName(meta: DataTableColumnMeta | undefined, canSort: boolean): string {
+/**
+ * The class list of a header cell: the recipe, its alignment, sort and pin.
+ * A sortable header is the `group/th` its sort glyph reads hover and focus off.
+ */
+function headerCellClassName(meta: DataTableColumnMeta | undefined, sortable: boolean): string {
   return `${computeTableHeaderCellClasses()} relative ${columnPlacementClass(meta)} ${
-    canSort ? 'cursor-pointer select-none' : ''
+    sortable ? 'group/th cursor-pointer select-none' : ''
   } ${meta?.frozen === true ? FROZEN_CELL_CLASS : ''}`
 }
 
@@ -69,7 +72,12 @@ export function HeaderCell({
     () => headerCellStyle(meta, frozenOffsets, width),
     [meta, frozenOffsets, width]
   )
+  // An empty grid has nothing to order, so no header OFFERS to order it: no
+  // sort button and no glyph. The column still declares itself sortable
+  // (`aria-sort`, the header's click), so a grid whose rows are still loading
+  // sorts on the click that arrives before them.
   const canSort = header.column.getCanSort()
+  const sortable = canSort && header.getContext().table.getRowModel().rows.length > 0
   return (
     <th
       key={header.id}
@@ -78,17 +86,16 @@ export function HeaderCell({
       // density map, and interpolating it grew the column labels' padding
       // whenever the reader asked for taller rows. A header's padding is a
       // constant of the design; the recipe owns it.
-      className={headerCellClassName(meta, canSort)}
+      className={headerCellClassName(meta, sortable)}
       {...(cellStyle && { style: cellStyle })}
       onClick={header.column.getToggleSortingHandler()}
       aria-sort={ariaSortFor(canSort, header.column.getIsSorted())}
       {...(meta?.frozen && { 'data-frozen': 'true' })}
-      {...(canSort && {
-        tabIndex: 0,
-        onKeyDown: buildSortKeyDown(header.column.getToggleSortingHandler()),
-      })}
     >
-      <HeaderLabel header={header} />
+      <HeaderLabel
+        header={header}
+        sortable={sortable}
+      />
       <ResizeHandle header={header} />
     </th>
   )

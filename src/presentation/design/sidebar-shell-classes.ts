@@ -31,9 +31,15 @@ export const computeSidebarShellBoxClasses = (): string =>
  * the box only on a shell sidebar: an ordinary sidebar's box sets its own height
  * and scrolls, and a full-height flex column inside it would shrink its groups
  * until they overlapped.
+ *
+ * It never grows past the screen, though: a navigation taller than the viewport
+ * scrolls inside its own content region, between a header and a footer that
+ * stay in view, rather than pushing the footer (the reader's account, most
+ * often) below the fold. Inside the phone drawer it fills the panel below the
+ * close button (`in-[dialog]`), so the same holds there.
  */
 export const computeSidebarSurfaceClasses = (): string =>
-  'flex w-full min-w-0 flex-col group-data-[sidebar-shell]/sidebar:h-full group-data-[collapsible]/sidebar:overflow-hidden group-data-[variant=floating]/sidebar:rounded-lg group-data-[variant=floating]/sidebar:border group-data-[variant=floating]/sidebar:border-sidebar-border group-data-[variant=floating]/sidebar:bg-sidebar group-data-[variant=floating]/sidebar:shadow-sm group-data-[variant=inset]/sidebar:bg-sidebar'
+  'flex max-h-svh w-full min-w-0 flex-col in-[dialog]:min-h-0 in-[dialog]:flex-1 group-data-[sidebar-shell]/sidebar:h-full group-data-[collapsible]/sidebar:overflow-hidden group-data-[variant=floating]/sidebar:rounded-lg group-data-[variant=floating]/sidebar:border group-data-[variant=floating]/sidebar:border-sidebar-border group-data-[variant=floating]/sidebar:bg-sidebar group-data-[variant=floating]/sidebar:shadow-sm group-data-[variant=inset]/sidebar:bg-sidebar'
 
 /** shadcn/ui `SidebarHeader`. */
 export const computeSidebarHeaderClasses = (): string => 'flex flex-col gap-2 p-2'

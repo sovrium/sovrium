@@ -17,13 +17,14 @@ import {
   buildCreateAuthorshipOverrides,
   buildUpdateAuthorshipOverrides,
 } from '@/domain/models/app/tables/authorship-fields'
-import { normalizeDateValuesIn } from '@/domain/models/app/tables/empty-date-service'
+import { storedValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import { buildSyntheticSession } from '../build-guest-session'
 import { resolveRunAsActor } from './record'
 import { admitAttachments } from './record-attachment-gate'
 import { callerRefusal, runLinkReader, updatesOf } from './record-caller-gate'
 import { createAndAnnounce, recordEventLoopRefusal, updateAndAnnounce } from './record-events'
-import { declaredFieldNames, failureFromError, resolveActionTargetIds } from './record-filters'
+import { declaredFilterFields } from './record-filter-shape'
+import { failureFromError, resolveActionTargetIds } from './record-filters'
 import { actionAttributes, findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 import type { StepRequirements } from '../run/types'
@@ -136,7 +137,7 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation, runCo
       operator: 'record.upsert',
       tableName,
       filter: props['filter'],
-      declaredFields: declaredFieldNames(app, tableName),
+      declared: declaredFilterFields(app, tableName),
       idFastPath: stringProp(props, 'id'),
     })
     if (!targets.resolved) return targets.outcome
@@ -160,7 +161,7 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation, runCo
           actorId,
           app,
           tableName,
-          data: normalizeDateValuesIn(app.tables, tableName, values),
+          data: storedValuesIn(app.tables, tableName, values),
           createOverrides: buildCreateAuthorshipOverrides(app.tables, tableName, actorId),
           runContext,
         })

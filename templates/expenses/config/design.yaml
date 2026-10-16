@@ -12,6 +12,12 @@
 # One accent, an emerald. Emerald sits where a "done" green usually sits, so
 # the decision colour for Approved moves to a teal-blue instead: a control and
 # an outcome are never the same colour.
+#
+# `chart-1` … `chart-5` are the category colours: Software, Travel,
+# Equipment, Other and Meals. Five hues at one lightness, none near the accent
+# or a decision colour, so the spend donut tells its slices apart at a glance
+# and a category never reads as a button or an outcome. The `category` field's
+# options carry the same hues.
 baseline: extend
 
 # Follow the operating system's light or dark preference. `darkColors` below is
@@ -49,6 +55,11 @@ colors:
   warning: oklch(0.5 0.12 75)
   error: oklch(0.53 0.17 25)
   destructive-foreground: oklch(0.985 0.003 160)
+  chart-1: oklch(0.6 0.13 250)
+  chart-2: oklch(0.6 0.13 290)
+  chart-3: oklch(0.6 0.13 50)
+  chart-4: oklch(0.6 0.13 115)
+  chart-5: oklch(0.6 0.13 330)
 
 darkColors:
   primary: oklch(0.78 0.12 160)
@@ -73,6 +84,11 @@ darkColors:
   warning: oklch(0.8 0.12 75)
   error: oklch(0.72 0.14 25)
   destructive-foreground: oklch(0.16 0.006 160)
+  chart-1: oklch(0.7 0.12 250)
+  chart-2: oklch(0.7 0.12 290)
+  chart-3: oklch(0.7 0.12 50)
+  chart-4: oklch(0.7 0.12 115)
+  chart-5: oklch(0.7 0.12 330)
 
 # What each colour is for. Writing the usage down is what stops the accent from
 # becoming a category's colour, and a decision colour from becoming decoration.

@@ -78,6 +78,12 @@ export interface UseSortRefusal {
    */
   readonly readError: unknown
   /**
+   * The column whose sort the failed read was carrying, when the failure undid
+   * one — so the notice can say WHICH sort was refused instead of a generic
+   * load failure. `undefined` for a read that failed with no sort change.
+   */
+  readonly refusedSortColumn: string | undefined
+  /**
    * Drop-in replacement for the table's `onSortingChange`. Snapshots the sort
    * being replaced, and retires any outstanding notice — the operator is asking
    * a new question, so the answer to the old one stops being news.
@@ -94,13 +100,21 @@ export function useSortRefusal(
 ): UseSortRefusal {
   const { sorting, setSorting } = state
   const [readError, setReadError] = useState<unknown>(undefined)
+  const [refusedSortColumn, setRefusedSortColumn] = useState<string | undefined>(undefined)
   // The sort in effect before the pending change — where a refusal returns to.
   const previousSorting = useRef<SortingState>(sorting)
+  // The sort the failing read carried, read when it fails (the effect below
+  // runs on the failure, not on every sort change).
+  const liveSorting = useRef<SortingState>(sorting)
+  useEffect(() => {
+    liveSorting.current = sorting
+  }, [sorting])
 
   const onSortingChange = useCallback<OnChangeFn<SortingState>>(
     (updater) => {
       previousSorting.current = sorting
       setReadError(undefined)
+      setRefusedSortColumn(undefined)
       setSorting(updater)
     },
     [sorting, setSorting]
@@ -109,6 +123,7 @@ export function useSortRefusal(
   useEffect(() => {
     if (!isError) return
     setReadError(error)
+    setRefusedSortColumn(refusedColumn(previousSorting.current, liveSorting.current))
     // Undo the sort this read was carrying. When the failure had nothing to do
     // with a sort — an initial load that simply failed — the snapshot equals the
     // live value and this settles on the same query key; the notice is still the
@@ -116,9 +131,20 @@ export function useSortRefusal(
     setSorting(previousSorting.current)
   }, [isError, error, setSorting])
 
-  const clearReadError = useCallback(() => setReadError(undefined), [])
+  const clearReadError = useCallback(() => {
+    setReadError(undefined)
+    setRefusedSortColumn(undefined)
+  }, [])
 
-  return { readError, onSortingChange, clearReadError }
+  return { readError, refusedSortColumn, onSortingChange, clearReadError }
+}
+
+/** The column a sort change added or re-directed, or `undefined` when none did. */
+function refusedColumn(before: SortingState, after: SortingState): string | undefined {
+  const changed = after.find(
+    (entry) => !before.some((prior) => prior.id === entry.id && prior.desc === entry.desc)
+  )
+  return changed?.id
 }
 
 /**

@@ -19,6 +19,7 @@ import {
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
+import { confirmBatchAccounts } from '../mutation-helpers/account-confirmation'
 import { injectUpdateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { encodeColumnValue } from '../mutation-helpers/column-value-encoding'
 import { fetchRecordsByIds } from '../mutation-helpers/record-fetch-helpers'
@@ -28,6 +29,7 @@ import {
   wrapWriteStatementError,
 } from '../statement/error-handling'
 import { databaseTableName, tableIdentifier, validateColumnName } from '../statement/validation'
+import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -218,7 +220,8 @@ const writeBatch = (
 export function batchUpdateRecords(
   session: Readonly<Session>,
   tableName: string,
-  updates: readonly BatchUpdate[]
+  updates: readonly BatchUpdate[],
+  accounts?: readonly AccountReference[]
 ): Effect.Effect<readonly Record<string, unknown>[], DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const merged = mergeUpdates(updates)
@@ -226,7 +229,10 @@ export function batchUpdateRecords(
       merged.length === 0
         ? []
         : yield* withOutboxTransaction((changes: readonly CommittedRowChange[]) => changes)(
-            (tx) => writeBatch(tx, tableName, session, merged),
+            (tx) =>
+              Effect.andThen(confirmBatchAccounts(tx, accounts), () =>
+                writeBatch(tx, tableName, session, merged)
+              ),
             wrapDatabaseErrorWithValidation(`Failed to batch update records in ${tableName}`)
           )
     // Logged and reported once the transaction has committed — a rolled-back

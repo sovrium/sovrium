@@ -620,31 +620,28 @@ const memberRow = (keyRow: SchemaOption, value: string): SchemaOptionGroupRow =>
 /**
  * The rows one group DRAWS, from a type's already-flattened options.
  *
- * Two shapes of group, and only two:
+ * Two shapes of group:
  *
- *  - the key row carries `values` — a CLOSED union, which collapsed to one flat
- *    row and has no subtree — so the group is one row per member.
+ *  - the key row carries `values` — a union whose literal members collapsed to
+ *    one flat row — so the group is one row per member, followed by any rows
+ *    beneath the key, which a union with an object member as well as literal
+ *    ones (`columnsFrom: 'table' | { form }`) still owns.
  *  - anything else: the key's own row and every row beneath it, each addressed
  *    by its own path. A plain string still draws the one row saying it exists,
  *    which is why a group is never empty.
- *
- * Measured against this catalogue: NO key both carries `values` and owns
- * descendants, so the two shapes are exclusive in fact and not only by
- * construction.
  */
 const rowsOfGroup = (
   items: readonly SchemaOption[],
   keyRow: SchemaOption,
   key: string
-): readonly SchemaOptionGroupRow[] =>
-  keyRow.values === undefined
-    ? items
-        .filter(
-          (row) =>
-            row.path === key || row.path.startsWith(`${key}.`) || row.path.startsWith(`${key}[`)
-        )
-        .map((row) => ({ ...row, value: row.path }))
-    : keyRow.values.map((member) => memberRow(keyRow, member))
+): readonly SchemaOptionGroupRow[] => {
+  const beneath = items
+    .filter((row) => row.path.startsWith(`${key}.`) || row.path.startsWith(`${key}[`))
+    .map((row) => ({ ...row, value: row.path }))
+  return keyRow.values === undefined
+    ? [{ ...keyRow, value: keyRow.path }, ...beneath]
+    : [...keyRow.values.map((member) => memberRow(keyRow, member)), ...beneath]
+}
 
 /**
  * The flat row a group is headed by, or a THROW.

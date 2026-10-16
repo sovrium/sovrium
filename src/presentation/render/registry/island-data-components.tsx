@@ -17,13 +17,13 @@ import {
   resolveRowExpandRowClick,
 } from '@/presentation/render/props/resolve-row-expand'
 import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
-import { renderComponentSearchBar } from './component-search-bar'
 import { DataTableSkeleton } from './data-table-skeleton'
 import { galleryComponents } from './gallery-component'
 import { islandCalendarComponent } from './island-calendar-component'
 import { islandChartComponent } from './island-chart-component'
 import { KanbanSkeleton } from './island-kanban-skeleton'
 import { islandKpiComponent } from './island-kpi-component'
+import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import { RowExpandDrawerHost } from './row-expand-drawer-host'
 import { staticTableComponent } from './static-table-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
@@ -50,9 +50,7 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     readOnly: elementProps.readOnly,
     columns: elementProps.columns,
     pagination: elementProps.pagination,
-    search: elementProps.search,
     selection: elementProps.selection,
-    toolbar: elementProps.toolbar,
     striped: elementProps.striped,
     // Row fill by declared option colour — the grid's spelling of the record
     // views' `colorField`: the field name, plus the `optionValue → hex` map
@@ -70,22 +68,27 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     layout: elementProps.layout,
     phoneLayout: elementProps.phoneLayout,
     bulkActions: elementProps.bulkActions,
+    publishes: elementProps.publishes,
     autoSave: elementProps.autoSave,
     tableFields: elementProps.tableFields,
     fieldMeta: elementProps.fieldMeta,
     tablePermissions: elementProps.tablePermissions,
-    // Render-time create-permission gate: the toolbar offers the create
-    // affordance only when the current role may create the bound table.
+    // Render-time create-permission gate: the add-row is offered only when the
+    // current role may create in the bound table.
     canCreate: elementProps.canCreate,
     // Render-time update-permission gate: the
     // permission-derived default for a column's `editable`. Read by the island;
     // `tablePermissions` above is descriptive only and gates nothing.
     canUpdate: elementProps.canUpdate,
-    // Interpreter-provided create-record label, resolved server-side
-    // against the active language so the toolbar button + create modal localize.
-    newRecordLabel: elementProps.newRecordLabel,
-    // The create dialog's footer pair + the inline editor's commit/dismiss pair,
-    // resolved server-side alongside the create label.
+    // Render-time delete gate: the selection's Delete is offered only when the
+    // current role may delete in the bound table.
+    canDelete: elementProps.canDelete,
+    // The empty state naming the table, and the view switcher's words, on a
+    // table-bound grid (both resolved server-side in the page language).
+    tableEmptyMessage: elementProps.tableEmptyMessage,
+    viewSwitcher: elementProps.viewSwitcher,
+    // The inline editor's commit/dismiss pair, resolved server-side against the
+    // active language.
     saveLabel: elementProps.saveLabel,
     cancelLabel: elementProps.cancelLabel,
     // How the action column draws its actions: inline buttons, or a `…` menu per row.
@@ -118,6 +121,9 @@ function extractKanbanProps(elementProps: Record<string, unknown>): Record<strin
     colorField: elementProps.colorField,
     columnOptions: elementProps.columnOptions,
     columnColors: elementProps.columnColors,
+    // `value → label` per axis, in the page language: a header reads the label.
+    columnLabels: elementProps.columnLabels,
+    swimlaneLabels: elementProps.swimlaneLabels,
     // The SECOND grouping axis and its declared lane values. Both have to pass
     // this gate AND the `kanban` entry of `type-specific-props-builder.ts`: a key
     // added to one only arrives as `undefined`, and the board silently draws flat.
@@ -129,6 +135,8 @@ function extractKanbanProps(elementProps: Record<string, unknown>): Record<strin
     // The declared display properties of the columns the card footer names,
     // so a `currency` footer item prints the column's own currency.
     fieldMeta: elementProps.fieldMeta,
+    // The channel the board publishes the card a reader selects on.
+    publishes: elementProps.publishes,
   }
 }
 
@@ -182,8 +190,16 @@ function extractTimelineProps(elementProps: Record<string, unknown>): Record<str
  * rendered SURFACE, which specs and stylesheet rules address, and which did not
  * merge into anything.
  */
-export const recordBoundTimelineComponent: ComponentRenderer = ({ elementProps }) => {
-  const islandProps = extractTimelineProps(elementProps)
+export const recordBoundTimelineComponent: ComponentRenderer = ({
+  elementProps,
+  currentLang,
+  languages,
+}) => {
+  const loading = islandLoadingLabel('timeline.loading', currentLang, languages)
+  const islandProps = {
+    ...extractTimelineProps(elementProps),
+    uiStrings: islandUiStrings('timeline', currentLang, languages),
+  }
   // The host is the ONE element naming the timeline; nothing drawn inside carries either name.
   // Spelled out rather than through `namedHost`: `data-timeline` is a surface stamp, not a
   // type literal, and the stamp vocabulary finds it by its literal spelling.
@@ -200,7 +216,8 @@ export const recordBoundTimelineComponent: ComponentRenderer = ({ elementProps }
       {/* Loading skeleton — preserved as Suspense fallback, inside the frame
           the host draws, so nothing re-draws as the island mounts. */}
       <div
-        aria-label="Loading timeline..."
+        data-loading-status=""
+        aria-label={loading.status}
         role="status"
       >
         <div className="bg-muted mb-3 h-4 w-40 animate-pulse rounded-md" />
@@ -225,7 +242,11 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
   kpi: islandKpiComponent,
   kanban: ({ elementProps, currentLang, languages, tables }) => {
     const text = { tables, languages, locale: currentLang }
-    const propsJson = JSON.stringify(withRecordTextProp(extractKanbanProps(elementProps), text))
+    const loading = islandLoadingLabel('kanban.loading', currentLang, languages)
+    const propsJson = JSON.stringify({
+      ...withRecordTextProp(extractKanbanProps(elementProps), text),
+      uiStrings: islandUiStrings('kanban', currentLang, languages),
+    })
     return (
       <div
         data-island="kanban"
@@ -235,9 +256,11 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
         data-testid={elementProps['data-testid'] as string | undefined}
         className={hostClassName(elementProps)}
       >
-        {renderComponentSearchBar(elementProps.search, { currentLang, languages })}
         {/* Loading skeleton — preserved as Suspense fallback */}
-        <KanbanSkeleton elementProps={elementProps} />
+        <KanbanSkeleton
+          elementProps={elementProps}
+          label={loading.status}
+        />
       </div>
     )
   },
@@ -324,7 +347,9 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
           }`
         )}
       >
-        <DataTableSkeleton />
+        <DataTableSkeleton
+          label={islandLoadingLabel('datatable.loadingTable', currentLang, languages).status}
+        />
       </div>
     )
     if (!expandDrawer) return grid

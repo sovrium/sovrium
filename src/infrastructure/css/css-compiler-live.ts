@@ -9,7 +9,10 @@ import { Effect, Layer } from 'effect'
 import { CSSCompiler, PrecompiledCssWriteError } from '@/application/ports/services/css-compiler'
 import { writePrecompiledCSS } from '@/infrastructure/css/cache/css-cache-service'
 import { compileCSS } from '@/infrastructure/css/compiler'
-import { getVersionedCssFileName } from '@/infrastructure/css/versioned-css-path'
+import {
+  getVersionedCssFileName,
+  precompiledStampOf,
+} from '@/infrastructure/css/versioned-css-path'
 
 /**
  * Live implementation of CSSCompiler using PostCSS and Tailwind
@@ -20,8 +23,8 @@ import { getVersionedCssFileName } from '@/infrastructure/css/versioned-css-path
 export const CSSCompilerLive = Layer.succeed(CSSCompiler, {
   compile: compileCSS,
   versionedFileName: getVersionedCssFileName,
-  writePrecompiled: (css) =>
-    writePrecompiledCSS(css).pipe(
+  writePrecompiled: (css, app) =>
+    writePrecompiledCSS(css, precompiledStampOf(app)).pipe(
       Effect.mapError((cause) => new PrecompiledCssWriteError({ cause }))
     ),
 })

@@ -42,6 +42,7 @@ export function PickerSearchRow({
   term,
   expanded,
   hasDisplayField,
+  searchLabel,
   onTerm,
   onOpen,
 }: {
@@ -49,6 +50,8 @@ export function PickerSearchRow({
   readonly term: string
   readonly expanded: boolean
   readonly hasDisplayField: boolean
+  /** The search's name in the page language, when it differs from the English below. */
+  readonly searchLabel?: string | undefined
   readonly onTerm: (next: string) => void
   readonly onOpen: () => void
 }): ReactElement {
@@ -60,7 +63,7 @@ export function PickerSearchRow({
         aria-expanded={expanded}
         aria-autocomplete="list"
         aria-controls={listboxId}
-        aria-label={hasDisplayField ? 'Search records' : SEARCH_BY_ID_LABEL}
+        aria-label={searchLabel ?? (hasDisplayField ? 'Search records' : SEARCH_BY_ID_LABEL)}
         autoComplete="off"
         value={term}
         className={`${CONTROL_CLASS} w-full`}
@@ -68,7 +71,7 @@ export function PickerSearchRow({
         onFocus={onOpen}
       />
       {!hasDisplayField && (
-        <span className="text-muted-foreground text-sm">{SEARCH_BY_ID_LABEL}</span>
+        <span className="text-muted-foreground text-sm">{searchLabel ?? SEARCH_BY_ID_LABEL}</span>
       )}
     </>
   )

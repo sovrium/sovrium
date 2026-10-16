@@ -28,16 +28,16 @@ export function MapCard({
   canOpen,
   onOpen,
   onClose,
+  words,
 }: {
   readonly item: MapItem
   readonly canOpen: boolean
   readonly onOpen: () => void
   readonly onClose: () => void
+  readonly words?: Readonly<Record<string, string>> | undefined
 }): ReactElement {
   const ref = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('button')?.focus()
-  }, [item.id])
+  useEffect(() => ref.current?.querySelector<HTMLElement>('button')?.focus(), [item.id])
   return (
     <div
       ref={ref}
@@ -66,7 +66,7 @@ export function MapCard({
             className={BUTTON}
             onClick={onOpen}
           >
-            Open
+            {words?.['map.open'] ?? 'Open'}
           </button>
         )}
         <button
@@ -76,7 +76,7 @@ export function MapCard({
           className={BUTTON}
           onClick={onClose}
         >
-          Close
+          {words?.['map.close'] ?? 'Close'}
         </button>
       </div>
     </div>

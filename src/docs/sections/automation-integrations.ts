@@ -271,11 +271,12 @@ export const automationIntegrations = defineSection({
       slug: 'automation-auth-actions',
       title: 'Auth Actions',
       description:
-        'Manage user accounts from a running automation — create users, assign roles, ban or unban accounts, and add or remove group members.',
+        'Manage user accounts from a running automation — create or invite users, assign roles, ban or unban accounts, and add or remove group members.',
       keywords: [
         'sovrium',
         'automation auth action',
         'createUser',
+        'inviteUser',
         'assignRole',
         'banUser',
         'unbanUser',
@@ -294,6 +295,7 @@ export const automationIntegrations = defineSection({
         'US-AUTOMATIONS-ACTIONS-AUTH-ASSIGN-ROLE',
         'US-AUTOMATIONS-ACTIONS-AUTH-BAN-USER',
         'US-AUTOMATIONS-ACTIONS-AUTH-CREATE-USER',
+        'US-AUTOMATIONS-ACTIONS-AUTH-INVITE-USER',
         'US-AUTOMATIONS-ACTIONS-AUTH-OAUTH-CLIENT',
         'US-AUTOMATIONS-ACTIONS-AUTH-REMOVE-FROM-GROUP',
         'US-AUTOMATIONS-ACTIONS-AUTH-UNBAN-USER',

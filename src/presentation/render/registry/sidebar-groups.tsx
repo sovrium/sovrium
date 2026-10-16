@@ -22,6 +22,7 @@ import {
   computeSidebarMenuActionClasses,
 } from '@/presentation/design/sidebar-shell-classes'
 import { resolveChildTranslation } from '../i18n/translation-handler'
+import { renderCollapsibleGroup } from './sidebar-collapsible-group'
 import {
   disclosureListId,
   isExpandable,
@@ -84,48 +85,11 @@ function toLandmarkRuns(groups: readonly SidebarGroup[]): readonly LandmarkRun[]
   }, [])
 }
 
-/**
- * One group's label, and the entries under it.
- *
- * Inside a landmark the label may be a REAL heading (`headingLevel`), which is
- * what makes the section reachable by a heading-navigation key — a styled
- * paragraph looks identical and is reachable by nothing. Outside one it stays
- * that paragraph: the group is already named by its own landmark, and a heading
- * repeating it announces the same words twice to the same reader.
- *
- * A group with NO label emits neither, and that is the whole of the label-less
- * shape on this side: its entries alone, so the `ul` becomes a direct child of
- * the navigation root and inherits every descendant rule hanging off it.
- * `headingLevel` cannot reach that branch — a label-less group carrying one is
- * refused at boot rather than rendering an empty heading.
- */
-function renderGroupBody(group: SidebarGroup, ctx: RunContext): ReactElement {
-  const { i18n, trackNavigation, rail, drawer } = ctx
-  const label =
-    group.label === undefined
-      ? undefined
-      : resolveChildTranslation(group.label, i18n.currentLang, i18n.languages)
-  const Heading = group.headingLevel === undefined ? undefined : (`h${group.headingLevel}` as const)
-  const labelClasses = cn(computeSidebarGroupLabelClasses(rail, drawer), i18n.parts?.['groupLabel'])
+/** A group's entries: its authored items, then any it fetches from a `source`. */
+function renderGroupEntries(group: SidebarGroup, ctx: RunContext): ReactElement {
+  const { i18n, trackNavigation, rail } = ctx
   return (
     <>
-      {label !== undefined &&
-        (Heading === undefined ? (
-          <p
-            data-slot="sidebar-group-label"
-            className={labelClasses}
-          >
-            {label}
-          </p>
-        ) : (
-          <Heading
-            data-slot="sidebar-group-label"
-            className={labelClasses}
-          >
-            {label}
-          </Heading>
-        ))}
-      {sidebarActionOf(group.action, 'sidebar-group-action', i18n)}
       {group.items !== undefined && group.items.length > 0 && (
         <ul
           data-slot="sidebar-menu"
@@ -152,6 +116,64 @@ function renderGroupBody(group: SidebarGroup, ctx: RunContext): ReactElement {
         </ul>
       )}
       {group.source !== undefined && renderSourcedEntries(group.source, group.label, rail)}
+    </>
+  )
+}
+
+/**
+ * One group's label, and the entries under it.
+ *
+ * Inside a landmark the label may be a REAL heading (`headingLevel`), which is
+ * what makes the section reachable by a heading-navigation key — a styled
+ * paragraph looks identical and is reachable by nothing. Outside one it stays
+ * that paragraph: the group is already named by its own landmark, and a heading
+ * repeating it announces the same words twice to the same reader.
+ *
+ * A group with NO label emits neither, and that is the whole of the label-less
+ * shape on this side: its entries alone, so the `ul` becomes a direct child of
+ * the navigation root and inherits every descendant rule hanging off it.
+ * `headingLevel` cannot reach that branch — a label-less group carrying one is
+ * refused at boot rather than rendering an empty heading.
+ */
+function renderGroupBody(group: SidebarGroup, ctx: RunContext): ReactElement {
+  const { i18n, rail, drawer } = ctx
+  const label =
+    group.label === undefined
+      ? undefined
+      : resolveChildTranslation(group.label, i18n.currentLang, i18n.languages)
+  const Heading = group.headingLevel === undefined ? undefined : (`h${group.headingLevel}` as const)
+  const labelClasses = cn(computeSidebarGroupLabelClasses(rail, drawer), i18n.parts?.['groupLabel'])
+  const entries = renderGroupEntries(group, ctx)
+  if (group.collapsible === true && label !== undefined) {
+    return renderCollapsibleGroup({
+      group,
+      label,
+      Heading,
+      labelClasses,
+      action: sidebarActionOf(group.action, 'sidebar-group-action', i18n),
+      entries,
+    })
+  }
+  return (
+    <>
+      {label !== undefined &&
+        (Heading === undefined ? (
+          <p
+            data-slot="sidebar-group-label"
+            className={labelClasses}
+          >
+            {label}
+          </p>
+        ) : (
+          <Heading
+            data-slot="sidebar-group-label"
+            className={labelClasses}
+          >
+            {label}
+          </Heading>
+        ))}
+      {sidebarActionOf(group.action, 'sidebar-group-action', i18n)}
+      {entries}
     </>
   )
 }

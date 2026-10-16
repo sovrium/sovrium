@@ -10,7 +10,7 @@
  * fields changed since the page drew the form, puts them back on Discard, and
  * asks before the page is left with changes unsaved — except by the form's own
  * submit. Runs once where it is spliced in; assumes the surrounding IIFE
- * provides `form` and `INPUT_SELECTOR`.
+ * provides `form`, `INPUT_SELECTOR` and the strings map `S`.
  */
 export const FORM_RUNTIME_SAVE_BAR_SCRIPT = `
   ;(function bindSaveBar() {
@@ -29,7 +29,10 @@ export const FORM_RUNTIME_SAVE_BAR_SCRIPT = `
       var names = {}
       watched.forEach(function (el, i) { if (valueOf(el) !== initial[i]) names[el.name] = true })
       changes = Object.keys(names).length
-      status.textContent = changes === 0 ? 'No unsaved changes' : changes + ' unsaved change' + (changes === 1 ? '' : 's')
+      var counted = S[changes === 1 ? 'form.unsavedChange' : 'form.unsavedChanges']
+      status.textContent = changes === 0
+        ? S['form.noUnsavedChanges'] || 'No unsaved changes'
+        : counted ? counted.replace('{count}', changes) : changes + ' unsaved change' + (changes === 1 ? '' : 's')
       if (discard) discard.disabled = changes === 0
     }
     form.addEventListener('input', recount)

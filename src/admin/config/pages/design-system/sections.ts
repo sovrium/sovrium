@@ -29,7 +29,6 @@
 
 import { designPageHeader } from '../../components/page-header'
 import { CHROME_BAR_OFFSET_CLASS } from '../../components/shell'
-import { labelledSpecimenFrame, specimenFrame } from './specimen-frame'
 import type { Page as PageConfig } from '@/domain/models/app'
 
 /** One node of a page's component tree, as the config type expresses it. */
@@ -158,7 +157,7 @@ export const notConfiguredCard = (input: {
       'data-design-not-configured': input.configKey,
     },
     children: [
-      microLabel('Not configured'),
+      microLabel('$t:admin.ds.notConfigured'),
       {
         type: 'text',
         element: 'p',
@@ -173,7 +172,7 @@ export const notConfiguredCard = (input: {
             'border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline',
           ...kitType('link'),
         },
-        content: `Declare ${input.configKey} \u2192`,
+        content: `$t:admin.ds.declare ${input.configKey} \u2192`,
       },
     ],
   }) as PageComponent
@@ -332,7 +331,10 @@ export const railEntry = (section: RailSection): PageComponent =>
 
 /** The rail for a page whose sections are known when the page is written. */
 export const railPanel = (sections: readonly RailSection[]): readonly PageComponent[] =>
-  railFrame({ heading: 'On this page', entries: sections.map((section) => railEntry(section)) })
+  railFrame({
+    heading: '$t:admin.ds.onThisPage',
+    entries: sections.map((section) => railEntry(section)),
+  })
 
 /**
  * The room the LAST section needs before its rail entry can be the one being
@@ -479,132 +481,3 @@ export const railedConsoleBody = (input: {
     ],
   } as PageComponent,
 ]
-
-// ---------------------------------------------------------------------------
-// Option showcases
-// ---------------------------------------------------------------------------
-
-/**
- * One drawing in its own frame: the installed `kit-specimen-frame`, label left
- * out (see `specimen-frame.ts`). Centred, generously padded, bordered — the
- * drawing is given the width of the column rather than a thumbnail's.
- */
-export const previewCard = (children: readonly PageComponent[]): PageComponent =>
-  specimenFrame(children)
-
-/**
- * One value of one option: the config line, the drawing, and what it costs.
- *
- * The label is MONO and is the line an author would write, not a prose name for
- * it — `rowHeight: short`, `legend: none`. A reader scanning this page is
- * looking for the key, and a paraphrase of the key is one more thing to
- * translate back.
- */
-export const drawingBlock = (input: {
-  readonly label: string
-  readonly children: readonly PageComponent[]
-  /**
-   * The catalogued type this drawing is OF, which marks it as a SPECIMEN.
-   *
-   * [internal ref] A2 forbids config-editing affordances, not `<input>` elements, and
-   * the sweeps that enforce it separate a control this console DREW from one it
-   * offers by asking which specimen wrapper the control sits in. An option
-   * showcase draws the same real components the variant sections do — a
-   * `comments` composer is a textarea, a `select` showcase is a select — so a
-   * drawing that carried no wrapper read as an edit affordance loose in the
-   * page chrome. It is the same marker, on the same kind of drawing.
-   */
-  readonly specimenType?: string
-}): PageComponent =>
-  // A BLOCK wrapper inside the frame, and the block is the load-bearing half.
-  //
-  // The frame is a centring flex row, so a drawing that declares `w-full`
-  // inside it is a flex ITEM sizing to its content: a chart laid out 26px wide
-  // with no canvas to draw on, mounted, ready, and blank. A flex wrapper
-  // reproduces it one level down — the fix is a plain block.
-  //
-  // The drawing's `note` is deliberately NOT drawn: the mono label already
-  // says which config line the drawing is OF, and the drawing is the
-  // demonstration; a sentence saying what the value does is documentation.
-  labelledSpecimenFrame(
-    input.label,
-    [
-      {
-        type: 'container',
-        element: 'div',
-        props: {
-          className: 'w-full',
-          ...(input.specimenType === undefined
-            ? {}
-            : { 'data-design-specimen': input.specimenType }),
-        },
-        children: [...input.children],
-      } as PageComponent,
-    ],
-    { 'data-design-option': input.label }
-  )
-
-/** The anchor one option showcase answers to, on one type's page. */
-export const optionAnchor = (type: string, id: string): string =>
-  `design-system-option-${type}-${id}`
-
-/**
- * One option showcase: heading, mono key, optional line, then a block per value.
- *
- * Emits BOTH rail markers, so the entry beside it cannot name a section that is
- * not here. The rail is built from the same array — see `optionRailEntry` — and
- * that is the only defence a page with a hundred-odd sections has against its
- * own table of contents drifting from it.
- */
-export const optionShowcase = (input: {
-  readonly type: string
-  readonly id: string
-  readonly title: string
-  readonly configKey: string
-  readonly drawings: readonly PageComponent[]
-}): PageComponent => {
-  const anchor = optionAnchor(input.type, input.id)
-  return {
-    type: 'container',
-    element: 'section',
-    props: {
-      className: 'flex scroll-mt-6 flex-col gap-4',
-      id: anchor,
-      'data-design-section': anchor,
-      'data-design-option-section': input.id,
-    },
-    children: [
-      sectionHeading(input.title),
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-foreground-subtle font-mono text-[11px]' },
-        content: input.configKey,
-      } as PageComponent,
-      // The option's `note` is deliberately NOT drawn — same reason as the
-      // variant sections on `type-page.ts`. The heading names the option, the
-      // mono line names the config key that sets it, and the drawings show
-      // what each value does. A sentence explaining the option in prose is
-      // documentation, and it lives in the published docs.
-      ...input.drawings,
-    ],
-  } as PageComponent
-}
-
-/** The rail entry for one showcase, built from the same object as the section. */
-export const optionRailEntry = (input: {
-  readonly type: string
-  readonly id: string
-  readonly title: string
-}): PageComponent =>
-  ({
-    type: 'link',
-    props: {
-      href: `#${optionAnchor(input.type, input.id)}`,
-      className: RAIL_ENTRY_CLASS,
-      'data-design-rail-entry': optionAnchor(input.type, input.id),
-      ...kitType('link'),
-    },
-    visibility: { record: { field: 'type', eq: input.type } },
-    content: input.title,
-  }) as PageComponent

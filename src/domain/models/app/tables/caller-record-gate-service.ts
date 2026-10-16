@@ -39,6 +39,7 @@ import {
   type TableLike,
 } from './read-access-plan-service'
 import { visitorRowRule, type VisitorRowRule } from './visitor-row-rule-service'
+import type { CurrentUserContext } from './row-level-evaluator-service'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 
@@ -157,14 +158,14 @@ export const callerTableGate = (
 }
 
 /**
- * Whether the gate admits `record`, the reader's assignments loaded for the
- * scope tables its rule reads. A gate that refused admits nothing.
+ * Whether the gate admits `record`, judged against the reader's loaded context
+ * (`loadCurrentUserContext`). A gate that refused admits nothing.
  */
 export const gateAdmitsRecord = (
   gate: CallerTableGate,
   record: RecordRow,
-  assignments: ReadonlyMap<string, readonly string[]>
+  context: CurrentUserContext
 ): boolean => {
   if (gate.kind === 'refused') return false
-  return gate.rule.kind === 'all' || gate.rule.admits(record, assignments)
+  return gate.rule.kind === 'all' || gate.rule.admits(record, context)
 }

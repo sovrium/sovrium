@@ -27,11 +27,13 @@ const MONO_DISPLAY_FORMATS = new Set<ColumnFormat>([
   'percentage',
   'compact',
   'bytes',
+  'duration',
   'relative-date',
   'relative-time',
   'short-date',
   'long-date',
   'datetime',
+  'time-ms',
 ])
 
 /**

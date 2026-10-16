@@ -83,10 +83,15 @@ function extractKpiProps(
     trend: elementProps.trend,
     thresholds: elementProps.thresholds,
     sparkline: elementProps.sparkline,
-    // The rate-limited notice's words, where they differ from English.
+    // The rate-limited notice's and loading status's words, where they differ from English.
     uiStrings: elementProps.uiStrings,
   }
 }
+
+/** The skeleton's status name: `kpi.loading` in the page language, English when they agree. */
+const kpiLoadingLabel = (elementProps: Record<string, unknown>): string =>
+  (elementProps.uiStrings as Readonly<Record<string, string>> | undefined)?.['kpi.loading'] ??
+  'Loading KPI...'
 
 /**
  * The KPI tile: an island reading the records API for its figure, its label
@@ -120,7 +125,8 @@ export const islandKpiComponent: ComponentRenderer = ({ elementProps, designStyl
           server-rendered does not jump. */}
       <div
         className={KPI_STACK_CLASSES}
-        aria-label="Loading KPI..."
+        data-loading-status=""
+        aria-label={kpiLoadingLabel(elementProps)}
         role="status"
       >
         <div

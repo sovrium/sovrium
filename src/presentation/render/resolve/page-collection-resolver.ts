@@ -83,11 +83,9 @@ export type PageCollectionResolution =
  * plain objects). Non-string leaves (numbers, booleans, null) pass
  * through unchanged.
  *
- * Used to walk meta sub-objects whose schema is `Schema.Unknown`
- * (`structuredData`) or that have many optional URL/string fields
- * (`openGraph`, `twitter`) — the whole shape is traversed in one pass
- * so any `$record.*` token, regardless of nesting depth, resolves to
- * the per-record value.
+ * Walks meta sub-objects whose schema is `Schema.Unknown` (`structuredData`)
+ * or that hold many optional strings (`openGraph`, `twitter`) in one pass, so
+ * a `$record.*` token at any depth resolves to the per-record value.
  */
 function substituteRecordDeep(value: unknown, record: Record<string, unknown>): unknown {
   if (typeof value === 'string') return substituteRecordVars(value, record)
@@ -104,14 +102,15 @@ function substituteRecordDeep(value: unknown, record: Record<string, unknown>): 
 }
 
 /**
- * Substitutes `$record.<field>` tokens across the entire page metadata — the
- * scalar fields and the nested SEO objects (`openGraph`, `twitter`,
- * `structuredData`) — so one declaration yields a per-record `<title>`,
- * description, canonical link, social card and JSON-LD. `title` and
- * `description` are prose and print a value formatted; every other leaf keeps
- * the stored value.
+ * Substitutes `$record.<field>` across the page metadata, the SEO objects
+ * included, so one declaration yields a per-record `<title>`, description,
+ * canonical link, social card and JSON-LD — on a collection page and a page
+ * bound to one record alike. `title` and `description` print a value formatted.
  */
-function substituteRecordInMeta(meta: Page['meta'], record: Record<string, unknown>): Page['meta'] {
+export function substituteRecordInMeta(
+  meta: Page['meta'],
+  record: Record<string, unknown>
+): Page['meta'] {
   if (meta === undefined) return meta
   const { title, description } = meta as {
     readonly title?: unknown

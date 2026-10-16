@@ -5,17 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveForLanguage } from '@/domain/models/app/languages/locale-lookup-service'
+import { INTERPRETER_UI_STRINGS } from '@/domain/models/app/languages/interpreter-ui-strings'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import type { Languages } from '@/domain/models/app/languages'
 
 /**
  * Per-locale copy for the `ai-chat` panel's engine-written words.
  *
  * The sentence a failed turn shows, its Retry button, and the notice a host with
  * no AI provider draws are platform chrome, like the closed-form page
- * (`render/forms/form-closed-labels.ts`, whose pattern this mirrors): they follow
- * the document's language through an internal map rather than app-authored `$t:`
- * content. The engine ships English and French; any other language falls back
- * to English rather than rendering blank.
+ * (`render/forms/form-closed-labels.ts`): they follow the document's language
+ * through the interpreter catalogue (`aiChat.*`), where an author renames any of
+ * them under `sovrium.aiChat.<key>`. The engine ships English and French; any
+ * other language falls back to English rather than rendering blank.
  */
 export interface AiChatLabels {
   readonly failure: string
@@ -114,149 +116,39 @@ export interface AiChatQuestionLabels {
   readonly closed: string
 }
 
-const EN: AiChatLabels = {
-  failure: 'The assistant is unavailable.',
-  retry: 'Retry',
-  history: 'Earlier conversation',
-  notSent: 'Not sent to the assistant',
-  stop: 'Stop',
-  stopped: 'Stopped',
-  reasoning: 'Reasoning',
-  approve: 'Approve',
-  deny: 'Deny',
-  awaitingApproval: 'Waiting for your approval',
-  denied: 'Denied',
-  failed: 'Failed',
-  running: 'Running…',
-  closed: 'No longer waiting for a decision. Ask again if you still need it.',
-  question: {
-    send: 'Send answer',
-    decline: 'Decline',
-    next: 'Next',
-    previous: 'Previous',
-    skip: 'Skip',
-    yes: 'Yes',
-    no: 'No',
-    answered: 'Answered:',
-    declined: 'Declined',
-    askedBy: 'Asked by',
-    closed: 'This question is closed. Ask again if you still need it.',
-  },
-  sources: 'Sources',
-  branch: {
-    conversations: 'Conversations',
-    newConversation: 'New conversation',
-    edit: 'Edit',
-    editMessage: 'Edit message',
-    saveAndSend: 'Save and send',
-    cancel: 'Cancel',
-    regenerate: 'Regenerate',
-    previousAnswer: 'Previous answer',
-    nextAnswer: 'Next answer',
-    previousVersion: 'Previous version',
-    nextVersion: 'Next version',
-    loading: 'Loading conversations…',
-    empty: 'No earlier conversations yet.',
-    failed: 'Conversations could not be loaded.',
-    retry: 'Retry',
-    untitled: 'Untitled conversation',
-  },
-  composer: {
-    send: 'Send',
-    attach: 'Attach',
-    attachFile: 'Attach file',
-    attachedFiles: 'Attached files',
-    message: 'Message',
-    talk: 'Talk',
-    listening: 'Listening…',
-    voiceError: 'The recording could not be transcribed. Try again.',
-  },
-  log: 'Chat messages',
-  responding: 'Assistant is responding',
-  suggestions: 'Suggested questions',
-  placeholder: 'Ask a question…',
-  notConfigured:
-    'AI chat is not configured here. Set AI_PROVIDER, and AI_API_KEY for a hosted provider, to turn it on.',
-}
+/** The catalogue keys of the panel's words: `aiChat.<path>`, one dot per group. */
+const AI_CHAT_KEY_PREFIX = 'aiChat.'
 
-const FR: AiChatLabels = {
-  failure: 'L’assistant est indisponible.',
-  retry: 'Réessayer',
-  history: 'Conversation précédente',
-  notSent: 'Non transmis à l’assistant',
-  stop: 'Arrêter',
-  stopped: 'Arrêté',
-  reasoning: 'Raisonnement',
-  approve: 'Approuver',
-  deny: 'Refuser',
-  awaitingApproval: 'En attente de ton accord',
-  denied: 'Refusé',
-  failed: 'Échec',
-  running: 'En cours…',
-  closed: 'Plus en attente de décision. Redemande si tu en as encore besoin.',
-  question: {
-    send: 'Envoyer la réponse',
-    decline: 'Refuser',
-    next: 'Suivant',
-    previous: 'Précédent',
-    skip: 'Passer',
-    yes: 'Oui',
-    no: 'Non',
-    answered: 'Répondu :',
-    declined: 'Refusé',
-    askedBy: 'Demandé par',
-    closed: 'Cette question est close. Redemande si tu en as encore besoin.',
-  },
-  sources: 'Sources',
-  branch: {
-    conversations: 'Conversations',
-    newConversation: 'Nouvelle conversation',
-    edit: 'Modifier',
-    editMessage: 'Modifier le message',
-    saveAndSend: 'Enregistrer et envoyer',
-    cancel: 'Annuler',
-    regenerate: 'Régénérer',
-    previousAnswer: 'Réponse précédente',
-    nextAnswer: 'Réponse suivante',
-    previousVersion: 'Version précédente',
-    nextVersion: 'Version suivante',
-    loading: 'Chargement des conversations…',
-    empty: 'Aucune conversation pour le moment.',
-    failed: 'Les conversations n’ont pas pu être chargées.',
-    retry: 'Réessayer',
-    untitled: 'Conversation sans titre',
-  },
-  composer: {
-    send: 'Envoyer',
-    attach: 'Joindre',
-    attachFile: 'Joindre un fichier',
-    attachedFiles: 'Fichiers joints',
-    message: 'Message',
-    talk: 'Parler',
-    listening: 'À l’écoute…',
-    voiceError: 'L’enregistrement n’a pas pu être transcrit. Réessaie.',
-  },
-  log: 'Messages du chat',
-  responding: 'L’assistant répond',
-  suggestions: 'Questions suggérées',
-  placeholder: 'Pose une question…',
-  notConfigured:
-    'Le chat IA n’est pas configuré ici. Définis AI_PROVIDER, et AI_API_KEY pour un fournisseur hébergé, pour l’activer.',
+/** Set `value` at the dotted `path` of `target`, creating each group on the way. */
+const nest = (
+  target: Record<string, unknown>,
+  path: string,
+  value: string
+): Record<string, unknown> => {
+  const [head = path, ...rest] = path.split('.')
+  if (rest.length === 0) return { ...target, [head]: value }
+  const group = (target[head] ?? {}) as Record<string, unknown>
+  return { ...target, [head]: nest(group, rest.join('.'), value) }
 }
 
 /**
- * Locale → labels. An open `Record<string, …>` so a supported language with no
- * entry resolves to the English default via {@link getAiChatLabels}.
+ * Resolve the panel's words for the document language from the interpreter
+ * catalogue (`aiChat.*`), an author's `sovrium.aiChat.<key>` first. A regional
+ * tag resolves through its primary subtag (`fr-FR` → `fr`); `undefined` and a
+ * language the engine does not ship read English, or the author's fallback.
  */
-const AI_CHAT_LABELS: Readonly<Record<string, AiChatLabels>> = {
-  en: EN,
-  fr: FR,
+export const getAiChatLabels = (lang: string | undefined, languages?: Languages): AiChatLabels => {
+  const labels = Object.keys(INTERPRETER_UI_STRINGS)
+    .filter((key) => key.startsWith(AI_CHAT_KEY_PREFIX))
+    .reduce<Record<string, unknown>>(
+      (built, key) =>
+        nest(
+          built,
+          key.slice(AI_CHAT_KEY_PREFIX.length),
+          resolveInterpreterString(key, lang, languages)
+        ),
+      {}
+    )
+  // eslint-disable-next-line sovrium/no-double-assertion -- the `aiChat.*` keys ARE the interface's paths, one leaf each; ai-chat-labels.test.ts holds the two in step
+  return labels as unknown as AiChatLabels
 }
-
-/**
- * Resolve the chat notices for the document language. A regional tag resolves
- * through its primary subtag (`fr-FR` → `fr`); `undefined` and any unmapped
- * language fall back to English.
- */
-export const getAiChatLabels = (lang: string | undefined): AiChatLabels =>
-  resolveForLanguage(AI_CHAT_LABELS, lang, EN)

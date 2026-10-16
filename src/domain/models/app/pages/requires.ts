@@ -60,6 +60,14 @@ export const PAGE_CAPABILITIES = [
   // link. A "Forgot password?" link gated on it never leads to a page that is
   // not there
   'auth.passwordReset',
+  // Records whose readers are limited to the accounts granted them
+  // (`auth.scopeTables`). The one capability that can be asked about ONE
+  // table: where the gated thing is bound to a table, it holds only when THAT
+  // table is listed, so an affordance about grants is offered on a scoped
+  // table's record and on no other. Anywhere no table is bound — a page's
+  // `requires`, a component with no `dataSource.table` — it holds when the app
+  // lists at least one. See `CAPABILITY_PREDICATES` for the exact reading
+  'auth.scopeTables',
   'tables',
   'forms',
   'links',
@@ -68,6 +76,27 @@ export const PAGE_CAPABILITIES = [
   'buckets',
   'connections',
   'analytics',
+  // The app records why its config is the way it is (`decisions`)
+  'decisions',
+  // The app serves at least one page of its own. A host with none has no
+  // audience to measure, so an analytics surface draws only what the instance
+  // itself spends
+  'pages',
+  // The app declares at least one reusable component template (`components`)
+  'components',
+  // The app ships at least one template asset — an `assets` entry whose kind
+  // is html, svg, partial, text, docx, xlsx or pptx — which is what a template
+  // preview has to render. A font, an image or a data file is not a template
+  'assets.templates',
+  // The identity half of `design`: a logo, colour roles, imagery, principles or
+  // a zone map. Tokens alone (colours, type, radius) are not a brand
+  'design.brand',
+  // How the app sounds (`design.voice`)
+  'design.voice',
+  // The app stores something whose readers can be granted: at least one table,
+  // form or bucket. `requires` is AND, so a page needing "any of the three"
+  // names this one capability instead of three pages
+  'data',
 ] as const
 
 /** One capability name from the closed set. */

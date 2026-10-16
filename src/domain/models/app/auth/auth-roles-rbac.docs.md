@@ -51,6 +51,8 @@ A custom role slots anywhere along the built-in scale through its own level — 
 
 Validation refuses a duplicate name, a collision with a built-in role, and a collision with a group.
 
+Give a role a `description` to say what it is for. `GET /api/admin/roles` returns it verbatim beside the role's name, so a console role picker can explain a role before an operator grants it. A role declared without one, and every built-in and admin-tier name, returns `description: null`.
+
 ## The default role
 
 `defaultRole` is what a newly registered user receives. It defaults to `member`, and must name a built-in role or one defined in `roles` — naming an undefined role fails validation at startup rather than assigning something arbitrary. That holds whether or not `roles` is present: with no roles declared, only `admin`, `member` and `viewer` are accepted. `operator`, `admin-editor` and `admin-viewer` are never accepted as a default.

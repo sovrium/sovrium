@@ -63,6 +63,17 @@ export const edgeWidthOf = (reached: boolean): number => (reached ? 2 : 1.5)
 export const stateMark = (state: string | undefined): Readonly<Record<string, string>> =>
   state === undefined ? {} : { 'data-graph-node-state': state }
 
+/** A flagged node publishes the mark, and carries the flag's word as its `title`. */
+export const flagMark = (flag: string | undefined): Readonly<Record<string, string>> =>
+  flag === undefined ? {} : { 'data-graph-node-flag': 'true', title: flag }
+
+/** A node's pointer `<title>`: its name, then its flag's word and its `detail`. */
+export const nodeTitleOf = (node: {
+  readonly label: string
+  readonly flag?: string
+  readonly detail?: string
+}): string => [node.label, node.flag, node.detail].filter((part) => part !== undefined).join(' — ')
+
 /**
  * The interaction attributes for one node, memoised as ONE bag.
  *

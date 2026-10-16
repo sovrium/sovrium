@@ -10,10 +10,11 @@ import {
   type CurrencyDisplayOptions,
 } from '@/domain/kernel/format/currency-format'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
+import { resolveColumnLabel } from '@/presentation/design/field-display'
 import { resolvePageTimezone } from '../../runtime/page-timezone'
 import { readDisplayLabel } from '../../runtime/record-display-label'
 import { renderListCell, renderPlainCell } from '../cell-plain'
-import { FIELD_TYPE_TO_CELL_RENDERER } from '../cell-renderer-registry'
+import { cellRendererOf, type FIELD_TYPE_TO_CELL_RENDERER } from '../cell-renderer-registry'
 import { cellClassOf, drawsTextChip, optionChipCellClassOf } from '../column-presentation'
 import { textCellContent } from '../text-chip-cell'
 import { withValueLabelOptions } from '../value-label-options'
@@ -76,7 +77,7 @@ export function buildFieldCellRenderer(
   // Looked up ONCE: each re-read cost a branch against the complexity cap.
   const meta = fieldMeta?.[col.field]
   const fieldTypeRenderer = fieldTypeRendererOf(col, meta?.type)
-  const baseOptions = buildCellFieldOptions(meta, locale)
+  const baseOptions = buildCellFieldOptions(meta, locale, columnLabelOf(col, meta))
   // On an option column a `valueLabels` entry relabels the chip rather than
   // replacing it with plain text (`value-label-options.ts`).
   const chipLabels = fieldTypeRenderer && withValueLabelOptions(baseOptions, col.valueLabels)
@@ -90,14 +91,27 @@ export function buildFieldCellRenderer(
   return ({ getValue, row }: DataTableCellContext) =>
     renderValueCell(
       getValue(),
-      { col, locale, fieldTypeRenderer, fieldOptions, currencyOptions, chipLabels: !!chipLabels },
+      {
+        col,
+        locale,
+        fieldTypeRenderer,
+        fieldOptions,
+        currencyOptions,
+        chipLabels: !!chipLabels,
+        // A `duration` field stores seconds; any other number is milliseconds.
+        durationUnit: meta?.type === 'duration' ? 'seconds' : undefined,
+      },
       readDisplayLabel(row.original, col.field)
     )
 }
 
+/** The heading a column is drawn under: its own label, the field's, else the readable name. */
+const columnLabelOf = (col: FieldColumn, meta: { readonly label?: string } | undefined): string =>
+  resolveColumnLabel(col.label, meta?.label, col.field)
+
 /** The field type's own renderer, unless the column draws a text chip instead. */
 const fieldTypeRendererOf = (col: FieldColumn, type: string | undefined) =>
-  type === undefined || drawsTextChip(col, type) ? undefined : FIELD_TYPE_TO_CELL_RENDERER[type]
+  type === undefined || drawsTextChip(col, type) ? undefined : cellRendererOf(type)
 
 /** Whether a column's own keys change how a value reads (else TanStack prints it). */
 const shapesItsValue = (col: FieldColumn, type: string | undefined): boolean =>
@@ -111,6 +125,7 @@ interface ValueCellChrome {
     (typeof FIELD_TYPE_TO_CELL_RENDERER)[keyof typeof FIELD_TYPE_TO_CELL_RENDERER] | undefined
   readonly fieldOptions: CellFieldOptions | undefined
   readonly currencyOptions: CurrencyDisplayOptions | undefined
+  readonly durationUnit: 'seconds' | undefined
   /** The column's `valueLabels` are drawn inside its option chips. */
   readonly chipLabels?: boolean
 }
@@ -123,7 +138,7 @@ interface ValueCellChrome {
  * branch count.
  */
 function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?: unknown) {
-  const { col, locale, fieldTypeRenderer, fieldOptions, currencyOptions } = chrome
+  const { col, locale, fieldTypeRenderer, fieldOptions, currencyOptions, durationUnit } = chrome
   const conditionalClass = cellClassOf(value, col)
 
   // valueLabels — render-only, highest precedence: a per-value label overrides the
@@ -136,6 +151,7 @@ function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?:
     const displayValue = formatCellValue(value, col.format, locale, {
       currency: currencyOptions,
       timeZone: resolvePageTimezone(),
+      durationUnit,
     })
     const composed = [formatClassOf(col.format), conditionalClass].filter(Boolean).join(' ')
     return wrapWithClass(displayValue, composed)

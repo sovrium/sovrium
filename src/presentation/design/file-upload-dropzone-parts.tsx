@@ -31,10 +31,13 @@ export function FileUploadDropzoneParts({
   hint,
   disabled,
   onBrowse,
+  strings,
 }: {
   readonly hint: string | undefined
   readonly disabled: boolean
   readonly onBrowse?: () => void
+  /** The `fileUpload.*` words in the page language, where they differ from English. */
+  readonly strings?: Readonly<Record<string, string>>
 }): ReactElement {
   return (
     <>
@@ -53,7 +56,7 @@ export function FileUploadDropzoneParts({
           data-slot="empty-title"
           className={computeFileUploadDropzoneTextClasses()}
         >
-          {FILE_UPLOAD_DROPZONE_PROMPT}
+          {strings?.['fileUpload.dropPrompt'] ?? FILE_UPLOAD_DROPZONE_PROMPT}
         </div>
         {hint !== undefined && (
           <p
@@ -77,7 +80,7 @@ export function FileUploadDropzoneParts({
           onClick={onBrowse}
           className={BROWSE_CLASSES}
         >
-          {FILE_UPLOAD_BROWSE_LABEL}
+          {strings?.['fileUpload.browse'] ?? FILE_UPLOAD_BROWSE_LABEL}
         </button>
       </div>
     </>

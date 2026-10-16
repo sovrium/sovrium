@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SharedFilterPublisherSchema } from '../../../data-source-publishers'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
 import { responsiveFields } from '../../modules/responsive'
@@ -63,6 +64,12 @@ export const galleryFields = {
       examples: ['No products found', 'No items match your filters'],
     })
   ),
+  /**
+   * Publish the card the reader selects on a shared-filter channel: its record
+   * id. Clicking a card selects it, beside its own click action; clicking it
+   * again clears the selection. The key `tree` and `graph` carry.
+   */
+  publishes: Schema.optional(SharedFilterPublisherSchema),
 } as const
 
 // ---------------------------------------------------------------------------

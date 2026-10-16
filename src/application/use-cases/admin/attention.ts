@@ -72,10 +72,12 @@ import {
   variablesUnsetCell,
 } from './attention-blocks'
 import { DETAIL_SEPARATOR, EMPTY_CELL, unread } from './attention-cells'
+import { FINDINGS_SOURCE, findingsBlock } from './attention-findings'
 import type { AutomationStates, LinkSplit } from './attention-blocks'
 import type { Cell, Sourced } from './attention-cells'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { InvitationTokenRepository } from '@/application/ports/repositories/auth/invitation-token-repository'
+import type { OrganizationTeamRepository } from '@/application/ports/repositories/auth/organization-team-repository'
 import type { AdminAutomationsRepository } from '@/application/ports/repositories/automations/admin-automations-repository'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
@@ -114,6 +116,9 @@ export type AdminAttentionServices =
   | UsersDirectoryRepository
   // The pending-invitation ledger behind the `invitationsPending` cell.
   | InvitationTokenRepository
+  // The team memberships the findings item derives the single-bridge finding
+  // from, through the organisation read it reuses.
+  | OrganizationTeamRepository
 
 /**
  * Per-source latency budget (milliseconds).
@@ -156,13 +161,14 @@ interface AttentionSources {
   readonly tokensExpired: Sourced<Cell>
   readonly invitationsPending: Sourced<Cell>
   readonly recentSubmissions: Sourced<Cell>
+  readonly findings: Sourced<Cell>
   readonly automations: Sourced<AutomationStates>
   readonly links: Sourced<LinkSplit>
   readonly usersBanned: Sourced<number>
 }
 
 /**
- * The four sources behind pulse cells that have no tile sub-line of their own.
+ * The five sources behind attention items that have no tile sub-line of their own.
  *
  * Each is wrapped so BOTH degradation axes land on the same `unread` envelope:
  * the block's own `orElseSucceed` for a source that fails, this
@@ -186,6 +192,7 @@ const pulseSources = (app: App, since: Readonly<Date>, nowMs: number) =>
       unread(EMPTY_CELL, 'form submissions'),
       SOURCE_TIMEOUT_MS
     ),
+    withBlockTimeout(findingsBlock(app), unread(EMPTY_CELL, FINDINGS_SOURCE), SOURCE_TIMEOUT_MS),
   ] as const
 
 /**
@@ -221,10 +228,8 @@ const readSources = (
   nowMs: number
 ): Effect.Effect<AttentionSources, never, AdminAttentionServices> =>
   Effect.gen(function* () {
-    const [failedRuns, tokensExpired, invitationsPending, recentSubmissions] = yield* Effect.all(
-      pulseSources(app, since, nowMs),
-      { concurrency: SOURCE_CONCURRENCY }
-    )
+    const [failedRuns, tokensExpired, invitationsPending, recentSubmissions, findings] =
+      yield* Effect.all(pulseSources(app, since, nowMs), { concurrency: SOURCE_CONCURRENCY })
     const [automations, links, usersBanned] = yield* Effect.all(tileSources(app), {
       concurrency: SOURCE_CONCURRENCY,
     })
@@ -234,11 +239,31 @@ const readSources = (
       tokensExpired,
       invitationsPending,
       recentSubmissions,
+      findings,
       automations,
       links,
       usersBanned,
     }
   })
+
+/**
+ * How many attention ITEMS are above zero — never the sum of their figures.
+ *
+ * Six items: the five read sources' cells plus the config-derived unset
+ * variables. `automationsPaused` is deliberately not one: a paused automation
+ * is a choice an operator made, and it stays a figure of the Automations tile.
+ */
+const attentionItemsOf = (sources: Readonly<AttentionSources>, variablesUnset: Cell): number =>
+  [
+    sources.failedRuns.value.count,
+    variablesUnset.count,
+    sources.tokensExpired.value.count,
+    sources.invitationsPending.value.count,
+    sources.recentSubmissions.value.count,
+    sources.findings.value.count,
+  ]
+    .map(toFiniteCount)
+    .filter((figure) => figure > 0).length
 
 /**
  * Project the resolved sources plus the app's own config onto the wire body.
@@ -255,7 +280,7 @@ const assembleAttention = (
   since: string,
   sources: Readonly<AttentionSources>
 ): AdminAttentionResponse => {
-  const { failedRuns, tokensExpired, invitationsPending, recentSubmissions } = sources
+  const { failedRuns, tokensExpired, invitationsPending, recentSubmissions, findings } = sources
   const { automations, links, usersBanned } = sources
   const variablesUnset = variablesUnsetCell(app)
   const buckets = bucketSplit(app)
@@ -265,6 +290,7 @@ const assembleAttention = (
     tokensExpired.source,
     invitationsPending.source,
     recentSubmissions.source,
+    findings.source,
     automations.source,
     links.source,
     usersBanned.source,
@@ -290,6 +316,11 @@ const assembleAttention = (
 
     automationsPaused: toFiniteCount(automations.value.paused.count),
     automationsPausedDetail: automations.value.paused.detail,
+
+    findingsCount: toFiniteCount(findings.value.count),
+    findingsDetail: findings.value.detail,
+
+    attentionItems: attentionItemsOf(sources, variablesUnset),
 
     tableFields: tableFieldsCount(app),
     automationsDisabled: toFiniteCount(automations.value.disabled),

@@ -17,7 +17,6 @@ import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-cl
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 import { BetterAuthUsersTableRequired } from '../auth/auth-validation'
-import { findDriftedFormulaColumns } from '../schema-migration/type-utils'
 import {
   openSqliteDdlDatabase,
   runSqliteSchemaTransaction,
@@ -26,6 +25,7 @@ import {
 import { postgresTransactionLike } from '../sql/sql-execution'
 import { storedConstraintsCurrent } from '../table-operations/live-unique-shape'
 import { sqliteLegacyDateValuesQuery } from '../table-operations/sqlite-date-normalisation'
+import { columnTypesCurrent } from './column-type-drift'
 import { storedFormulaEngineCurrent, type StoredChecksumRow } from './formula-engine-recompute'
 import { logRollbackOperation } from './migration-audit-trail'
 import { findStaleViewDefinition } from './view-definition-drift'
@@ -482,7 +482,7 @@ const storedDataCurrent = async (
 ): Promise<boolean> => {
   const current =
     (await viewDefinitionsCurrent(quick, tables)) &&
-    (await formulaColumnTypesCurrent(quick, tables)) &&
+    (await columnTypesCurrent(quick.liveColumnTypes, tables)) &&
     (await sqliteDateValuesStored(quick, tables)) &&
     (await storedConstraintsCurrent(quick.tx, quick.isSqlite, tables))
   if (current) {
@@ -517,33 +517,6 @@ const sqliteDateValuesStored = async (
   logDebug(
     '[schema] checksum matches but a table holds a datetime or time in its pre-upgrade form — full migration',
     { table: legacy }
-  )
-  return false
-}
-
-/**
- * Whether every formula column is of the type this version declares. An
- * earlier version converted numeric, date and boolean formula columns to TEXT
- * (see `findDriftedFormulaColumns`); the checksum hashes the config alone, so a
- * deployment it damaged would otherwise take the fast path on every boot and
- * never be repaired.
- */
-const formulaColumnTypesCurrent = async (
-  quick: Readonly<QuickConnection>,
-  tables: readonly Table[]
-): Promise<boolean> => {
-  const withFormulas = tables.filter((table) => table.fields.some((f) => f.type === 'formula'))
-  if (withFormulas.length === 0) return true
-  const live = await quick.liveColumnTypes()
-  const drifted = withFormulas.find(
-    (table) =>
-      findDriftedFormulaColumns(table.fields, live.get(getPhysicalTableName(table)) ?? new Map())
-        .length > 0
-  )
-  if (drifted === undefined) return true
-  logDebug(
-    '[schema] checksum matches but a formula column is not of the type this version declares — full migration',
-    { table: drifted.name }
   )
   return false
 }

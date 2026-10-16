@@ -164,7 +164,7 @@ One notice per **table**, not per field: a table written before ids were explici
 
 #### `engine-key-unprefixed`
 
-You override the engine's own interface text — a grid's **New record**, a confirm dialog's **Cancel** — under the reserved `sovrium.` prefix: `languages.translations.en['sovrium.datatable.newRecord']`. Ten keys were read under their bare name before the prefix existed, and a config that still spells one of them that way keeps working, with this notice:
+You override the engine's own interface text — a record drawer's **New record**, a confirm dialog's **Cancel** — under the reserved `sovrium.` prefix: `languages.translations.en['sovrium.datatable.newRecord']`. Ten keys were read under their bare name before the prefix existed, and a config that still spells one of them that way keeps working, with this notice:
 
 ```console
 $ sovrium validate app.yaml

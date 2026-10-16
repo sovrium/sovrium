@@ -93,6 +93,8 @@ A `formRef` expands wherever it sits: a `dialog` with `formRef` inside any conta
 
 A form's inputs and selects are drawn at the height of an `input` component (32 px by default), under labels on a 19 px line, so a form and an input written beside it line up.
 
+A form with a required field opens with the line "Fields marked * are required", in the page language (rename it under `sovrium.form.requiredLegend`), and each required control is exposed as required to assistive technology. The form's own words — its submit, that line, the refusal of an empty field — follow the language of the page it sits on, including a page that declares its language only with `meta.lang` and no `languages` block. A one-question form's last screen is headed "Review your answers" (`sovrium.form.reviewAnswers`).
+
 ```yaml
 pages:
   - id: 1

@@ -12,15 +12,16 @@ import {
   type DeprecatedKey,
 } from '@/domain/models/app/app-deprecated-keys'
 import { collectAttachmentTokenWarnings } from '@/domain/models/app/attachment-token-validation'
+import { collectSharedChannelWarnings } from '@/domain/models/app/pages/shared-channel-warnings-validation'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 
 /**
  * The environment variable that ADDS entries to the deprecation table.
  *
- * The production table is empty until the first deprecation under [internal ref], so
- * without this no config could ever exercise the warning path end to end. The
- * value is a JSON array of `{ node, discriminant?, key, replacement,
- * deprecatedIn, removedIn }`. `node` is the dotted path with its indices left
+ * The production table is empty until a key is deprecated under [internal ref]; this
+ * lets a spec exercise the warning path with a key the production table does
+ * not name, without waiting for one to be deprecated. The value is a JSON array
+ * of `{ node, discriminant?, key, replacement, deprecatedIn, removedIn }`. `node` is the dotted path with its indices left
  * empty — `tables[].fields[]` — never a regular expression, so a value from the
  * environment cannot carry a backtracking pattern. It can only ever add
  * warnings: it never changes what decodes or the exit code.
@@ -76,6 +77,8 @@ export const printConfigDeprecationWarnings = (config: unknown): void => {
     ...collectDeprecationWarnings(config, [...DEPRECATED_KEYS, ...extraDeprecations()]),
     // A bare attachment token inside a files address: still accepted, now an address.
     ...collectAttachmentTokenWarnings(config),
+    // A shared-filter channel with one side only, and the id-based search box.
+    ...collectSharedChannelWarnings(config),
   ]
   if (warnings.length === 0) return
   printStderr(warnings.map((warning) => `Warning: ${warning.message}`).join('\n'))

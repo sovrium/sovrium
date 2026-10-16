@@ -31,11 +31,13 @@ import {
   CANONICAL_READ_POLICY,
   buildReadAccessPlan,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { reverseRelationsOf } from '@/domain/models/app/tables/reverse-relations-service'
 import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
 import { WRITE_ONLY_PRESENCE_LABELS } from './write-only-presence-labels'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 
 /** The render-time-only key the page pass stamps a drawer's field access under. */
 export const DRAWER_FIELD_ACCESS_KEY = '_drawerFieldAccess'
@@ -142,15 +144,108 @@ const drawerTable = (record: Readonly<Record<string, unknown>>): string | undefi
 }
 
 /**
- * Stamp {@link DRAWER_FIELD_ACCESS_KEY} on every table-bound drawer whose
- * reader — signed in or anonymous — may not read or write some of its fields.
- * Leaves alone a drawer whose reader holds every field — its props stay what
- * they were.
+ * What the host app says about a GENERIC sheet — one bound to a table and
+ * declaring neither `recordFields` nor `related`, which therefore derives its
+ * fields, its tabs and its "Linked from" sections — that the sheet's renderer
+ * cannot see, holding only `tables`: whether its table is an `auth.scopeTables`
+ * entry (its Access tab), whether the app has auth at all and the reader a
+ * session (how its permissions answer), and what the reader may read and write
+ * on each table that links to it (a linked record opened in the sheet).
+ */
+export const DRAWER_HOST_KEY = '_drawerHost'
+
+/** The facts {@link DRAWER_HOST_KEY} carries. */
+export interface DrawerHostFacts {
+  readonly scoped?: true
+  readonly mode?: 'open' | 'guest'
+  readonly linkedAccess?: Readonly<Record<string, DrawerFieldAccess>>
+  /**
+   * The caller's powers when the page renders without a session — a mounted
+   * operator console, whose every caller is signed in, and an admin when she
+   * may administer accounts.
+   */
+  readonly console?: { readonly admin: boolean }
+}
+
+/** What the reader may read and write on each table linking to `tableName`. */
+const linkedAccessFor = (
+  app: App,
+  tableName: string,
+  session: SessionInfo | undefined
+): Readonly<Record<string, DrawerFieldAccess>> => {
+  const linked = [...new Set(reverseRelationsOf(tableName, app.tables).map((r) => r.table))]
+  return Object.fromEntries(
+    linked.flatMap((name) => {
+      const access = fieldAccessFor(app, name, session)
+      return access === undefined ? [] : [[name, access] as const]
+    })
+  )
+}
+
+/**
+ * Who reads a page with no session: a console caller, the open app's anyone,
+ * or a guest.
+ *
+ * The console is asked FIRST: a mounted console renders from its own preset,
+ * which declares no `auth`, so asking the rendering app whether it has auth
+ * would answer "open" for every operator and draw her sheet as an anonymous
+ * visitor's — no Activity tab, no Access tab.
+ */
+const callerFacts = (
+  app: App,
+  session: SessionInfo | undefined,
+  capabilities: readonly CallerCapability[] | undefined
+): Pick<DrawerHostFacts, 'mode' | 'console'> => {
+  if (session === undefined && capabilities?.includes('admin-console') === true) {
+    return { console: { admin: capabilities.includes('administer-accounts') } }
+  }
+  if (app.auth === undefined) return { mode: 'open' }
+  if (session !== undefined) return {}
+  return { mode: 'guest' }
+}
+
+/**
+ * What the page pass knows of the reader beyond her session: her powers on a
+ * mounted console, and the app hosting the page (the operator's, under a mount).
+ */
+export interface DrawerCaller {
+  readonly capabilities?: readonly CallerCapability[] | undefined
+  readonly hostApp?: App | undefined
+}
+
+/**
+ * The host facts of a generic sheet on `tableName`. Whether the table is
+ * scoped is the HOST app's answer — under a mount, the operator's, whose
+ * `auth.scopeTables` the console preset never carries.
+ */
+const hostFactsFor = (
+  app: App,
+  tableName: string,
+  session: SessionInfo | undefined,
+  caller: DrawerCaller
+): DrawerHostFacts => {
+  const linkedAccess = linkedAccessFor(app, tableName, session)
+  const hostApp = caller.hostApp ?? app
+  return {
+    ...callerFacts(app, session, caller.capabilities),
+    ...((hostApp.auth?.scopeTables ?? []).includes(tableName) ? { scoped: true } : {}),
+    ...(Object.keys(linkedAccess).length === 0 ? {} : { linkedAccess }),
+  }
+}
+
+/** Whether a sheet derives everything from its table: no `recordFields`, no `related`. */
+const isGenericSheet = (record: Readonly<Record<string, unknown>>): boolean =>
+  record['recordFields'] === undefined && record['related'] === undefined
+
+/**
+ * Stamp each record-bound drawer with what its reader may read and write
+ * (`_drawerFieldAccess`) and, for a generic sheet, the host facts above.
  */
 export function markDrawerFieldAccess(
   components: readonly Component[],
   app: App,
-  session: SessionInfo | undefined
+  session: SessionInfo | undefined,
+  caller: DrawerCaller = {}
 ): readonly Component[] {
   const mark = (component: Component): Component => {
     const record = component as Readonly<Record<string, unknown>>
@@ -164,15 +259,29 @@ export function markDrawerFieldAccess(
         }
       : record
     const tableName = drawerTable(record)
-    const access = tableName === undefined ? undefined : fieldAccessFor(app, tableName, session)
-    if (access === undefined) return withChildren as Component
+    if (tableName === undefined) return withChildren as Component
+    const access = fieldAccessFor(app, tableName, session)
+    const host = isGenericSheet(record) ? hostFactsFor(app, tableName, session, caller) : undefined
+    if (access === undefined && host === undefined) return withChildren as Component
     const props = (record['props'] as Readonly<Record<string, unknown>> | undefined) ?? {}
     return {
       ...withChildren,
-      props: { ...props, [DRAWER_FIELD_ACCESS_KEY]: access },
+      props: {
+        ...props,
+        ...(access === undefined ? {} : { [DRAWER_FIELD_ACCESS_KEY]: access }),
+        ...(host === undefined ? {} : { [DRAWER_HOST_KEY]: host }),
+      },
     } as Component
   }
   return components.map(mark)
+}
+
+/** The host facts a generic sheet was stamped with, or `undefined`. */
+export const readDrawerHostFacts = (
+  rawProps: Readonly<Record<string, unknown>> | undefined
+): DrawerHostFacts | undefined => {
+  const stamped = rawProps?.[DRAWER_HOST_KEY]
+  return typeof stamped === 'object' && stamped !== null ? (stamped as DrawerHostFacts) : undefined
 }
 
 /** The access stamped on a drawer's props, when the page pass stamped one. */

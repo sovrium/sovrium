@@ -10,7 +10,7 @@ import {
   buildCreateAuthorshipOverrides,
   buildUpdateAuthorshipOverrides,
 } from '@/domain/models/app/tables/authorship-fields'
-import { normalizeDateValuesIn } from '@/domain/models/app/tables/empty-date-service'
+import { storedValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import { buildSyntheticSession } from '../build-guest-session'
 import { admitAttachments, type AttachmentAdmission } from './record-attachment-gate'
 import { failed, batchOutcome, runBatchItems } from './record-batch-loop'
@@ -24,7 +24,8 @@ import {
 } from './record-caller-gate'
 import { automationCreateFields } from './record-create-fields'
 import { createAndAnnounce, recordEventLoopRefusal, updateAndAnnounce } from './record-events'
-import { declaredFieldNames, errorMessageOf, resolveActionTargetIds } from './record-filters'
+import { declaredFilterFields } from './record-filter-shape'
+import { errorMessageOf, resolveActionTargetIds } from './record-filters'
 import { resolveOwnProps } from './run-context-resolution'
 import { actionAttributes, findMultiSelectViolationMessage, stringProp } from './shared'
 import type { ItemResult } from './record-batch-loop'
@@ -160,7 +161,7 @@ const createItem = (input: {
         session,
         app,
         tableName,
-        fields: { ...normalizeDateValuesIn(app.tables, tableName, admitted.values), ...authorship },
+        fields: { ...storedValuesIn(app.tables, tableName, admitted.values), ...authorship },
         runContext,
       })
     )
@@ -296,7 +297,7 @@ const applyUpdateItem = (input: {
       operator: 'batchUpdate item',
       tableName,
       filter: entry['filter'],
-      declaredFields: declaredFieldNames(app, tableName),
+      declared: declaredFilterFields(app, tableName),
     })
     if (!targets.resolved) return refusedItem(targets.outcome)
 
@@ -382,17 +383,16 @@ const upsertItem = (input: {
       return failed(`batchUpsert item is missing its match field '${matchField}'`)
     }
 
-    // Lenient — pre-existing, and the sharpest of the lenient sites: a failed
-    // lookup reads as "no existing row", so this takes the CREATE branch below
-    // and every retry duplicates. See `resolveIdsByFilterLenient`. A
-    // `matchField` naming no column is refused rather than degraded into that
-    // branch: `matchField` may itself arrive templated, and on SQLite the
-    // unrefused lookup matches every row and the upsert UPDATES THE TABLE.
+    // Lenient — pre-existing, and the sharpest lenient site: a failed lookup reads
+    // as "no existing row", so this takes the CREATE branch and every retry
+    // duplicates (see `resolveIdsByFilterLenient`). A `matchField` naming no column
+    // is refused instead: it may arrive templated, and on SQLite the unrefused
+    // lookup matches every row and the upsert UPDATES THE TABLE.
     const targets = yield* resolveActionTargetIds({
       operator: 'batchUpsert item',
       tableName,
       filter: { conditions: [{ field: matchField, operator: 'equals', value: matchValue }] },
-      declaredFields: declaredFieldNames(app, tableName),
+      declared: declaredFilterFields(app, tableName),
     })
     if (!targets.resolved) return refusedItem(targets.outcome)
 

@@ -31,7 +31,7 @@ The map is open — declare whatever vocabulary the design needs — so it publi
 - **The token name is lowercase kebab-case.** `primary`, `muted-foreground`, `brand-2`. No camelCase, no underscores — a name that could not appear in a class name would mint a utility nobody can write.
 - **The value is 6- or 8-digit hex, or an `rgb(`, `rgba(`, `hsl(` or `hsla(` function.** Nothing else decodes.
 
-Sovrium's own prebuilt components look for the conventional roles — `primary`, `background`, `text`, `muted` — so supplying those restyles the shipped chrome for free.
+Sovrium's own prebuilt components look for the conventional roles — `primary`, `background`, `text`, `muted` — so supplying those restyles the shipped chrome for free. A sidebar's own primary, primary foreground and ring follow `primary`, `primary-foreground` and `ring` in both schemes — the ones you declare, or the default palette's when you declare none — unless you declare the `sidebar-*` roles yourself. (shadcn/ui's default palette gives the sidebar a primary of its own, a near-black in light and a blue in dark; Sovrium does not.)
 
 Every page is painted in the theme's `background` colour (`darkColors.background` in the dark scheme), so a page whose components do not reach the bottom of the window never shows the browser's white below them. A component that sets its own background still draws over it.
 
@@ -48,6 +48,10 @@ Every page is painted in the theme's `background` colour (`darkColors.background
 - **Density** — `density`.
 - **Component Styles** — `components`, `ramps`, `colorRoles`, `badgeForm`.
 - **Design System** — `zones`, `logo`, `imagery`, `principles`, `voice`, and the export.
+
+## What the stylesheet contains
+
+Every page of an app links one stylesheet, compiled for that app: the base styles every page needs, the styles of the component types the app's pages and reusable `components` declare — a type placed only through a reusable component counts, and so does one a reusable component declares that no page has placed yet — and every class written in a `className`, a `classes` key or `design.components`. A grid, a calendar or a chart the config never mentions adds nothing to it. Because the stylesheet is per app rather than per page, moving between pages never fetches another one, and a page reached without a reload is styled by the stylesheet the reader arrived with. The operator console at `/_admin` is the one surface served the complete set.
 
 ## A design, end to end
 

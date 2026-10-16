@@ -6,25 +6,10 @@
  */
 
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { resolveFrontmatterReferences } from '@/domain/models/app/pages/frontmatter-reference-service'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { Meta } from '@/domain/models/app/pages/meta'
-
-/**
- * Resolve a `$frontmatter.<key>` reference against the rendered markdown's
- * frontmatter. Non-reference values pass through unchanged; a missing key (or
- * absent frontmatter) resolves to an empty string so the literal token never
- * leaks into the client-side `data-page-meta` block. Runs BEFORE `$t:`
- * resolution (mirrors the SSR `<title>` resolution in `page-metadata.ts`).
- */
-function resolveFrontmatterPattern(
-  value: string,
-  frontmatter: Readonly<Record<string, string>> | undefined
-): string {
-  const prefix = '$frontmatter.'
-  if (!value.startsWith(prefix)) return value
-  return frontmatter?.[value.slice(prefix.length)] ?? ''
-}
 
 /**
  * Pre-resolve `$frontmatter.*` references in the meta's text fields so the
@@ -39,11 +24,11 @@ function resolveFrontmatterInMeta(
   if (frontmatter === undefined) return meta
   return {
     ...meta,
-    ...(meta.title && { title: resolveFrontmatterPattern(meta.title, frontmatter) }),
+    ...(meta.title && { title: resolveFrontmatterReferences(meta.title, frontmatter) }),
     ...(meta.description && {
-      description: resolveFrontmatterPattern(meta.description, frontmatter),
+      description: resolveFrontmatterReferences(meta.description, frontmatter),
     }),
-    ...(meta.keywords && { keywords: resolveFrontmatterPattern(meta.keywords, frontmatter) }),
+    ...(meta.keywords && { keywords: resolveFrontmatterReferences(meta.keywords, frontmatter) }),
   }
 }
 

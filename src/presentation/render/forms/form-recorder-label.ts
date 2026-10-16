@@ -14,7 +14,7 @@ import type { Languages } from '@/domain/models/app/languages'
  * language (`form.recordAudio`); any other field comes back unchanged. The
  * Stop button the runtime draws reads `form.stopRecording` from its strings.
  */
-export const withRecorderLabel = (
+const withRecorderLabel = (
   field: ResolvedFormField,
   lang: string,
   languages: Languages | undefined
@@ -22,3 +22,24 @@ export const withRecorderLabel = (
   field.recordAudioMaxSeconds === undefined
     ? field
     : { ...field, recordAudioLabel: resolveInterpreterString('form.recordAudio', lang, languages) }
+
+/**
+ * A field with the words the page draws around its control in the page
+ * language: the Record button (above), a drop zone's prompt (`form.dropFiles`)
+ * and a user picker's empty choice when the field declares no placeholder
+ * (`form.selectUser`). Any other field comes back unchanged.
+ */
+export const withFieldEngineWords = (
+  field: ResolvedFormField,
+  lang: string,
+  languages: Languages | undefined
+): ResolvedFormField => {
+  const word = (key: string) => resolveInterpreterString(key, lang, languages)
+  const recorded = withRecorderLabel(field, lang, languages)
+  return {
+    ...recorded,
+    ...(field.dropZone === true && { dropZoneLabel: word('form.dropFiles') }),
+    ...(field.inputElement === 'user' &&
+      field.placeholder === '' && { placeholder: word('form.selectUser') }),
+  }
+}

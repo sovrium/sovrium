@@ -69,8 +69,14 @@ export function isSourcedSidebar(component: Component): boolean {
   if (trackNavigation === true) return true
   return groups.some((group: unknown) => {
     if (typeof group !== 'object' || group === null) return false
-    const { source, items } = group as { source?: unknown; items?: unknown }
-    if (source !== undefined) return true
+    const { source, items, collapsible } = group as {
+      source?: unknown
+      items?: unknown
+      collapsible?: unknown
+    }
+    // A collapsible group's label is a button that opens nothing without the
+    // `collapsible` enhancement island.
+    if (source !== undefined || collapsible === true) return true
     return Array.isArray(items) && items.some(itemNeedsIsland)
   })
 }

@@ -33,14 +33,25 @@ import type { RefObject } from 'react'
 /**
  * The event-click handlers: FullCalendar's, and the phone agenda's — the same
  * record click either way, so an event opens the same drawer or path on any
- * screen.
+ * screen. On a calendar that publishes the event a reader selects (`select`),
+ * the click also publishes it.
  */
-export function useEventClicks(calendarEvent: CalendarEventConfig | undefined): {
+export function useEventClicks(
+  calendarEvent: CalendarEventConfig | undefined,
+  select?: (recordId: unknown) => void
+): {
   readonly onEventClick: ((info: EventClickInfo) => void) | undefined
   readonly onAgendaPick: ((event: CalendarEvent) => void) | undefined
 } {
   return useMemo(() => {
-    const onRecordClick = buildRecordClickHandler(calendarEvent)
+    const configured = buildRecordClickHandler(calendarEvent)
+    const onRecordClick =
+      select === undefined
+        ? configured
+        : (record: TableRecord) => {
+            select(record['id'])
+            configured?.(record)
+          }
     if (onRecordClick === undefined) return { onEventClick: undefined, onAgendaPick: undefined }
     return {
       onEventClick: (info: EventClickInfo) =>
@@ -48,7 +59,7 @@ export function useEventClicks(calendarEvent: CalendarEventConfig | undefined): 
       onAgendaPick: (event: CalendarEvent) =>
         onRecordClick(eventRecord(event.id, event.extendedProps)),
     }
-  }, [calendarEvent])
+  }, [calendarEvent, select])
 }
 
 interface DateClickState {

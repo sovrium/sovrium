@@ -58,7 +58,7 @@ export const OperationParamSchema = Schema.Struct({
   type: Schema.Literals(['string', 'number', 'integer', 'boolean', 'array', 'object', 'file']).pipe(
     Schema.annotate({
       description:
-        "The type of the value. A literal of another type in an automation step is refused when the config loads; a template value is checked when the step runs. A `file` parameter (`in: body` only) names a file the way the `file` actions do — a storage key, an attachment field's value, a `data:` URI or an `https://` URL — and sends its bytes: as a file part, with its file name and content type, in a `multipart` body, or inlined as base64 with `encoding: base64`.",
+        "The type of the value. A literal of another type in an automation step is refused when the config loads; a template value is checked when the step runs. An `object` or `array` parameter filled with one whole `{{…}}` template receives the object or list it names, unchanged. A `file` parameter (`in: body` only) names a file the way the `file` actions do — a storage key, an attachment field's value, a `data:` URI or an `https://` URL — and sends its bytes: as a file part, with its file name and content type, in a `multipart` body, or inlined as base64 with `encoding: base64`.",
     })
   ),
   encoding: Schema.optional(

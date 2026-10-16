@@ -10,7 +10,7 @@
  *
  * Two query sources feed the same applied-query state:
  *
- * 1. **Bound** — `dataSource.bindTo` names an external `search-input` component (any scope; in practice `scope: 'subscribers'`).
+ * 1. **Bound** — `dataSource.bindTo` names the channel a `search-input` publishes on (`publishes: { bindTo, param: q }`).
  *    That input is static SSR markup which publishes its value via DOM `input`
  *    events. The per-publisher query controls (`debounceMs`, `minQueryLength`)
  *    are declared on the `search-input` schema and stamped by its renderer onto
@@ -75,13 +75,15 @@ export function applyMinQueryLength(value: string, minQueryLength: number): stri
   return value.length > 0 && value.length < minQueryLength ? '' : value
 }
 
-/** Resolves the `<input>` inside the publisher component named by `bindTo`. */
+/**
+ * Resolves the input of the search box publishing on the `bindTo` channel. The
+ * channel is compared in JS rather than interpolated into a selector: it is
+ * author-supplied, and a name like `a"]` would build a broken selector.
+ */
 export function resolveBoundInput(bindTo: string): HTMLInputElement | undefined {
-  const container = document.getElementById(bindTo)
-  const input =
-    container?.querySelector('input') ??
-    document.querySelector<HTMLInputElement>(`#${bindTo} input`)
-  return input ?? undefined
+  return Array.from(
+    document.querySelectorAll<HTMLInputElement>('input[data-publishes-bind-to]')
+  ).find((input) => input.getAttribute('data-publishes-bind-to') === bindTo)
 }
 
 interface DebouncedDispatch {

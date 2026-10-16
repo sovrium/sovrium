@@ -23,7 +23,11 @@
 
 import { setCookie } from 'hono/cookie'
 import { matchRoute } from '@/domain/kernel/matching/route-matcher'
-import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { resolveRedirectAgainst } from '@/domain/kernel/url/redirect-resolution'
+import {
+  resolveInterpreterString,
+  resolveTranslationPattern,
+} from '@/domain/models/app/languages/translation-resolver'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -37,6 +41,11 @@ export const FORM_FLASH_MAX_AGE_S = 60
 export interface FormFlash {
   readonly message: string
   readonly variant?: string
+  /**
+   * A write refused because the writes were too many: the seconds to wait.
+   * The message is then read in the landing page's own language.
+   */
+  readonly retryAfter?: number
 }
 
 type Node = Readonly<Record<string, unknown>>
@@ -130,7 +139,14 @@ export function decodeFlash(raw: string): FormFlash | undefined {
     if (!isNode(parsed) || typeof parsed['message'] !== 'string') return undefined
     const message = parsed['message'].slice(0, 500)
     const variant = typeof parsed['variant'] === 'string' ? parsed['variant'] : undefined
-    return { message, ...(variant === undefined ? {} : { variant }) }
+    const wait = parsed['retryAfter']
+    const retryAfter =
+      typeof wait === 'number' && Number.isInteger(wait) && wait > 0 ? wait : undefined
+    return {
+      message,
+      ...(variant === undefined ? {} : { variant }),
+      ...(retryAfter === undefined ? {} : { retryAfter }),
+    }
   } catch {
     return undefined
   }
@@ -147,6 +163,56 @@ const escapeHtml = (text: string): string =>
 const TOASTER_STYLE =
   'position:fixed;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px'
 
+/** The flash's words: a rate-limit refusal is read in the page's `<html lang>`. */
+const flashMessageIn = (html: string, flash: FormFlash): string => {
+  if (flash.retryAfter === undefined) return flash.message
+  const lang = /<html[^>]*\slang="([^"]+)"/.exec(html)?.[1]
+  return resolveInterpreterString('rateLimit.retryIn', lang).replace(
+    '{seconds}',
+    String(flash.retryAfter)
+  )
+}
+
+/**
+ * Leave the toast a write refused for rate limit lands with: the page it is
+ * sent back to says, in its own language, how many seconds to wait.
+ */
+const flashRateLimitRefusal = (c: Context, retryAfter: number): void => {
+  const flash: FormFlash = { message: 'Too many requests.', variant: 'warning', retryAfter }
+  setCookie(c, FORM_FLASH_COOKIE, JSON.stringify(flash), {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'Lax',
+    secure: new URL(c.req.url).protocol === 'https:',
+    maxAge: FORM_FLASH_MAX_AGE_S,
+  })
+}
+
+/**
+ * A page form posted without scripts and refused because the writes were too
+ * many lands on a page, never on the raw 429: a form-encoded POST naming a
+ * same-site `_redirect` (and not asking for JSON, as a script's request does)
+ * is sent back there with a toast saying how long to wait. `undefined` for any
+ * other request, which gets the JSON refusal.
+ */
+export async function redirectRefusedFormPost(
+  c: Context,
+  retryAfter: number
+): Promise<Response | undefined> {
+  const type = c.req.header('content-type') ?? ''
+  const formPost =
+    c.req.method === 'POST' &&
+    (type.includes('application/x-www-form-urlencoded') || type.includes('multipart/form-data')) &&
+    !(c.req.header('accept') ?? '').includes('application/json')
+  if (!formPost) return undefined
+  const body = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>)
+  // Only a same-site address is honoured: anything else would be an open redirect.
+  const target = resolveRedirectAgainst(body['_redirect'], c.req.header('referer'))
+  if (target === undefined) return undefined
+  flashRateLimitRefusal(c, retryAfter)
+  return c.redirect(target, 303)
+}
+
 /**
  * The page with the toast drawn in it: inside the page's own toast container
  * when it declares one, otherwise in a container of its own before `</body>`.
@@ -155,13 +221,14 @@ const TOASTER_STYLE =
  */
 export function withFlashToast(html: string, flash: FormFlash): string {
   const variant = escapeHtml(flash.variant ?? 'success')
-  const toast = `<div data-toast="" data-form-flash="" data-variant="${variant}"><span data-toast-message="">${escapeHtml(flash.message)}</span></div>`
+  const message = flashMessageIn(html, flash)
+  const toast = `<div data-toast="" data-form-flash="" data-variant="${variant}"><span data-toast-message="">${escapeHtml(message)}</span></div>`
   const container = /<div data-sonner-toaster=""[^>]*>/.exec(html)
   if (container !== null) {
     const at = container.index + container[0].length
     return `${html.slice(0, at)}${toast}${html.slice(at)}`
   }
-  const own = `<div data-sonner-toaster="" role="status" aria-live="polite" style="${TOASTER_STYLE}">${toast}</div>`
+  const own = `<div data-sonner-toaster="" data-toast-container="" style="${TOASTER_STYLE}">${toast}</div>`
   const body = html.lastIndexOf('</body>')
   return body === -1 ? `${html}${own}` : `${html.slice(0, body)}${own}${html.slice(body)}`
 }

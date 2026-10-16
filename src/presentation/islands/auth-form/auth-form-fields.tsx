@@ -9,6 +9,7 @@ import {
   computeFormFieldClasses,
   computeFormFieldErrorClasses,
   computeFormFieldLabelClasses,
+  computeFormHelpTextClasses,
 } from '@/presentation/design/form-layout-classes'
 import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
 import { type AuthFormField, type FieldErrors } from './auth-form-validation'
@@ -41,6 +42,9 @@ import { type AuthFormField, type FieldErrors } from './auth-form-validation'
  *
  * Inline errors deliberately omit `role="alert"` so a `[role="alert"]`
  * selector resolves only to the form-level summary banner.
+ *
+ * A field that sets a password carries its `rule`, worded by the server, drawn
+ * under the control and listed first in its accessible description.
  */
 const INLINE_ERROR_STYLE: React.CSSProperties = { minHeight: '1.25rem' }
 export function AuthFieldRow({
@@ -72,7 +76,8 @@ export function AuthFieldRow({
           defaultValue={defaultValue}
           autoFocus={autoFocus}
           aria-invalid={error ? 'true' : 'false'}
-          aria-describedby={errorId}
+          aria-required={field.required || undefined}
+          aria-describedby={field.rule ? `${errorId}-rule ${errorId}` : errorId}
           // Wire the auth island into the canonical, theme-aware input recipe
           // so it renders full-width + bordered + focus ring, matching
           // the design-system auth-layout scene. `error` maps to the 'error'
@@ -83,6 +88,14 @@ export function AuthFieldRow({
           onBlur={(e) => onBlur(field.name, e.target.value)}
         />
       </label>
+      {field.rule && (
+        <small
+          id={`${errorId}-rule`}
+          className={computeFormHelpTextClasses()}
+        >
+          {field.rule}
+        </small>
+      )}
       <div
         id={errorId}
         className={computeFormFieldErrorClasses()}

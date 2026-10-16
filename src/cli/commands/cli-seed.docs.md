@@ -151,6 +151,10 @@ invitation: chloe@northwind.example → /join?token=…
 
 The token is never read from a file, so a seed folder published with a template holds nothing anyone could accept. A replay leaves an existing invitation and its link as they are; an invitation that has lapsed is renewed with **Resend** in the console. `--dry-run` counts the invitations it would create and prints no link.
 
+### Access grants
+
+An account can also carry `grants` — its access to records of the tables listed in `auth.scopeTables`, named with `@<table>.<key>` references. See [Seeding grants](/en/docs/auth-assignments#seeding-grants).
+
 ## Options
 
 - **`[config]`** — the config file. Auto-discovered when omitted: `app.yaml`, then `app.yml`, then `app.ts`, inside the project directory.

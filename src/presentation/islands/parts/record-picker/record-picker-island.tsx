@@ -41,6 +41,8 @@ interface RecordPickerIslandProps {
   readonly placeholder?: string
   readonly readOnly?: boolean
   readonly label?: string
+  /** The picker's words in the page language (`recordPicker.*`), where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
   readonly className?: string
   readonly id?: string
 }
@@ -90,12 +92,14 @@ function PickerBody({
   multiple,
   maxLinked,
   placeholder,
+  words,
 }: {
   readonly picker: StandalonePicker
   readonly displayField: string | undefined
   readonly multiple: boolean
   readonly maxLinked: number | undefined
   readonly placeholder: string | undefined
+  readonly words: RecordPickerIslandProps['uiStrings']
 }): ReactElement {
   const listboxId = useId()
   return (
@@ -110,6 +114,9 @@ function PickerBody({
           term={picker.search.term}
           expanded={picker.open}
           hasDisplayField={displayField !== undefined}
+          searchLabel={
+            words?.[displayField === undefined ? 'recordPicker.searchById' : 'recordPicker.search']
+          }
           onTerm={picker.setTerm}
           onOpen={picker.openPopup}
         />
@@ -147,6 +154,7 @@ export default function RecordPickerIsland({
   placeholder,
   readOnly,
   label,
+  uiStrings,
   className,
   id,
 }: RecordPickerIslandProps): ReactElement {
@@ -185,6 +193,7 @@ export default function RecordPickerIsland({
         multiple={multiple === true}
         maxLinked={maxLinked}
         placeholder={placeholder}
+        words={uiStrings}
       />
     </div>
   )

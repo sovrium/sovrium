@@ -105,7 +105,7 @@ export function KanbanSwimlane({
             onClick={() => onToggle(lane.value)}
           >
             <LaneChevron expanded={expanded} />
-            {lane.value}
+            {lane.label ?? lane.value}
           </button>
         </h3>
         <span

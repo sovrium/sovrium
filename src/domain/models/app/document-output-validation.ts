@@ -56,7 +56,7 @@ const outputsIn = (value: unknown, step: string): ReadonlyArray<StepOutput> => {
  * variable (`$table`) or an expression (`{{…}}`) — names no column the config
  * can check, so it is left to the run.
  */
-const isLiteralName = (name: string): boolean =>
+export const isLiteralName = (name: string): boolean =>
   name !== '' && !name.startsWith('$') && !name.includes('{{')
 
 /** The message for a file `output` naming a bucket and no record, if it does. */

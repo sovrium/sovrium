@@ -8,6 +8,7 @@
 // sovrium-library: block/row-actions@0.37.0#fe05ef53d438
 // sovrium-library: block/record-sheet@0.37.0#d970a65eef96
 // sovrium-library: block/data-table@0.37.0#9cec907aa829
+// sovrium-library: block/data-table-toolbar@0.38.0#5e43986315ab
 
 // The console's data grids, INSTALLED from the library's `row-actions` block
 // (shadcn's data-table with a trailing `…` menu per row, as dashboard-01 draws
@@ -42,23 +43,65 @@ export const dataTable = (bindings: Readonly<Record<string, unknown>>): PageComp
   ({ ...rowActionsTableCopy, ...bindings }) as PageComponent
 
 /**
+ * The search box of the library's `data-table-toolbar` block, INSTALLED alone:
+ * the console grids read system endpoints, which no filter bar, export or
+ * import of a TABLE can address, so only the box carries over. What the reader
+ * types is published as `q` on the channel the grid listens to, and the
+ * endpoint applies it. `Console Block Parity` holds it to the block's first
+ * control; re-install with `sovrium library add block/data-table-toolbar --update`.
+ */
+export const toolbarSearchCopy = {
+  type: 'search-input',
+  props: { className: 'h-8 w-full sm:w-[150px] lg:w-[250px]' },
+} as const
+
+/**
+ * A console grid's search box: the installed copy with its channel and words.
+ * It goes in the page's {@link toolbarRow}, above the grid it narrows.
+ */
+export const toolbarSearch = (channel: string, placeholder: string): PageComponent =>
+  ({
+    ...toolbarSearchCopy,
+    placeholder,
+    props: { ...toolbarSearchCopy.props, 'aria-label': placeholder },
+    publishes: { bindTo: channel, param: 'q' },
+  }) as PageComponent
+
+/**
  * A status cell as shadcn's data-table draws one (dashboard-01's Status column):
  * an outline Badge with a leading dot, the word as the reading and the dot as
  * the kind. `cellStyle.className` lands on the `<td>` AND on the `<span>` inside
  * it, so every class is scoped to the span (`[&:is(span)]:`). Literal strings:
  * the build-time class harvest reads this file as text.
+ *
+ * ─── QUIET OR LOUD: ONE POLICY FOR EVERY STATUS COLUMN ─────────────────────
+ *
+ * A status is QUIET by default: the word in the muted foreground, the kind in
+ * the dot alone. A column of quiet badges can be scanned without any of them
+ * shouting, and a banned account or a superseded decision is a state to read,
+ * not an alarm.
+ *
+ * LOUD — the word itself in the destructive colour — is reserved for the three
+ * states that mean something stopped working and the operator has to act:
+ * FAILED (a run, a delivery, retries exhausted), EXPIRED (an invitation, a
+ * token, a connection that must be reconnected), and REQUIRED-UNSET (a variable
+ * the app needs and does not have). Nothing else is loud, so loud stays rare
+ * enough to be seen.
  */
 export const STATUS_BADGE = {
-  neutral:
-    "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50",
-  positive:
-    "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-green-500",
-  caution:
-    "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-amber-500",
-  progress:
-    "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-blue-500",
-  destructive:
-    "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive",
+  quiet: {
+    neutral:
+      "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50",
+    positive:
+      "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-green-500",
+    caution:
+      "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-amber-500",
+    progress:
+      "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-blue-500",
+    negative:
+      "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-destructive",
+  },
+  loud: "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive",
 } as const
 
 /**

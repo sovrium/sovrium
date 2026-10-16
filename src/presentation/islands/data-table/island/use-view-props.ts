@@ -5,22 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useState } from 'react'
-import { buildFacetControls } from '../faceted-filter/facet-controls'
-import { buildFieldLabels } from './panel-field-labels'
-import { resolveToolbarFlags } from './toolbar/toolbar-flags'
+import type { SelectionExportProps } from './selection-export'
 import type { TableContentProps } from './table-content'
-import type { DisplayControlsProps } from './toolbar/display-controls'
-import type { LeadingControlsProps } from './toolbar/leading-controls'
-import type { QueryControlsProps } from './toolbar/query-controls'
-import type { DataTableToolbarBarProps } from './toolbar/toolbar-bar'
-import type { ToolbarFlags } from './toolbar/toolbar-flags'
 import type {
   DataTableViewProps,
   GridBodyProps,
+  GridSelection,
   StatusBannersProps,
   TableSurfaceProps,
-  ViewDialogsProps,
   ViewRegions,
 } from './view-props'
 import type { SaveStatus } from '../../hooks/use-inline-editing'
@@ -39,16 +31,9 @@ interface ViewDerived {
   readonly showToastIndicator: boolean
   readonly tableFields: readonly string[]
   readonly readOnly: boolean
-  readonly flags: ToolbarFlags
-  readonly isLoadingMore: boolean
-  readonly onSearchPendingChange: (pending: boolean) => void
 }
 
-function deriveViewState(
-  props: DataTableViewProps,
-  searchPending: boolean,
-  onSearchPendingChange: (pending: boolean) => void
-): ViewDerived {
+function deriveViewState(props: DataTableViewProps): ViewDerived {
   // Where the save-status indicator renders, or undefined when it is off.
   // Resolving the position once is what lets each of the three sites below be
   // a single comparison rather than a repeat of the "is it on at all" test.
@@ -62,80 +47,14 @@ function deriveViewState(
     showToastIndicator: position === 'toast',
     tableFields: props.tableFields ?? [],
     readOnly: props.readOnly === true,
-    flags: resolveToolbarFlags(props.toolbarConfig),
-    // A continuation in flight, or a typed term still inside the debounce
-    // window. See `searchPending` in `useViewProps`.
-    isLoadingMore: props.isLoadingMore === true || searchPending,
-    onSearchPendingChange,
-  }
-}
-
-function buildLeadingProps(props: DataTableViewProps, derived: ViewDerived): LeadingControlsProps {
-  return {
-    canCreate: props.canCreate,
-    newRecordLabel: props.newRecordLabel,
-    onCreate: props.onCreate,
-    showSearch: props.showSearch,
-    searchConfig: props.searchConfig,
-    globalFilter: props.globalFilter,
-    setGlobalFilter: props.setGlobalFilter,
-    onSearchPendingChange: derived.onSearchPendingChange,
-    saveStatus: derived.toolbarSaveStatus,
-  }
-}
-
-function buildQueryProps(props: DataTableViewProps, derived: ViewDerived): QueryControlsProps {
-  return {
-    // Import writes records, so it rides the create gate exactly as the
-    // toolbar button and the add-row line do.
-    canImport: props.canCreate && !derived.readOnly,
-    onOpenImportDialog: props.ui.onOpenImportDialog,
-    facets: buildFacetControls({
-      facets: props.toolbarConfig?.facets,
-      columnConfig: props.columnConfig,
-      fieldMeta: props.fieldMeta,
-      selections: props.ui.facetSelections,
-      onToggle: props.ui.onToggleFacetValue,
-      onClear: props.ui.onClearFacet,
-    }),
-    filtersEnabled: derived.flags.filters,
-    onOpenFilterOverlay: props.ui.onOpenFilterOverlay,
-    activeFilterCount: props.ui.activeFilters.length,
-    sortEnabled: derived.flags.sort,
-    onOpenSortOverlay: props.ui.onOpenSortOverlay,
-    activeSortCount: props.ui.activeSorts.length,
-  }
-}
-
-function buildDisplayProps(props: DataTableViewProps, derived: ViewDerived): DisplayControlsProps {
-  return {
-    table: props.table,
-    tableName: props.tableName,
-    canExportSelection: props.selectionConfig?.mode === 'multiple' && derived.flags.exportSelection,
-    selectedCount: props.selectedCount,
-    exportEnabled: derived.flags.export,
-    systemExportEndpoint: props.systemExportEndpoint,
-    readOnly: derived.readOnly,
-    activeFilter: props.ui.activeFilter,
-    refreshEnabled: derived.flags.refresh,
-    onRefresh: props.onRefresh,
-  }
-}
-
-function buildToolbarProps(
-  props: DataTableViewProps,
-  derived: ViewDerived
-): DataTableToolbarBarProps {
-  return {
-    importDialogOpen: props.ui.importDialogOpen,
-    leading: buildLeadingProps(props, derived),
-    query: buildQueryProps(props, derived),
-    display: buildDisplayProps(props, derived),
   }
 }
 
 function buildBannersProps(props: DataTableViewProps, derived: ViewDerived): StatusBannersProps {
   return {
+    ...(derived.toolbarSaveStatus !== undefined && {
+      toolbarSaveStatus: derived.toolbarSaveStatus,
+    }),
     showToastIndicator: derived.showToastIndicator,
     indicatorStatus: derived.indicatorStatus,
     saveError: props.saveError,
@@ -144,21 +63,6 @@ function buildBannersProps(props: DataTableViewProps, derived: ViewDerived): Sta
     conflict: props.conflict,
     onDismissConflict: props.onDismissConflict,
     connectionStatus: props.connectionStatus,
-  }
-}
-
-function buildDialogsProps(props: DataTableViewProps, derived: ViewDerived): ViewDialogsProps {
-  return {
-    creating: props.creating,
-    tableFields: derived.tableFields,
-    fieldMeta: props.fieldMeta,
-    newRecordLabel: props.newRecordLabel,
-    saveLabel: props.saveLabel,
-    cancelLabel: props.cancelLabel,
-    onCancelCreate: props.onCancelCreate,
-    onSubmitCreate: props.onSubmitCreate,
-    tableName: props.tableName,
-    ui: props.ui,
   }
 }
 
@@ -199,15 +103,25 @@ function buildGridProps(props: DataTableViewProps, derived: ViewDerived): TableC
     onCellCommit: props.onCellCommit,
     collapsedGroups: props.ui.collapsedGroups,
     onToggleGroupCollapsed: props.ui.toggleGroupCollapsed,
-    // The trailing add-row rides the toolbar button's own `canCreate` gate,
-    // and a read-only system source has no records table to add to.
+    // The trailing add-row rides the server's `canCreate` gate, and a
+    // read-only system source has no records table to add to.
     canCreate: props.canCreate && !derived.readOnly,
     onRecordCreated: props.onRefresh,
   }
 }
 
 function buildBodyProps(props: DataTableViewProps, derived: ViewDerived): GridBodyProps {
+  const selection = buildSelection(props, derived)
   return {
+    ...(selection !== undefined && { selection }),
+    session: {
+      table: props.table,
+      ...(props.fieldMeta !== undefined && { fieldMeta: props.fieldMeta }),
+      ...(props.groupByConfig !== undefined && { groupedBy: props.groupByConfig.field }),
+      onGroup: props.ui.setGrouping,
+      rowHeight: props.currentRowHeight,
+      onRowHeight: props.ui.setRowHeight,
+    },
     grid: buildGridProps(props, derived),
     phoneLayout: props.phoneLayout,
     table: props.table,
@@ -215,25 +129,53 @@ function buildBodyProps(props: DataTableViewProps, derived: ViewDerived): GridBo
     paginationConfig: props.paginationConfig,
     cursorPaged: props.cursorPaged === true,
     hasMore: props.hasMore === true,
-    isLoadingMore: derived.isLoadingMore,
+    isLoadingMore: props.isLoadingMore === true,
     onLoadMore: props.onLoadMore,
+  }
+}
+
+/**
+ * The selection export of a multi-select grid. Not offered on a view-bound
+ * grid: the export route is the table's, gated on a read grant a visitor on a
+ * public view does not hold.
+ */
+function buildSelectionExport(props: DataTableViewProps): SelectionExportProps | undefined {
+  if (props.selectionConfig?.mode !== 'multiple' || props.isViewBound) return undefined
+  return {
+    table: props.table,
+    tableName: props.tableName,
+    ...(props.systemExportEndpoint !== undefined && {
+      systemExportEndpoint: props.systemExportEndpoint,
+    }),
+  }
+}
+
+/**
+ * What the bottom bar offers for the checked rows, on a grid whose rows can be
+ * checked. Delete is offered on a table the reader may delete from, never on a
+ * read-only system source or a view-bound grid, whose rows are not the table's
+ * to delete through this grid.
+ */
+function buildSelection(
+  props: DataTableViewProps,
+  derived: ViewDerived
+): GridSelection | undefined {
+  if (props.selectionConfig?.mode === undefined) return undefined
+  const selectionExport = buildSelectionExport(props)
+  const deletes =
+    props.canDelete && !derived.readOnly && !props.isViewBound && props.tableName !== ''
+  return {
+    bulkActions: props.bulkActionsConfig ?? [],
+    selectedCount: props.selectedCount,
+    onExecute: props.onBulkExecute,
+    ...(selectionExport !== undefined && { selectionExport }),
+    ...(deletes && { deleteFrom: props.tableName }),
   }
 }
 
 function buildSurfaceProps(props: DataTableViewProps, derived: ViewDerived): TableSurfaceProps {
   return {
     bulkActionsConfig: props.bulkActionsConfig,
-    selectedCount: props.selectedCount,
-    onBulkExecute: props.onBulkExecute,
-    importDialogOpen: props.ui.importDialogOpen,
-    filterOverlayOpen: props.ui.filterOverlayOpen,
-    sortOverlayOpen: props.ui.sortOverlayOpen,
-    panels: {
-      tableFields: derived.tableFields,
-      fieldLabels: buildFieldLabels(derived.tableFields, props.columnConfig, props.fieldMeta),
-      fieldMeta: props.fieldMeta,
-      ui: props.ui,
-    },
     body: buildBodyProps(props, derived),
   }
 }
@@ -242,24 +184,15 @@ function buildSurfaceProps(props: DataTableViewProps, derived: ViewDerived): Tab
  * Translate the island's flat prop surface into one bag per view region.
  *
  * The regions follow the DOM and the hooks that feed them follow the data, and
- * the two groupings do not coincide — `ui` reaches three regions at once, and
- * a third of the view's props pass through no hook at all. Rather than deform
- * either side, this module speaks both vocabularies and translates once.
- *
- * It also owns `searchPending`, the one piece of state the view holds. The
- * toolbar's search box raises it and the grid's continuation control reads it;
- * it belongs to neither, so it lives here. Pushing it into the toolbar would
- * leave the continuation acting on a view that is about to be replaced —
- * appending a page of unfiltered rows the landing term then discards.
+ * the two groupings do not coincide — a third of the view's props pass
+ * through no hook at all. Rather than deform either side, this module speaks
+ * both vocabularies and translates once.
  */
 export function useViewProps(props: DataTableViewProps): ViewRegions {
-  const [searchPending, setSearchPending] = useState(false)
-  const derived = deriveViewState(props, searchPending, setSearchPending)
+  const derived = deriveViewState(props)
 
   return {
     banners: buildBannersProps(props, derived),
-    toolbar: buildToolbarProps(props, derived),
-    dialogs: buildDialogsProps(props, derived),
     surface: buildSurfaceProps(props, derived),
   }
 }

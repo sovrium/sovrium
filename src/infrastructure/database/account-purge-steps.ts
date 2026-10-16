@@ -6,7 +6,6 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { deleteOutstandingAccountDeletionTokens } from './account-deletion-tokens'
 import { PURGED_AUTH_TABLES, PURGED_SYSTEM_TABLES } from './account-purge-coverage'
 import { deleteCatalogRows } from './account-purge-objects'
 import { executeRaw, type RawSqlRunner } from './sql/dialect-execute'
@@ -280,22 +279,4 @@ export async function deleteAiActivityRows(
     sql`DELETE FROM ${systemTableRef('ai_activity_logs')}
         WHERE (actor_type = 'user' AND actor_name = ${erasedEmail}) OR user_email = ${erasedEmail}`
   )
-}
-
-/**
- * The erased user's `auth.verification` rows. Most are keyed by the user's
- * email identifier; an account-deletion link is keyed by a random identifier
- * and holds the user's ID as its value, so it is swept separately — without
- * that a second, unused link would outlive the account it names.
- */
-export async function deleteVerificationRows(
-  tx: Readonly<DrizzleTransaction>,
-  userId: string
-): Promise<void> {
-  await executeRaw(
-    tx,
-    sql`DELETE FROM ${authTableRef('verification')}
-        WHERE identifier IN (SELECT email FROM ${authTableRef('user')} WHERE id = ${userId})`
-  )
-  await executeRaw(tx, deleteOutstandingAccountDeletionTokens(userId))
 }

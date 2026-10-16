@@ -128,7 +128,7 @@ async function handleBatchRestore(c: Context, app: App) {
 
   const result = await validateRequest(c, batchRestoreRecordsRequestSchema)
   if (!result.success) return result.response
-  const nonKeyRefusal = refuseNonKeyBatchRestore(c, table, result.data.ids)
+  const nonKeyRefusal = refuseNonKeyBatchRestore(c, app, table, result.data.ids)
   if (nonKeyRefusal !== undefined) return nonKeyRefusal
 
   // A batch naming one row the caller's rules exclude is refused whole, as a
@@ -269,7 +269,7 @@ async function handleBatchUpdate(c: Context, app: App) {
   const authError = await resolveBatchMutationAuth({
     ...{ c, app, tableName, userRole, userGroups, session, table },
     // An item whose id no key could hold is skipped, as a missing id is.
-    ...batchUpdateTargets(app, tableName, writer, keyShapedBatchItems(table, records)),
+    ...batchUpdateTargets(app, tableName, writer, keyShapedBatchItems(app, table, records)),
     op: 'write',
     // Effective roles, not a bare role: a `group:<name>` permission entry lives
     // only in the resolved set `buildEffectiveRoles` produces, so a bare string
@@ -299,7 +299,7 @@ async function handleBatchUpdate(c: Context, app: App) {
   })
   if (strippedValidation) return strippedValidation
 
-  const recordsData = keyShapedBatchItems(table, strippedRecords).map((record) => ({
+  const recordsData = keyShapedBatchItems(app, table, strippedRecords).map((record) => ({
     id: record.id,
     fields: record.fields,
   }))
@@ -347,7 +347,7 @@ async function handleBatchDelete(c: Context, app: App) {
   const table = app.tables?.find((t) => t.name === tableName)
 
   // Authorization: row-level scoping when declared, canonical role check otherwise.
-  const nonKeyRefusal = refuseNonKeyBatchDelete(c, table, result.data.ids)
+  const nonKeyRefusal = refuseNonKeyBatchDelete(c, app, table, result.data.ids)
   if (nonKeyRefusal !== undefined) return nonKeyRefusal
   const authError = await resolveBatchMutationAuth({
     c,

@@ -98,10 +98,14 @@
  *
  *  - `failedRuns`          ← automation runs with a failed result, since `since`
  *  - `variablesUnset`      ← `/api/admin/env` variables where `required ∧ !isSet`
- *  - `tokensExpired`       ← `/api/admin/connections` rows whose derived status is `expired`
+ *  - `tokensExpired`       ← `/api/admin/connections` rows an operator must (re)connect: listed
+ *                            status `expired`, `not-connected` or `reconnect-needed` (never
+ *                            `expiring-soon`, which the runtime refreshes on its own)
  *  - `invitationsPending`  ← `/api/admin/invitations` items whose status is `pending`
  *  - `recentSubmissions`   ← form submissions created since `since`
  *  - `automationsPaused`   ← automations whose state is `paused`
+ *  - `findingsCount`       ← the organisation read's findings (the same derivation, not a second one)
+ *  - `attentionItems`      ← how many of the six attention figures are above zero
  *  - `tableFields`         ← sum of declared field counts across `app.tables[]`
  *  - `automationsDisabled` ← automations whose state is `disabled`
  *  - `agentsSystem`        ← whether the built-in System Agent can run (`0` or `1`)
@@ -189,6 +193,13 @@ const attentionDegradedField = optionalField(
  *  - `automationsPaused` is BOTH the sixth pulse cell's count and the
  *    Automations tile's "paused" sub-line figure — one key, one reduction, so
  *    the strip and the tile can never disagree
+ *  - `findingsCount` === `GET /api/admin/organisation/graph`.`findingsCount`
+ *    wherever the console serves the Organisation page, and `0` elsewhere;
+ *    count `0` ⟺ `findingsDetail` `''`
+ *  - `attentionItems` is the number of non-zero figures among `failedRuns`,
+ *    `variablesUnset`, `tokensExpired`, `invitationsPending`,
+ *    `recentSubmissions` and `findingsCount` — so it lies in `0..6`, and `0`
+ *    is the one state the page draws as "All clear"
  *  - `agentsSystem` is `0` or `1` (every app carries exactly one System Agent)
  *  - `bucketsSystem` is `0` or `1`, and `bucketsSystem + bucketsS3 + bucketsLocal`
  *    equals the buckets `/api/admin/buckets` lists
@@ -219,12 +230,12 @@ export const adminAttentionResponseSchema = Schema.Struct({
     'The variable NAMES, e.g. "WORKSHOP_TZ" — never their values (S4). Empty when `variablesUnset` is 0.'
   ),
 
-  // ---- Pulse cell 3: expired connection tokens (STATE) -----------------
+  // ---- Pulse cell 3: connections waiting on an operator (STATE) --------
   tokensExpired: attentionCount(
-    'Connections whose derived status is `expired` (NOT `expiring-soon`, which is still usable). `0` when no connection has expired.'
+    'Connections an operator must connect or reconnect: those the connections list reports as `expired`, `not-connected` (an OAuth2 connection nobody has authorized yet) or `reconnect-needed` (a token nothing can renew). `expiring-soon` is not counted, since the runtime refreshes it on its own. `0` when every connection can reach its provider.'
   ),
   tokensExpiredDetail: attentionDetail(
-    'The connection names and their owners, e.g. "slack-notify · Paul Girard" — never the token itself (S4). Empty when `tokensExpired` is 0.'
+    'Each counted connection as its name and provider, e.g. "google-drive · google" — never the token itself (S4). Empty when `tokensExpired` is 0.'
   ),
 
   // ---- Pulse cell 4: pending invitations (STATE) -----------------------
@@ -249,6 +260,19 @@ export const adminAttentionResponseSchema = Schema.Struct({
   ),
   automationsPausedDetail: attentionDetail(
     'The paused automations and since when, e.g. "lead-enrich · since 9 Sep 16:20". Empty when `automationsPaused` is 0.'
+  ),
+
+  // ---- Attention item: structural findings (STATE) ---------------------
+  findingsCount: attentionCount(
+    'Structural findings the organisation read reports right now — equal to `GET /api/admin/organisation/graph`.`findingsCount`. `0` when it reports none, and on an app declaring no `auth` or nothing that stores data, where the console serves no Organisation page to lead to.'
+  ),
+  findingsDetail: attentionDetail(
+    'The findings counted by severity, gravest first, naming only the severities present, e.g. "1 critical · 2 warnings". Empty when `findingsCount` is 0.'
+  ),
+
+  // ---- The attention list's own size -----------------------------------
+  attentionItems: attentionCount(
+    'How many attention items are not at zero: one each for `failedRuns`, `variablesUnset`, `tokensExpired`, `invitationsPending`, `recentSubmissions` and `findingsCount` whose count is above 0 — a count of ITEMS, not the sum of their figures. `automationsPaused` is not an item: a paused automation is a choice an operator made, and it stays a figure of the Automations tile. `0` means nothing needs attention.'
   ),
 
   // ---- Tile sub-lines (STATE; no detail strings — the tiles render the

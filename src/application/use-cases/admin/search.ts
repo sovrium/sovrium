@@ -45,17 +45,11 @@ import {
   type AdminSearchResponse,
   type AdminSearchResult,
 } from '@/domain/models/api/admin/search/search'
-import {
-  componentTypePath,
-  DESIGN_SYSTEM_NAV_CHILDREN,
-} from '@/domain/models/app/admin/admin-data-nav'
-import {
-  CATALOG_CATEGORY_TITLES,
-  CATALOG_COMPONENT_CATEGORIES,
-  catalogedTypesOf,
-} from '@/domain/models/app/pages/components/component-types/catalog'
+import { DESIGN_SYSTEM_NAV_CHILDREN } from '@/domain/models/app/admin/admin-data-nav'
+import { isCapabilityMet } from '@/domain/models/app/pages/page-requires'
 import { declaresWriteOnly } from '@/domain/models/app/tables/write-only-field-service'
 import type { App } from '@/domain/models/app'
+import type { PageCapability } from '@/domain/models/app/pages/requires'
 
 /**
  * Deep-readonly mirrors of the schema-inferred response shapes
@@ -90,6 +84,23 @@ const TEXT_FIELD_TYPES = new Set(['single-line-text', 'long-text', 'rich-text', 
  */
 const FRESHNESS_WINDOW_MS = 2000
 
+/**
+ * The kinds the index produces today, in the canonical group order. A stored
+ * row of any other kind was written by an older version for a page the console
+ * no longer has: the search never returns it, and the next rebuild deletes it,
+ * so an existing database heals without a migration.
+ */
+const PRODUCED_KINDS: readonly AdminSearchEntityType[] = adminSearchEntityTypes.filter(
+  (type) => type !== 'component-type'
+)
+
+/**
+ * The kinds rebuilt from the config alone, listed in full on every rebuild:
+ * a stored row of one of them that the rebuild did not list (a connection
+ * removed from the config, a design-system page no longer served) is deleted.
+ */
+const CONFIG_KINDS: readonly AdminSearchEntityType[] = ['connection', 'design-console']
+
 /** Max results returned per type group (most-recent first). */
 const PER_GROUP_CAP = 25
 
@@ -117,27 +128,40 @@ const connectionRows = (app: App): readonly AdminSearchUpsertRow[] =>
  * `body` is indexed and never returned: the FTS document is `title || ' ' ||
  * body`, while {@link toResult} projects only the four scalars the `.strict()`
  * S4 allow-list permits. So a row can be findable by a word it does not display
- * — which is the whole reason a component type can be reached by typing
- * `overlays` without the palette growing a second line of text per result.
+ * — which is what lets a destination be reached by typing `design` without
+ * the palette growing a second line of text per result.
  *
- * Both families carry it, and that is deliberate rather than incidental: a
- * query for `design` has to match MANY component types at once, because that is
- * the exact case two separate kinds exist to survive. The catalogue holds an
- * order of magnitude more types than the console has destinations, and both
- * exceed the row budget on their own — so with ONE kind the types would crowd
- * every destination out of view. With two, each has its own budget and
- * an admin dashboard global search design spec can prove it.
+ * ─── NO COMPONENT-TYPE ROWS ────────────────────────────────────────────────
  *
- * No count is written here on purpose. Both populations are derived
- * (`DESIGN_SYSTEM_NAV_CHILDREN`, `CATALOG_COMPONENT_CATEGORIES`), so a literal
- * would be a hand-kept copy of a number nothing reads — the same silent rot the
- * block below warns about, and the reason this paragraph once said 85 and 7
- * against a real 89 and 6.
+ * The index once carried one row per catalogued component type, deep-linking
+ * to a per-type UI-kit page. That page left the console and its address now
+ * answers 404, so those rows are no longer projected: a palette result that
+ * 404s when followed is worse than no result. The `component-type` kind stays
+ * in the wire vocabulary, unproduced — and is not in {@link PRODUCED_KINDS}, so
+ * a row an older version wrote is neither returned nor kept by a rebuild.
  */
 const DESIGN_HAYSTACK = 'Design system console'
 
 /**
- * The console's design-system destinations, as index rows — one per nav child.
+ * What each design-system page `requires` of the operator's app — the same
+ * capability its console page declares, so a page that answers 404 for this app
+ * is never a palette row. A page absent from the map is served to every app.
+ */
+const DESIGN_PAGE_REQUIRES: Readonly<Record<string, PageCapability>> = {
+  components: 'components',
+  brand: 'design.brand',
+  voice: 'design.voice',
+}
+
+/** Whether the design-system page keyed `key` is served for `app`. */
+const designPageIsServed = (app: App, key: string): boolean => {
+  const required = DESIGN_PAGE_REQUIRES[key]
+  return required === undefined || isCapabilityMet(app, required)
+}
+
+/**
+ * The console's design-system destinations this app has, as index rows — one
+ * per nav child whose page is served for it.
  *
  * Derived from `DESIGN_SYSTEM_NAV_CHILDREN` — the same list the sidebar renders
  * — rather than typed out here. A hand-kept copy would be a second nav that
@@ -150,8 +174,8 @@ const DESIGN_HAYSTACK = 'Design system console'
  * deriving is what keeps the two from disagreeing about which of the two
  * addresses a page has.
  */
-const designConsoleRows = (): readonly AdminSearchUpsertRow[] =>
-  DESIGN_SYSTEM_NAV_CHILDREN.map((child) => ({
+const designConsoleRows = (app: App): readonly AdminSearchUpsertRow[] =>
+  DESIGN_SYSTEM_NAV_CHILDREN.filter((child) => designPageIsServed(app, child.key)).map((child) => ({
     type: 'design-console' as const,
     entityId: child.key,
     title: child.label,
@@ -161,49 +185,15 @@ const designConsoleRows = (): readonly AdminSearchUpsertRow[] =>
   }))
 
 /**
- * One row per catalogued component type, deep-linking to its own type page.
- *
- * ─── THE SEGMENT IS THE TYPE LITERAL, AND SLUGIFYING IT IS THE TRAP ────────
- *
- * The href comes from `componentTypePath` — the one place the console's
- * per-type address is composed — rather than from a string formed here. A
- * camelCase type literal would make a kebab-casing guess ship plausible-looking
- * rows that 404 when followed; sharing the builder is what keeps the rule true
- * for any such type, and what makes the
- * palette follow the route if the route ever moves instead of drifting from it.
- *
- * `title` is the type literal alone. It is unique across the whole catalogue —
- * `admin-data-nav.test.ts` and the catalogue's own tests are what hold that, not
- * a count written here — so a category would add recognition rather than
- * disambiguation; and carrying one
- * would mean either widening the `.strict()` S4 allow-list for every kind or
- * folding two facts into the one field the schema calls the result line. The
- * category goes in `body` instead, where it is searchable and not displayed.
- */
-const componentTypeRows = (): readonly AdminSearchUpsertRow[] =>
-  CATALOG_COMPONENT_CATEGORIES.flatMap((category) =>
-    catalogedTypesOf(category).map((type) => ({
-      type: 'component-type' as const,
-      entityId: type,
-      title: type,
-      body: `${DESIGN_HAYSTACK} — ${CATALOG_CATEGORY_TITLES[category]}`,
-      href: componentTypePath(type),
-      updatedAt: new Date(),
-    }))
-  )
-
-/**
- * Every STATIC row the index carries — rows projected from the registry rather
+ * Every STATIC row the index carries — rows projected from a constant rather
  * than read from a table.
  *
  * They ride the SAME `extraRows` seam `connectionRows` already uses. A second
  * mechanism would mean a second freshness story and a second place to look when
  * a row is missing, for rows that are cheaper to rebuild than to invalidate.
  */
-export const designSystemRows = (): readonly AdminSearchUpsertRow[] => [
-  ...designConsoleRows(),
-  ...componentTypeRows(),
-]
+export const designSystemRows = (app: App): readonly AdminSearchUpsertRow[] =>
+  designConsoleRows(app)
 
 /** The per-table text-column descriptors the rebuild scans for record rows. */
 const tableDescriptors = (
@@ -259,10 +249,11 @@ const groupFor = (
 
 /**
  * Group matched hits by entity kind in the canonical order, most-recent first
- * within each group, capped per group. Kinds with no match are omitted.
+ * within each group, capped per group. Kinds with no match are omitted, and so
+ * is any kind the index no longer produces.
  */
 const groupHits = (hits: readonly AdminSearchIndexHit[]): readonly GroupEntry[] =>
-  adminSearchEntityTypes.flatMap((type: AdminSearchEntityType): readonly GroupEntry[] => {
+  PRODUCED_KINDS.flatMap((type: AdminSearchEntityType): readonly GroupEntry[] => {
     const results = groupFor(hits, type)
     return results.length > 0 ? [{ type, results }] : []
   })
@@ -286,7 +277,9 @@ export const SearchAdminGlobal = (
     if (isStale(staleness)) {
       yield* repo.rebuildIndex({
         tables: tableDescriptors(app),
-        extraRows: [...connectionRows(app), ...designSystemRows()],
+        extraRows: [...connectionRows(app), ...designSystemRows(app)],
+        producedKinds: PRODUCED_KINDS,
+        configKinds: CONFIG_KINDS,
       })
     }
 

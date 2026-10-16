@@ -77,7 +77,7 @@ An `auth` form's submit is drawn with the primary fill. When a page holds two wh
 
 Every method acting on one item takes `target`, almost always `$record.id` from the row it sits in. An item that is not the reader's own, or a member the reader may not administer, answers exactly like one that does not exist. A form running a method on the reader's own account is not drawn for a visitor who is not signed in, and one acting on another member is not drawn for a reader who may not administer accounts.
 
-A response handler's `type` is `navigate`, `reset`, `message`, `successPage` or `role-landing`. Alongside it, `toast` shows a notification (`variant` is `success`, `error`, `warning` or `info`), `message` and `title` set inline copy, `actions` renders follow-up buttons on a success page, and `close` decides whether the dialog, drawer or popover the control sits in closes — see [Once the action has answered](/en/docs/interactive-components#once-the-action-has-answered).
+A response handler's `type` is `navigate`, `reset`, `message`, `successPage` or `role-landing`. Alongside it, `toast` shows a notification (`variant` is `success`, `error`, `warning` or `info`; each toast is announced once, an `error` one as an alert, every other as a polite status), `message` and `title` set inline copy, `actions` renders follow-up buttons on a success page, and `close` decides whether the dialog, drawer or popover the control sits in closes — see [Once the action has answered](/en/docs/interactive-components#once-the-action-has-answered).
 
 A response's `navigate` and a success page's `redirect` go to a path on this site (`/done`, `done`, `?saved=1`, `#top`), on a button as on a form: an answered action moves the reader within the app, so `sovrium validate` refuses an `http://`, `https://` or `//` address there, naming the page — to send the reader to another site, use a link. Each follow-up button's `url` goes to an `http://` or `https://` address or to a path on this site. The scheme is written out, never supplied by a `$record.` variable, and `sovrium validate` refuses any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — naming the field.
 
@@ -112,7 +112,7 @@ A button whose `action` is `automation`, `fetch` or `crud` shows that it is work
 
 An `action` of `type: fetch` calls a URL directly, and its `onSuccess` can do more than raise a toast. `status` writes a message into a sibling element named by its `props.id` and promotes that element to a live region — the badge that stays on screen after a transient toast has gone.
 
-Inside `status.message`, `$response.<field>` resolves against the JSON body the call returned, addressed by dot path. It is the one place a page can show a value the server produced: everywhere else on the action, references travel the other way — `$record.<field>` carries values _into_ the request.
+Inside `status.message`, `$response.<field>` resolves against the JSON body the call returned, addressed by dot path. It is one of two places a page can show a value the server produced; the other is the success toast of a page form posting to an `endpoint`, whose `message` reads the body the same way (`Invitation sent to $response.user.email`). Everywhere else on the action, references travel the other way: `$record.<field>` carries values _into_ the request, and into the `onSuccess` and `onError` toasts of a row action, so `message: $record.name paused` names the row that was pressed rather than leaving the reader to guess which one.
 
 In the request `body`, a value written as exactly `$record.<field>` over a field holding a list — a multi-select, several attachments — is sent as that list, a JSON array; inside a longer string, the same reference is written as text, its items joined by commas.
 
@@ -122,7 +122,7 @@ Three rules worth knowing before you write one:
 - **A path the body does not carry resolves to the empty string**, never to the literal token — for the same reason form success copy resolves an absent `$record.<column>` to nothing: a token left on screen reads as a value.
 - **The value is written as text.** A field containing `<b>x</b>` shows those characters rather than emboldening anything.
 
-A `mode: download` action runs the same handler but reads a file rather than a JSON body, so every `$response.` reference there resolves empty.
+A `mode: download` action runs the same handler but reads a file rather than a JSON body, so every `$response.` reference there resolves empty. A download the server refuses, or one that never reaches it, shows `onError`.
 
 ### Refreshing a list after the action
 

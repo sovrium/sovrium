@@ -27,7 +27,9 @@ import { GEIST_MONO_FONT_FACE } from './geist-mono'
  *
  * Two families, shadcn/ui's: Geist for `--font-sans` and Geist Mono for
  * `--font-mono` (the `font-geist` and `font-geist-mono` items of the pinned
- * registry snapshot).
+ * registry snapshot). Each rule names a separate woff2 file served at
+ * `/assets/fonts/<name>-<hash>.woff2` (`./web-font-files`), not an inlined
+ * payload, so a page fetches the mono face only if it draws monospace text.
  * (§ Self-hosted fonts).
  */
 export const SELF_HOSTED_FONT_FACES = `${GEIST_FONT_FACE}\n\n${GEIST_MONO_FONT_FACE}`

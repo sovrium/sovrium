@@ -52,7 +52,9 @@ const HEADER_CELL = 'border-b border-border py-1 pr-3 text-left font-medium text
 const BODY_CELL = 'border-b border-border py-1 pr-3 text-foreground'
 
 /**
- * The twin's six column headings, in order.
+ * The twin's six column headings, in order, as the page language words them
+ * (`graph.node`, `graph.kind`, `graph.column`, `graph.group`, `graph.detail`,
+ * `graph.reaches`).
  *
  * The first four are the user story's own enumeration — a drawn node's name,
  * its kind, the column it sits in, and the nodes it reaches. `Group` carries
@@ -62,7 +64,13 @@ const BODY_CELL = 'border-b border-border py-1 pr-3 text-foreground'
  * pointer `<title>` — so the twin carries strictly MORE than the figure, which
  * is the direction the asymmetry has to run.
  */
-const TWIN_HEADINGS = ['Node', 'Kind', 'Column', 'Group', 'Detail', 'Reaches'] as const
+
+/**
+ * The Detail cell: a marked node's flag word first, so the mark the drawing
+ * draws as one caution dot is said in words, then the wire's own `detail`.
+ */
+const detailText = (row: GraphTwinRowView): string =>
+  [row.flag, row.detail].filter((part) => part !== undefined).join(' — ')
 
 /**
  * Render the twin.
@@ -74,7 +82,13 @@ const TWIN_HEADINGS = ['Node', 'Kind', 'Column', 'Group', 'Detail', 'Reaches'] a
  * all — which would leave the sighted keyboard user, who can see the drawing
  * but cannot select in it, with nothing.
  */
-export function GraphTwin({ rows }: { readonly rows: readonly GraphTwinRowView[] }): ReactElement {
+export function GraphTwin({
+  rows,
+  headings,
+}: {
+  readonly rows: readonly GraphTwinRowView[]
+  readonly headings: readonly string[]
+}): ReactElement {
   return (
     <table
       data-graph-twin=""
@@ -82,7 +96,7 @@ export function GraphTwin({ rows }: { readonly rows: readonly GraphTwinRowView[]
     >
       <thead>
         <tr className="text-xs">
-          {TWIN_HEADINGS.map((heading) => (
+          {headings.map((heading) => (
             <th
               key={heading}
               scope="col"
@@ -109,7 +123,7 @@ export function GraphTwin({ rows }: { readonly rows: readonly GraphTwinRowView[]
             <td className={`${BODY_CELL} font-mono text-xs`}>{row.kind}</td>
             <td className={BODY_CELL}>{row.columnLabel}</td>
             <td className={BODY_CELL}>{row.band ?? ''}</td>
-            <td className={BODY_CELL}>{row.detail ?? ''}</td>
+            <td className={BODY_CELL}>{detailText(row)}</td>
             <td className={BODY_CELL}>{row.reaches.join(', ')}</td>
           </tr>
         ))}

@@ -15,23 +15,23 @@ fields:
     currency: EUR
     precision: 2
     required: true
-  # A category is a word, not a verdict: its colours are steps of the one
-  # accent, strongest where the most money goes, so the spend chart reads as
-  # one colour at different strengths rather than a colour per category.
+  # A category is a word, not a verdict: each takes its own hue, the same as
+  # `chart-1` … `chart-5` in config/design.yaml, so the spend donut tells its
+  # slices apart, and none is the accent or a decision colour.
   - id: 3
     name: category
     type: single-select
     options:
       - value: Software
-        color: '#006F39'
+        color: '#3A84CA'
       - value: Travel
-        color: '#008347'
+        color: '#8071C8'
       - value: Meals
-        color: '#93DAB3'
+        color: '#AB61A5'
       - value: Equipment
-        color: '#009C5E'
+        color: '#BC662F'
       - value: Other
-        color: '#4CBD88'
+        color: '#7E8814'
   - id: 4
     name: expense_date
     type: date

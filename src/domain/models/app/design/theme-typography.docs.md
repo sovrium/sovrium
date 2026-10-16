@@ -30,6 +30,12 @@ Role keys are alphabetic and freely chosen. `heading`, `body` and `mono` are the
 
 `family` is the only required member.
 
+## The default typefaces
+
+A design that declares no families is set in Geist, with Geist Mono for code. Sovrium serves both itself, as `woff2` files under `/assets/fonts/` whose names change with their content, so a browser caches each one for a year and fetches it again only after an upgrade that changes it. No font CDN is ever contacted.
+
+Every page preloads Geist, so its text paints in the right face without waiting for the stylesheet to be read. Geist Mono is not preloaded: a browser fetches it only on a page that shows monospace text. Declaring a `body` or `sans` family turns the Geist preload off, since the page no longer draws its body text with it.
+
 ## Loading a web font
 
 Give the role a `url` and Sovrium injects the stylesheet link for you. Nothing else is required — no manual `head` entry, no `@font-face` block.

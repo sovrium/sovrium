@@ -52,6 +52,8 @@ The endpoint is open to the admin and operator roles, and reports what is stored
 
 Both the byte total and the file count are read live from the storage backend rather than tracked in a counter, so deleting files lowers them immediately. The bucket count is the built-in `system` bucket plus every bucket the configuration declares, and one whose provider does not resolve reports zero.
 
+`GET /api/admin/buckets` lists those buckets one per row, each with its own file count and bytes under `_admin.metadata`, and with the upload rules it declares: `public`, `maxFileSize` in bytes and `allowedMimeTypes` verbatim, wildcards such as `image/*` included. A rule a bucket leaves out reads `false`, `null` and `null` — `maxFileSize: null` means `STORAGE_MAX_FILE_SIZE` applies, `allowedMimeTypes: null` that every type is accepted — and the built-in `system` bucket always reads that way. A console states the rules beside an upload before a file is refused.
+
 ### Upload history
 
 The series block answers **when** those bytes landed, which a total cannot. Each point reports the upload count and byte sum for one interval, read from the storage catalogue — every upload path and every backend writes there, so the series summed across the window equals the total.

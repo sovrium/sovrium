@@ -65,3 +65,7 @@ badge:
 connections:
   - $ref: ./library/connection/slack.yaml
   - $ref: ./library/connection/hubspot.yaml
+
+components:
+  - $ref: ./library/block/companies-toolbar.yaml
+  - $ref: ./library/block/contacts-toolbar.yaml

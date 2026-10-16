@@ -40,6 +40,7 @@ export default function CrudFormIsland(props: CrudFormIslandProps) {
         className={props.className}
         id={props.id}
         testId={props['data-testid']}
+        uiStrings={props.uiStrings}
         pendingLabel={
           props.pendingLabel ?? formString(props.uiStrings, 'form.deleting', 'Deleting…')
         }

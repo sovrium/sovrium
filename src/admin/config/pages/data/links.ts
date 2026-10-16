@@ -54,9 +54,8 @@
 // to the first candidate that is non-empty, so every consumer of that
 // substitution gained a fallback at once and this page declares no special case.
 
-import { pageHeading } from '../../components/data-page'
-import { dataTable } from '../../components/data-table-blocks'
-import { withShell } from '../../components/shell'
+import { consolePage, toolbarRow } from '../../components/data-page'
+import { dataTable, toolbarSearch } from '../../components/data-table-blocks'
 import { ANALYTICS_OVERVIEW_ENDPOINT, LINKS_ENDPOINT } from '../../system-sources'
 import { detail } from './link-detail'
 import {
@@ -91,23 +90,29 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
  * "inactive": they call for opposite actions.
  */
 const CATALOG_COLUMNS = [
-  { field: 'shortUrl', label: 'Short link' },
-  { field: 'title', label: 'Title' },
-  { field: 'destination', label: 'Destination', format: 'truncate' },
-  { field: 'source', label: 'Source', valueLabels: { config: 'Config', db: 'Console' } },
+  { field: 'shortUrl', label: '$t:admin.links.shortLink' },
+  { field: 'title', label: '$t:admin.common.title' },
+  { field: 'destination', label: '$t:admin.links.destination', format: 'truncate' },
+  {
+    field: 'source',
+    label: '$t:admin.common.source',
+    valueLabels: { config: '$t:admin.links.source.config', db: '$t:admin.links.source.console' },
+  },
   {
     field: 'state',
-    label: 'State',
+    label: '$t:admin.common.state',
     valueLabels: {
-      active: 'Active',
-      disabled: 'Disabled',
-      scheduled: 'Scheduled',
-      expired: 'Expired',
-      exhausted: 'Exhausted',
-      archived: 'Archived',
+      active: '$t:admin.links.state.active',
+      disabled: '$t:admin.common.disabled',
+      scheduled: '$t:admin.links.state.scheduled',
+      expired: '$t:admin.links.state.expired',
+      exhausted: '$t:admin.links.state.exhausted',
+      archived: '$t:admin.links.state.archived',
     },
   },
-  { field: 'validUntil', label: 'Expires', format: 'datetime' },
+  // Clicks over the last thirty days, counted by the list read itself.
+  { field: 'clicks', label: '$t:admin.links.clicks30', align: 'right' },
+  { field: 'validUntil', label: '$t:admin.common.expires', format: 'datetime' },
 ]
 
 /**
@@ -135,7 +140,7 @@ const CATALOG_COLUMNS = [
  */
 const CATALOG_ACTIONS = {
   type: 'actions',
-  label: 'Actions',
+  label: '$t:admin.common.actions',
   actions: [
     {
       // The drill-down, as a real control rather than a bare clickable row.
@@ -153,7 +158,7 @@ const CATALOG_ACTIONS = {
       // the dispatcher emits data attributes for `automation` / `auth` / `crud` /
       // `fetch` only, so a bare `navigate` renders a button that does nothing
       // (the Invite trap on `/users`). The url is MOUNT-RELATIVE.
-      label: 'Open',
+      label: '$t:admin.common.open',
       action: { type: 'fetch', mode: 'navigate', url: '/links/$record.slug' },
     },
   ],
@@ -168,26 +173,25 @@ const CATALOG_WRITE_ACTIONS = {
       // The danger weight, as on the detail page's Delete: one object, one
       // consequence, one colour. The only row action here naming a weight —
       // `Open` stays neutral, and a row where both shout has no emphasis left.
-      label: 'Delete',
+      label: '$t:admin.common.delete',
       variant: 'destructive',
       visibleWhen: { field: 'source', eq: 'db' },
       confirm: {
-        title: 'Delete this link?',
-        message:
-          'Anyone who follows /l/$record.slug from here on gets a 410. Its click history is kept, and the slug becomes free to mint again.',
+        title: '$t:admin.links.deleteConfirm',
+        message: '$t:admin.links.deleteMessageRow',
         role: 'alertdialog',
-        confirmLabel: 'Delete link',
-        cancelLabel: 'Cancel',
+        confirmLabel: '$t:admin.links.delete',
+        cancelLabel: '$t:admin.common.cancel',
       },
       action: {
         type: 'fetch',
         method: 'DELETE',
         url: `${LINKS_ENDPOINT}/$record.slug`,
-        onSuccess: { type: 'toast', message: 'Link deleted', refetch: CATALOG_GRID_ID },
+        onSuccess: { type: 'toast', message: '$t:admin.links.deleted', refetch: CATALOG_GRID_ID },
         onError: {
           type: 'toast',
           variant: 'destructive',
-          message: 'The link was not deleted. It may be declared in app.links[].',
+          message: '$t:admin.links.notDeletedDeclared',
         },
       },
     },
@@ -220,17 +224,25 @@ const CATALOG_WRITE_ACTIONS = {
  * item rather than an `onRowClick` for a reason measured the hard way; the
  * comment on it has the whole story.
  */
+/** The channel the catalogue's search box publishes on and its grid listens to. */
+const LINKS_CHANNEL = 'links-filter'
+
 const catalogGrid = (): PageComponent =>
   dataTable({
     props: { id: CATALOG_GRID_ID, 'aria-label': '$t:admin.links.catalog.region' },
     dataSource: {
-      system: { endpoint: LINKS_ENDPOINT, rowsKey: 'items', idKey: 'slug', totalKey: 'total' },
+      system: {
+        endpoint: LINKS_ENDPOINT,
+        rowsKey: 'items',
+        idKey: 'slug',
+        totalKey: 'total',
+        bindTo: LINKS_CHANNEL,
+        sharedFilter: {},
+      },
     },
     columns: [...CATALOG_COLUMNS, CATALOG_ACTIONS, CATALOG_WRITE_ACTIONS],
-    search: { enabled: true, placeholder: 'Search links' },
-    toolbar: { search: true, sort: true },
-    emptyMessage: 'No links yet',
-    noMatchMessage: 'No link matches “{query}”',
+    emptyMessage: '$t:admin.links.empty',
+    noMatchMessage: '$t:admin.links.noMatch',
   }) as PageComponent
 
 /**
@@ -262,22 +274,25 @@ const newLinkForm = (): PageComponent =>
     endpoint: {
       url: LINKS_ENDPOINT,
       method: 'POST',
-      submitLabel: 'Create link',
+      submitLabel: '$t:admin.links.create.submit',
+      // `reset` empties the form and puts the caret back on Slug: a minted
+      // link is done, and the next one starts from a clean form.
       onSuccess: {
         type: 'toast',
         variant: 'success',
-        message: 'Link created',
+        message: '$t:admin.links.create.done',
         refetch: CATALOG_GRID_ID,
+        reset: true,
       },
       onError: {
         type: 'toast',
         variant: 'destructive',
-        message: 'The link was not created. The slug may be taken or reserved.',
+        message: '$t:admin.links.create.failed',
       },
     },
     fields: [
-      { field: 'slug', control: 'text', label: 'Slug' },
-      { field: 'destination', control: 'url', label: 'Destination' },
+      { field: 'slug', control: 'text', label: '$t:admin.links.slug' },
+      { field: 'destination', control: 'url', label: '$t:admin.links.destination' },
     ],
   }) as PageComponent
 
@@ -345,15 +360,25 @@ const directoryMetrics = (): PageComponent =>
             type: 'container',
             props: { className: 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4' },
             children: [
-              kpiTile('Clicks', ANALYTICS_OVERVIEW_ENDPOINT, 'summary.pageViews', CLICK_QUERY),
               kpiTile(
-                'Unique visitors',
+                '$t:admin.analytics.clicks',
+                ANALYTICS_OVERVIEW_ENDPOINT,
+                'summary.pageViews',
+                CLICK_QUERY
+              ),
+              kpiTile(
+                '$t:admin.analytics.uniqueVisitors',
                 ANALYTICS_OVERVIEW_ENDPOINT,
                 'summary.uniqueVisitors',
                 CLICK_QUERY
               ),
-              kpiTile('Sessions', ANALYTICS_OVERVIEW_ENDPOINT, 'summary.sessions', CLICK_QUERY),
-              kpiTile('Links tracked', LINKS_ENDPOINT, 'total'),
+              kpiTile(
+                '$t:admin.analytics.sessions',
+                ANALYTICS_OVERVIEW_ENDPOINT,
+                'summary.sessions',
+                CLICK_QUERY
+              ),
+              kpiTile('$t:admin.links.tracked', LINKS_ENDPOINT, 'total'),
             ],
           },
         ],
@@ -362,24 +387,30 @@ const directoryMetrics = (): PageComponent =>
     ],
   }) as PageComponent
 
-const directory = withShell(
-  {
-    id: 'dashboard-data-links',
-    name: 'dashboard-data-links',
-    path: '/links',
-    meta: { title: '$t:admin.meta.links', lang: 'en-US' },
+const directory = consolePage({
+  id: 'dashboard-data-links',
+  path: '/links',
+  title: '$t:admin.meta.links',
+  heading: ['$t:admin.links.heading', '$t:admin.links.blurb'],
+  page: {
+    requires: ['links'],
     window: WINDOW,
-    components: [
-      pageHeading('$t:admin.links.heading', '$t:admin.links.blurb'),
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-col gap-6 pt-2' },
-        children: [directoryMetrics(), analyticsDisabledNote(), catalogGrid(), newLinkSection()],
-      } as PageComponent,
-    ],
-  } as PageConfig,
-  { breadcrumb: { links: '$t:admin.crumb.links' } }
-) satisfies PageConfig
+  },
+  shell: { breadcrumb: { links: '$t:admin.crumb.links' } },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex flex-col gap-6 pt-2' },
+      children: [
+        directoryMetrics(),
+        analyticsDisabledNote(),
+        toolbarRow([toolbarSearch(LINKS_CHANNEL, '$t:admin.links.search')]),
+        catalogGrid(),
+        newLinkSection(),
+      ],
+    } as PageComponent,
+  ],
+}) satisfies PageConfig
 
 export default [directory, detail] as readonly PageConfig[]

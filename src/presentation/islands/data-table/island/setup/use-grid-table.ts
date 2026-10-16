@@ -8,11 +8,10 @@
 import { useMemo } from 'react'
 import { useRealtimeReconciliation } from '../../../hooks/use-realtime-reconciliation'
 import { useCursorFeedView } from '../../../hooks/use-system-cursor-pages'
-import { applyFacetFilters } from '../../faceted-filter/facet-filters'
 import { useContinuationOverlap } from '../../pagination/use-continuation-overlap'
 import { createRowActionHandler } from '../../row-actions/row-action-handler'
 import { buildColumns } from '../columns'
-import { applyClientFilters, resolveClientSorted } from '../island-setup-helpers'
+import { resolveClientSorted } from '../island-setup-helpers'
 import { useDataTableInstance } from '../use-table'
 import { cappedRows, cappedTotal } from './row-cap'
 import type { SetupContext } from './setup-params'
@@ -22,17 +21,24 @@ import type { RecordsQuery } from './use-records-query'
 import type { RefreshWiring } from './use-refresh-wiring'
 import type { useInlineEditing } from '../../../hooks/use-inline-editing'
 import type { DataTableColumnDef } from '../table-features'
+import type { DataTableSelection } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 export type GridRecords = ReturnType<typeof useGridRecords>
 export type GridInstance = ReturnType<typeof useGridInstance>
 
 /**
- * The rows on screen: every page the operator has asked for, narrowed by the
- * runtime filter-builder.
- *
- * The server returns the unfiltered page — the filter-builder is purely client
- * state, so narrowing happens here, before the records reach TanStack Table.
- * The one exception is a load-more grid, which filters on the server.
+ * The selection the table instance runs: the declared one, else — on a grid
+ * that publishes its selection — one row at a time.
+ */
+export function effectiveSelection(params: {
+  readonly selectionConfig?: DataTableSelection
+  readonly publishesSelection: boolean
+}): DataTableSelection | undefined {
+  return params.selectionConfig ?? (params.publishesSelection ? { mode: 'single' } : undefined)
+}
+
+/**
+ * The rows on screen: every page the operator has asked for.
  *
  * A binding's `limit` caps both the rows and the total the pager counts: the
  * server pages in whole page sizes, so the last page under the cap is cut here.
@@ -45,38 +51,14 @@ export function useGridRecords(ctx: SetupContext, layout: EffectiveLayout, recor
     records.loadMore
   )
   const cursorFeed = useCursorFeedView(records.cursorPages, page, records.query.isPlaceholderData)
-  const { activeFilters } = ctx.ui
-  const { filterConjunction, facetSelections } = ctx.ui
-  // `fieldMeta` decides how an `equals` predicate compares — numerically on a
-  // number column, as a string everywhere else. Without it a filter saved on a
-  // text column coerces its value to `NaN` and matches nothing.
-  const { fieldMeta } = ctx.params
-  // `cursorFeed.records` is already memoized, and v9's `data` option takes a
-  // `ReadonlyArray` — so the defensive readonly -> mutable copy v8 forced here
-  // is gone.
-  // A load-more grid sent the builder's rows with its request (see
-  // `resolveLoadMoreFeed`), so every row it holds already matches them.
-  const { filteredOnServer } = records
   const { limit } = ctx.params.dataSource
   const { pageIndex, pageSize } = layout.tableState.pagination
   // A feed holds every page it has loaded, so its cap counts from its first row.
   const offset = records.loadMore || cursorFeed.cursorPaged ? 0 : pageIndex * pageSize
-  const rows = useMemo(() => {
-    const held = cappedRows(cursorFeed.records, limit, offset)
-    const built = filteredOnServer
-      ? held
-      : applyClientFilters(held, activeFilters, filterConjunction, fieldMeta)
-    return applyFacetFilters(built, facetSelections)
-  }, [
-    cursorFeed.records,
-    limit,
-    offset,
-    activeFilters,
-    filterConjunction,
-    fieldMeta,
-    filteredOnServer,
-    facetSelections,
-  ])
+  const rows = useMemo(
+    () => cappedRows(cursorFeed.records, limit, offset),
+    [cursorFeed.records, limit, offset]
+  )
 
   // A load-more or infinite grid holds an accumulation, but its server still
   // counts the whole view: that count is the total its status announces.
@@ -102,6 +84,7 @@ export function buildGridColumns(
     queryClient,
     queryKey: refresh.queryKey,
     tableName: tableKey,
+    strings: params.uiStrings,
   })
 
   return buildColumns({
@@ -139,6 +122,8 @@ interface GridInstanceInput {
   readonly records: RecordsQuery
   readonly inlineEditing: ReturnType<typeof useInlineEditing>
   readonly sortRefusal: RefreshWiring['sortRefusal']
+  /** The term a page control published on the grid's channel (`q`), if any. */
+  readonly publishedQuery?: string
 }
 
 /**
@@ -173,7 +158,12 @@ export function useGridInstance(
     setSorting: input.sortRefusal.onSortingChange,
     columnFilters: tableState.columnFilters,
     setColumnFilters: tableState.setColumnFilters,
-    globalFilter: tableState.globalFilter,
+    // A search box on the page publishes `q` on the grid's channel; that term IS
+    // the grid's search. An endpoint that applied it says so (`serverFiltered`
+    // below) and the rows arrive narrowed; one that did not leaves the grid to
+    // narrow what it holds, so a term matching nothing reads as no match rather
+    // than as the whole list.
+    globalFilter: input.publishedQuery ?? tableState.globalFilter,
     setGlobalFilter: tableState.setGlobalFilter,
     pagination: tableState.pagination,
     setPagination: tableState.setPagination,
@@ -185,7 +175,7 @@ export function useGridInstance(
     setColumnOrder: ctx.ui.setColumnOrder,
     columnSizing: tableState.columnSizing,
     setColumnSizing: tableState.setColumnSizing,
-    selectionConfig: ctx.params.selectionConfig,
+    selectionConfig: effectiveSelection(ctx.params),
     totalRecords: grid.totalRecords,
     // The response's OWN declaration that it already applied the term. Absent
     // (`undefined`) on every endpoint that does not search — the system

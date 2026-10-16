@@ -7,7 +7,7 @@
 
 import { Schema } from 'effect'
 import { adminEnvelopeSchema } from '@/domain/models/api/admin/envelope/admin-envelope'
-import { coercedBoolean } from '@/domain/models/api/combinators/coerce'
+import { booleanFlag, coercedBoolean } from '@/domain/models/api/combinators/coerce'
 import {
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
@@ -24,12 +24,17 @@ import { withDefault } from '../../combinators/schema-defaults'
  * submissions for a single top-level form (`app.forms[]` entry). Reuses the
  * shared `_admin` envelope (CC-1) and the shared cursor pagination contract.
  *
- * **Body redaction in lists** (D7 corollary): The `body` field is **never**
- * present on list-shaped responses, regardless of the
- * `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED` env var. Body reveal requires the
- * detail endpoint with explicit `?reveal=true` and admin role. The list
- * endpoint surfaces canonical metadata only — id, formName, submittedAt,
- * status, optional submitter labels under `_admin.metadata`.
+ * **Bodies in lists — the detail's gate, read once per page.** A list item
+ * carries `body` only when the caller passes `?reveal=true`, the instance sets
+ * `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller's account role is
+ * admin-equivalent — exactly the three conditions the detail endpoint applies.
+ * A revealed page writes ONE critical `form.submission.bodies.revealed` audit
+ * event naming the form, not one per row. A caller who fails the gate is not
+ * refused: the page answers as if no reveal was asked, `bodiesRevealed: false`,
+ * so a read-only tier listing the inbox learns nothing it could not already see.
+ * Without `?reveal=true` the list carries canonical metadata only — id,
+ * formName, submittedAt, status, optional submitter labels under
+ * `_admin.metadata`.
  *
  * **Status enum**: matches the lifecycle states populated by the existing
  * top-level form submit pipeline (`form_submissions.status` column). Three
@@ -66,9 +71,9 @@ export const formSubmissionStatusSchema = Schema.Literals([
  * Canonical form submission shape.
  *
  * `body` is OPTIONAL because the field is conditionally redacted: present
- * only on the detail endpoint when `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true`
- * AND the caller passes `?reveal=true` AND has admin role. List shapes never
- * include `body`; detail without `?reveal=true` never includes `body`.
+ * only when `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller passes
+ * `?reveal=true` AND has an admin role, on the detail and the list alike. A
+ * request without `?reveal=true` never includes `body`.
  */
 export const formSubmissionSchema = Schema.Struct({
   id: uuid({ description: 'Stable submission identifier (UUID)' }),
@@ -84,7 +89,7 @@ export const formSubmissionSchema = Schema.Struct({
   body: optionalField(
     Schema.Record(Schema.String, Schema.Unknown).annotate({
       description:
-        'Field values submitted by the form. Present ONLY when the detail endpoint is called with `?reveal=true` AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller has admin role. Absent on list responses, on detail without reveal, on operator reveals, and when the env var is unset/false.',
+        'Field values submitted by the form, keyed by field name. Present ONLY when the request passes `?reveal=true` AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller has an admin role — on the detail endpoint and on the list alike. Absent without reveal, for any non-admin caller, and when the env var is unset/false.',
     })
   ),
 }).annotate({ identifier: 'FormSubmission' })
@@ -148,10 +153,10 @@ export const formSubmissionAdminItemSchema = Schema.Struct({
  * throw away every row the server matched on the submitter.
  *
  * **`body` is NEVER searched.** This is the D7 redaction lock expressed as a
- * query contract, not a scoping preference. The body is withheld from every
- * list response and is revealed only by the detail endpoint under
- * `?reveal=true` AND `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND an admin
- * role — so an OPERATOR can list submissions they may not read. A `q` that
+ * query contract, not a scoping preference. The body is withheld unless the
+ * request passes `?reveal=true` AND the instance sets
+ * `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND the caller has an admin role —
+ * so an OPERATOR can list submissions they may not read. A `q` that
  * matched body content would turn this list into a confirm/deny oracle over
  * exactly that withheld content: a caller could recover a submitted password or
  * e-mail address one substring at a time, never once calling the endpoint that
@@ -189,6 +194,15 @@ export const formsSubmissionsListQuerySchema = Schema.Struct({
         'When true, include soft-deleted submissions (`deletedAt` non-null) in the response. Default false.',
     })
     .pipe(withDefault(false)),
+  // STRICT parse (`booleanFlag`), unlike `include_deleted`: `coercedBoolean`
+  // reads the string "false" as true, and a reveal is the one flag whose
+  // accidental `true` writes a critical audit event and ships every body.
+  reveal: booleanFlag
+    .annotate({
+      description:
+        "When true, each item carries its submitted `body` — only for an admin caller on an instance that sets `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true`, the detail endpoint's own gate. A revealed page writes one critical `form.submission.bodies.revealed` audit event. A caller who fails the gate is not refused: the page answers without bodies and `bodiesRevealed: false`. Never widens `q`, which does not search bodies whatever this says.",
+    })
+    .pipe(withDefault(false)),
   q: searchTermSchema.annotate({
     description:
       'Optional free-text search over the SUBMITTER identity (the account `email` and `name` behind `submitter_user_id`) and the submission `id`, as a case-insensitive literal substring. Composes with `status` / `from` / `to` / the cursor (AND), so a page is a page of MATCHES. The submitted `body` is NEVER searched — the D7 redaction lock; searching it would make this list an oracle over content the caller may not be permitted to reveal. Empty / whitespace-only means "no search".',
@@ -200,9 +214,26 @@ export const formsSubmissionsListQuerySchema = Schema.Struct({
  *
  * Cursor-paginated array of admin-envelope-extended submission items. The
  * `nextCursor` field is opaque base64; callers must not parse it.
+ *
+ * `total` counts every submission the request's filters match — `status`,
+ * `from`, `to`, `include_deleted` and `q` — with the cursor and the page size
+ * set aside, so a pager can say "26–30 of 30" rather than inferring a total
+ * from the rows it holds. It is the same figure on every page of one query.
+ *
+ * `bodiesRevealed` says whether THIS page carries bodies: `true` only when the
+ * reveal gate passed. A client that asked for a reveal reads it to tell
+ * "answers hidden on this instance" from "answers shown".
  */
 export const formsSubmissionsListResponseSchema = Schema.Struct({
   ...cursorPaginationResponseSchema(formSubmissionAdminItemSchema).fields,
+  total: Schema.Finite.annotate({
+    description:
+      'How many submissions match the filters (status, from, to, include_deleted, q), whatever the cursor and page size — the same figure on every page of one query.',
+  }).pipe(Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))),
+  bodiesRevealed: Schema.Boolean.annotate({
+    description:
+      'Whether the items on this page carry their submitted `body`: true only when `?reveal=true` was asked, the instance sets `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` and the caller has an admin role.',
+  }),
   appliedQuery: appliedQuerySchema,
 }).annotate({ identifier: 'FormsSubmissionsListResponse' })
 

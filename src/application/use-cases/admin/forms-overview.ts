@@ -347,21 +347,20 @@ export interface SubmissionsListInput {
   readonly from?: string | undefined
   readonly to?: string | undefined
   /**
-   * The operator's free-text term over the SUBMITTER identity and the
-   * submission `id`, already trimmed and length-checked by `searchTermSchema`.
-   * `undefined` means "no search". The submitted body is never searched — see
-   * the repository's `buildSearchConditions` for why that is a D7 lock.
+   * Free-text term over the SUBMITTER identity and the submission `id`; never
+   * the body — see the repository's `buildSearchConditions` (the D7 lock).
    */
   readonly q?: string | undefined
   readonly cursor?: string | undefined
   readonly limit: number
+  /** The caller ASKED for bodies (`?reveal=true`); whether it gets them is the gate's. */
+  readonly reveal: boolean
 }
 
 /**
- * Build the cursor-paginated submissions-list body for a known form.
- *
- * The route resolves the anti-enum 404 (unknown form name) BEFORE calling this
- * use case, so the form is assumed to exist here.
+ * Build the cursor-paginated submissions-list body for a known form (the
+ * anti-enum 404 is resolved before), with its `total` and — when the caller's
+ * reveal gate passed — each row's body.
  *
  * Pagination semantics (preserved verbatim): fetch `limit + 1` rows ordered
  * `submitted_at DESC`; the page is the first `limit` rows; `nextCursor` is
@@ -369,11 +368,14 @@ export interface SubmissionsListInput {
  * a strict-less `submitted_at` (UUID ties approximated away — Phase 0 contract).
  */
 export const BuildSubmissionsList = (
-  input: SubmissionsListInput
+  input: SubmissionsListInput,
+  revealBodies: boolean
 ): Effect.Effect<
   FormsBuildOutcome<{
-    readonly items: readonly FormSubmissionAdminItem[]
+    readonly items: readonly FormSubmissionDetailItem[]
     readonly nextCursor: string | null
+    readonly total: number
+    readonly bodiesRevealed: boolean
     readonly appliedQuery: string | null
   }>,
   AdminFormsDatabaseError,
@@ -385,19 +387,20 @@ export const BuildSubmissionsList = (
     const decoded = input.cursor ? decodeSubmissionsCursor(input.cursor) : null
     const cursorBefore = decoded !== null ? new Date(decoded.submittedAt) : undefined
 
-    const rows = yield* repo.listSubmissions({
-      formName: input.formName,
-      includeDeleted: input.includeDeleted,
-      status: input.status,
-      from: input.from !== undefined ? new Date(input.from) : undefined,
-      to: input.to !== undefined ? new Date(input.to) : undefined,
-      q: input.q,
-      cursorBefore,
-      limit: input.limit,
-    })
+    const { formName, includeDeleted, status, q } = input
+    const from = input.from !== undefined ? new Date(input.from) : undefined
+    const to = input.to !== undefined ? new Date(input.to) : undefined
+    const filters = { formName, includeDeleted, status, from, to, q }
+    const page = { cursorBefore, limit: input.limit, withData: revealBodies }
+    const rows = yield* repo.listSubmissions({ ...filters, ...page })
+    const total = yield* repo.countSubmissions(filters)
 
+    // `revealBodies` is the caller's gate verdict; each body is THAT row's `data`.
     const pageRows = rows.slice(0, input.limit)
-    const items = pageRows.map((row) => buildSubmissionAdminItem(row, input.formName))
+    const items: ReadonlyArray<FormSubmissionDetailItem> = pageRows.map((row) => {
+      const item = buildSubmissionAdminItem(row, input.formName)
+      return revealBodies ? { ...item, body: (row.data ?? {}) as Record<string, unknown> } : item
+    })
     const lastItem = items[items.length - 1]
     const nextCursor =
       rows.length > input.limit && lastItem !== undefined
@@ -409,18 +412,15 @@ export const BuildSubmissionsList = (
     // narrowing already happened server-side and it must not repeat it over the
     // two columns it renders. Omitting the key on a no-term request would
     // re-arm that in-memory pass the moment an operator CLEARS the box.
-    const body = { items, nextCursor, appliedQuery: input.q ?? null }
+    const appliedQuery = input.q ?? null
+    const body = { items, nextCursor, total, bodiesRevealed: revealBodies, appliedQuery }
     const parsed = decodeSafe(formsSubmissionsListResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
     return {
       _tag: 'Ok',
-      body: {
-        items: parsed.data.items,
-        nextCursor: parsed.data.nextCursor,
-        appliedQuery: parsed.data.appliedQuery ?? null,
-      },
+      body: { ...parsed.data, appliedQuery: parsed.data.appliedQuery ?? null },
     } as const
   }).pipe(Effect.withSpan('admin.build-submissions-list'))
 

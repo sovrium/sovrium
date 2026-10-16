@@ -8,11 +8,9 @@
 import { serializeRowsToCsv } from '@/domain/kernel/format/csv-format'
 import { buildCsvAttachmentFilename } from '@/domain/kernel/url/csv-attachment'
 import type { DataTableInstance } from './table-features'
-import type { ActiveFilter } from './use-ui-state'
 
 /**
- * Visible-column id helpers used by the export menu and the export-selected
- * button. Kept out of the JSX-bearing files so that the
+ * Visible-column id helpers used by the selection export. Kept out of the JSX-bearing files so that the
  * `react-refresh/only-export-components` rule (which forbids mixing helper
  * exports with component exports) stays satisfied.
  */
@@ -22,40 +20,6 @@ export function getVisibleColumnIds(table: DataTableInstance): readonly string[]
     .getAllColumns()
     .filter((col) => col.id !== 'select' && col.getIsVisible())
     .map((col) => col.id)
-}
-
-export function getNonSelectColumnCount(table: DataTableInstance): number {
-  return table.getAllColumns().filter((col) => col.id !== 'select').length
-}
-
-function buildFilterParam(activeFilter: ActiveFilter | undefined): string {
-  return activeFilter
-    ? `&filterField=${encodeURIComponent(activeFilter.field)}&filterValue=${encodeURIComponent(activeFilter.value)}`
-    : ''
-}
-
-/**
- * The CSV export of the grid: the columns it draws — its declared `columns`, or
- * the fields of the view it binds — and nothing else. The columns are always
- * named, since a grid that declares three columns holds only those three and
- * the export must not fall back to every column of the table.
- */
-export function buildCsvExportHref(
-  tableName: string,
-  table: DataTableInstance,
-  activeFilter: ActiveFilter | undefined
-): string {
-  const visibleCols = getVisibleColumnIds(table).filter((id) => !id.startsWith('__'))
-  const fieldsParam =
-    visibleCols.length > 0 ? `&fields=${visibleCols.map(encodeURIComponent).join(',')}` : ''
-  return `/api/tables/${tableName}/export?format=csv${buildFilterParam(activeFilter)}${fieldsParam}`
-}
-
-export function buildJsonExportHref(
-  tableName: string,
-  activeFilter: ActiveFilter | undefined
-): string {
-  return `/api/tables/${tableName}/export?format=json${buildFilterParam(activeFilter)}`
 }
 
 /**

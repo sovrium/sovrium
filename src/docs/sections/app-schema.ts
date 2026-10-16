@@ -72,11 +72,12 @@ export const section = defineSection({
       slug: 'app-metadata',
       title: 'App Metadata',
       description:
-        'The `name`, `version`, `description` and `badge` root properties — naming rules, Semantic Versioning, and the "Built with Sovrium" badge with its one-line removal.',
+        'The `name`, `displayName`, `version`, `description` and `badge` root properties — naming rules, the name people read, Semantic Versioning, and the "Built with Sovrium" badge with its one-line removal.',
       keywords: [
         'sovrium',
         'app metadata',
         'name',
+        'display name',
         'version',
         'description',
         'badge',
@@ -122,6 +123,7 @@ export const section = defineSection({
       stories: [
         'US-FORMS-I18N',
         'US-I18N-INTERPRETER-UI-STRINGS',
+        'US-I18N-INTERPRETER-UI-STRINGS-ISLANDS',
         'US-I18N-MULTI-LANGUAGE-APPS-001',
         'US-I18N-MULTI-LANGUAGE-APPS-002',
         'US-I18N-MULTI-LANGUAGE-APPS-003',

@@ -48,6 +48,37 @@ export const countLinkClicks = (
     Effect.withSpan('links.count-clicks')
   )
 
+/** The window a catalog row's click figure is defined over. */
+const LINK_CLICKS_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
+
+/**
+ * Each slug's clicks over the 30 days up to `now` (inclusive), read as ONE
+ * grouped count over the click store — a page of links costs one query, not one
+ * per link. A slug nobody clicked reads 0.
+ */
+export const countRecentLinkClicks = (
+  appName: string,
+  slugs: readonly string[],
+  now: Readonly<Date>
+): Effect.Effect<ReadonlyMap<string, number>, never, AnalyticsRepository> =>
+  Effect.gen(function* () {
+    const repository = yield* AnalyticsRepository
+    return yield* repository.countEventsByName({
+      appName,
+      eventType: 'link_click',
+      names: slugs,
+      from: new Date(now.getTime() - LINK_CLICKS_WINDOW_MS),
+      to: new Date(now.getTime()),
+    })
+  }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.logWarning('[links] recent click counts unreadable; reading 0', cause)
+    ),
+    // effect-swallow: a click figure is a column in an admin list, not a gate. An unreadable analytics store shows 0 for every row, as `countLinkClicks` does for the same reason.
+    Effect.orElseSucceed((): ReadonlyMap<string, number> => new Map()),
+    Effect.withSpan('links.count-recent-clicks')
+  )
+
 /**
  * The entry's operational state.
  *

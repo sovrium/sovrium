@@ -31,7 +31,7 @@ import {
 import { cardPathClick, openCardDrawer } from '../runtime/card-click'
 import { CardClickTarget } from './card-click-target'
 import { featuredCardClasses } from './featured-card-classes'
-import { GalleryClassesContext } from './gallery-classes-context'
+import { GalleryClassesContext, GallerySelectionContext } from './gallery-classes-context'
 import type { TableRecord } from '../runtime/types'
 import type { Action } from '@/domain/models/app/pages/components/action'
 import type { GalleryCard } from '@/domain/models/app/pages/components/component-types/data/gallery'
@@ -321,7 +321,16 @@ export function GalleryCardView({
   readonly featured?: boolean
 }): ReactElement {
   const pieces = useContext(GalleryClassesContext)
-  const { navigatePath, openSheet, coverImageSrc } = resolveCardData(card, record, table)
+  const select = useContext(GallerySelectionContext)
+  const data = resolveCardData(card, record, table)
+  const { navigatePath, coverImageSrc } = data
+  const openSheet =
+    select === undefined
+      ? data.openSheet
+      : () => {
+          select(record['id'])
+          data.openSheet?.()
+        }
   const clickable = navigatePath !== undefined || openSheet !== undefined
   const body = (
     <CardBody

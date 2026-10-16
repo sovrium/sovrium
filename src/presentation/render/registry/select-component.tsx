@@ -11,7 +11,7 @@ import {
   renderSsrSelectPlaceholder,
 } from '@/presentation/render/elements/native-select'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
-import { localizeChildLabel } from './island-child-label'
+import { localizeChildLabel, resolveInterpreterStringOverrides } from './island-child-label'
 import { asRecord, baseProps, pickFromComponent } from './island-form-props'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ElemProps, RawProps } from './island-form-props'
@@ -60,6 +60,11 @@ function buildSelectProps(
     defaultValue: pickFromComponent(c, rawProps, 'defaultValue'),
     disabled: rawProps?.disabled,
     label: rawProps?.label ?? rawProps?.fieldLabel,
+    // A `field` around the select names it by its label (`slot-children.ts`).
+    labelledBy: elementProps['aria-labelledby'] as string | undefined,
+    // A select with no caption and no field around it is named by its own
+    // `props['aria-label']`, carried onto the control the island draws.
+    ariaLabel: elementProps['aria-label'] as string | undefined,
     // `publishes` marks the control as a shared-filter PUBLISHER. Like every
     // other form-control field it is a sibling of `props` at the component top
     // level, so it must be read through `pickFromComponent` — `rawProps` never
@@ -68,6 +73,26 @@ function buildSelectProps(
     ...baseProps(elementProps, designStyles),
   }
 }
+
+/**
+ * The select's own words in the page language (`select.*`), where they differ
+ * from English: its empty prompt when the author wrote none, and the names the
+ * island gives its open and clear controls.
+ */
+const withSelectWords = <T extends { readonly placeholder?: unknown }>(
+  props: T,
+  words: Readonly<Record<string, string>> | undefined
+): T =>
+  words === undefined
+    ? props
+    : {
+        ...props,
+        uiStrings: words,
+        ...(props.placeholder === undefined &&
+          words['select.placeholder'] !== undefined && {
+            placeholder: words['select.placeholder'],
+          }),
+      }
 
 /**
  * The themed select, hosted by the island named `islandKey`: `select`, or
@@ -81,10 +106,12 @@ const themedSelect =
     // reaches, so a `$t:` label is resolved HERE — once, on the way into the
     // props both the platform control and the island serialise, so neither the
     // SSR document nor the hydrated island prints the key.
-    const selectProps =
+    const selectProps = withSelectWords(
       typeof built.label === 'string'
         ? { ...built, label: localizeChildLabel(built.label, currentLang, languages) }
-        : built
+        : built,
+      resolveInterpreterStringOverrides(['select.'], currentLang, languages)
+    )
     // The PLATFORM control: the same element this renderer already
     // produced below, left enabled and emitted with NO island marker — so
     // nothing replaces it and the page ships no component code for it.

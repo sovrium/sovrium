@@ -16,8 +16,8 @@ import { BuiltInAnalyticsSchema } from './analytics'
 import { AssetsSchema } from './assets'
 import { AuthSchema } from './auth'
 import { validateAllAiAccessRules } from './auth/ai-access-validation'
-import { validateAllGroupActionReferences } from './auth/groups/group-action-validation'
 import { validateAllRoleReferences, validateTableRoleReferences } from './auth/role-validation'
+import { validateAllAuthActionReferences } from './auth/roles/invite-role-validation'
 import { type Action, AutomationsSchema } from './automations'
 import { validateWebhookTriggersAgainstApp } from './automations/trigger/webhook-app-validation'
 import { entriesOfType, hasTriggerOfType } from './automations/trigger-entries-service'
@@ -31,6 +31,7 @@ import { DecisionsSchema } from './decisions'
 import { DescriptionSchema } from './description'
 import { DesignSchema } from './design'
 import { validateAllDesignReferences } from './design/design-validation'
+import { DisplayNameSchema } from './display-name'
 import { EnvVarsSchema } from './env'
 import { validateAllEnvReferences } from './env-reference-validation'
 import { FormsSchema } from './forms'
@@ -54,6 +55,7 @@ import { RedirectsSchema } from './redirects'
 import { validateAllRedirectRules } from './redirects/redirects-validation'
 import { SystemSourceCatalogSchema } from './system-sources'
 import { TablesSchema } from './tables'
+import { validateRowRuleGrantRoles } from './tables/row-rule-grant-role-validation'
 import { isResolvableColumnName } from './tables/system-fields'
 import { validateAllTablePermissionGroups } from './tables/table-permission-groups-validation'
 import { VersionSchema } from './version'
@@ -249,46 +251,44 @@ const validateSelectDeclarations = (
 
 /**
  * The declaration checks closing the final filter, as one branch: table
- * permission groups, the groups the `auth` group operators name literally, then
+ * permission groups, the groups and roles the `auth` operators name literally, then
  * every `$env.NAME` anywhere in the configuration against the variables
  * `app.env` declares. Grouped for the same complexity-budget reason as
  * {@link validateSelectDeclarations}.
  */
 const validateDeclaredReferences = (
   app: Parameters<typeof validateAllTablePermissionGroups>[0] &
-    Parameters<typeof validateAllGroupActionReferences>[0] &
+    Parameters<typeof validateAllAuthActionReferences>[0] &
     Parameters<typeof validateAllEnvReferences>[0]
 ): true | string => {
   const permissionGroupError = validateAllTablePermissionGroups(app)
   if (permissionGroupError !== true) return permissionGroupError
-  const groupActionError = validateAllGroupActionReferences(app)
-  if (groupActionError !== true) return groupActionError
+  const authActionError = validateAllAuthActionReferences(app)
+  if (authActionError !== true) return authActionError
   return validateAllEnvReferences(app)
 }
 
 export const AppSchema = Schema.Struct({
   /**
-   * The name of the application.
-   *
-   * Must follow npm package naming conventions:
-   * - Lowercase only
-   * - Maximum 214 characters (including scope for scoped packages)
-   * - Cannot start with a dot or underscore
-   * - Cannot contain leading/trailing spaces
-   * - Cannot contain non-URL-safe characters
-   * - Scoped packages: @scope/package-name format allowed
-   * - Can include hyphens and underscores (but not at the start)
+   * The name of the application, on npm's package-name rules (`NameSchema`):
+   * lowercase, URL-safe, at most 214 characters including an `@scope/`, with no
+   * leading dot, underscore or space; hyphens and underscores allowed after.
    */
   name: NameSchema,
 
   /**
-   * The version of the application (optional).
+   * The name people read (optional): `Acme CRM` where `name` says `acme-crm`.
    *
-   * Must follow Semantic Versioning (SemVer) 2.0.0 specification:
-   * - Format: MAJOR.MINOR.PATCH (e.g., 1.0.0)
-   * - No leading zeros in version components
-   * - Optional pre-release identifiers (e.g., 1.0.0-alpha)
-   * - Optional build metadata (e.g., 1.0.0+build.123)
+   * Printed by the app's chrome — the operator console, the sign-in card, the
+   * default page title — where `name` stays the identifier. Absent, those
+   * surfaces print `name` as they always have (`displayNameOf`).
+   */
+  displayName: Schema.optional(DisplayNameSchema),
+
+  /**
+   * The version of the application (optional), in SemVer 2.0.0: MAJOR.MINOR.PATCH
+   * without leading zeros, with optional pre-release (`1.0.0-alpha`) and build
+   * metadata (`1.0.0+build.123`).
    */
   version: Schema.optional(VersionSchema),
 
@@ -582,14 +582,13 @@ export const AppSchema = Schema.Struct({
   ),
   Schema.check(
     Schema.makeFilter((app) => {
-      // Only validate role references in permissions when auth is explicitly configured.
-      if (!app.auth) return true
+      if (!app.auth) return true // role references are checked only once auth is configured
       // Table permissions are validated as soon as auth exists (built-in + custom
       // roles); bucket/trigger permissions stay format-only unless `auth.roles`
       // is declared (handled inside validateAllRoleReferences).
       const tableError = validateTableRoleReferences(app)
       if (tableError !== true) return tableError
-      return validateAllRoleReferences(app)
+      return validateRowRuleGrantRoles(app) ?? validateAllRoleReferences(app)
     })
   ),
   // Bucket reference cross-validation: attachment field bucket references must exist in app.buckets

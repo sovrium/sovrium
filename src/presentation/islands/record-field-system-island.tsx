@@ -13,6 +13,8 @@ import { resolvePageTimezone } from './runtime/page-timezone'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { ReactElement } from 'react'
 
+type FieldStrings = Readonly<Record<string, string>> | undefined
+
 interface RecordFieldSystemIslandProps {
   readonly dataSource?: RecordDataSource
   /** The bound record id (route param value) injected into the endpoint slot. */
@@ -26,6 +28,41 @@ interface RecordFieldSystemIslandProps {
    */
   readonly format?: ColumnFormat
   readonly 'data-testid'?: string
+  /** The field's own words in the page language (`field.*`), where they differ from English. */
+  readonly uiStrings?: FieldStrings
+}
+
+/** The field's pulse while its record loads, named in the page language. */
+function FieldLoading({ strings }: { readonly strings: FieldStrings }): ReactElement {
+  return (
+    <span
+      role="status"
+      data-loading-status=""
+      aria-label={strings?.['field.loading'] ?? 'Loading field...'}
+      className="bg-muted inline-block h-4 w-16 animate-pulse rounded"
+    />
+  )
+}
+
+/** A missing binding, or with `failed` a failed read, said in the page language. */
+function FieldAlert({
+  strings,
+  failed,
+}: {
+  readonly strings: FieldStrings
+  readonly failed?: boolean
+}): ReactElement {
+  return (
+    <span
+      role="alert"
+      className="text-error-fg text-md"
+    >
+      {failed
+        ? (strings?.['field.loadFailed'] ?? 'Failed to load field')
+        : (strings?.['field.missingSource'] ??
+          'Record field is missing required dataSource configuration.')}
+    </span>
+  )
 }
 
 /**
@@ -43,38 +80,19 @@ export default function RecordFieldSystemIsland({
   recordId,
   field,
   format,
+  uiStrings,
 }: RecordFieldSystemIslandProps): ReactElement {
   const { data, isLoading, isError } = useRecordQuery('record-field', dataSource, recordId)
 
-  if (!hasDataBinding(dataSource)) {
+  if (!hasDataBinding(dataSource)) return <FieldAlert strings={uiStrings} />
+  if (isLoading) return <FieldLoading strings={uiStrings} />
+  if (isError)
     return (
-      <span
-        role="alert"
-        className="text-error-fg text-md"
-      >
-        Record field is missing required dataSource configuration.
-      </span>
-    )
-  }
-  if (isLoading) {
-    return (
-      <span
-        role="status"
-        aria-label="Loading field..."
-        className="bg-muted inline-block h-4 w-16 animate-pulse rounded"
+      <FieldAlert
+        strings={uiStrings}
+        failed
       />
     )
-  }
-  if (isError) {
-    return (
-      <span
-        role="alert"
-        className="text-error-fg text-md"
-      >
-        Failed to load field
-      </span>
-    )
-  }
 
   const value = field !== undefined && data ? data[field] : undefined
   const text = format

@@ -118,3 +118,27 @@ export function resolveKanbanSwimlaneOptions(
     typeof opt === 'string' ? opt : opt.value
   )
 }
+
+/**
+ * The DECLARED field behind a board's column axis and lane axis, so the props
+ * builder can read each option's label in the page language
+ * (`option-labels.ts`). The two resolvers above keep only the stored values,
+ * which is what a column is keyed by; the header reads the label.
+ */
+export function resolveKanbanAxisFields(
+  table: Tables[number],
+  component: Component
+): {
+  readonly column?: Tables[number]['fields'][number]
+  readonly lane?: Tables[number]['fields'][number]
+} {
+  const axes = component as {
+    readonly kanbanGroupBy?: { readonly field?: string }
+    readonly swimlanes?: { readonly field?: string }
+  }
+  const find = (name: string | undefined) =>
+    name === undefined ? undefined : table.fields.find((f) => f.name === name)
+  const column = find(axes.kanbanGroupBy?.field)
+  const lane = find(axes.swimlanes?.field)
+  return { ...(column ? { column } : {}), ...(lane ? { lane } : {}) }
+}

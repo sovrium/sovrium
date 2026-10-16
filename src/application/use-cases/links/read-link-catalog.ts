@@ -31,7 +31,7 @@ import { Effect } from 'effect'
 import { LinkRepository } from '@/application/ports/repositories/links/link-repository'
 import { buildCatalog, dbEntry, configEntry, primaryDestination } from './catalog'
 import { configSlugs, declaredLink } from './config-slugs'
-import { resolveEntryState } from './link-state'
+import { countRecentLinkClicks, resolveEntryState } from './link-state'
 import type { CatalogEntry, CatalogState } from './catalog'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type {
@@ -57,9 +57,14 @@ export interface StatedLinkEntry {
   readonly state: CatalogState
 }
 
+/** A stated entry with its clicks over the last 30 days. */
+export interface CountedLinkEntry extends StatedLinkEntry {
+  readonly clicks: number
+}
+
 /** One page of the catalog. `total` counts the whole filtered set, not the page. */
 export interface LinkCatalogPage {
-  readonly items: readonly StatedLinkEntry[]
+  readonly items: readonly CountedLinkEntry[]
   readonly nextCursor: string | null
   readonly total: number
 }
@@ -96,7 +101,7 @@ const matchesStaticFilters = (
 const paginate = (
   stated: readonly StatedLinkEntry[],
   query: Readonly<LinkCatalogQuery>
-): LinkCatalogPage => {
+): Omit<LinkCatalogPage, 'items'> & { readonly items: readonly StatedLinkEntry[] } => {
   const after = decodeCursor(query.cursor)
   const remaining = after === undefined ? stated : stated.filter((row) => row.entry.slug > after)
   const items = remaining.slice(0, query.limit)
@@ -130,10 +135,20 @@ export const listLinkCatalog = (input: {
       resolveEntryState(app.name, entry, now).pipe(Effect.map((state) => ({ entry, state })))
     )
 
-    return paginate(
+    const page = paginate(
       query.state === undefined ? stated : stated.filter((row) => row.state === query.state),
       query
     )
+    // Counted for the page only, in one grouped read over its slugs.
+    const clicks = yield* countRecentLinkClicks(
+      app.name,
+      page.items.map((row) => row.entry.slug),
+      now
+    )
+    return {
+      ...page,
+      items: page.items.map((row) => ({ ...row, clicks: clicks.get(row.entry.slug) ?? 0 })),
+    }
   }).pipe(Effect.withSpan('links.list-catalog'))
 
 /**
@@ -172,11 +187,16 @@ export const readLinkEntry = (input: {
   readonly app: App
   readonly slug: string
   readonly now: Date
-}): Effect.Effect<StatedLinkEntry | undefined, LinkDbError, LinkRepository | AnalyticsRepository> =>
+}): Effect.Effect<
+  CountedLinkEntry | undefined,
+  LinkDbError,
+  LinkRepository | AnalyticsRepository
+> =>
   Effect.gen(function* () {
     const { app, slug, now } = input
     const entry = yield* resolveLinkEntry(app, slug)
     if (entry === undefined) return undefined
     const state = yield* resolveEntryState(app.name, entry, now)
-    return { entry, state }
+    const clicks = yield* countRecentLinkClicks(app.name, [entry.slug], now)
+    return { entry, state, clicks: clicks.get(entry.slug) ?? 0 }
   }).pipe(Effect.withSpan('links.read-entry'))

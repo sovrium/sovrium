@@ -1,57 +1,31 @@
 # Design System Console
 
-> The console section that draws your design system at its rendered values — foundations, the UI kit, your own components, brand, voice — and the revocable link that publishes it to someone with no login.
+> The console section that draws your design system at its rendered values — foundations, your own components, brand, voice — and the revocable link that publishes it to someone with no login.
 
 `/_admin/design-system` draws the design system your config declares, at the values it actually renders with. The export endpoints and `sovrium design-system` hand the same content to a machine as text; this is the version a person reads.
 
 It is admin-gated and returns `404` to anyone else, and it is **read-only**. Nothing on it edits configuration — the console is an operational data console, and the design system is one of the things it reflects.
 
-## The six pages
+## The pages
 
-The section is reached from **Design** in the sidebar's System group. Overview is a page _about_ the design system; the five after it are pages _of_ it, each drawing your real tokens through the same renderer your own pages use. Two of the six also serve a detail route, reached from the page above it.
+The section is reached from **Design system** in the sidebar's Design group. Overview is a page _about_ the design system; the pages after it are pages _of_ it, each drawing your real tokens through the same renderer your own pages use. Two of them exist only when your config declares what they draw: Components answers 404, and leaves no row in the sidebar, on an app that declares no reusable component, and Brand does the same on an app whose `design` declares tokens and no identity.
 
-| Route                                    | What it draws                                                                                                                                                                               |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/_admin/design-system`                  | The system summarised: live counts, one card per page, and the **Share and export** section at its foot.                                                                                    |
-| `/_admin/design-system/foundations`      | Every token the app renders with — colour, type, spacing, radius, breakpoints, durations — drawn at the value it resolves to in the scheme you are reading, with the type ladder beside it. |
-| `/_admin/design-system/ui-kit`           | Every component type this instance ships, grouped by category with the field types folded in, drawn by the renderer your own pages use.                                                     |
-| `/_admin/design-system/ui-kit/:type`     | One catalogued type, addressed by the schema's own spelling of its name.                                                                                                                    |
-| `/_admin/design-system/brand`            | The identity you declared: the logo and its rules, the imagery rules, what each colour is for, and the zone each route family belongs to.                                                   |
-| `/_admin/design-system/voice`            | The rules a writer follows here: the principles, how the app addresses a reader, the tone per moment, and the per-zone overrides.                                                           |
-| `/_admin/design-system/components`       | The reusable components your own config declares, each rendered on its own beside its usage guidance and its usage count.                                                                   |
-| `/_admin/design-system/components/:name` | One declared component.                                                                                                                                                                     |
+| Route                                    | What it draws                                                                                                                                                                               | Shown when                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `/_admin/design-system`                  | The system summarised: what `design` declares against the default, one row per facet, and the **Share and export** section at its foot.                                                     | always                                                               |
+| `/_admin/design-system/foundations`      | Every token the app renders with — colour, type, spacing, radius, breakpoints, durations — drawn at the value it resolves to in the scheme you are reading, with the type ladder beside it. | always                                                               |
+| `/_admin/design-system/components`       | The reusable components your own config declares, grouped by kind, each drawn on its own with where it is used.                                                                             | `components`                                                         |
+| `/_admin/design-system/components/:name` | One declared component.                                                                                                                                                                     | `components`                                                         |
+| `/_admin/design-system/brand`            | The identity you declared: the logo and its rules, the imagery rules, what each colour is for, and the zone each route family belongs to.                                                   | `design` declares a logo, colour roles, imagery, principles or zones |
+| `/_admin/design-system/voice`            | The rules a writer follows here: the principles, how the app addresses a reader, the tone per moment, and the per-zone overrides.                                                           | reads `design.voice`                                                 |
 
-There was a seventh page, `/design-system/agents`, and it is **retired** rather than redirected. What it carried — the share link, the two export documents and the CLI block — is the **Share and export** section at the foot of the Overview, because a hand-over is what a reader does after reading what they have. A page nothing links to is not a page nobody opens; it is an unaudited one.
+The console does not document the engine's own component types. Those are shadcn/ui's, and `sovrium docs components` lists every one of them with its options; the Overview points there once.
 
 Every page renders through the same shell and reads the same endpoints, so what a page is built from is invisible from the outside. There is **one scheme toggle**, in the console chrome, and it switches the specimens and the chrome around them together. `?scheme=dark` deep-links into it. The values printed beside each swatch follow the scheme, so the page never labels a swatch with a colour it is not showing.
 
-## The component catalog
+## Your components
 
-The **UI kit** page renders one specimen per component type, grouped by category. Each type also has a page of its own at `/_admin/design-system/ui-kit/{type}`. A column beside the page lists the categories and their types; below 1024 px wide it folds behind a **Browse categories** button at the top of the page, which opens the same list in a panel.
-
-Most types are drawn. One that is not is **named anyway, with the reason**: that is the point of the catalog, because a heading over an empty box would assert that the blank is the design. Two reasons appear:
-
-- **Not previewable in a flat document.** The console draws every specimen in one page, because a design system inside a nested scrolling frame is not one a reader can read. That rules out anything with no resting appearance — an overlay that covers the page for as long as it is open, a command palette that builds itself in the browser on the first ⌘K, an `iframe` that would put the nested frame back — and anything carrying a live write control, which a read-only console may not have at all.
-- **Needs a data source this page has none of.** A `record-field` draws one field of the record its page is bound to, and this page is bound to no record. A `language-switcher` draws the languages an app declares, and the console's own surface app declares none.
-
-Each of those types carries its own sentence on its card, saying which of the two applies and where the component can be seen instead. Nothing is silently absent: every catalogued type has either a specimen or a sentence, and the count of each is a property of the catalog rather than of this page.
-
-**No specimen carries a write path.** `form` is excluded from the `data` category because it ships a live submit control. This is not a backlog item: a console that edits configuration is the plane Sovrium deliberately does not ship, and a specimen is not the door it comes back through. Sovrium once shipped four config-editing component types for that plane and excluded them from this catalog for the same reason; they are now removed from the schema entirely, so there is nothing left to exclude — a config naming one is refused at boot.
-
-### States
-
-A type page draws a **States** strip when the type has states worth showing, and nothing at all when it does not. States belong to the TYPE rather than to its category: a `table` and a `chart` are both `data` components, and a table draws five states where a chart draws two — "empty" is a real state of a grid and means nothing on a plotted series. A type that has no strip of its own inherits its category's, so a button and a button group show the same four without either being written out twice.
-
-Each state says two things about itself, and both are there because a strip that hid them would flatter itself:
-
-- **Reached or drawn.** A _reached_ state is the component genuinely in that state — a disabled control is disabled, and an empty grid is a grid whose source returned no rows. A _drawn_ one is a picture: `:hover` and `:focus-visible` cannot be forced from markup, and a fetch in flight cannot be held still, so those cells show what the state looks like without the browser ever being in it. Publishing which is which is the difference between a documented state and a screenshot of one.
-- **What it applies to.** Most states are the whole component's. Some are one **row's** — a hovered row, a selected row — and the strip says so, because "a row is selected" read as "the table is selected" is a different claim, and a highlight meant for one row painted across the whole grid is a different picture.
-
-### Specimens are live
-
-A component on its type page is the real component, mounted under your own theme — not a screenshot of one. Open a disclosure, switch a tab, sort a column, drag a card: the specimen answers, exactly as it will on your own pages.
-
-Everything you do there stays in your browser. The console holds no write path of any kind, so nothing you change is saved, and reloading the page returns every specimen to how it was authored. A component whose only purpose is to write — a comment composer, for instance — is named on its page rather than drawn, for that reason.
+The Components page is a gallery of the templates in your `components` list, grouped by what each one is — **Page sections**, **Cards**, **Forms**, **Navigation** and **Data views** — read from the type of its outermost component. Each tile draws the template live under your own theme, names it, says on how many pages it is used, and offers **Copy $ref**, which copies the line that places it in a page. A template's own page draws it larger, and at the widths below.
 
 ## Seeing a component at three widths
 

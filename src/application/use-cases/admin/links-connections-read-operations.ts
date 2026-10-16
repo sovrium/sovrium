@@ -147,7 +147,7 @@ const linksList = defineAdminRead<LinkCatalogQuery>({
       const now = yield* nowAsDate
       const page = yield* listLinkCatalog({ app, query, now })
       return answerWithSchema(adminLinksListResponseSchema, {
-        items: page.items.map((row) => toAdminLink(row.entry, row.state)),
+        items: page.items.map((row) => toAdminLink(row)),
         nextCursor: page.nextCursor,
         total: page.total,
         appliedQuery: query.q ?? null,
@@ -191,7 +191,7 @@ const linkRead = defineAdminRead<string>({
       const found = yield* readLinkEntry({ app, slug, now })
       if (found === undefined) return { _tag: 'NotFound' } as const
       return answerWithSchema(adminLinkDetailResponseSchema, {
-        link: toAdminLinkDetail(found.entry, found.state),
+        link: toAdminLinkDetail(found),
       })
     }),
 })

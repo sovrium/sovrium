@@ -37,7 +37,14 @@ export const SIDEBAR_NOTES: readonly string[] = [
 
 /** base-nova's `buttonVariants` base: a link drawn as shadcn's Button. */
 const BUTTON_BASE =
-  'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap no-underline transition-all outline-none select-none hover:no-underline focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:pointer-events-none [&_svg]:shrink-0'
+  'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap no-underline transition-all outline-none select-none hover:no-underline focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+
+/**
+ * The rest of base-nova's base, which only addresses a glyph inside the button.
+ * A text-only link carries none: these are arbitrary variants, and a template
+ * that installs the block refuses them (`check-template-arbitrary-classes`).
+ */
+const BUTTON_GLYPH = '[&_svg]:pointer-events-none [&_svg]:shrink-0'
 
 const BUTTON_VARIANT = {
   default: 'bg-primary text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground',
@@ -81,7 +88,7 @@ export const iconButtonLink = (iconName: string, label: string, href: string): B
   props: {
     href,
     'aria-label': label,
-    className: `${BUTTON_BASE} ${BUTTON_VARIANT.ghost} ${BUTTON_SIZE.icon}`,
+    className: `${BUTTON_BASE} ${BUTTON_GLYPH} ${BUTTON_VARIANT.ghost} ${BUTTON_SIZE.icon}`,
   },
   children: [{ type: 'icon', props: { name: iconName, size: 16 } }],
 })

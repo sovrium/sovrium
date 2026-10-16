@@ -65,7 +65,7 @@ export const sectionCardCopy = {
   children: [
     {
       type: 'kpi',
-      label: 'Pages',
+      label: '$t:admin.common.pages',
       dataSource: {
         system: {
           endpoint: '/api/admin/config/reflection',

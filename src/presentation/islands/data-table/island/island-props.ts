@@ -7,16 +7,15 @@
 
 import type { GridStrings } from './grid-strings'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
+import type { SharedFilterPublisherConfig } from '../../hooks/use-shared-filter-publisher'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type {
   DataTableBulkAction,
   DataTableColumn,
   DataTableLayout,
   DataTablePagination,
-  ComponentSearch,
   DataTableSelection,
   DataTableSystemSource,
-  DataTableToolbar,
   DataTableSummaryItem,
   RowHeight,
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
@@ -65,10 +64,10 @@ export interface DataTableIslandProps {
   }
   readonly columns?: readonly DataTableColumn[]
   readonly pagination?: DataTablePagination
-  readonly search?: ComponentSearch
   readonly selection?: DataTableSelection
-  readonly toolbar?: DataTableToolbar
   readonly bulkActions?: readonly DataTableBulkAction[]
+  /** The channel the grid publishes the reader's selected records on. */
+  readonly publishes?: SharedFilterPublisherConfig
   readonly striped?: boolean
   /**
    * Field whose declared option colours fill each row — the grid's spelling of
@@ -82,6 +81,13 @@ export interface DataTableIslandProps {
   readonly rowColorFieldColors?: Readonly<Record<string, string>>
   readonly bordered?: boolean
   readonly emptyMessage?: string
+  /**
+   * What an empty grid bound to a table says when its author wrote no
+   * `emptyMessage`: `<Plural> has no records yet`, resolved server-side. Not
+   * used while a search is active — a search that matched nothing has not
+   * shown the table is empty.
+   */
+  readonly tableEmptyMessage?: string
   /**
    * Message shown when a client-side search/filter reduces a NON-empty dataset
    * to zero rows — the no-match state, distinct from `emptyMessage` (the
@@ -143,26 +149,27 @@ export interface DataTableIslandProps {
   /**
    * Whether the current role may create records in the bound table
    *. Computed server-side from the session role
-   * + the table's `create` permission. When true the toolbar offers the primary
-   * "Nouvel enregistrement" create affordance (a modal with one labelled textbox
-   * per field that POSTs to `/api/tables/:t/records` and refreshes the grid);
-   * when false (or undefined, e.g. auth not configured) the affordance defaults
-   * are: false → button ABSENT (anti-enumeration), undefined → button offered
-   * (no-auth full-access model).
+   * + the table's `create` permission. When true the grid offers its trailing
+   * add-row line; false → the line is ABSENT (anti-enumeration), undefined →
+   * offered (no-auth full-access model).
    */
   readonly canCreate?: boolean
   /**
-   * Interpreter-provided create-record label, resolved server-side
-   * against the active page language ("New record" default, "Nouvel
-   * enregistrement" for French, or an author override). Labels the toolbar
-   * create button and the create modal's title/aria-label so they localize.
-   * Defaults to the English string when absent.
+   * Whether the current role may delete records in the bound table, computed
+   * server-side like {@link canCreate}. When true the selection in the bottom
+   * bar offers Delete; false → no Delete at all, undefined → offered (no-auth
+   * full-access model).
    */
-  readonly newRecordLabel?: string
+  readonly canDelete?: boolean
+  /**
+   * The bound table declares `views[]`: the grid draws its view switcher, whose
+   * first entry reads `allLabel` (`All <plural>`, resolved server-side).
+   * Absent on a table with no views and on a system source.
+   */
+  readonly viewSwitcher?: { readonly allLabel: string }
   /**
    * Interpreter-provided commit / dismiss labels, resolved server-side the same
-   * way. They label the create dialog's footer pair and the inline
-   * select-editor's commit + cancel pair (an `editSelect.saveLabel` still wins
+   * way. They label the inline select-editor's commit + cancel pair (an `editSelect.saveLabel` still wins
    * for that one button). Default to the English strings when absent.
    */
   readonly saveLabel?: string
@@ -170,7 +177,7 @@ export interface DataTableIslandProps {
   /** How the action column draws its actions; `inline` when absent. */
   readonly rowActions?: { readonly display?: 'inline' | 'menu' }
   /**
-   * The grid's other interface strings (toolbar, pager, search default,
+   * The grid's other interface strings (pager, selection bar,
    * add-row), resolved server-side and sent only where they differ from the
    * English each control is written in — absent on an English page.
    */

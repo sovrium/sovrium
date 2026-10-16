@@ -76,7 +76,7 @@ export const renderAutomationNotice = (
   const action: SystemNotificationLink | undefined =
     base === undefined
       ? undefined
-      : { label: 'Open automations', href: `${base}/automations?tab=automations` }
+      : { label: 'Open automations', href: `${base}/runs?tab=automations` }
   const fallback =
     base === undefined && content.fallbackLines !== undefined
       ? [{ lines: content.fallbackLines }]

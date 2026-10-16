@@ -6,6 +6,7 @@
  */
 
 import { componentSlotsOf } from '@/domain/models/app/pages/components/component-types/component-type-union'
+import { extractFirstChildId, isLayoutWrapper } from './field-control-id'
 import type { Component, ComponentType } from '@/domain/models/app/pages/components'
 import type { ReactElement } from 'react'
 
@@ -60,7 +61,10 @@ const isFieldInvalid = (source: Readonly<Record<string, unknown>>): boolean =>
  * screen reader announces the control as invalid and the control draws its
  * invalid ring; a field with a `fieldTitle` names its control by the title
  * (`aria-labelledby`), which reaches a control a `<label for>` cannot, such
- * as a switch. The control is the field's first child.
+ * as a switch, and a field with a `fieldLabel` names it by the label the same
+ * way — a select's trigger is not the element its island host's id is on. The
+ * control is the field's first child; it is given the id the label points at
+ * when the author gave it none (`extractFirstChildId`).
  */
 function withInvalidControl(
   component: Component,
@@ -68,15 +72,35 @@ function withInvalidControl(
 ): ReadonlyArray<Component | string> | undefined {
   const source = component as Readonly<Record<string, unknown>>
   const invalid = isFieldInvalid(source)
-  const titled = typeof source['fieldTitle'] === 'string'
+  const namedBy = namingPartOf(source)
   const [first, ...rest] = children ?? []
-  if ((!invalid && !titled) || typeof first !== 'object') return children
-  const controlId = (first.props as Readonly<Record<string, unknown>> | undefined)?.['id']
+  if ((!invalid && namedBy === undefined) || typeof first !== 'object') return children
+  const controlId = extractFirstChildId(component)
   const marks = {
     ...(invalid ? { 'aria-invalid': 'true' } : {}),
-    ...(titled && typeof controlId === 'string' ? { 'aria-labelledby': `${controlId}-title` } : {}),
+    ...(controlId === undefined
+      ? {}
+      : {
+          id: controlId,
+          ...(namedBy === undefined ? {} : { 'aria-labelledby': `${controlId}-${namedBy}` }),
+        }),
   }
-  return [{ ...first, props: { ...first.props, ...marks } } as Component, ...rest]
+  return [markControl(first, marks), ...rest]
+}
+
+/** Put the marks on the control, through any layout wrapper around it. */
+function markControl(node: Component, marks: Readonly<Record<string, unknown>>): Component {
+  if (!isLayoutWrapper(node)) {
+    return { ...node, props: { ...node.props, ...marks } } as Component
+  }
+  const [inner, ...siblings] = (node as { readonly children?: readonly Component[] }).children ?? []
+  return { ...node, children: [markControl(inner as Component, marks), ...siblings] } as Component
+}
+
+/** The field part that names the control: its title beside a choice, else its label. */
+const namingPartOf = (source: Readonly<Record<string, unknown>>): 'title' | 'label' | undefined => {
+  if (typeof source['fieldTitle'] === 'string') return 'title'
+  return typeof source['fieldLabel'] === 'string' ? 'label' : undefined
 }
 
 /** What a component's children are once its slots are laid out beside them. */

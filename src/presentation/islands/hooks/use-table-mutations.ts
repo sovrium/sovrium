@@ -6,7 +6,7 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createRecordsClient } from '@/presentation/api/client'
+import { createRecordsClient } from '@/presentation/islands/runtime/rpc-client'
 import { saveRetryDelayMs, shouldRetrySave } from './save-retry-policy'
 import type { UpdateRecordRequest } from '@/domain/models/api/tables/records'
 

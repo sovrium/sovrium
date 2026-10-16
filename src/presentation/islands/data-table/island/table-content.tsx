@@ -5,14 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  computeTableElementClasses,
-  computeTableFillScrollClasses,
-} from '@/presentation/design/table-default-classes'
+import { computeTableElementClasses } from '@/presentation/design/table-default-classes'
 import { resolvePageLocale } from '../../runtime/page-locale'
 import { TableBodyRows } from '../body'
 import { TableHeader } from '../body-header'
 import { TableSummaryFooter } from '../body-summary'
+import { tableFrameAttributes } from './fill-column-widths'
+import { FillColGroup, LoadingStatus, ScrollRegion } from './grid-frame-parts'
+import { nameClippedCell } from './scroll-edges'
 import { columnFieldName, useFrozenPinning } from './table-frozen-columns'
 import {
   resolveTableAria,
@@ -222,10 +222,6 @@ function BodyRowsSlot({
   )
 }
 
-/** The scroll region's classes: sideways always, and vertically under `layout: fill`. */
-const scrollRegionClass = (fills: boolean, rowHeight: string): string =>
-  fills ? `overflow-x-auto ${computeTableFillScrollClasses({ rowHeight })}` : 'overflow-x-auto'
-
 /**
  * The grid's scroll region and the `<table>` inside it.
  *
@@ -239,41 +235,42 @@ const scrollRegionClass = (fills: boolean, rowHeight: string): string =>
  * are drawn at travels with it: the floor is the pinned header plus three rows
  * of exactly this height, so a reader whose column has over-subscribed keeps a
  * grid instead of a seam.
+ *
+ * The frame around it anchors the END edge: a shadow drawn over the region's
+ * right side while columns are still clipped past it (see `ScrollRegion`).
  */
 export function TableContent(props: TableContentProps) {
-  const { table, striped, currentRowHeight, cellClass, groupByConfig } = props
+  const { table, striped, currentRowHeight, cellClass, groupByConfig, ariaLabel } = props
   const groupSummary = resolveGroupSummary(props)
   const navigable = isNavigableGrid(props.columnConfig, props.useGridRole)
-  const { hasAriaLabel, gridRole } = resolveTableAria(props.ariaLabel, props.useGridRole, navigable)
+  const { hasAriaLabel, gridRole } = resolveTableAria(ariaLabel, props.useGridRole, navigable)
   const { tableRef, frozenOffsets } = useFrozenPinning(table)
   // prettier-ignore
   const { rows, cursor, fill, canFillFromCell, autoSave, addRow, handleEditSave, handleEditCancel } = useGridInteractions(props, tableRef, navigable)
   const fills = props.layout === 'fill'
 
   return (
-    <div
-      data-slot="table-container"
-      className={scrollRegionClass(fills, currentRowHeight)}
+    <ScrollRegion
+      fills={fills}
+      rowHeight={currentRowHeight}
     >
       <FillRefusals
         refusals={fill.refusals}
         onDismiss={fill.dismissRefusals}
       />
+      <LoadingStatus loading={props.isLoading} />
       <table
         ref={tableRef}
         data-slot="table"
-        {...gridAttributes({
-          gridRole,
-          navigable,
-          hasAriaLabel,
-          ariaLabel: props.ariaLabel,
-          rows,
-          cursor,
-        })}
+        // Ahead of the grid's own handlers, which own focus and the mouse-down.
+        onMouseOver={nameClippedCell}
+        {...gridAttributes({ gridRole, navigable, hasAriaLabel, ariaLabel, rows, cursor })}
         className={`divide-border divide-y ${computeTableElementClasses()}`}
+        {...tableFrameAttributes(table, { fills, loading: props.isLoading })}
         data-striped={String(striped)}
         data-row-height={currentRowHeight}
       >
+        {fills && <FillColGroup table={table} />}
         {/* prettier-ignore */}
         <TableHeader headerGroups={table.getHeaderGroups()} frozenOffsets={frozenOffsets} sticky={fills} />
         <BodyRowsSlot
@@ -296,6 +293,6 @@ export function TableContent(props: TableContentProps) {
         />
         <SummaryFooterSlot props={props} />
       </table>
-    </div>
+    </ScrollRegion>
   )
 }

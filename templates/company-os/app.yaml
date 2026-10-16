@@ -80,3 +80,6 @@ badge:
 
 connections:
   - $ref: ./library/connection/pennylane.yaml
+
+components:
+  - $ref: ./library/block/clients-toolbar.yaml

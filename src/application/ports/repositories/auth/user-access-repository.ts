@@ -6,7 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
-import type { Effect } from 'effect'
+import type { Effect, Option } from 'effect'
 
 /**
  * Database error for user_access junction operations.
@@ -45,6 +45,58 @@ export interface UserAccessInsertInput {
 }
 
 /**
+ * A change to one grant: its records, its role, or both. A grant keeps its
+ * account and its table — moving access elsewhere is a revocation and a new
+ * grant.
+ */
+export interface UserAccessChange {
+  readonly recordIds?: readonly string[]
+  readonly role?: string
+}
+
+/** One record of a scope table, granted to (or taken from) one account. */
+export interface UserAccessRecordGrant {
+  readonly userId: string
+  readonly tableSlug: string
+  readonly recordId: string
+}
+
+/**
+ * Which grants a listing returns: every one, or those matching each criterion
+ * given — an account's (by id, or by email address matched without regard to
+ * case), a table's, the ones naming one record of it.
+ */
+export interface UserAccessFilter {
+  readonly userId?: string
+  readonly userEmail?: string
+  readonly tableSlug?: string
+  readonly recordId?: string
+}
+
+/** An account a grant names, as a listing reads it back to an admin. */
+export interface UserAccessAccount {
+  readonly id: string
+  readonly email: string
+  readonly name: string
+}
+
+/**
+ * Where a scope table's records take their readable label from: the table, the
+ * column its records are keyed by, and the column holding the label.
+ */
+export interface RecordLabelSource {
+  readonly tableName: string
+  readonly primaryKey: string
+  readonly labelField: string
+}
+
+/** One record's readable label. */
+export interface RecordLabel {
+  readonly id: string
+  readonly label: string
+}
+
+/**
  * User-Access Repository Port (Z-2).
  *
  * Backs the `user_access` junction table that maps users to record-id
@@ -71,12 +123,74 @@ export class UserAccessRepository extends Context.Service<
     ) => Effect.Effect<UserAccessRow, UserAccessDatabaseError>
 
     /**
-     * List user_access rows ordered by `created_at ASC`. When `userId`
-     * is provided, results are filtered to the matching user. Used to
-     * enumerate scopes for a given user during admin/diagnostic flows.
+     * List user_access rows ordered by `created_at ASC`, narrowed by each
+     * criterion of `filter` that is given (see {@link UserAccessFilter}).
      */
     readonly list: (
-      filter: Readonly<{ userId?: string }>
+      filter: Readonly<UserAccessFilter>
     ) => Effect.Effect<readonly UserAccessRow[], UserAccessDatabaseError>
+
+    /**
+     * The accounts among `ids`, in ONE query. Ids naming no account are absent
+     * from the answer; an empty `ids` answers an empty list without touching
+     * the store.
+     */
+    readonly findAccounts: (
+      ids: readonly string[]
+    ) => Effect.Effect<readonly UserAccessAccount[], UserAccessDatabaseError>
+
+    /**
+     * The label of each record among `ids` of the source table, in ONE query.
+     * Ids naming no record, and records whose label is empty, are absent from
+     * the answer; an empty `ids` answers an empty list without touching the
+     * store.
+     */
+    readonly labelRecords: (
+      source: Readonly<RecordLabelSource>,
+      ids: readonly string[]
+    ) => Effect.Effect<readonly RecordLabel[], UserAccessDatabaseError>
+
+    /** The grant with this id, or none. */
+    readonly get: (
+      id: string
+    ) => Effect.Effect<Option.Option<UserAccessRow>, UserAccessDatabaseError>
+
+    /** Apply `change` to the grant with this id; the changed grant, or none when no grant has it. */
+    readonly update: (
+      id: string,
+      change: Readonly<UserAccessChange>
+    ) => Effect.Effect<Option.Option<UserAccessRow>, UserAccessDatabaseError>
+
+    /**
+     * Add one record to the account's grant over the table under `role`,
+     * creating the grant when there is none — ATOMICALLY: grants and
+     * revocations of the same account's grants over the same table arriving
+     * at once are applied one after the other, so none is lost and none
+     * brings back what another took away. `true` when access moved, `false`
+     * when the grant already named the record.
+     */
+    readonly grantRecord: (
+      grant: Readonly<UserAccessRecordGrant & { readonly role: string }>,
+      createdBy: string
+    ) => Effect.Effect<boolean, UserAccessDatabaseError>
+
+    /**
+     * Take one record out of EVERY grant the account holds over the table,
+     * erasing a grant left naming no record — atomically, as
+     * {@link grantRecord}. `true` when access moved, `false` when no grant
+     * named the record.
+     */
+    readonly revokeRecord: (
+      grant: Readonly<UserAccessRecordGrant>
+    ) => Effect.Effect<boolean, UserAccessDatabaseError>
+
+    /**
+     * Erase the grant with this id — a hard delete, never a soft one: a revoked
+     * grant leaves nothing a later query could resurrect. The erased grant, or
+     * none when no grant has it.
+     */
+    readonly remove: (
+      id: string
+    ) => Effect.Effect<Option.Option<UserAccessRow>, UserAccessDatabaseError>
   }
 >()('UserAccessRepository') {}

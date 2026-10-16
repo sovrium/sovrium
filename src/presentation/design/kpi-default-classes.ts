@@ -31,6 +31,16 @@ import { CARD_PART_CLASSES, CARD_SURFACE } from '@/presentation/design/card-defa
 import { responsiveClasses, type ResponsiveValues } from '@/presentation/design/responsive-classes'
 
 /**
+ * The card surface without its clip. base-nova's card clips its content so a
+ * leading or trailing image takes the card's corners; a KPI holds no image, and
+ * its corner parts (the footer) round themselves. The clip is what cut the
+ * first letter of every label: a host that nests the KPI in its own card zeroes
+ * `--card-spacing`, which puts the label's first glyph on the clip edge, and a
+ * glyph whose ink starts left of its advance (`F`, `T`, `I`) lost its stem.
+ */
+const KPI_CARD_SURFACE = CARD_SURFACE.replace(' overflow-hidden ', ' ')
+
+/**
  * Compute the className for the KPI host — the card itself.
  *
  * `@container/card` lets the figure grow on a wide card. An error or
@@ -39,7 +49,7 @@ import { responsiveClasses, type ResponsiveValues } from '@/presentation/design/
  * framing the alert as a metric that happens to be broken.
  */
 export const computeKpiCardClasses = (): string =>
-  `${CARD_SURFACE} @container/card has-[>[role=alert]]:contents`
+  `${KPI_CARD_SURFACE} @container/card has-[>[role=alert]]:contents`
 
 /**
  * What the island mounts inside the host: `display: contents`, so the header,

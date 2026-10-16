@@ -8,6 +8,7 @@
 import { Slider } from '@base-ui/react/slider'
 import { useCallback, useRef, useState } from 'react'
 import { cn } from '@/presentation/design/class-merge'
+import { useLazySharedFilterPublisher } from '@/presentation/islands/hooks/use-lazy-shared-filter-publisher'
 import { useSliderAriaSync } from './slider-aria-sync'
 import {
   SLIDER_CONTROL,
@@ -18,6 +19,7 @@ import {
   SLIDER_VALUE,
 } from './slider-default-classes'
 import { SliderThumb } from './slider-thumb'
+import type { SharedFilterPublisherConfig } from '@/presentation/islands/hooks/use-shared-filter-publisher'
 import type { ReactElement } from 'react'
 
 /** The caption row above the slider: its label and, when asked, the value. */
@@ -62,6 +64,30 @@ interface SliderIslandProps {
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+  /** The channel the control publishes its value on, as a condition or a param. */
+  readonly publishes?: SharedFilterPublisherConfig
+}
+
+/**
+ * The slider's shown value, and the change handler that tracks it. A slider
+ * with `publishes` publishes once the reader moves it: resting at its default
+ * it narrows nothing.
+ */
+function useSliderValue(
+  defaultValue: number,
+  publishes: SharedFilterPublisherConfig | undefined
+): readonly [number, (val: number | readonly number[]) => void] {
+  const [value, setValue] = useState(defaultValue)
+  const publish = useLazySharedFilterPublisher(publishes)
+  const handleValueChange = useCallback(
+    (val: number | readonly number[]) => {
+      const next = Array.isArray(val) ? (val[0] ?? defaultValue) : (val as number)
+      setValue(next)
+      publish(next)
+    },
+    [defaultValue, publish]
+  )
+  return [value, handleValueChange] as const
 }
 
 /**
@@ -83,16 +109,10 @@ export default function SliderIsland({
   className,
   id,
   'data-testid': testId,
+  publishes,
 }: SliderIslandProps): ReactElement {
-  const [value, setValue] = useState(defaultValue)
+  const [value, handleValueChange] = useSliderValue(defaultValue, publishes)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  const handleValueChange = useCallback(
-    (val: number | readonly number[]) => {
-      setValue(Array.isArray(val) ? (val[0] ?? defaultValue) : (val as number))
-    },
-    [defaultValue]
-  )
 
   useSliderAriaSync(inputRef, min, max)
 

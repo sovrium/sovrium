@@ -37,6 +37,11 @@ import {
   DataSourceRepository,
   type DataSourceDatabaseError,
 } from '@/application/ports/repositories/tables/data-source-repository'
+import {
+  loadCurrentUserContext,
+  rowRuleScopeOf,
+} from '@/application/use-cases/tables/permissions/row-level-enforcement'
+import { GUEST_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   accountChoiceSets,
@@ -51,13 +56,13 @@ import {
   type OptionSourceQuery,
 } from '@/domain/models/app/forms/form-option-source-service'
 import { normalizeCurrentUserRef } from '@/domain/models/app/pages/current-user-ref'
-import { filterWithFieldLiterals } from '@/domain/models/app/tables/checkbox-literal-service'
+import { readFilterOf } from '@/domain/models/app/tables/user-list-field-service'
 import {
   admittedWindow,
   visitorRowRule,
   type RowRuleReader,
 } from '@/domain/models/app/tables/visitor-row-rule-service'
-import type { App } from '@/domain/models/app'
+import type { App, Table } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { SelectOptionSource } from '@/domain/models/app/table-option-source'
 
@@ -120,18 +125,25 @@ const readerOf = (visitor: FormOptionVisitor | undefined, app: App): RowRuleRead
   }
 }
 
-/** The reader's `user_access` record ids for each scope table a rule reads. */
-const loadAssignments = (reader: RowRuleReader | undefined, scopeTables: readonly string[]) =>
-  Effect.gen(function* () {
-    if (reader === undefined || scopeTables.length === 0) {
-      return new Map<string, readonly string[]>()
-    }
-    const repo = yield* DataSourceRepository
-    const entries = yield* Effect.forEach(scopeTables, (slug) =>
-      repo.fetchUserAssignments(reader.userId, slug).pipe(Effect.map((ids) => [slug, ids] as const))
-    )
-    return new Map<string, readonly string[]>(entries)
-  })
+/**
+ * The context the table's rule judges the visitor by — her assignments, and
+ * the ids each `contains` or relationship leaf admits, read once for the
+ * source (`loadCurrentUserContext`); the signed-out context for anyone not
+ * signed in. A lookup that faults is logged there and admits no row.
+ */
+const loadRowRuleContext = (app: App, table: Table, reader: RowRuleReader | undefined) =>
+  loadCurrentUserContext(
+    reader === undefined
+      ? { userId: GUEST_USER_ID, role: GUEST_USER_ID, isUnrestricted: false }
+      : {
+          userId: reader.userId,
+          role: reader.role,
+          isUnrestricted: reader.isUnrestricted === true,
+          ...(reader.email === undefined ? {} : { email: reader.email }),
+        },
+    table.rowLevelPermissions,
+    rowRuleScopeOf(table, app.tables)
+  )
 
 /**
  * The rows of ONE choice source the visitor may be offered: the form's own
@@ -155,15 +167,17 @@ export const readAdmittedSourceRows = (
     const table = app.auth ? declared : undefined
     const reader = readerOf(visitor, app)
     const rule = visitorRowRule(table, reader)
-    // A literal compared with a checkbox binds a boolean, as on a page's own read.
-    const filter = filterWithFieldLiterals(query.options.filter, declared?.fields)
+    // Compiled as on a page's own read (`readFilterOf`).
+    const filter = readFilterOf(query.options.filter, declared?.fields)
     const options = { ...query.options, filter }
-    if (rule.kind === 'all') return yield* repo.fetchRecords(query.table, options)
+    if (table === undefined || rule.kind === 'all') {
+      return yield* repo.fetchRecords(query.table, options)
+    }
     if (rule.kind === 'none') return []
     const { fields, pageSize, ...whole } = options
     const rows = yield* repo.fetchRecords(query.table, whole)
-    const assignments = yield* loadAssignments(reader, rule.scopeTables)
-    const verdicts = rows.map((row) => rule.admits(row, assignments))
+    const context = yield* loadRowRuleContext(app, table, reader)
+    const verdicts = rows.map((row) => rule.admits(row, context))
     return admittedWindow(rows, verdicts, { fields, pageSize }).rows
   }).pipe(
     Effect.withSpan('forms.read-admitted-source-rows', { attributes: { table: query.table } })

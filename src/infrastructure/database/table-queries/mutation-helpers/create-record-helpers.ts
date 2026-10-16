@@ -10,6 +10,7 @@ import { findConstraintViolation } from '@/domain/errors/driver-failure'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { type DrizzleTransaction } from '@/infrastructure/database'
 import { getBaseTableName } from '@/infrastructure/database/lookup/lookup-view-generators'
+import { INSERTED_ID_SETTING } from '@/infrastructure/database/lookup/lookup-view-triggers'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { validateColumnName, tableIdentifier } from '../statement/validation'
 import { encodeColumnValue } from './column-value-encoding'
@@ -108,18 +109,21 @@ export function buildInsertClauses(
  * from the view so create returns the same shape a plain table would (real id,
  * stamped defaults, computed columns).
  *
- * Dialect id resolution:
- *   - PostgreSQL: `lastval()` returns the last sequence value advanced in this
- *     session. A PL/pgSQL `INSTEAD OF INSERT` trigger's base INSERT advances the
- *     base table's identity sequence persistently, so `lastval()` is correct.
+ * Dialect id resolution — whatever the key type, serial, uuid or text:
+ *   - PostgreSQL: the PL/pgSQL `INSTEAD OF INSERT` trigger leaves the id of the
+ *     base row it inserted in a transaction-local setting
+ *     ({@link INSERTED_ID_SETTING}). `lastval()` served a serial key only: a text
+ *     key (a scope table's) advances no sequence, and `lastval()` refused.
  *   - SQLite: `last_insert_rowid()` is UNSAFE here — after an `INSTEAD OF` trigger
  *     completes, its value REVERTS to the pre-trigger value (SQLite semantics),
  *     so the trigger's base-INSERT rowid is lost and a stale id (a previous
  *     insert's) is returned. The many-to-many junction-write rule surfaced this: an m2m junction (and the
  *     create response id) got written against the WRONG record on a view-backed
- *     table. Instead, read `MAX(id)` of the `<table>_base` table: within this
- *     write transaction SQLite serializes writers and the id auto-increments, so
- *     the just-inserted base row always carries the table's MAX(id).
+ *     table. Instead, read the id of the `<table>_base` row with the largest
+ *     `rowid`: within this write transaction SQLite serializes writers and the
+ *     rowid grows, so the just-inserted base row is the last one — for an
+ *     integer key the rowid IS the id, and a text key's random value has no
+ *     order of its own.
  *
  * Returns `undefined` when the id cannot be resolved so the caller falls back
  * to the raw `RETURNING *` row (no regression for the plain-table path, which
@@ -132,11 +136,12 @@ async function resolveViewBackedInsertRow(
   const { dialect } = parseDatabaseDialectConfig()
   const idQuery =
     dialect === 'postgres'
-      ? sql`SELECT lastval() AS id`
-      : sql`SELECT MAX(id) AS id FROM ${tableIdentifier(getBaseTableName(tableName))}`
+      ? sql`SELECT current_setting(${INSERTED_ID_SETTING}, true) AS id`
+      : sql`SELECT id FROM ${tableIdentifier(getBaseTableName(tableName))} ORDER BY rowid DESC LIMIT 1`
   const idRows = await executeRaw(tx, idQuery)
   const newId = idRows[0]?.id
-  if (newId === null || newId === undefined) return undefined
+  // A custom setting once set in a session reads `''`, not NULL, outside the transaction that set it.
+  if (newId === null || newId === undefined || newId === '') return undefined
   const rows = await executeRaw(
     tx,
     sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id = ${newId} LIMIT 1`
@@ -170,9 +175,8 @@ export async function insertAndResolveRow(
   // so the key is PRESENT with a null value. A composite-primary-key table has
   // no `id` column at all, so the key is ABSENT. Only the former needs the
   // real-id resolution; gating on `'id' in raw` (not `raw.id === undefined`)
-  // avoids running `lastval()` / `MAX(id) FROM <table>_base` against a plain
-  // composite-key table that has neither a sequence nor a `_base` companion
-  // (Postgres 55000 "lastval is not yet defined", SQLite "no such table").
+  // avoids reading the trigger's inserted id / `<table>_base` against a plain
+  // composite-key table that has no `_base` companion (SQLite "no such table").
   if ('id' in raw && raw.id === null) {
     const resolved = await resolveViewBackedInsertRow(tx, tableName)
     if (resolved) return resolved

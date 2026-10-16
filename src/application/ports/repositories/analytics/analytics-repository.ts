@@ -66,6 +66,20 @@ export interface ListEventsParams {
 /**
  * Analytics event row (returned from list queries)
  */
+/**
+ * One grouped count over a set of named events of one type, in a window: how
+ * many events each name recorded. A name with no event has no entry.
+ */
+export interface CountEventsByNameParams {
+  readonly appName: string
+  readonly eventType: string
+  readonly names: readonly string[]
+  /** Inclusive lower bound on the event timestamp. */
+  readonly from: Date
+  /** Inclusive upper bound on the event timestamp. */
+  readonly to: Date
+}
+
 export interface AnalyticsEventRow {
   readonly id: string
   readonly appName: string
@@ -236,6 +250,13 @@ export class AnalyticsRepository extends Context.Service<
       appName: string,
       cutoff: Date
     ) => Effect.Effect<number, AnalyticsDatabaseError>
+    /**
+     * ONE grouped count for many names at once — a page of links reads its
+     * clicks in one query, never one query per link.
+     */
+    readonly countEventsByName: (
+      params: CountEventsByNameParams
+    ) => Effect.Effect<ReadonlyMap<string, number>, AnalyticsDatabaseError>
     readonly listEvents: (params: ListEventsParams) => Effect.Effect<
       {
         readonly events: readonly AnalyticsEventRow[]

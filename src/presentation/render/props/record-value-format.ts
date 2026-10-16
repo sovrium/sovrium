@@ -20,7 +20,7 @@ import {
 } from '@/domain/models/app/tables/record-text-service'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
-import { readColumnOptions } from '@/presentation/render/forms/form-field-resolver'
+import { optionLabelsOf } from '@/presentation/render/props/option-labels'
 import { resolveValueCurrency } from './resolve-chart-field-context'
 import type { DurationDisplayFormat } from '@/domain/kernel/format/duration-format'
 import type { Languages } from '@/domain/models/app/languages'
@@ -106,23 +106,23 @@ const formatOptionsOf = (
   const field = fieldOf(table, fieldName)
   const currency =
     table === undefined ? undefined : resolveValueCurrency(table, fieldName, context.tables ?? [])
+  const fieldType = fieldTypeOf(field, fieldName)
   return {
-    timeZone: zoneOf(field, fieldTypeOf(field, fieldName), context.operatorZone),
+    timeZone: zoneOf(field, fieldType, context.operatorZone),
     now: context.now,
     ...(currency === undefined ? {} : { currency }),
+    // A `duration` field stores seconds; every other number a `duration`
+    // format reads is milliseconds (the formatter's default).
+    ...(fieldType === 'duration' ? { durationUnit: 'seconds' as const } : {}),
   }
 }
 
 /** An option field's labels, stored value → the label read in the page's language. */
-const optionLabelsOf = (
+const fieldOptionLabels = (
   field: TableField | undefined,
   context: FieldTextContext
 ): Readonly<Record<string, string>> =>
-  Object.fromEntries(
-    (readColumnOptions(field, context.languages, context.locale) ?? []).map(
-      (option) => [option.value, option.label] as const
-    )
-  )
+  optionLabelsOf(field, context.languages, { activeLang: context.locale, keepIdentical: true })
 
 /** A field's own display setting, read off its definition. */
 const declared = <T>(field: TableField | undefined, key: string): T | undefined =>
@@ -135,7 +135,7 @@ const cellTextFieldOf = (
   format: ColumnFormat,
   context: FieldTextContext
 ): RecordTextField => {
-  const { timeZone, currency } = formatOptionsOf(table, fieldName, context)
+  const { timeZone, currency, durationUnit } = formatOptionsOf(table, fieldName, context)
   const glue = format === 'datetime' ? dateTimeGlueOf(context.locale) : undefined
   // Only a date reads a zone: the prop an island receives carries nothing else.
   const dated = format === 'short-date' || format === 'datetime'
@@ -144,6 +144,7 @@ const cellTextFieldOf = (
     ...(dated && timeZone !== undefined ? { timeZone } : {}),
     ...(currency && { currency }),
     ...(glue === undefined ? {} : { glue }),
+    ...(format === 'duration' && durationUnit !== undefined ? { durationUnit } : {}),
   }
 }
 
@@ -179,9 +180,9 @@ const recordTextFieldOf = (
   if (format === undefined) return undefined
   if (format === 'percent') return { format, precision: declared<number>(field, 'precision') }
   if (format === 'option' || format === 'options') {
-    return { format, labels: optionLabelsOf(field, context) }
+    return { format, labels: fieldOptionLabels(field, context) }
   }
-  if (format === 'duration') {
+  if (format === 'duration-clock') {
     return { format, displayFormat: declared<DurationDisplayFormat>(field, 'displayFormat') }
   }
   return cellTextFieldOf(table, fieldName, format, context)
@@ -199,6 +200,24 @@ const serverTextContext = (
   locale,
   languages,
 })
+
+/**
+ * A value printed as stored, when neither a format nor a field type applies:
+ * empty for nothing, and a list's items joined the way `locale` joins a list
+ * (`image/png, image/jpeg`) rather than run together by `String(array)`.
+ */
+export const storedValueText = (value: unknown, locale: string): string => {
+  if (value === undefined || value === null) return ''
+  if (!Array.isArray(value)) return String(value)
+  const items = value.map((item: unknown) =>
+    typeof item === 'object' && item !== null ? JSON.stringify(item) : String(item)
+  )
+  try {
+    return new Intl.ListFormat(locale, { type: 'unit', style: 'short' }).format(items)
+  } catch {
+    return items.join(', ')
+  }
+}
 
 /**
  * A record value as it reads on a page, in `locale`: `format` when the author

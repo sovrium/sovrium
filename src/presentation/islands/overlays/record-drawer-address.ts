@@ -24,6 +24,10 @@
 
 const RECORD_PARAM = 'record'
 const DRAWER_PARAM = 'drawer'
+const TAB_PARAM = 'tab'
+
+/** The `record` a sheet opened to create one carries: `?record=new`. */
+export const NEW_RECORD_ADDRESS = 'new'
 
 /** Replace the current address's query with `params`, keeping path and hash. */
 function replaceQuery(params: URLSearchParams): void {
@@ -36,14 +40,47 @@ function replaceQuery(params: URLSearchParams): void {
   )
 }
 
-/** Name `drawerId` and `recordId` in the address. */
+/**
+ * Name `drawerId` and `recordId` in the address. A tab named for ANOTHER record
+ * is dropped, since the record the address now names opens on its details; the
+ * same record keeps the tab it was reached on.
+ */
 export function writeDrawerAddress(drawerId: string, recordId: string): void {
   if (typeof window === 'undefined') return
   const params = new URLSearchParams(window.location.search)
+  if (params.get(RECORD_PARAM) !== recordId) params.delete(TAB_PARAM)
   params.set(RECORD_PARAM, recordId)
   params.set(DRAWER_PARAM, drawerId)
   replaceQuery(params)
 }
+
+/**
+ * Name the sheet's open tab in the address, right after the record —
+ * `?record=<id>&tab=<tab>` — or take it out for the details tab, which a sheet
+ * opens on anyway.
+ */
+export function writeDrawerTab(tab: string | undefined): void {
+  if (typeof window === 'undefined') return
+  const entries = [...new URLSearchParams(window.location.search)].filter(
+    ([name]) => name !== TAB_PARAM
+  )
+  const at = entries.findIndex(([name]) => name === RECORD_PARAM)
+  const withTab =
+    tab === undefined || at === -1
+      ? entries
+      : [
+          ...entries.slice(0, at + 1),
+          [TAB_PARAM, tab] as [string, string],
+          ...entries.slice(at + 1),
+        ]
+  replaceQuery(new URLSearchParams(withTab))
+}
+
+/** The tab the address names, or `undefined` when it names none. */
+export const addressedTab = (): string | undefined =>
+  typeof window === 'undefined'
+    ? undefined
+    : (new URLSearchParams(window.location.search).get(TAB_PARAM) ?? undefined)
 
 /**
  * Take the drawer out of the address when it closes — only when the address
@@ -55,7 +92,9 @@ export function clearDrawerAddress(drawerId: string): void {
   if (params.get(DRAWER_PARAM) !== drawerId) return
   replaceQuery(
     new URLSearchParams(
-      [...params].filter(([name]) => name !== RECORD_PARAM && name !== DRAWER_PARAM)
+      [...params].filter(
+        ([name]) => name !== RECORD_PARAM && name !== DRAWER_PARAM && name !== TAB_PARAM
+      )
     )
   )
 }

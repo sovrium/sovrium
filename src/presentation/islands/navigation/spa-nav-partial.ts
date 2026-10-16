@@ -51,7 +51,14 @@ export interface PartialAnswer {
 /** A partial, or the URL a full navigation should load instead. */
 export type FetchedPartial =
   | { readonly ok: true; readonly answer: PartialAnswer }
-  | { readonly ok: false; readonly fallbackUrl: string }
+  | { readonly ok: false; readonly fallbackUrl: string; readonly refusal?: PartialRefusal }
+
+/**
+ * Why a partial did not come back, when that changes what the reader is shown:
+ * the request never reached the server (`offline`), or the server refused it
+ * the way it refuses a caller with no session (401, or the anti-enumeration 404).
+ */
+export type PartialRefusal = 'offline' | 'unauthorized'
 
 /**
  * Whether the response says its body IS a partial.
@@ -62,6 +69,22 @@ export type FetchedPartial =
  */
 const isEchoedPartial = (response: Response): boolean =>
   response.headers.get(PARTIAL_HEADER) === PARTIAL_VALUE
+
+/**
+ * A partial the server answered but did not serve: 401, and the 404 a caller
+ * with no session is given in its place, are told apart from every other
+ * answer, so the console can ask whether the session ended.
+ */
+const declinedPartial = (response: Response, fallbackUrl: string): FetchedPartial =>
+  response.status === 401 || response.status === 404
+    ? { ok: false, fallbackUrl, refusal: 'unauthorized' }
+    : { ok: false, fallbackUrl }
+
+/** A partial whose request never reached the server — offline, unless it was aborted. */
+const unreachedPartial = (url: string, signal: AbortSignal | undefined): FetchedPartial =>
+  signal?.aborted === true
+    ? { ok: false, fallbackUrl: url }
+    : { ok: false, fallbackUrl: url, refusal: 'offline' }
 
 /**
  * Fetch a content-only partial.
@@ -87,7 +110,7 @@ export async function fetchPartial(
     const finalUrl = response.url || url
     const refused = !response.ok || !isEchoedPartial(response)
     if (refused || (scope === 'app' && response.redirected)) {
-      return { ok: false, fallbackUrl: response.redirected ? finalUrl : url }
+      return declinedPartial(response, response.redirected ? finalUrl : url)
     }
     const answer: PartialAnswer = {
       html: await response.text(),
@@ -98,7 +121,10 @@ export async function fetchPartial(
     }
     return { ok: true, answer }
   } catch {
-    return { ok: false, fallbackUrl: url }
+    // A rejected fetch that was not ABORTED never reached the server: the
+    // reader is offline (or the server is), which a full navigation would turn
+    // into the browser's own error page.
+    return unreachedPartial(url, signal)
   }
 }
 
@@ -136,11 +162,26 @@ export function adoptDensity(density: string | undefined): void {
 function assetPathPrefix(): string {
   const probe =
     document.querySelector('script[src*="/assets/islands/"]')?.getAttribute('src') ??
-    document.querySelector('link[href*="/assets/output.css"]')?.getAttribute('href')
+    [...document.querySelectorAll('link[rel="stylesheet"]')]
+      .map((link) => link.getAttribute('href'))
+      .find(isEngineStylesheetHref)
   if (probe === undefined || probe === null) return ''
   const { pathname } = new URL(probe, window.location.href)
   return pathname.slice(0, Math.max(0, pathname.indexOf('/assets/')))
 }
+
+/**
+ * Whether an href is the engine's own stylesheet, under either of the names it
+ * is served by: the stable `/assets/output.css`, or the content-versioned
+ * `/assets/output-<hash>.css` every rendered page actually links. Matching only
+ * the stable name missed every real page, so a base-path app asked for its
+ * client script at the root.
+ */
+export function isEngineStylesheetHref(href: string | null | undefined): href is string {
+  return href !== null && href !== undefined && ENGINE_STYLESHEET.test(href)
+}
+
+const ENGINE_STYLESHEET = /\/assets\/output(?:-[a-f0-9]{8})?\.css(?:[?#]|$)/
 
 /**
  * Load the page client script once, when a swapped-in region needs it and the

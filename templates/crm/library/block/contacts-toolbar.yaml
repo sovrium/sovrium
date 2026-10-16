@@ -1,0 +1,50 @@
+# sovrium-library: block/data-table-toolbar@0.38.0
+# sovrium-library-params: channel=contacts-filter&exportLabel=Export%20CSV&facetField=status&facetLabel=&importLabel=&newLabel=&newSheet=&searchLabel=&searchPlaceholder=Search%20contacts&table=contacts&toolbarLabel=Contact%20controls
+name: contacts-toolbar
+type: container
+element: div
+props:
+  role: toolbar
+  aria-label: Contact controls
+  className: flex flex-wrap items-center gap-2
+children:
+  - type: search-input
+    placeholder: Search contacts
+    props:
+      aria-label: Search contacts
+      className: 'h-8 w-full sm:w-[150px] lg:w-[250px]'
+    publishes:
+      bindTo: contacts-filter
+      param: q
+  - type: select
+    props:
+      placeholder: Status
+      aria-label: Status
+      className: h-8 w-auto
+    multiple: true
+    optionsFrom:
+      table: contacts
+      field: status
+    publishes:
+      bindTo: contacts-filter
+      field: status
+      operator: in
+  - type: filter-bar
+    publishes:
+      bindTo: contacts-filter
+    fieldsFrom:
+      table: contacts
+  - type: container
+    element: div
+    props:
+      className: flex items-center gap-2 sm:ml-auto
+    children:
+      - type: button
+        label: Export CSV
+        variant: outline
+        size: sm
+        action:
+          type: fetch
+          mode: download
+          url: /api/tables/contacts/export?format=csv
+          filename: contacts.csv

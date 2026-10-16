@@ -30,12 +30,17 @@ import {
   CONFIRM_CANCEL_LABEL_ATTR,
   CONFIRM_CANCEL_LABEL_FALLBACK,
 } from '@/domain/models/app/pages/confirm-gate-labels'
-import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
+import {
+  joinPartButtonClasses,
+  PART_BUTTON_DESTRUCTIVE,
+  PART_BUTTON_OUTLINE,
+  PART_BUTTON_SM,
+} from '@/presentation/design/button-variant-classes'
 import {
   computeDialogDescriptionClasses,
   computeDialogTitleClasses,
 } from '@/presentation/design/dialog-default-classes'
-import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
+import { computeInputRecipeClasses } from '@/presentation/design/input-default-classes'
 import { restoreInertTemplateValue } from '@/presentation/design/session-template'
 import { fetchSessionUser, resolveSessionTemplate } from './session-resolver'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
@@ -46,15 +51,17 @@ import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm
  * recipe for the type-to-confirm textbox, and base-nova's `buttonVariants` for
  * the two affordances (destructive confirm, outline cancel), both at `sm`. The
  * part-button recipe rather than the `button` component's: this runtime ships to
- * every page, and the component recipe carries the schema's variant table.
+ * every page, and the component recipe carries the schema's variant table. For
+ * the same reason it reads the two variant strings and the size it draws, and
+ * the bare input recipe, rather than the tables they are picked from.
  */
 const DIALOG_CLASS = 'mt-2 flex flex-col gap-2 rounded-lg border bg-card p-3 text-card-foreground'
 const TITLE_CLASS = computeDialogTitleClasses('alert-dialog')
 const MESSAGE_CLASS = computeDialogDescriptionClasses('alert-dialog')
-const INPUT_CLASS = computeInputDefaultClasses()
+const INPUT_CLASS = computeInputRecipeClasses()
 const BUTTON_ROW_CLASS = 'flex items-center gap-2'
-const CONFIRM_BTN_CLASS = computePartButtonClasses({ variant: 'destructive', size: 'sm' })
-const CANCEL_BTN_CLASS = computePartButtonClasses({ variant: 'outline', size: 'sm' })
+const CONFIRM_BTN_CLASS = joinPartButtonClasses(PART_BUTTON_DESTRUCTIVE, PART_BUTTON_SM)
+const CANCEL_BTN_CLASS = joinPartButtonClasses(PART_BUTTON_OUTLINE, PART_BUTTON_SM)
 
 /**
  * Parse the `data-confirm-config` blob into the OBJECT-form confirm descriptor.

@@ -126,8 +126,8 @@ export default {
   // Panel ids stay DECLARED in `organisation.ts` regardless: a caption's id is
   // derived from the raw token's key when none is written, and `?tab=` is an
   // address that must not move with the active locale.
-  'admin.organisation.tabs.findings': 'Findings',
   'admin.organisation.tabs.matrix': 'Matrix',
+  'admin.organisation.findingsFact': 'findings',
   'admin.organisation.tabs.map': 'Map',
   'admin.organisation.tabs.reach': 'Reach',
   'admin.organisation.tabs.processes': 'Processes',
@@ -148,6 +148,8 @@ export default {
   'admin.organisation.matrix.empty':
     'Nothing to cross. This app declares no resources, or no roles, teams or open grants that could reach them.',
   'admin.organisation.matrix.flag': 'Through the open rung',
+  // The Map and Processes mark: a node a structural finding names.
+  'admin.organisation.graph.flag': 'Named by a finding',
 
   'admin.organisation.map.label':
     'Who reaches what, and through which grant. The table below carries the same nodes and grants as text.',
@@ -248,17 +250,17 @@ export default {
   'admin.templates.file.body':
     'Word, Excel and PowerPoint templates produce a file, so there is nothing to show in the browser. To render it with its sample data, run this in the project folder:',
 
-  // ── Footprint (`/footprint`) ────────────────────────────────────────────
-  'admin.footprint.heading': 'Footprint',
-  'admin.footprint.blurb':
-    'What this instance consumed, and the levers it is running under. Every figure below is either measured by this process or declared by you — each region says which.',
+  // ── Footprint (`/analytics?tab=footprint`) ────────────────────────────────────────────
 
-  // ── Records (`/tables`, `/tables/:table`) ───────────────────────────────
+  // ── Records (`/records`, `/records/:table`) ───────────────────────────────
   'admin.tables.heading': 'Records',
   'admin.tables.blurb':
     'Browse and edit the records in your tables. Choose a table to open its grid — search, sort, filter, then open a record to edit it.',
+  'admin.tables.toolbar': 'Record controls',
+  'admin.tables.search': 'Search rows',
+  'admin.tables.export': 'Export CSV',
 
-  // ── Files (`/buckets`, `/buckets/system`, `/buckets/:bucket`) ────────────
+  // ── Files (`/files`, `/files/system`, `/files/:bucket`) ────────────
   //
   // TWO blurbs, for the reason Conversations has two: the built-in bucket is a
   // different thing from a declared one, and route order picks the sentence —
@@ -271,7 +273,7 @@ export default {
   'admin.buckets.blurbSystem':
     'The built-in bucket. It lists every document and image attached to a record, with the bucket, table, record and field it belongs to, and stores the attachments whose field names no bucket.',
 
-  // ── Conversations (`/agents`, `/agents/:agent`) ─────────────────────────
+  // ── Conversations (`/conversations`, `/conversations/:agent`) ─────────────────────────
   //
   // TWO blurbs, because the built-in System Agent is a different thing from a
   // declared one and the sentence that orients an operator has to say so. Which
@@ -282,8 +284,12 @@ export default {
     'Every conversation your users had with this agent. Open one to read the full thread.',
   'admin.agents.blurbSystem':
     'Conversations with the built-in System agent: the Welcome assistant, and every chat that names no declared agent. It reads your app’s data and never changes it. Open one to read the full thread.',
+  // The Person facet above the viewer: the caption IS the control's accessible
+  // name, and the empty choice is the unfiltered list.
+  'admin.conversations.person': 'Person',
+  'admin.conversations.everyone': 'Everyone',
 
-  // ── Submissions (`/forms`, `/forms/:form`) ──────────────────────────────
+  // ── Submissions (`/submissions`, `/submissions/:form`) ──────────────────────────────
   'admin.forms.heading': 'Submissions',
   'admin.forms.blurb':
     'Review the submissions you have received, form by form. Choose a form to browse its inbox, open a submission, or export everything to CSV.',
@@ -297,8 +303,8 @@ export default {
   'admin.connections.status.expired': 'Expired',
   // A token with no refresh token that lapses within 7 days, or has lapsed.
   'admin.connections.status.reconnectNeeded': 'Reconnect needed',
+  'admin.connections.status.notConnected': 'Not connected',
   'admin.connections.col.connection': 'Connection',
-  'admin.connections.col.provider': 'Provider',
   'admin.connections.col.type': 'Type',
   'admin.connections.col.status': 'Status',
   'admin.connections.col.tokens': 'Tokens',
@@ -343,13 +349,17 @@ export default {
   'admin.users.account.gaps.activity.heading': 'Last active',
   'admin.users.account.gaps.activity.body':
     'The directory returns id, email, name, role, status and groups. A per-account last-activity moment needs the session table joined in, which no read does.',
+  // Access — the scope-table grants this account holds. Read-only: the line
+  // under the heading says where grants change, so nobody hunts for a control.
+  'admin.users.account.access.region': 'Access',
+  'admin.users.account.access.heading': 'Access',
+  'admin.users.account.access.body':
+    'The records of scope tables this account has been granted, and the role each grant gives. Grants change through the API, the seed or automations, never here.',
+  'admin.users.account.access.grid': 'Grants',
 
-  // ── Invitations (`/users/invitations`) ──────────────────────────────────
-  'admin.invitations.heading': 'Invitations',
-  'admin.invitations.blurb':
-    'Invite someone to this app, see which invitations are still outstanding, and take one back before it is accepted.',
+  // ── Invitations (`/users?tab=invitations`) ──────────────────────────────────
 
-  // ── Analytics (`/pages`) ────────────────────────────────────────────────
+  // ── Analytics (`/analytics`) ────────────────────────────────────────────────
   //
   // TWO blurbs, because the lede describes what the page SHOWS and has to track
   // whether it can show anything. Promising the trend and the top pages
@@ -363,7 +373,7 @@ export default {
     'Measure your pages’ audience — views, visitors, sessions and their sources. Analytics is off for this app; turn it on to start collecting.',
   'admin.pages.tabs.region': 'Analytics sub-views',
 
-  // ── Automations (`/automations`) ─────────────────────────────────────
+  // ── Runs (`/runs`) ─────────────────────────────────────
   //
   // The blurb drops the "here is what this page contains" line and keeps the two
   // sentences an operator needs: what Pause does and what it deliberately does
@@ -406,12 +416,22 @@ export default {
   'admin.automations.region': 'Automations',
   'admin.buckets.browser.region': 'File browser',
   'admin.buckets.upload.region': 'Upload file',
+  'admin.buckets.upload.failed': 'Couldn’t upload {file}.',
+  // The three rules keys keep a space at each end: they sit between other
+  // elements of one line, and the spaces are what separate the words for a
+  // screen reader (the line's flex gap is not text).
+  'admin.buckets.public': 'Public',
+  'admin.buckets.rules.types': ' Accepts ',
+  'admin.buckets.rules.sizeBefore': ' Up to ',
+  'admin.buckets.rules.sizeAfter': ' per file ',
   'admin.connections.region': 'Connections',
   'admin.forms.metrics.region': 'Form metrics',
   'admin.forms.submissions.region': 'Submissions',
   'admin.users.metrics.region': 'User metrics',
   'admin.users.region': 'Users',
   'admin.invitations.form.region': 'Invite a teammate',
+  'admin.invitations.form.blurb': 'They get an email with a link to join.',
+  'admin.invitations.sent': 'Invitation sent to $response.user.email',
   'admin.invitations.pending.region': 'Pending invitations',
 
   // ── Empty states: the three different problems ──────────────────────────
@@ -434,7 +454,7 @@ export default {
     'This app declares no automations yet. Add one in your app config to see its runs appear here.',
   'admin.automations.empty.hint': 'No automations yet — so nothing to run.',
 
-  // ── Automations · catalog (`/automations?tab=automations`) ──────────────
+  // ── Runs · catalog (`/runs?tab=automations`) ──────────────
   'admin.automations.catalog.reason': 'Pause reason',
   'admin.automations.catalog.reason.automatic': 'Automatic, after repeated failures',
   'admin.automations.catalog.col.automation': 'Automation',
@@ -452,11 +472,14 @@ export default {
   'admin.automations.catalog.pause.title': 'Pause this automation?',
   'admin.automations.catalog.pause.message':
     'New runs stop until you resume. A run already in progress is not cancelled.',
-  'admin.automations.catalog.pause.toast': 'Automation paused',
+  // `$record.name` is filled from the row pressed: on a catalogue of many, the
+  // toast says WHICH automation, rather than leaving the operator to guess.
+  'admin.automations.catalog.pause.toast': '$record.name paused',
+  'admin.automations.catalog.pause.failed': 'Couldn’t pause $record.name.',
   'admin.automations.catalog.resume.toast': 'Automation resumed',
   'admin.automations.catalog.empty': 'No automations',
 
-  // ── Automations · run history (`/automations`) ──────────────────────────
+  // ── Runs · run history (`/runs`) ──────────────────────────
   'admin.automations.runs.heading': 'Run history',
   'admin.automations.runs.scope':
     'Shows the 25 most recent runs. Search and the filters query every run and return the 25 most recent matches.',
@@ -488,12 +511,16 @@ export default {
   'admin.automations.runs.col.status': 'Status',
   'admin.automations.runs.col.started': 'Started',
   'admin.automations.runs.col.duration': 'Duration',
+  'admin.automations.runs.col.stepCount': 'Steps',
+  'admin.automations.runs.col.attempt': 'Attempt',
+  'admin.automations.runs.col.error': 'Error',
+  'admin.automations.runs.action.record': 'Open record',
   'admin.automations.runs.action.view': 'View run',
   'admin.automations.runs.search': 'Search runs',
   'admin.automations.runs.empty': 'No runs',
   'admin.automations.runs.noMatch': 'No run matches “{query}”',
 
-  // ── Automations · one run (`/automations/runs/:id`) ──────────────────
+  // ── Runs · one run (`/runs/:id`) ──────────────────
   // The one thing a run page cannot answer with a control: configuration is
   // code-only, so the page names the address instead of offering an
   // edit affordance it would have to refuse.
@@ -527,32 +554,20 @@ export default {
   'admin.automations.runs.detail.retry.toast': 'Retry started',
   'admin.automations.runs.detail.retry.error': 'The run was not retried.',
 
-  // ── Submissions · one form (`/forms/:form`) ─────────────────────────────
+  // ── Submissions · one form (`/submissions/:form`) ─────────────────────────────
   'admin.forms.openForm': 'Open form',
-  'admin.forms.conversion.heading': 'Conversion rate',
-  'admin.forms.conversion.why':
-    'Conversion rate needs a view counter — Sovrium does not measure that yet.',
   'admin.forms.tabs.region': 'Submissions sub-views',
   'admin.forms.trend.region': 'Submissions over time',
-  'admin.forms.gaps.region': 'Figures not measured yet',
-  'admin.forms.gaps.heading': 'Not measured yet',
   // The value line shared by every gap card. Deliberately not "0" and not
   // "unavailable": nothing failed, the figure is simply not instrumented.
-  'admin.forms.metric.unmeasured': 'not measured',
-  'admin.forms.duration.heading': 'Average completion time',
-  'admin.forms.duration.why':
-    'Timing a submission needs the moment the form was opened; only the moment it arrived is recorded.',
-  'admin.forms.attachments.heading': 'Attachments',
-  'admin.forms.attachments.why':
-    'Counting them means reading every submission’s data, which the aggregate query deliberately skips to stay cheap.',
   'admin.forms.dropOff.heading': 'Drop-off per step',
-  'admin.forms.dropOff.why':
-    'Knowing where someone stopped needs a record of the steps they reached; a multi-step form stores only what it received.',
+  'admin.forms.dropOff.singlePage': 'Not applicable: single-page form',
+  'admin.forms.reveal': 'Reveal answers',
   'admin.forms.export.region': 'Export to CSV',
   'admin.forms.scope':
     'Shows the 25 most recent submissions. Search queries every submission and returns the 25 most recent matches.',
 
-  // ── Analytics (`/pages`) ────────────────────────────────────────────────
+  // ── Analytics (`/analytics`) ────────────────────────────────────────────────
   'admin.pages.metrics.region': 'Audience metrics',
   'admin.pages.trend.region': 'Audience trend',
   'admin.pages.top.region': 'Most-viewed pages',
@@ -608,7 +623,7 @@ export default {
   'admin.links.manage.config.body':
     'This link is declared in app.links[]. Edit the configuration file and restart to change it; the console never writes configuration.',
 
-  // ── Footprint (`/footprint`) ────────────────────────────────────────────
+  // ── Footprint (`/analytics?tab=footprint`) ────────────────────────────────────────────
   'admin.footprint.measured.heading': 'Measured',
   'admin.footprint.storage.heading': 'Storage',
   'admin.footprint.storage.region': 'Storage consumers',

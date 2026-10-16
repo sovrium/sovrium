@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { displayNameOf } from '@/domain/models/app/display-name-service'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -45,7 +46,7 @@ function createHomePageContent(app: App): ReadonlyArray<Component | string> {
         'data-testid': 'app-name-heading',
         className: 'scroll-m-20 text-5xl font-extrabold tracking-tight lg:text-6xl text-center',
       },
-      content: app.name,
+      content: displayNameOf(app),
     },
     ...(app.description
       ? [
@@ -82,8 +83,8 @@ export function createDefaultHomePageConfig(app: App): Page {
     path: '/',
     meta: {
       lang: 'en-US',
-      title: `${app.name} - Powered by Sovrium`,
-      description: app.description ?? `Welcome to ${app.name}`,
+      title: `${displayNameOf(app)} - Powered by Sovrium`,
+      description: app.description ?? `Welcome to ${displayNameOf(app)}`,
     },
     components: [
       {

@@ -8,6 +8,7 @@
 import type { DrawerChoice } from './record-drawer-choices'
 import type { RecordButtonConfig } from '../runtime/record-button'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
+import type { FieldCondition } from '@/domain/models/app/tables/condition-operators'
 import type { OptionChipPaint } from '@/presentation/design/option-chip-paint'
 
 /** A schema-derived field the drawer renders a control (or structured block) for. */
@@ -81,6 +82,19 @@ export interface RecordDrawerField {
   /** An optional link's Clear control, caption and accessible name, in the page language. */
   readonly clearLabel?: string
   readonly clearName?: string
+  /** A rating's scale and glyph. */
+  readonly max?: number
+  readonly ratingStyle?: string
+  /** A code value's language. */
+  readonly language?: string
+  /** A multi-valued link: chips of the linked records and a picker. */
+  readonly allowMultiple?: boolean
+  /** A duration's declared display format. */
+  readonly displayFormat?: string
+  /** The value a new record starts with, as text. */
+  readonly defaultValue?: string
+  /** Drawn only on a record meeting it (`record-drawer-visibility.ts`). */
+  readonly visibleWhen?: FieldCondition
 }
 
 export type Values = Record<string, string>
@@ -89,4 +103,13 @@ export type RawRecord = Record<string, unknown>
 /** Whether a field renders as a read-only structured block (CAP-3) vs an editable input. */
 export function isStructured(field: RecordDrawerField): boolean {
   return field.renderAs !== undefined && field.renderAs !== 'text'
+}
+
+/**
+ * Whether an editable drawer draws a field as its VALUE: one the reader may not
+ * write — by role, or because it is computed, AI or stamped — never an input
+ * Save would send. An action and a structured block keep their own rendering.
+ */
+export function readsAsValue(field: RecordDrawerField): boolean {
+  return field.readOnly === true && !field.button && !isStructured(field)
 }

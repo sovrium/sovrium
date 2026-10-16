@@ -76,6 +76,19 @@ function buildNavigateHandlers(
   }
 }
 
+/** The card's activation, also publishing its record on a board that publishes the selected card. */
+function withSelection(
+  activate: (() => void) | undefined,
+  select: ((recordId: unknown) => void) | undefined,
+  record: TableRecord
+): (() => void) | undefined {
+  if (select === undefined) return activate
+  return () => {
+    select(record['id'])
+    activate?.()
+  }
+}
+
 /** Resolve all card-template-derived values in one pass (returns undefined when no card config). */
 function resolveCardData(
   card: KanbanCard | undefined,
@@ -287,7 +300,9 @@ export function KanbanCardView({
   const recordId = String(record['id'] ?? '')
   const sortable = useSortable({ id: recordId, disabled: !draggableEnabled })
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = sortable
-  const { activate, dataColor, cardColors, coverImageSrc } = resolveCardData(card, record, format)
+  const data = resolveCardData(card, record, format)
+  const { dataColor, cardColors, coverImageSrc } = data
+  const activate = withSelection(data.activate, format.select, record)
   const { onClick, onKeyDown } = buildNavigateHandlers(activate, isDragging)
   const style = useCardStyle({ transform, transition, cardColors })
 

@@ -159,7 +159,7 @@ export const COMPONENT_FIELD_REFERENCE_PATHS: Readonly<Record<string, readonly s
     'props.colorField',
   ],
   form: ['fields[].field', 'fieldGroups[].fields[]'],
-  sheet: ['recordFields[].name'],
+  sheet: ['recordFields[].name', 'recordFields[].visibleWhen.field', 'actions[].visibleWhen.field'],
   chart: ['series[].field', 'chartAggregate.field', 'chartAggregate.groupBy'],
   kpi: ['kpiAggregate.field'],
 }

@@ -72,7 +72,6 @@ import {
 } from '@/domain/models/app/languages/language-detection'
 import { grantedCallerCapabilities } from '@/domain/models/app/pages/component-session-visibility-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { isEmailConfigured } from '@/infrastructure/process/env'
 import {
   extractSurfaceContent,
   isPartialRequest,
@@ -83,6 +82,8 @@ import {
   systemRecordFetcher,
   systemRowsFetcher,
 } from '../../../infrastructure/egress/system-rows-fetcher'
+import { isPublicMountPath } from './mounted-app-public-paths'
+import { resolveMountedRedirect } from './mounted-app-redirect'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
 import type { EmbeddedAppMount } from '@/application/ports/contracts/embedded-app-mount'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
@@ -105,19 +106,6 @@ export interface MountedAppRoutesDeps {
   readonly mounts: readonly EmbeddedAppMount[]
   readonly resolveScopedMountApp: (mount: EmbeddedAppMount, operatorApp: App) => App
   readonly synthesiseMountSurface: (input: MountSurfaceInput) => Promise<MountSurfaceOutcome>
-}
-
-/**
- * Whether a path is reachable without a session, for THIS mount.
- *
- * The sign-in card is public unconditionally — losing outgoing mail must never
- * cost the operator their way in. The recovery pair is public only while SMTP
- * is configured: a recovery form that can never mail anything is worse than no
- * form at all, so without mail it is absent rather than broken.
- */
-const isPublicMountPath = (mount: EmbeddedAppMount, path: string): boolean => {
-  if (!mount.publicPaths.has(path)) return false
-  return !mount.mailGatedPublicPaths.has(path) || isEmailConfigured()
 }
 
 /**
@@ -187,9 +175,8 @@ const resolveAccess = async (
   if (!hasAccess && !isPublicMountPath(mount, path)) {
     return c.html(await config.renderNotFoundPage(config.app), 404)
   }
-  // Single admin guard: every admin who reaches the console gets full data
-  // access (record editing). There is no config-editing surface, so `canEdit`
-  // is uniform for all admins.
+  // Single admin guard: every admin reaching the console gets full data access
+  // (no config-editing surface exists, so `canEdit` is uniform for admins).
   //
   // INVARIANT — an ANONYMOUS caller also reaches this line, on the public
   // carve-out, and is granted `canEdit: true`. That is not an access decision:
@@ -220,7 +207,7 @@ const resolveAccess = async (
  * if the content marker is missing it falls back to the full document (never an
  * empty partial).
  */
-const respondWithSurface = (c: Context, rendered: string): Response => {
+const respondWithSurface = (c: Context, rendered: string, status: 200 | 404 = 200): Response => {
   if (isPartialRequest(c)) {
     const content = extractSurfaceContent(rendered)
     if (content !== undefined) {
@@ -232,11 +219,15 @@ const respondWithSurface = (c: Context, rendered: string): Response => {
       // The echo says the body really IS the region: a fallback to the full
       // document below carries no echo, so the client full-loads rather than
       // nesting a whole page inside the region.
-      return c.html(content, 200, partialEchoHeaders(rendered))
+      return c.html(content, status, partialEchoHeaders(rendered))
     }
   }
-  return c.html(rendered, 200)
+  return c.html(rendered, status)
 }
+
+/** The console page a missing address renders, answered with a 404 even when asked for directly. */
+const NOT_FOUND_PATH = '/404'
+const statusOf = (mountPath: string): 200 | 404 => (mountPath === NOT_FOUND_PATH ? 404 : 200)
 
 /** Everything rendering one mounted request needs. */
 interface MountedRenderInput {
@@ -278,30 +269,20 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
     mountPath,
     ...(posture.session ? { session: posture.session } : {}),
   })
-  // ─── NO `?scheme` / `?viewport` / `?expand` / `?category` CHANNEL ─────────
-  //
-  // These four URL parameters are not lifted out of the request here. Every
-  // console destination is an authored page and declares its own `page.query`,
-  // so each of the four arrives through the ordinary interpreter path —
-  // clamped to a declared `enum` on the way in, which a side channel would not
-  // be. A second route for the same parameter is a way for the two to
-  // disagree about what the URL said.
+  // No `?scheme` / `?viewport` / `?expand` / `?category` channel here: every
+  // console page declares its own `page.query`, so each arrives through the
+  // interpreter clamped to a declared `enum` — a second route for the same
+  // parameter is a way for the two to disagree about what the URL said.
   // `none` means the path has no synthesized surface (a static preset page such
   // as the sign-in card) — render the mount's own config as authored.
   const surfaceApp = surface.kind === 'app' ? surface.app : scopedApp
-  // The operator's persisted language, resolved against the MOUNTED app's own
-  // `languages.supported` — ACCOUNT first, then this browser's cookie, the same
-  // rank the ordinary page routes apply (`preferredLanguageFor`,
-  // `presentation/api/pages/page-routes.ts`): the account travels to every
-  // machine its owner signs in on, the cookie is what one browser remembers.
-  //
-  // Derived from `posture.session` LOCALLY rather than threaded into
-  // `renderPage`: a mounted page renders session-less by design, and what the
-  // renderer needs is the resolved language, not the identity it came from.
+  // The operator's language against the MOUNTED app's `languages.supported`:
+  // account first, then this browser's cookie (the page routes' rank). Derived
+  // here, not threaded into `renderPage`: a mounted page renders session-less.
   const preferredLanguage =
     resolvePreferredLanguage(surfaceApp.languages, posture.session?.language) ??
     resolvePreferredLanguage(surfaceApp.languages, getCookie(c, LANGUAGE_PREFERENCE_COOKIE))
-  const result: PageRenderResult = await config.renderPage(surfaceApp, mountPath, {
+  const renderOptions = {
     requestQuery: c.req.query(),
     requestOrigin: resolveRequestBaseUrl(c),
     // The browser's cookies, as unmounted routes pass them (a folded sidebar).
@@ -342,17 +323,32 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
     // direction that withholds an affordance from the administrator it was
     // authored for. See `grantedCapabilitiesOf`.
     callerCapabilities: grantedCapabilitiesOf(posture, config.app),
-  })
+  }
+  const result: PageRenderResult = await config.renderPage(surfaceApp, mountPath, renderOptions)
   if (typeof result === 'string') {
-    return respondWithSurface(c, result)
+    return respondWithSurface(c, result, statusOf(mountPath))
   }
   if (result && typeof result === 'object' && 'redirect' in result) {
     return c.redirect(result.redirect, 302)
   }
-  // No page matched the requested sub-path — render the console's own
-  // not-found within the console config, in the operator's remembered language
-  // — the same resolved value the page itself would use.
-  return c.html(await config.renderNotFoundPage(scopedApp, preferredLanguage), 404)
+  return renderMissing(input, renderOptions, preferredLanguage)
+}
+
+/**
+ * No page matched: a signed-in operator gets the console's own `/404` drawn
+ * like any page, shell included; anyone else, or a console declaring none,
+ * the bare not-found (S1 — no console chrome for a caller without a session).
+ */
+const renderMissing = async (
+  { config, c, scopedApp, posture }: MountedRenderInput,
+  options: Parameters<HonoAppConfig['renderPage']>[2],
+  language: string | undefined
+): Promise<Response> => {
+  const page = posture.session
+    ? await config.renderPage(scopedApp, NOT_FOUND_PATH, options)
+    : undefined
+  if (typeof page === 'string') return respondWithSurface(c, page, 404)
+  return c.html(await config.renderNotFoundPage(scopedApp, language), 404)
 }
 
 /**
@@ -445,6 +441,10 @@ const handleMountedApp =
     // stylesheet identity and that stylesheet carries the operator's own design
     // system as a subtree layer.
     const scopedApp = deps.resolveScopedMountApp(mount, config.app)
+
+    // Its own `redirects`, only AFTER the access decision (a denied caller gets 404).
+    const redirect = resolveMountedRedirect(mount, scopedApp, c)
+    if (redirect !== undefined) return redirect
 
     try {
       return await renderMountedSurface({

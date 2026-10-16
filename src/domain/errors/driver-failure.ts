@@ -157,7 +157,7 @@ const SQLSTATE_PATTERN = /^[\dA-Z]{5}$/
  * `code` is still consulted second so `pg` / `postgres.js` — which do put the
  * SQLSTATE on `code` — keep working if a driver is ever swapped in.
  */
-const readSqlState = (node: DriverErrorLike): string | undefined =>
+export const readSqlState = (node: DriverErrorLike): string | undefined =>
   [node.errno, node.code].find(
     (candidate): candidate is string =>
       typeof candidate === 'string' && SQLSTATE_PATTERN.test(candidate)
@@ -299,7 +299,7 @@ const MAX_CAUSE_DEPTH = 8
  * (`DatabaseError`), the drizzle wrapper sits under it, and the real
  * driver error — the only node carrying the result code — sits under that.
  */
-function collectCauseChain(error: unknown, depth = 0): readonly DriverErrorLike[] {
+export function collectCauseChain(error: unknown, depth = 0): readonly DriverErrorLike[] {
   if (depth >= MAX_CAUSE_DEPTH || error === null || typeof error !== 'object') return []
   const node = error as DriverErrorLike
   return [node, ...collectCauseChain(node.cause, depth + 1)]

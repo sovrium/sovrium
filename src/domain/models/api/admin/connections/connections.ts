@@ -45,7 +45,8 @@
  * already document and enforce the same token-exclusion invariant.
  *
  * The exposed fields are EXACTLY:
- *   - per connection (list + detail): `id`, `name`, `provider`, `type`,
+ *   - per connection (list + detail): `id`, `name`, `provider`, the derived
+ *     `label` (name · provider, or the name alone when they match), `type`,
  *     `tokenCount` (int), `expiresAt` (soonest token expiry, ISO 8601 nullable),
  *     a derived `status` (`active | expired | expiring-soon`), `createdAt`.
  *   - per-user token row (detail only): `userId`, `expiresAt` (nullable),
@@ -86,10 +87,13 @@ export const CONNECTION_EXPIRING_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
  * Derived per-connection authorization health, computed from the soonest token
  * `expiresAt` across the connection's `system.connection_tokens` rows:
  *
- *   - `active`        — has token(s) all comfortably in the future, OR has NO
- *     token rows at all (apiKey / basic / bearer connections generate zero
- *     `connection_tokens`; they are configured and usable, so they degrade
- *     gracefully to `active`, NEVER `expired`).
+ *   - `active`        — has token(s) all comfortably in the future, OR is a
+ *     static-secret connection with no token rows (apiKey / basic / bearer
+ *     connections generate zero `connection_tokens`; they are configured and
+ *     usable, so they read `active`, NEVER `expired`).
+ *   - `not-connected` — an `oauth2` connection nobody has authorized: it holds
+ *     no token at all, so nothing can call the provider yet. Reading it as
+ *     `active` would print a healthy badge over a connection that cannot work.
  *   - `expiring-soon` — has token(s); the soonest `expiresAt` is in the future
  *     but within `CONNECTION_EXPIRING_SOON_WINDOW_MS` (7 days).
  *   - `expired`       — has token(s); the soonest `expiresAt` is already in the
@@ -107,12 +111,13 @@ export const CONNECTION_EXPIRING_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
  */
 export const connectionStatusSchema = Schema.Literals([
   'active',
+  'not-connected',
   'expiring-soon',
   'expired',
   'reconnect-needed',
 ]).annotate({
   description:
-    'Derived connection health. `active` = tokens all in the future OR no tokens (apiKey/no-expiry case); `expiring-soon` = soonest token expiry within 7 days; `expired` = soonest token expiry in the past; `reconnect-needed` = a token with no refresh token expires within 7 days or has expired, so only a new authorization will restore it.',
+    'Derived connection health. `active` = tokens all in the future, OR a static-secret connection (apiKey, basic, bearer) that holds no token; `not-connected` = an oauth2 connection nobody has authorized yet, holding no token; `expiring-soon` = soonest token expiry within 7 days; `expired` = soonest token expiry in the past; `reconnect-needed` = a token with no refresh token expires within 7 days or has expired, so only a new authorization will restore it.',
 })
 
 /** @public */
@@ -166,7 +171,8 @@ export type ConnectionRowAction = typeof connectionRowActionSchema.Type
  * field (`credentials`, `accessToken`, `refreshToken`) — fails validation
  * rather than leaking. The exposed set is the operator's at-a-glance triage:
  * the connection `id` (the detail-route segment), the human `name`, the
- * `provider` + `type` (icon + behavior hints), the `tokenCount` (how many users
+ * `provider` + `type` (icon + behavior hints), the one-reading `label` a
+ * console column shows (a cell shows one field, so the server joins the two), the `tokenCount` (how many users
  * authorized — `0` for apiKey/basic/bearer), the soonest `expiresAt`, the
  * derived `status` badge, and the `createdAt` open timestamp.
  */
@@ -181,6 +187,10 @@ export const connectionListItemSchema = Schema.Struct({
   provider: Schema.String.annotate({
     description:
       'Connection provider (`system.connections.provider`), e.g. `google`, `slack`, `stripe`. Drives the dashboard icon hint.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  label: Schema.String.annotate({
+    description:
+      'The connection named in one reading: its `name` and `provider` joined by ` · ` (`pennylane-prod · pennylane`), or the `name` alone when the two are the same word, compared without regard to case. Made of the configuration’s own words, so it is the same in every language. `name` and `provider` stay on the row beside it.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   type: Schema.String.annotate({
     description:

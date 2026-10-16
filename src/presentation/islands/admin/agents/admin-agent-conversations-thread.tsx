@@ -14,17 +14,15 @@
  * tool call, and a "reply interrupted" marker for a streamed turn that never
  * finished.
  *
- * NOTE: the tool-call code block is currently unreachable over persisted
- * threads — `ai_messages.tool_calls` is written by nothing (the only INSERT,
- * `ai-memory-repository-live.ts:130-147`, omits it) and the same INSERT writes
- * only `user` / `assistant` roles, so the `role === 'tool'` branch never fires
- * either. Live tool activity is rendered from `actions[]` by
- * `admin-agent-chat-actions.tsx` instead.
+ * A message's `toolCalls` render as collapsed rows under its bubble
+ * (`-tool-calls`), and its model as a badge beside its role. A `tool` turn's
+ * body is the tool's own output, kept monospaced.
  * Its idle / loading / error states live here so the island stays a thin render
  * under the per-island `max-lines` cap.
  */
 
 import { type ReactElement } from 'react'
+import { conversationCaptions } from './admin-agent-conversations-captions'
 import {
   formatDateTime,
   roleLabel,
@@ -32,19 +30,16 @@ import {
   type ThreadMessage,
   type ThreadState,
 } from './admin-agent-conversations-data'
+import { useAgentConversationString as useWord } from './admin-agent-conversations-strings'
+import { ToolCalls } from './admin-agent-conversations-tool-calls'
 
-/** Format a tool-call payload (or a JSON tool message body) as readable text. */
-function formatToolPayload(message: ThreadMessage): string {
-  if (message.toolCalls != undefined) {
-    try {
-      return JSON.stringify(message.toolCalls, undefined, 2)
-    } catch {
-      return String(message.toolCalls)
-    }
-  }
-  return message.content
+/** The catalogue key of each speaker's tag (`agentConversations.role*`). */
+const ROLE_KEYS: Readonly<Record<string, string>> = {
+  user: 'roleUser',
+  assistant: 'roleAssistant',
+  tool: 'roleTool',
+  system: 'roleSystem',
 }
-
 /** A single message turn, aligned + styled by role. */
 function MessageTurn({ message }: { readonly message: ThreadMessage }): ReactElement {
   const isUser = message.role === 'user'
@@ -59,32 +54,41 @@ function MessageTurn({ message }: { readonly message: ThreadMessage }): ReactEle
   return (
     <div className={`flex flex-col gap-1 ${align}`}>
       <div className="text-foreground-subtle flex items-center gap-2 px-1 text-sm">
-        <span className="font-medium">{roleLabel(message.role)}</span>
+        <span className="font-medium">
+          {useWord(ROLE_KEYS[message.role] ?? '', roleLabel(message.role))}
+        </span>
         <span aria-hidden="true">·</span>
         <span className="tabular-nums">{formatDateTime(message.createdAt)}</span>
+        {message.model ? (
+          <span
+            data-testid="message-model"
+            title={conversationCaptions().model}
+            className="border-border text-muted-foreground rounded border px-1.5 py-px font-mono text-xs"
+          >
+            {message.model}
+          </span>
+        ) : undefined}
       </div>
       <div className={`text-md max-w-[44rem] rounded-lg px-3.5 py-2.5 leading-relaxed ${bubble}`}>
         {isTool ? (
-          <pre className="overflow-x-auto text-sm whitespace-pre-wrap">
-            {formatToolPayload(message)}
-          </pre>
+          <pre className="overflow-x-auto text-sm whitespace-pre-wrap">{message.content}</pre>
         ) : (
           <p className="whitespace-pre-wrap">{message.content}</p>
         )}
       </div>
+      <ToolCalls payload={message.toolCalls} />
       <MessageFootnote message={message} />
     </div>
   )
 }
 
-/** The per-message footnote: model + token count on agent turns, "interrompu" marker. */
+/** The per-message footnote: the token count on agent turns, the "interrupted" marker. */
 function MessageFootnote({
   message,
 }: {
   readonly message: ThreadMessage
 }): ReactElement | undefined {
   const parts: ReadonlyArray<string> = [
-    message.model ? message.model : '',
     typeof message.tokenCount === 'number' ? `${message.tokenCount} tokens` : '',
   ].filter((part) => part.length > 0)
   const interrupted = message.status === 'incomplete'
@@ -140,10 +144,23 @@ function ThreadStateCard({
 }
 
 /** The loading skeleton for the thread column. */
+/** The thread column's state words, in the console language (`agentConversations.*`). */
+function useThreadWords() {
+  return {
+    idleLabel: useWord('idleLabel', 'No conversation selected'),
+    idle: useWord('idle', 'Select a conversation'),
+    idleBody: useWord('idleBody', 'Pick one from the list to read its messages.'),
+    failedLabel: useWord('loadFailedLabel', 'Couldn’t load'),
+    failed: useWord('threadFailed', 'Couldn’t load the conversation'),
+    failedBody: useWord('threadFailedBody', 'The messages could not be loaded. Try again.'),
+    retry: useWord('retry', 'Retry'),
+  }
+}
+
 function ThreadLoading(): ReactElement {
   return (
     <div
-      aria-label="Loading conversation"
+      aria-label={useWord('threadLoading', 'Loading conversation')}
       aria-busy="true"
       className="flex flex-col gap-3"
     >
@@ -168,12 +185,13 @@ export function ConversationThread({
   readonly state: ThreadState
   readonly onRetry: () => void
 }): ReactElement {
+  const { idleLabel, idle, idleBody, failedLabel, failed, failedBody, retry } = useThreadWords()
   if (state.phase === 'idle') {
     return (
       <ThreadStateCard
-        label="No conversation selected"
-        title="Select a conversation"
-        body="Pick one from the list to read its messages."
+        label={idleLabel}
+        title={idle}
+        body={idleBody}
       />
     )
   }
@@ -181,16 +199,16 @@ export function ConversationThread({
   if (state.phase === 'error') {
     return (
       <ThreadStateCard
-        label="Couldn’t load"
-        title="Couldn’t load the conversation"
-        body="The messages could not be loaded. Try again."
+        label={failedLabel}
+        title={failed}
+        body={failedBody}
       >
         <button
           type="button"
           onClick={onRetry}
           className="text-muted-foreground hover:text-muted-foreground/80 text-md mt-1 font-medium"
         >
-          Retry
+          {retry}
         </button>
       </ThreadStateCard>
     )
@@ -209,6 +227,12 @@ export function ConversationThread({
           />
         ))}
       </div>
+      <p
+        data-testid="conversation-read-only"
+        className="border-border text-foreground-subtle border-t pt-3 text-sm"
+      >
+        {conversationCaptions().readOnly}
+      </p>
     </div>
   )
 }

@@ -5,9 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { computeChartShellClasses } from '@/presentation/design/chart-default-classes'
 import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
+import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import type { ComponentRenderer } from './component-dispatch-config'
 
 /**
@@ -70,6 +72,23 @@ function extractChartProps(elementProps: Record<string, unknown>): Record<string
 }
 
 /**
+ * The accessible name of a chart that declares none, by what it draws
+ * (`chartName.<type>`), in the page language — sent only where it differs
+ * from the English the island names it with, so an English page is unchanged.
+ */
+const untitledChartName = (
+  chartType: string,
+  currentLang: string | undefined,
+  languages: Parameters<typeof islandUiStrings>[2]
+): { readonly ariaLabel?: string } => {
+  const key = `chartName.${chartType}`
+  const name = resolveInterpreterString(key, currentLang, languages)
+  return name === key || name === resolveInterpreterString(key, 'en', undefined)
+    ? {}
+    : { ariaLabel: name }
+}
+
+/**
  * SSR placeholder for the chart island. The outer wrapper carries
  * `data-island="chart"` (so the runtime can mount the React component) plus
  * `data-chart-type` (so spec attribute assertions resolve before hydration).
@@ -78,10 +97,20 @@ function extractChartProps(elementProps: Record<string, unknown>): Record<string
  * beside `data-component-type`): nothing the island draws inside it carries
  * either, so a reader counting by either attribute finds one chart.
  */
-export const islandChartComponent: ComponentRenderer = ({ elementProps }) => {
-  const islandProps = extractChartProps(elementProps)
-  const propsJson = JSON.stringify(islandProps)
+export const islandChartComponent: ComponentRenderer = ({
+  elementProps,
+  currentLang,
+  languages,
+}) => {
+  const loading = islandLoadingLabel('chart.loading', currentLang, languages)
   const chartType = (elementProps.chartType as string | undefined) ?? 'bar'
+  const extracted = extractChartProps(elementProps)
+  const islandProps = {
+    ...extracted,
+    ...(extracted.ariaLabel === undefined && untitledChartName(chartType, currentLang, languages)),
+    uiStrings: islandUiStrings('chart', currentLang, languages),
+  }
+  const propsJson = JSON.stringify(islandProps)
 
   return (
     <div
@@ -105,7 +134,8 @@ export const islandChartComponent: ComponentRenderer = ({ elementProps }) => {
        * that happens to share a name. */}
       <div
         className={computeChartShellClasses()}
-        aria-label="Loading chart..."
+        data-loading-status=""
+        aria-label={loading.status}
         role="status"
       >
         <div className="bg-muted mb-3 h-4 w-32 animate-pulse rounded" />

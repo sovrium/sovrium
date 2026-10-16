@@ -231,6 +231,24 @@ export function restorePendingFocus(el: HTMLElement, pending: PendingFocus): voi
 }
 
 /**
+ * Give the keyboard to a skeleton control the server marked `data-draft-param`
+ * when the address carries that query parameter — even empty, since a link
+ * opening the box is the reader asking to type — and fill the control, when it
+ * is still empty, with the parameter's words. They then cross into the island
+ * as `initialValues` and the focus follows them, exactly as text a reader typed
+ * before the mount does. Nothing is submitted: a link must not make a reader
+ * send words they did not write.
+ */
+function openWithAddressWords(el: HTMLElement): void {
+  const control = el.querySelector<HTMLTextAreaElement>('textarea[data-draft-param]')
+  const words =
+    control && new URLSearchParams(location.search).get(control.dataset['draftParam'] ?? '')
+  if (!control || words === null || words === undefined) return
+  if (control.value === '') control.value = words
+  control.focus()
+}
+
+/**
  * Everything the user put into the SSR skeleton that must survive the mount.
  *
  * `createRoot` discards the server-rendered subtree, so anything typed or
@@ -264,6 +282,7 @@ export function capturePreMountInput(
   readonly mergedProps: Record<string, unknown>
   readonly pendingFiles: readonly PendingFileSelection[]
 } {
+  openWithAddressWords(el)
   // Ahead of BOTH markup captures — the `ssrHtml` below, and the Suspense
   // fallback `mountIslandsWithin` reads off the same element a moment later.
   inlineLiveFormState(el)

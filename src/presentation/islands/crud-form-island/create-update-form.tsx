@@ -102,6 +102,10 @@ function CrudSuccessPage(props: {
   )
 }
 
+/** The form's accessible name: `Edit <label>` as the server resolved it, else the table. */
+const formNameOf = (island: CrudFormIslandProps): string =>
+  island.formName ?? `Edit ${island.table}`
+
 /**
  * Renders the `<form>` element + body for an update CRUD form. Split out
  * of `CreateUpdateForm` so the latter stays within the size/complexity caps
@@ -131,7 +135,7 @@ function CrudFormElement(props: {
   return (
     <form
       ref={autoSave.formRef}
-      aria-label={`Edit ${table}`}
+      aria-label={formNameOf(island)}
       method={useNativeForm ? 'POST' : undefined}
       action={formAction}
       onSubmit={onSubmit}
@@ -222,7 +226,13 @@ export function CreateUpdateForm(props: {
       useNativeForm={useNativeForm}
       {...(props.changes === undefined
         ? {}
-        : { saveBar: { changes: props.changes, onDiscard: props.onDiscard } })}
+        : {
+            saveBar: {
+              changes: props.changes,
+              onDiscard: props.onDiscard,
+              words: island.uiStrings,
+            },
+          })}
     />
   )
 }

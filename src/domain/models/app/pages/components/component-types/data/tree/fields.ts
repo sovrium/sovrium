@@ -28,7 +28,8 @@
 
 import { Schema } from 'effect'
 import { CardClickActionSchema } from '../../../action'
-import { DataSourceSchema, SharedFilterPublisherSchema } from '../../../data-source'
+import { DataSourceSchema } from '../../../data-source'
+import { SharedFilterPublisherSchema } from '../../../data-source-publishers'
 import { coreFields } from '../../modules/core'
 import { i18nFields } from '../../modules/i18n'
 import { responsiveFields } from '../../modules/responsive'

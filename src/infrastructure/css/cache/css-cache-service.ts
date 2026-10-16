@@ -6,7 +6,9 @@
  */
 
 import { mkdir } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { Data, Effect, Ref, pipe } from 'effect'
+import { defaultPrecompiledCssPath } from '@/domain/models/process-env/data-dir'
 import { designCacheKey } from '@/infrastructure/css/cache/design-cache-keys'
 import { logWarning } from '@/infrastructure/logging/logger'
 import type { Design } from '@/domain/models/app/design'
@@ -26,24 +28,67 @@ export interface CompiledCSS {
   readonly css: string
   readonly timestamp: number
   readonly precompiled?: boolean
+  /**
+   * A pre-compiled file was found but set aside as stale (built by another
+   * engine or for another design), and this stylesheet was compiled instead.
+   * Travels with the cache entry so the startup report can say so even when
+   * the compile happened before the report ran.
+   */
+  readonly staleIgnored?: boolean
 }
 
 /**
- * Default path for pre-compiled CSS output
- */
-export const DEFAULT_PRECOMPILED_CSS_PATH = '.sovrium/output.css'
-
-/**
- * Get the pre-compiled CSS file path from env var or default
+ * Where the pre-compiled stylesheet lives, for `build` (write) and `start`
+ * (read) alike: `SOVRIUM_CSS_FILE` when set, else `output.css` in the data
+ * directory — beside the database, so `SOVRIUM_DATA_DIR` moves both. The one
+ * seam both verbs resolve the path through, so they cannot disagree.
  */
 export const getPrecompiledCSSPath = (): string =>
-  process.env.SOVRIUM_CSS_FILE || DEFAULT_PRECOMPILED_CSS_PATH
+  process.env.SOVRIUM_CSS_FILE || defaultPrecompiledCssPath()
+
+/** What `/*! sovrium-css <hash> *\/`, the first line of a pre-compiled file, opens with. */
+const PRECOMPILED_STAMP_PREFIX = '/*! sovrium-css '
 
 /**
- * Load pre-compiled CSS from file if it exists
- * Returns undefined if the file doesn't exist
+ * The stamp line in full, with its hash captured. Anchored to the start of the
+ * file: a stamp anywhere else is just a comment.
  */
-export const loadPrecompiledCSS: Effect.Effect<CompiledCSS | undefined, never> = Effect.gen(
+const PRECOMPILED_STAMP_LINE = /^\/\*! sovrium-css (\S+) \*\/(?:\r?\n|$)/
+
+/**
+ * Prepend the stamp line to a compiled stylesheet. Idempotent: a stylesheet
+ * that already opens with a stamp (a production `build` reading back the file
+ * it wrote last time) has that line REPLACED, never doubled.
+ *
+ * @param css - The compiled stylesheet.
+ * @param stamp - The hash recording which engine and design compiled it.
+ */
+export const stampPrecompiledCSS = (css: string, stamp: string): string =>
+  `${PRECOMPILED_STAMP_PREFIX}${stamp} */\n${css.replace(PRECOMPILED_STAMP_LINE, '')}`
+
+/**
+ * The hash a pre-compiled file's first line records, or `undefined` when the
+ * file opens with anything else — every file written before stamps existed.
+ */
+export const readPrecompiledStamp = (css: string): string | undefined =>
+  PRECOMPILED_STAMP_LINE.exec(css)?.[1]
+
+/** A pre-compiled file as found on disk: its whole text, its stamp, its path. */
+export interface PrecompiledCSSFile {
+  readonly css: string
+  readonly stamp: string | undefined
+  readonly path: string
+}
+
+/**
+ * Load the pre-compiled stylesheet if the file exists.
+ *
+ * Answers `undefined` when there is no file (or it cannot be read). Whether the
+ * file is CURRENT is the caller's question (`acceptsPrecompiledStamp` in the
+ * compiler): this module cannot compute the stamp without importing the
+ * candidate resolver it deliberately stays clear of (see `getCSSCacheKey`).
+ */
+export const loadPrecompiledCSS: Effect.Effect<PrecompiledCSSFile | undefined, never> = Effect.gen(
   function* () {
     const cssPath = getPrecompiledCSSPath()
     const file = Bun.file(cssPath)
@@ -56,7 +101,10 @@ export const loadPrecompiledCSS: Effect.Effect<CompiledCSS | undefined, never> =
     // the stylesheet, which is exactly what `undefined` here asks the caller to
     // do.
     return yield* Effect.tryPromise({
-      try: async () => ({ css: await file.text(), timestamp: Date.now(), precompiled: true }),
+      try: async (): Promise<PrecompiledCSSFile> => {
+        const css = await file.text()
+        return { css, stamp: readPrecompiledStamp(css), path: cssPath }
+      },
       catch: (cause) => new PrecompiledCSSError({ message: `Could not read ${cssPath}`, cause }),
     }).pipe(
       Effect.tapCause((cause) =>
@@ -73,17 +121,27 @@ export const loadPrecompiledCSS: Effect.Effect<CompiledCSS | undefined, never> =
 )
 
 /**
- * Write pre-compiled CSS to file
- * Creates the parent directory if it doesn't exist
+ * Write the pre-compiled stylesheet, stamp line first.
+ * Creates the parent directory if it doesn't exist.
+ *
+ * @param css - The compiled stylesheet.
+ * @param stamp - The hash a later `start` compares against its own.
  */
-export const writePrecompiledCSS = (css: string): Effect.Effect<string, PrecompiledCSSError> =>
+export const writePrecompiledCSS = (
+  css: string,
+  stamp: string
+): Effect.Effect<string, PrecompiledCSSError> =>
   Effect.gen(function* () {
     const cssPath = getPrecompiledCSSPath()
-    const dir = cssPath.substring(0, cssPath.lastIndexOf('/'))
+    // `dirname`, not a slash search: the default path is built with `path.join`,
+    // which separates with backslashes on Windows, and `SOVRIUM_CSS_FILE` may be
+    // a bare file name. Either gave a slash search an empty directory to create,
+    // and the build then reported it could not write the stylesheet.
+    const dir = dirname(cssPath)
     yield* Effect.tryPromise({
       try: async () => {
         await mkdir(dir, { recursive: true })
-        await Bun.write(cssPath, css)
+        await Bun.write(cssPath, stampPrecompiledCSS(css, stamp))
       },
       catch: (cause) =>
         new PrecompiledCSSError({
@@ -92,6 +150,31 @@ export const writePrecompiledCSS = (css: string): Effect.Effect<string, Precompi
         }),
     })
     return cssPath
+  })
+
+/**
+ * Whether the stale-file warning has been printed by this process. One line
+ * per boot is the contract: the file is re-read on every request under the
+ * development cache bypass and once per cache key otherwise, and the operator
+ * needs telling once, not once per page.
+ */
+const staleWarningPrinted = Ref.makeUnsafe(false)
+
+/**
+ * Warn, once per process, that the pre-compiled file at `path` was set aside.
+ * Not a swallowed failure: nothing failed, the file is simply not this
+ * engine's, and the caller compiles the stylesheet it would have served.
+ *
+ * @param path - The file that was ignored, so the operator knows which to rebuild.
+ */
+export const warnStalePrecompiledOnce = (path: string): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const alreadyPrinted = yield* Ref.getAndSet(staleWarningPrinted, true)
+    if (alreadyPrinted) return
+    logWarning(
+      `[CSS] Pre-compiled stylesheet at ${path} was built by a different engine or config; ` +
+        'compiling afresh. Re-run `sovrium build`.'
+    )
   })
 
 /**

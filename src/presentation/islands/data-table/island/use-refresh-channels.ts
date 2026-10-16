@@ -24,6 +24,12 @@ interface RefreshChannelsParams {
    */
   readonly endpoint?: string | undefined
   readonly onRefresh: () => void
+  /**
+   * A record of this grid's table deleted elsewhere — a record sheet's
+   * footer, say: the row leaves at once and the grid re-reads once, as after a
+   * row action's delete. Absent, a delete re-reads like any other write.
+   */
+  readonly onRowDeleted?: ((recordId: string) => void) | undefined
 }
 
 /**
@@ -47,15 +53,20 @@ export function useGridRefreshChannels({
   sourceId,
   endpoint,
   onRefresh,
+  onRowDeleted,
 }: RefreshChannelsParams): void {
   useEffect(() => {
     if (!table) return undefined
     const targetTable = table.toLowerCase()
     return subscribeIslandEvent('sovrium:crud-success', (detail) => {
       if (detail.table.toLowerCase() !== targetTable) return
+      if (detail.operation === 'delete' && detail.recordId !== undefined && onRowDeleted) {
+        onRowDeleted(detail.recordId)
+        return
+      }
       onRefresh()
     })
-  }, [table, onRefresh])
+  }, [table, onRefresh, onRowDeleted])
 
   useEffect(() => {
     if (!sourceId && !endpoint) return undefined

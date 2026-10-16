@@ -45,13 +45,21 @@ function useExpectedText(confirmText: string | undefined): string | undefined {
   return restoreInertTemplateValue(resolveSessionTemplate(confirmText, user ?? undefined)).trim()
 }
 
+/** The typed confirmation's label, in the page language: `{text}` is the text to type. */
+export interface TypedConfirmPrompt {
+  readonly named: string
+  readonly asked: string
+}
+
 /** The one field a typed confirmation draws, labelled with the text to type. */
 function TypedConfirmField({
   expected,
+  prompt,
   typed,
   onType,
 }: {
   readonly expected: string | undefined
+  readonly prompt: TypedConfirmPrompt | undefined
   readonly typed: string
   readonly onType: (next: string) => void
 }): ReactElement {
@@ -62,7 +70,9 @@ function TypedConfirmField({
         htmlFor={inputId}
         className="text-muted-foreground text-sm"
       >
-        {expected ? `To confirm, type “${expected}”` : 'To confirm, type the text asked for'}
+        {expected
+          ? (prompt?.named ?? 'To confirm, type “{text}”').split('{text}').join(expected)
+          : (prompt?.asked ?? 'To confirm, type the text asked for')}
       </label>
       <input
         id={inputId}
@@ -170,6 +180,7 @@ export function DialogActions({
   cancelLabel,
   confirmLabel,
   confirmText,
+  confirmPrompt,
   variant,
   onConfirm,
   showCloseButton,
@@ -182,6 +193,7 @@ export function DialogActions({
   readonly confirmLabel?: string
   /** Text the reader must type before confirm enables (already resolved). */
   readonly confirmText?: string
+  readonly confirmPrompt?: TypedConfirmPrompt
   readonly variant: 'default' | 'destructive'
   /** Fired when the confirm button is pressed, BEFORE the dialog closes. */
   readonly onConfirm?: () => void
@@ -198,6 +210,7 @@ export function DialogActions({
       {asks && (
         <TypedConfirmField
           expected={expected}
+          prompt={confirmPrompt}
           typed={typed}
           onType={setTyped}
         />

@@ -7,7 +7,47 @@
 
 import { Effect } from 'effect'
 import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
+import { identifyRequester } from './requester-identity'
 import { triggerRecordEventAutomations, type TriggerRecordEventInput } from './trigger-record-event'
+
+/**
+ * The events, each carrying an `identify` that looks its requester's account up
+ * at most ONCE per requester id across the whole list: a batch of N rows written
+ * by one person reads that person's email and name once, not N times. The lookup
+ * stays lazy — `Effect.cached` runs it on the first event whose automation
+ * matches, and never when none does. Each event keeps its own requester (id and
+ * role); only the looked-up email and name are shared.
+ */
+export const shareRequesterLookups = Effect.fn('automations.share-requester-lookups')(function* (
+  inputs: readonly TriggerRecordEventInput[]
+) {
+  const firstByPerson = new Map(
+    inputs.flatMap((input) =>
+      input.requester === undefined ? [] : [[input.requester.id, input.requester] as const]
+    )
+  )
+  const lookups = new Map(
+    yield* Effect.forEach([...firstByPerson.values()], (requester) =>
+      Effect.map(
+        Effect.cached(identifyRequester(requester)),
+        (lookup) => [requester.id, lookup] as const
+      )
+    )
+  )
+  return inputs.map((input): TriggerRecordEventInput => {
+    const { requester } = input
+    const lookup = requester === undefined ? undefined : lookups.get(requester.id)
+    if (requester === undefined || lookup === undefined) return input
+    return {
+      ...input,
+      identify: Effect.map(lookup, (person) => ({
+        ...requester,
+        email: person.email ?? '',
+        name: person.name ?? '',
+      })),
+    }
+  })
+})
 
 /**
  * Start the record automations of these events in ONE tracked background fiber,
@@ -24,7 +64,9 @@ export const startRecordEventAutomationsInBackground = (
     Effect.asVoid(
       Effect.forkDetach(
         bridge.trackBackground(
-          Effect.forEach(inputs, triggerRecordEventAutomations, { discard: true })
+          Effect.flatMap(shareRequesterLookups(inputs), (shared) =>
+            Effect.forEach(shared, triggerRecordEventAutomations, { discard: true })
+          )
         )
       )
     )

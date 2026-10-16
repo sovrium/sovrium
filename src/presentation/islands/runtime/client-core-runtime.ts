@@ -34,6 +34,7 @@ import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { setupAwaitingScriptControls } from '@/presentation/islands/runtime/awaiting-script-controls'
 import { setupEndpointFormHandlers } from '@/presentation/islands/runtime/endpoint-form-runtime'
 import { setupNativeSelectPublishers } from '@/presentation/islands/runtime/native-select-publisher'
+import { setupSearchInputPublishers } from '@/presentation/islands/runtime/search-input-publisher'
 import { hydrateSessionBindings } from '@/presentation/islands/runtime/session-resolver'
 import { leavesPage, runErrorOutcome, runSuccessOutcome } from './action-outcome'
 import { automationPressHeaders } from './automation-press-headers'
@@ -292,6 +293,7 @@ function initClientRuntime(): void {
   setupEndpointFormHandlers(dispatchToastResponse)
   setupSessionBoundChrome()
   setupNativeSelectPublishers()
+  setupSearchInputPublishers()
   adoptFormFlashToasts()
   setupAwaitingScriptControls()
 }

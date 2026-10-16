@@ -20,11 +20,13 @@ import {
   resolveKanbanColumnColors,
   resolveKanbanColumnOptions,
   resolveKanbanSwimlaneOptions,
+  resolveKanbanAxisFields,
 } from './resolve-option-colors'
 import { resolveBoundView } from './view-binding-inputs'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
+import type { TableDisplayNames } from '@/domain/models/app/tables/table-display-name-service'
 import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
 import type { BadgeForm } from '@/presentation/design/option-chip-paint'
 
@@ -38,6 +40,10 @@ export type TypeSpecificResolvedInputs = {
   readonly dataTablePermissions: unknown
   /** The grouping of the view a grid is bound to — a grid groups only through a view. */
   readonly dataTableGroupBy?: ViewGroupBy
+  /** The bound table's names, untranslated — what an empty grid names it by. */
+  readonly dataTableNames?: TableDisplayNames
+  /** The bound table declares `views[]`, which a grid then offers to switch between. */
+  readonly dataTableDeclaresViews?: boolean
   readonly kanbanColumnOptions: readonly string[] | undefined
   readonly kanbanColumnColors: Readonly<Record<string, string>> | undefined
   /**
@@ -47,6 +53,8 @@ export type TypeSpecificResolvedInputs = {
    * the declared-order rule and `showEmpty` unexpressible.
    */
   readonly kanbanSwimlaneOptions: readonly string[] | undefined
+  /** The declared fields behind both board axes, read for their option labels. */
+  readonly kanbanAxisFields?: ReturnType<typeof resolveKanbanAxisFields>
   /**
    * `optionValue → #RRGGBB` for the field a record view's `colorField` names,
    * so a kanban card / calendar event / timeline bar can paint the colour its
@@ -103,7 +111,9 @@ export function resolveSourceTable(
  * says, what it dispatches, and which rows show it. Returns an empty overlay
  * for every other field type so the caller can spread it unconditionally.
  */
-function resolveButtonFieldMeta(field: Tables[number]['fields'][number]): Record<string, unknown> {
+export function resolveButtonFieldMeta(
+  field: Tables[number]['fields'][number]
+): Record<string, unknown> {
   if (field.type !== 'button') return {}
   const button = field as {
     readonly label: string
@@ -141,17 +151,30 @@ function resolveButtonFieldMeta(field: Tables[number]['fields'][number]): Record
  *
  * Only the fields and their labels are derived. Types, options, permissions and
  * views stay absent — an endpoint row has no declared type, and inventing one
- * would put type-specific operators in front of values that may not match.
+ * would put type-specific operators in front of values that may not match. The
+ * one exception is a column the SERVER derived from a declaration that does
+ * type it: a form's answer column carries its field's type (`_fieldType`), so
+ * the grid draws the answer with that type's cell.
  */
 function resolveSystemSourceColumnInputs(component: Component): TypeSpecificResolvedInputs {
   const source = 'dataSource' in component ? component.dataSource : undefined
   if (!source || !(typeof source === 'object' && 'system' in source)) return EMPTY_RESOLVED
 
   const columns = ('columns' in component ? component.columns : undefined) as
-    ReadonlyArray<{ readonly field?: unknown; readonly label?: unknown }> | undefined
+    | ReadonlyArray<{
+        readonly field?: unknown
+        readonly label?: unknown
+        readonly _fieldType?: unknown
+      }>
+    | undefined
   const declared = (columns ?? []).filter(
-    (column): column is { readonly field: string; readonly label?: string } =>
-      typeof column.field === 'string' && column.field.length > 0
+    (
+      column
+    ): column is {
+      readonly field: string
+      readonly label?: string
+      readonly _fieldType?: string
+    } => typeof column.field === 'string' && column.field.length > 0
   )
   if (declared.length === 0) return EMPTY_RESOLVED
 
@@ -161,7 +184,10 @@ function resolveSystemSourceColumnInputs(component: Component): TypeSpecificReso
     dataTableFieldMeta: Object.fromEntries(
       declared.map((column) => [
         column.field,
-        typeof column.label === 'string' ? { label: column.label } : {},
+        {
+          ...(typeof column.label === 'string' ? { label: column.label } : {}),
+          ...(typeof column._fieldType === 'string' ? { type: column._fieldType } : {}),
+        },
       ])
     ),
   }
@@ -173,6 +199,12 @@ function resolveDataTableInputs(
 ): TypeSpecificResolvedInputs {
   return {
     ...EMPTY_RESOLVED,
+    dataTableDeclaresViews: (table.views?.length ?? 0) > 0,
+    dataTableNames: {
+      name: table.name,
+      ...(table.label !== undefined && { label: table.label }),
+      ...(table.labelPlural !== undefined && { labelPlural: table.labelPlural }),
+    },
     dataTableTableFields: table.fields.map((f) => f.name),
     dataTableFieldMeta: Object.fromEntries(
       table.fields.map((f) => {
@@ -200,6 +232,24 @@ function resolveDataTableInputs(
         ]
       })
     ),
+  }
+}
+
+/**
+ * The fields a CSV import maps onto, and their meta: the same vocabulary a grid
+ * bound to the table offers, read for an `openImport` button.
+ */
+export function resolveTableImportFields(
+  table: Tables[number],
+  tables: Tables | undefined
+): {
+  readonly tableFields: readonly string[]
+  readonly fieldMeta: Record<string, unknown>
+} {
+  const inputs = resolveDataTableInputs(table, tables)
+  return {
+    tableFields: inputs.dataTableTableFields ?? [],
+    fieldMeta: inputs.dataTableFieldMeta ?? {},
   }
 }
 
@@ -256,6 +306,7 @@ function resolveKanbanInputs(
     kanbanColumnOptions: resolveKanbanColumnOptions(table, component),
     kanbanColumnColors: resolveKanbanColumnColors(table, component),
     kanbanSwimlaneOptions: resolveKanbanSwimlaneOptions(table, component),
+    kanbanAxisFields: resolveKanbanAxisFields(table, component),
     colorFieldColors: resolveFieldOptionColors(
       table,
       resolveRecordViewColorField('kanban', component)

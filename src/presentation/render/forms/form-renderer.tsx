@@ -28,15 +28,16 @@ import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { DemoNotice } from '@/presentation/render/page/demo-notice'
 import { SovriumBadge } from '@/presentation/render/page/sovrium-badge'
 import { FormBody } from './form-body'
+import { resolveDocumentLang } from './form-document-lang'
 import { type PrefillValue } from './form-field-elements'
 import {
   resolveAllFields,
-  resolveDocumentLang,
   resolveFormDensityStep,
   resolveText,
   stepDescriptionsHtml,
   stepItems,
 } from './form-field-resolver'
+import { FormHead } from './form-head'
 import { withLinkAnswers } from './form-link-answers'
 import { FormPageMain } from './form-page-main'
 import {
@@ -51,41 +52,6 @@ import type { EmbeddedFormPrefillContext } from './form-body'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
-
-/**
- * Pure HTML head fragment — title and description are resolved upstream
- * so this stays a focused renderer.
- */
-const FormHead = ({
-  title,
-  description,
-  cssHref,
-}: {
-  readonly title: string
-  readonly description: string
-  readonly cssHref?: string
-}) => (
-  <head>
-    <meta charSet="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
-    <title>{title}</title>
-    <meta
-      name="description"
-      content={description || title}
-    />
-    {/* Link the globally-compiled theme stylesheet (also
-        serves the standalone form page so the embed shell inherits the
-        same theme tokens — including CSS variables like --color-primary
-        and --color-text — without a separate per-form bundle). */}
-    <link
-      rel="stylesheet"
-      href={cssHref ?? '/assets/output.css'}
-    />
-  </head>
-)
 
 /**
  * Platform chrome of a STANDALONE form page: the "Built with Sovrium" badge and
@@ -161,6 +127,7 @@ function FormPage({
         // or a link preview shows the meta verbatim, so it keeps the words only.
         description={markdownToText(resolveText(form.description, languages, '', activeLang))}
         cssHref={getVersionedCssPath(app)}
+        design={app.design}
       />
       <body>
         <FormPageMain

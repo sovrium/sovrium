@@ -35,7 +35,8 @@ export const UserFieldSchema = BaseFieldSchema.pipe(
     ),
     allowMultiple: Schema.optional(
       Schema.Boolean.annotate({
-        description: 'Lets the field hold several users instead of exactly one.',
+        description:
+          'Lets the field hold several people instead of exactly one: its value is then a list of account ids, kept in the order written, each person once.',
       })
     ),
     default: Schema.optional(

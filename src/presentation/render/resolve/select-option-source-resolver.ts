@@ -22,6 +22,7 @@ import {
 import { isWriteOnlyField } from '@/domain/models/app/tables/write-only-field-service'
 import { resolveSystemOptions } from '@/presentation/render/resolve/system-option-source-resolver'
 import { resolveFilters, scopeTablesOf } from './current-user-resolver'
+import { withFilterBarFields } from './filter-bar-fields-resolver'
 import { readRowsForCaller } from './record-read-gate'
 import type { SystemRowsFetcher } from './first-object-redirect-resolver'
 import type { App } from '@/domain/models/app'
@@ -357,8 +358,7 @@ async function resolveComponentTree(
   ctx: SelectOptionSourceContext
 ): Promise<Component | SimpleComponentReference | ComponentReference> {
   if ('component' in item || '$ref' in item) return item
-  const component = item as Component
-
+  const component = withFilterBarFields(item as Component, ctx)
   const resolved = isBoundSelect(component)
     ? await resolveBoundSelect(component, ctx)
     : await resolveFormFieldSources(await resolveEditSelectSources(component, ctx), ctx)

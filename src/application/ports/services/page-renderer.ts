@@ -10,6 +10,8 @@ import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
+import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
+import type { RowRuleReader } from '@/domain/models/app/tables/visitor-row-rule-service'
 
 /**
  * Result of rendering a page, including access control outcomes
@@ -65,6 +67,30 @@ export type ReadTableAsCaller = (
   /** One of the table's views, by id or name, whose definition to read as well. */
   view?: string
 ) => Promise<CallerTableView>
+
+/**
+ * The display labels of one record its page is bound to, as the records API
+ * answers the caller holding `session` (none: a visitor): a `user` field's
+ * person by name, a relationship's linked record by its display field, keyed by
+ * field. `undefined` when there is none to read.
+ */
+export type ReadRecordLabels = (
+  app: App,
+  tableName: string,
+  record: Readonly<Record<string, unknown>>,
+  session: SessionInfo | undefined
+) => Promise<Readonly<Record<string, string | readonly string[]>> | undefined>
+
+/**
+ * The context `tableName`'s row-level rule judges `reader` by (none: a
+ * visitor), as the records API loads it: her assignments, and the ids each
+ * `contains` or relationship leaf admits. Read once per request and table.
+ */
+export type LoadRowRuleContext = (
+  app: App,
+  tableName: string,
+  reader: RowRuleReader | undefined
+) => Promise<CurrentUserContext>
 
 /**
  * Sign a download address for one stored file, for the caller of this request.
@@ -245,6 +271,10 @@ export class PageRenderer extends Context.Service<
          * every view and field the table declares and carries no permissions.
          */
         readonly readTableAsCaller?: ReadTableAsCaller
+        /** The records API's labels of a bound record: a person's name, a linked record's. */
+        readonly readRecordLabels?: ReadRecordLabels
+        /** The records API's row-rule context, for the rows a page judges in memory. */
+        readonly loadRowRuleContext?: LoadRowRuleContext
         /** The download-address signer a `file-preview` draws its file through. */
         readonly signFileUrl?: SignFileUrl
       }

@@ -22,7 +22,13 @@
 
 import { type ReactElement } from 'react'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
-import { DELETE_LABEL_ATTR, PENDING_LABEL_ATTR } from '../button-pending-label'
+import {
+  DELETE_LABEL_ATTR,
+  DELETE_WORDS_ATTR,
+  FAILURE_LABEL_ATTR,
+  PENDING_LABEL_ATTR,
+  RATE_LIMIT_LABEL_ATTR,
+} from '../button-pending-label'
 import { buildCrudIslandProps } from './crud-form-island-props'
 import type { ElementProps } from '../html-element-renderer'
 import type { CrudFormAction } from './crud-form-types'
@@ -46,12 +52,31 @@ function buildDeleteButtonAttrs(action: CrudFormAction): Record<string, unknown>
   }
 }
 
+/**
+ * The delete's words in the page language, as the server stamped them: a
+ * rate-limit refusal, any other failure, and the confirmation, its Cancel and
+ * the line once the record is gone.
+ */
+function deleteUiStrings(refusal: unknown, failure: unknown, words: unknown) {
+  if (typeof refusal !== 'string') return {}
+  return {
+    uiStrings: {
+      'rateLimit.retryIn': refusal,
+      ...(typeof failure === 'string' && { 'form.operationFailed': failure }),
+      ...(typeof words === 'string' && (JSON.parse(words) as Readonly<Record<string, string>>)),
+    },
+  }
+}
+
 export function renderCrudDeleteButton(config: DeleteButtonConfig): ReactElement {
   const { props, content, action, routeParams } = config
   const record = (props._record ?? {}) as Record<string, unknown>
   const {
     [PENDING_LABEL_ATTR]: pendingLabel,
     [DELETE_LABEL_ATTR]: restingLabel,
+    [RATE_LIMIT_LABEL_ATTR]: refusalLabel,
+    [FAILURE_LABEL_ATTR]: failureLabel,
+    [DELETE_WORDS_ATTR]: deleteWords,
     ...restProps
   } = omitInternalMarkers(props) as Record<string, unknown>
   const label = content ?? (typeof restingLabel === 'string' ? restingLabel : 'Delete')
@@ -65,6 +90,7 @@ export function renderCrudDeleteButton(config: DeleteButtonConfig): ReactElement
     id: restProps['id'],
     buttonLabel: label,
     ...(typeof pendingLabel === 'string' ? { pendingLabel } : {}),
+    ...deleteUiStrings(refusalLabel, failureLabel, deleteWords),
   })
   const buttonAttrs = buildDeleteButtonAttrs(action)
 

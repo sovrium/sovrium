@@ -16,7 +16,8 @@
  * naming the table, the chain and why.
  */
 
-import { chainLeavesOf, resolveRowRuleChain } from './row-rule-chain-service'
+import { chainLeavesOf, holdsSeveralValues, resolveRowRuleChain } from './row-rule-chain-service'
+import { containsOnOneValueMessage } from './row-rule-types-validation'
 import type { RowLevelWhen } from './row-level-permissions'
 
 type RuleOperation = 'read' | 'write' | 'create' | 'delete'
@@ -45,8 +46,14 @@ const tableChainError = (
   OPERATIONS.flatMap((operation) => chainLeavesOf(table.rowLevelPermissions?.[operation]?.when))
     .map((leaf) => {
       const resolved = resolveRowRuleChain(table, tables, leaf.field)
-      return 'refusal' in resolved
-        ? `Table "${table.name}": row rule on "${leaf.field}" cannot be followed: ${resolved.refusal}`
+      if ('refusal' in resolved) {
+        return `Table "${table.name}": row rule on "${leaf.field}" cannot be followed: ${resolved.refusal}`
+      }
+      const end = tables
+        .find((candidate) => candidate.name === resolved.relatedTable)
+        ?.fields.find((field) => field.name === resolved.column)
+      return leaf.operator === 'contains' && !holdsSeveralValues(end)
+        ? `Table "${table.name}": ${containsOnOneValueMessage(leaf.field)}`
         : undefined
     })
     .find((message) => message !== undefined)

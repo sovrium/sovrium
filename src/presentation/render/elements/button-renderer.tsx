@@ -7,6 +7,7 @@
 
 import { type ReactElement } from 'react'
 import { renderSpinnerMark } from '@/presentation/design/spinner-mark'
+import { openImportTable } from '@/presentation/render/resolve/open-import-gate'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import {
   buildAuthDataAttributes,
@@ -27,6 +28,7 @@ import {
 } from './button-action-builders'
 import { buildNavigateClick, isNavigateAction } from './button-navigate-action'
 import { renderCrudDeleteButton } from './crud-form/crud-delete-button-renderer'
+import { renderOpenImportButton } from './open-import-button'
 import type { ElementProps } from './html-element-renderer'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 
@@ -250,6 +252,9 @@ export function renderButton(options: RenderButtonOptions): ReactElement {
   if (sheet.action === 'openSheet' && typeof sheet.component === 'string') {
     return renderPlainButton({ ...options, interactions: { click: { modal: sheet.component } } })
   }
+
+  const importTable = openImportTable({ action })
+  if (importTable !== undefined) return renderOpenImportButton(importTable, props, content)
 
   const clientAttrs = clientActionAttributes(action, props, routeParams)
   if (clientAttrs !== undefined) {

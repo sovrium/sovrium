@@ -58,3 +58,29 @@ export const buildInvitationLink = (
   const root = `${origin.replace(/\/$/, '')}${basePath.replace(/\/$/, '')}`
   return `${root}${target.path}?${encodeURIComponent(target.param)}=${encodeURIComponent(token)}`
 }
+
+/** An app mounted under a base path, as far as its invitation pages go. */
+export interface InvitationLinkMount {
+  readonly basePath: string
+  readonly presetApp: { readonly pages?: readonly InvitationLinkPage[] | undefined }
+}
+
+/**
+ * The invitation pages of the apps mounted on this server (the operator
+ * console), addressed from the server root: `/accept-invitation` declared by a
+ * console at `/_admin` is `/_admin/accept-invitation`.
+ *
+ * Listed AFTER an app's own pages by every link builder, so they are the
+ * fallback {@link invitationLinkTarget} reaches only when the app declares no
+ * invitation page of its own — and before the built-in page, which is what an
+ * app with neither still gets. A page whose path holds a `:param` segment is
+ * skipped for the reason the app's own are.
+ */
+export const mountedInvitationPages = (
+  mounts: readonly InvitationLinkMount[]
+): readonly InvitationLinkPage[] =>
+  mounts.flatMap(({ basePath, presetApp }) =>
+    (presetApp.pages ?? [])
+      .filter((page) => page.invitation !== undefined && !page.path.includes(':'))
+      .map((page) => ({ ...page, path: `${basePath.replace(/\/$/, '')}${page.path}` }))
+  )

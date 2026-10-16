@@ -36,14 +36,13 @@ import {
 } from '@/presentation/design/field-default-classes'
 import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
 import { pendingControlProps } from '@/presentation/design/pending-state'
+import { useApiKeyWord as useWord } from './api-key-strings'
 import type { FormEvent, ReactElement } from 'react'
 
 interface ApiKeyCreateProps {
   /** Mint the key; resolves `false` when the endpoint refused. */
   readonly onCreate: (name: string) => Promise<boolean>
 }
-
-const CREATE_FAILED = 'Could not create the key. Check you are still signed in and try again.'
 
 /** The name field: its label, the control, its help and, after a refusal, the error. */
 function NameField({ error }: { readonly error: string }): ReactElement {
@@ -60,14 +59,14 @@ function NameField({ error }: { readonly error: string }): ReactElement {
         htmlFor={id}
         className={computeFieldLabelClasses()}
       >
-        Name
+        {useWord('name', 'Name')}
       </label>
       <input
         id={id}
         data-slot="input"
         name="name"
         type="text"
-        placeholder="What will carry this key?"
+        placeholder={useWord('namePlaceholder', 'What will carry this key?')}
         aria-describedby={`${id}-help`}
         {...(error !== '' && { 'aria-invalid': 'true' })}
         className={computeInputDefaultClasses()}
@@ -77,7 +76,10 @@ function NameField({ error }: { readonly error: string }): ReactElement {
         data-slot="field-description"
         className={computeFieldDescriptionClasses()}
       >
-        Name it after the job that will use it — that name is how you will recognise it later.
+        {useWord(
+          'nameHint',
+          'Name it after the job that will use it — that name is how you will recognise it later.'
+        )}
       </p>
       {error !== '' && (
         <p
@@ -104,17 +106,24 @@ function CreateDialogHeader({ titleId }: { readonly titleId: string }): ReactEle
         data-slot="dialog-title"
         className={computeDialogTitleClasses()}
       >
-        Create an API key
+        {useWord('createTitle', 'Create an API key')}
       </h2>
       <p
         data-slot="dialog-description"
         className={computeDialogDescriptionClasses()}
       >
-        The key acts as you. You see its value once, right after you create it.
+        {useWord(
+          'createBody',
+          'The key acts as you. You see its value once, right after you create it.'
+        )}
       </p>
     </div>
   )
 }
+
+/** The submit's word while the key is minted, and before. */
+const useSubmitWord = (pending: boolean): string =>
+  useWord(pending ? 'generating' : 'generate', pending ? 'Generating…' : 'Generate key')
 
 /** The modal holding the name form. Mounting it opens it; closing it, by any road, unmounts it. */
 function CreateDialog({
@@ -130,6 +139,7 @@ function CreateDialog({
 }): ReactElement {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
+  const submit = useSubmitWord(pending)
   useLayoutEffect(() => {
     const dialog = ref.current
     if (dialog && !dialog.open) dialog.showModal()
@@ -161,7 +171,7 @@ function CreateDialog({
             onClick={cancel}
             className={computeButtonDefaultClasses({ variant: 'outline' })}
           >
-            Cancel
+            {useWord('cancel', 'Cancel')}
           </button>
           <button
             type="submit"
@@ -169,7 +179,7 @@ function CreateDialog({
             {...pendingControlProps(pending)}
             className={computeButtonDefaultClasses()}
           >
-            {pending ? 'Generating…' : 'Generate key'}
+            {submit}
           </button>
         </div>
       </form>
@@ -191,6 +201,10 @@ export function ApiKeyCreate({ onCreate }: ApiKeyCreateProps): ReactElement {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const trigger = useRef<HTMLButtonElement>(null)
+  const createFailed = useWord(
+    'createFailed',
+    'Could not create the key. Check you are still signed in and try again.'
+  )
 
   const close = useCallback(() => {
     setOpen(false)
@@ -208,16 +222,16 @@ export function ApiKeyCreate({ onCreate }: ApiKeyCreateProps): ReactElement {
       onCreate(typeof field === 'string' ? field.trim() : '').then(
         (created) => {
           setPending(false)
-          setError(created ? '' : CREATE_FAILED)
+          setError(created ? '' : createFailed)
           if (created) close()
         },
         () => {
           setPending(false)
-          setError(CREATE_FAILED)
+          setError(createFailed)
         }
       )
     },
-    [close, onCreate, pending]
+    [close, createFailed, onCreate, pending]
   )
 
   return (
@@ -229,7 +243,7 @@ export function ApiKeyCreate({ onCreate }: ApiKeyCreateProps): ReactElement {
         onClick={() => setOpen(true)}
         className={computeButtonDefaultClasses()}
       >
-        Create key
+        {useWord('create', 'Create key')}
       </button>
       {open && (
         <CreateDialog

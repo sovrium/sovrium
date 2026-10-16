@@ -16,12 +16,9 @@
  */
 
 import { type ReactElement, useCallback } from 'react'
+import { messageCountText, relativeTimeText } from './admin-agent-conversations-captions'
 import { NewConversation, AgentFilter, ListSearch } from './admin-agent-conversations-controls'
-import {
-  formatRelative,
-  type ConversationRow,
-  type ListState,
-} from './admin-agent-conversations-data'
+import { type ConversationRow, type ListState } from './admin-agent-conversations-data'
 import {
   ListLoading,
   ListErrorState,
@@ -61,12 +58,11 @@ function ConversationCard({
           one fact. Dropped; `agentName` stays on the row because the transcript
           fetch is agent-scoped and still needs it. */}
       <span className="text-foreground-subtle flex items-center gap-2 text-sm">
-        <span>{formatRelative(conversation.lastActivityAt)}</span>
+        <span>{relativeTimeText(conversation.lastActivityAt)}</span>
         <span aria-hidden="true">·</span>
-        <span className="tabular-nums">
-          {/* `> 1` rendered an empty thread as "0 message". Zero is plural. */}
-          {conversation.messageCount} message{conversation.messageCount === 1 ? '' : 's'}
-        </span>
+        {/* The plural is the page language's (`Intl.PluralRules`): zero is
+            plural in English and singular in French. */}
+        <span className="tabular-nums">{messageCountText(conversation.messageCount)}</span>
       </span>
     </button>
   )
@@ -135,7 +131,7 @@ export function ConversationList(props: ConversationListProps): ReactElement {
   return (
     <section
       aria-label="Conversations"
-      className="border-border flex w-72 shrink-0 flex-col gap-3 border-r pr-4"
+      className="border-border flex w-full flex-col gap-3 md:w-72 md:shrink-0 md:border-r md:pr-4"
     >
       <NewConversation
         state={props.newConversation}

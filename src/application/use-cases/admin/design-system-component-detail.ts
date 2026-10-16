@@ -27,7 +27,6 @@ import {
 import {
   axisValues,
   categoryOf,
-  detailHref,
   publishedField,
   purposeOf,
   undrawnReason,
@@ -100,7 +99,7 @@ export const componentTypeDetail = (
   // literal, and the literal here is the page's own route parameter.
   const siblings: readonly ComponentTypeSibling[] = catalogedTypesOf(category)
     .filter((sibling) => sibling !== type)
-    .map((sibling) => ({ type: sibling, href: detailHref(sibling) }))
+    .map((sibling) => ({ type: sibling }))
 
   const variants = axisValues(introspection.variant)
   const sizes = axisValues(introspection.size)
@@ -112,7 +111,6 @@ export const componentTypeDetail = (
     category,
     title: CATALOG_CATEGORY_TITLES[category],
     purpose: purposeOf(type),
-    href: detailHref(type),
     own: introspection.own.map(publishedField),
     // ROWS, not the introspector's bare `string[]`: `rowsKey` hands a template a
     // record and `$record.` names a field of one, so module names arrive

@@ -54,6 +54,7 @@ export {
 
 export {
   SeedAccountSchema,
+  SeedGrantSchema,
   SeedUsersFileSchema,
   isSeedUsersFile,
   findDuplicateAccountEmails,

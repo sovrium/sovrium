@@ -25,7 +25,7 @@ import {
   parseInitialValue,
   planSelection,
 } from './file-field-values'
-import type { UploadedFile, StoredFile } from './file-field-values'
+import type { UploadedFile, StoredFile, Words } from './file-field-values'
 
 interface FilePreviewProps {
   readonly file: UploadedFile
@@ -72,10 +72,11 @@ function FilePreview({ file, onRemove }: FilePreviewProps) {
 
 interface FileUploadProgressProps {
   readonly uploading: boolean
+  readonly strings: Words
 }
 
 /** Upload progress indicator: in-flight spinner or completed state. */
-function FileUploadProgress({ uploading }: FileUploadProgressProps) {
+function FileUploadProgress({ uploading, strings }: FileUploadProgressProps) {
   return (
     <div
       role="progressbar"
@@ -85,7 +86,9 @@ function FileUploadProgress({ uploading }: FileUploadProgressProps) {
       aria-valuemax={100}
       aria-valuenow={uploading ? 50 : 100}
     >
-      {uploading ? 'Uploading…' : 'Upload complete'}
+      {uploading
+        ? (strings?.['form.uploading'] ?? 'Uploading…')
+        : (strings?.['form.uploadComplete'] ?? 'Upload complete')}
     </div>
   )
 }
@@ -142,6 +145,7 @@ interface FileFieldBodyProps {
   readonly error: string | undefined
   readonly files: readonly StoredFile[]
   readonly onRemove: (index: number) => void
+  readonly strings: Words
 }
 
 /** Presentational body: label, input, progress, error, previews. */
@@ -152,6 +156,7 @@ function FileFieldBody({
   error,
   files,
   onRemove,
+  strings,
 }: FileFieldBodyProps) {
   return (
     <div>
@@ -162,7 +167,12 @@ function FileFieldBody({
         {labelOf(field)}
       </label>
       {fileInput}
-      {(uploading || files.length > 0) && <FileUploadProgress uploading={uploading} />}
+      {(uploading || files.length > 0) && (
+        <FileUploadProgress
+          uploading={uploading}
+          strings={strings}
+        />
+      )}
       {error !== undefined && <span role="alert">{error}</span>}
       {files.length > 0 && (
         <FilePreviewList
@@ -179,6 +189,8 @@ interface FileFieldProps {
   readonly multiple: boolean
   readonly value: string
   readonly onChange: (name: string, value: string) => void
+  /** The form's interface strings in the page language (`form.upload*`). */
+  readonly strings?: Words
 }
 
 /**
@@ -206,7 +218,7 @@ function useFileField(props: FileFieldProps) {
       const uploaded = await Promise.all(accepted.map((file) => uploadFile(file, bucket)))
       commit(multiple ? [...files, ...uploaded] : uploaded)
     } catch {
-      setError('File upload failed. Please try again.')
+      setError(props.strings?.['form.uploadFailed'] ?? 'File upload failed. Please try again.')
     } finally {
       setUploading(false)
       setInputKey((k) => k + 1)
@@ -216,7 +228,10 @@ function useFileField(props: FileFieldProps) {
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? [])
     if (selected.length === 0) return
-    const plan = planSelection(selected, field, multiple, files.length)
+    const plan = planSelection(selected, field, multiple, {
+      count: files.length,
+      strings: props.strings,
+    })
     setError(plan.error)
     if (plan.accepted.length === 0) {
       setInputKey((k) => k + 1)
@@ -263,6 +278,7 @@ export function FileField(props: FileFieldProps) {
       error={error}
       files={files}
       onRemove={removeAt}
+      strings={props.strings}
     />
   )
 }

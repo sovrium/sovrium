@@ -50,6 +50,8 @@ interface GuardedErasureSteps {
   readonly readSubject: () => Promise<ErasureSubject | undefined>
   /** Every account that can administer the app, held until the erasure commits. */
   readonly lockAdminCandidates: () => Promise<readonly AdminCandidate[]>
+  /** The account itself, held for the delete before any other row is written. */
+  readonly holdSubject: () => Promise<void>
   /** Every write of the erasure. */
   readonly erase: (subject: ErasureSubject | undefined) => Promise<void>
 }
@@ -67,6 +69,15 @@ interface GuardedErasureSteps {
  *
  * An account that is not an admin who can sign in takes no admin away, so it
  * is erased without a count.
+ *
+ * Before its first write, the erasure holds the account row for the delete it
+ * ends with ({@link lockErasedAccount}). A record write naming the account
+ * holds it from the start of its own transaction, so both take the account
+ * before any record: the erasure waits for such a write to commit, or the
+ * write waits for the erasure and then finds no account. Taking the account
+ * last, after the records the erasure edits, closes a cycle with that write.
+ * The admin candidates are locked before it, so two erasures still queue on
+ * the candidates in `id` order.
  */
 export async function eraseUnderLastAdminRail(
   userId: string,
@@ -78,6 +89,7 @@ export async function eraseUnderLastAdminRail(
     const remaining = otherActiveAdmins(await steps.lockAdminCandidates(), userId, app)
     if (leavesNoAdmin(remaining)) return { _tag: 'Refused', message: lastAdminRemovalMessage(app) }
   }
+  await steps.holdSubject()
   await steps.erase(subject)
   return ERASED
 }
@@ -132,6 +144,26 @@ export async function lockAdminCandidates(
   const query = selectAdminCandidates(tx as unknown as DrizzleDB, authUsersTable(), adminRoles)
   return isSqliteRuntime() ? await query : await query.for(ADMIN_CANDIDATE_LOCK)
 }
+
+/**
+ * Hold the erased account for the delete the erasure ends with, before any
+ * other row is written (see {@link eraseUnderLastAdminRail}).
+ *
+ * PostgreSQL: `SELECT … FOR UPDATE`, the lock the delete itself takes, so it
+ * conflicts with the key-share lock a record write takes on an account it
+ * names. SQLite has no row locks and a single writer: nothing to take.
+ */
+export async function lockErasedAccount(
+  tx: Readonly<DrizzleTransaction>,
+  userId: string
+): Promise<void> {
+  if (isSqliteRuntime()) return
+  await executeRaw(tx, erasedAccountLock(userId))
+}
+
+/** The statement {@link lockErasedAccount} runs on PostgreSQL, with the id bound. */
+export const erasedAccountLock = (userId: string) =>
+  sql`SELECT id FROM ${authTableRef('user')} WHERE id = ${userId} FOR UPDATE`
 
 /** The account's address, role and ban flag, read inside the erasure transaction. */
 export async function readErasureSubject(

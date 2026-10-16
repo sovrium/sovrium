@@ -15,6 +15,7 @@ import {
 import { declaredGalleryPartClasses } from '@/presentation/design/gallery-part-class-resolution'
 import { resolveWeekdayFields } from '@/presentation/render/props/resolve-weekday-fields'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
+import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
 
 /** The gallery island's props, the author's piece classes merged here, on the server. */
@@ -33,6 +34,8 @@ function extractGalleryProps(
     emptyMessage: elementProps.emptyMessage,
     layout: elementProps.layout,
     featured: elementProps.featured,
+    // The channel the gallery publishes the card a reader selects on.
+    publishes: elementProps.publishes,
     ...declaredGalleryPartClasses(parts),
   }
 }
@@ -44,8 +47,12 @@ function extractGalleryProps(
  */
 const galleryRenderer =
   (type: 'gallery' | 'carousel'): ComponentRenderer =>
-  ({ elementProps, tables, designStyles }) => {
-    const islandProps = extractGalleryProps(elementProps, tables, designStyles?.parts)
+  ({ elementProps, tables, designStyles, currentLang, languages }) => {
+    const loading = islandLoadingLabel('gallery.loading', currentLang, languages)
+    const islandProps = {
+      ...extractGalleryProps(elementProps, tables, designStyles?.parts),
+      uiStrings: islandUiStrings('gallery', currentLang, languages),
+    }
     // The ONE element naming the gallery; the grid writes `data-columns` onto it.
     const layout = typeof elementProps.layout === 'string' ? elementProps.layout : 'grid'
     return (
@@ -64,7 +71,8 @@ const galleryRenderer =
             border, radius, fill and gutter never move. */}
         <div
           className={`${computeGalleryGridClasses()} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`}
-          aria-label="Loading gallery..."
+          data-loading-status=""
+          aria-label={loading.status}
           role="status"
         >
           {Array.from({ length: 6 }).map((_, i) => (

@@ -13,6 +13,8 @@ import {
   computeToggleGroupClasses,
   computeToggleGroupItemClasses,
 } from '@/presentation/islands/form-controls/toggle-default-classes'
+import { useLazySharedFilterPublisher } from '@/presentation/islands/hooks/use-lazy-shared-filter-publisher'
+import type { SharedFilterPublisherConfig } from '@/presentation/islands/hooks/use-shared-filter-publisher'
 import type { CSSProperties, ReactElement } from 'react'
 
 interface ToggleItem {
@@ -35,6 +37,8 @@ interface ToggleGroupIslandProps {
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+  /** The channel the control publishes its value on, as a condition or a param. */
+  readonly publishes?: SharedFilterPublisherConfig
 }
 
 /**
@@ -57,7 +61,10 @@ export default function ToggleGroupIsland({
   className,
   id,
   'data-testid': testId,
+  publishes,
 }: ToggleGroupIslandProps): ReactElement {
+  const publish = useLazySharedFilterPublisher(publishes)
+  const multiple = toggleType === 'multiple'
   const memoizedDefaultValue = useMemo(
     () => (defaultValue ? [...defaultValue] : []),
     [defaultValue]
@@ -67,7 +74,10 @@ export default function ToggleGroupIsland({
   return (
     <ToggleGroup
       defaultValue={memoizedDefaultValue}
-      multiple={toggleType === 'multiple'}
+      multiple={multiple}
+      // A single group publishes its pressed item, or nothing once released; a
+      // multiple one every pressed item, which an `in` condition reads as any.
+      onValueChange={(values) => publish(multiple ? values : (values[0] ?? ''))}
       disabled={disabled}
       orientation={orientation}
       className={resolveClasses(computeToggleGroupClasses(), className)}

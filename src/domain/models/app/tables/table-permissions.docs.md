@@ -120,9 +120,29 @@ A rule's `value` is compared with the field as it is stored, so it is written in
 
 A `$currentUser` value is resolved per request and is accepted on any field. It resolves to the same value on every door — the records API and its lists, pages, hosted forms, the MCP tools and real-time — and a rule naming a value the reader does not have (no email address on her account) matches no row. A rule on `$currentUser.email` therefore matches the reader's own address and never a record whose field is empty.
 
+An `assignment` value may name a grant role: `{ kind: assignment, tableSlug: projects, role: project-manager }`, or `$currentUser.assignments.projects.project-manager` in the string form, keeps only the records the person is granted under that role, so one person can manage one project and follow another as a client, and a rule tells the two apart. Without `role`, every record granted in the table counts. A role the app does not declare in `auth.roles` is refused by `sovrium validate` and the boot. The same path narrows a page data-source filter, and an automation run someone starts by hand, in the same way.
+
+`contains` tests membership in a field that holds several values — a many-to-many relationship, or a `user` field with `allowMultiple: true` — on the table's own columns or one many-to-one relationship away (`project.teams`, `project.managers`). The row passes when the field holds the value, or, when the value is a list such as `$currentUser.assignments.teams`, at least one of its values. An empty field or an empty list matches nothing. This is never the text match `contains` means in a page filter. On a field that holds one value, `sovrium validate` and the boot refuse `contains`, naming the field: use `eq` for one value and `in` for a list.
+
+A server-rendered page and a hosted form apply the same rules as the records API, including a rule that reads a column one relationship away (`project.client_id`) and a rule using `contains`: a list bound to the table draws, and a hosted form's relationship choice offers, exactly the records the records API lists the same reader, and nothing the rule hides.
+
+```yaml
+rowLevelPermissions:
+  read:
+    when:
+      field: project.teams
+      operator: contains
+      value: $currentUser.assignments.teams
+  write:
+    when:
+      field: project
+      operator: in
+      value: $currentUser.assignments.projects.project-manager
+```
+
 The one path a rule does not resolve is `activeAssignment`, the tenant switcher's active scope: `sovrium validate` and the boot refuse a rule that names it, in either form. Scope a rule with `assignment` (`$currentUser.assignments.<table>`) instead; the active scope narrows page data-source filters only.
 
-An empty value satisfies no `eq`, `neq` or `in`. Under `status neq draft`, a record whose `status` is empty is left out of the list and answers `404` to a single read, an update, a delete and every other door, and the activity feed leaves out its entries. A `create` rule is judged on the record as it will be stored: a field the body leaves out counts with its `default`, and one with no default is empty, so `status neq draft` refuses a create that omits `status` unless the field has a default.
+An empty value satisfies no `eq`, `neq`, `in` or `contains`. Under `status neq draft`, a record whose `status` is empty is left out of the list and answers `404` to a single read, an update, a delete and every other door, and the activity feed leaves out its entries. A `create` rule is judged on the record as it will be stored: a field the body leaves out counts with its `default`, and one with no default is empty, so `status neq draft` refuses a create that omits `status` unless the field has a default.
 
 ## Resource and action permissions
 

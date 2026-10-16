@@ -89,7 +89,7 @@ The command reads the deployment every two seconds, for up to ten minutes, and p
 | `validating` | The cloud checks the archive and validates the config it carries     |
 | `applying`   | The new revision is being switched in                                |
 | `waking up`  | The app is starting — a few seconds after a switch or a quiet spell  |
-| `retrying`   | An attempt failed and the cloud is trying the deployment again       |
+| `retrying`   | An attempt failed and the cloud is trying it again on its own        |
 | `live`       | Switched in; the command now checks that the address answers         |
 | `failed`     | Stopped; the cloud's report is printed and the command exits `1`     |
 | `replaced`   | It went live and a newer deployment has since replaced it; exits `0` |
@@ -107,15 +107,20 @@ Live at https://atelier-crm.cloud.sovrium.com.
 Admin: https://atelier-crm.cloud.sovrium.com/_admin — sign in with Sovrium Cloud
 ```
 
-When the cloud tries a deployment again, the command says which attempt it is on and how the one before ended, once, even if the state it reaches is one it already printed:
+**A failed deployment is deployed again by you.** Sovrium Cloud does not try a failed deployment again on its own: you fix what the report names and run `sovrium deploy` again, and that records a new deployment with its own number. When the cloud's answer counts it as another attempt, the command prints which attempt it is and how the one before ended, once, right after the first state:
 
 ```console
-Deployment 44: applying
-Deployment 44: attempt 2, previous attempt failed: the node did not answer within 30 s
-Deployment 44: retrying
-Deployment 44: applying
+$ sovrium deploy
+Bundled @atelier/crm (6 files, 41 KB).
+Uploaded to https://cloud.sovrium.com.
+Deployment 45: queued
+Deployment 45: attempt 2, previous attempt failed: the node did not answer within 30 s
+Deployment 45: validating
+Deployment 45: applying
 Live at https://atelier-crm.cloud.sovrium.com.
 ```
+
+A cloud that does try a deployment again by itself reports `retrying` and the new attempt on the deployment the command is following, and the command prints that attempt the same way, once, even if the state it reaches is one it already printed. Sovrium Cloud reports neither today.
 
 A state a newer cloud reports that this version of Sovrium does not know is printed as the cloud wrote it, and the command keeps waiting.
 

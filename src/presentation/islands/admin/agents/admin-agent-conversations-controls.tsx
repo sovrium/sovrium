@@ -6,6 +6,7 @@
  */
 
 import { type ChangeEvent, type ReactElement, useCallback } from 'react'
+import { useAgentConversationString as useWord } from './admin-agent-conversations-strings'
 import type { NewConversationState } from './admin-agent-conversations-state'
 
 /**
@@ -34,6 +35,8 @@ export function NewConversation({
     (event: ChangeEvent<HTMLSelectElement>) => onPickAgent(event.target.value),
     [onPickAgent]
   )
+  const agentWord = useWord('agent', 'Agent')
+  const chooseWord = useWord('chooseAgent', 'Choose an agent…')
   return (
     <div className="flex flex-col gap-2">
       <button
@@ -47,18 +50,18 @@ export function NewConversation({
         >
           +
         </span>
-        New conversation
+        {useWord('newConversation', 'New conversation')}
       </button>
       {state.active ? (
         <label className="text-md flex items-center gap-2">
-          <span className="text-foreground-subtle text-sm">Agent</span>
+          <span className="text-foreground-subtle text-sm">{agentWord}</span>
           <select
-            aria-label="Agent"
+            aria-label={agentWord}
             value={state.agent}
             onChange={handlePick}
             className="border-border bg-background text-foreground text-md flex-1 rounded-md border px-2 py-1"
           >
-            <option value="">Choose an agent…</option>
+            <option value="">{chooseWord}</option>
             {agentNames.map((name) => (
               <option
                 key={name}
@@ -103,17 +106,22 @@ export function AgentFilter({
     (event: ChangeEvent<HTMLSelectElement>) => onAgent(event.target.value),
     [onAgent]
   )
+  const words = {
+    agent: useWord('agent', 'Agent'),
+    filter: useWord('filterByAgent', 'Filter by agent'),
+    all: useWord('allAgents', 'All agents'),
+  }
   if (agentNames.length < 2 || hidden) return null
   return (
     <label className="text-md flex items-center gap-2">
-      <span className="text-foreground-subtle text-sm">Agent</span>
+      <span className="text-foreground-subtle text-sm">{words.agent}</span>
       <select
-        aria-label="Filter by agent"
+        aria-label={words.filter}
         value={agent}
         onChange={handleChange}
         className="border-border bg-background text-foreground text-md flex-1 rounded-md border px-2 py-1"
       >
-        <option value="">All agents</option>
+        <option value="">{words.all}</option>
         {agentNames.map((name) => (
           <option
             key={name}
@@ -164,8 +172,8 @@ export function ListSearch({
         type="search"
         value={search}
         onChange={handleChange}
-        placeholder="Search conversations…"
-        aria-label="Search conversations"
+        placeholder={useWord('search', 'Search conversations…')}
+        aria-label={useWord('searchLabel', 'Search conversations')}
         className="border-border bg-card focus:border-border-strong focus:ring-ring/30 text-md w-full rounded-md border py-1.5 pr-3 pl-8 transition-colors focus:ring-2 focus:outline-none"
       />
     </div>

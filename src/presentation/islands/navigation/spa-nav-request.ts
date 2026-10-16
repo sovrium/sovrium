@@ -46,10 +46,16 @@
 /** The request event: "please SPA-navigate to this URL". */
 const NAVIGATE_EVENT = 'sovrium:admin-navigate'
 
-/** Ask the SPA nav module to navigate (content swap) to a URL. */
-export function requestSpaNavigation(url: string): void {
-  if (typeof window === 'undefined') return
-  window.dispatchEvent(new CustomEvent(NAVIGATE_EVENT, { detail: { url } }))
+/**
+ * Ask the SPA nav module to navigate (content swap) to a URL. Returns whether a
+ * nav module took the request: a page without one (an app that runs no SPA
+ * navigation) leaves the caller to navigate itself.
+ */
+export function requestSpaNavigation(url: string): boolean {
+  if (typeof window === 'undefined') return false
+  return !window.dispatchEvent(
+    new CustomEvent(NAVIGATE_EVENT, { detail: { url }, cancelable: true })
+  )
 }
 
 /**
@@ -60,7 +66,9 @@ export function subscribeSpaNavigation(handler: (url: string) => void): () => vo
   if (typeof window === 'undefined') return () => undefined
   const listener = (event: Event): void => {
     const { detail } = event as CustomEvent<{ readonly url?: string }>
-    if (detail?.url) handler(detail.url)
+    if (!detail?.url) return
+    event.preventDefault()
+    handler(detail.url)
   }
   window.addEventListener(NAVIGATE_EVENT, listener)
   return () => window.removeEventListener(NAVIGATE_EVENT, listener)

@@ -70,9 +70,10 @@ export interface ExecuteFetchActionOptions {
   readonly origin?: Element
   /**
    * The success toast, when the caller draws a richer one than `renderToast`
-   * (`duration`, an action link). Runs first, in place of `renderToast`.
+   * (`duration`, an action link). Runs first, in place of `renderToast`, and
+   * is handed the parsed body so its message can quote `$response.<path>`.
    */
-  readonly successToast?: () => void
+  readonly successToast?: (body: unknown) => void
   /** The caller's own success effect (an endpoint form's reset), after `status`/`refetch`. */
   readonly successEffects?: () => void
 }
@@ -103,9 +104,17 @@ export function evaluateFetchEnvelope(
   return is2xx
 }
 
-/** Render the action's success/error toast slot when one is configured + a renderer is injected. */
+/**
+ * Render the action's success/error toast slot when one is configured + a
+ * renderer is injected. A row action's message may name the row it acted on
+ * (`$record.name paused`), filled from the same record its `url` was — so a
+ * toast on a catalogue of many says WHICH one, rather than leaving the reader
+ * to guess.
+ */
 export function renderActionToast(slot: ToastSlot, options: ExecuteFetchActionOptions): void {
-  if (slot && options.renderToast) options.renderToast(slot.message, slot.variant)
+  if (slot && options.renderToast) {
+    options.renderToast(substituteRecord(slot.message, options.record), slot.variant)
+  }
 }
 
 /**

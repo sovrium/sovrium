@@ -5,25 +5,24 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useContext } from 'react'
-import { isRateLimitedRead, RateLimitedNotice } from '../../runtime/read-failure'
 import { AccountSessionsContext, isAccountSessionsEndpoint } from '../account-sessions'
 import { usePasteImport } from '../paste-preview/use-paste-import'
+import { ViewSwitcher } from '../view-options/view-switcher'
 import {
-  DEFAULT_CANCEL_LABEL,
-  DEFAULT_SAVE_LABEL,
   isReadOnlyBinding,
   resolveRowClickAction,
   toPasteParams,
   toSetupParams,
   useColumnDisplayFieldMeta,
-  useDataTableCreateFlow,
-  withViewBoundToolbar,
 } from './entry-wiring'
 import { GridStringsContext, type GridStrings } from './grid-strings'
+import { usePhoneRowOpen } from './phone-row-open'
+import { ReadErrorNotice } from './read-error-notice'
 import { pagerPagination } from './setup/row-cap'
+import { effectiveSelection } from './setup/use-grid-table'
 import { useClipboardCopy } from './use-clipboard-copy'
 import { useDataTableIslandSetup } from './use-island-setup'
+import { usePublishedSelection } from './use-published-selection'
 import { DataTableView } from './view/data-table-view'
 import type { DataTableIslandProps } from './island-props'
 
@@ -31,54 +30,20 @@ import type { DataTableIslandProps } from './island-props'
 const NO_UI_STRINGS: GridStrings = {}
 
 /**
- * The grid's load-failure alert. Operator-facing, so it states what failed and
- * what to do about it — not a raw response envelope.
- *
- * It used to render `Failed to load data: ` in front of a message that already
- * began `Failed to fetch system rows: `, and the fetch appended the response
- * body, so an operator met
- * `Failed to load data: Failed to fetch system rows: 400 {"success":false,…}`.
- * Two prefixes and a JSON blob. The status is kept because 400 / 403 / 500 tell
- * an operator genuinely different things; the envelope now lives on the Error's
- * `cause` for the console.
+ * The label a refused sort's column is named by: the declared column label,
+ * else the field's own label, else its name.
  */
-function ErrorBanner({ error }: { readonly error: unknown }) {
-  return (
-    <div
-      role="alert"
-      className="border-error-border bg-error-bg text-error-fg text-md rounded border p-4"
-    >
-      <p className="font-medium">This data could not be loaded.</p>
-      <p className="mt-1">
-        {error instanceof Error ? error.message : 'The server sent no readable response.'} Refresh
-        to try again.
-      </p>
-    </div>
-  )
-}
-
-/** A rate-limited read offers a Retry; any other failure keeps the banner. */
-function ReadErrorNotice({
-  error,
-  onRetry,
-}: {
-  readonly error: unknown
-  readonly onRetry: () => void
-}) {
-  const strings = useContext(GridStringsContext)
-  return isRateLimitedRead(error) ? (
-    <RateLimitedNotice
-      onRetry={onRetry}
-      strings={strings}
-    />
-  ) : (
-    <ErrorBanner error={error} />
-  )
+function columnLabelOf(props: DataTableIslandProps, id: string | undefined): string | undefined {
+  if (id === undefined) return undefined
+  const declared = props.columns?.find((column) => 'field' in column && column.field === id)
+  const label = declared !== undefined && 'label' in declared ? declared.label : undefined
+  return label ?? props.fieldMeta?.[id]?.label ?? id
 }
 
 // eslint-disable-next-line max-lines-per-function, complexity -- thin coordinator: 60+ lines of prop-forwarding wiring whose ?? / && short-circuit defaults aggregate one past the threshold; further extraction would obscure the call site
 export default function DataTableIsland(islandProps: DataTableIslandProps) {
-  const props = useColumnDisplayFieldMeta(islandProps)
+  // On a phone a row opens like its Open action, and the action column is dropped.
+  const props = usePhoneRowOpen(useColumnDisplayFieldMeta(islandProps))
   const isReadOnly = isReadOnlyBinding(props)
   const setup = useDataTableIslandSetup(toSetupParams(props))
   // Clipboard + paste-import: cell/row selection + Ctrl/Cmd+C / +V handlers.
@@ -87,23 +52,19 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
   const clipboardRef = useClipboardCopy()
   const paste = usePasteImport(toPasteParams(props, clipboardRef, setup.handleRefresh, isReadOnly))
   const onRowClickAction = resolveRowClickAction(props.onRowClick)
+  usePublishedSelection(props.publishes, setup.table, setup.rowSelection)
 
-  const { creating, onCreate, onCancelCreate, onSubmitCreate } = useDataTableCreateFlow(
-    props.dataSource.table ?? '',
-    setup.handleRefresh,
-    props.fieldMeta
-  )
-  // A system source is read-only: never offer the "Nouvel enregistrement"
-  // create affordance (there is no records table to write to). Otherwise the
-  // button is offered unless the server explicitly denied create for the role.
+  // A system source is read-only: never offer the trailing add-row (there is
+  // no records table to write to). Otherwise it is offered unless the server
+  // explicitly denied create for the role.
   const showCreate = !isReadOnly && props.canCreate !== false
   // Optional props applied only when present (keeps the JSX spread free of inline
   // boolean operators that would inflate this component's cyclomatic complexity).
   const optionalProps = {
     ...(props.ariaLabel && { ariaLabel: props.ariaLabel }),
-    // System-source CSV export: the toolbar `Exporter` affordance navigates to
-    // this endpoint's `?format=csv` (there is no DB table to route through the
-    // records export). Present only for a `dataSource.system` binding.
+    // A system source's selection export serialises the rows it holds (there
+    // is no DB table to route a selection through). Present only for a
+    // `dataSource.system` binding.
     ...(props.dataSource.system?.endpoint && {
       systemExportEndpoint: props.dataSource.system.endpoint,
     }),
@@ -112,8 +73,17 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
   // don't count toward this component's cyclomatic complexity.
   const tableName = props.dataSource.table ?? ''
   const striped = props.striped ?? false
-  const emptyMessage =
-    props.emptyMessage ?? props.uiStrings?.['datatable.noRecords'] ?? 'No records found'
+  // A read that failed before any row arrived has nothing to say about the
+  // data: "No records" under "Couldn’t load records." would be a claim the
+  // grid never asked the server. So neither the empty state nor the pager's
+  // "No results" is drawn under a failure; a refused RE-read keeps both, over
+  // the rows it is still showing.
+  const failedEmpty = setup.readError !== undefined && setup.table.getRowModel().rows.length === 0
+  const noRecords = props.uiStrings?.['datatable.noRecords'] ?? 'No records found'
+  const searching = setup.searchQuery.trim() !== ''
+  const emptyMessage = failedEmpty
+    ? ''
+    : (props.emptyMessage ?? (searching ? undefined : props.tableEmptyMessage) ?? noRecords)
   // A grid of the reader's own sessions marks each row current or not.
   const sessionsList = isAccountSessionsEndpoint(props.dataSource.system?.endpoint)
 
@@ -123,8 +93,8 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
       {paste.toast}
       {/*
         A failed read is TOLD, not enacted. This used to `return <ErrorBanner/>`
-        in place of the whole component, so one refused sort took the rows, the
-        headers, the toolbar and the search box with it — and since the sort
+        in place of the whole component, so one refused sort took the rows and
+        the headers with it — and since the sort
         lived in React state rather than the URL, the header that would have
         toggled it back off was gone too, leaving a page reload as the only way
         out. The banner now sits ABOVE the grid: the operator keeps the last page
@@ -135,6 +105,18 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
         <ReadErrorNotice
           error={setup.readError}
           onRetry={setup.handleRefresh}
+          sortColumnLabel={columnLabelOf(props, setup.refusedSortColumn)}
+        />
+      )}
+      {props.viewSwitcher !== undefined && tableName !== '' && (
+        <ViewSwitcher
+          table={tableName}
+          allLabel={props.viewSwitcher.allLabel}
+          {...(props.isViewBound === true &&
+            props.dataSource.view !== undefined && { configuredView: props.dataSource.view })}
+          sessionView={setup.ui.view}
+          onSelect={setup.ui.setView}
+          inAddress={props.publishes?.url === true}
         />
       )}
       <AccountSessionsContext.Provider value={sessionsList}>
@@ -149,11 +131,14 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
           allColumns={setup.allColumns}
           totalRecords={setup.totalRecords}
           isLoading={setup.isLoading}
-          searchConfig={setup.resolvedSearchConfig}
-          selectionConfig={props.selection}
-          toolbarConfig={withViewBoundToolbar(props)}
+          selectionConfig={effectiveSelection({
+            selectionConfig: props.selection,
+            publishesSelection: props.publishes !== undefined,
+          })}
           bulkActionsConfig={props.bulkActions}
-          paginationConfig={pagerPagination(props.pagination, props.dataSource.limit)}
+          paginationConfig={
+            failedEmpty ? undefined : pagerPagination(props.pagination, props.dataSource.limit)
+          }
           cursorPaged={setup.cursorFeed.cursorPaged}
           hasMore={setup.cursorFeed.hasMore}
           isLoadingMore={setup.cursorFeed.isLoadingMore}
@@ -166,8 +151,6 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
           columnConfig={props.columns}
           tableFields={props.tableFields}
           fieldMeta={props.fieldMeta}
-          globalFilter={setup.globalFilter}
-          setGlobalFilter={setup.setGlobalFilter}
           striped={striped}
           rowColorField={props.rowColorField}
           rowColorFieldColors={props.rowColorFieldColors}
@@ -177,7 +160,6 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
           emptyMessage={emptyMessage}
           {...(props.noMatchMessage !== undefined && { noMatchMessage: props.noMatchMessage })}
           selectedCount={Object.keys(setup.rowSelection).length}
-          showSearch={setup.showSearch}
           editingCell={setup.inlineEditing.editingCell}
           autoSave={setup.inlineAutoSave}
           saveError={setup.inlineEditing.saveError}
@@ -192,13 +174,11 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
           onCellCommit={setup.inlineEditing.commitCellValue}
           onRefresh={setup.handleRefresh}
           canCreate={showCreate}
-          newRecordLabel={props.newRecordLabel ?? 'New record'}
-          saveLabel={props.saveLabel ?? DEFAULT_SAVE_LABEL}
-          cancelLabel={props.cancelLabel ?? DEFAULT_CANCEL_LABEL}
-          creating={creating}
-          onCreate={onCreate}
-          onCancelCreate={onCancelCreate}
-          onSubmitCreate={onSubmitCreate}
+          canDelete={!isReadOnly && props.canDelete !== false}
+          isViewBound={props.isViewBound === true}
+          globalFilter={setup.searchQuery}
+          subscribed={(props.dataSource.bindTo ?? props.dataSource.system?.bindTo) !== undefined}
+          narrowed={setup.narrowed}
           onBulkExecute={setup.onBulkExecute}
           conflict={setup.conflict}
           onDismissConflict={setup.dismissConflict}

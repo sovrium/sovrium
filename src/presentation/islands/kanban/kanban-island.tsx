@@ -5,18 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useState, type ReactElement } from 'react'
+import { useRecordSelectionToggle } from '../hooks/use-lazy-shared-filter-publisher'
 import { BoardContinuation } from './board-continuation'
 import { buildKanbanDragHandler } from './build-drag-handler'
 import { buildKanbanGrid, type KanbanGrid } from './group-lanes'
-import { groupRecords } from './group-records'
+import { groupRecords, type KanbanHeaderPaint } from './group-records'
 import { KanbanBoard } from './kanban-board'
 import { KanbanFormatProvider } from './kanban-format-context'
 import { KanbanError, KanbanLoading, KanbanMissingGroupBy } from './kanban-states'
-import { useBoardWindow, type BoardPagination } from './use-board-window'
+import { useBoardRecords } from './use-board-records'
 import { useKanbanDragGate } from './use-kanban-drag-gate'
-import { useKanbanRecords } from './use-kanban-records'
+import type { KanbanStrings } from './kanban-states'
+import type { BoardPagination } from './use-board-window'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
+import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
 import type { TableRecord } from '../runtime/types'
 import type {
   KanbanCard,
@@ -27,8 +29,13 @@ import type {
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 import type { RecordTextFields } from '@/domain/models/app/tables/record-text-service'
+import type { ReactElement } from 'react'
 
 export interface KanbanIslandProps {
+  /** The board's own words in the page language, where they differ from English. */
+  readonly uiStrings?: KanbanStrings
+  /** The channel the board publishes the card a reader selects on. */
+  readonly publishes?: SharedFilterPublisherConfig
   readonly dataSource?: {
     /** DB-table binding — ABSENT for a system-source binding. */
     readonly table?: string
@@ -66,6 +73,9 @@ export interface KanbanIslandProps {
    * Absent when grouping by a plain (uncolored) single-select.
    */
   readonly columnColors?: Readonly<Record<string, string>>
+  /** `value → label` per axis, in the page language: what a column or lane header prints. */
+  readonly columnLabels?: Readonly<Record<string, string>>
+  readonly swimlaneLabels?: Readonly<Record<string, string>>
   /**
    * Distinct values to render as lanes, derived from `swimlanes.field`'s
    * schema-defined options — the lane axis' counterpart to `columnOptions`, and
@@ -102,9 +112,10 @@ function resolveGrid(input: {
   readonly records: readonly TableRecord[]
   readonly columnField: string
   readonly columnOptions: readonly string[] | undefined
-  readonly columnColors: Readonly<Record<string, string>> | undefined
+  readonly columnPaint: KanbanHeaderPaint
   readonly swimlanes: KanbanSwimlanes | undefined
   readonly swimlaneOptions: readonly string[] | undefined
+  readonly swimlaneLabels: Readonly<Record<string, string>> | undefined
 }): KanbanGrid | undefined {
   const laneField = input.swimlanes?.field
   if (!laneField) return undefined
@@ -112,39 +123,15 @@ function resolveGrid(input: {
     records: input.records,
     columnField: input.columnField,
     columnOptions: input.columnOptions,
-    columnColors: input.columnColors,
+    columnPaint: input.columnPaint,
     laneField,
     laneOptions: input.swimlaneOptions,
+    laneLabels: input.swimlaneLabels,
     // Defaults TRUE, matching the column axis: a declared option draws its lane
     // even when empty, which is what makes `emptyColumnMessage` reachable one
     // level deeper than a single-axis board needs it.
     showEmptyLanes: input.swimlanes?.showEmpty !== false,
   })
-}
-
-/**
- * The records the board draws: its own copy, so a drop appears before the
- * PATCH lands, re-synced whenever the query returns fresh data.
- */
-function useBoardRecords(dataSource: KanbanIslandProps['dataSource']) {
-  const { data, isLoading, isError, error } = useKanbanRecords(dataSource)
-  const [localRecords, setLocalRecords] = useState<readonly TableRecord[]>([])
-  // Re-synced DURING render rather than in an effect, so the board never draws
-  // one frame of empty columns between the read landing and its copy.
-  const [syncedFrom, setSyncedFrom] = useState<readonly TableRecord[] | undefined>(undefined)
-  if (data?.records !== undefined && data.records !== syncedFrom) {
-    setSyncedFrom(data.records)
-    setLocalRecords(data.records)
-  }
-  return {
-    localRecords,
-    setLocalRecords,
-    // The cards drawn: all of them, or the pages an `infinite` board has revealed.
-    ...useBoardWindow(localRecords, dataSource?.pagination),
-    isLoading,
-    isError,
-    error,
-  }
 }
 
 /**
@@ -165,13 +152,29 @@ const columnFieldOf = (groupBy: KanbanGroupBy | undefined): string | undefined =
 function resolveBoardState(input: {
   readonly groupByField: string | undefined
   readonly isLoading: boolean
+  readonly strings: KanbanStrings
   readonly isError: boolean
   readonly error: unknown
 }): ReactElement | undefined {
-  if (input.groupByField === undefined) return <KanbanMissingGroupBy />
-  if (input.isLoading) return <KanbanLoading />
-  if (input.isError) return <KanbanError error={input.error} />
+  if (input.groupByField === undefined) return <KanbanMissingGroupBy {...input} />
+  if (input.isLoading) return <KanbanLoading {...input} />
+  if (input.isError) return <KanbanError {...input} />
   return undefined
+}
+
+/** The single-axis columns and, on a two-axis board, the (lane, column) grid. */
+function boardLayoutOf(
+  props: KanbanIslandProps,
+  shown: readonly TableRecord[],
+  columnField: string
+): { readonly columns: ReturnType<typeof groupRecords>; readonly grid: KanbanGrid | undefined } {
+  const { columnOptions, swimlanes, swimlaneOptions, swimlaneLabels } = props
+  const columnPaint = { colors: props.columnColors, labels: props.columnLabels }
+  const lanes = { columnOptions, columnPaint, swimlanes, swimlaneOptions, swimlaneLabels }
+  return {
+    columns: groupRecords(shown, columnField, columnOptions, columnPaint),
+    grid: resolveGrid({ records: shown, columnField, ...lanes }),
+  }
 }
 
 /**
@@ -181,20 +184,8 @@ function resolveBoardState(input: {
  * colour-field hues and the drag gate travel the same way: only the card reads
  * them, so no column, lane or cell between here and it carries them.
  */
-export default function KanbanIsland({
-  dataSource,
-  kanbanGroupBy,
-  swimlanes,
-  card,
-  drag,
-  emptyColumnMessage,
-  columnOptions,
-  columnColors,
-  swimlaneOptions,
-  colorFieldColors,
-  fieldMeta,
-  recordText,
-}: KanbanIslandProps): ReactElement {
+export default function KanbanIsland(props: KanbanIslandProps): ReactElement {
+  const { dataSource, kanbanGroupBy, swimlanes, card, drag, emptyColumnMessage } = props
   const { localRecords, setLocalRecords, isLoading, isError, error, shown, continuation } =
     useBoardRecords(dataSource)
 
@@ -204,15 +195,27 @@ export default function KanbanIsland({
     groupByField,
     laneField,
   ])
-  const table = dataSource?.table
-  const format = { fieldMeta, table, colorFieldColors, draggableEnabled, recordText }
+  const { fieldMeta, colorFieldColors, recordText } = props
+  const format = {
+    fieldMeta,
+    table: dataSource?.table,
+    colorFieldColors,
+    draggableEnabled,
+    recordText,
+    select: useRecordSelectionToggle(props.publishes),
+  }
 
-  const state = resolveBoardState({ groupByField, isLoading, isError, error })
-  if (state || groupByField === undefined) return state ?? <KanbanMissingGroupBy />
+  const state = resolveBoardState({
+    groupByField,
+    isLoading,
+    strings: props.uiStrings,
+    isError,
+    error,
+  })
+  if (state || groupByField === undefined)
+    return state ?? <KanbanMissingGroupBy strings={props.uiStrings} />
 
-  const columns = groupRecords(shown, groupByField, columnOptions, columnColors)
-  const lanes = { columnOptions, columnColors, swimlanes, swimlaneOptions }
-  const grid = resolveGrid({ records: shown, columnField: groupByField, ...lanes })
+  const { columns, grid } = boardLayoutOf(props, shown, groupByField)
   const handleDragEnd = buildKanbanDragHandler({
     localRecords,
     setLocalRecords,
@@ -231,10 +234,13 @@ export default function KanbanIsland({
         swimlanes={swimlanes}
         groupBy={kanbanGroupBy}
         card={card}
-        emptyColumnMessage={emptyColumnMessage}
+        emptyColumnMessage={emptyColumnMessage ?? props.uiStrings?.['kanban.empty']}
         onDragEnd={handleDragEnd}
       />
-      <BoardContinuation continuation={continuation} />
+      <BoardContinuation
+        continuation={continuation}
+        words={props.uiStrings}
+      />
     </KanbanFormatProvider>
   )
 }

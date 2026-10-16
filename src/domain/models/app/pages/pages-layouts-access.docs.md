@@ -115,6 +115,8 @@ Why not a role list? Because a name is not a power. Whether an `operator` may re
 
 The set is closed, so a typo is refused at startup rather than becoming a component that silently never renders. It composes with the other visibility keys by AND, and an anonymous visitor holds neither power without any `when: authenticated` written beside it.
 
+`visibility.unlessCapability` is the other half: the component renders only for a caller who does NOT hold the named power. Use it to tell a reader what they cannot do — a "read-only" notice for somebody without `edit-operations` — beside the control `capability` reserves for those who can. An anonymous visitor holds no power, so it renders for them; add `when: authenticated` when the notice only makes sense to somebody signed in. Naming the same power in both keys describes a component nobody can see.
+
 ### Reserving one column of a grid
 
 A grid's ACTION column takes the same two capabilities, on the column itself. A caller without the power receives the grid, the rows and every other column — and no trace of that one. The header is gone with it: a labelled column over empty cells announces a power the caller does not have, which is the greyed-out control in another spelling.
@@ -146,6 +148,8 @@ The vocabulary is the same closed set `requires` uses, so the two levels cannot 
 The set includes the sign-in ways — `auth.passkeys`, `auth.magicLink`, `auth.oauth`, `auth.sso` — and `auth.signUp`, which holds unless `allowSignUp: false`. A sign-in page gates each alternative on the one it needs, so an app shows only the ways it actually offers, and a "Create an account" link disappears from an app that closed sign-up.
 
 `auth.passwordReset` holds when the app signs in with email and password and one of its pages draws the form that asks for a reset link (`action: { type: auth, method: resetPassword }`), written on the page or placed through a template — so a "Forgot password?" link gated on it never leads to a page that is not there.
+
+`auth.scopeTables` holds when the app limits the readers of a table to the accounts granted its records (`auth.scopeTables`). It is the one capability that can be asked about a single table. On a component bound to a table — its own `dataSource.table`, read after a `$param.table` binding has resolved to the table the address names — it holds only when that table is listed, so one page written for every table offers an affordance about grants on a scoped table and on no other. Anywhere no table is bound, including a page's `requires`, it holds when the app lists at least one. A sheet's footer button takes the same clause on the button itself; see **Overlays**.
 
 The two keys compose by AND, so declaring one capability and excluding another means "for apps that do the first and not the second". Naming the SAME capability in both is refused: it could never render on any instance.
 

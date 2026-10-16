@@ -19,7 +19,8 @@
  * An ordinary email column is never touched. A step whose table cannot be
  * named from the automation falls back to masking every object that has
  * exactly the expanded person's shape, and so does the trigger data a record or
- * a comment trigger hands the run (its persons, its comment author).
+ * a comment trigger hands the run (its persons, its comment author); the
+ * person a run acts for (`requester`, `{{trigger.user}}`) is masked by key.
  *
  * Pure: it reads the app's configuration and the values handed to it, so every
  * road that shows a run — the HTTP routes and the MCP tools — masks alike.
@@ -133,16 +134,30 @@ export const maskCommentTriggerAddresses = (triggerData: unknown): unknown => {
 }
 
 /**
+ * Trigger data with the address of the person the run acts for — its
+ * `requester`, read as `{{trigger.user}}` — masked by key. Its id, role and
+ * name stay; the system's empty address stays empty.
+ */
+export const maskRequesterAddress = (triggerData: unknown): unknown => {
+  if (!isObject(triggerData)) return triggerData
+  const { requester } = triggerData
+  if (!isObject(requester) || typeof requester['email'] !== 'string') return triggerData
+  if (requester['email'] === '') return triggerData
+  return { ...triggerData, requester: { ...requester, email: redactEmail(requester['email']) } }
+}
+
+/**
  * A run's trigger data as a reader who is not an admin and did not start it is
- * shown it: each expanded person masked by shape, and — when one of the
- * automation's triggers is a comment trigger — the comment's addresses masked by key.
+ * shown it: each expanded person masked by shape, the person the run acts for
+ * masked by key, and — when one of the automation's triggers is a comment
+ * trigger — the comment's addresses masked by key.
  */
 export const triggerDataWithMaskedAddresses = (
   app: App,
   automationName: string,
   triggerData: unknown
 ): unknown => {
-  const byShape = maskByShape(triggerData)
+  const byShape = maskRequesterAddress(maskByShape(triggerData))
   const automation = app.automations?.find((candidate) => candidate.name === automationName)
   // Any comment entry: the run may carry a comment's addresses, so they are masked.
   return automation !== undefined && hasTriggerOfType(automation, 'comment')

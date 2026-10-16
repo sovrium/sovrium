@@ -100,7 +100,7 @@ A request whose header is missing or differs is answered `401` and runs nothing;
 trigger: { type: webhook, method: POST, auth: { type: session, requiredRole: member } }
 ```
 
-The caller must present a Sovrium session cookie or a user's API key in `x-api-key` (`auth.apiKeys`). A caller with neither, or without `requiredRole` — judged as for a manual trigger, so an admin satisfies any role — is answered `404`, as if the webhook did not exist, and no run is created. The run knows who called: `{{trigger.user.id}}` and `{{trigger.user.role}}`, and a record action with `runAs: triggering-user` writes as that person. `session` needs an `auth` block on the app.
+The caller must present a Sovrium session cookie or a user's API key in `x-api-key` (`auth.apiKeys`). A caller with neither, or without `requiredRole` — judged as for a manual trigger, so an admin satisfies any role — is answered `404`, as if the webhook did not exist, and no run is created. The run knows who called: `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}`, and a record action with `runAs: triggering-user` writes as that person. `session` needs an `auth` block on the app.
 
 ### Signature schemes
 
@@ -178,7 +178,7 @@ A handshake presenting the verify token you entered in the provider console is a
 
 ### What the payload looks like
 
-The body is **not** at `{{trigger.body}}`. The available paths are `{{trigger.data.body.*}}`, `{{trigger.data.headers.*}}` and `{{trigger.data.query.*}}`, plus `{{trigger.data.method}}`, `{{trigger.data.path}}` and `{{trigger.data.ip}}`. Scalar body fields are additionally flattened to `{{trigger.data.<field>}}`, which is a convenience rather than the contract — a nested object is only reachable through the full path. When the request carries a session cookie or a user's API key, `{{trigger.user.id}}` and `{{trigger.user.role}}` name that caller; the body cannot set them, so a posted `user` field only ever lands under `{{trigger.data.*}}`. A credential header (the header your `auth` reads, or any name containing `authorization`, `cookie`, `token`, `secret`, `signature`, `api-key`, `apikey` or `password`) reads `***` there: the run keeps its name, never its value.
+The body is **not** at `{{trigger.body}}`. The available paths are `{{trigger.data.body.*}}`, `{{trigger.data.headers.*}}` and `{{trigger.data.query.*}}`, plus `{{trigger.data.method}}`, `{{trigger.data.path}}` and `{{trigger.data.ip}}`. Scalar body fields are additionally flattened to `{{trigger.data.<field>}}`, which is a convenience rather than the contract — a nested object is only reachable through the full path. When the request carries a session cookie or a user's API key, `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}` name that caller; the body cannot set them, so a posted `user` field only ever lands under `{{trigger.data.*}}`. A credential header (the header your `auth` reads, or any name containing `authorization`, `cookie`, `token`, `secret`, `signature`, `api-key`, `apikey` or `password`) reads `***` there: the run keeps its name, never its value.
 
 ## Cron trigger
 

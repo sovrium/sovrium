@@ -1,4 +1,4 @@
-# sovrium-library: block/feature-list-icons@0.37.0
+# sovrium-library: block/feature-list-icons@0.38.0
 # sovrium-library-params: ctaHref=%2Fcontact&ctaLabel=%5BPrimary%20action%5D&eyebrow=%5BEyebrow%5D&headline=A%20heading%20that%20the%20four%20items%20prove&subheadline=Keep%20the%20argument%20on%20the%20left%20and%20the%20evidence%20on%20the%20right.
 name: feature-list-icons
 type: container
@@ -75,7 +75,7 @@ children:
                       className: flex flex-col gap-1
                     children:
                       - type: text
-                        element: h4
+                        element: h3
                         props:
                           className: text-md font-semibold text-foreground
                         content: Starts in minutes
@@ -102,7 +102,7 @@ children:
                       className: flex flex-col gap-1
                     children:
                       - type: text
-                        element: h4
+                        element: h3
                         props:
                           className: text-md font-semibold text-foreground
                         content: Access by role
@@ -129,7 +129,7 @@ children:
                       className: flex flex-col gap-1
                     children:
                       - type: text
-                        element: h4
+                        element: h3
                         props:
                           className: text-md font-semibold text-foreground
                         content: Numbers on one page
@@ -156,7 +156,7 @@ children:
                       className: flex flex-col gap-1
                     children:
                       - type: text
-                        element: h4
+                        element: h3
                         props:
                           className: text-md font-semibold text-foreground
                         content: Leave with everything

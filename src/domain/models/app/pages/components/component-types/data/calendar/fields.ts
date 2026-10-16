@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { CssLengthSchema } from '../../../../../css-length'
+import { SharedFilterPublisherSchema } from '../../../data-source-publishers'
 import { responsiveValue } from '../../../responsive'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
@@ -76,6 +77,12 @@ export const calendarFields = {
       'The least height of a day cell in the month view'
     )
   ),
+  /**
+   * Publish the event the reader selects on a shared-filter channel: its
+   * record id. Clicking an event selects it, beside its own click action;
+   * clicking it again clears the selection. The key `tree` and `graph` carry.
+   */
+  publishes: Schema.optional(SharedFilterPublisherSchema),
 } as const
 
 // Re-export all sub-schemas

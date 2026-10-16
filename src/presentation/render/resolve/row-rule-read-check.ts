@@ -26,7 +26,15 @@ import {
   withoutLookups,
   type LookupLink,
 } from '@/domain/models/app/tables/lookup-link-service'
-import { type VisitorRowRule } from '@/domain/models/app/tables/visitor-row-rule-service'
+import {
+  parseAssignmentScopeKey,
+  type CurrentUserContext,
+} from '@/domain/models/app/tables/row-level-evaluator-service'
+import {
+  readerContextOf,
+  type VisitorRowRule,
+} from '@/domain/models/app/tables/visitor-row-rule-service'
+import { logError } from '@/infrastructure/logging/logger'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 
@@ -36,7 +44,8 @@ type RecordRow = Readonly<Record<string, unknown>>
 export type RowLevelReadCheck = (record: RecordRow) => Promise<boolean>
 
 /**
- * The visitor's `user_access` record ids for every scope table the rule reads,
+ * The visitor's `user_access` record ids for every assignments key the rule
+ * reads (a scope table, or a scope table and one grant role),
  * in parallel. A failed read degrades to "no assignments": the rule then
  * fails, which is the safe direction.
  */
@@ -47,20 +56,56 @@ async function loadAssignmentsForScopes(
 ): Promise<ReadonlyMap<string, readonly string[]>> {
   if (scopeTables.length === 0) return new Map<string, readonly string[]>()
   const entries = await Promise.all(
-    scopeTables.map(async (slug): Promise<readonly [string, readonly string[]]> => [
-      slug,
-      await db.fetchUserAssignments(userId, slug).catch(() => [] as readonly string[]),
-    ])
+    scopeTables.map(async (key): Promise<readonly [string, readonly string[]]> => {
+      const { tableSlug, role } = parseAssignmentScopeKey(key)
+      const read = db.fetchUserAssignments(userId, tableSlug, role)
+      return [key, await read.catch(() => [] as readonly string[])]
+    })
   )
   return new Map(entries)
 }
 
 /**
+ * The context the rule judges `reader` by: the records API's own, when the
+ * request supplies a loader (`db.loadRowRuleContext`, read once per request
+ * and table), else her assignments alone — under which a `contains` or
+ * relationship leaf admits no row. A load that fails is logged and admits no
+ * row at all: failing closed is the safe direction.
+ */
+async function readerContext(
+  rule: Extract<VisitorRowRule, { readonly kind: 'check' }>,
+  reader: CallerReader | undefined,
+  at: RowCheckSite
+): Promise<CurrentUserContext | undefined> {
+  try {
+    if (at.db.loadRowRuleContext !== undefined) {
+      return await at.db.loadRowRuleContext(at.app, at.tableName, reader)
+    }
+    const assignments =
+      reader === undefined || rule.scopeTables.length === 0
+        ? new Map<string, readonly string[]>()
+        : await loadAssignmentsForScopes(reader.userId, rule.scopeTables, at.db)
+    return readerContextOf(reader, assignments)
+  } catch (error) {
+    logError(`[pages] the row rule of ${at.tableName} could not be loaded; no row is shown`, error)
+    return undefined
+  }
+}
+
+/** Where a row check is asked: the app, the ruled table, and the readers of this request. */
+export interface RowCheckSite {
+  readonly app: App
+  readonly tableName: string
+  readonly db: DataSourceDb
+}
+
+/**
  * The in-memory check of a table's row-level rule for one reader — the
- * domain's {@link visitorRowRule}, her assignments loaded through `db`.
- * `undefined` when there is nothing to check: the table declares no
- * `rowLevelPermissions.read.when`, or the reader is unrestricted (the records
- * API lets an admin-equivalent role read every row, and pages mirror it).
+ * domain's {@link visitorRowRule}, judged against the context the records API
+ * judges her by ({@link readerContext}). `undefined` when there is nothing to
+ * check: the table declares no `rowLevelPermissions.read.when`, or the reader
+ * is unrestricted (the records API lets an admin-equivalent role read every
+ * row, and pages mirror it).
  *
  * A rule naming the signed-in person (`$currentUser.…`) shows an anonymous
  * visitor no row — there is no user to evaluate it against, and failing closed
@@ -68,21 +113,20 @@ async function loadAssignmentsForScopes(
  * (`status = published`) applies to an anonymous reader as to anyone else, as
  * it does on the records API.
  *
- * The reader's assignments are read once per check, however many rows it is
- * then asked about.
+ * The context is read once per check, however many rows it is then asked about.
  */
 export function rowCheckOf(
   rule: VisitorRowRule,
   reader: CallerReader | undefined,
-  db: DataSourceDb
+  at: RowCheckSite
 ): RowLevelReadCheck | undefined {
   if (rule.kind === 'all') return undefined
   if (rule.kind === 'none') return () => Promise.resolve(false)
-  const assignments =
-    reader === undefined || rule.scopeTables.length === 0
-      ? Promise.resolve(new Map<string, readonly string[]>())
-      : loadAssignmentsForScopes(reader.userId, rule.scopeTables, db)
-  return async (record) => rule.admits(record, await assignments)
+  const context = readerContext(rule, reader, at)
+  return async (record) => {
+    const loaded = await context
+    return loaded !== undefined && rule.admits(record, loaded)
+  }
 }
 
 /** The key a lookup's relationship column holds on a row, if any. */
@@ -109,7 +153,11 @@ async function readableLinkedKeys(
 ): Promise<ReadonlySet<string> | undefined> {
   const gate = callerTableGate(app, link.relatedTable.name, ctx.reader)
   if (gate.kind === 'refused') return new Set<string>()
-  const check = rowCheckOf(gate.rule, ctx.reader, ctx.db)
+  const check = rowCheckOf(gate.rule, ctx.reader, {
+    app,
+    tableName: link.relatedTable.name,
+    db: ctx.db,
+  })
   if (check === undefined) return undefined
   const keys = [
     ...new Set(rows.flatMap((row) => (link.road === 'column' ? [linkKeyOf(row, link)] : []))),

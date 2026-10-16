@@ -41,6 +41,8 @@ components:
         children:
           - type: form
             formRef: publish-announcement
+            props:
+              headingLevel: h1
             classes:
               parts:
                 title: text-[17px] font-semibold
@@ -56,14 +58,23 @@ components:
             props:
               className: text-[17px] font-semibold text-foreground
             content: Directory
+          # The box publishes what is typed on the channel the directory listens to.
+          - type: search-input
+            placeholder: Search the directory
+            props:
+              aria-label: Search the directory
+              className: h-8 w-full
+            publishes:
+              bindTo: directory-filter
+              param: q
           - type: table
             readOnly: true
             dataSource:
               table: members
+              bindTo: directory-filter
+              sharedFilter: {}
               sort:
                 - { field: name, direction: asc }
-            toolbar:
-              search: true
             columns:
               - { field: name, label: Name, sortable: true }
               - { field: title, label: Role }

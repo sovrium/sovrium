@@ -141,11 +141,6 @@ export const componentTypeSummarySchema = Schema.Struct({
         'Why this type is named in the engine’s exclusion list, carrying that type’s own sentence. NOT the same question as `drawable`: a type may be excluded from what a `specimen` can be pointed at and still have a mode the catalogue draws. `refusalReason` is the field that always travels with a missing canvas.',
     })
   ),
-  href: Schema.String.annotate({
-    description:
-      "Mount-relative route of this type's detail page in the console. Relative so a second admin mount links its own copy rather than the first one.",
-    examples: ['/design-system/ui-kit/button'],
-  }),
   // ─── THE AXIS COUNTS ARE FLAT SCALARS, DELIBERATELY ──────────────────────
   //
   // A card that says "only the axes this type actually has" needs the three

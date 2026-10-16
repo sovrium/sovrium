@@ -402,10 +402,10 @@ const answerSearch = async (manual: Manual, query: string, format: DocsFormat) =
 /**
  * `admin <page>` — the console route a page name resolves to.
  *
- * The sidebar says Records and the router says `/tables`, and a reader holding
- * one should not have to guess the other. So the query is matched against both
- * the ROUTE and the row's summary, after the address-bar spellings (`/records`,
- * `/_admin/tables`) are collapsed onto the sidebar one.
+ * A reader may hold the sidebar's word or the router's path, and should not
+ * have to guess the other. So the query is matched against both the ROUTE and
+ * the row's summary, after the address-bar spellings (`/records`,
+ * `/_admin/records`) are collapsed onto the sidebar one.
  *
  * The inventory is the two console fragments' own route tables, which
  * `src/docs/docs-structure.test.ts` holds equal to
@@ -417,7 +417,7 @@ const answerSearch = async (manual: Manual, query: string, format: DocsFormat) =
  */
 const answerAdmin = async (manual: Manual, page: string | undefined, format: DocsFormat) => {
   if (page === undefined)
-    return refuse('Error: `sovrium docs admin <page>` needs a page, e.g. `/tables`.')
+    return refuse('Error: `sovrium docs admin <page>` needs a page, e.g. `/records`.')
 
   const corpus = await loadCorpus(manual, manual.locatedArticles(manual.SECTIONS))
   const routes = manual.lookupAdminPage(manual.adminRouteInventory(corpus), page)
@@ -426,7 +426,7 @@ const answerAdmin = async (manual: Manual, page: string | undefined, format: Doc
     return refuse(
       `Error: The console serves no page matching "${page}".\n\n` +
         '  A page is named as the sidebar names it or as the router matches it\n' +
-        '  — `records`, `/tables`, `/_admin/tables`. The whole inventory is\n' +
+        '  — `records`, `/records`, `/_admin/records`. The whole inventory is\n' +
         '  `sovrium docs admin/admin-dashboard`.'
     )
 

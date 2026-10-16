@@ -6,9 +6,9 @@
  */
 
 /**
- * The two bars that frame the rows and speak about the SET rather than about
- * any record in it — the pager footer with its page-size select and step
- * buttons, and the selection bar that sits above the header row.
+ * The bars that frame the rows and speak about the SET rather than about any
+ * record in it — the bottom bar with its page-size select and step buttons, and
+ * the selection that takes the bar's left half once rows are checked.
  *
  * Neither is chrome the grid always shows: the pager appears when there is more
  * than one page, the bulk bar when something is selected. Both therefore have
@@ -37,9 +37,15 @@ import { swapUtility } from './table-class-swap'
 // The type step is the change that matters: the footer shipped at 14px, one
 // step ABOVE the 12px values it paginates, so the loudest text on the grid was
 // the chrome counting it. 11px muted puts it where a caption belongs.
-const TABLE_PAGER = ['flex items-center gap-2 px-2 py-1.5 text-xs', `text-muted-foreground`].join(
-  ' '
-)
+//
+// `min-h-9` is the bar's height, 36px: the bottom bar carries the selection, the
+// reader's session controls and the steps, and all of them are 24px controls,
+// so the bar is the same height whichever of them it holds. A floor rather than
+// a height, so a phone that wraps the bar onto two rows still shows both.
+const TABLE_PAGER = [
+  'flex min-h-9 shrink-0 items-center gap-2 px-2 py-1 text-xs',
+  `text-muted-foreground`,
+].join(' ')
 
 /**
  * Compute the default className for a pager bar.
@@ -92,12 +98,15 @@ const PAGER_BUTTON_TO_HEIGHT = 'h-6'
  */
 export const computeTablePagerButtonClasses = ({
   disabled = false,
+  variant = 'secondary',
 }: {
   readonly disabled?: boolean
+  /** `default` answers an inline question; `destructive` answers one that deletes. */
+  readonly variant?: 'secondary' | 'outline' | 'ghost' | 'default' | 'destructive'
 } = {}): string =>
   swapUtility(
     computeButtonDefaultClasses({
-      variant: 'secondary',
+      variant,
       size: 'sm',
       state: disabled ? 'disabled' : 'default',
     }),
@@ -106,22 +115,18 @@ export const computeTablePagerButtonClasses = ({
   )
 
 // ──────────────────────────────────────────────────────────────────────────────
-// BULK BAR — the selection bar that sits ABOVE the header row
+// BULK BAR — the selection, in the bottom bar's left half
 // ──────────────────────────────────────────────────────────────────────────────
 
-// Canvas: `display:flex; align-items:center; gap:10px; padding:6px 8px;
-// font-size:12px; border-bottom:1px solid #e3e3e3; background:#f4f4f4`.
-//
-// A NEUTRAL well, where this shipped as `bg-primary-subtle` — a primary tint.
-// The two resolve to the same lightness in the default design, so most readers
-// see no change; what changes is what an app that overrides `primary` to a
-// saturated brand hue gets, which was a bar washed in it. Selection is chrome
-// reporting a count, not a call to action, and it should not take the colour
-// that belongs to controls.
+// The selection draws no band across the grid: it REPLACES the range summary in
+// the bottom bar once rows are checked, so it sits in that bar's row, at that
+// bar's height, as a NEUTRAL muted well — enough to tell "acting on 3 rows"
+// from "reading rows 1–25" at a glance. Never the primary hue: selection is
+// chrome reporting a count, not a call to action, and it should not take the
+// colour that belongs to controls.
 const TABLE_BULK_BAR = [
-  'flex items-center gap-2.5 border-b px-2 py-1.5 text-sm',
+  'flex min-w-0 flex-wrap items-center gap-2 rounded-md px-1.5',
   `bg-muted`,
-  `border-border`,
 ].join(' ')
 
 /** Compute the default className for the bulk-actions bar. */
@@ -135,4 +140,4 @@ export const computeTableBulkBarClasses = (): string => TABLE_BULK_BAR
  * different widths — so the label beside it, and every button after it, shifts
  * sideways each time the reader ticks a row. Tabular digits hold the row still.
  */
-export const computeTableBulkBarCountClasses = (): string => `tabular-nums text-sm text-foreground`
+export const computeTableBulkBarCountClasses = (): string => `tabular-nums text-foreground`

@@ -14,66 +14,12 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
-import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
-import { readLinkedIds } from '../parts/crud-form/record-picker-value'
-import { isLinkField } from './record-drawer-choices'
+import { toEntryFormValues, type ValueEntry, type Values } from './record-drawer-values'
 
-export type Values = Record<string, string>
+export type { Values } from './record-drawer-values'
 export type RawRecord = Record<string, unknown>
 
 export const EMPTY_RECORD: RawRecord = {}
-
-/**
- * The storage key of an attachment as the records API reads it back —
- * `{ key, signedUrl }` — or `undefined` for any other value.
- */
-const storageKeyOf = (value: unknown): string | undefined => {
-  const key = (value as { readonly key?: unknown } | null | undefined)?.key
-  return typeof value === 'object' && typeof key === 'string' ? key : undefined
-}
-
-/**
- * Coerce a record value to its form-ready string form. An attachment holds its
- * storage key — what the file picker shows and the records API takes back —
- * and a list of them the JSON list of keys, never `[object Object]`.
- */
-export function toFormValue(value: unknown): string {
-  if (value === null || value === undefined) return ''
-  const key = storageKeyOf(value)
-  if (key !== undefined) return key
-  if (Array.isArray(value) && value.length > 0 && value.every((entry) => storageKeyOf(entry))) {
-    return JSON.stringify(value.map(storageKeyOf))
-  }
-  return String(value)
-}
-
-/** The fields the save writes, as the drawer's field entries describe them. */
-type WireField = {
-  readonly name: string
-  readonly type: string
-  readonly relatedTable?: string
-  readonly required?: boolean
-}
-
-/**
- * The value a field writes — the inverse of {@link toFormValue}: a cleared link
- * writes `null`, never an empty key, and a list of attachments the list of
- * storage keys the file picker holds JSON-encoded, since the records API
- * refuses the encoded string.
- */
-export const toWireValue = (
-  field: WireField,
-  values: Values
-): string | readonly string[] | null => {
-  const value = values[field.name] ?? ''
-  if (fieldWidgetOf(field.type) === 'file-multiple') return readLinkedIds(value, true)
-  return isLinkField(field) && value.trim() === '' ? null : value
-}
-
-/** Project a raw record into the form-ready string map the text inputs bind to. */
-function toFormValues(record: RawRecord): Values {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [key, toFormValue(value)]))
-}
 
 /**
  * The records API's answer for one id: its RAW values (structured display needs
@@ -121,12 +67,14 @@ const answeredNotFound = (
  * field. `seeded` remembers which response was copied; until it is the one on
  * screen, the drawer stays locked.
  */
-export function useTableRecordRead(
-  open: boolean,
-  table: string | undefined,
-  recordId: string | undefined,
-  setValues: Dispatch<SetStateAction<Values>>
-): { readonly record: RawRecord; readonly loading: boolean; readonly notFound: boolean } {
+export function useTableRecordRead(read: {
+  readonly open: boolean
+  readonly table: string | undefined
+  readonly recordId: string | undefined
+  readonly setValues: Dispatch<SetStateAction<Values>>
+  readonly entries: ReadonlyArray<ValueEntry>
+}): { readonly record: RawRecord; readonly loading: boolean; readonly notFound: boolean } {
+  const { open, table, recordId, setValues, entries } = read
   const enabled = open && Boolean(table) && Boolean(recordId)
   const recordQuery = useQuery({
     queryKey: ['record-drawer', 'table-record', table, recordId],
@@ -140,8 +88,9 @@ export function useTableRecordRead(
   const [seeded, setSeeded] = useState<RawRecord | undefined>(undefined)
   useEffect(() => {
     if (data === undefined) return
-    setValues(toFormValues(data))
+    setValues(toEntryFormValues(data, entries))
     setSeeded(data)
+    // The entries are fixed for the sheet's life; a new response is what reseeds.
   }, [data, setValues])
 
   return {

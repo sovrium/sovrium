@@ -13,16 +13,16 @@
  *
  * - `action-response.ts`   — the shared post-action vocabulary (toast, onSuccess/onError)
  * - `action-operations.ts` — auth, crud, automation (engine operations)
- * - `action-client.ts`     — filter, navigate, toast, openSheet, fill (resolved in the page)
+ * - `action-client.ts`     — navigate, toast, openSheet, openImport, fill (resolved in the page)
  * - `action-fetch.ts`      — fetch and its response envelope family
  */
 
 import { Schema } from 'effect'
 import {
   FillActionSchema,
-  FilterActionSchema,
   NavigateActionSchema,
   OpenDrawerActionSchema,
+  OpenImportActionSchema,
   ToastActionSchema,
 } from './action-client'
 import { FetchActionSchema } from './action-fetch'
@@ -60,11 +60,11 @@ const NON_FILL_ACTION_MEMBERS = [
   AuthActionSchema,
   CrudActionSchema,
   AutomationActionSchema,
-  FilterActionSchema,
   NavigateActionSchema,
   ToastActionSchema,
   FetchActionSchema,
   OpenDrawerActionSchema,
+  OpenImportActionSchema,
 ] as const
 
 /**
@@ -85,7 +85,7 @@ export const actionWithoutFill = (
     identifier,
     title,
     description,
-    message: `${slot} accepts an auth, crud, automation, filter, navigate, toast, fetch or openSheet action. A fill action runs only from a button, a list item click (onRowClick) or a board drop hook (drag.onDrop).`,
+    message: `${slot} accepts an auth, crud, automation, navigate, toast, fetch, openSheet or openImport action. A fill action runs only from a button, a list item click (onRowClick) or a board drop hook (drag.onDrop).`,
   })
 
 /**
@@ -97,14 +97,14 @@ export const actionWithoutFill = (
  * - **auth**: Authentication operations (login, signup, logout, etc.)
  * - **crud**: Data operations (create, update, delete)
  * - **automation**: Invoke a named automation workflow
- * - **filter**: Cross-component data source filtering
  * - **navigate**: Pure URL navigation
  * - **toast**: Show a transient toast notification
  * - **fetch**: Client-side fetch with toast response
  * - **fill**: Write a value into a form control on the same page
  * - **openSheet**: Open a drawer component — discriminated on `action`, NOT on
- *   `type`, which is why it is easy to miss when counting this union. The union
- *   has NINE members; a list of eight here has already been read as
+ *   `type`, which is why it is easy to miss when counting this union.
+ * - **openImport**: Open the CSV import dialog for one table — also on `action`.
+ *   The union has NINE members; a list of seven here has already been read as
  *   authoritative by downstream comments that then undercounted it.
  *
  * @example
@@ -142,13 +142,6 @@ export const actionWithoutFill = (
  *       message: Report ready!
  *       variant: success
  *
- * # Category filter dropdown
- * action:
- *   type: filter
- *   targetDataSource: product-list
- *   field: category
- *   operator: eq
- *
  * # Generic fetch with toast
  * action:
  *   type: fetch
@@ -166,7 +159,7 @@ export const ActionSchema = Schema.Union([...NON_FILL_ACTION_MEMBERS, FillAction
     identifier: 'Action',
     title: 'Action',
     description:
-      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), filter (cross-component filtering), navigate (pure URL navigation), toast (transient notification), fetch (client-side HTTP with toast response), fill (write a value into a form control on the same page). Open-drawer is discriminated by `action: openSheet` instead of `type` (PG-04 quick-edit drawer pattern).',
+      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), navigate (pure URL navigation), toast (transient notification), fetch (client-side HTTP with toast response), fill (write a value into a form control on the same page). Open-drawer is discriminated by `action: openSheet` instead of `type` (PG-04 quick-edit drawer pattern), and open-import (the CSV import dialog for one table) by `action: openImport`. A control narrows a data component through its `publishes` on a shared-filter channel, not through an action.',
   })
 )
 
@@ -215,7 +208,7 @@ export const RowClickActionSchema = Schema.Union([
     identifier: 'RowClickAction',
     title: 'Row Click Action',
     description:
-      'Action triggered by a table row click. Only two variants are honoured at runtime: `navigate` (pure URL navigation, discriminated by `type: navigate`, `path` supports `$record.X` substitution) and `openSheet` (opens a sibling drawer component, discriminated by `action: openSheet`). The remaining Action variants (auth, crud, automation, filter, toast, fetch, fill) are rejected here because the row-click handler ignores them — put richer behaviour on the footer actions of the referenced drawer component instead.',
+      'Action triggered by a table row click. Only two variants are honoured at runtime: `navigate` (pure URL navigation, discriminated by `type: navigate`, `path` supports `$record.X` substitution) and `openSheet` (opens a sibling drawer component, discriminated by `action: openSheet`). The remaining Action variants (auth, crud, automation, toast, fetch, fill, openImport) are rejected here because the row-click handler ignores them — put richer behaviour on the footer actions of the referenced drawer component instead.',
   })
 )
 

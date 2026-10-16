@@ -1,6 +1,6 @@
 # Endpoint Forms
 
-> A `form` that posts its fields to a URL you name — its submit button, its switch, star and help-text controls, the required and length rules each field states, and prefilling from the caller's own session.
+> A `form` that posts its fields to a URL you name — its submit button or sending on change, its switch, star and help-text controls, the password rule, the required and length rules each field states, and prefilling from the caller's own session.
 
 A form bound to `endpoint` writes somewhere other than a table you declared, so it has no column to borrow a control, a rule or a value from: every field states its own. Everything else a form does — its parts, its layout, its sections — is on [The Form Component](/en/docs/data-components-forms).
 
@@ -26,6 +26,28 @@ A form bound to `endpoint` writes somewhere other than a table you declared, so 
 ```
 
 Each weight is drawn by the same recipe the `button` component uses, so a submit and a standalone button asking for `secondary` cannot drift apart.
+
+## Sending as the reader changes a control
+
+`submitOn: change` makes the change itself the commit, for a settings page where a Save button under a switch would ask the reader to confirm a choice they already made. The form draws no submit button. A switch or a select sends the moment it changes; a control the reader types into sends once typing pauses — never once per keystroke — and at once when the reader leaves the field or presses Enter in a single-line one. The whole form is sent, the same body a submit sends, after the field rules are checked, and `onSuccess` and `onError` run exactly as on a submit — a language select that reloads the page still shows its toast on the page that replaces it.
+
+```yaml
+- type: form
+  endpoint:
+    url: /api/auth/update-user
+    method: POST
+    responseEnvelope: better-auth
+    submitOn: change
+    onSuccess: { type: toast, variant: success, message: Preference saved }
+    onError: { type: toast, variant: destructive, message: The preference could not be saved }
+  fields:
+    - field: notifyWeeklyDigest
+      control: switch
+      label: Weekly summary
+      defaultValue: $session.notifyWeeklyDigest
+```
+
+A value the page fills in itself, such as a `$session` default, is not a change and sends nothing. While a request is on its way the form is marked busy and its controls stay usable; whatever changes meanwhile leaves as one more request once the answer is in, carrying the latest values. When the endpoint refuses, a switch or a select goes back to the state last saved, so the page never shows a setting that was not kept, while a typed control keeps what was typed so it can be corrected. `submitLabel` and `submitVariant` describe a button such a form does not draw, and `onSuccess.reset` would undo on screen the value just saved, so each is refused beside `submitOn: change`. Keep the default, `submitOn: submit`, for anything typed as a whole — a name, an address, a password.
 
 ## Closing the dialog and clearing the form
 
@@ -56,7 +78,7 @@ An endpoint form placed in a dialog stays open after a successful submit unless 
         - { field: email, control: email, label: Email }
 ```
 
-Both are refused beside `reload`, which replaces the page the dialog is drawn on and brings the form back empty anyway. `close` is not the endpoint form's alone: any action can ask to close the overlay it sits in, a `fetch` button or a file upload included, and the form also takes the `navigate` every `fetch` action takes, which may read the body the endpoint returned through `$response.<field>`. `reset` is the form's own, since nothing else has fields to clear; on a `fetch` button it is refused. See [Once the action has answered](/en/docs/interactive-components#once-the-action-has-answered) for the order the effects run in.
+Both are refused beside `reload`, which replaces the page the dialog is drawn on and brings the form back empty anyway. `close` is not the endpoint form's alone: any action can ask to close the overlay it sits in, a `fetch` button or a file upload included, and the form also takes the `navigate` every `fetch` action takes, which may read the body the endpoint returned through `$response.<field>`. `reset` is the form's own, since nothing else has fields to clear; on a `fetch` button it is refused. After a reset the caret returns to the form's first field, ready for the next entry. A success that `reload`s the page shows its toast on the page that replaces it, read from that page's own config, so a language change is confirmed in the language just chosen. See [Once the action has answered](/en/docs/interactive-components#once-the-action-has-answered) for the order the effects run in.
 
 ## An on/off switch
 
@@ -69,9 +91,9 @@ Both are refused beside `reload`, which replaces the page the dialog is drawn on
     - { field: newsletter, control: switch, label: Monthly newsletter, defaultValue: true }
 ```
 
-## A star rating
+## A rating field
 
-`control: rating` draws five stars and submits the whole number of the star picked, from 1 to 5. On a form bound to a table a `rating` column already draws its stars, so the key is only needed on an endpoint form.
+`control: rating` is accepted on an endpoint form, but the form draws it as a plain text box, not a scale of stars, and checks nothing about what is typed into it. For a scale the reader picks from, bind the form to a table: a `rating` column draws one choice per rank up to its `max` and submits the rank picked as a number.
 
 ## Help text under a field
 
@@ -104,6 +126,30 @@ An endpoint form has no table column to take its rules from, so each field state
       maxLength: 128
 ```
 
+## The password rule, and a wrong current password
+
+A `password` field whose `autocomplete` is `new-password` — the browser's own statement that the field sets a password — shows the app's password rule as its help text, "At least 8 characters" by default and the configured `minPasswordLength` otherwise, worded by the server in the page language. A field's own `minLength`, when larger, raises the number; a `description` you wrote is kept and comes first. A field marked `current-password` asks for the password the reader already has and shows no rule. The field's name plays no part.
+
+When the form reads the `better-auth` envelope and the endpoint answers that the current password is wrong, the form marks its `current-password` field with "The current password is incorrect" and moves the focus there, beside the `onError` toast; a password the endpoint finds too short is marked on the `new-password` field with the rule. Any other refusal shows the toast alone.
+
+```yaml
+- type: form
+  endpoint:
+    url: /api/auth/change-password
+    method: POST
+    responseEnvelope: better-auth
+    submitLabel: Change password
+    onError: { type: toast, variant: destructive, message: The password was not changed }
+  fields:
+    - {
+        field: currentPassword,
+        control: password,
+        label: Current password,
+        autocomplete: current-password,
+      }
+    - { field: newPassword, control: password, label: New password, autocomplete: new-password }
+```
+
 ## Prefilling an endpoint form
 
 An endpoint-bound field carries its own `defaultValue`. Nothing derives it from a column — there is no table binding — so it is the only way such a form opens on anything but empty controls. A static value fills a text control, and on a `select` it is the option that arrives already chosen. A `defaultValue` naming `$session.<field>` is the **caller's own** value, and it is filled in the browser rather than during rendering:
@@ -124,3 +170,28 @@ An endpoint-bound field carries its own `defaultValue`. Nothing derives it from 
 ```
 
 **Why the identity is not resolved on the server.** A page is composed once and may be cached, so resolving `$session.name` while rendering would write whoever requested it first into every copy handed out afterwards — one reader's name arriving in the next reader's form. The served bytes therefore name nobody: the server emits the template and the browser fills it against the caller's own session. An anonymous visitor gets an empty control, never the literal `$session.name`, and the static defaults beside it are unaffected, since they are the same for every reader. The resolvable fields are `email`, `name`, `role` and `id` — the same set session-bound text resolves, through the same mechanism.
+
+## Hidden and read-only fields
+
+Some of what a form sends is not the visitor's to type: the caller's own email on a check-in form, a plan the page has already fixed. `hidden: true` sends the field without drawing it — no control, no label — and `readOnly: true` draws it without letting anyone change it. Both work on a form bound to a table and on an endpoint form alike, and in both the value is still submitted.
+
+A hidden field becomes an `<input type="hidden">` carrying its `defaultValue`; a `$session.<field>` default is filled in the browser, as on any other control, so the served page still names nobody. A read-only text control carries the browser's `readonly` attribute and is never `disabled` — a disabled control drops out of the form data and out of the tab order, a read-only one stays in both — and `onSuccess.reset` puts it back to the value it carried rather than emptying it. A native `select` and a switch have no `readonly` of their own, so a read-only one is drawn `disabled` with `aria-readonly="true"` saying why, and its value still reaches the body. A read-only `select` with no `defaultValue` shows its first option, and that first option is what it sends.
+
+```yaml
+- type: form
+  endpoint: { url: /api/tables/checkins/records, method: POST, submitLabel: Check in }
+  fields:
+    - {
+        field: member_email,
+        control: email,
+        hidden: true,
+        required: true,
+        defaultValue: $session.email,
+      }
+    - field: duration
+      control: select
+      label: Duration
+      options: [{ value: full, label: Full day }, { value: half, label: Half day }]
+```
+
+Neither key is a security boundary: anyone with the browser's developer tools can change what a form sends. The rules on the receiving end — a table's row-level permissions, your own route's checks — protect the data; `hidden` and `readOnly` protect the visitor from a box they were never meant to type in. And since a browser does not check `required` on a hidden or read-only control, a field that is `hidden` and `required` must carry a `defaultValue`, or the configuration is refused with the field's name and the fix: give it a default, or drop `required`.

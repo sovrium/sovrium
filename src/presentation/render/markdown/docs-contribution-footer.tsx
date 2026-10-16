@@ -6,6 +6,8 @@
  */
 
 import { type ReactElement } from 'react'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import { newTabName } from '@/presentation/design/new-tab-attributes'
 import { DOCS_CONTENT_MEASURE_CLASSES } from './docs-frame'
 import type { DocsChromeLabels } from '@/presentation/render/markdown/docs-chrome-labels'
 
@@ -21,7 +23,8 @@ import type { DocsChromeLabels } from '@/presentation/render/markdown/docs-chrom
  * Returns `undefined` when none of the three is set, so the
  * `[data-component="docs-contribution-footer"]` block never renders for a
  * collection that opted out. Both links carry `rel="noopener noreferrer"` (they
- * open external editors/trackers). Muted, small, Bun-docs-style chrome — visually
+ * open external editors/trackers) and say, in the article's language, that
+ * they open a new tab. Muted, small, Bun-docs-style chrome — visually
  * consistent with `DocsPrevNext` and the last-updated stamp.
  */
 interface DocsContributionFooterProps {
@@ -33,6 +36,8 @@ interface DocsContributionFooterProps {
   readonly contributionNote: string | undefined
   /** Localized docs-chrome labels for the link text. */
   readonly labels: DocsChromeLabels
+  /** The article's language, for the new-tab announcement. */
+  readonly lang: string | undefined
 }
 
 export function DocsContributionFooter({
@@ -40,10 +45,12 @@ export function DocsContributionFooter({
   issueUrl,
   contributionNote,
   labels,
+  lang,
 }: DocsContributionFooterProps): Readonly<ReactElement> | undefined {
   if (editUrl === undefined && issueUrl === undefined && contributionNote === undefined) {
     return undefined
   }
+  const newTab = resolveInterpreterString('link.opensInNewTab', lang)
   const linkClass =
     'text-foreground-subtle hover:text-foreground text-sm no-underline transition-colors duration-150'
   return (
@@ -56,6 +63,7 @@ export function DocsContributionFooter({
           {editUrl !== undefined && (
             <a
               href={editUrl}
+              {...newTabName(labels.editThisPage, newTab)}
               target="_blank"
               rel="noopener noreferrer"
               className={linkClass}
@@ -66,6 +74,7 @@ export function DocsContributionFooter({
           {issueUrl !== undefined && (
             <a
               href={issueUrl}
+              {...newTabName(labels.reportAnIssue, newTab)}
               target="_blank"
               rel="noopener noreferrer"
               className={linkClass}

@@ -38,11 +38,13 @@
 // also refuses one the operator does not declare, with a 404 rather than an
 // empty card.
 
+import { consolePage } from '../../components/data-page'
 import { designPageHeader } from '../../components/page-header'
-import { withShell } from '../../components/shell'
+import { sentence } from '../../components/sentence'
 import { DESIGN_GUIDANCE_ENDPOINT, DESIGN_USAGE_ENDPOINT } from '../../system-sources'
 import { SCHEME_DEEP_LINK_SCRIPT, designSystemBreadcrumb } from './chrome'
-import { NAV_ROW_CLASS, NAV_ROW_CURRENT_CLASS, docsNavOverviewRow } from './kit-nav'
+import { componentKindGroups } from './component-kinds'
+import { NAV_ROW_CLASS, NAV_ROW_CURRENT_CLASS, docsNavOverviewRow } from './docs-nav'
 import { MEASURE_XS, caption, kitType, microLabel, sectionHeading } from './sections'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -51,7 +53,7 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 
 /** This page's own slug and the noun it carries in the trail and the `h1`. */
 const SLUG = 'components'
-const TITLE = 'Components'
+const TITLE = '$t:admin.common.components'
 
 /** The kit types this index is built from, each stamped on a real instance. */
 // `specimen` and `button` are drawn on this page — inside a card — and are
@@ -114,7 +116,7 @@ const COMPONENT_ROWS = {
  */
 const componentNavColumn = (input: { readonly onIndex: boolean }): readonly PageComponent[] => [
   docsNavOverviewRow({
-    label: 'Overview',
+    label: '$t:admin.common.overview',
     href: `/design-system/${SLUG}`,
     current: input.onIndex,
   }),
@@ -177,10 +179,10 @@ const componentNavColumn = (input: { readonly onIndex: boolean }): readonly Page
  * card wants the component rather than a serialised config object — the
  * button's own label is what announces the affordance.
  *
- * The payload is the endpoint's published `snippet`: the operator's own
- * declaration, serialised by the same walker the type page's config block
- * spends. A card carrying its config in full would be mostly JSON, which is why
- * it is offered rather than printed.
+ * The payload is the line that PLACES the template — `$ref: <name>`, the
+ * full-syntax reference a page writes — and not the template's own config,
+ * which the author already has in their app file. What an author takes away
+ * from a gallery of reusable parts is how to reuse one.
  */
 const cardHeader = (): PageComponent =>
   ({
@@ -205,27 +207,35 @@ const cardHeader = (): PageComponent =>
         element: 'span',
         props: { className: 'text-foreground-subtle text-[11px]' },
         visibility: { record: { field: 'count', eq: 0 } },
-        content: 'Declared, and embedded by no page yet.',
+        content: '$t:admin.ds.components.unused',
       },
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground-subtle text-[11px]' },
-        visibility: { record: { field: 'count', eq: 1 } },
-        content: 'Used on $record.count page.',
-      },
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground-subtle text-[11px]' },
-        visibility: { record: { field: 'count', gt: 1 } },
-        content: 'Used on $record.count pages.',
-      },
+      sentence(
+        'text-foreground-subtle text-[11px]',
+        [
+          '$t:admin.ds.components.usedOn',
+          ' ',
+          '$record.count',
+          ' ',
+          '$t:admin.ds.components.pageOne',
+        ],
+        { visibility: { record: { field: 'count', eq: 1 } } }
+      ),
+      sentence(
+        'text-foreground-subtle text-[11px]',
+        [
+          '$t:admin.ds.components.usedOn',
+          ' ',
+          '$record.count',
+          ' ',
+          '$t:admin.ds.components.pageMany',
+        ],
+        { visibility: { record: { field: 'count', gt: 1 } } }
+      ),
       {
         type: 'text',
         element: 'span',
         props: { className: 'sr-only', 'data-copy-target': 'true', 'aria-hidden': 'true' },
-        content: '$record.snippet',
+        content: '$ref: $record.name',
       },
       {
         type: 'container',
@@ -240,11 +250,11 @@ const cardHeader = (): PageComponent =>
               className:
                 'text-foreground-subtle hover:text-foreground font-mono text-[11px] leading-none',
               'data-copy-code': 'true',
-              'data-copied-label': 'Copied',
-              'aria-label': 'Copy this component’s config',
+              'data-copied-label': '$t:admin.common.copied',
+              'aria-label': '$t:admin.ds.components.copyRef',
               ...kitType('button'),
             },
-            content: 'Copy config',
+            content: '$t:admin.ds.components.copyRef',
           },
         ],
       },
@@ -360,11 +370,19 @@ const guidanceStrip = (): PageComponent =>
     element: 'div',
     props: { className: 'border-border flex flex-col gap-3 border-t px-4 py-3' },
     children: [
-      guidanceRegister('component.usage', 'Usage', 'text-foreground'),
-      guidanceRegister('component.when', 'When', 'text-foreground'),
-      guidanceRegister('component.dont', 'Don’t', 'text-error-fg'),
+      guidanceRegister('component.usage', '$t:admin.ds.components.usage', 'text-foreground'),
+      guidanceRegister('component.when', '$t:admin.ds.when', 'text-foreground'),
+      guidanceRegister('component.dont', '$t:admin.ds.dont', 'text-error-fg'),
     ],
   }) as PageComponent
+
+/**
+ * A viewport's stable name, read off its translation key (`…viewport.mobile`
+ * → `mobile`), so an id and a test hook never move with the language. The
+ * chip's caption is the sibling key `…viewport.mobile375`, one string per
+ * language rather than a label and a width glued together.
+ */
+const viewportSlug = (labelKey: string): string => labelKey.slice(labelKey.lastIndexOf('.') + 1)
 
 /**
  * One viewport, drawn and headed — the detail page's grammar.
@@ -407,8 +425,8 @@ const stackedFrame = (label: string, width: number): PageComponent =>
     element: 'section',
     props: {
       className: 'flex scroll-mt-6 flex-col gap-3',
-      id: `viewport-${label.toLowerCase()}`,
-      'data-design-section': `viewport-${label.toLowerCase()}`,
+      id: `viewport-${viewportSlug(label)}`,
+      'data-design-section': `viewport-${viewportSlug(label)}`,
     },
     children: [
       {
@@ -435,7 +453,7 @@ const stackedFrame = (label: string, width: number): PageComponent =>
             element: 'div',
             props: {
               className: 'overflow-x-auto',
-              'data-design-viewport-frame': label.toLowerCase(),
+              'data-design-viewport-frame': viewportSlug(label),
               style: { width: `${width}px`, maxWidth: '100%' },
             },
             children: [
@@ -461,9 +479,9 @@ const detailBody = (): PageComponent =>
     children: [
       cardHeader(),
       routeChips(),
-      stackedFrame('Desktop', 1280),
-      stackedFrame('Tablet', 768),
-      stackedFrame('Mobile', 375),
+      stackedFrame('$t:admin.ds.viewport.desktop', 1280),
+      stackedFrame('$t:admin.ds.viewport.tablet', 768),
+      stackedFrame('$t:admin.ds.viewport.mobile', 375),
       guidanceStrip(),
     ],
   }) as PageComponent
@@ -503,9 +521,9 @@ const cardRootProps = {
  * label still names 1280 because that is the width the chip DESCRIBES.
  */
 const VIEWPORTS: readonly (readonly [label: string, value: string, width: string | undefined])[] = [
-  ['Desktop', '1280', undefined],
-  ['Tablet', '768', '768px'],
-  ['Mobile', '375', '375px'],
+  ['$t:admin.ds.viewport.desktop', '1280', undefined],
+  ['$t:admin.ds.viewport.tablet', '768', '768px'],
+  ['$t:admin.ds.viewport.mobile', '375', '375px'],
 ]
 
 const VIEWPORT_VALUES = VIEWPORTS.map(([, value]) => value)
@@ -522,7 +540,7 @@ const viewportChips = (): readonly PageComponent[] => [
     element: 'div',
     props: { className: 'flex flex-wrap items-center gap-3' },
     children: [
-      microLabel('Viewport'),
+      microLabel('$t:admin.ds.viewport.label'),
       {
         type: 'container',
         element: 'div',
@@ -541,7 +559,7 @@ const viewportChips = (): readonly PageComponent[] => [
               'aria-current': 'true',
             },
             visibility: { query: { name: 'viewport', eq: value } },
-            content: `${label} · ${value}`,
+            content: `${label}${value}`,
           },
           {
             type: 'link' as const,
@@ -551,7 +569,7 @@ const viewportChips = (): readonly PageComponent[] => [
               ...kitType('link'),
             },
             visibility: { query: { name: 'viewport', neq: value } },
-            content: `${label} · ${value}`,
+            content: `${label}${value}`,
           },
         ]),
       },
@@ -574,10 +592,7 @@ const viewportChips = (): readonly PageComponent[] => [
       className: `text-foreground-subtle ${MEASURE_XS} text-[11px] leading-relaxed`,
       'data-testid': 'design-system-viewport-note',
     },
-    content:
-      'A width, and only a width. Responsive variants answer the browser viewport rather than ' +
-      'this frame, so a narrow specimen scrolls sideways instead of collapsing to its mobile ' +
-      'layout. Nothing is clipped, and nothing here proves a layout broken.',
+    content: '$t:admin.ds.viewport.note',
   } as PageComponent,
 ]
 
@@ -605,7 +620,7 @@ const specimenFrame = (label: string, value: string, width: string | undefined):
         element: 'div',
         props: {
           className: 'overflow-x-auto',
-          'data-design-viewport-frame': label.toLowerCase(),
+          'data-design-viewport-frame': viewportSlug(label),
           ...(width === undefined ? {} : { style: { width, maxWidth: '100%' } }),
         },
         children: [
@@ -673,29 +688,37 @@ const collapsedCard = (): PageComponent =>
         element: 'span',
         props: { className: 'text-foreground-subtle text-[11px]' },
         visibility: { record: { field: 'count', eq: 0 } },
-        content: 'Declared, and embedded by no page yet.',
+        content: '$t:admin.ds.components.unused',
       },
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground-subtle text-[11px]' },
-        visibility: { record: { field: 'count', eq: 1 } },
-        content: 'Used on $record.count page.',
-      },
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground-subtle text-[11px]' },
-        visibility: { record: { field: 'count', gt: 1 } },
-        content: 'Used on $record.count pages.',
-      },
+      sentence(
+        'text-foreground-subtle text-[11px]',
+        [
+          '$t:admin.ds.components.usedOn',
+          ' ',
+          '$record.count',
+          ' ',
+          '$t:admin.ds.components.pageOne',
+        ],
+        { visibility: { record: { field: 'count', eq: 1 } } }
+      ),
+      sentence(
+        'text-foreground-subtle text-[11px]',
+        [
+          '$t:admin.ds.components.usedOn',
+          ' ',
+          '$record.count',
+          ' ',
+          '$t:admin.ds.components.pageMany',
+        ],
+        { visibility: { record: { field: 'count', gt: 1 } } }
+      ),
       {
         type: 'link',
         props: {
           href: `/design-system/${SLUG}/$record.name`,
           className: 'text-foreground hover:text-muted-foreground ml-auto text-[11px] font-medium',
         },
-        content: 'Expand →',
+        content: '$t:admin.ds.components.expand',
       },
     ],
   }) as PageComponent
@@ -728,12 +751,8 @@ const emptyState = (): PageComponent =>
     props: { className: 'flex flex-col gap-2' },
     visibility: { record: { field: 'total', eq: 0 } },
     children: [
-      sectionHeading('No reusable components'),
-      caption(
-        'This app declares no reusable components. Declare one under the components key of ' +
-          'your config and embed it by name from a page; it appears here, on its own, the ' +
-          'moment you do.'
-      ),
+      sectionHeading('$t:admin.ds.components.none'),
+      caption('$t:admin.ds.components.emptyBody'),
     ],
   }) as PageComponent
 
@@ -773,20 +792,15 @@ const scoped = (children: readonly PageComponent[]): PageComponent =>
  */
 const heading = (title: string): PageComponent => designPageHeader(title)
 
-// ---------------------------------------------------------------------------
-// The index
-// ---------------------------------------------------------------------------
+// ─── The index ──────────────────────────────────────────────────────────────
 
-const componentsIndex: PageConfig = withShell(
-  {
-    id: 'design-system-components',
-    name: 'design-system-components',
-    path: `/design-system/${SLUG}`,
-    meta: {
-      lang: 'en-US',
-      title: TITLE,
-      description: 'Every reusable template this app declares, drawn on its own.',
-    },
+const componentsIndex: PageConfig = consolePage({
+  id: 'design-system-components',
+  path: `/design-system/${SLUG}`,
+  title: TITLE,
+  description: '$t:admin.ds.components.blurb',
+  page: {
+    requires: ['components'],
     query: VIEWPORT_QUERY,
     // The ONE gate no rows binding can answer: whether this app declares any
     // reusable component at all. `visibility.record` has no length operator and
@@ -799,48 +813,35 @@ const componentsIndex: PageConfig = withShell(
         idKey: 'total',
       },
     },
-    components: [
-      heading(TITLE),
-      ...viewportChips(),
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex min-w-0 flex-1 flex-col gap-6' },
-        children: [
-          scoped([
-            {
-              type: 'container',
-              element: 'div',
-              props: { className: 'flex flex-col gap-4' },
-              dataSource: COMPONENT_ROWS,
-              children: [drawnCard(), collapsedCard()],
-            } as PageComponent,
-          ]),
-          emptyState(),
-        ],
-      } as PageComponent,
-    ],
   },
-  {
+  shell: {
     breadcrumb: designSystemBreadcrumb(SLUG, TITLE),
     navColumn: componentNavColumn({ onIndex: true }),
-  }
-)
+  },
+  body: [
+    heading(TITLE),
+    ...viewportChips(),
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex min-w-0 flex-1 flex-col gap-6' },
+      children: [
+        scoped([...componentKindGroups(COMPONENT_ROWS, [drawnCard(), collapsedCard()])]),
+        emptyState(),
+      ],
+    } as PageComponent,
+  ],
+})
 
-// ---------------------------------------------------------------------------
-// The sub-route: one component, always drawn
-// ---------------------------------------------------------------------------
+// ─── The sub-route: one component, always drawn ─────────────────────────────
 
-const componentDetail: PageConfig = withShell(
-  {
-    id: 'design-system-component-detail',
-    name: 'design-system-component-detail',
-    path: `/design-system/${SLUG}/:name`,
-    meta: {
-      lang: 'en-US',
-      title: 'Component',
-      description: 'One reusable template of this app, drawn on its own.',
-    },
+const componentDetail: PageConfig = consolePage({
+  id: 'design-system-component-detail',
+  path: `/design-system/${SLUG}/:name`,
+  title: '$t:admin.common.component',
+  description: '$t:admin.ds.components.detailBlurb',
+  page: {
+    requires: ['components'],
     // ─── THE DEEP LINK HAS TO REACH THE HOST BEFORE IT REACHES THE FRAMES ──
     //
     // The three viewport frames below are documents of their own, and each one
@@ -870,47 +871,46 @@ const componentDetail: PageConfig = withShell(
         valueKey: 'name',
       },
     },
-    components: [
-      // The COMPONENT, not the noun. The page printed `Component` over a card
-      // saying `site-header`, a breadcrumb saying `site-header` and three
-      // frames drawing it — one heading doing no work, on the one surface whose
-      // whole job is to show a reader WHICH component they are looking at.
-      // `:name` is the route's own segment and every card below is already
-      // narrowed by it, so the title can say it too.
-      heading('$param.name'),
-      {
-        type: 'link',
-        props: {
-          href: `/design-system/${SLUG}`,
-          className: 'text-foreground-subtle hover:text-foreground text-[11px] font-medium',
-        },
-        content: '← All components',
-      } as PageComponent,
-      scoped([
-        // A ONE-ROW envelope, narrowed by the segment. There is no gate here:
-        // a reader who followed the way in asked for this template drawn.
-        {
-          type: 'container',
-          element: 'div',
-          props: { className: 'flex flex-col gap-4' },
-          dataSource: {
-            system: {
-              endpoint: DESIGN_USAGE_ENDPOINT,
-              rowsKey: 'items',
-              idKey: 'name',
-              query: { subject: 'component', name: '$param.name' },
-            },
-          },
-          children: [detailBody()],
-        } as PageComponent,
-      ]),
-    ],
   },
-  {
+  shell: {
     breadcrumb: designSystemBreadcrumb(SLUG, TITLE),
     navColumn: componentNavColumn({ onIndex: false }),
-  }
-)
+  },
+  body: [
+    // The COMPONENT, not the noun. The page printed `Component` over a card
+    // saying `site-header`, a breadcrumb saying `site-header` and three
+    // frames drawing it — one heading doing no work, on the one surface whose
+    // whole job is to show a reader WHICH component they are looking at.
+    // `:name` is the route's own segment and every card below is already
+    // narrowed by it, so the title can say it too.
+    heading('$param.name'),
+    {
+      type: 'link',
+      props: {
+        href: `/design-system/${SLUG}`,
+        className: 'text-foreground-subtle hover:text-foreground text-[11px] font-medium',
+      },
+      content: '$t:admin.ds.components.back',
+    } as PageComponent,
+    scoped([
+      // A ONE-ROW envelope, narrowed by the segment. There is no gate here:
+      // a reader who followed the way in asked for this template drawn.
+      {
+        type: 'container',
+        element: 'div',
+        props: { className: 'flex flex-col gap-4' },
+        dataSource: {
+          system: {
+            endpoint: DESIGN_USAGE_ENDPOINT,
+            rowsKey: 'items',
+            idKey: 'name',
+            query: { subject: 'component', name: '$param.name' },
+          },
+        },
+        children: [detailBody()],
+      } as PageComponent,
+    ]),
+  ],
+})
 
-export { componentDetail }
-export default componentsIndex
+export { componentDetail, componentsIndex as default }

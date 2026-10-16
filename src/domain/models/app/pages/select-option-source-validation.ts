@@ -66,6 +66,8 @@ type FoundSelectBinding =
       readonly table: string
       readonly displayField: string
       readonly valueField: string | undefined
+      /** Who the refusal names; a page `select` when absent. */
+      readonly subject?: string
     }
   | {
       readonly kind: 'system'
@@ -86,6 +88,7 @@ const collectSelectBindings = (node: unknown): readonly FoundSelectBinding[] => 
 
   const record = node as Record<string, unknown>
   const nested = Object.values(record).flatMap(collectSelectBindings)
+  if (record['type'] === 'filter-bar') return [...filterBarBindings(record), ...nested]
   if (!isSelectNode(record)) return nested
 
   const { dataSource, options } = record
@@ -94,6 +97,21 @@ const collectSelectBindings = (node: unknown): readonly FoundSelectBinding[] => 
   const binding = bindingFrom(dataSource as Record<string, unknown>, Array.isArray(options))
   return binding === undefined ? nested : [binding, ...nested]
 }
+
+/**
+ * The table bindings of a filter bar's `select` fields (`fields[].optionsSource`),
+ * each naming its field — the same binding a page `select` takes, so it is held
+ * to the same check: a table and a display field the app declares.
+ */
+const filterBarBindings = (bar: Readonly<Record<string, unknown>>): readonly FoundSelectBinding[] =>
+  (Array.isArray(bar['fields']) ? bar['fields'] : []).flatMap((field: unknown) => {
+    if (field === null || typeof field !== 'object') return []
+    const { name, optionsSource } = field as Readonly<Record<string, unknown>>
+    if (optionsSource === null || typeof optionsSource !== 'object') return []
+    const binding = bindingFrom(optionsSource as Record<string, unknown>, false)
+    if (binding?.kind !== 'table') return []
+    return [{ ...binding, subject: `Filter bar field '${String(name)}' option source` }]
+  })
 
 /**
  * Reduce one `select` `dataSource` to the binding shape validation needs, or
@@ -141,7 +159,11 @@ const validateBinding = (
     return `Select component binds options to table '${table}' AND declares a static 'options' array — the two are mutually exclusive. Remove one.`
   }
 
-  return validateTableOptionSourceBinding(binding, tables, 'Select option source')
+  return validateTableOptionSourceBinding(
+    binding,
+    tables,
+    binding.subject ?? 'Select option source'
+  )
 }
 
 /**

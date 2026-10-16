@@ -6,6 +6,9 @@
  */
 
 import { type ReactElement } from 'react'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import { CHROME_FOCUS_RING } from '@/presentation/design/chrome-focus-ring'
+import { newTabName } from '@/presentation/design/new-tab-attributes'
 import { getDemoNoticeDisplayConfig, type DemoNoticeDisplayConfig } from './demo-notice-config'
 import { getDemoNoticeLabels, type DemoNoticeLabels } from './demo-notice-labels'
 
@@ -78,7 +81,9 @@ function DemoNoticeSummary({ label }: { readonly label: string }): Readonly<Reac
       (the chevron below is the affordance); the webkit variant covers Safari,
       which still paints its own marker pseudo-element.
     */
-    <summary className="border-border bg-card text-muted-foreground hover:text-foreground inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors [&::-webkit-details-marker]:hidden">
+    <summary
+      className={`border-border bg-card text-muted-foreground hover:text-foreground inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors [&::-webkit-details-marker]:hidden ${CHROME_FOCUS_RING}`}
+    >
       {label}
       {/*
         Rotating chevron: without it the pill reads as a static label rather
@@ -167,7 +172,7 @@ function DemoNoticeCredentials({
         data-testid="demo-notice-prefill"
         data-demo-email={credentials.email}
         data-demo-password={credentials.password}
-        className="border-border text-muted-foreground hover:text-foreground mt-1.5 rounded-[4px] border px-2 py-1 text-sm font-medium transition-colors"
+        className={`border-border text-muted-foreground hover:text-foreground mt-1.5 rounded-[4px] border px-2 py-1 text-sm font-medium transition-colors ${CHROME_FOCUS_RING}`}
       >
         {labels.prefill}
       </button>
@@ -178,9 +183,12 @@ function DemoNoticeCredentials({
 function DemoNoticePanel({
   config,
   labels,
+  newTabNotice,
 }: {
   readonly config: DemoNoticeDisplayConfig
   readonly labels: DemoNoticeLabels
+  /** The CTA opens a new tab and says so, in the page language. */
+  readonly newTabNotice: string
 }): Readonly<ReactElement> {
   // `w-72` (not wider): the round-2 body is one short sentence, and at this
   // width it wraps BEFORE "04:00 UTC" — keeping the time and its unit on one
@@ -216,7 +224,8 @@ function DemoNoticePanel({
           target="_blank"
           rel="noopener"
           data-testid="demo-notice-cta"
-          className="text-muted-foreground hover:text-foreground mt-1 -mb-1 inline-block py-1 font-medium underline underline-offset-2 transition-colors"
+          {...newTabName(labels.cta, newTabNotice)}
+          className={`text-muted-foreground hover:text-foreground mt-1 -mb-1 inline-block py-1 font-medium underline underline-offset-2 transition-colors ${CHROME_FOCUS_RING}`}
         >
           {labels.cta}
         </a>
@@ -288,6 +297,7 @@ export function DemoNotice({
         <DemoNoticePanel
           config={config}
           labels={labels}
+          newTabNotice={resolveInterpreterString('link.opensInNewTab', lang)}
         />
       </details>
       {/*

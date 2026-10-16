@@ -16,7 +16,11 @@
 import { Cause, DateTime, Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { ReadBucketUsage } from '@/application/use-cases/admin/bucket-files'
-import { bucketIdForName, declaredBucketNames } from '@/domain/models/app/buckets/bucket-identity'
+import {
+  bucketIdForName,
+  declaredBucketNames,
+  SYSTEM_BUCKET_NAME,
+} from '@/domain/models/app/buckets/bucket-identity'
 import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { AdminReadServices } from '@/application/use-cases/admin/admin-read-operation'
@@ -108,6 +112,24 @@ export const decodeBucketsListQuery = (
 }
 
 /**
+ * The upload rules a bucket declares, read verbatim from its `buckets[]` entry.
+ * An omitted rule reads as its documented default (not public, no own size
+ * cap, every type accepted); the built-in `system` bucket declares none.
+ */
+const declaredUploadRules = (
+  app: App,
+  name: string
+): Pick<BucketAdminItem, 'public' | 'maxFileSize' | 'allowedMimeTypes'> => {
+  const declared =
+    name === SYSTEM_BUCKET_NAME ? undefined : app.buckets?.find((bucket) => bucket.name === name)
+  return {
+    public: declared?.public ?? false,
+    maxFileSize: declared?.maxFileSize ?? null,
+    allowedMimeTypes: declared?.allowedMimeTypes ?? null,
+  }
+}
+
+/**
  * One item per bucket the app exposes — the built-in `system` first, then every
  * declared bucket — each counting only the objects recorded under it. Empty when
  * no storage provider resolves: a declaration that cannot hold a byte is not a
@@ -126,6 +148,7 @@ export const buildBucketItems = (
       name,
       provider: meta.provider,
       region: meta.region,
+      ...declaredUploadRules(app, name),
       createdAt: now,
       updatedAt: now,
       _admin: {

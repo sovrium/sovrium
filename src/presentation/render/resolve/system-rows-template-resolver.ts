@@ -196,14 +196,26 @@ async function expandTemplate(
       rowWrapper: depth === 1 ? 'li' : 'div',
     }
   )
-  if (depth >= MAX_TEMPLATE_DEPTH) return expanded
+  if (depth >= MAX_TEMPLATE_DEPTH) return asRowList(expanded, depth)
 
   // ONE more level, over the per-row CLONES. Each clone carries its own copy of
   // the inner binding with `$record.` already substituted from its own row, so
   // the N reads are N different reads — which is the whole reason the shape is
   // worth its cost.
   const children = await mapNode(expanded.children, fetchSystemRows, depth + 1)
-  return children === expanded.children ? expanded : ({ ...expanded, children } as Component)
+  const listed = asRowList(expanded, depth)
+  return children === expanded.children ? listed : ({ ...listed, children } as Component)
+}
+
+/**
+ * The outer rows are `<li>`s, so their host must BE a list (WCAG 1.3.1, RGAA
+ * 9.3): a `list` host is a `<ul>` already; any other host — a grid of swatches
+ * drawn as a `div` — is given `role="list"`, which is what makes its `<li>`
+ * rows list items rather than orphans. Inner rows are `div`s and change nothing.
+ */
+function asRowList(expanded: Component, depth: number): Component {
+  if (depth !== 1 || expanded.type === 'list') return expanded
+  return { ...expanded, props: { ...(expanded.props ?? {}), role: 'list' } } as Component
 }
 
 /**

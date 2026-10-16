@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import { preprocessed } from '@/domain/models/api/combinators/preprocess'
 import { transformed } from '@/domain/models/api/combinators/transform'
@@ -369,3 +370,132 @@ export type BatchDeleteRecordsRequest = typeof batchDeleteRecordsRequestSchema.T
 export type BatchRestoreRecordsRequest = typeof batchRestoreRecordsRequestSchema.Type
 export type UpsertRecordsRequest = typeof upsertRecordsRequestSchema.Type
 export type ImportRecordsRequest = typeof importRecordsRequestSchema.Type
+
+// ---------------------------------------------------------------------------
+// Access grants — the records of the engine-managed `user_access` table
+// ---------------------------------------------------------------------------
+
+/**
+ * Wire contracts for the access-grant routes, `/api/tables/user_access/records`.
+ *
+ * A grant gives one account access to some records of one scope table
+ * (`auth.scopeTables`) under one role. Every route is admin-only; a refused
+ * caller is answered `404`.
+ */
+
+/** The record ids a grant names: at least one. */
+const grantRecordIdsSchema = Schema.Array(
+  Schema.String.annotate({ description: 'Id of a record of the scope table' })
+)
+  .annotate({ description: 'The records of the scope table this grant gives access to' })
+  .pipe(Schema.check(Schema.isMinLength(1)))
+
+/** The fields every grant carries, in whichever route answers it. */
+const grantFields = {
+  user_id: Schema.String.annotate({ description: 'The account the grant is for' }),
+  table_slug: Schema.String.annotate({
+    description: 'The scope table the grant covers, one of auth.scopeTables',
+  }),
+  record_ids: grantRecordIdsSchema,
+  role: Schema.String.annotate({
+    description: 'The role the account holds over those records, one of auth.roles',
+  }),
+  created_at: looseIsoDateTime({ description: 'ISO 8601 timestamp the grant was minted' }),
+  created_by: optionalField(
+    Schema.String.annotate({ description: 'The account that minted the grant' })
+  ),
+}
+
+/**
+ * One grant, in the record envelope every records route answers.
+ *
+ * Used for:
+ * - POST /api/tables/user_access/records (201)
+ * - GET, PATCH /api/tables/user_access/records/:id (200)
+ */
+export const userAccessRecordSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Unique grant identifier' }),
+  fields: Schema.Struct(grantFields).annotate({ description: 'The grant itself' }),
+}).annotate({ description: 'One access grant' })
+
+export type UserAccessRecord = Schema.Schema.Type<typeof userAccessRecordSchema>
+
+/**
+ * One grant as a LISTING answers it: the grant, plus what a reader needs to
+ * read it without a second request — the account's address and name, and a
+ * readable label for each record it names.
+ *
+ * The additions are read-only and computed at read time; nothing about them is
+ * stored on the grant, and a write never accepts them.
+ *
+ * Used for:
+ * - GET /api/tables/user_access/records (each item of `records`)
+ */
+export const userAccessListedRecordSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'Unique grant identifier' }),
+  fields: Schema.Struct({
+    ...grantFields,
+    user_email: optionalField(
+      Schema.String.annotate({
+        description:
+          'The email address of the account the grant is for; absent when the grant names no existing account',
+      })
+    ),
+    user_name: optionalField(
+      Schema.String.annotate({
+        description:
+          'The name of the account the grant is for; absent when the grant names no existing account',
+      })
+    ),
+    record_labels: Schema.Array(
+      Schema.String.annotate({
+        description:
+          "A record's label: the value of the scope table's first declared single-line-text field that is not write-only, or the record id when the table declares none, the value is empty, or no record of the table has that id",
+      })
+    ).annotate({
+      description: 'One readable label per entry of record_ids, in the same order',
+    }),
+  }).annotate({ description: 'The grant, with its account and records made readable' }),
+}).annotate({ description: 'One access grant, as a listing answers it' })
+
+export type UserAccessListedRecord = Schema.Schema.Type<typeof userAccessListedRecordSchema>
+
+/**
+ * A list of grants.
+ *
+ * Used for:
+ * - GET /api/tables/user_access/records — narrowed by any combination of
+ *   `user_id`, `user_email` (the account with that address, matched without
+ *   regard to case), `table_slug` and `record_id`; with `table_slug` and
+ *   `record_id` it answers who holds a grant over one record
+ */
+export const userAccessListResponseSchema = Schema.Struct({
+  records: Schema.Array(userAccessListedRecordSchema).annotate({
+    description: 'The grants, oldest first',
+  }),
+}).annotate({ description: 'A list of access grants' })
+
+export type UserAccessListResponse = Schema.Schema.Type<typeof userAccessListResponseSchema>
+
+/**
+ * A change to one grant: its records, its role, or both.
+ *
+ * Used for:
+ * - PATCH /api/tables/user_access/records/:id
+ *
+ * A grant keeps its account and its table. Moving access to another account or
+ * another table is a revocation followed by a new grant, so a body naming
+ * `user_id` or `table_slug` is refused rather than applied.
+ */
+export const updateUserAccessRequestSchema = Schema.Struct({
+  fields: Schema.Struct({
+    record_ids: optionalField(grantRecordIdsSchema),
+    role: optionalField(
+      Schema.String.annotate({ description: 'The new role, one of auth.roles' }).pipe(
+        Schema.check(Schema.isMinLength(1))
+      )
+    ),
+  }).annotate({ description: 'The parts of the grant to change' }),
+}).annotate({ description: 'A change to one access grant' })
+
+export type UpdateUserAccessRequest = Schema.Schema.Type<typeof updateUserAccessRequestSchema>

@@ -29,8 +29,11 @@
  *  - `users.total`          ← users-overview `totals.users`
  *  - `storage.totalBytes`   ← `StorageService.getTotalBytes()`
  *  - `connections.total`    ← connections-list length
- *  - `connections.healthy`  ← count of connections whose derived `status` is
- *                             `active` (NOT `expiring-soon` / `expired`)
+ *  - `connections.healthy`  ← count of connections whose listed `status` is
+ *                             `active` (NOT `expiring-soon`, `expired`,
+ *                             `reconnect-needed`, or an OAuth2 connection
+ *                             nobody has authorized, which lists as
+ *                             `not-connected`)
  *
  * RESILIENCE + LATENCY: the overview is a TILE, never an operator error. Every
  * domain source is computed in its own scoped Effect that DECLARES the port it
@@ -65,7 +68,6 @@ import { withBlockTimeout } from '@/application/use-cases/admin/overview-block-t
 import { sumSubmissionCounts } from '@/application/use-cases/admin/overview-projections'
 import { BuildUsersOverview } from '@/application/use-cases/admin/users-overview'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import { deriveConnectionStatus } from '@/domain/models/app/admin/connection-status'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { AdminAutomationsRepository } from '@/application/ports/repositories/automations/admin-automations-repository'
 import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
@@ -329,8 +331,10 @@ const storageBlock = (): Effect.Effect<AdminOverviewStorage, never, StorageServi
 
 /**
  * `connections.total` / `connections.healthy` — the connection count + how many
- * derive an `active` status (NOT `expiring-soon` / `expired`). A failure (or no
- * connections) degrades to `{ total: 0, healthy: 0 }`.
+ * the connections list reports `active`. It reads the list's own `status` rather
+ * than re-deriving one from the soonest expiry: an OAuth2 connection with no
+ * token has no expiry either, and only the list knows it is `not-connected`.
+ * A failure (or no connections) degrades to `{ total: 0, healthy: 0 }`.
  */
 const connectionsBlock = (): Effect.Effect<
   AdminOverviewConnections,
@@ -341,9 +345,7 @@ const connectionsBlock = (): Effect.Effect<
     Effect.map((outcome) => {
       if (outcome._tag !== 'Ok') return CONNECTIONS_ZERO
       const { connections } = outcome.body
-      const healthy = connections.filter(
-        (connection) => deriveConnectionStatus(connection.expiresAt) === 'active'
-      ).length
+      const healthy = connections.filter((connection) => connection.status === 'active').length
       return { total: connections.length, healthy }
     }),
     Effect.tapCause(logBlockFailure('connections')),

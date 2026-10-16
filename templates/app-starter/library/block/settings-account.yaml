@@ -1,4 +1,5 @@
-# sovrium-library: block/settings-account@0.30.0
+# sovrium-library: block/settings-account@0.38.0
+# sovrium-library-params: headline=Account
 name: settings-account
 type: container
 element: section
@@ -90,6 +91,7 @@ children:
                         control: text
                         label: Name
                         defaultValue: $session.name
+                        autocomplete: name
   - type: container
     element: section
     props:
@@ -161,6 +163,7 @@ children:
                         control: email
                         label: New email
                         defaultValue: $session.email
+                        autocomplete: email
   - type: container
     element: section
     props:
@@ -231,9 +234,11 @@ children:
                       - field: currentPassword
                         control: password
                         label: Current password
+                        autocomplete: current-password
                       - field: newPassword
                         control: password
                         label: New password
+                        autocomplete: new-password
   - type: container
     element: section
     props:

@@ -12,6 +12,7 @@ import { SystemSourceRefSchema } from '../../../../../system-sources'
 import { RowClickActionSchema } from '../../../action'
 import { AuthSourceSchema } from '../../../auth-source'
 import { DataSourceSchema } from '../../../data-source'
+import { SharedFilterPublisherSchema } from '../../../data-source-publishers'
 import { DataTablePaginationSchema } from '../../../pagination'
 import { optBool } from '../../../shared-schemas'
 import { SystemSourceSchema } from '../../../system-source'
@@ -23,6 +24,7 @@ import { visibilityFields } from '../../modules/visibility'
 import { DataTableBulkActionSchema } from './bulk-actions'
 import { validateColumnDisplayFields } from './column-display-field-validation'
 import { DataTableColumnSchema } from './columns'
+import { DataTableColumnsFromSchema } from './columns-from'
 import { DataTableLayoutSchema } from './layout'
 import { DataTableRowExpandConfigSchema } from './row-expand'
 import { DataTableSelectionSchema } from './selection'
@@ -32,8 +34,6 @@ import {
   collectDataTableComponents,
   collectDataTableRowColorBindings,
 } from './table-components-service'
-import { DataTableToolbarSchema } from './toolbar'
-import { validateToolbarFacets } from './toolbar-facet-validation'
 
 // Re-exported through this module — and so through the directory barrel — for
 // the same reason `tableFields` was consolidated here: a data-table's config
@@ -193,11 +193,12 @@ export const DataTableDataSourceSchema = Schema.Union([
  * are a view in `tables[].views[]`, and the grid binds it with
  * `dataSource.view`. So the grid carries no `views` switcher, no `viewLabels`,
  * no `groupBy`, no `kanbanGroupBy`/`dateField` for switched-in board and
- * calendar modes, and its toolbar no saved-views menu, density, column toggle or
- * group-by picker — a board and a calendar of the same records are a `kanban`
- * and a `calendar` component, each with its own binding. Every removed key is
- * refused at load with a message naming its replacement
- * (`removed-table-keys.ts`). Bound to a table directly, the grid may still
+ * calendar modes, and no `toolbar` or `search` of its own — its controls
+ * are page components publishing on a shared-filter channel the grid
+ * subscribes to (the library block `block/data-table-toolbar` composes the
+ * usual set). A board and a calendar of the same records are a `kanban` and a
+ * `calendar` component, each with its own binding. Every removed key is
+ * refused at load with a message naming its replacement (`removed-keys.ts`). Bound to a table directly, the grid may still
  * narrow it with `dataSource.filter` / `dataSource.sort`; bound to a view, the
  * view owns those and the grid must not redeclare them.
  *
@@ -241,54 +242,21 @@ export const tableFields = {
     )
   ),
   /**
-   * Derive the columns from the bound table's declared fields instead of
-   * authoring them.
-   *
-   * ─── WHAT IT IS FOR ────────────────────────────────────────────────────────
-   *
-   * A grid over a table named by the URL (`dataSource.table: $param.table`)
-   * cannot enumerate its own columns: the page definition does not know which
-   * table it will be asked for, and the operator's tables are not knowable when
-   * the config is written. `columnsFrom: table` closes exactly that — ONE page
-   * definition becomes a records explorer over every table the app declares.
-   *
-   * ─── WHY NOT A SYSTEM SOURCE INSTEAD ──────────────────────────────────────
-   *
-   * Re-binding such a grid to a system source over `/api/tables/:table/records`
-   * looks equivalent and is not: inline edit, the typed create modal, the
-   * `_canCreate` gate and the column derivation are all gated on
-   * `!isSystemSource` by construction. A system source would render rows and
-   * silently drop the entire record-CRUD feature set the grid exists for.
-   *
-   * ─── WHAT "DERIVED" MEANS ──────────────────────────────────────────────────
-   *
-   * One column per declared field, in declaration order, HONOURING field-level
-   * read permissions for the requesting session — a field the caller may not
-   * read yields no column, exactly as an authored one would be dropped. The
-   * derivation is server-side, so a forbidden field's name never reaches the
-   * client.
-   *
-   * Exclusive with `columns`, and requires a `dataSource.table`; both are decode
-   * errors (`collectPageBindingViolations`).
-   *
-   * @example
-   * ```yaml
-   * path: /records/:table
-   * components:
-   *   - type: table
-   *     dataSource: { table: $param.table }
-   *     columnsFrom: table
-   * ```
+   * Derive the columns from a declaration instead of authoring them: `table`
+   * (the bound table's fields) or `{ form }` (a form's answers over its
+   * submissions) — see {@link DataTableColumnsFromSchema}. Both are checked by
+   * `collectPageBindingViolations`.
    */
-  columnsFrom: Schema.optional(
-    Schema.Literal('table').annotate({
-      identifier: 'DataTableColumnsFrom',
-      title: 'Data Table Derived Columns',
-      description:
-        'Derive one column per declared field of the bound table, honouring field-level read permissions. Mutually exclusive with columns; requires a dataSource.table.',
-    })
-  ),
+  columnsFrom: Schema.optional(DataTableColumnsFromSchema),
   selection: Schema.optional(DataTableSelectionSchema),
+  /**
+   * Publish the selected row on a shared-filter channel: its record id, or —
+   * under `selection.mode: multiple` — the selected ids joined by commas, which
+   * the `in` operator reads as "any of". With no `selection` declared, clicking
+   * a row selects it for this purpose. The key `tree` and `graph` carry, so a
+   * grid of projects can narrow a grid of their tasks beside it.
+   */
+  publishes: Schema.optional(SharedFilterPublisherSchema),
   /**
    * Inline buttons (default) or one `…` menu per row for the action column —
    * see {@link DataTableRowActionsSchema}.
@@ -301,15 +269,14 @@ export const tableFields = {
       Schema.check(Schema.isMinLength(1))
     )
   ),
-  toolbar: Schema.optional(DataTableToolbarSchema),
   /**
    * Draw the grid as a reading, whatever the reader may write: no New record,
-   * no Import, no add-row line and no in-cell editing. Search, sort, filters
-   * and export stay. Presentation only — the records API answers exactly as it
+   * no Import, no add-row line and no in-cell editing. Sorting by a column and
+   * the controls composed on the page stay. Presentation only — the records API answers exactly as it
    * would without it.
    */
   readOnly: optBool(
-    'Draw the grid as a reading even for a reader who may write the table: no New record, Import or add-row line and no in-cell editing, while search, sort, filters and export stay. The records API is unchanged.'
+    'Draw the grid as a reading even for a reader who may write the table: no New record, Import or add-row line and no in-cell editing, while sorting by a column and the controls composed on the page stay. The records API is unchanged.'
   ),
   bulkActions: Schema.optional(
     Schema.Array(DataTableBulkActionSchema).pipe(
@@ -430,10 +397,6 @@ export const tableFields = {
  * pagination:
  *   pageSize: 25
  *   pageSizeOptions: [10, 25, 50]
- * toolbar:
- *   search: true
- *   filters: true
- *   export: true
  * bulkActions:
  *   - label: Delete Selected
  *     icon: trash
@@ -448,7 +411,7 @@ export const DataTableSchema = Schema.Struct(tableFields).annotate({
   identifier: 'DataTable',
   title: 'Data Table',
   description:
-    'Interactive data grid component. Binds to a table and provides columns, selection, toolbar, grouping, summary, and inline editing.',
+    'Interactive data grid component. Binds to a table and provides columns, selection, pagination, summary, and inline editing.',
 })
 
 // ---------------------------------------------------------------------------
@@ -700,9 +663,8 @@ export function validateDataTableFieldReferences(config: unknown): readonly stri
       (component) =>
         validateDataTableColumns(component as unknown as DataTable, fieldsByTable).errors
     ),
-    // `displayField` and `toolbar.facets` read field types this name-only map lacks.
+    // `displayField` reads field types this name-only map lacks.
     ...validateColumnDisplayFields(config),
-    ...validateToolbarFacets(config),
   ]
 }
 
@@ -757,9 +719,7 @@ export {
 } from './columns'
 export { DataTableSelectionSchema } from './selection'
 export { DataTablePaginationSchema } from '../../../pagination'
-export { ComponentSearchSchema } from '../../../component-search'
 export { SummaryFunctionSchema, DataTableSummaryItemSchema } from './summary'
-export { DataTableToolbarSchema } from './toolbar'
 export { DataTableBulkActionSchema } from './bulk-actions'
 export { collectDataTableRowColorBindings } from './table-components-service'
 
@@ -769,9 +729,7 @@ export type { ColumnFormat, CellStyleCondition, EditSelect, ActionColumnItem } f
 export type { FieldColumn, ActionColumn, DataTableColumn } from './columns'
 export type { DataTableSelection } from './selection'
 export type { DataTablePagination } from '../../../pagination'
-export type { ComponentSearch } from '../../../component-search'
 export type { SummaryFunction, DataTableSummaryItem } from './summary'
-export type { DataTableToolbar } from './toolbar'
 export type { DataTableBulkAction } from './bulk-actions'
 export type RowHeight = Schema.Schema.Type<typeof RowHeightSchema>
 export type DataTableDbDataSource = Schema.Schema.Type<typeof DataTableDbDataSourceSchema>

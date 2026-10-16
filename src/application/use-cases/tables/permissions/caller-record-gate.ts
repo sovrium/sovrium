@@ -25,23 +25,26 @@
  */
 
 import { Effect } from 'effect'
+import { GUEST_USER_ID } from '@/domain/models/app/auth/guest-session'
 import {
   callerTableGate,
   gateAdmitsRecord,
   type CallerReader,
 } from '@/domain/models/app/tables/caller-record-gate-service'
 import { loadCallerIdentity } from './caller-write-authority'
+import { loadCurrentUserContext, rowRuleScopeOf } from './row-level-enforcement'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
+import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
 
 type Requirements = AuthRepository | DataSourceRepository | TableRepository
 
-/** A reader, and the record ids her assignments name per scope table `table`'s rules read. */
+/** A reader, and the context `table`'s rules judge her by (`loadCurrentUserContext`). */
 export interface LoadedCallerReader {
   readonly reader: CallerReader
-  readonly assignments: ReadonlyMap<string, readonly string[]>
+  readonly context: CurrentUserContext
 }
 
 /**
@@ -65,7 +68,7 @@ export const loadCallerReader = (
         accessRoles: identity.accessRoles,
         isUnrestricted: identity.ctx.isUnrestricted,
       },
-      assignments: identity.ctx.assignments,
+      context: identity.ctx,
     }
   }).pipe(Effect.withSpan('tables.load-caller-reader'))
 
@@ -88,15 +91,16 @@ export const callerReadsRecord = (input: {
     const table = app.tables?.find((t) => t.name === tableName)
     if (table === undefined) return false
     if (userId === undefined) {
-      return gateAdmitsRecord(callerTableGate(app, tableName, undefined), record, new Map())
+      // Signed out: nothing about her resolves, but a rule naming no one is
+      // still answered by its lookups, as the records API answers it.
+      const guest = { userId: GUEST_USER_ID, role: GUEST_USER_ID, isUnrestricted: false }
+      const scope = rowRuleScopeOf(table, app.tables)
+      const context = yield* loadCurrentUserContext(guest, table.rowLevelPermissions, scope)
+      return gateAdmitsRecord(callerTableGate(app, tableName, undefined), record, context)
     }
     const loaded = yield* loadCallerReader(app, userId, table)
     if (loaded === undefined) return false
-    return gateAdmitsRecord(
-      callerTableGate(app, tableName, loaded.reader),
-      record,
-      loaded.assignments
-    )
+    return gateAdmitsRecord(callerTableGate(app, tableName, loaded.reader), record, loaded.context)
   }).pipe(
     Effect.withSpan('tables.caller-reads-record', { attributes: { 'table.name': input.tableName } })
   )

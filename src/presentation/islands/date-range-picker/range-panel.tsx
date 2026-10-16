@@ -31,6 +31,8 @@ interface RangePanelProps extends CalendarInput {
   readonly months: 1 | 2
   readonly presets: readonly string[]
   readonly onPresetClick: (preset: string) => void
+  /** The picker's words in the page language (`dateRangePicker.*`), where they differ from English. */
+  readonly words?: Readonly<Record<string, string>> | undefined
   /**
    * Draw the panel as a still DEPICTION of the open state.
    *
@@ -57,6 +59,7 @@ export function RangePanel({
   months,
   presets,
   onPresetClick,
+  words,
   depicted = false,
   ...calendar
 }: RangePanelProps): ReactElement {
@@ -64,7 +67,9 @@ export function RangePanel({
     <div
       data-date-range-panel
       role={depicted ? undefined : 'dialog'}
-      aria-label={depicted ? undefined : (label ?? 'Choose a period')}
+      aria-label={
+        depicted ? undefined : (label ?? words?.['dateRangePicker.choose'] ?? 'Choose a period')
+      }
       data-specimen-open={depicted ? 'true' : undefined}
       data-slot="popover-content"
       className={computeDatePopupClasses({ depicted })}
@@ -76,6 +81,7 @@ export function RangePanel({
       <div className="flex flex-col gap-4 md:flex-row">
         <PresetColumn
           presets={presets}
+          words={words}
           onPresetClick={onPresetClick}
         />
         <RangeCalendar
@@ -170,9 +176,11 @@ function RangeCalendar({
  */
 function PresetColumn({
   presets,
+  words,
   onPresetClick,
 }: {
   readonly presets: readonly string[]
+  readonly words: RangePanelProps['words']
   readonly onPresetClick: (preset: string) => void
 }): ReactElement | undefined {
   if (presets.length === 0) return undefined
@@ -182,6 +190,7 @@ function PresetColumn({
         <PresetButton
           key={preset}
           preset={preset}
+          label={words?.[`dateRangePicker.preset.${preset}`] ?? PRESET_LABELS[preset] ?? preset}
           onClick={onPresetClick}
         />
       ))}
@@ -191,9 +200,11 @@ function PresetColumn({
 
 function PresetButton({
   preset,
+  label,
   onClick,
 }: {
   readonly preset: string
+  readonly label: string
   readonly onClick: (preset: string) => void
 }): ReactElement {
   const handleClick = useCallback(() => onClick(preset), [preset, onClick])
@@ -207,7 +218,7 @@ function PresetButton({
       // than one.
       className="text-muted-foreground hover:bg-muted hover:text-foreground rounded px-2 py-1 text-left text-sm whitespace-nowrap"
     >
-      {PRESET_LABELS[preset] ?? preset}
+      {label}
     </button>
   )
 }

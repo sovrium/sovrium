@@ -281,6 +281,16 @@ export function resolveTranslationPattern(
 }
 
 /**
+ * A translator of `$t:` text into `languages`' default language — for a
+ * surface addressed to no reader in particular (an operator console, a digest
+ * email), which reads the app in the language it declares first.
+ */
+export const defaultLanguageTranslator =
+  (languages?: Languages) =>
+  (text: string): string =>
+    resolveTranslationPattern(text, languages?.default ?? '', languages)
+
+/**
  * Recursively apply a string transform to every string in a value
  * (strings, arrays, plain objects). Non-string leaves pass through untouched.
  *

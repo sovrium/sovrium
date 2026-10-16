@@ -22,15 +22,13 @@ import {
 } from './record-caller-gate'
 import { automationCreateFields } from './record-create-fields'
 import { createAndAnnounce, deleteAndAnnounce, updateAndAnnounce } from './record-events'
+import { declaredFilterFields, extractIdFromFilter, toQueryFilter } from './record-filter-shape'
 import {
-  declaredFieldNames,
-  extractIdFromFilter,
   failureFromError,
   filterFieldRefusal,
   resolveActionTargetIds,
   selectionFieldRefusal,
   sortFieldRefusal,
-  toQueryFilter,
 } from './record-filters'
 import { buildReadOutput } from './record-read-output'
 import {
@@ -155,7 +153,7 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation, runCo
       operator: 'record.update',
       tableName,
       filter: props['filter'],
-      declaredFields: declaredFieldNames(app, tableName),
+      declared: declaredFilterFields(app, tableName),
       idFastPath: id,
     })
     if (!targets.resolved) return targets.outcome
@@ -291,7 +289,7 @@ export const handleRecordDelete: ActionHandler = (action, app, automation, runCo
       operator: 'record.delete',
       tableName,
       filter: props['filter'],
-      declaredFields: declaredFieldNames(app, tableName),
+      declared: declaredFilterFields(app, tableName),
     })
     if (!targets.resolved) return targets.outcome
     const idsToDelete: readonly string[] = targets.ids
@@ -594,7 +592,7 @@ export const handleRecordList: ActionHandler = (action, app, automation) =>
     if (access.kind === 'refused') return READ_REFUSAL
 
     const declaredFields = listableFields(app, tableName, access)
-    const queryFilter = props['filter'] === undefined ? undefined : toQueryFilter(props['filter'])
+    const queryFilter = toQueryFilter(props['filter'], declaredFilterFields(app, tableName).table)
     const sortKeys = readSortKeys(props['sort'])
     const fields = readFieldNames(props['fields'])
 

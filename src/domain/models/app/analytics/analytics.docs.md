@@ -96,7 +96,7 @@ GET /api/analytics/events?event_type=track&limit=50&offset=0&from=2026-01-01&to=
 
 ## Where an operator reads it
 
-The console's Analytics page is `/_admin/pages`, and `/_admin/footprint` reports what serving that audience consumed. Both read the endpoints above; neither writes anything.
+The console's Analytics page is `/_admin/analytics`: its Pages tab reads the endpoints above, and its Footprint tab reports what serving that audience consumed. An app with no pages of its own has no audience to measure, so it gets the Footprint tab alone. Neither tab writes anything.
 
 ## Privacy and compliance
 

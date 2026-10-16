@@ -6,6 +6,8 @@
  */
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
 import { isFormulaReturningArray } from '../formula/formula-utils'
 import { isPhysicalColumnField } from '../sql/sql-field-predicates'
 import { mapFieldTypeToPostgres } from '../sql/sql-generators'
@@ -260,6 +262,47 @@ const attachmentKeyToJsonbUsing = (
     : undefined
 
 /**
+ * The `USING` clause for a `user` field moving from one account (`TEXT`) to a
+ * list of them (`TEXT[]`) — what happens the day a config gives it
+ * `allowMultiple`. PostgreSQL refuses `text → text[]` without a cast, which
+ * aborted the boot; the stored account becomes a one-person list, an empty or
+ * absent one NULL.
+ *
+ * @returns the clause, or `undefined` when this is not that conversion
+ */
+const userIdToListUsing = (
+  field: Fields[number],
+  columnName: string,
+  normalizedExisting: string,
+  normalizedTarget: string
+): string | undefined =>
+  isUserListField(field) &&
+  normalizedTarget === 'text[]' &&
+  (normalizedExisting === 'varchar' || normalizedExisting === 'text')
+    ? ` USING CASE WHEN ${columnName} IS NULL OR ${columnName} = '' THEN NULL ELSE ARRAY[${columnName}] END`
+    : undefined
+
+/**
+ * The `user` fields holding several people whose live column still stores ONE
+ * account — the keyed text column an older binary wrote — where the list
+ * column (`text[]`) is expected. The full migration converts each
+ * ({@link userIdToListUsing}). PostgreSQL only: on SQLite the list is JSON text
+ * in the same column, and the catalog map is empty.
+ *
+ * @param liveTypes - column name → the `data_type` the catalog reports
+ */
+export const findOneAccountListColumns = (
+  fields: readonly Fields[number][],
+  liveTypes: ReadonlyMap<string, string>
+): readonly string[] =>
+  fields
+    .filter((field) => {
+      const type = liveTypes.get(field.name)
+      return isUserListField(field) && type !== undefined && type !== 'ARRAY'
+    })
+    .map((field) => field.name)
+
+/**
  * Generate ALTER COLUMN TYPE statement with USING clause if needed
  * Handles type conversions that require explicit casting or transformation
  */
@@ -275,9 +318,35 @@ export const generateAlterColumnTypeStatement = (
   const normalizedTarget = normalizeDataType(targetType)
   const usingClause =
     attachmentKeyToJsonbUsing(field, columnName, normalizedExisting, normalizedTarget) ??
+    userIdToListUsing(field, columnName, normalizedExisting, normalizedTarget) ??
     resolveUsingClause(columnName, targetType, normalizedExisting, normalizedTarget)
 
-  return `ALTER TABLE ${tableName} ALTER COLUMN ${quoteSqlIdentifier(field.name)} TYPE ${targetType}${usingClause}`
+  // A list column carries no key: the one-account column's key goes in the same
+  // statement, or PostgreSQL refuses the new type as a key it cannot implement.
+  const dropKey = userIdToListUsing(field, columnName, normalizedExisting, normalizedTarget)
+    ? userKeyNames(tableName, field.name)
+        .map((name) => `DROP CONSTRAINT IF EXISTS ${quoteSqlIdentifier(name)}, `)
+        .join('')
+    : ''
+  return `ALTER TABLE ${tableName} ${dropKey}ALTER COLUMN ${quoteSqlIdentifier(field.name)} TYPE ${targetType}${usingClause}`
+}
+
+/** The suffix of the relation holding a view-backed table's rows (`getBaseTableName`). */
+const BASE_SUFFIX = '_base'
+
+/**
+ * The names the one-account key of `column` can carry on `relation`. A key is
+ * named after the CONFIG table (`sql-key-constraints.ts`), and a view-backed
+ * table's rows — so its key — live in `<name>_base`: altered there, the key is
+ * still `<name>_<column>_fkey`. Each is dropped `IF EXISTS`, and a `DROP
+ * CONSTRAINT` only ever reaches the relation it names.
+ */
+const userKeyNames = (relation: string, column: string): readonly string[] => {
+  const sanitized = sanitizeTableName(relation)
+  const prefixes = sanitized.endsWith(BASE_SUFFIX)
+    ? [sanitized, sanitized.slice(0, -BASE_SUFFIX.length)]
+    : [sanitized]
+  return prefixes.map((prefix) => `${prefix}_${column}_fkey`)
 }
 
 /**

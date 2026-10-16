@@ -32,14 +32,16 @@ interface AppForGroupActionValidation {
 }
 
 /** One step, read without trusting its shape. */
-type LooseAction = Readonly<Record<string, unknown>>
+export type LooseAction = Readonly<Record<string, unknown>>
 
-const asActions = (value: unknown): readonly LooseAction[] =>
+/** The steps a value lists, dropping anything that is not one. */
+export const asActions = (value: unknown): readonly LooseAction[] =>
   Array.isArray(value)
     ? (value.filter((item) => item !== null && typeof item === 'object') as LooseAction[])
     : []
 
-const propsOf = (action: LooseAction): Readonly<Record<string, unknown>> => {
+/** A step's props, or none when they are not an object. */
+export const propsOf = (action: LooseAction): Readonly<Record<string, unknown>> => {
   const { props } = action
   return props !== null && typeof props === 'object'
     ? (props as Readonly<Record<string, unknown>>)
@@ -50,7 +52,7 @@ const propsOf = (action: LooseAction): Readonly<Record<string, unknown>> => {
  * Every step of an automation, nested ones included: a loop's `actions`, a
  * path's branches, and the `actions` a step may carry beside its props.
  */
-const flattenSteps = (actions: readonly LooseAction[]): readonly LooseAction[] =>
+export const flattenSteps = (actions: readonly LooseAction[]): readonly LooseAction[] =>
   actions.flatMap((action) => {
     const props = propsOf(action)
     const branches = asActions(props['paths']).flatMap((path) => asActions(path['actions']))

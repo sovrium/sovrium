@@ -966,8 +966,11 @@ mod tests {
     #[test]
     fn the_whole_desktop_env_contract_is_set() {
         let env = env_map(None);
-        assert_eq!(env["SOVRIUM_DATA_DIR"], "/tmp/demo/.sovrium");
-        assert_eq!(env["SOVRIUM_PROJECT_DIR"], "/tmp/demo");
+        // Built the way the shell builds them, so the expectation carries the
+        // platform's own separator: `join` writes `\` on Windows.
+        let dir = Path::new("/tmp/demo");
+        assert_eq!(env["SOVRIUM_DATA_DIR"], dir.join(".sovrium").to_string_lossy());
+        assert_eq!(env["SOVRIUM_PROJECT_DIR"], dir.to_string_lossy());
         assert_eq!(env["SOVRIUM_CONFIG_FILE"], "app.yaml");
         assert_eq!(env["SOVRIUM_INSTALL_METHOD"], "desktop");
         assert_eq!(env["SOVRIUM_SHUTDOWN_ON_STDIN_CLOSE"], "1");

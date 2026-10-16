@@ -8,7 +8,8 @@
 /**
  * The grid's FRAME and its head — the surface the table sits in, the `<table>`
  * itself, `<thead>` and its `<th>`, and the two affordances that live inside a
- * header cell (the sort glyph and the resize handle).
+ * header cell's edge (the resize handle). The sort control a header cell holds
+ * is next door in `table-sort-default-classes.ts`.
  *
  * The seam is the element, not the line count: everything here is drawn once
  * per grid and never per row, which is why the density map the body cells read
@@ -298,6 +299,24 @@ export const computeTableFillScrollClasses = ({
   readonly rowHeight: string | undefined
 }): string => tableFillScroll(resolveRowHeight(rowHeight))
 
+/**
+ * The box around the scroll region that the end-edge affordance is anchored to.
+ * Under `layout: fill` it takes the scroll region's place in the flex chain, so
+ * it grows and floors exactly as that region did.
+ */
+export const computeTableScrollFrameClasses = (fills: boolean, rowHeight?: string): string =>
+  fills
+    ? `relative flex ${TABLE_FILL_SCROLL_FLOOR[resolveRowHeight(rowHeight)]} flex-1 flex-col`
+    : 'relative'
+
+/**
+ * The end-edge shadow a clipped grid casts at its right edge: an inward, low-alpha
+ * edge. The dark surface takes a stronger tone of the same edge — a black at the
+ * light alpha all but disappears on it.
+ */
+export const computeTableScrollEdgeClasses = (): string =>
+  'pointer-events-none absolute inset-y-0 right-0 z-20 w-4 shadow-[inset_-12px_0_8px_-8px_rgb(0_0_0_/_0.18)] dark:shadow-[inset_-12px_0_8px_-8px_rgb(0_0_0_/_0.6)]'
+
 // Canvas: `position:sticky; top:0; z-index:1; background;
 // box-shadow: inset 0 -1px 0 <border>`.
 //
@@ -386,28 +405,6 @@ export const computeTableHeaderCellClasses = ({
     TABLE_HEADER_CELL_CHROME,
     inTable ? TABLE_HEADER_CELL_SHARED_RULE_PADDING : TABLE_HEADER_CELL_OWN_RULE_PADDING,
   ].join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// SORT GLYPH — the ↑ / ↓ inside a sorted header
-// ──────────────────────────────────────────────────────────────────────────────
-
-const TABLE_SORT_GLYPH = 'ml-1 inline-flex items-center'
-
-/**
- * Compute the default className for the sort-direction indicator.
- *
- * `active: false` is the `↕` a sortable header draws while it is not sorted.
- * It wears the muted foreground, not the disabled tone: it says the column
- * sorts, which is content, and so it reads at 4.5:1 on the header like any
- * other glyph the grid paints.
- *
- * The `sort-asc` / `sort-desc` class tokens and both `aria-label`s stay on the
- * element: spec locators resolve the indicator by class, and the labels are
- * what keep a sorted column announced while `aria-hidden` holds the
- * columnheader's accessible name stable.
- */
-export const computeTableSortGlyphClasses = ({ active }: { readonly active: boolean }): string =>
-  [TABLE_SORT_GLYPH, active ? `text-foreground` : `text-muted-foreground`].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // RESIZE HANDLE — the column-width drag affordance

@@ -20,6 +20,8 @@
  * driver failure and the use-cases decide which rejections are best-effort.
  */
 
+import type { InvitationLinkPage } from '@/domain/models/app/pages/invitation-link-service'
+
 /** The invitee's account, as the flow reads it. */
 export interface InvitationUser {
   readonly id: string
@@ -114,4 +116,10 @@ export interface InvitationMailer {
 export interface InvitationServices {
   readonly store: InvitationStore
   readonly engine: InvitationAuthEngine
+  /**
+   * The invitation pages of the apps mounted on this server, under their mount
+   * (the operator console's), listed after the app's own pages when a link is
+   * built: the fallback for an app declaring none. Absent when nothing is mounted.
+   */
+  readonly linkPages?: readonly InvitationLinkPage[]
 }

@@ -107,6 +107,8 @@ The same holds for the actions an agent takes in a chat. A record action runs on
 
 A visitor signed in to nothing, using an agent whose trigger grant is `all`, is narrowed the same way to what the records API serves a signed-out visitor: only the tables whose `read` is `all`, only the fields she may read there, and only live rows. The agent takes no record or `auth` action for her. An admin-role agent open to everyone therefore answers staff with its full reach and a visitor with the public part of it. The agent's own schedule has no caller, so a scheduled run reads with the agent's declared reach.
 
+Every conversation belongs to the account that held it, and is deleted with that account. The admin list of an agent's conversations, `GET /api/admin/agents/<name>/conversations`, names that person on each row as `userId` and `userName` — the display name, never the email — and `?userId=` narrows the list to the conversations one person held, together with the date window and `?q=`.
+
 ## The built-in System Agent
 
 Every app has one agent it never declares: `system`. It exists as soon as a provider is configured, even in an app that declares no agents, no AI fields and no AI actions — so an operator who sets `AI_PROVIDER` gets an assistant with nothing else to write.

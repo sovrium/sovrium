@@ -12,6 +12,7 @@ Everything starts from one root object. Only `name` is required; every other sec
 
 ```text
 name           App identifier (required)
+displayName    The name people read
 version        SemVer version
 description    One-line description
 badge          The "Built with Sovrium" badge — set false to remove it
@@ -48,7 +49,7 @@ admin          The operator console
 
 Each section has its own article, and the option tables there are expanded from the schema itself rather than transcribed:
 
-- `name`, `version`, `description` — **App Metadata**.
+- `name`, `displayName`, `version`, `description` — **App Metadata**.
 - `tables` — data models and their field types: **Tables Overview**.
 - `pages` — server-rendered pages built from a tree of component types, with SEO and i18n: **Pages Overview**.
 - `forms` — standalone forms that capture submissions into a table or trigger an automation: **Forms Overview**.

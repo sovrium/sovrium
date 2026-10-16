@@ -102,6 +102,7 @@ env.txt
 !src/admin/assets/samples/*.mp3
 **/reviews/**/audio.wav
 **/reviews/**/frames/
+**/reviews/**/captures/
 docs/user-stories/template-apps/*/parity/*/current-state/
 docs/user-stories/template-apps/*/parity/*/target-state/
 docs/user-stories/template-apps/*/parity/*/diff/

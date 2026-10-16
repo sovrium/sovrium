@@ -16,11 +16,14 @@ import {
 } from './timeline-states'
 import { TimelineView } from './timeline-view'
 import { TimelineResizeContext, useTimelineData } from './use-timeline-resize'
+import type { TimelineStrings } from './timeline-states'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 import type { ReactElement } from 'react'
 
 interface TimelineIslandProps {
+  /** The timeline's own words in the page language, where they differ from English. */
+  readonly uiStrings?: TimelineStrings
   readonly dataSource?: {
     /** DB-table binding — ABSENT for a system-source binding. */
     readonly table?: string
@@ -101,6 +104,7 @@ export default function TimelineIsland({
   dependencyField,
   emptyMessage,
   resizeFields,
+  uiStrings,
 }: TimelineIslandProps): ReactElement {
   const { records, resize, isLoading, isError, error } = useTimelineData(dataSource, {
     startField,
@@ -108,12 +112,13 @@ export default function TimelineIsland({
     resizeFields,
   })
 
-  if (!hasDataBinding(dataSource)) return <TimelineMissingTable />
-  if (!startField) return <TimelineMissingStartField />
-  if (isLoading) return <TimelineLoading />
-  if (isError) return <TimelineError error={error} />
+  const state = { error, strings: uiStrings, message: emptyMessage }
+  if (!hasDataBinding(dataSource)) return <TimelineMissingTable {...state} />
+  if (!startField) return <TimelineMissingStartField {...state} />
+  if (isLoading) return <TimelineLoading {...state} />
+  if (isError) return <TimelineError {...state} />
 
-  if (records.length === 0) return <TimelineEmpty message={emptyMessage} />
+  if (records.length === 0) return <TimelineEmpty {...state} />
 
   const config: TimelineConfig = {
     startField,
@@ -125,7 +130,7 @@ export default function TimelineIsland({
     dependencyField,
   }
   const items = buildTimelineItems(records, config)
-  if (items.length === 0) return <TimelineEmpty message={emptyMessage} />
+  if (items.length === 0) return <TimelineEmpty {...state} />
 
   return (
     <TimelineResizeContext.Provider value={resize}>

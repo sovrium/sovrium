@@ -27,6 +27,10 @@
  */
 
 import { resolveRateLimitWindowSeconds } from '@/domain/models/process-env/rate-limit-window'
+import {
+  resolveRateLimitReads,
+  resolveRateLimitWrites,
+} from '@/domain/models/process-env/records-rate-limits'
 import { createSlidingWindowLimiter } from '@/infrastructure/process/sliding-window-limiter'
 import type { SlidingWindowConfig } from '@/infrastructure/process/sliding-window-limiter'
 
@@ -177,56 +181,92 @@ export const getAuthRateLimitRetryAfter = (endpoint: string, ip: string): number
 }
 
 // ---------------------------------------------------------------------------
-// Tables rate limiter — per-method:path config, env-derived window default 60s
+// Tables rate limiter — one budget per caller and kind, env-derived window
 // ---------------------------------------------------------------------------
 
 const tablesLimiter = createSlidingWindowLimiter()
 
-const getTablesRateLimitConfigs = (): Readonly<Record<string, EndpointRateLimitConfig>> => {
+/** The methods that write: all four draw on ONE budget per caller. */
+const TABLES_WRITE_METHODS: ReadonlySet<string> = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
+
+/** Requests one API key may make per window, reads and writes together (about 5 a second). */
+export const API_KEY_TABLES_BUDGET = 300
+
+/** Reads one visitor address that is not signed in may make per window. */
+export const ANONYMOUS_TABLES_READS = 100
+
+/**
+ * Which budget a `/api/tables*` request draws on, and its size, for the caller
+ * named by `callerKey` (`user:<id>`, `key:<digest>` or `ip:<address>`):
+ *
+ * - an API key: its own budget, every method together;
+ * - a write (POST, PATCH, PUT, DELETE): the caller's one write budget,
+ *   `RATE_LIMIT_WRITES` — a batch request is one write;
+ * - a read by a signed-in person: `RATE_LIMIT_READS`, a ceiling no page reaches;
+ * - a read by a visitor who is not signed in: {@link ANONYMOUS_TABLES_READS}.
+ *
+ * The list endpoint and the record endpoints keep separate read budgets.
+ * A `HEAD` is counted as the read it runs; any other method (`OPTIONS`) is
+ * not counted.
+ */
+export const tablesBudgetOf = (
+  method: string,
+  path: string,
+  callerKey: string
+): { readonly bucket: string; readonly config: EndpointRateLimitConfig } | undefined => {
   const windowMs = getRateLimitWindowMs()
+  // A HEAD runs the GET handler (Hono answers it with the GET route, body
+  // dropped), so it is a read like any other; a method's case never changes
+  // which budget it draws on.
+  const verb = method.toUpperCase() === 'HEAD' ? 'GET' : method.toUpperCase()
+  if (callerKey.startsWith('key:')) {
+    return { bucket: 'key', config: { windowMs, maxRequests: API_KEY_TABLES_BUDGET } }
+  }
+  if (TABLES_WRITE_METHODS.has(verb)) {
+    return { bucket: 'write', config: { windowMs, maxRequests: resolveRateLimitWrites() } }
+  }
+  if (verb !== 'GET') return undefined
+  const maxRequests = callerKey.startsWith('user:')
+    ? resolveRateLimitReads()
+    : ANONYMOUS_TABLES_READS
   return {
-    'GET:/api/tables': { windowMs, maxRequests: 100 },
-    'GET:/api/tables/*': { windowMs, maxRequests: 100 },
-    'POST:/api/tables/*': { windowMs, maxRequests: 50 },
+    bucket: `read:${path === '/api/tables' ? 'list' : 'records'}`,
+    config: { windowMs, maxRequests },
   }
 }
 
-/**
- * Resolve the effective config-key for a given method+path. Matches an
- * exact key first, then falls back to the wildcard `<method>:/api/tables/*`.
- */
-const resolveTablesConfigKey = (method: string, path: string): string => {
-  const exactKey = `${method}:${path}`
-  return getTablesRateLimitConfigs()[exactKey] ? exactKey : `${method}:/api/tables/*`
-}
+const tablesKey = (bucket: string, callerKey: string): string => `${bucket}:${callerKey}`
 
-const getTablesRateLimitKey = (method: string, path: string, ip: string): string =>
-  `${resolveTablesConfigKey(method, path)}:${ip}`
-
-export const isTablesRateLimitExceeded = (method: string, path: string, ip: string): boolean => {
-  const config = getTablesRateLimitConfigs()[resolveTablesConfigKey(method, path)]
-  if (!config) return false
-  return tablesLimiter.isExceeded(getTablesRateLimitKey(method, path, ip), config)
+export const isTablesRateLimitExceeded = (
+  method: string,
+  path: string,
+  callerKey: string
+): boolean => {
+  const budget = tablesBudgetOf(method, path, callerKey)
+  if (!budget) return false
+  return tablesLimiter.isExceeded(tablesKey(budget.bucket, callerKey), budget.config)
 }
 
 export const recordTablesRateLimitRequest = (
   method: string,
   path: string,
-  ip: string
+  callerKey: string
 ): readonly number[] => {
-  const config = getTablesRateLimitConfigs()[resolveTablesConfigKey(method, path)]
-  if (!config) return []
-  return tablesLimiter.record(getTablesRateLimitKey(method, path, ip), config)
+  const budget = tablesBudgetOf(method, path, callerKey)
+  if (!budget) return []
+  return tablesLimiter.record(tablesKey(budget.bucket, callerKey), budget.config)
 }
 
-/**
- * The original tables retry-after used `getRateLimitWindowMs()` directly
- * (not the per-config windowMs). Both produce the same value today —
- * every tables config uses the env-derived window — but preserving the
- * original behaviour keeps this commit a true no-op.
- */
-export const getTablesRateLimitRetryAfter = (method: string, path: string, ip: string): number =>
-  tablesLimiter.getRetryAfter(getTablesRateLimitKey(method, path, ip), getRateLimitWindowMs())
+/** Seconds until the budget the request drew on has room again. */
+export const getTablesRateLimitRetryAfter = (
+  method: string,
+  path: string,
+  callerKey: string
+): number => {
+  const budget = tablesBudgetOf(method, path, callerKey)
+  if (!budget) return 0
+  return tablesLimiter.getRetryAfter(tablesKey(budget.bucket, callerKey), budget.config.windowMs)
+}
 
 // ---------------------------------------------------------------------------
 // Activity rate limiter — per-method:path config, env-derived window default 60s
@@ -267,9 +307,8 @@ export const recordActivityRateLimitRequest = (
 }
 
 /**
- * Same caveat as `getTablesRateLimitRetryAfter` — preserve original
- * behaviour of using `getRateLimitWindowMs()` directly rather than the
- * per-config windowMs (the values are identical today).
+ * Uses `getRateLimitWindowMs()` directly rather than the per-config windowMs
+ * (the values are identical today).
  */
 export const getActivityRateLimitRetryAfter = (method: string, path: string, ip: string): number =>
   activityLimiter.getRetryAfter(getActivityRateLimitKey(method, path, ip), getRateLimitWindowMs())

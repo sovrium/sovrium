@@ -5,20 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useMemo, useState } from 'react'
-import { coerceFieldValues, createRecord } from './create-record-data'
+import { useMemo } from 'react'
 import { withColumnDisplayFields } from './island-setup-helpers'
 import type { DataTableIslandProps } from './island-props'
-import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { DataTableRowClickAction } from '../data-row-types'
-import type {
-  DataTableColumn,
-  DataTableToolbar,
-} from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type { DataTableColumn } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /**
  * The data-table island's entry wiring: how its props map onto the setup and
- * paste-import hooks, which bindings may write, and the create-record flow.
+ * paste-import hooks, and which bindings may write.
  */
 
 /**
@@ -48,17 +43,6 @@ function isSystemSourceBinding(props: DataTableIslandProps): boolean {
  */
 export function isReadOnlyBinding(props: DataTableIslandProps): boolean {
   return isSystemSourceBinding(props) || props.readOnly === true
-}
-
-/**
- * A view-bound grid's toolbar with export switched off. The export route is
- * the TABLE's, gated on the table's own read grant — which a visitor on a
- * public view does not hold — so the affordance would only ever answer 401.
- */
-export function withViewBoundToolbar(props: DataTableIslandProps): DataTableToolbar | undefined {
-  return props.isViewBound === true && props.toolbar?.export === true
-    ? { ...props.toolbar, export: false }
-    : props.toolbar
 }
 
 /**
@@ -125,9 +109,8 @@ export function toSetupParams(props: DataTableIslandProps) {
     columnConfig: withPermissionEditableDefault(props.columns, permissionEditableAllowed(props)),
     isViewBound: props.isViewBound === true,
     paginationConfig: props.pagination,
-    searchConfig: props.search,
     selectionConfig: props.selection,
-    toolbarConfig: withViewBoundToolbar(props),
+    publishesSelection: props.publishes !== undefined,
     initialRowHeight: props.rowHeight ?? 'medium',
     searchSourceId: props.searchSourceId,
     tableFields: props.tableFields,
@@ -140,6 +123,7 @@ export function toSetupParams(props: DataTableIslandProps) {
     saveLabel: props.saveLabel ?? DEFAULT_SAVE_LABEL,
     cancelLabel: props.cancelLabel ?? DEFAULT_CANCEL_LABEL,
     rowActionsDisplay: props.rowActions?.display ?? 'inline',
+    uiStrings: props.uiStrings,
   }
 }
 
@@ -188,51 +172,10 @@ export function resolveRowClickAction(
 }
 
 /**
- * Toolbar create-record flow: the `creating` modal
- * toggle plus the open / cancel / submit callbacks. On submit we POST only the
- * filled fields (untouched fields would 500 typed columns), coercing each value
- * to its column's JSON type (numeric columns as numbers, not `"42"`) via
- * `fieldMeta` so a typed column never 500s on create, and on success close the
- * modal + refresh the grid so the new row shows. Extracted from
- * `DataTableIsland` to keep that component under the complexity cap.
- */
-export function useDataTableCreateFlow(
-  tableName: string,
-  refresh: () => void,
-  fieldMeta: FieldMetaMap | undefined
-) {
-  const [creating, setCreating] = useState(false)
-  const fieldTypes = useMemo(
-    () =>
-      new Map(Object.entries(fieldMeta ?? {}).map(([name, meta]) => [name, meta.type] as const)),
-    [fieldMeta]
-  )
-  const onCreate = useCallback(() => setCreating(true), [])
-  const onCancelCreate = useCallback(() => setCreating(false), [])
-  const onSubmitCreate = useCallback(
-    (values: Record<string, string>) => {
-      setCreating(false)
-      const filled = Object.fromEntries(
-        Object.entries(values).filter(([, value]) => value.trim().length > 0)
-      )
-      // Coerce each value to the JSON type its column expects (numeric columns as
-      // numbers, booleans as booleans) so the POST body matches the records-API
-      // contract — a typed column never 500s on an otherwise-valid create.
-      const coerced = coerceFieldValues(filled, fieldTypes)
-      void createRecord(tableName, coerced).then((ok) => {
-        if (ok) refresh()
-      })
-    },
-    [tableName, refresh, fieldTypes]
-  )
-  return { creating, onCreate, onCancelCreate, onSubmitCreate }
-}
-
-/**
  * The island's props with each column's `displayField` merged into `fieldMeta`.
  *
- * Done once, at the entry, so every consumer of `fieldMeta` — the picker, the
- * create dialog, paste-import, the cells — reads the same field meta. Merged
+ * Done once, at the entry, so every consumer of `fieldMeta` — the picker,
+ * paste-import, the cells — reads the same field meta. Merged
  * into one place rather than re-derived per consumer, which is how two of them
  * would come to search a relationship on different columns.
  */

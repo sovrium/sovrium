@@ -164,10 +164,12 @@ components:
                     classes:
                       parts:
                         paragraph: text-[13px]
-                        link: text-primary-subtle-foreground
+                        # Underlined at rest: a link in running text must not be told
+                        # apart by its colour alone.
+                        link: text-primary-subtle-foreground underline underline-offset-2
                       states:
                         hover:
-                          link: underline
+                          link: decoration-2
                     content: Sign in as the person whose role the assistant should have, then [create a key in the admin](/_admin/api-keys). A viewer's key reads; an editor's key can also add documents.
 
               # 3 · Connect your client. The configuration most MCP clients

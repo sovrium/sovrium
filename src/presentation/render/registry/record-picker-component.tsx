@@ -15,6 +15,10 @@
  * Specs: [internal ref]
  */
 
+import {
+  resolveInterpreterString,
+  resolveInterpreterStringOverrides,
+} from '@/domain/models/app/languages/translation-resolver'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { asRecord, baseProps, pickFromComponent } from './island-form-props'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -49,8 +53,17 @@ function buildRecordPickerProps(rawProps: RawProps, elementProps: ElemProps, com
   }
 }
 
-export const recordPickerComponent: ComponentRenderer = ({ rawProps, elementProps, component }) => {
-  const pickerProps = buildRecordPickerProps(rawProps, elementProps, component)
+export const recordPickerComponent: ComponentRenderer = ({
+  rawProps,
+  elementProps,
+  component,
+  currentLang,
+  languages,
+}) => {
+  const pickerProps = {
+    ...buildRecordPickerProps(rawProps, elementProps, component),
+    uiStrings: resolveInterpreterStringOverrides(['recordPicker.'], currentLang, languages),
+  }
   return (
     <div
       id={elementProps.id as string | undefined}
@@ -66,7 +79,10 @@ export const recordPickerComponent: ComponentRenderer = ({ rawProps, elementProp
       <input
         type="text"
         disabled
-        aria-label={(rawProps?.label as string | undefined) ?? 'Search records'}
+        aria-label={
+          (rawProps?.label as string | undefined) ??
+          resolveInterpreterString('recordPicker.search', currentLang, languages)
+        }
         placeholder={pickerProps.placeholder as string | undefined}
         className="border-border bg-background text-foreground text-md w-full rounded-md border px-3 py-2"
       />

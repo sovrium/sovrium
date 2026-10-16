@@ -14,9 +14,12 @@
  * of one row, so the page does not jump when the nodes arrive.
  */
 
+import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { cn } from '@/presentation/design/class-merge'
 import { localizeChildLabel } from './island-child-label'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { Languages } from '@/domain/models/app/languages'
 
 interface TreeRoot {
   readonly dataSource?: unknown
@@ -32,6 +35,36 @@ interface TreeRoot {
   readonly emptyMessage?: string
 }
 
+/**
+ * The words the tree draws itself, in the page language and with its name
+ * already filled in. Unlike the other islands' `uiStrings` — only the strings
+ * that differ from English — the tree is handed every one, because the island
+ * carries no English of its own: its mount budget has no room for a fallback.
+ */
+const treeUiStrings = (
+  label: string,
+  lang: string | undefined,
+  languages: Languages | undefined,
+  authored: boolean
+): Readonly<Record<string, string>> => {
+  const word = (key: string, name = label): string =>
+    fillPlaceholders(resolveInterpreterString(key, lang, languages), { label: name })
+  return {
+    'tree.loading': word('tree.loading'),
+    'tree.empty': word('tree.empty'),
+    // Inside a sentence the engine's own name is a common noun, lower-cased with its
+    // article (`tree.labelInSentence`); an author's label is a name, kept as written.
+    'tree.loadFailed': word(
+      'tree.loadFailed',
+      authored || label !== resolveInterpreterString('tree.label', lang, undefined)
+        ? label
+        : word('tree.labelInSentence')
+    ),
+    'tree.filter': word('tree.filter'),
+    'tree.filterLabel': word('tree.filterLabel', label.toLocaleLowerCase(lang)),
+  }
+}
+
 export const treeComponent: ComponentRenderer = ({
   component,
   elementProps,
@@ -40,6 +73,11 @@ export const treeComponent: ComponentRenderer = ({
 }) => {
   const root = (component ?? {}) as TreeRoot
   const authoredLabel = elementProps['aria-label']
+  const label =
+    typeof authoredLabel === 'string'
+      ? authoredLabel
+      : resolveInterpreterString('tree.label', currentLang, languages)
+  const uiStrings = treeUiStrings(label, currentLang, languages, typeof authoredLabel === 'string')
   const islandProps = {
     dataSource: root.dataSource,
     parentField: root.parentField,
@@ -54,7 +92,8 @@ export const treeComponent: ComponentRenderer = ({
     ...(root.emptyMessage !== undefined && {
       emptyMessage: localizeChildLabel(root.emptyMessage, currentLang, languages),
     }),
-    label: typeof authoredLabel === 'string' ? authoredLabel : 'Tree',
+    label,
+    uiStrings,
   }
   return (
     <div
@@ -69,7 +108,7 @@ export const treeComponent: ComponentRenderer = ({
         aria-busy="true"
         className="text-muted-foreground h-8 text-sm"
       >
-        Loading…
+        {uiStrings['tree.loading']}
       </p>
     </div>
   )

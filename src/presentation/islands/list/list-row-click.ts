@@ -20,8 +20,10 @@
 
 import { useCallback, type SyntheticEvent } from 'react'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import { useRecordSelectionToggle } from '../hooks/use-lazy-shared-filter-publisher'
 import { cardPathClick, openCardDrawer } from '../runtime/card-click'
 import { fillFromCard } from '../runtime/fill-dispatch'
+import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
 
 type Row = Readonly<Record<string, unknown>>
 
@@ -60,19 +62,28 @@ function itemIndexOf(event: SyntheticEvent<HTMLUListElement>): number {
   return item === null ? -1 : Array.prototype.indexOf.call(event.currentTarget.children, item)
 }
 
-/** The list's item handler, or `undefined` when it declares no `onRowClick`. */
+/**
+ * The list's item handler, or `undefined` when it declares neither an
+ * `onRowClick` nor a `publishes` — a list that publishes the item a reader
+ * selects toggles that selection on the same click.
+ */
 export function useListRowClick(
   onRowClick: unknown,
   records: readonly Row[],
-  table: string | undefined
+  table: string | undefined,
+  publishes: SharedFilterPublisherConfig | undefined
 ): ((event: SyntheticEvent<HTMLUListElement>) => void) | undefined {
+  const select = useRecordSelectionToggle(publishes)
+  const hasRowClick = typeof onRowClick === 'object' && onRowClick !== null
   const handler = useCallback(
     (event: SyntheticEvent<HTMLUListElement>) => {
       if ('key' in event && event.key !== 'Enter') return
       const record = records[itemIndexOf(event)]
-      if (record !== undefined) runRowClick(onRowClick as RowClick, record, table)
+      if (record === undefined) return
+      select?.(record['id'])
+      if (hasRowClick) runRowClick(onRowClick as RowClick, record, table)
     },
-    [onRowClick, records, table]
+    [onRowClick, records, table, select, hasRowClick]
   )
-  return typeof onRowClick === 'object' && onRowClick !== null ? handler : undefined
+  return hasRowClick || select !== undefined ? handler : undefined
 }

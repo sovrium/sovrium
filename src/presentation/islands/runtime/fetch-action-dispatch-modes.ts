@@ -53,7 +53,12 @@ export async function performDownload(
   const filename = action.filename ? substituteRecord(action.filename, options.record) : ''
   try {
     const res = await fetch(url, { method: 'GET', credentials: 'include' })
-    if (!res.ok) return { ok: false, status: res.status, body: undefined }
+    if (!res.ok) {
+      // A refused download is said, like a refused fetch: without this the
+      // button came back and nothing on the page told the reader it had failed.
+      renderActionToast(action.onError, options)
+      return { ok: false, status: res.status, body: undefined }
+    }
     saveBlob(await res.blob(), filename)
     // Compose the same `onSuccess` CLIENT-STATE effects as the default `fetch`
     // mode (status badge + refetch) once the archive download has dispatched, so
@@ -65,6 +70,7 @@ export async function performDownload(
     applyFetchSuccessEffects(action.onSuccess)
     return { ok: true, status: res.status, body: undefined }
   } catch {
+    renderActionToast(action.onError, options)
     return { ok: false, status: 0, body: undefined }
   }
 }

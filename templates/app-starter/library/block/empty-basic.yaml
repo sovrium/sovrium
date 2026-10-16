@@ -1,16 +1,17 @@
-# sovrium-library: block/empty-basic@0.30.0
+# sovrium-library: block/empty-basic@0.38.0
+# sovrium-library-params: actionHref=%2Fworklist&actionLabel=New%20project&description=Projects%20you%20start%20appear%20here%2C%20newest%20first.&icon=folder&title=No%20projects%20yet
 name: empty-basic
 type: container
 props:
   className: w-full px-4 py-6 sm:px-10 sm:py-8
 children:
   - type: empty
-    emptyIcon: file-text
-    emptyTitle: No invoices yet
-    emptyDescription: 'Invoices you create or import appear here, newest first.'
+    emptyIcon: folder
+    emptyTitle: No projects yet
+    emptyDescription: 'Projects you start appear here, newest first.'
     children:
       - type: link
         props:
-          href: /invoices/new
+          href: /worklist
           className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground h-10 px-4 text-md'
-        content: New invoice
+        content: New project

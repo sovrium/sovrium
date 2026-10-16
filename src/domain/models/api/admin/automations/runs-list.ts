@@ -182,11 +182,42 @@ export type AutomationsRunsListQuery = typeof automationsRunsListQuerySchema.Typ
  * is registered under `AutomationRunAdminItem` so client SDKs generate a
  * type that says "this is an automation run with admin extras", not just
  * "extended Run". The canonical fields (`id`, `status`, `startedAt`, ...)
- * are inherited verbatim from the public `runSchema`; the only addition is
- * the `_admin` block.
+ * are inherited verbatim from the public `runSchema`. The admin additions are
+ * derived facts a run history reads at a glance — `recordTable` + `recordId`
+ * (the record the run concerns; two flat facts rather than one object, because
+ * a console addresses one field at a time, as `$record.recordId` in a link) and
+ * `stepsRun` + `stepCount` (how far it got), with `stepsLabel` reading the two
+ * as one phrase in the operator's language because a console cell shows one
+ * field — and the `_admin` block.
  */
 export const automationRunAdminItemSchema = Schema.Struct({
   ...runSchema.fields,
+  recordTable: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'Table of the record a `record` or `comment` trigger started this run about, as the configuration declares it. Null for every other trigger, and for a record-triggered run whose payload carries no record id. Null exactly when `recordId` is.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  recordId: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        "Id of that record, read from the run's own trigger payload, as the records API names it (a string on every engine). Null exactly when `recordTable` is.",
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  stepsRun: Schema.Int.annotate({
+    description:
+      'How many steps of this run ran: the top-level steps it executed, finished or failed. A step recorded as skipped never ran and is not counted. A step nested inside a path or a loop counts with the step that holds it.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  stepCount: Schema.NullOr(
+    Schema.Int.annotate({
+      description:
+        'How many top-level steps the automation declares today, so a reader can say 3 of 5. Read from the live configuration, not from the run: an automation edited since reports its current count. Null when the automation is no longer declared.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
+  ),
+  stepsLabel: Schema.String.annotate({
+    description:
+      'How far the run got, as one reading built on the server from `stepsRun` and `stepCount` in the operator’s language: `2 of 3` in English, `2 sur 3` in French. Just the number of steps that ran (`2`) when `stepCount` is null. The language is the operator’s own — their account language, else the `sovrium_language` preference — and English otherwise. The two figures stay on the row beside it.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   _admin: adminEnvelopeSchema,
 }).annotate({ identifier: 'AutomationRunAdminItem' })
 

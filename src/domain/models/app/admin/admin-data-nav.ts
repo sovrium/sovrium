@@ -24,8 +24,8 @@
  *
  *  - {@link isOperatorConsoleApp} — the console's identity, asked by the CSS
  *    path builder and by two renderers to keep end-user chrome off it;
- *  - {@link DESIGN_SYSTEM_NAV_CHILDREN} + {@link componentTypePath} — the
- *    console's own addresses, which the GLOBAL SEARCH indexes.
+ *  - {@link DESIGN_SYSTEM_NAV_CHILDREN} — the console's own addresses, which
+ *    the GLOBAL SEARCH indexes.
  *
  * It lives in the `admin` slug because that is the feature it describes, and
  * it is pure data + string predicates (no React, no presentation types, no
@@ -53,7 +53,7 @@ export interface DataNavChild {
 }
 
 /**
- * The seven pages of the Design-system console section, in reading order.
+ * The pages of the Design-system console section, in reading order.
  *
  * Tokens, then the components made of them, then the app's own reusable
  * compositions, then the identity and the writing rules that govern both — and
@@ -70,12 +70,13 @@ export interface DataNavChild {
  * a particular app's authored component tree, and would break the next time the
  * sidebar is restructured for a reason that has nothing to do with search.
  *
- * A six-row constant that search owns is the smaller coupling. What keeps the
+ * A five-row constant that search owns is the smaller coupling. What keeps the
  * two honest is the admin design system specs (the sidebar rows) and the
  * `-SEARCH-` block of `global-search.spec.ts` (these), both of which enumerate
- * the same six destinations against a live console.
+ * the same five destinations against a live console.
  *
- * Six, not seven: the agent exports live in the Overview's own `Share and
+ * Five rows: there is no UI-kit page (it left the console, and its address
+ * answers 404), and the agent exports live in the Overview's own `Share and
  * export` section, not on a page of their own. Indexing a route that answers
  * 404 would put a dead result in front of a reader.
  *
@@ -86,30 +87,10 @@ export interface DataNavChild {
 export const DESIGN_SYSTEM_NAV_CHILDREN: ReadonlyArray<DataNavChild> = [
   { key: 'overview', label: 'Overview', href: '/_admin/design-system' },
   { key: 'foundations', label: 'Foundations', href: '/_admin/design-system/foundations' },
-  { key: 'ui-kit', label: 'UI kit', href: '/_admin/design-system/ui-kit' },
   { key: 'components', label: 'Components', href: '/_admin/design-system/components' },
   { key: 'brand', label: 'Brand', href: '/_admin/design-system/brand' },
   { key: 'voice', label: 'Voice', href: '/_admin/design-system/voice' },
 ]
-
-/**
- * One catalogued component type's own page, on the default console mount.
- *
- * ─── THE SEGMENT IS THE TYPE LITERAL, AND SLUGIFYING IT IS THE TRAP ────────
- *
- * A kebab-casing guess would ship plausible-looking search rows for a camelCase
- * type that 404 when followed. The catalogue holds no camelCase type, but the
- * rule stands, because a slugifier is a widening that would resolve a typo onto
- * a real route, and a camelCase literal would meet it silently. The page itself vouches for
- * its segments through `page.params` over the catalogue, so a wrong spelling is
- * a 404 rather than a rendered page — which is what makes this the one place
- * the address may be composed at all.
- *
- * Here rather than in `search.ts` because it is the same kind of fact as the
- * nav children above it: an address of the console, on the default mount, that
- * more than one reader needs to agree about.
- */
-export const componentTypePath = (type: string): string => `/_admin/design-system/ui-kit/${type}`
 
 /**
  * Reserved `name` of the embedded operator-console config. It is authored in

@@ -41,8 +41,8 @@ function createDataSourceDbAdapter(
       Effect.runPromise(repo.fetchSingleRecord(tableName, paramField, paramValue, fields, options)),
     fetchManyToManyLinks: (tableName, recordId, fields) =>
       Effect.runPromise(repo.fetchManyToManyLinks(tableName, recordId, fields)),
-    fetchUserAssignments: (userId, tableSlug) =>
-      Effect.runPromise(repo.fetchUserAssignments(userId, tableSlug)),
+    fetchUserAssignments: (userId, tableSlug, role) =>
+      Effect.runPromise(repo.fetchUserAssignments(userId, tableSlug, role)),
     // [internal ref] / a pages collection spec: overlay user_access roles onto the
     // Better Auth session role so page access checks see the engineer role.
     fetchUserAccessRoles: (userId) => Effect.runPromise(repo.fetchUserAccessRoles(userId)),
@@ -105,12 +105,15 @@ export const PageRendererLive = Layer.effect(
         // The route's table reader travels on `db`, beside the other readers
         // the data-source pass is handed, so it reaches every grid that pass
         // stamps without a parameter threaded through each page stage.
-        const { readTableAsCaller, signFileUrl, ...context } = requestContext ?? {}
+        const { readTableAsCaller, readRecordLabels, loadRowRuleContext, signFileUrl, ...context } =
+          requestContext ?? {}
         return renderPage(app, path, {
           ...context,
           db: {
             ...db,
             ...(readTableAsCaller !== undefined && { readTableAsCaller }),
+            ...(readRecordLabels !== undefined && { readRecordLabels }),
+            ...(loadRowRuleContext !== undefined && { loadRowRuleContext }),
             ...(signFileUrl !== undefined && { signFileUrl }),
           },
           islandBuilder,

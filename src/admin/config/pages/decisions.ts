@@ -74,9 +74,9 @@
 // segment has no such allow-list, so the document is `/decisions/:id` — the same
 // shape `/links/:slug`, `/users/:email` and `/tables/:table` already take.
 
-import { fillHost, pageHeading, toolbarRow } from '../components/data-page'
-import { dataTable } from '../components/data-table-blocks'
-import { withShell } from '../components/shell'
+import { CARD_SURFACE } from '../components/card'
+import { consolePage, fillHost, toolbarRow } from '../components/data-page'
+import { dataTable, STATUS_BADGE, toolbarSearch } from '../components/data-table-blocks'
 import { DECISIONS_ENDPOINT } from '../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -122,36 +122,27 @@ const whereSet = (field: string) => ({ record: { field, isNotEmpty: true } }) as
 // ─── THE REGISTER ──────────────────────────────────────────────────────────
 
 /**
- * Status, as WEIGHT and INK — never as a box, and never as colour.
+ * Status, as every console status column draws it: a QUIET badge.
  *
- * `accepted` is the resting state of a register and takes no treatment at all:
- * four quiet rows and two that are not is the whole signal. `proposed` gains
- * weight because it is the one row an operator might still argue with, and
- * `superseded` recedes because it is history that has to stay readable without
- * competing with what is in force.
- *
- * ─── WHY NOT THE CHIP THE CANVAS DRAWS ─────────────────────────────────────
- *
- * `cellStyle.className` is applied TWICE — to the `<td>` and again to the
- * `<span>` inside it. Measured here: `rounded-full border px-2 py-0.5` on
- * `proposed` painted a pill inside a second, cell-sized rounded box spanning the
- * whole column. Any box treatment has that shape, which is why the existing
- * console status pills (`/connections`) render as full-cell coloured bars. So a
- * chip is not authorable from config today, and the honest alternative is the
- * one this page takes.
- *
- * No colour on any of the three either. Colour here would be decoration, and the
- * only ramp left is `error` ([internal ref] D3, amendment A1) — nothing about a
- * decision being proposed is an error.
+ * The badge is shadcn's data-table status cell (`STATUS_BADGE`, scoped to the
+ * cell's `<span>` so it does not also box the `<td>`). All three states are
+ * quiet — the word in the muted foreground, the kind in the dot: `accepted` is
+ * in force, `proposed` is still open, `superseded` is history. None of them is
+ * a failure, so none of them is loud.
  */
 const STATUS_COLUMN = {
   field: 'status',
-  label: 'Status',
+  label: '$t:admin.common.status',
   width: 120,
-  valueLabels: { accepted: 'Accepted', proposed: 'Proposed', superseded: 'Superseded' },
+  valueLabels: {
+    accepted: '$t:admin.decisions.state.accepted',
+    proposed: '$t:admin.decisions.state.proposed',
+    superseded: '$t:admin.decisions.state.superseded',
+  },
   cellStyle: [
-    { when: { eq: 'proposed' }, className: 'text-foreground font-medium' },
-    { when: { eq: 'superseded' }, className: 'text-foreground-subtle' },
+    { when: { eq: 'accepted' }, className: STATUS_BADGE.quiet.positive },
+    { when: { eq: 'proposed' }, className: STATUS_BADGE.quiet.progress },
+    { when: { eq: 'superseded' }, className: STATUS_BADGE.quiet.neutral },
   ],
 } as const
 
@@ -172,9 +163,12 @@ const STATUS_COLUMN = {
  */
 const OPEN_ACTION = {
   type: 'actions',
-  label: 'Actions',
+  label: '$t:admin.common.actions',
   actions: [
-    { label: 'Open', action: { type: 'fetch', mode: 'navigate', url: '/decisions/$record.id' } },
+    {
+      label: '$t:admin.common.open',
+      action: { type: 'fetch', mode: 'navigate', url: '/decisions/$record.id' },
+    },
   ],
 } as const
 
@@ -196,12 +190,12 @@ const OPEN_ACTION = {
  * the decision that explains the property they are looking at.
  */
 const REGISTER_COLUMNS = [
-  { field: 'id', label: 'ID', width: 110 },
-  { field: 'title', label: 'Title' },
+  { field: 'id', label: '$t:admin.common.id', width: 110 },
+  { field: 'title', label: '$t:admin.common.title' },
   STATUS_COLUMN,
-  { field: 'date', label: 'Date', width: 120 },
-  { field: 'touches', label: 'Touches' },
-  { field: 'supersededBy', label: 'Superseded by', width: 150 },
+  { field: 'date', label: '$t:admin.common.date', width: 120 },
+  { field: 'touches', label: '$t:admin.decisions.touches' },
+  { field: 'supersededBy', label: '$t:admin.decisions.supersededBy', width: 150 },
   OPEN_ACTION,
 ]
 
@@ -218,6 +212,11 @@ const REGISTER_COLUMNS = [
  * the in-memory filter can actually match them. Both conditions that made the
  * paginated grids lie are absent here.
  *
+ * The term reaches the grid as `q` on {@link REGISTER_CHANNEL}, published by
+ * the search box in the toolbar row. Because this endpoint does not apply it,
+ * the narrowing has to happen in the grid over the rows it holds; a grid that
+ * only forwards a published `q` leaves this box inert.
+ *
  * No `pagination` block for the same reason the connections directory has none:
  * the endpoint takes no paging parameters and the island sets
  * `manualPagination` unconditionally, so a declared pager would report a slice
@@ -227,16 +226,17 @@ const REGISTER_COLUMNS = [
  * two are `fillHost` below and `withShell(…, { fill: true })` above. All three
  * or none: two of the three were measured to buy exactly nothing.
  */
+/** The channel the register's search box publishes on and its grid listens to. */
+const REGISTER_CHANNEL = 'decisions-filter'
+
 const registerGrid = (): PageComponent =>
   dataTable({
     props: { id: REGISTER_GRID_ID, 'aria-label': '$t:admin.decisions.register.region' },
-    dataSource: DECISION_ROWS,
+    dataSource: { system: { ...DECISION_ROWS.system, bindTo: REGISTER_CHANNEL, sharedFilter: {} } },
     columns: REGISTER_COLUMNS,
     layout: 'fill',
-    search: { enabled: true, placeholder: 'Search decisions' },
-    toolbar: { search: true, filters: true, sort: true },
-    emptyMessage: 'No decisions declared. Add a decisions[] block to your app config.',
-    noMatchMessage: 'No decision matches “{query}”',
+    emptyMessage: '$t:admin.decisions.emptyRegister',
+    noMatchMessage: '$t:admin.decisions.noMatch',
   }) as PageComponent
 
 /**
@@ -255,19 +255,22 @@ const provenance = (): PageComponent =>
     content: '$t:admin.decisions.provenance',
   }) as PageComponent
 
-const registerPage: PageConfig = withShell(
-  {
-    id: 'dashboard-decisions',
-    name: 'dashboard-decisions',
-    path: '/decisions',
-    meta: { title: '$t:admin.meta.decisions', lang: 'en-US' },
-    components: [
-      pageHeading('$t:admin.decisions.heading', '$t:admin.decisions.blurb'),
-      fillHost([toolbarRow([provenance()]), registerGrid()]),
-    ],
-  } as PageConfig,
-  { breadcrumb: { decisions: '$t:admin.crumb.decisions' }, fill: true }
-)
+const registerPage: PageConfig = consolePage({
+  id: 'dashboard-decisions',
+  path: '/decisions',
+  title: '$t:admin.meta.decisions',
+  heading: ['$t:admin.decisions.heading', '$t:admin.decisions.blurb'],
+  page: {
+    requires: ['decisions'],
+  },
+  shell: { breadcrumb: { decisions: '$t:admin.crumb.decisions' }, fill: true },
+  body: [
+    fillHost([
+      toolbarRow([toolbarSearch(REGISTER_CHANNEL, '$t:admin.decisions.search'), provenance()]),
+      registerGrid(),
+    ]),
+  ],
+})
 
 // ─── ONE DECISION ──────────────────────────────────────────────────────────
 
@@ -370,7 +373,7 @@ const recordRail = (): PageComponent =>
     element: 'aside',
     props: {
       'aria-label': '$t:admin.decisions.record.region',
-      className: 'border-border bg-card flex shrink-0 flex-col gap-3 rounded-lg border p-4 lg:w-72',
+      className: `${CARD_SURFACE} flex shrink-0 flex-col gap-3 p-4 lg:w-72`,
     },
     children: [
       {
@@ -477,8 +480,7 @@ const documentBody = (): PageComponent =>
                 type: 'container',
                 element: 'div',
                 props: {
-                  className:
-                    'border-border bg-card flex min-w-0 flex-1 flex-col gap-5 rounded-lg border p-6',
+                  className: `${CARD_SURFACE} flex min-w-0 flex-1 flex-col gap-5 p-6`,
                 },
                 children: [
                   part('$t:admin.decisions.part.context', '$record.context'),
@@ -517,24 +519,24 @@ const backToRegister = (): PageComponent =>
  * `meta.title` cannot name the record: the route-param pass walks `components`
  * and `layout`, deliberately not `meta`.
  */
-const documentPage: PageConfig = withShell(
-  {
-    id: 'dashboard-decision',
-    name: 'dashboard-decision',
-    path: '/decisions/:id',
-    meta: { title: '$t:admin.meta.decision', lang: 'en-US' },
-    components: [
-      pageHeading('$t:admin.decisions.one.heading', '$t:admin.decisions.one.blurb'),
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-col gap-6 pt-2' },
-        children: [toolbarRow([backToRegister()]), documentBody()],
-      } as PageComponent,
-    ],
-  } as PageConfig,
-  { breadcrumb: { decisions: '$t:admin.crumb.decisions' } }
-)
+const documentPage: PageConfig = consolePage({
+  id: 'dashboard-decision',
+  path: '/decisions/:id',
+  title: '$t:admin.meta.decision',
+  heading: ['$t:admin.decisions.one.heading', '$t:admin.decisions.one.blurb'],
+  page: {
+    requires: ['decisions'],
+  },
+  shell: { breadcrumb: { decisions: '$t:admin.crumb.decisions' } },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex flex-col gap-6 pt-2' },
+      children: [toolbarRow([backToRegister()]), documentBody()],
+    } as PageComponent,
+  ],
+})
 
 /** The register and the one document that reads out of it. */
 export const decisionPages: readonly PageConfig[] = [registerPage, documentPage]

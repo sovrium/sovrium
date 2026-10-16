@@ -8,6 +8,7 @@
 import {
   appendToastDismissControl,
   appendToastMessage,
+  keepToastsClearOfFocus,
   markToastPoliteness,
   resolveToastDismissLabel,
 } from '@/presentation/islands/runtime/toast-accessibility'
@@ -45,8 +46,7 @@ function ensureToastContainer(): Element {
   if (!container) {
     container = document.createElement('div')
     container.setAttribute('data-sonner-toaster', '')
-    container.setAttribute('role', 'status')
-    container.setAttribute('aria-live', 'polite')
+    container.setAttribute('data-toast-container', '')
     const el = container as HTMLElement
     el.style.position = 'fixed'
     el.style.right = '16px'
@@ -112,6 +112,7 @@ export function showToast(message: string, options: ToastOptions = {}): Element 
     const { replacing } = options
     if (replacing?.parentNode === container) container.replaceChild(toast, replacing)
     else container.appendChild(toast)
+    keepToastsClearOfFocus(container)
     return toast
   }
   if (options.variant === 'loading') return place()

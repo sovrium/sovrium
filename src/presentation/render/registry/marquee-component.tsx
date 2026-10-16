@@ -51,17 +51,13 @@
  */
 
 import { renderToStaticMarkup } from 'react-dom/server'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { CSSProperties, ReactElement } from 'react'
 
 /** Seconds for one full loop when the author does not set `marqueeSpeed`. */
 const DEFAULT_SPEED_SECONDS = 30
-
-/** Accessible name + visible label of the optional pause control. */
-const PAUSE_LABEL = 'Pause'
-/** Label the control flips to once the band is stopped. */
-const RESUME_LABEL = 'Resume'
 
 /** Pause-control chrome. Class-based; the band never writes an inline style. */
 const PAUSE_BUTTON_CLASSES =
@@ -108,19 +104,23 @@ function buildBandStyle(speedSeconds: number, gap: string | undefined): CSSPrope
  * The explicit pause/resume control (`pauseControl: true`). A real `<button>`,
  * not a div with a handler, so it is reachable and operable by keyboard and
  * announced as a control. Both labels ride on the element so the delegated
- * script needs no configuration of its own.
+ * script needs no configuration of its own; they are the engine strings
+ * `marquee.pause` and `marquee.resume`, in the page language.
  */
-function renderPauseControl(): ReactElement {
+function renderPauseControl(labels: {
+  readonly pause: string
+  readonly resume: string
+}): ReactElement {
   return (
     <div className="mt-3 flex justify-end">
       <button
         type="button"
         data-marquee-pause="true"
-        data-marquee-pause-label={PAUSE_LABEL}
-        data-marquee-resume-label={RESUME_LABEL}
+        data-marquee-pause-label={labels.pause}
+        data-marquee-resume-label={labels.resume}
         className={PAUSE_BUTTON_CLASSES}
       >
-        {PAUSE_LABEL}
+        {labels.pause}
       </button>
     </div>
   )
@@ -131,6 +131,8 @@ export const marqueeComponent: ComponentRenderer = ({
   elementProps,
   component,
   renderedChildren,
+  currentLang,
+  languages,
 }) => {
   const c = (component ?? {}) as Record<string, unknown>
   const direction = typeof c['marqueeDirection'] === 'string' ? c['marqueeDirection'] : 'left'
@@ -165,7 +167,11 @@ export const marqueeComponent: ComponentRenderer = ({
           />
         </div>
       </div>
-      {c['pauseControl'] === true && renderPauseControl()}
+      {c['pauseControl'] === true &&
+        renderPauseControl({
+          pause: resolveInterpreterString('marquee.pause', currentLang, languages),
+          resume: resolveInterpreterString('marquee.resume', currentLang, languages),
+        })}
     </div>
   )
 }

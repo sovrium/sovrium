@@ -41,8 +41,9 @@
  *  - `storage.totalBytes`   ← buckets overview `totals.totalBytes`
  *                             (StorageService.getTotalBytes — see endpoint plan)
  *  - `connections.total`    ← connections-list length
- *  - `connections.healthy`  ← count of connections whose derived `status` is
- *                             `active` (NOT `expiring-soon` / `expired`)
+ *  - `connections.healthy`  ← count of connections whose listed `status` is
+ *                             `active` (NOT `expiring-soon`, `expired`,
+ *                             `reconnect-needed` or `not-connected`)
  *
  * Every block additionally carries an optional `degraded` marker. Each one
  * falls back to its zero shape when its source cannot be read, which makes a
@@ -188,8 +189,9 @@ export const overviewStorageSchema = Schema.Struct({
  * Connections roll-up — connection count + how many are healthy.
  *
  * `total` is the number of configured connections; `healthy` is the subset
- * whose derived `status` is `active` (a comfortably-future or absent expiry) —
- * EXCLUDING `expiring-soon` and `expired` connections. Secret-free by
+ * whose listed `status` is `active` — EXCLUDING `expiring-soon`, `expired`,
+ * `reconnect-needed` and `not-connected` connections (an OAuth2 connection
+ * nobody has authorized is not healthy, however far away its absent expiry). Secret-free by
  * construction: only two scalar counts, never tokens or credentials (S4).
  *
  * Invariant: `0 <= healthy <= total`.
@@ -201,7 +203,7 @@ export const overviewConnectionsSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   healthy: Schema.Int.annotate({
     description:
-      'Subset of `total` whose derived status is `active` (absent or comfortably-future expiry) — excludes `expiring-soon` and `expired`. Always `<= total`.',
+      'Subset of `total` whose status in the connections list is `active` — excludes `expiring-soon`, `expired`, `reconnect-needed` and `not-connected` (an OAuth2 connection nobody has authorized yet). Always `<= total`.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   degraded: degradedField,
 }).annotate({ identifier: 'AdminOverviewConnections' })

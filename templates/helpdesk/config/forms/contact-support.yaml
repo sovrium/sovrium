@@ -52,6 +52,7 @@ fields:
     heading: How do we reach you?
   - kind: table-field
     column: requester_name
+    autocomplete: name
     label: Your name
   - kind: table-field
     column: requester_email

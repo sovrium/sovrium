@@ -7,14 +7,11 @@
 
 import { type ReactElement } from 'react'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
-import {
-  authPendingLabel,
-  authSubmitLabel,
-  isAccountLinkMethod,
-} from '@/presentation/design/auth-form-types'
+import { isAccountLinkMethod } from '@/presentation/design/auth-form-types'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { islandAllStrings } from '@/presentation/render/registry/island-loading-label'
 import {
   SSO_PROVIDERS_KEY,
   type StampedSsoProvider,
@@ -24,7 +21,11 @@ import {
   type AuthFormAction,
   type AuthFormRenderContext,
 } from './auth-form-action'
-import { authSkeletonFormProps, buildAuthWrapperStyle, localize } from './auth-form-renderer'
+import {
+  authSkeletonFormProps,
+  buildAuthWrapperStyle,
+  resolveAuthLabels,
+} from './auth-form-renderer'
 import { renderOAuthForm } from './oauth-form-renderer'
 import type { ElementProps } from './html-element-renderer'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -39,6 +40,14 @@ import type { Component } from '@/domain/models/app/pages/components'
  * a browser API — so the SSR skeleton draws the controls `disabled` until the
  * island renders its live ones.
  */
+
+/**
+ * Every word a control reports (`passkey.*`, `sso.*`, `accountLink.*`), in the
+ * page language: the auth-form island has no budget left for English of its
+ * own, so these controls carry none and read each word from here.
+ */
+const controlWords = (prefix: string, context: AuthFormRenderContext) =>
+  islandAllStrings([prefix], context.lang, context.languages)
 
 /** The island host, wrapping a disabled skeleton the island replaces. */
 function islandHost(
@@ -80,6 +89,7 @@ function renderSsoForm(
   context: AuthFormRenderContext & { readonly component?: Component } = {}
 ): ReactElement {
   const providers = stampedProviders(context.component)
+  const uiStrings = controlWords('sso.', context)
   const routesByDomain = providers.some((provider) => (provider.domains ?? []).length > 0)
   const skeleton = (
     <form
@@ -93,7 +103,7 @@ function renderSsoForm(
           disabled
           className={`${computeButtonDefaultClasses()} w-full`}
         >
-          Continue
+          {uiStrings['sso.continue']}
         </button>
       )}
       {providers.map((provider) => (
@@ -115,6 +125,7 @@ function renderSsoForm(
       method: 'login',
       strategy: 'sso',
       ssoProviders: providers,
+      uiStrings,
       redirectUrl: resolveOnSuccessRedirect(action, context.landingPath),
     },
     skeleton
@@ -157,6 +168,7 @@ function renderPasskeyForm(
       method: registers ? 'registerPasskey' : 'login',
       strategy: registers ? undefined : 'passkey',
       submitLabel: label,
+      uiStrings: controlWords('passkey.', context),
       redirectUrl: resolveOnSuccessRedirect(action, context.landingPath),
     },
     skeleton
@@ -175,15 +187,13 @@ function renderAccountLinkForm(
   context: AuthFormRenderContext
 ): ReactElement {
   const method = action.method ?? 'linkAccount'
-  const label = (text: string | undefined, fallback: string): string =>
-    text === undefined ? fallback : localize(text, context.lang, context.languages)
   return islandHost(
     props,
     {
       method,
       provider: action.provider ?? '',
-      submitLabel: label(action.submitLabel, authSubmitLabel(method)),
-      pendingLabel: label(action.pendingLabel, authPendingLabel(method)),
+      ...resolveAuthLabels(action, method, context.lang, context.languages),
+      uiStrings: controlWords('accountLink.', context),
     },
     <form
       {...authSkeletonFormProps(props)}

@@ -38,6 +38,10 @@ import type { MouseEvent, ReactElement } from 'react'
  * shows the page `title` (bold) followed by the body `excerpt`, both rendered
  * as plain-text React children — never `dangerouslySetInnerHTML`.
  *
+ * The input is a `combobox` (the ARIA 1.2 pattern shadcn's Combobox follows):
+ * `aria-expanded` and `aria-controls` are combobox states, which a bare search
+ * box may not carry.
+ *
  * Drawn on shadcn/ui's anatomy: the box is one `InputGroup` with a magnifier
  * in an addon at its start (the same box the server drew), and the results
  * open under it on the popover surface as command-style rows
@@ -149,6 +153,7 @@ export default function PageSearchIsland({
     effectiveMaxResults,
     index === 'session'
   )
+  const listed = isOpen && results.length > 0
 
   return (
     <div
@@ -164,20 +169,21 @@ export default function PageSearchIsland({
       >
         <input
           type="search"
+          role="combobox"
           value={query}
           onChange={onChange}
           onKeyDown={onKeyDown}
           placeholder={effectivePlaceholder}
           aria-label={effectivePlaceholder}
           aria-autocomplete="list"
-          aria-controls={isOpen ? 'page-search-listbox' : undefined}
+          aria-controls={listed ? 'page-search-listbox' : undefined}
           aria-expanded={isOpen}
           data-slot="input-group-control"
           className={computeInputGroupFieldClasses()}
         />
         <SearchMark />
       </div>
-      {isOpen && results.length > 0 && (
+      {listed && (
         <PageSearchResultsPanel
           results={results}
           onNavigate={onNavigate}

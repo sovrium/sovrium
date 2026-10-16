@@ -40,6 +40,7 @@ import {
 import { resolveComponent } from '../registry/component-resolution'
 import { dispatchComponentType } from '../registry/component-type-dispatcher'
 import { buildInteractionProps } from '../styling/interaction-props-builder'
+import { withFieldControlId } from './field-control-id'
 import { childrenToRender } from './slot-children'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -327,17 +328,16 @@ function RenderDirectComponent({
   component: Component
   props: ComponentRendererProps
 }): ReactElement | null {
-  // Apply page-level variable substitution if pageVars are provided, then
-  // resolve the `$t:` tokens in the component's own schema-level fields. That
-  // second pass is what reaches a field NO lift copies onto the element props —
-  // a `graph` or `matrix` `label` / `emptyMessage`, which their renderers read
-  // straight off the component below. See `resolveComponentTranslationTokens`
-  // for the keys it deliberately leaves alone — `content` and `children` above
-  // all, whose RAW token the language switcher still needs.
-  const substitutedComponent = resolveComponentTranslationTokens(
-    applyVariableSubstitution(component, props.pageVars),
-    props.currentLang,
-    props.languages
+  // Page variables, then the `$t:` tokens of the component's own fields (see
+  // `resolveComponentTranslationTokens`), then a field's control id (`field-control-id.ts`).
+  const uniqueId = useId()
+  const substitutedComponent = withFieldControlId(
+    resolveComponentTranslationTokens(
+      applyVariableSubstitution(component, props.pageVars),
+      props.currentLang,
+      props.languages
+    ),
+    uniqueId
   )
 
   const {
@@ -352,7 +352,6 @@ function RenderDirectComponent({
   // Support interactions from both top-level field and inside props
   const interactions =
     topLevelInteractions ?? (componentProps?.interactions as typeof topLevelInteractions)
-  const uniqueId = useId()
   const currentBreakpoint = useBreakpoint()
 
   // Merge responsive props using extracted module

@@ -25,6 +25,16 @@ components:
     props:
       className: flex flex-col gap-3 px-5 pt-4 pb-8 md:ml-[57px] lg:ml-[232px]
     children:
+      # Search by name, title or anything in the row; the bar beside it narrows
+      # by team and office. Both publish on the channel the grid listens to.
+      - type: search-input
+        placeholder: Search people
+        props:
+          aria-label: Search people
+          className: h-8 w-full sm:w-[250px]
+        publishes:
+          bindTo: people-filter
+          param: q
       - type: filter-bar
         publishes:
           bindTo: people-filter
@@ -60,10 +70,6 @@ components:
           sharedFilter: {}
           sort:
             - { field: name, direction: asc }
-        # Search by name, title or anything in the row; the bar above narrows
-        # by team and office.
-        toolbar:
-          search: true
         columns:
           - { field: name, label: Name, sortable: true }
           - { field: title, label: Role }

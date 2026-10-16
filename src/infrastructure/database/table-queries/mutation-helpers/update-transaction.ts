@@ -6,6 +6,7 @@
  */
 
 import { StaleWriteError } from '@/domain/errors'
+import { confirmAccountsInTransaction } from './account-confirmation'
 import { injectUpdateAuthorship } from './authorship-helpers'
 import { resolveArrayColumnTypes } from './column-value-encoding'
 import {
@@ -21,6 +22,7 @@ import {
   storedRecordCarriesToken,
   validateFieldsNotEmpty,
 } from './update-helpers'
+import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DrizzleTransaction } from '@/infrastructure/database'
@@ -42,6 +44,8 @@ export interface UpdateRecordInput {
    * it, the whole row before and after, as every records-API update records it.
    */
   readonly auditContext?: Readonly<Record<string, string>>
+  /** Accounts its lists of people name, confirmed before anything else in the transaction. */
+  readonly accounts?: readonly AccountReference[]
 }
 
 /** What the update transaction hands back to the logging that follows the commit. */
@@ -107,6 +111,10 @@ export async function runUpdateRecordTransaction(
   input: Readonly<UpdateRecordInput>
 ): Promise<UpdateTransactionOutcome> {
   const { session, tableName, recordId } = target
+  // First, before any row lock this write takes. An erasure takes the account
+  // before any record too, so the two queue on the account and never hold a
+  // record the other waits for.
+  await confirmAccountsInTransaction(tx, input.accounts)
   const before = await fetchRecordById(tx, tableName, recordId)
   if (Object.keys(input.fields).length === 0) return updateLinksOnly(tx, target, input, before)
 

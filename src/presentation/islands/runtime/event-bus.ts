@@ -40,6 +40,7 @@ export type SovriumEventName =
   | 'sovrium:navigated'
   | 'sovrium:open-drawer'
   | 'sovrium:refetch'
+  | 'sovrium:session-ended'
 
 /**
  * Payload shape for `sovrium:crud-success`. Fired by `crud-form-island` after
@@ -122,6 +123,15 @@ export interface RefetchDetail {
 }
 
 /**
+ * A read answered 401: the reader's session ended while the page stayed open.
+ * `path` is where they were, so whatever answers it (the console shell sends
+ * them to sign in) can bring them back there.
+ */
+export interface SessionEndedDetail {
+  readonly path: string
+}
+
+/**
  * Type-level map from event name to payload type. Keep alphabetised with
  * {@link SovriumEventName}.
  */
@@ -131,6 +141,7 @@ export interface SovriumEventPayloads {
   readonly 'sovrium:navigated': NavigatedDetail
   readonly 'sovrium:open-drawer': OpenDrawerDetail
   readonly 'sovrium:refetch': RefetchDetail
+  readonly 'sovrium:session-ended': SessionEndedDetail
 }
 
 /**

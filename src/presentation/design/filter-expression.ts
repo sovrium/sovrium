@@ -86,9 +86,9 @@ export interface FilterBarCondition {
  * operators for the same field.
  */
 export const OPERATORS_BY_KIND: Readonly<Record<FilterFieldKind, readonly string[]>> = {
-  text: ['eq', 'neq', 'contains'],
-  number: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte'],
-  date: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte'],
+  text: ['eq', 'neq', 'contains', 'startsWith'],
+  number: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'between'],
+  date: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'between'],
   select: ['eq', 'neq', 'in'],
 }
 
@@ -108,7 +108,9 @@ const BASE_LABELS: Readonly<Record<string, string>> = {
   eq: 'is',
   neq: 'is not',
   contains: 'contains',
+  startsWith: 'starts with',
   in: 'is any of',
+  between: 'is between',
 }
 
 const COMPARISON_LABELS: Readonly<Record<FilterFieldKind, Readonly<Record<string, string>>>> = {
@@ -132,8 +134,18 @@ const COMPARISON_LABELS: Readonly<Record<FilterFieldKind, Readonly<Record<string
  * operator with no label is a vocabulary the bar has grown without telling this
  * map, and `gt` on a chip is honest where a wrong sentence is not.
  */
-export const operatorLabel = (operator: string, kind: FilterFieldKind): string =>
-  BASE_LABELS[operator] ?? COMPARISON_LABELS[kind][operator] ?? operator
+export const operatorLabel = (
+  operator: string,
+  kind: FilterFieldKind,
+  strings?: Readonly<Record<string, string>>
+): string => {
+  const base = BASE_LABELS[operator]
+  // The catalogue key mirrors the two maps: a shared word under the operator,
+  // a comparison under its kind too (`filterBar.operator.date.gt`).
+  const translated =
+    strings?.[`filterBar.operator.${base === undefined ? `${kind}.` : ''}${operator}`]
+  return translated ?? base ?? COMPARISON_LABELS[kind][operator] ?? operator
+}
 
 /**
  * Schema operator -> records-API operator. See the module docstring: the
@@ -149,6 +161,8 @@ const API_OPERATORS: Readonly<Record<string, string>> = {
   gte: 'greaterThanOrEqual',
   lte: 'lessThanOrEqual',
   in: 'in',
+  startsWith: 'startsWith',
+  between: 'between',
 }
 
 /** The kind a field is filtered as. `text` when the author declared none. */
@@ -174,13 +188,36 @@ export function labelOf(field: FilterBarField | undefined, name: string): string
  * "Paid", not on `paid`, and a chip that showed the token would be documenting
  * the column instead of the filter.
  */
-export function displayValue(field: FilterBarField | undefined, value: string): string {
+export function displayValue(
+  field: FilterBarField | undefined,
+  value: string,
+  operator?: string,
+  strings?: Readonly<Record<string, string>>
+): string {
+  if (operator === 'between') {
+    const [from, to] = betweenEnds(value)
+    return (strings?.['filterBar.range'] ?? '{from} and {to}')
+      .replace('{from}', () => from)
+      .replace('{to}', () => to)
+  }
   const option = field?.options?.find((candidate) => candidate.value === value)
   return option?.label ?? option?.value ?? value
 }
 
+/**
+ * The two ends of a `between` value, written `low,high` — the shape the bar
+ * holds it in, and the comma-separated form `in` already uses.
+ */
+export function betweenEnds(value: string): readonly [string, string] {
+  const comma = value.indexOf(',')
+  return comma < 0 ? [value, ''] : [value.slice(0, comma).trim(), value.slice(comma + 1).trim()]
+}
+
 /** Coerce one authored value into the type the endpoint's SQL will bind. */
 function typedValue(kind: FilterFieldKind, operator: string, value: string): unknown {
+  if (operator === 'between') {
+    return betweenEnds(value).map((end) => (kind === 'number' ? Number(end) : end))
+  }
   if (operator === 'in') {
     const members = value
       .split(',')
@@ -228,4 +265,39 @@ export function buildFilterExpression(
   if (conditions.length === 0) return ''
   const leaves = conditions.map((condition) => toLeaf(condition, fields))
   return JSON.stringify(combinator === 'or' ? { and: [{ or: leaves }] } : { and: leaves })
+}
+
+/** Records-API operator -> the bar's own, the inverse of the map above. */
+const BAR_OPERATORS: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(API_OPERATORS).map(([bar, api]) => [api, bar])
+)
+
+/** One published leaf back into a condition, or `undefined` when it is not one. */
+function toCondition(leaf: unknown): FilterBarCondition | undefined {
+  if (typeof leaf !== 'object' || leaf === null) return undefined
+  const { field, operator, value } = leaf as Readonly<Record<string, unknown>>
+  if (typeof field !== 'string' || typeof operator !== 'string') return undefined
+  const text = Array.isArray(value) ? value.map(String).join(',') : String(value ?? '')
+  return { field, operator: BAR_OPERATORS[operator] ?? operator, value: text }
+}
+
+/**
+ * The conditions a published expression holds — what the bar reads back from
+ * the page address to open on the chips it left there. An `or` set is one
+ * nested group; anything this bar could not have written yields none.
+ */
+export function parseFilterExpression(expression: string): readonly FilterBarCondition[] {
+  const parsed = ((): unknown => {
+    try {
+      return JSON.parse(expression) as unknown
+    } catch {
+      return undefined
+    }
+  })()
+  const root = (parsed as { readonly and?: readonly unknown[] } | undefined)?.and ?? []
+  const nested = (root[0] as { readonly or?: readonly unknown[] } | undefined)?.or
+  return (nested ?? root).flatMap((leaf) => {
+    const condition = toCondition(leaf)
+    return condition === undefined ? [] : [condition]
+  })
 }

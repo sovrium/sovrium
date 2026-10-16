@@ -66,6 +66,8 @@ interface DocsSidebarNavProps {
   readonly nav: CollectionNavData
   /** Accessible name of the menu button that opens the navigation below `lg`. */
   readonly menuLabel: string
+  /** Accessible name of the drawer's close button, in the page language. */
+  readonly closeLabel: string
   /** `markdown.classes` by part: `sidebar`, `navGroupLabel`, `navLink` (current state folded in). */
   readonly parts?: Readonly<Record<string, string>> | undefined
 }
@@ -230,6 +232,7 @@ const resolveActiveZone = (
 export function DocsSidebarNav({
   nav,
   menuLabel,
+  closeLabel,
   parts,
 }: DocsSidebarNavProps): Readonly<ReactElement> {
   return (
@@ -241,6 +244,7 @@ export function DocsSidebarNav({
       <SidebarDrawerFrame
         below="lg"
         label={menuLabel}
+        closeLabel={closeLabel}
         triggerClassName={parts?.['menuButton']}
       >
         {renderDocsNav(nav, parts)}

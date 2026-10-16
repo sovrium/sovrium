@@ -83,12 +83,17 @@ components:
                         - { field: status, operator: eq, value: Rejected }
                     kpiAggregate: { function: sum, field: amount }
                     kpiFormat: { type: currency, options: { currency: EUR } }
+              # Two equal columns, and no height on either chart: a chart
+              # takes its height from its width, so two charts of the same
+              # width line up, and each section is as tall as what it draws —
+              # nothing spills over the claims below.
               - type: container
                 props:
-                  className: grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]
+                  className: grid grid-cols-1 items-start gap-3 lg:grid-cols-2
                 children:
-                  # Largest first, rejected claims left out. The slices take
-                  # the category colours: one accent at different strengths.
+                  # Largest first, rejected claims left out. Each slice takes
+                  # its category's colour, five hues that are neither the
+                  # accent nor a decision colour.
                   - type: container
                     element: section
                     props:
@@ -110,8 +115,6 @@ components:
                         # The slice labels collide on the small slices; the
                         # legend beside the ring names every category.
                         dataLabels: false
-                        props:
-                          className: h-[220px]
                         dataSource:
                           table: expenses
                           filter:
@@ -145,8 +148,6 @@ components:
                         content: Claims by the date they were spent
                       - type: chart
                         chartType: bar
-                        props:
-                          className: h-[220px]
                         dataSource:
                           table: expenses
                           filter:
@@ -166,6 +167,13 @@ components:
                         yAxis:
                           field: amount
                           format: currency
+              # The claims, and the filter that narrows them right above, so
+              # it reads as part of the list and not of the charts.
+              - type: text
+                element: h2
+                props:
+                  className: pt-3 font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
+                content: Claims
               - type: filter-bar
                 publishes:
                   bindTo: review-filter
@@ -292,8 +300,12 @@ components:
                             refetch: [approval-runs, review-queue]
                 emptyMessage: No approval run waits on you. A claim filed in the app appears here until finance decides.
           # One claim, from `/review?record=<id>` or a click on its row: who
-          # filed it and the receipt beside the amount, with Approve in the
-          # footer. Rejecting goes through Reject on the row, which asks why.
+          # filed it and the receipt beside the amount, with Approve and Reject
+          # in the footer. Reject opens the same sheet as Reject on the row,
+          # which asks why before the claim is marked Rejected.
+          # `visibleWhen` reads the open claim: Approve and Reject show only
+          # while it is Pending, and the reason only once it is Rejected, so a
+          # decided claim offers nothing left to decide.
           # Declared first on purpose: when several drawers show the same
           # table, a `?record=` link opens the first one declared.
           - type: sheet
@@ -314,9 +326,13 @@ components:
               - { name: expense_date, type: date, label: Date }
               - { name: policy, type: single-select, label: Policy }
               - { name: status, type: status, label: Decision }
-              - { name: decision_reason, type: long-text, label: Why it was rejected }
+              - name: decision_reason
+                type: long-text
+                label: Why it was rejected
+                visibleWhen: { field: status, eq: Rejected }
             actions:
               - label: Approve
+                visibleWhen: { field: status, eq: Pending }
                 action:
                   type: fetch
                   url: /api/tables/expenses/records/$record.id
@@ -329,7 +345,13 @@ components:
                     message: Claim approved — it goes out in the next transfer
                     variant: success
                     refetch: review-queue
-          # Rejecting a claim, from Reject on its row: write why and save. The
+              - label: Reject
+                variant: ghost
+                visibleWhen: { field: status, eq: Pending }
+                action:
+                  action: openSheet
+                  component: claim-reason
+          # Rejecting a claim, from Reject on its row or in the claim sheet: write why and save. The
           # claim is then marked Rejected (config/automations/reject-with-reason.yaml),
           # and the person who filed it reads why on their own claim.
           - type: sheet

@@ -46,6 +46,7 @@ import {
   resolveSourceFilter,
   type FormOptionVisitor,
 } from './resolve-form-option-sources'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type {
   DataSourceDatabaseError,
   DataSourceRepository,
@@ -76,7 +77,7 @@ const offersEveryKey = (
   plan: FormOptionSourcePlan,
   keys: readonly string[],
   visitor: FormOptionVisitor | undefined
-): Effect.Effect<boolean, DataSourceDatabaseError, DataSourceRepository> =>
+): Effect.Effect<boolean, DataSourceDatabaseError, DataSourceRepository | AuthRepository> =>
   Effect.gen(function* () {
     const source = resolveSourceFilter(plan.source, visitor)
     if (source === undefined) return false
@@ -106,7 +107,11 @@ export const findUnofferedLinkField = (input: {
   readonly form: Form
   readonly mapped: Readonly<Record<string, unknown>>
   readonly visitor: FormOptionVisitor | undefined
-}): Effect.Effect<string | undefined, DataSourceDatabaseError, DataSourceRepository> =>
+}): Effect.Effect<
+  string | undefined,
+  DataSourceDatabaseError,
+  DataSourceRepository | AuthRepository
+> =>
   Effect.gen(function* () {
     const { app, form, mapped, visitor } = input
     if (form.submitTo.table === undefined) return undefined

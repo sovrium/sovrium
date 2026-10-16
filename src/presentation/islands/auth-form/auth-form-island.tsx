@@ -211,11 +211,9 @@ export default function AuthFormIsland(props: AuthFormIslandProps) {
   if (props.strategy === 'sso') {
     return (
       <SsoSignInForm
+        {...props}
         providers={props.ssoProviders ?? NO_SSO_PROVIDERS}
         callbackUrl={props.redirectUrl}
-        className={props.className}
-        id={props.id}
-        data-testid={props['data-testid']}
       />
     )
   }
@@ -224,12 +222,10 @@ export default function AuthFormIsland(props: AuthFormIslandProps) {
   if (props.strategy === 'passkey' || registers) {
     return (
       <PasskeyForm
+        {...props}
         mode={registers ? 'register' : 'sign-in'}
         label={props.submitLabel}
         callbackUrl={props.redirectUrl}
-        className={props.className}
-        id={props.id}
-        data-testid={props['data-testid']}
       />
     )
   }

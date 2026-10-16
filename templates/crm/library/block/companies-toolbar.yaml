@@ -1,0 +1,50 @@
+# sovrium-library: block/data-table-toolbar@0.38.0
+# sovrium-library-params: channel=companies-filter&exportLabel=Export%20CSV&facetField=industry&facetLabel=&importLabel=&newLabel=&newSheet=&searchLabel=&searchPlaceholder=Search%20companies&table=companies&toolbarLabel=Company%20controls
+name: companies-toolbar
+type: container
+element: div
+props:
+  role: toolbar
+  aria-label: Company controls
+  className: flex flex-wrap items-center gap-2
+children:
+  - type: search-input
+    placeholder: Search companies
+    props:
+      aria-label: Search companies
+      className: 'h-8 w-full sm:w-[150px] lg:w-[250px]'
+    publishes:
+      bindTo: companies-filter
+      param: q
+  - type: select
+    props:
+      placeholder: Industry
+      aria-label: Industry
+      className: h-8 w-auto
+    multiple: true
+    optionsFrom:
+      table: companies
+      field: industry
+    publishes:
+      bindTo: companies-filter
+      field: industry
+      operator: in
+  - type: filter-bar
+    publishes:
+      bindTo: companies-filter
+    fieldsFrom:
+      table: companies
+  - type: container
+    element: div
+    props:
+      className: flex items-center gap-2 sm:ml-auto
+    children:
+      - type: button
+        label: Export CSV
+        variant: outline
+        size: sm
+        action:
+          type: fetch
+          mode: download
+          url: /api/tables/companies/export?format=csv
+          filename: companies.csv

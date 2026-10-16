@@ -120,19 +120,33 @@ const formatSize = (bytes: number): string => {
  * to say. `accept` is shown as the author wrote it: a prose translation of a
  * MIME list would be a guess at what the author meant.
  */
-export const fileUploadDropzoneHint = ({
-  accept,
-  maxFiles,
-  maxFileSize,
-}: {
-  readonly accept?: string
-  readonly maxFiles?: number
-  readonly maxFileSize?: number
-}): string | undefined => {
+/** "up to N files" in the page language (`fileUpload.maxOneFile` / `fileUpload.maxFiles`). */
+const fileCountWords = (maxFiles: number, strings?: Readonly<Record<string, string>>): string =>
+  (maxFiles === 1
+    ? (strings?.['fileUpload.maxOneFile'] ?? 'up to 1 file')
+    : (strings?.['fileUpload.maxFiles'] ?? 'up to {count} files')
+  ).replace('{count}', String(maxFiles))
+
+/** "N MB each" in the page language (`fileUpload.sizeEach`). */
+const fileSizeWords = (maxFileSize: number, strings?: Readonly<Record<string, string>>): string =>
+  (strings?.['fileUpload.sizeEach'] ?? '{size} each').replace('{size}', formatSize(maxFileSize))
+
+export const fileUploadDropzoneHint = (
+  {
+    accept,
+    maxFiles,
+    maxFileSize,
+  }: {
+    readonly accept?: string
+    readonly maxFiles?: number
+    readonly maxFileSize?: number
+  },
+  strings?: Readonly<Record<string, string>>
+): string | undefined => {
   const parts = [
     accept === undefined || accept.trim() === '' ? undefined : accept,
-    maxFiles === undefined ? undefined : `up to ${maxFiles} file${maxFiles === 1 ? '' : 's'}`,
-    maxFileSize === undefined ? undefined : `${formatSize(maxFileSize)} each`,
+    maxFiles === undefined ? undefined : fileCountWords(maxFiles, strings),
+    maxFileSize === undefined ? undefined : fileSizeWords(maxFileSize, strings),
   ].filter((part): part is string => part !== undefined)
   return parts.length === 0 ? undefined : parts.join(' · ')
 }

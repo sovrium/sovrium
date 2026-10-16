@@ -36,6 +36,7 @@ import {
   recordTablesRateLimitRequest,
 } from '@/presentation/api/auth/auth-route-utils'
 import { getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import { redirectRefusedFormPost } from '@/presentation/api/runtime/form-flash'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context, Hono } from 'hono'
 
@@ -46,7 +47,7 @@ import type { Context, Hono } from 'hono'
  * long-lived Server-Sent-Events / WebSocket subscription, NOT a CRUD record
  * read. It must be exempt from the records rate limiter: the browser
  * `EventSource` reconnects every time the bounded-lifetime stream closes, and
- * counting each reconnect against the 100-req/60s `GET:/api/tables/*` budget
+ * counting each reconnect against the records read budget
  * starves the page's own record reads — and, once the budget is exhausted, a
  * 429 to `EventSource` triggers an immediate reconnect, producing a
  * rate-limit feedback storm. A subscription endpoint is self-limiting (one
@@ -58,10 +59,17 @@ const isRealtimeSubscriptionPath = (path: string): boolean =>
 /**
  * Who a `/api/tables*` request is counted against.
  *
- * A signed-in caller is counted by their user, so colleagues behind one proxy
- * address each keep a budget of their own and anonymous traffic from that
- * address cannot spend it; a caller who is not signed in is counted by IP
- * address, since nothing else tells two visitors apart. The two families are
+ * A request signed in by a valid API key is counted by that key — a digest of
+ * it, never the key itself — so each of a person's keys keeps a budget of its
+ * own and a script spending one does not refuse their browser. That holds
+ * whatever else the request carries: when an `x-api-key` is sent, the session
+ * Better Auth resolves is the key's (its API-key hook answers before any
+ * cookie is read), so a session cookie sent beside the key must not move the
+ * key's requests onto the person's budgets.
+ * Any other signed-in caller is counted by their user, so colleagues behind one
+ * proxy address each keep a budget of their own and anonymous traffic from
+ * that address cannot spend it; a caller who is not signed in is counted by IP
+ * address, since nothing else tells two visitors apart. The three families are
  * prefixed so a user id can never spell an address. The key never leaves the
  * process — a refusal carries only `Retry-After` — so it discloses nothing
  * about which accounts exist.
@@ -71,10 +79,16 @@ const isRealtimeSubscriptionPath = (path: string): boolean =>
  */
 const tablesRateLimitCallerKey = (c: Context): string => {
   const userId = (c as ContextWithSession).var.session?.userId
-  return userId !== undefined && !isGuestSession(userId)
-    ? `user:${userId}`
-    : `ip:${getRequestRateLimitKey(c)}`
+  if (userId === undefined || isGuestSession(userId)) return `ip:${getRequestRateLimitKey(c)}`
+  const apiKey = c.req.header('x-api-key') ?? ''
+  if (apiKey === '') return `user:${userId}`
+  const digest = new Bun.CryptoHasher('sha256').update(apiKey).digest('hex')
+  return `key:${digest.slice(0, 32)}`
 }
+
+/** A refused records request: a page form lands on a page, anything else gets the JSON 429. */
+const tablesRefusal = async (c: Context, retryAfter: number): Promise<Response> =>
+  (await redirectRefusedFormPost(c, retryAfter)) ?? rateLimitedResponse(c, retryAfter)
 
 /**
  * Apply rate limiting middleware for table API endpoints
@@ -92,8 +106,7 @@ export const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
       const path = '/api/tables'
 
       if (isTablesRateLimitExceeded(method, path, callerKey)) {
-        const retryAfter = getTablesRateLimitRetryAfter(method, path, callerKey)
-        return rateLimitedResponse(c, retryAfter)
+        return tablesRefusal(c, getTablesRateLimitRetryAfter(method, path, callerKey))
       }
 
       recordTablesRateLimitRequest(method, path, callerKey)
@@ -106,15 +119,16 @@ export const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
       const { path } = c.req
 
       // The realtime subscription endpoint is a long-lived stream, not a CRUD
-      // read — exempt it from the records burst limiter (see helper doc).
-      if (isRealtimeSubscriptionPath(path)) {
+      // read — exempt it from the records burst limiter (see helper doc). The
+      // bare `/api/tables` also reaches this pattern, and the middleware above
+      // has already counted it once.
+      if (path === '/api/tables' || isRealtimeSubscriptionPath(path)) {
         await next()
         return
       }
 
       if (isTablesRateLimitExceeded(method, path, callerKey)) {
-        const retryAfter = getTablesRateLimitRetryAfter(method, path, callerKey)
-        return rateLimitedResponse(c, retryAfter)
+        return tablesRefusal(c, getTablesRateLimitRetryAfter(method, path, callerKey))
       }
 
       recordTablesRateLimitRequest(method, path, callerKey)

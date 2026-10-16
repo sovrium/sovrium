@@ -98,6 +98,11 @@ export interface CellFieldOptions {
    * it would show one calendar day and open on another.
    */
   readonly timeZone?: string
+  /**
+   * The column's heading, so a cell drawn as a widget rather than as text — a
+   * progress bar — can be named by the label a sighted reader sees above it.
+   */
+  readonly columnLabel?: string
 }
 
 /**

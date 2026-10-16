@@ -5,13 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type Hono } from 'hono'
+import { type Context, type Hono } from 'hono'
 import {
   readEmbeddedBrandMark,
   readEmbeddedSample,
   type EmbeddedAsset,
 } from '@/infrastructure/assets/embedded-static-assets'
-import { getCacheControlHeader } from './asset-cache-control'
+import { readWebFont } from '@/infrastructure/assets/web-fonts'
+import {
+  WEB_FONT_FILES,
+  WEB_FONT_ROUTE_PREFIX,
+  webFontHref,
+} from '@/infrastructure/css/theme/fonts/web-font-files'
+import { getCacheControlHeader, IMMUTABLE_CACHE_CONTROL } from './asset-cache-control'
 
 /**
  * The routes serving asset families embedded in the binary: the design-system
@@ -113,3 +119,48 @@ export const BRAND_MARK_PREFIX = '/assets/brand/'
  * fallback typeface.
  */
 export const setupBrandMarkRoute = embeddedAssetRoute(BRAND_MARK_PREFIX, readEmbeddedBrandMark)
+
+/** Answer one font request: the bytes, and a cache header by whether the name is current. */
+const serveWebFont = async (c: Context, fileName: string): Promise<Response> => {
+  const font = await readWebFont(fileName)
+  if (font === undefined) return c.notFound()
+  return new Response(font.asset.bytes, {
+    headers: {
+      'Content-Type': font.asset.contentType,
+      'Content-Length': String(font.asset.bytes.byteLength),
+      'Cache-Control': font.current ? IMMUTABLE_CACHE_CONTROL : getCacheControlHeader(),
+    },
+  })
+}
+
+/**
+ * Serve the self-hosted web fonts at `/assets/fonts/<name>-<hash>.woff2`.
+ *
+ * The CURRENT name is cached for a year, `immutable`, in every environment:
+ * the hash is the file's own (a unit test recomputes it from the embedded
+ * bytes), so the bytes behind it cannot change while the name stays. (The
+ * stylesheet's hash keys its inputs and the engine version, not its bytes.) A
+ * known face under a STALE hash — HTML or CSS cached from an earlier release —
+ * still gets the current bytes, under the short header; a 404 there would drop
+ * the page to the fallback font stack. See `readWebFont`.
+ *
+ * The current names are registered as LITERAL routes before the pattern,
+ * because static generation (`sovrium build`) writes literal routes only: a
+ * static site whose stylesheet names `fonts/geist-<hash>.woff2` must contain
+ * that file beside it.
+ *
+ * Mounted at the root, like the routes above, so the `/_admin` console's
+ * stylesheet reaches the same files.
+ */
+export const setupWebFontRoutes = (honoApp: Readonly<Hono>): Readonly<Hono> => {
+  const withCurrent = WEB_FONT_FILES.map(webFontHref).reduce<Readonly<Hono>>(
+    (app, href) =>
+      app.on(['GET', 'HEAD'], href, (c) =>
+        serveWebFont(c, href.slice(WEB_FONT_ROUTE_PREFIX.length))
+      ),
+    honoApp
+  )
+  return withCurrent.on(['GET', 'HEAD'], `${WEB_FONT_ROUTE_PREFIX}*`, (c) =>
+    serveWebFont(c, c.req.path.slice(WEB_FONT_ROUTE_PREFIX.length))
+  )
+}

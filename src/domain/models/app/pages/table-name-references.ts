@@ -149,12 +149,15 @@ const bindingsOn = (
 ): readonly TableNameBinding[] => {
   const { type } = node
   if (typeof type === 'string' && REPORTED_BY_ANOTHER_RULE.has(type)) return []
-  const surface = typeof type === 'string' ? type : path
+  // An `openImport` action carries no `type`; it is named by its `action`.
+  const isImport = node['action'] === 'openImport'
+  const surface = typeof type === 'string' ? type : isImport ? `${path} (openImport)` : path
 
   const named = [
     ['dataSource.table', boundTableName(node['dataSource'])],
     ['collection.table', boundTableName(node['collection'])],
-    ['table', type === 'crud' ? boundTableName(node) : undefined],
+    ['optionsFrom.table', boundTableName(node['optionsFrom'])],
+    ['table', type === 'crud' || isImport ? boundTableName(node) : undefined],
   ] as const
 
   return named.flatMap(([key, table]) =>

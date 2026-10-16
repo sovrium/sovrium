@@ -21,6 +21,7 @@ import type {
  * - `$currentUser.isUnrestricted`   → scalar 'isUnrestricted'
  * - `$currentUser.activeAssignment` → activeAssignment
  * - `$currentUser.assignments.<tableSlug>` → assignment with tableSlug
+ * - `$currentUser.assignments.<tableSlug>.<role>` → the same, kept to one grant role
  *
  * Returns `undefined` for any string that is not a recognized
  * `$currentUser` template.
@@ -82,9 +83,11 @@ const parseCurrentUserPath = (suffix: string): CurrentUserPath | undefined => {
     }
   }
   if (suffix.startsWith('assignments.')) {
-    const tableSlug = suffix.slice('assignments.'.length)
-    if (tableSlug.length === 0) return undefined
-    return { kind: 'assignment', tableSlug }
+    const [tableSlug, role, ...rest] = suffix.slice('assignments.'.length).split('.')
+    if (!tableSlug || role === '' || rest.length > 0) return undefined
+    return role === undefined
+      ? { kind: 'assignment', tableSlug }
+      : { kind: 'assignment', tableSlug, role }
   }
   return undefined
 }

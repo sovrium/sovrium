@@ -46,6 +46,7 @@
  * component declared beside it would make the module a mixed export.
  */
 
+import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
 import { buildFilterExpression } from '@/presentation/design/filter-expression'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import {
@@ -147,9 +148,16 @@ const codeEditorComponent: ComponentRenderer = ({ component, rawProps, elementPr
   )
 }
 
-const dateRangePickerComponent: ComponentRenderer = ({ component, rawProps, elementProps }) => {
+const dateRangePickerComponent: ComponentRenderer = ({
+  component,
+  rawProps,
+  elementProps,
+  currentLang,
+  languages,
+}) => {
   const c = asRecord(component)
   const props = defined({
+    uiStrings: resolveInterpreterStringOverrides(['dateRangePicker.'], currentLang, languages),
     label: pick(c, rawProps, 'label'),
     name: pick(c, rawProps, 'name'),
     value: pick(c, rawProps, 'value'),
@@ -159,6 +167,7 @@ const dateRangePickerComponent: ComponentRenderer = ({ component, rawProps, elem
     maxDate: pick(c, rawProps, 'maxDate'),
     months: pick(c, rawProps, 'months'),
     presets: pick(c, rawProps, 'presets'),
+    publishes: pick(c, rawProps, 'publishes'),
   })
   const marker = markerOf(elementProps)
   // The design-system console's `open` state cell. Route A, like
@@ -232,7 +241,13 @@ const openingExpression = (conditions: unknown, fields: unknown, combinator: unk
  * to read otherwise, and that is the exact moment the channel was written for.
  * Rendering it here costs one hidden input and closes the window completely.
  */
-const filterBarComponent: ComponentRenderer = ({ component, rawProps, elementProps }) => {
+const filterBarComponent: ComponentRenderer = ({
+  component,
+  rawProps,
+  elementProps,
+  currentLang,
+  languages,
+}) => {
   const c = asRecord(component)
   const publishes = asRecord(pick(c, rawProps, 'publishes'))
   const props = defined({
@@ -240,10 +255,13 @@ const filterBarComponent: ComponentRenderer = ({ component, rawProps, elementPro
     // it. `publishes` exists in the schema so a reader can see WHAT the key is
     // for; the island only ever needs the string.
     bindTo: publishes['bindTo'],
+    url: publishes['url'],
     fields: pick(c, rawProps, 'fields'),
     conditions: pick(c, rawProps, 'conditions'),
     combinator: pick(c, rawProps, 'combinator'),
     allowAdd: pick(c, rawProps, 'allowAdd'),
+    // The add control and chip names in the page language, where they differ from English.
+    uiStrings: resolveInterpreterStringOverrides(['filterBar.'], currentLang, languages),
   })
   const marker = markerOf(elementProps)
   return (

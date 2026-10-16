@@ -13,16 +13,22 @@ import {
 } from '@/application/ports/services/record-change-feed'
 import { DatabaseError, ValidationError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
+import { confirmBatchAccounts } from '../mutation-helpers/account-confirmation'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import { rowAfterTriggers } from '../mutation-helpers/record-fetch-helpers'
 import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
 import { logCommittedRowChanges } from '../query-helpers/activity-log-helpers'
 import { excludingIds } from '../query-helpers/check-existing-records'
-import { validateColumnName, tableIdentifier, databaseTableName } from '../statement/validation'
+import { validateColumnName, tableIdentifier } from '../statement/validation'
 import { BatchValidationError, createSingleRecord } from './batch-helpers'
+import {
+  refuseEmptyUpsert,
+  validateAllRecordsHaveRequiredFields,
+  validateMergeFieldsPresent,
+} from './batch-upsert-validation'
+import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -256,94 +262,6 @@ function processSingleUpsert(
 }
 
 /**
- * Validate merge fields are present in all records
- */
-function validateMergeFieldsPresent(
-  recordsData: readonly Record<string, unknown>[],
-  fieldsToMergeOn: readonly string[]
-): Effect.Effect<void, BatchValidationError> {
-  const errors = recordsData.flatMap((record, index) => {
-    const missingFields = fieldsToMergeOn.filter((field) => !(field in record))
-    return missingFields.length > 0
-      ? [`Record ${index}: Missing merge field(s) ${missingFields.join(', ')}`]
-      : []
-  })
-
-  if (errors.length > 0) {
-    return Effect.fail(
-      new BatchValidationError({
-        message: 'Batch validation failed',
-        details: errors,
-      })
-    )
-  }
-
-  return Effect.void
-}
-
-/**
- * The columns a create must supply: NOT NULL columns that have no DB-side
- * default, minus the system fields the insert fills itself. Queried ONCE per
- * batch (dialect-aware) — the table's shape does not change between records.
- */
-async function requiredFieldsOf(
-  tx: Readonly<DrizzleTransaction>,
-  tableName: string
-): Promise<readonly string[]> {
-  const columns = await listTableColumns(tx, databaseTableName(tableName))
-  // System fields that are auto-generated (exclude from validation). The
-  // literal author columns are filled by `injectCreateAuthorship` on insert.
-  const autoFields = new Set(['id', 'created_at', 'updated_at', 'created_by', 'updated_by'])
-  return columns
-    .filter((col) => !col.isNullable && col.columnDefault === null)
-    .map((col) => col.name)
-    .filter((field) => !autoFields.has(field))
-}
-
-/** The required fields a record (for creates) lacks — a NOT NULL violation in waiting. */
-const missingRequiredFieldsIn = (
-  requiredFields: readonly string[],
-  record: Readonly<Record<string, unknown>>,
-  recordIndex: number
-): readonly string[] => {
-  const missingFields = requiredFields.filter((field) => !(field in record))
-  return missingFields.length > 0
-    ? [`Record ${recordIndex}: Missing required field(s) ${missingFields.join(', ')}`]
-    : []
-}
-
-/**
- * Validate all records have required fields BEFORE processing
- */
-function validateAllRecordsHaveRequiredFields(
-  tx: Readonly<DrizzleTransaction>,
-  tableName: string,
-  recordsData: readonly Record<string, unknown>[]
-): Effect.Effect<void, BatchValidationError> {
-  return Effect.gen(function* () {
-    if (recordsData.length === 0) return
-    const requiredFields = yield* Effect.tryPromise({
-      try: () => requiredFieldsOf(tx, tableName),
-      catch: (error) =>
-        new BatchValidationError({
-          message: 'Failed to validate record',
-          details: [String(error)],
-        }),
-    })
-    const allErrors = recordsData.flatMap((record, index) =>
-      missingRequiredFieldsIn(requiredFields, record, index)
-    )
-
-    if (allErrors.length > 0) {
-      return yield* new BatchValidationError({
-        message: 'Batch validation failed',
-        details: allErrors,
-      })
-    }
-  })
-}
-
-/**
  * Upsert records (create or update based on merge fields)
  */
 export function upsertRecords(
@@ -354,6 +272,7 @@ export function upsertRecords(
     readonly fieldsToMergeOn: readonly string[]
     readonly insertOnlyFields?: readonly string[]
     readonly hiddenIds?: readonly string[]
+    readonly accounts?: readonly AccountReference[]
   }
 ): Effect.Effect<
   Omit<UpsertResult, 'committed'>,
@@ -361,14 +280,7 @@ export function upsertRecords(
 > {
   const { fieldsToMergeOn, insertOnlyFields = [], hiddenIds = [] } = options
   return Effect.gen(function* () {
-    if (recordsData.length === 0) {
-      return yield* Effect.fail(new DatabaseError('Cannot upsert batch with no records', undefined))
-    }
-
-    if (fieldsToMergeOn.length === 0) {
-      return yield* Effect.fail(new DatabaseError('Cannot upsert without merge fields', undefined))
-    }
-
+    yield* refuseEmptyUpsert(recordsData, fieldsToMergeOn)
     fieldsToMergeOn.forEach((field) => validateColumnName(field))
 
     // Validate merge fields are present in all records BEFORE processing
@@ -378,6 +290,7 @@ export function upsertRecords(
     const result = yield* withOutboxTransaction((upserted: UpsertResult) => upserted.committed)(
       (tx) =>
         Effect.gen(function* () {
+          yield* confirmBatchAccounts(tx, options.accounts)
           yield* validateAllRecordsHaveRequiredFields(tx, tableName, recordsData)
 
           return yield* Effect.reduce(

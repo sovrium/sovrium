@@ -1,5 +1,5 @@
-# sovrium-library: block/data-table@0.37.0
-# sovrium-library-params: amountField=budget&clientField=client&dateField=due_date&emptyMessage=No%20record%20yet.%20Create%20one%20to%20see%20it%20here.&headline=Projects&noMatchMessage=Nothing%20matches.%20Clear%20the%20search%20or%20remove%20a%20filter%20to%20widen%20it.&referenceField=title&statusField=status&table=projects
+# sovrium-library: block/data-table@0.38.0
+# sovrium-library-params: amountField=budget&amountLabel=&clientField=client&clientLabel=&dateField=due_date&dateLabel=Due&emptyMessage=No%20record%20yet.%20Create%20one%20to%20see%20it%20here.&headline=Projects&noMatchMessage=Nothing%20matches.%20Clear%20the%20search%20or%20remove%20a%20filter%20to%20widen%20it.&referenceField=title&referenceLabel=Project&statusField=status&statusLabel=&table=projects
 name: data-table
 type: container
 element: section
@@ -19,9 +19,65 @@ children:
             props:
               className: text-xl font-semibold text-foreground text-lg
             content: Projects
+      - type: container
+        element: div
+        props:
+          role: toolbar
+          aria-label: Table controls
+          className: flex flex-wrap items-center gap-2
+        children:
+          - type: search-input
+            placeholder: Search
+            props:
+              aria-label: Search
+              className: 'h-8 w-full sm:w-[150px] lg:w-[250px]'
+            publishes:
+              bindTo: projects-filter
+              param: q
+          - type: select
+            props:
+              placeholder: Status
+              aria-label: Status
+              className: h-8 w-auto
+            multiple: true
+            optionsFrom:
+              table: projects
+              field: status
+            publishes:
+              bindTo: projects-filter
+              field: status
+              operator: in
+          - type: filter-bar
+            publishes:
+              bindTo: projects-filter
+            fieldsFrom:
+              table: projects
+          - type: container
+            element: div
+            props:
+              className: flex items-center gap-2 sm:ml-auto
+            children:
+              - type: button
+                label: Export CSV
+                variant: outline
+                size: sm
+                action:
+                  type: fetch
+                  mode: download
+                  url: /api/tables/projects/export?format=csv
+                  filename: projects.csv
+              - type: button
+                label: Import CSV
+                variant: outline
+                size: sm
+                action:
+                  action: openImport
+                  table: projects
       - type: table
         dataSource:
           table: projects
+          bindTo: projects-filter
+          sharedFilter: {}
           sort:
             - field: due_date
               direction: desc
@@ -36,10 +92,6 @@ children:
             label: Budget
           - field: due_date
             label: Due
-        toolbar:
-          search: true
-          filters: true
-          export: true
         selection:
           mode: multiple
         bulkActions:

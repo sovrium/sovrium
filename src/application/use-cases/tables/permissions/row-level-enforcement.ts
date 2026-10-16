@@ -26,7 +26,8 @@ import { DataSourceRepository } from '@/application/ports/repositories/tables/da
 import { findUserEmailById } from '@/application/use-cases/auth/find-user-email'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
-  isPredicateGroup,
+  assignmentScopeKeysOfRule,
+  parseAssignmentScopeKey,
   rulesNameCurrentUser,
   signedOutContext,
   type CurrentUserContext,
@@ -36,7 +37,7 @@ import { logError } from '@/infrastructure/logging'
 import { withChainMatches, type RowRuleScope } from './row-rule-chain-matches'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import type { RowLevelPermissions, RowLevelWhen } from '@/domain/models/app/tables/permissions'
+import type { RowLevelPermissions } from '@/domain/models/app/tables/permissions'
 
 export { rowRuleScopeOf, type RowRuleScope } from './row-rule-chain-matches'
 
@@ -113,7 +114,7 @@ export const loadContextWithKnownEmail = (
     const entries = yield* Effect.forEach(
       scopeTables,
       (slug) =>
-        repo.fetchUserAssignments(session.userId, slug).pipe(
+        repo.fetchUserAssignments(session.userId, ...scopeArgs(slug)).pipe(
           Effect.catch((error) => {
             logError(
               '[PERMISSIONS] Row-level scope lookup failed; denying access for this scope table',
@@ -154,7 +155,7 @@ export const loadContextsWithKnownEmails = (
     const bySlug = yield* Effect.forEach(
       ids.length === 0 ? [] : collectAssignmentScopeTables(rlp),
       (slug) =>
-        repo.fetchUsersAssignments(ids, slug).pipe(
+        repo.fetchUsersAssignments(ids, ...scopeArgs(slug)).pipe(
           Effect.tapCause((cause) =>
             Effect.sync(() =>
               logError(
@@ -186,57 +187,22 @@ export const loadContextsWithKnownEmails = (
   }).pipe(Effect.withSpan('tables.load-contexts-with-known-emails'))
 
 /**
- * Extract every `assignments.<tableSlug>` referenced inside a
- * `RowLevelPermissions` block. Used to pre-fetch the right user_access
- * rows in a single batched call.
+ * Every `$currentUser.assignments` key (`<table>` or `<table>.<role>`, see
+ * `assignmentScopeKey`) a `RowLevelPermissions` block reads. Used to
+ * pre-fetch the right user_access rows in a single batched call.
  */
 export const collectAssignmentScopeTables = (
   rlp: RowLevelPermissions | undefined
 ): readonly string[] => {
   if (!rlp) return []
   const predicates = [rlp.read?.when, rlp.write?.when, rlp.create?.when, rlp.delete?.when]
-  const slugs = predicates.flatMap(extractScopeTablesFromPredicate)
-  return [...new Set(slugs)]
+  return [...new Set(predicates.flatMap(assignmentScopeKeysOfRule))]
 }
 
-const extractTypedAssignmentSlug = (value: unknown): string | undefined => {
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    Array.isArray(value) ||
-    !('kind' in value) ||
-    (value as { kind?: string }).kind !== 'currentUser' ||
-    !('path' in value)
-  ) {
-    return undefined
-  }
-  const { path } = value as { path: { kind?: string; tableSlug?: string } }
-  if (path.kind === 'assignment' && typeof path.tableSlug === 'string') {
-    return path.tableSlug
-  }
-  return undefined
-}
-
-const extractTemplateAssignmentSlug = (value: unknown): string | undefined => {
-  if (typeof value !== 'string') return undefined
-  if (!value.startsWith('$currentUser.assignments.')) return undefined
-  const slug = value.slice('$currentUser.assignments.'.length)
-  return slug.length > 0 ? slug : undefined
-}
-
-const extractScopeTablesFromPredicate = (
-  predicate: RowLevelWhen | undefined
-): readonly string[] => {
-  if (!predicate) return []
-  // [internal ref]: a composite group references scope tables across ALL its
-  // conditions (e.g. `clients` AND `projets` in an OR predicate). Recurse so
-  // every assignment slug is pre-fetched into the assignments map.
-  if (isPredicateGroup(predicate)) {
-    return predicate.conditions.flatMap(extractScopeTablesFromPredicate)
-  }
-  const { value } = predicate
-  const slug = extractTypedAssignmentSlug(value) ?? extractTemplateAssignmentSlug(value)
-  return slug ? [slug] : []
+/** The scope table and grant role an assignments key names, as the repository reads them. */
+const scopeArgs = (key: string): readonly [tableSlug: string, role: string | undefined] => {
+  const { tableSlug, role } = parseAssignmentScopeKey(key)
+  return [tableSlug, role]
 }
 
 /**

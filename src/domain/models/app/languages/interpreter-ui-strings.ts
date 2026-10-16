@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { COMPONENT_UI_STRINGS } from './interpreter-ui-strings-components'
+
 /**
  * Built-in catalog of INTERPRETER-provided UI strings — chrome Sovrium renders
  * itself (not app-author content). Keyed by translation key, then by 2-letter
@@ -54,7 +56,7 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
     fr: 'Impossible de lire la valeur actuelle de {label}',
   },
 
-  // ---- Data table: toolbar ----
+  // ---- Data table: toolbar (retired below, except the selection export) ----
   'datatable.import': { en: 'Import', fr: 'Importer' },
   'datatable.filter': { en: 'Filter', fr: 'Filtrer' },
   'datatable.sort': { en: 'Sort', fr: 'Trier' },
@@ -79,6 +81,50 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'datatable.passkeyName': { en: 'Passkey name', fr: 'Nom de la clé d’accès' },
   /** An empty grid's message, when the author declares no `emptyMessage`. */
   'datatable.noRecords': { en: 'No records found', fr: 'Aucun enregistrement' },
+  /** An empty grid bound to a table, naming it; `{table}` is its plural label. */
+  'datatable.noRecordsIn': {
+    en: '{table} has no records yet',
+    fr: 'Aucun enregistrement dans {table} pour l’instant',
+  },
+  /** The view switcher's first entry, the table with no view; `{table}` is its plural label. */
+  'datatable.viewAll': { en: 'All {table}', fr: 'Tous : {table}' },
+  /** The bottom bar's count of checked rows; `{count}` is how many. */
+  'datatable.selected': { en: '{count} selected', fr: '{count} sélectionné(s)' },
+  /** The selection's Delete, and the question it asks first; `{count}` is how many. */
+  'datatable.delete': { en: 'Delete', fr: 'Supprimer' },
+  'datatable.deleteConfirm': {
+    en: 'Delete {count} records?',
+    fr: 'Supprimer {count} enregistrement(s) ?',
+  },
+  /** The reader's session controls in the bottom bar: none of them is saved. */
+  'datatable.groupBy': { en: 'Group by', fr: 'Regrouper par' },
+  'datatable.hideFields': { en: 'Hide fields', fr: 'Masquer des champs' },
+  'datatable.rowHeight': { en: 'Row height', fr: 'Hauteur des lignes' },
+  'datatable.rowHeight.short': { en: 'Short', fr: 'Basse' },
+  'datatable.rowHeight.medium': { en: 'Medium', fr: 'Moyenne' },
+  'datatable.rowHeight.tall': { en: 'Tall', fr: 'Haute' },
+  'datatable.rowHeight.extraTall': { en: 'Extra tall', fr: 'Très haute' },
+  /** What a data component narrowed by a control on the page announces; `{count}` is how many it shows. */
+  'sharedFilter.resultCount': { en: '{count} records', fr: '{count} enregistrements' },
+  /** Announced while the grid's records read is in flight. */
+  'datatable.loading': { en: 'Loading records', fr: 'Chargement des enregistrements' },
+  /** A records read that failed (any status but 401 and 429), above its Retry. */
+  'datatable.loadFailed': {
+    en: 'Couldn’t load records.',
+    fr: 'Impossible de charger les enregistrements.',
+  },
+  /** A sort the server refused; `{column}` is the column's label. */
+  'datatable.sortFailed': {
+    en: 'Couldn’t sort by {column}.',
+    fr: 'Impossible de trier par {column}.',
+  },
+  /** The control that reads a failed grid again. */
+  'datatable.retry': { en: 'Retry', fr: 'Réessayer' },
+  /** A create the server failed for a reason that is not about one field. */
+  'datatable.createFailed': {
+    en: 'Couldn’t save the record. Try again.',
+    fr: 'Impossible d’enregistrer. Réessayez.',
+  },
 
   // ---- Data table: pager ----
   'datatable.pagination.range': { en: '{from}–{to} of {total}', fr: '{from}–{to} sur {total}' },
@@ -112,6 +158,129 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   /** The sort builder's two directions, in words. */
   'datatable.sort.ascending': { en: 'Ascending', fr: 'Croissant' },
   'datatable.sort.descending': { en: 'Descending', fr: 'Décroissant' },
+  /** The selection column's checkboxes: the header's, then a row's (`{n}` counts from 1). */
+  'datatable.selectAll': { en: 'Select all rows', fr: 'Sélectionner toutes les lignes' },
+  'datatable.selectRow': { en: 'Select row {n}', fr: 'Sélectionner la ligne {n}' },
+  /** A sortable header's `title`: what pressing it does from the column's current order. */
+  'datatable.sortAscending': { en: 'Sort ascending', fr: 'Trier par ordre croissant' },
+  'datatable.sortDescending': { en: 'Sort descending', fr: 'Trier par ordre décroissant' },
+  'datatable.clearSort': { en: 'Clear sort', fr: 'Retirer le tri' },
+  /** The status name of the placeholder a grid shows before it mounts. */
+  'datatable.loadingTable': { en: 'Loading data table...', fr: 'Chargement du tableau…' },
+
+  // ---- Filter bar ----
+  /** The add control and the condition builder it opens. */
+  'filterBar.addFilter': { en: 'Add filter', fr: 'Ajouter un filtre' },
+  /** A chip's remove button; `{field}` is the filtered field's label. */
+  'filterBar.removeFilter': { en: 'Remove {field} filter', fr: 'Retirer le filtre {field}' },
+  /** An operator's words; a comparison's key carries its field kind (`date.gt` "is after"). */
+  'filterBar.operator.eq': { en: 'is', fr: 'est' },
+  'filterBar.operator.neq': { en: 'is not', fr: 'n’est pas' },
+  'filterBar.operator.contains': { en: 'contains', fr: 'contient' },
+  'filterBar.operator.startsWith': { en: 'starts with', fr: 'commence par' },
+  'filterBar.operator.in': { en: 'is any of', fr: 'est l’un de' },
+  'filterBar.operator.between': { en: 'is between', fr: 'est entre' },
+  'filterBar.operator.number.gt': { en: 'is greater than', fr: 'est supérieur à' },
+  'filterBar.operator.number.lt': { en: 'is less than', fr: 'est inférieur à' },
+  'filterBar.operator.number.gte': { en: 'is at least', fr: 'est au moins' },
+  'filterBar.operator.number.lte': { en: 'is at most', fr: 'est au plus' },
+  'filterBar.operator.date.gt': { en: 'is after', fr: 'est après le' },
+  'filterBar.operator.date.lt': { en: 'is before', fr: 'est avant le' },
+  'filterBar.operator.date.gte': { en: 'is on or after', fr: 'est à partir du' },
+  'filterBar.operator.date.lte': { en: 'is on or before', fr: 'est jusqu’au' },
+  /** A `between` chip's value, and the names of the builder's two ends. */
+  'filterBar.range': { en: '{from} and {to}', fr: '{from} et {to}' },
+  'filterBar.from': { en: 'From', fr: 'De' },
+  'filterBar.to': { en: 'To', fr: 'À' },
+  /** The builder's commit, and its value control's name; `{field}` is the field's label. */
+  'filterBar.apply': { en: 'Apply', fr: 'Appliquer' },
+  'filterBar.value': { en: '{field} value', fr: 'Valeur de {field}' },
+
+  // ---- Loading states: the status name of a component's placeholder ----
+  'kpi.loading': { en: 'Loading KPI...', fr: 'Chargement de l’indicateur…' },
+  'chart.loading': { en: 'Loading chart...', fr: 'Chargement du graphique…' },
+  'calendar.loading': { en: 'Loading calendar...', fr: 'Chargement du calendrier…' },
+  'gallery.loading': { en: 'Loading gallery...', fr: 'Chargement de la galerie…' },
+  'kanban.loading': { en: 'Loading kanban board...', fr: 'Chargement du tableau kanban…' },
+  'timeline.loading': { en: 'Loading timeline...', fr: 'Chargement de la chronologie…' },
+  'map.loading': { en: 'Loading map...', fr: 'Chargement de la carte…' },
+  'field.loading': { en: 'Loading field...', fr: 'Chargement du champ…' },
+
+  // ---- Error and missing-configuration states of a data component ----
+  /** `{error}` is a failed read's cause; `{setting}` a missing binding, drawn as code. */
+  'component.refreshToRetry': {
+    en: 'Refresh the page to try again.',
+    fr: 'Actualisez la page pour réessayer.',
+  },
+  'component.configHint': {
+    en: 'Add it to this component in your app config, then redeploy.',
+    fr: 'Ajoutez-la à ce composant dans la configuration de l’application, puis redéployez.',
+  },
+  'kpi.loadFailed': {
+    en: 'Failed to load KPI records: {error}',
+    fr: 'Impossible de charger les données de l’indicateur : {error}',
+  },
+  'kpi.missingTable': {
+    en: 'KPI is missing a dataSource.table binding.',
+    fr: 'Il manque la liaison dataSource.table à cet indicateur.',
+  },
+  'chart.loadFailed': {
+    en: 'Failed to load chart records: {error}',
+    fr: 'Impossible de charger les données du graphique : {error}',
+  },
+  'chart.missingTable': {
+    en: 'Chart is missing a dataSource.table binding.',
+    fr: 'Il manque la liaison dataSource.table à ce graphique.',
+  },
+  'chart.missingAxes': {
+    en: 'Chart is missing xAxis or yAxis configuration.',
+    fr: 'Il manque la configuration xAxis ou yAxis à ce graphique.',
+  },
+  'calendar.loadFailed': {
+    en: 'Failed to load calendar records: {error}',
+    fr: 'Impossible de charger les données du calendrier : {error}',
+  },
+  'calendar.missingDateField': {
+    en: 'Calendar is missing required {setting} configuration.',
+    fr: 'Il manque la configuration requise {setting} à ce calendrier.',
+  },
+  'gallery.loadFailed': {
+    en: 'Failed to load gallery records: {error}',
+    fr: 'Impossible de charger les données de la galerie : {error}',
+  },
+  'gallery.missingTable': {
+    en: 'Gallery is missing required {setting} configuration.',
+    fr: 'Il manque la configuration requise {setting} à cette galerie.',
+  },
+  'kanban.loadFailed': {
+    en: 'Failed to load kanban records: {error}',
+    fr: 'Impossible de charger les données du tableau kanban : {error}',
+  },
+  'kanban.missingGroupBy': {
+    en: 'Kanban board is missing required {setting} configuration.',
+    fr: 'Il manque la configuration requise {setting} à ce tableau kanban.',
+  },
+  'timeline.loadFailed': {
+    en: 'Failed to load timeline records: {error}',
+    fr: 'Impossible de charger les données de la chronologie : {error}',
+  },
+  'timeline.missingTable': {
+    en: 'data-timeline is missing a dataSource.table binding.',
+    fr: 'Il manque la liaison dataSource.table à cette chronologie.',
+  },
+  'timeline.missingStartField': {
+    en: 'data-timeline is missing a required {setting} binding.',
+    fr: 'Il manque la liaison requise {setting} à cette chronologie.',
+  },
+  'list.missing': {
+    en: 'List is missing required {setting} configuration.',
+    fr: 'Il manque la configuration requise {setting} à cette liste.',
+  },
+  'field.loadFailed': { en: 'Failed to load field', fr: 'Impossible de charger le champ' },
+  'field.missingSource': {
+    en: 'Record field is missing required dataSource configuration.',
+    fr: 'Il manque la configuration requise dataSource à ce champ.',
+  },
 
   // ---- Forms ----
   'form.create': { en: 'Create', fr: 'Créer' },
@@ -133,6 +302,13 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'action.running': { en: 'Running…', fr: 'Exécution…' },
   'form.required': { en: 'This field is required', fr: 'Ce champ est obligatoire' },
   'form.requiredNamed': { en: '{label} is required', fr: 'Le champ {label} est obligatoire' },
+  /** The legend above a form with a required field, explaining the asterisk. */
+  'form.requiredLegend': {
+    en: 'Fields marked * are required',
+    fr: 'Les champs marqués * sont obligatoires',
+  },
+  /** A one-question form's last screen, where every answer is shown before sending. */
+  'form.reviewAnswers': { en: 'Review your answers', fr: 'Vérifiez vos réponses' },
   /** A hosted form's default `onError` message. */
   'form.submissionFailed': { en: 'Submission failed.', fr: "L'envoi a échoué." },
   'form.operationFailed': { en: 'Operation failed', fr: "L'opération a échoué" },
@@ -207,6 +383,8 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   // ---- Search and list ----
   /** A search box's placeholder when the author declares none. */
   'search.placeholder': { en: 'Search...', fr: 'Rechercher…' },
+  /** A search box's accessible name when the author declares no placeholder. */
+  'search.label': { en: 'Search', fr: 'Rechercher' },
   'list.loading': { en: 'Loading list...', fr: 'Chargement de la liste…' },
   'list.loadFailed': {
     en: 'Failed to load list items: {error}',
@@ -219,6 +397,11 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
     fr: 'Trop de requêtes. Patientez un instant, puis réessayez.',
   },
   'rateLimit.retry': { en: 'Retry', fr: 'Réessayer' },
+  /** A refused write (a delete, a bulk action, a form posted without scripts); `{seconds}` is `Retry-After`. */
+  'rateLimit.retryIn': {
+    en: 'Too many requests, retry in {seconds} s.',
+    fr: 'Trop de requêtes, réessayez dans {seconds} s.',
+  },
 
   // ---- Destructive confirm gate ----
   /**
@@ -256,6 +439,78 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   },
   /** The relationship picker's clear control. */
   'recordDrawer.clearRelation': { en: 'Clear {label}', fr: 'Effacer {label}' },
+  /** A sheet's navigation: the step back through the list that opened it. */
+  'recordDrawer.previous': { en: 'Previous', fr: 'Précédent' },
+  /** A sheet's navigation: the step forward. */
+  'recordDrawer.next': { en: 'Next', fr: 'Suivant' },
+  /** A sheet's navigation: the link to the record's own page. */
+  'recordDrawer.openFullPage': { en: 'Open full page', fr: 'Ouvrir la page complète' },
+  /** The name a sheet's navigation landmark is announced by. */
+  'recordDrawer.navigation': {
+    en: 'Record navigation',
+    fr: 'Navigation entre les enregistrements',
+  },
+  /** The name of the banner a sheet shows when it refuses a save. */
+  'recordDrawer.validationError': { en: 'Validation error', fr: 'Erreur de validation' },
+  /** A sheet's tabs: the record's fields, its history, its thread and who holds it. */
+  'recordDrawer.tabDetails': { en: 'Details', fr: 'Détails' },
+  'recordDrawer.tabActivity': { en: 'Activity', fr: 'Activité' },
+  'recordDrawer.tabComments': { en: 'Comments', fr: 'Commentaires' },
+  'recordDrawer.tabAccess': { en: 'Access', fr: 'Accès' },
+  /** The header control that copies the record's address. */
+  'recordDrawer.copyLink': { en: 'Copy link', fr: 'Copier le lien' },
+  /** The header menu holding the record's export and delete. */
+  'recordDrawer.moreActions': { en: 'More actions', fr: 'Plus d’actions' },
+  'recordDrawer.exportCsv': { en: 'Export as CSV', fr: 'Exporter en CSV' },
+  'recordDrawer.delete': { en: 'Delete', fr: 'Supprimer' },
+  /** The question a delete asks first, naming the record. */
+  'recordDrawer.deletePrompt': { en: 'Delete {title}?', fr: 'Supprimer {title} ?' },
+  /** The heading over the records of other tables that point at this one. */
+  'recordDrawer.linkedFrom': { en: 'Linked from', fr: 'Lié depuis' },
+  /** A stacked record's way back to the record it was reached from. */
+  'recordDrawer.back': { en: 'Back to {title}', fr: 'Retour à {title}' },
+  /** The footer's last change: a relative time and a person. */
+  'recordDrawer.edited': { en: 'Edited {time} by {name}', fr: 'Modifié {time} par {name}' },
+  'recordDrawer.cancel': { en: 'Cancel', fr: 'Annuler' },
+  /** A new record's line over its fields. */
+  'recordDrawer.requiredNote': {
+    en: 'Fields marked * are required',
+    fr: 'Les champs marqués * sont obligatoires',
+  },
+  /** A sheet opened to create a record: its name, from the table's label. */
+  'recordDrawer.newRecord': { en: 'New {label}', fr: 'Nouvel enregistrement : {label}' },
+  'recordDrawer.loading': { en: 'Loading…', fr: 'Chargement…' },
+  'recordDrawer.activityEmpty': { en: 'No activity yet.', fr: 'Aucune activité pour l’instant.' },
+  'recordDrawer.activityCreated': {
+    en: '{name} created this record',
+    fr: '{name} a créé cet enregistrement',
+  },
+  'recordDrawer.activityUpdated': { en: '{name} changed', fr: '{name} a modifié' },
+  'recordDrawer.activityDeleted': {
+    en: '{name} deleted this record',
+    fr: '{name} a supprimé cet enregistrement',
+  },
+  'recordDrawer.activityRestored': {
+    en: '{name} restored this record',
+    fr: '{name} a restauré cet enregistrement',
+  },
+  /** Who made a change no account made. */
+  'recordDrawer.activitySomeone': { en: 'Someone', fr: 'Quelqu’un' },
+  /** The Access tab: the read-only list of the accounts granted the record. */
+  'recordDrawer.accessRegion': { en: 'Who has access', fr: 'Qui a accès' },
+  'recordDrawer.accessBody': {
+    en: 'Read-only here. Grants change through the API, the seed and automations.',
+    fr: 'En lecture seule ici. Les accès changent par l’API, le seed et les automatisations.',
+  },
+  'recordDrawer.accessEmpty': {
+    en: 'Nobody has been granted access to this record',
+    fr: 'Personne n’a reçu d’accès à cet enregistrement',
+  },
+  'recordDrawer.accessName': { en: 'Name', fr: 'Nom' },
+  'recordDrawer.accessEmail': { en: 'Email', fr: 'E-mail' },
+  'recordDrawer.accessRole': { en: 'Role', fr: 'Rôle' },
+  /** A JSON value whose text does not parse, refused before saving. */
+  'recordDrawer.invalidJson': { en: 'Enter valid JSON.', fr: 'Saisissez un JSON valide.' },
 
   // ---- Dialog ----
   /** A dialog's header close button — an icon button, so this IS its whole name. */
@@ -264,6 +519,14 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'dialog.cancel': { en: 'Cancel', fr: 'Annuler' },
   /** A dialog with no `title`: its accessible name. */
   'dialog.label': { en: 'Dialog', fr: 'Boîte de dialogue' },
+  /** An alert dialog with no `confirmLabel`: its confirm button. */
+  'dialog.continue': { en: 'Continue', fr: 'Continuer' },
+
+  // ---- File upload: a failed file's chip ----
+  /** A file whose upload failed: its chip's mark and its two ways on. */
+  'fileUpload.failed': { en: 'Upload failed', fr: 'Échec de l’envoi' },
+  'fileUpload.retry': { en: 'Retry', fr: 'Réessayer' },
+  'fileUpload.remove': { en: 'Remove', fr: 'Retirer' },
 
   // ---- File preview: the toolbar and the fallback line ----
   /** The toolbar's accessible name; `{name}` is the file name. */
@@ -446,6 +709,25 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'passkey.add': { en: 'Add a passkey', fr: 'Ajouter une clé d’accès' },
   'passkey.signIn': { en: 'Sign in with a passkey', fr: 'Se connecter avec une clé d’accès' },
 
+  // ---- Page chrome every page carries ----
+  /** The skip link, the first stop of the keyboard on every page. */
+  'page.skipToContent': { en: 'Skip to main content', fr: 'Aller au contenu principal' },
+  /**
+   * Read by assistive technology after the words of a link that opens a new
+   * tab (visually hidden), so the change of window is announced before it happens.
+   */
+  'link.opensInNewTab': { en: '(opens in a new tab)', fr: '(s’ouvre dans un nouvel onglet)' },
+  /** A `marquee` band's `pauseControl`, while it moves and once it is stopped. */
+  'marquee.pause': { en: 'Pause', fr: 'Pause' },
+  'marquee.resume': { en: 'Resume', fr: 'Reprendre' },
+  /** The close button at the top of a sidebar's phone drawer. */
+  'sidebar.drawerClose': { en: 'Close menu', fr: 'Fermer le menu' },
+  /** A breadcrumb trail's landmark name when the author gives none, and its collapsed crumbs' control. */
+  'breadcrumb.label': { en: 'Breadcrumb', fr: 'Fil d’Ariane' },
+  'breadcrumb.more': { en: 'More', fr: 'Plus' },
+  /** A `theme-toggle`'s accessible name (and text) when the author declares no `label`. */
+  'theme.toggle': { en: 'Toggle theme', fr: 'Changer de thème' },
+
   // ---- Command palette: the create-record dialog ----
   /** The dialog's heading and accessible name. */
   'commandPalette.createTitle': {
@@ -454,6 +736,11 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   },
   'commandPalette.create': { en: 'Create', fr: 'Créer' },
   'commandPalette.cancel': { en: 'Cancel', fr: 'Annuler' },
+  /** The keyboard-hint footer under the command's list: beside ↑↓, ↵ and Esc. */
+  'commandPalette.hintNavigate': { en: 'navigate', fr: 'naviguer' },
+  'commandPalette.hintOpen': { en: 'open', fr: 'ouvrir' },
+  'commandPalette.hintClose': { en: 'close', fr: 'fermer' },
+  ...COMPONENT_UI_STRINGS,
 }
 
 /**
@@ -491,7 +778,23 @@ export const LEGACY_BARE_ENGINE_KEYS: readonly string[] = [
  * written under the prefix; the next release removes the key from the
  * catalogue and its entry here together.
  */
-export const RETIRED_ENGINE_KEYS: readonly string[] = ['filePreview.cannotShow']
+export const RETIRED_ENGINE_KEYS: readonly string[] = [
+  'filePreview.cannotShow',
+  // The grid's own toolbar and search box: page controls compose them now.
+  'datatable.import',
+  'datatable.filter',
+  'datatable.sort',
+  'datatable.export',
+  'datatable.refresh',
+  'datatable.search',
+  'datatable.searchLabel',
+  'datatable.facet.selected',
+  'datatable.facet.clear',
+  'datatable.facet.empty',
+  'datatable.sort.ascending',
+  'datatable.sort.descending',
+  'datatable.createFailed',
+]
 
 /** Platform default language for interpreter strings when none is resolved. */
 export const DEFAULT_INTERPRETER_LANG = 'en'

@@ -46,6 +46,20 @@ const templateAssets = (app: App): ReadonlyArray<Asset> =>
   (app.assets ?? []).filter((entry) => LISTED_KINDS.has(resolveAssetKind(entry) ?? ''))
 
 /** Every step anywhere under `value`, with its automation's name. */
+/** The directory template assets conventionally live in. */
+const TEMPLATES_DIR = 'templates/'
+
+/**
+ * The path a template's preview is addressed by: relative to `templates/`, so
+ * the console's `/templates/…` route does not repeat the directory — unless
+ * another asset declares that short name, where the declared path stays, so a
+ * preview path always opens its own template.
+ */
+const previewPathOf = (path: string, declared: ReadonlyArray<string>): string => {
+  const short = path.startsWith(TEMPLATES_DIR) ? path.slice(TEMPLATES_DIR.length) : path
+  return short === path || declared.includes(short) ? path : short
+}
+
 const stepsOf = (automation: string, value: unknown): ReadonlyArray<readonly [string, Raw]> => {
   if (Array.isArray(value)) return value.flatMap((item) => stepsOf(automation, item))
   if (!isRecord(value)) return []
@@ -101,8 +115,12 @@ const templatesList = defineAdminRead<undefined>({
   read: (app) =>
     Effect.succeed(
       answerWithSchema(adminTemplatesResponseSchema, {
-        templates: templateAssets(app).map((entry) => ({
+        templates: templateAssets(app).map((entry, _index, all) => ({
           path: entry.path,
+          previewPath: previewPathOf(
+            entry.path,
+            all.map((candidate) => candidate.path)
+          ),
           kind: resolveAssetKind(entry),
           ...(entry.description === undefined ? {} : { description: entry.description }),
           hasSampleData: entry.sampleData !== undefined,
@@ -115,7 +133,12 @@ const templatesList = defineAdminRead<undefined>({
 /** The `?path=` of a declared template asset, or not found (never which assets exist). */
 const decodePath = (raw: Raw, app: App): AdminReadDecode<Asset> => {
   const { path } = raw
-  const entry = templateAssets(app).find((candidate) => candidate.path === path)
+  const assets = templateAssets(app)
+  const declared = assets.map((candidate) => candidate.path)
+  // The declared path first; a preview path only when no asset declares it.
+  const entry =
+    assets.find((candidate) => candidate.path === path) ??
+    assets.find((candidate) => previewPathOf(candidate.path, declared) === path)
   return entry === undefined ? { _tag: 'NotFound' } : { _tag: 'Ok', input: entry }
 }
 
@@ -135,6 +158,23 @@ const sampleOf = (entry: Asset) =>
     })
     return Result.isSuccess(parsed) && isRecord(parsed.success) ? parsed.success : {}
   })
+
+/**
+ * The preview with its `<script>` elements taken out.
+ *
+ * NOT the security boundary: the console draws the preview in a frame whose
+ * sandbox grants nothing, so a script there never runs either way. It is taken
+ * out because a refused script still announces itself — every preview of a
+ * template carrying one logged a blocked-script error in the console, which
+ * reads as a fault to an operator watching it. Repeated until nothing changes,
+ * so a tag split around a removed one cannot reassemble.
+ */
+const withoutScripts = (html: string): string => {
+  const next = html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
+    .replace(/<\/?script\b[^>]*>?/gi, '')
+  return next === html ? html : withoutScripts(next)
+}
 
 const RENDERS_AS: Readonly<Record<string, 'html' | 'svg' | 'text' | 'none'>> = {
   html: 'html',
@@ -168,7 +208,9 @@ const templatePreview = defineAdminRead<Asset>({
       'Renders the template with its sampleData through the engine automations use — the same escaping and sanitizer — and returns the result for display in a sandboxed frame. A Word, Excel or PowerPoint template renders to a file: rendersAs is none, with no content. The raw asset is never returned. Read-only; admin only.',
     operationIdBase: 'getAdminTemplatePreview',
     querySchema: Schema.Struct({
-      path: Schema.String.annotate({ description: 'The asset path of the template, as declared' }),
+      path: Schema.String.annotate({
+        description: 'The asset path of the template, as declared, or its listed previewPath',
+      }),
     }),
     refusesQuery: false,
     responseSchema: adminTemplatePreviewResponseSchema,
@@ -190,6 +232,7 @@ const templatePreview = defineAdminRead<Asset>({
               data: yield* sampleOf(entry),
               email,
             }).pipe(
+              Effect.map((html) => (html === undefined ? html : withoutScripts(html))),
               Effect.tapCause((cause) =>
                 Effect.sync(() => {
                   logError(`[admin] template preview of "${entry.path}" failed`, cause)

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import {
   computeButtonDefaultClasses,
   type ButtonSize,
@@ -26,6 +27,7 @@ import * as Renderers from '../elements'
 import { overlayButtonSchemaFallbacks } from '../elements/button-action-builders'
 import { alertComponent } from './alert-component'
 import { withSizeAndIcon } from './button-icon-parts'
+import { withNewTabName } from './button-new-tab-name'
 import { convertBadgeProps } from './component-registry-helpers'
 import { contrastBadgeComponent } from './design-components'
 import { inputComponents } from './input-component'
@@ -33,12 +35,12 @@ import { inputGroupComponent } from './input-group-component'
 // prettier-ignore
 import {
   buildIconClassName,
-  buildLinkClassName,
   mergePrestyle,
   variantFromButtonClassName,
 } from './interactive-prestyle-builders'
-import { localizeChildLabel } from './island-child-label'
+import { localizeChildLabel, resolveInterpreterStringOverrides } from './island-child-label'
 import { pickCompField, resolveUploadActionUrl } from './island-overlay-props-builders'
+import { linkComponent } from './link-component'
 import { searchShellComponents } from './search-shell-components'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
@@ -179,7 +181,13 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
 
       const sized = withSizeAndIcon(c, propsWithSchemaFallbacks, renderedChildren)
       return Renderers.renderButton({
-        props: { ...sized.props, className: mergedClassName },
+        props: withNewTabName(
+          { ...sized.props, className: mergedClassName },
+          {
+            content: sized.iconOnly ? undefined : content,
+            ...{ interactions, action, ...lang },
+          }
+        ),
         content: sized.iconOnly ? undefined : content,
         children: sized.children,
         interactions,
@@ -189,14 +197,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       })
     },
 
-    link: ({ elementProps, content, renderedChildren, component, designStyles }) => {
-      const className = buildLinkClassName(
-        (component ?? {}) as Record<string, unknown>,
-        elementProps['className'] as string | undefined,
-        designStyles?.replace
-      )
-      return Renderers.renderLink({ ...elementProps, className }, content, renderedChildren)
-    },
+    link: linkComponent,
 
     alert: alertComponent,
 
@@ -247,7 +248,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       })
     },
 
-    'date-picker': ({ elementProps, component, rawProps }) => {
+    'date-picker': ({ elementProps, component, rawProps, currentLang, languages }) => {
       // `dateFormat`, `minDate`, `maxDate`, `datePickerMode` are top-level
       // schema fields per `date-picker.ts` (siblings of `props`). The popover
       // trigger + calendar grid are entirely client-side (react-day-picker),
@@ -272,12 +273,15 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
         datePickerMode,
         disabled,
         name,
+        uiStrings: resolveInterpreterStringOverrides(['datePicker.'], currentLang, languages),
       }
+      const pick = resolveInterpreterString('datePicker.pick', currentLang, languages)
       return Renderers.renderDatePickerIsland({
         props: elementProps,
         islandProps,
         label,
-        placeholder,
+        // The server-drawn trigger with no label reads the picker's own word, in the page language.
+        placeholder: placeholder ?? (label ? undefined : pick),
         disabled,
         // The design-system console's `open` state cell. Drawn from
         // the island's own `DatePickerPopup`, without the island marker and
@@ -349,13 +353,10 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
     },
 
     'file-upload': ({ elementProps, component, rawProps, currentLang, languages }) => {
-      // `accept`, `maxFiles`, `dropZone`, `maxFileSize`, and `disabled` are
-      // top-level schema fields on the file-upload component (siblings of
-      // `props`), not nested inside `props` — same lookup contract as the
-      // form-control islands. See the `pickFromComponent` doc-comment in
-      // `island-form-components.tsx`. `pickCompField` extracts the
-      // component-level → rawProps fallback in one call so the dispatcher
-      // stays under the cyclomatic-complexity ceiling.
+      // `accept`, `maxFiles`, `dropZone`, `maxFileSize` and `disabled` are top-level schema
+      // fields (siblings of `props`), read like the form-control islands' (`pickFromComponent`
+      // in `island-form-components.tsx`); the `fileUpload.*` words serve both variants.
+      const uiStrings = resolveInterpreterStringOverrides(['fileUpload.'], currentLang, languages)
       const c = (component ?? {}) as Record<string, unknown>
       const accept = pickCompField<string>(c, rawProps, 'accept')
       const maxFiles = pickCompField<number>(c, rawProps, 'maxFiles')
@@ -371,12 +372,12 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
         authoredLabel === undefined
           ? undefined
           : localizeChildLabel(authoredLabel, currentLang, languages)
-      // Submission wiring (siblings of `props`): the upload destination + the
-      // onSuccess effects / onError toast. The island POSTs the picked file to
-      // `uploadActionUrl` and runs the configured effects on the response.
+      // Submission wiring (siblings of `props`): the upload destination + the onSuccess
+      // effects / onError toast, run by the island on the response to its POST.
       const uploadActionUrl = resolveUploadActionUrl(pickCompField(c, rawProps, 'uploadAction'))
       const onSuccess = pickCompField(c, rawProps, 'onSuccess')
       const onError = pickCompField(c, rawProps, 'onError')
+      const shared = { accept, maxFiles, dropZone, disabled, label }
 
       // Hydrate (emit the island marker) when `dropZone` is true (real-time size /
       // count validation) OR when an `uploadAction` is set (the button variant
@@ -391,6 +392,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
           dropZone,
           disabled,
           label,
+          uiStrings,
           uploadAction: uploadActionUrl,
           onSuccess,
           onError,
@@ -398,25 +400,10 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
           className: elementProps.className as string | undefined,
           'data-testid': elementProps['data-testid'] as string | undefined,
         }
-        return Renderers.renderFileUploadIsland({
-          props: elementProps,
-          islandProps,
-          accept,
-          maxFiles,
-          dropZone,
-          disabled,
-          label,
-        })
+        return Renderers.renderFileUploadIsland({ props: elementProps, islandProps, ...shared })
       }
 
-      return Renderers.renderFileUpload({
-        props: elementProps,
-        accept,
-        maxFiles,
-        dropZone,
-        disabled,
-        label,
-      })
+      return Renderers.renderFileUpload({ props: elementProps, ...shared, uiStrings })
     },
 
     icon: ({ elementProps, renderedChildren, component }) => {

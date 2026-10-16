@@ -47,9 +47,17 @@
 // column header and every empty message, none of which any locator names. They
 // are reproduced verbatim from the retired builder for that reason.
 
-import { pageHeading, tabQuery, tabbedBody, tabPanel } from '../../components/data-page'
+import { sectionCard } from '../../components/dashboard-blocks'
+import {
+  consolePage,
+  emptyState,
+  kpiStrip,
+  pageHeading,
+  tabbedBody,
+  tabPanel,
+  tabQuery,
+} from '../../components/data-page'
 import { dataTable } from '../../components/data-table-blocks'
-import { withShell } from '../../components/shell'
 import {
   ANALYTICS_CAMPAIGNS_ENDPOINT,
   ANALYTICS_DEVICES_ENDPOINT,
@@ -110,34 +118,13 @@ const disabledIntro = (): PageComponent => ({
  */
 const disabledRegion = (): PageComponent =>
   ({
-    type: 'container',
-    element: 'section',
+    ...(emptyState(
+      '$t:admin.pages.disabled.heading',
+      '$t:admin.pages.disabled.body',
+      '$t:admin.pages.disabled.hint',
+      '$t:admin.pages.disabled.region'
+    ) as Record<string, unknown>),
     visibility: { unlessDeclares: 'analytics' },
-    props: {
-      'aria-label': '$t:admin.pages.disabled.region',
-      className:
-        'border-border bg-card mt-2 flex flex-col items-center gap-2 rounded-lg border p-10 text-center',
-    },
-    children: [
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-foreground text-md font-medium' },
-        content: '$t:admin.pages.disabled.heading',
-      },
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-muted-foreground max-w-md text-md leading-relaxed' },
-        content: '$t:admin.pages.disabled.body',
-      },
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-foreground-subtle mt-1 max-w-md text-md italic' },
-        content: '$t:admin.pages.disabled.hint',
-      },
-    ],
   }) as PageComponent
 
 /**
@@ -150,33 +137,20 @@ const disabledRegion = (): PageComponent =>
  * equivalent literals.
  */
 const kpiTile = (label: string, valuePath: string): PageComponent =>
-  ({
-    type: 'kpi',
+  sectionCard({
     label,
-    dataSource: {
-      system: { endpoint: ANALYTICS_OVERVIEW_ENDPOINT, valuePath, query: OVERVIEW_WINDOW },
-    },
-    kpiFormat: { type: 'number' },
-  }) as PageComponent
+    endpoint: ANALYTICS_OVERVIEW_ENDPOINT,
+    valuePath,
+    system: { query: OVERVIEW_WINDOW },
+  })
 
 /** The KPI strip: a named region over the three audience figures. */
-const kpiStrip = (): PageComponent =>
-  ({
-    type: 'container',
-    element: 'section',
-    props: { className: 'pt-2', 'aria-label': '$t:admin.pages.metrics.region' },
-    children: [
-      {
-        type: 'container',
-        props: { className: 'grid grid-cols-1 gap-4 sm:grid-cols-3' },
-        children: [
-          kpiTile('Page views', 'summary.pageViews'),
-          kpiTile('Unique visitors', 'summary.uniqueVisitors'),
-          kpiTile('Sessions', 'summary.sessions'),
-        ],
-      },
-    ],
-  }) as PageComponent
+const audienceFigures = (): PageComponent =>
+  kpiStrip('$t:admin.pages.metrics.region', [
+    kpiTile('$t:admin.analytics.pageViews', 'summary.pageViews'),
+    kpiTile('$t:admin.analytics.uniqueVisitors', 'summary.uniqueVisitors'),
+    kpiTile('$t:admin.analytics.sessions', 'summary.sessions'),
+  ])
 
 /**
  * The audience timeseries, bound to the overview's TOP-LEVEL `timeSeries`.
@@ -205,11 +179,15 @@ const audienceChart = (): PageComponent =>
     chartType: 'area',
     xAxis: { field: 'period', format: 'date' },
     series: [
-      { field: 'pageViews', label: 'Page views' },
-      { field: 'uniqueVisitors', label: 'Unique visitors' },
-      { field: 'sessions', label: 'Sessions' },
+      { field: 'pageViews', label: '$t:admin.analytics.pageViews' },
+      { field: 'uniqueVisitors', label: '$t:admin.analytics.uniqueVisitors' },
+      { field: 'sessions', label: '$t:admin.analytics.sessions' },
     ],
-    emptyState: { role: 'region', name: 'No data', title: 'No visits in this period' },
+    emptyState: {
+      role: 'region',
+      name: '$t:admin.common.noData',
+      title: '$t:admin.analytics.noVisits',
+    },
   }) as PageComponent
 
 /**
@@ -269,12 +247,12 @@ const panelSection = (label: string, children: readonly PageComponent[]): PageCo
 
 /** Visits and share, the shape the device / browser / OS readers return. */
 const TECHNOLOGY_COLUMNS = [
-  { field: 'name', label: 'Name' },
-  { field: 'count', label: 'Visits', align: 'right' },
+  { field: 'name', label: '$t:admin.common.name' },
+  { field: 'count', label: '$t:admin.analytics.visits', align: 'right' },
   // The endpoint already returns a scaled percentage (33.33, not 0.3333) and
   // there is no formatter that leaves an already-scaled number alone — so the
   // unit lives in the header rather than being applied twice to the cell.
-  { field: 'percentage', label: 'Share %', align: 'right' },
+  { field: 'percentage', label: '$t:admin.analytics.share', align: 'right' },
 ]
 
 /** The most-viewed pages over the window. */
@@ -285,11 +263,11 @@ const topPages = (): PageComponent =>
     rowsKey: 'pages',
     idKey: 'path',
     columns: [
-      { field: 'path', label: 'Page' },
-      { field: 'pageViews', label: 'Views', align: 'right' },
-      { field: 'uniqueVisitors', label: 'Visitors', align: 'right' },
+      { field: 'path', label: '$t:admin.analytics.page' },
+      { field: 'pageViews', label: '$t:admin.analytics.views', align: 'right' },
+      { field: 'uniqueVisitors', label: '$t:admin.analytics.visitors', align: 'right' },
     ],
-    emptyMessage: 'No pages viewed in this period',
+    emptyMessage: '$t:admin.analytics.noPages',
   })
 
 /**
@@ -309,11 +287,11 @@ const acquisitionSection = (): PageComponent =>
           rowsKey: 'referrers',
           idKey: 'domain',
           columns: [
-            { field: 'domain', label: 'Referrer' },
-            { field: 'pageViews', label: 'Views', align: 'right' },
-            { field: 'uniqueVisitors', label: 'Visitors', align: 'right' },
+            { field: 'domain', label: '$t:admin.analytics.referrer' },
+            { field: 'pageViews', label: '$t:admin.analytics.views', align: 'right' },
+            { field: 'uniqueVisitors', label: '$t:admin.analytics.visitors', align: 'right' },
           ],
-          emptyMessage: 'No referrers in this period',
+          emptyMessage: '$t:admin.analytics.noReferrers',
         }),
         breakdown({
           label: '$t:admin.pages.campaigns.region',
@@ -321,12 +299,12 @@ const acquisitionSection = (): PageComponent =>
           rowsKey: 'campaigns',
           idKey: 'campaign',
           columns: [
-            { field: 'campaign', label: 'Campaign' },
-            { field: 'source', label: 'Source' },
-            { field: 'medium', label: 'Medium' },
-            { field: 'pageViews', label: 'Views', align: 'right' },
+            { field: 'campaign', label: '$t:admin.analytics.campaign' },
+            { field: 'source', label: '$t:admin.common.source' },
+            { field: 'medium', label: '$t:admin.analytics.medium' },
+            { field: 'pageViews', label: '$t:admin.analytics.views', align: 'right' },
           ],
-          emptyMessage: 'No tagged campaigns in this period',
+          emptyMessage: '$t:admin.analytics.noCampaigns',
         }),
       ],
     } as PageComponent,
@@ -349,7 +327,7 @@ const technologySection = (): PageComponent =>
           rowsKey: 'deviceTypes',
           idKey: 'name',
           columns: TECHNOLOGY_COLUMNS,
-          emptyMessage: 'No devices recorded',
+          emptyMessage: '$t:admin.analytics.noDevices',
         }),
         breakdown({
           label: '$t:admin.pages.browsers.region',
@@ -357,7 +335,7 @@ const technologySection = (): PageComponent =>
           rowsKey: 'browsers',
           idKey: 'name',
           columns: TECHNOLOGY_COLUMNS,
-          emptyMessage: 'No browsers recorded',
+          emptyMessage: '$t:admin.analytics.noBrowsers',
         }),
         breakdown({
           label: '$t:admin.pages.os.region',
@@ -365,7 +343,7 @@ const technologySection = (): PageComponent =>
           rowsKey: 'operatingSystems',
           idKey: 'name',
           columns: TECHNOLOGY_COLUMNS,
-          emptyMessage: 'No operating systems recorded',
+          emptyMessage: '$t:admin.analytics.noOs',
         }),
       ],
     } as PageComponent,
@@ -395,11 +373,11 @@ const eventLogSection = (): PageComponent =>
       rowsKey: 'events',
       idKey: 'id',
       columns: [
-        { field: 'event_name', label: 'Event' },
-        { field: 'event_type', label: 'Type' },
-        { field: 'timestamp', label: 'Recorded', format: 'datetime' },
+        { field: 'event_name', label: '$t:admin.analytics.event' },
+        { field: 'event_type', label: '$t:admin.common.type' },
+        { field: 'timestamp', label: '$t:admin.analytics.recorded', format: 'datetime' },
       ],
-      emptyMessage: 'No events in this period',
+      emptyMessage: '$t:admin.analytics.noEvents',
     }),
   ])
 
@@ -411,7 +389,7 @@ const liveBody = (): PageComponent =>
     visibility: { declares: 'analytics' },
     props: { className: 'flex flex-col gap-8 pt-2' },
     children: [
-      kpiStrip(),
+      audienceFigures(),
       audienceChart(),
       topPages(),
       acquisitionSection(),
@@ -423,15 +401,18 @@ const liveBody = (): PageComponent =>
 /**
  * The two halves of this route, and the `?tab=` value that addresses each.
  *
- * Audience, then cost. `/pages` reports who this instance served and `/footprint`
- * reports what serving them consumed — one question asked twice, split across
- * two sidebar rows and two documents until now. Reading the second is always a
- * consequence of reading the first, so the first opens by default.
+ * Audience, then cost. Pages reports who this instance served and Footprint
+ * reports what serving them consumed — one question asked twice. Reading the
+ * second is always a consequence of reading the first, so the first opens by
+ * default.
  */
 const TABS = [
-  { id: 'pages', label: 'Pages' },
-  { id: 'footprint', label: 'Footprint' },
+  { id: 'pages', label: '$t:admin.common.pages' },
+  { id: 'footprint', label: '$t:admin.analytics.footprint' },
 ] as const
+
+/** The one half an app serving no page of its own has: what the instance spends. */
+const FOOTPRINT_ONLY = [{ id: 'footprint', label: '$t:admin.analytics.footprint' }] as const
 
 /**
  * The Pages panel: the four audience components, whichever of them applies.
@@ -444,79 +425,58 @@ const TABS = [
 const pagesPanel = (): PageComponent => tabPanel([liveBody(), disabledRegion()])
 
 /**
- * Both routes render the SAME strip; only the tab a bare URL opens on differs.
+ * The strip, twice, under opposite gates.
  *
- * `/footprint` is RETAINED rather than redirected because a redirect is not
- * available: `redirects[]` decodes, ships inside the preset, and then does
- * nothing at all under the console mount — both `/_admin/<from>` and `/<from>`
- * answer 404. A retained page is what keeps a bookmark working.
- *
- * `window` is declared on both even though only the Pages panel reads it: a
- * `$window.*` token resolves against the PAGE, and `/footprint?tab=pages` is a
- * reachable state whose panels would otherwise resolve against nothing.
+ * An app that serves no page has no audience to measure, so its Analytics is
+ * the Footprint half alone — a strip offering a Pages tab there would open on a
+ * report that can only ever be empty. A tab set's panels are fixed per set, so
+ * the two shapes are two sets and exactly one reaches the document.
  */
-const analyticsPage = (config: {
-  readonly id: string
-  readonly path: string
-  readonly title: string
-  readonly defaultTab: string
-  // `/footprint` keeps its OWN heading rather than inheriting "Analytics". The
-  // `h1` is `sr-only`, so it is the only thing naming the surface to a screen
-  // reader, and the retained route is a different answer to the same question.
-  readonly heading: PageComponent
-  readonly breadcrumb: Readonly<Record<string, string>>
-}): PageConfig =>
-  withShell(
-    {
-      id: config.id,
-      name: config.id,
-      path: config.path,
-      meta: { title: config.title, lang: 'en-US' },
-      // ONE preset, which IS the window this surface has. See the header for why
-      // adding the Links console's three is a product decision rather than part
-      // of the migration.
-      window: { default: '30d', presets: [{ id: '30d' }] },
-      query: tabQuery(TABS, config.defaultTab),
-      components: [
-        config.heading,
-        tabbedBody('$t:admin.pages.tabs.region', TABS, [pagesPanel(), tabPanel([footprintBody()])]),
-      ],
-    } as PageConfig,
-    { breadcrumb: config.breadcrumb }
-  )
+const withPages = (): PageComponent =>
+  ({
+    ...(tabbedBody('$t:admin.pages.tabs.region', TABS, [
+      pagesPanel(),
+      tabPanel([footprintBody()]),
+    ]) as Record<string, unknown>),
+    visibility: { declares: 'pages' },
+  }) as PageComponent
 
-/** `/pages` — the audience of the operator's own pages, with its cost beside. */
-const audiencePage: PageConfig = analyticsPage({
-  id: 'dashboard-data-pages',
-  path: '/pages',
-  title: '$t:admin.meta.pages',
-  defaultTab: 'pages',
-  // TWO headings under opposite gates, so exactly one reaches the document and
-  // the `h1` count stays at 1 on an app with analytics off. That is why this is
-  // a component rather than a string pair — a single heading could not express
-  // it, and `/pages` is the only surface in the console that needs to.
-  heading: {
-    type: 'container',
-    element: 'div',
-    children: [enabledIntro(), disabledIntro()],
-  } as PageComponent,
-  breadcrumb: { pages: '$t:admin.crumb.pages' },
-})
+const footprintOnly = (): PageComponent =>
+  ({
+    ...(tabbedBody('$t:admin.pages.tabs.region', FOOTPRINT_ONLY, [
+      tabPanel([footprintBody()]),
+    ]) as Record<string, unknown>),
+    // Its one tab is always the open one: `?tab=` defaults to Pages for the
+    // two-tab strip, and this strip has no such tab to open.
+    defaultTab: 'footprint',
+    visibility: { unlessDeclares: 'pages' },
+  }) as PageComponent
 
 /**
- * `/footprint` — the retained address, opening on the Footprint tab.
+ * `/analytics` — the audience of the operator's own pages, with its cost beside.
  *
- * It keeps its own document title and its own breadcrumb leaf, so a bookmark
- * still says what it is looking at.
+ * The headings come in two under opposite gates, so exactly one reaches the
+ * document and the `h1` count stays at 1 on an app with analytics off.
+ *
+ * `window` is declared even though only the Pages panel reads it: a
+ * `$window.*` token resolves against the PAGE. The old `/pages` and
+ * `/footprint` addresses answer a permanent move here (`config/redirects.ts`).
  */
-const footprintPage: PageConfig = analyticsPage({
-  id: 'dashboard-footprint',
-  path: '/footprint',
-  title: '$t:admin.meta.footprint',
-  defaultTab: 'footprint',
-  heading: pageHeading('$t:admin.footprint.heading', '$t:admin.footprint.blurb'),
-  breadcrumb: { footprint: '$t:admin.crumb.footprint' },
+const analyticsPage: PageConfig = consolePage({
+  id: 'dashboard-data-pages',
+  path: '/analytics',
+  title: '$t:admin.meta.pages',
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      children: [enabledIntro(), disabledIntro()],
+    } as PageComponent,
+    withPages(),
+    footprintOnly(),
+  ],
+  page: { window: { default: '30d', presets: [{ id: '30d' }] }, query: tabQuery(TABS) },
+  shell: { breadcrumb: { analytics: '$t:admin.crumb.analytics' } },
 })
 
-/** Both routes, audience first — the order an operator meets them in. */
-export default [audiencePage, footprintPage] satisfies readonly PageConfig[]
+export default [analyticsPage] satisfies readonly PageConfig[]

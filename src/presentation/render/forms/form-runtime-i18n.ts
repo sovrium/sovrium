@@ -17,7 +17,8 @@
  */
 
 import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
-import { resolveDocumentLang, resolveText } from './form-field-resolver'
+import { resolveDocumentLang } from './form-document-lang'
+import { resolveText } from './form-field-resolver'
 import type { FormOnError, FormOnSuccess } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
 
@@ -127,6 +128,9 @@ const RUNTIME_STRING_PREFIXES = [
   'form.sending',
   'form.stopRecording',
   'form.file',
+  'form.unsavedChange',
+  'form.noUnsavedChanges',
+  'form.submitted',
 ] as const
 
 /** The runtime's own words for the page language (its `strings` map). */

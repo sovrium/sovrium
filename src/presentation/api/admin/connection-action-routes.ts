@@ -16,7 +16,7 @@
  *     provider authorize URL + CSRF state + PKCE S256; persists the state +
  *     verifier server-side keyed to the operator. The dashboard island opens the
  *     URL itself, so the API returns it as DATA (not a 302).
- *   - GET  /api/admin/connections/:name/callback    → 302 /_admin/connections
+ *   - GET  /api/admin/connections/:name/callback    → 302 to its safe returnTo, else /_admin/connections
  *     (NAME-keyed: the provider's registered redirect_uri must be config-stable
  *     across restarts). Validates the state, exchanges the code (+ PKCE verifier)
  *     for tokens at the provider tokenUrl, ENCRYPTS + persists them, then 302s.
@@ -48,6 +48,7 @@ import {
   type OAuthStateEntry,
 } from '@/application/ports/services/oauth-state-store'
 import { generateCodeVerifier, generateOAuthState } from '@/domain/kernel/identity/pkce'
+import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { logError } from '@/infrastructure/logging/logger'
 import {
@@ -201,22 +202,14 @@ const resolveAuthorizeProps = async (
 }
 
 /** Persist the CSRF state + PKCE verifier keyed to the operator. */
-const saveAuthorizeState = (input: {
-  readonly state: string
-  readonly connectionName: string
-  readonly userId: string
-  readonly codeVerifier: string | undefined
-  readonly redirectUri: string
-}) =>
+const saveAuthorizeState = ({
+  state,
+  ...entry
+}: { readonly state: string } & Omit<OAuthStateEntry, 'expiresAt'>) =>
   Effect.gen(function* () {
     const store = yield* OAuthStateStore
     yield* store
-      .save(input.state, {
-        connectionName: input.connectionName,
-        userId: input.userId,
-        codeVerifier: input.codeVerifier,
-        redirectUri: input.redirectUri,
-      })
+      .save(state, entry)
       .pipe(
         Effect.mapError(
           (cause) => new AdminConnectionActionError({ operation: 'state.save', cause })
@@ -253,6 +246,7 @@ async function handleAuthorize(c: Context, app: App): Promise<Response> {
       userId: session.userId,
       codeVerifier,
       redirectUri: props.redirectUri,
+      returnTo: c.req.query('returnTo'),
     })
   )
   if (saveResult._tag === 'Failure') {
@@ -282,6 +276,8 @@ interface ResolvedCallback {
   readonly scope: 'app' | 'user'
   readonly code: string
   readonly codeVerifier: string | undefined
+  /** The authorize request's `returnTo`, followed only when it is a safe path. */
+  readonly returnTo: string | undefined
 }
 
 interface CallbackInputs {
@@ -388,6 +384,7 @@ async function resolveCallback(
     scope: resolvedProps.scope === 'user' ? 'user' : 'app',
     code: inputs.code,
     codeVerifier: entry.codeVerifier,
+    returnTo: entry.returnTo,
   }
 }
 
@@ -468,9 +465,9 @@ async function handleCallback(c: Context, app: App): Promise<Response> {
     return actionError(c, 500, 'token_persistence_failed')
   }
 
-  // Land back on the dashboard connections page. The redirect body carries no
-  // token/secret material (S4).
-  return c.redirect('/_admin/connections', 302)
+  // Land back where the gesture started when that is a same-origin path, else
+  // on the connections page. The redirect carries no token/secret material (S4).
+  return c.redirect(toSafeRedirectPath(ctx.returnTo) ?? '/_admin/connections', 302)
 }
 
 // ─── disconnect (id-keyed) ──────────────────────────────────────────────────

@@ -26,6 +26,10 @@ import type {
 } from '@/application/ports/repositories/agents/admin-agent-conversations-repository'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type {
+  AccountDatabaseError,
+  AccountRepository,
+} from '@/application/ports/repositories/auth/account-repository'
+import type {
   AuthDatabaseError,
   AuthRepository,
 } from '@/application/ports/repositories/auth/auth-repository'
@@ -104,6 +108,7 @@ export type AdminReadError =
   | UsersDirectoryDatabaseError
   | InvitationTokenDatabaseError
   | DesignSystemShareDatabaseError
+  | AccountDatabaseError
 
 /** The services an admin read requires. Extend as areas join. */
 export type AdminReadServices =
@@ -133,3 +138,4 @@ export type AdminReadServices =
   | InvitationTokenRepository
   | OrganizationTeamRepository
   | DesignSystemShareRepository
+  | AccountRepository

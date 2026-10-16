@@ -48,9 +48,9 @@
 // "Cancel" — two buttons reading "Cancel" one dialog apart, meaning opposite
 // things, is the ambiguity the longer label buys out of.
 
+import { consolePage } from '../components/data-page'
 import { dataTable } from '../components/data-table-blocks'
 import { COLUMN, ROW_HINT, row, status } from '../components/settings-row'
-import { withShell } from '../components/shell'
 import type { Page as PageConfig } from '@/domain/models/app'
 /**
  * The component union, derived rather than imported.
@@ -89,208 +89,218 @@ const actionRow = (hint: string, control: PageComponent): PageComponent =>
     ],
   }) as PageComponent
 
-export default withShell(
-  {
-    id: 'dashboard-gdpr',
-    name: 'dashboard-gdpr',
-    path: '/gdpr',
-    meta: { title: '$t:admin.meta.gdpr', lang: 'en-US' },
-    components: [
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: COLUMN },
-        children: [
-          // The same identity header `/profile` opens with, for the same reason:
-          // these controls act on ONE account, and the reader should be able to
-          // see which one before they erase it.
-          {
-            type: 'container',
-            element: 'div',
-            props: {
-              className: 'flex items-center gap-4 pt-7 pb-6',
-              'aria-label': '$t:admin.profile.identity.region',
-            },
-            children: [
-              {
-                type: 'avatar',
-                src: '$session.image',
-                label: '$session.name',
-                size: 'lg',
-                props: { 'data-testid': 'gdpr-avatar', className: 'size-16 text-lg' },
-              },
-              {
-                type: 'container',
-                element: 'div',
-                props: { className: 'flex min-w-0 flex-col gap-0.5' },
-                children: [
-                  {
-                    type: 'text',
-                    element: 'h1',
-                    props: { className: 'text-3xl font-semibold tracking-tight' },
-                    session: 'name',
-                  },
-                  {
-                    type: 'text',
-                    element: 'p',
-                    props: {
-                      className: 'text-foreground-subtle text-md',
-                      'data-testid': 'gdpr-identity-email',
-                    },
-                    session: 'email',
-                  },
-                ],
-              },
-            ],
+export default consolePage({
+  id: 'dashboard-gdpr',
+  path: '/gdpr',
+  title: '$t:admin.meta.gdpr',
+  shell: { breadcrumb: { gdpr: '$t:admin.crumb.gdpr' } },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: COLUMN },
+      children: [
+        // The same identity header `/profile` opens with, for the same reason:
+        // these controls act on ONE account, and the reader should be able to
+        // see which one before they erase it.
+        {
+          type: 'container',
+          element: 'div',
+          props: {
+            className: 'flex items-center gap-4 pt-7 pb-6',
+            'aria-label': '$t:admin.profile.identity.region',
           },
-          {
-            type: 'container',
-            element: 'section',
-            props: {
-              className: 'border-border flex flex-col border-t',
-              'aria-label': '$t:admin.gdpr.heading',
+          children: [
+            {
+              type: 'avatar',
+              src: '$session.image',
+              label: '$session.name',
+              size: 'lg',
+              props: { 'data-testid': 'gdpr-avatar', className: 'size-16 text-lg' },
             },
-            children: [
-              // ── Export ───────────────────────────────────────────────────
-              row('$t:admin.gdpr.export.heading', [
-                actionRow('$t:admin.locked.audit.gdpr.exportScope', {
-                  type: 'button',
-                  variant: 'secondary',
-                  content: '$t:admin.gdpr.export.submit',
-                  props: { id: 'gdpr-export-btn', className: 'w-fit' },
-                  action: {
-                    type: 'fetch',
-                    mode: 'download',
-                    url: '/api/account/export',
-                    filename: 'my-account.json',
-                    onSuccess: {
-                      type: 'toast',
-                      variant: 'success',
-                      message: 'Export complete',
-                      status: { target: 'gdpr-export-status', message: 'Export generated' },
+            {
+              type: 'container',
+              element: 'div',
+              props: { className: 'flex min-w-0 flex-col gap-0.5' },
+              children: [
+                {
+                  type: 'text',
+                  element: 'h1',
+                  props: { className: 'text-3xl font-semibold tracking-tight' },
+                  session: 'name',
+                },
+                {
+                  type: 'text',
+                  element: 'p',
+                  props: {
+                    className: 'text-foreground-subtle text-md',
+                    'data-testid': 'gdpr-identity-email',
+                  },
+                  session: 'email',
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'container',
+          element: 'section',
+          props: {
+            className: 'border-border flex flex-col border-t',
+            'aria-label': '$t:admin.gdpr.heading',
+          },
+          children: [
+            // ── Export ───────────────────────────────────────────────────
+            row('$t:admin.gdpr.export.heading', [
+              actionRow('$t:admin.locked.audit.gdpr.exportScope', {
+                type: 'button',
+                variant: 'secondary',
+                content: '$t:admin.gdpr.export.submit',
+                props: { id: 'gdpr-export-btn', className: 'w-fit' },
+                action: {
+                  type: 'fetch',
+                  mode: 'download',
+                  url: '/api/account/export',
+                  filename: 'my-account.json',
+                  onSuccess: {
+                    type: 'toast',
+                    variant: 'success',
+                    message: '$t:admin.gdpr.export.complete',
+                    status: {
+                      target: 'gdpr-export-status',
+                      message: '$t:admin.gdpr.export.generated',
                     },
                   },
-                } as PageComponent),
-                status('gdpr-export-status'),
-              ]),
-              // ── Erase ────────────────────────────────────────────────────
-              //
-              // The grace / irreversibility callout (S5) is this row's guidance.
-              // The dialog states it again on the way through, because the two
-              // are read at different moments by different people.
-              row('$t:admin.gdpr.erase.heading', [
-                actionRow('$t:admin.locked.audit.gdpr.erasureNotice', {
-                  type: 'button',
-                  // Erasure is the one destructive control on this page, so it
-                  // names the destructive tone rather than hand-painting an
-                  // error fill — which is how it also gains the hover step the
-                  // recipe carries and a hand-written pair does not.
-                  variant: 'destructive',
-                  content: '$t:admin.gdpr.erase.submit',
-                  props: { id: 'gdpr-erase-btn', className: 'w-fit' },
-                  // Every string in the gate is a key, including the ones that
-                  // read as chrome. This dialog is where the irreversibility is
-                  // stated at the moment it is being decided, so an
-                  // English-only dialog in front of a French console states it
-                  // to nobody — and the row hint above, which IS translated,
-                  // would be left carrying the whole warning on its own.
-                  confirm: {
-                    title: '$t:admin.gdpr.erase.confirm.title',
-                    message: '$t:admin.gdpr.erase.confirm.message',
-                    role: 'alertdialog',
-                    input: {
-                      label: '$t:admin.gdpr.erase.confirm.input',
-                      matchValue: '$session.email',
-                    },
-                    confirmLabel: '$t:admin.gdpr.erase.confirm.affirm',
-                    cancelLabel: '$t:admin.gdpr.erase.confirm.dismiss',
+                  // A refused export is said, with what to do next; the
+                  // button is given back by the pending control either way.
+                  onError: {
+                    type: 'toast',
+                    variant: 'destructive',
+                    message: '$t:admin.gdpr.export.failed',
                   },
-                  action: {
-                    type: 'fetch',
-                    url: '/api/account/delete',
-                    method: 'POST',
-                    body: { confirm: true },
-                    onSuccess: {
-                      type: 'toast',
-                      variant: 'success',
-                      message: 'Deletion scheduled',
-                      status: { target: 'gdpr-erase-status', message: 'Deletion scheduled' },
-                    },
+                },
+              } as PageComponent),
+              status('gdpr-export-status'),
+            ]),
+            // ── Erase ────────────────────────────────────────────────────
+            //
+            // The grace / irreversibility callout (S5) is this row's guidance.
+            // The dialog states it again on the way through, because the two
+            // are read at different moments by different people.
+            row('$t:admin.gdpr.erase.heading', [
+              actionRow('$t:admin.locked.audit.gdpr.erasureNotice', {
+                type: 'button',
+                // Erasure is the one destructive control on this page, so it
+                // names the destructive tone rather than hand-painting an
+                // error fill — which is how it also gains the hover step the
+                // recipe carries and a hand-written pair does not.
+                variant: 'destructive',
+                content: '$t:admin.gdpr.erase.submit',
+                props: { id: 'gdpr-erase-btn', className: 'w-fit' },
+                // Every string in the gate is a key, including the ones that
+                // read as chrome. This dialog is where the irreversibility is
+                // stated at the moment it is being decided, so an
+                // English-only dialog in front of a French console states it
+                // to nobody — and the row hint above, which IS translated,
+                // would be left carrying the whole warning on its own.
+                confirm: {
+                  title: '$t:admin.gdpr.erase.confirm.title',
+                  message: '$t:admin.gdpr.erase.confirm.message',
+                  role: 'alertdialog',
+                  input: {
+                    label: '$t:admin.gdpr.erase.confirm.input',
+                    matchValue: '$session.email',
                   },
-                } as PageComponent),
-                status('gdpr-erase-status'),
-              ]),
-              // ── In progress ──────────────────────────────────────────────
-              //
-              // The one row whose body is NOT a control pair: the grid spans the
-              // body column in full, because a table squeezed into a 416px
-              // measure beside an empty action cell reads as a mistake.
-              row('$t:admin.gdpr.pending.region', [
-                dataTable({
-                  props: { id: PENDING_GRID_ID, 'aria-label': '$t:admin.gdpr.pending.region' },
-                  dataSource: {
-                    system: {
-                      endpoint: '/api/account/pending-erasure',
-                      rowsKey: 'items',
-                      idKey: 'id',
+                  confirmLabel: '$t:admin.gdpr.erase.confirm.affirm',
+                  cancelLabel: '$t:admin.gdpr.erase.confirm.dismiss',
+                },
+                action: {
+                  type: 'fetch',
+                  url: '/api/account/delete',
+                  method: 'POST',
+                  body: { confirm: true },
+                  onSuccess: {
+                    type: 'toast',
+                    variant: 'success',
+                    message: '$t:admin.gdpr.erase.scheduled',
+                    status: {
+                      target: 'gdpr-erase-status',
+                      message: '$t:admin.gdpr.erase.scheduled',
                     },
                   },
-                  columns: [
-                    { field: 'email', label: '$t:admin.gdpr.pending.account' },
-                    {
-                      field: 'scheduledErasureAt',
-                      label: '$t:admin.gdpr.pending.due',
-                      format: 'relative-time',
-                    },
-                    {
-                      type: 'actions',
-                      label: '$t:admin.gdpr.pending.actions',
-                      actions: [
-                        {
-                          label: '$t:admin.gdpr.pending.cancel',
-                          confirm: {
-                            title: '$t:admin.gdpr.pending.confirm.title',
-                            message: '$t:admin.gdpr.pending.confirm.message',
-                            role: 'alertdialog',
-                            confirmLabel: '$t:admin.gdpr.pending.confirm.affirm',
-                            cancelLabel: '$t:admin.gdpr.pending.confirm.dismiss',
-                          },
-                          action: {
-                            type: 'fetch',
-                            url: '/api/account/delete',
-                            method: 'POST',
-                            body: { cancel: true },
-                            onSuccess: {
-                              type: 'toast',
-                              message: 'Request cancelled',
-                              refetch: PENDING_GRID_ID,
-                            },
+                },
+              } as PageComponent),
+              status('gdpr-erase-status'),
+            ]),
+            // ── In progress ──────────────────────────────────────────────
+            //
+            // The one row whose body is NOT a control pair: the grid spans the
+            // body column in full, because a table squeezed into a 416px
+            // measure beside an empty action cell reads as a mistake.
+            row('$t:admin.gdpr.pending.region', [
+              dataTable({
+                props: { id: PENDING_GRID_ID, 'aria-label': '$t:admin.gdpr.pending.region' },
+                dataSource: {
+                  system: {
+                    endpoint: '/api/account/pending-erasure',
+                    rowsKey: 'items',
+                    idKey: 'id',
+                  },
+                },
+                columns: [
+                  { field: 'email', label: '$t:admin.gdpr.pending.account' },
+                  {
+                    field: 'scheduledErasureAt',
+                    label: '$t:admin.gdpr.pending.due',
+                    format: 'relative-time',
+                  },
+                  {
+                    type: 'actions',
+                    label: '$t:admin.gdpr.pending.actions',
+                    actions: [
+                      {
+                        label: '$t:admin.gdpr.pending.cancel',
+                        confirm: {
+                          title: '$t:admin.gdpr.pending.confirm.title',
+                          message: '$t:admin.gdpr.pending.confirm.message',
+                          role: 'alertdialog',
+                          confirmLabel: '$t:admin.gdpr.pending.confirm.affirm',
+                          cancelLabel: '$t:admin.gdpr.pending.confirm.dismiss',
+                        },
+                        action: {
+                          type: 'fetch',
+                          url: '/api/account/delete',
+                          method: 'POST',
+                          body: { cancel: true },
+                          onSuccess: {
+                            type: 'toast',
+                            message: '$t:admin.gdpr.pending.cancelled',
+                            refetch: PENDING_GRID_ID,
                           },
                         },
-                      ],
-                    },
-                  ],
-                  emptyMessage: '$t:admin.gdpr.pending.empty',
-                }) as PageComponent,
-              ]),
-              // ── Your account ─────────────────────────────────────────────
-              row('$t:admin.gdpr.account.label', [
-                actionRow('$t:admin.gdpr.account.hint', {
-                  type: 'link',
-                  content: '$t:admin.gdpr.profileLink',
-                  props: {
-                    href: '/profile',
-                    className:
-                      'border-border-strong bg-card text-foreground hover:bg-muted inline-flex h-8 w-fit items-center rounded-[var(--radius-base,4px)] border px-3 text-base font-medium',
-                    'data-testid': 'gdpr-profile-link',
+                      },
+                    ],
                   },
-                } as PageComponent),
-              ]),
-            ],
-          },
-        ],
-      },
-    ],
-  } as PageConfig,
-  { breadcrumb: { gdpr: '$t:admin.crumb.gdpr' } }
-) satisfies PageConfig
+                ],
+                emptyMessage: '$t:admin.gdpr.pending.empty',
+              }) as PageComponent,
+            ]),
+            // ── Your account ─────────────────────────────────────────────
+            row('$t:admin.gdpr.account.label', [
+              actionRow('$t:admin.gdpr.account.hint', {
+                type: 'link',
+                content: '$t:admin.gdpr.profileLink',
+                props: {
+                  href: '/profile',
+                  className:
+                    'border-border-strong bg-card text-foreground hover:bg-muted inline-flex h-8 w-fit items-center rounded-[var(--radius-base,4px)] border px-3 text-base font-medium',
+                  'data-testid': 'gdpr-profile-link',
+                },
+              } as PageComponent),
+            ]),
+          ],
+        },
+      ],
+    },
+  ],
+}) satisfies PageConfig

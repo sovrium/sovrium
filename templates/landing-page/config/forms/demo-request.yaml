@@ -28,11 +28,13 @@ onSuccess:
 fields:
   - kind: table-field
     column: name
+    autocomplete: name
     required: true
     label: $t:form.name
     placeholder: Nadia Benali
   - kind: table-field
     column: restaurant
+    autocomplete: organization
     required: true
     label: $t:form.restaurant
     placeholder: Le Comptoir

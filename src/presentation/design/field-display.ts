@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { humanizeFieldName } from './string-utils'
+
 /**
  * How a table field's author-declared `label` / `description` reach a user-facing
  * surface — the ONE place the resolution order lives.
@@ -16,12 +18,12 @@
  *
  *   surface-level override  ->  the field's own value  ->  the surface fallback
  *
- * The FALLBACK is deliberately NOT uniform and must not be flattened: the drawer
- * and the column header print the raw `name` verbatim, while the form control
- * humanizes it. Humanizing the raw two would restyle every heading in every
- * already-shipped app with no config edit; de-humanizing the form would regress
- * behaviour an existing green spec asserts. Which is why the fallback is a
- * PARAMETER here rather than a constant — each caller passes its own.
+ * The FALLBACK is a PARAMETER rather than a constant because the surfaces have
+ * not all moved to the same one yet. The form control and the grid's column
+ * header humanize the name (`unit_price` reads `Unit Price`): a field the author
+ * named but did not label is still something a reader should be able to read,
+ * and the grid is the surface an operator meets every table through
+ * ({@link resolveColumnLabel}). The record drawer still prints the raw name.
  */
 
 /**
@@ -67,8 +69,8 @@ export function declaredFieldDescription(field: unknown): string | undefined {
  * @param override - the surface's own override (`recordFields[].label`,
  *   `columns[].label`, `fields[].label`)
  * @param declared - the field's own `label` (see {@link declaredFieldLabel})
- * @param fallback - THIS surface's existing fallback — raw `name` in the drawer
- *   and the column header, humanized in the form control.
+ * @param fallback - THIS surface's existing fallback — raw `name` in the drawer,
+ *   humanized in the form control (the grid uses {@link resolveColumnLabel}).
  */
 export function resolveDisplayLabel(
   override: string | undefined,
@@ -76,6 +78,20 @@ export function resolveDisplayLabel(
   fallback: string
 ): string {
   return override ?? declared ?? fallback
+}
+
+/**
+ * A grid column's heading: the column's own `label`, else the field's, else the
+ * field name made readable — `unit_price` and `unitPrice` both read
+ * `Unit Price`. The humanized name is only ever the LAST resort: a declared
+ * label is printed exactly as written.
+ */
+export function resolveColumnLabel(
+  override: string | undefined,
+  declared: string | undefined,
+  name: string
+): string {
+  return override ?? declared ?? humanizeFieldName(name)
 }
 
 /**

@@ -63,7 +63,7 @@ export interface GenerateStaticOptions {
   readonly publicDir?: string // Directory containing static assets to copy
   /**
    * Also write the compiled CSS to the pre-compiled artifact path
-   * (`SOVRIUM_CSS_FILE`, else `.sovrium/output.css`) so a later
+   * (`SOVRIUM_CSS_FILE`, else `output.css` in the data directory) so a later
    * `sovrium start` can serve it without recompiling. Defaults to `true`,
    * which is what `sovrium build` wants.
    *
@@ -233,7 +233,7 @@ function generateCssFile(
 
     // Also write pre-compiled CSS for production start
     const precompiledPath = yield* cssCompiler
-      .writePrecompiled(css)
+      .writePrecompiled(css, app)
       .pipe(
         Effect.catch(({ cause: c }) =>
           Console.log(`⚠️ Could not write pre-compiled CSS: ${String(c)}`).pipe(

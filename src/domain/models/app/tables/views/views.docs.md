@@ -90,7 +90,7 @@ Bound to a view, a component reads the records the view returns: the view's filt
 
 Bound directly to a table, a component may narrow it with its own `dataSource.filter` and `dataSource.sort`.
 
-A reader's search, filter and sort from a grid's toolbar narrow what she sees for that visit only. They are stored nowhere, and a reload shows the component as configured.
+A reader's search, filter and sort — from the controls composed above a grid, or a column header — narrow what she sees for that visit only. They are stored nowhere, and a reload shows the component as configured.
 
 ## SQL mode
 

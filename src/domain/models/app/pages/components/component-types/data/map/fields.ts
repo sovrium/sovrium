@@ -33,6 +33,7 @@
 import { Schema } from 'effect'
 import { CardClickActionSchema } from '../../../action'
 import { DataSourceSchema } from '../../../data-source'
+import { SharedFilterPublisherSchema } from '../../../data-source-publishers'
 import { coreFields } from '../../modules/core'
 import { i18nFields } from '../../modules/i18n'
 import { responsiveFields } from '../../modules/responsive'
@@ -120,4 +121,10 @@ export const mapFields = {
         'Sentence shown when no record has a location to place (default: "No locations to show."). Supports $t: references.',
     })
   ),
+  /**
+   * Publish the pin the reader selects on a shared-filter channel: its record
+   * id. Clicking a pin selects it and opens its card as before; closing the
+   * card clears the selection. The key `tree` and `graph` carry.
+   */
+  publishes: Schema.optional(SharedFilterPublisherSchema),
 } as const

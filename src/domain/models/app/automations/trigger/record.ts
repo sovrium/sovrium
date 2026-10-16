@@ -50,7 +50,7 @@ export const RecordTriggerSchema = Schema.Struct({
     identifier: 'RecordTrigger',
     title: 'Record Trigger',
     description:
-      'Trigger automation when records are created, updated, or deleted. The run reads the row as stored at trigger.data.record (id, created_at, updated_at and the stamped columns included) and, for a record created through the records API or written by an automation step, who made the write at trigger.user ({ id, role }, or system for a write no person made).',
+      'Trigger automation when records are created, updated, or deleted. The run reads the row as stored at trigger.data.record (id, created_at, updated_at and the stamped columns included) and, for a record created through the records API or written by an automation step, who made the write at trigger.user ({ id, role, email, name }; id and role read system, email and name empty, for a write no person made).',
   })
 )
 

@@ -11,6 +11,7 @@ import {
   type CallerInputRejectionClass,
   type ConstraintViolationClass,
 } from '@/domain/errors/driver-failure'
+import { transactionConflictOf } from '@/domain/errors/transaction-conflict-error'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
@@ -297,6 +298,9 @@ const INTERNAL_ERROR: SanitizedError = {
   message: 'An unexpected error occurred. Please try again later.',
 }
 
+/** A write that met a concurrent one: no statement, no value, only that it may be retried. */
+const CONFLICT_RETRY_MESSAGE = 'The resource changed while it was being written. Please try again.'
+
 const SANITIZED_ERROR_TITLES = {
   CONFLICT: 'Conflict',
   VALIDATION_ERROR: 'Validation Error',
@@ -341,6 +345,10 @@ function constraintAnswer(violation: ConstraintViolationClass, error: unknown): 
  * compile until it has been given a status here.
  */
 function mapDriverFailure(error: unknown): SanitizedError | undefined {
+  // Lost a conflict with a concurrent transaction: the caller may send it again.
+  if (transactionConflictOf(error) !== undefined) {
+    return { error: 'Conflict', code: 'CONFLICT', message: CONFLICT_RETRY_MESSAGE }
+  }
   const failure = classifyDriverFailure(error)
   switch (failure.origin) {
     case 'constraint': {
@@ -376,16 +384,6 @@ function mapDriverFailure(error: unknown): SanitizedError | undefined {
  * @param error - The error to sanitize
  * @param requestId - Optional request ID for correlation in logs
  * @returns Sanitized error safe for client consumption
- *
- * @example
- * ```typescript
- * try {
- *   await dangerousOperation()
- * } catch (error) {
- *   const sanitized = sanitizeError(error, requestId)
- *   return c.json(sanitized, getStatusCode(sanitized.code))
- * }
- * ```
  */
 export function sanitizeError(error: unknown, requestId?: string): SanitizedError {
   logErrorDetails(error, requestId)

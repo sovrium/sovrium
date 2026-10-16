@@ -8,6 +8,7 @@
 import { localizeRunRecord } from '@/domain/models/app/pages/automation-run-status'
 import { flattenRecordFields } from '@/domain/models/app/pages/record-envelope'
 import { buildDetailEndpointUrl } from '@/domain/models/app/pages/system-detail-endpoint'
+import { fetchCoalesced } from '../runtime/coalesced-read'
 import { localizeRunStatusRows, readErrorBody } from '../runtime/system-response-read'
 import type { TableRecord } from '../runtime/types'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
@@ -283,7 +284,8 @@ export async function fetchSystemEndpoint({
     ...(cursor !== undefined && { cursor }),
   })
   const url = `${system.endpoint}${suffix ? `?${suffix}` : ''}`
-  const res = await fetch(url, { credentials: 'include' })
+  // Grids reading one envelope for different arrays share the request in flight.
+  const res = await fetchCoalesced(url)
 
   if (!res.ok) {
     // The MESSAGE is what an operator reads in the grid's alert, so it carries the

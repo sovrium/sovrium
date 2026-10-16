@@ -46,6 +46,17 @@
  *     values + a dark cascade, used when `theme.baseline === 'replace'` so a
  *     replaced baseline never renders unstyled.
  *
+ * ## Departures from the registry snapshot
+ *
+ * The generated constants below hold base-nova's values exactly. One
+ * departure is emitted beside them, by `buildDefaultLayer`: the sidebar's
+ * `--sidebar-primary`, `--sidebar-primary-foreground` and `--sidebar-ring`
+ * follow `--primary`, `--primary-foreground` and `--ring` in both schemes
+ * (`generateSidebarRoleFollowers`, `theme-generators.ts`), unless the app
+ * declares the sidebar role itself. base-nova's own sidebar primary is a
+ * near-black in light and a stock blue in dark, which drew a sidebar's brand
+ * tile in a colour the rest of the app never uses.
+ *
  * ## How the Tailwind v4 wiring works (verified, not assumed)
  *
  * `@theme { --color-background: var(--background) }` does two things: it registers

@@ -202,6 +202,10 @@ export const envVarStatusSchema = Schema.Struct({
         'The constant "***" when a value resolved, null when it did not. Fixed-width by design: a length-revealing mask would fingerprint the credential format.',
     })
   ),
+  usedBy: Schema.Array(Schema.String).annotate({
+    description:
+      'Where the configuration references this variable as `$env.KEY`, one entry per place, in document order, worded as `sovrium validate` words an undeclared reference (e.g. "Connection \'crm\' props.clientSecret"). Empty when nothing references it: the variable is declared but unused. Names places only, never the value.',
+  }),
 }).annotate({ identifier: 'EnvVarStatus' })
 
 /** @public */

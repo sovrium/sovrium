@@ -6,7 +6,12 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { buildSystemQueryUrl } from '../runtime/system-query-url'
+import {
+  fetchSystemEnvelope,
+  SystemEnvelopeReadError,
+  systemEnvelopeQueryKey,
+  type SystemEnvelopeResult,
+} from '../runtime/system-envelope-query'
 import type { ChartFetchResult } from './use-chart-records'
 import type { TableRecord } from '../runtime/types'
 import type { ChartSystemSource } from '@/domain/models/app/pages/components/component-types/data/chart'
@@ -31,24 +36,32 @@ import type { ChartSystemSource } from '@/domain/models/app/pages/components/com
 /**
  * Fetches the chart's rows from a system read endpoint and reads the rows array
  * at `rowsKey` (default `'items'`) into the chart's `{ records }` shape.
+ *
+ * The fetch is the page's ONE entry for this endpoint + static `query`
+ * (`systemEnvelopeQueryKey`), shared with every KPI tile and chart reading the
+ * same envelope; `rowsKey` is applied in `select`, so two charts reading
+ * different arrays of one envelope share the request too. A refused read
+ * (401/403/404) and any other failure surface as the error they always did.
  */
 export function useChartSystemRecords(system: ChartSystemSource | undefined) {
-  return useQuery({
-    queryKey: ['chart-system-records', system?.endpoint, system?.rowsKey, system?.query],
+  const query = useQuery({
+    queryKey: systemEnvelopeQueryKey(system),
     enabled: Boolean(system?.endpoint),
-    queryFn: async (): Promise<ChartFetchResult> => {
-      if (!system?.endpoint) return { records: [] }
-
-      const res = await fetch(buildSystemQueryUrl(system), { credentials: 'include' })
-      if (!res.ok) {
-        const body = await res.text()
-        throw new Error(`Failed to fetch chart system rows: ${String(res.status)} ${body}`)
-      }
-
-      const json = (await res.json()) as Record<string, unknown>
-      const rowsKey = system.rowsKey ?? 'items'
+    queryFn: () => fetchSystemEnvelope(system),
+    select: (result: SystemEnvelopeResult): ChartFetchResult => {
+      if (result.kind === 'denied') throw chartReadError(result.status, result.body)
+      const json = (result.envelope ?? {}) as Record<string, unknown>
+      const rowsKey = system?.rowsKey ?? 'items'
       const records = Array.isArray(json[rowsKey]) ? (json[rowsKey] as readonly TableRecord[]) : []
       return { records }
     },
   })
+  const { error } = query
+  return error instanceof SystemEnvelopeReadError
+    ? { ...query, error: chartReadError(error.status, error.body) }
+    : query
 }
+
+/** The message the chart's error region shows for a failed read. */
+const chartReadError = (status: number, body: string): Error =>
+  new Error(`Failed to fetch chart system rows: ${String(status)} ${body}`)

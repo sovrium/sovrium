@@ -6,7 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { createTableClient } from '@/presentation/api/client'
+import { createTableClient } from '@/presentation/islands/runtime/rpc-client'
 
 // ---------------------------------------------------------------------------
 // API client (singleton)

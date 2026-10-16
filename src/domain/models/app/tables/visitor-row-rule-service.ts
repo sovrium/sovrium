@@ -22,9 +22,11 @@
  *              the records API answers her the same, through the signed-out
  *              context (`signedOutContext`) in which no `$currentUser` value
  *              resolves and such a rule matches no row, in SQL and in memory;
- *  - `check` — evaluate each row, after loading the reader's assignments for
- *              the `scopeTables` the rule names (the caller loads them its own
- *              way: a Promise on a page, an Effect in a use-case).
+ *  - `check` — evaluate each row against the reader's context, loaded once
+ *              per read by the caller (`loadCurrentUserContext`: her
+ *              assignments for the `scopeTables` the rule names, and the ids
+ *              each `contains` or relationship leaf admits — a Promise on a
+ *              page, an Effect in a use-case).
  *
  * An anonymous reader is judged by the same rule as anyone else (a rule naming
  * no one — `status = published` — applies to her as written); only a rule that
@@ -33,8 +35,8 @@
 
 import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import {
+  assignmentScopeKeysOfRule,
   evaluateRecordAgainstPredicate,
-  isPredicateGroup,
   rowRuleNamesCurrentUser,
   type CurrentUserContext,
 } from './row-level-evaluator-service'
@@ -57,13 +59,10 @@ export type VisitorRowRule =
   | { readonly kind: 'none' }
   | {
       readonly kind: 'check'
-      /** The `$currentUser.assignments.<table>` scopes the rule reads. */
+      /** The `$currentUser.assignments` keys the rule reads (`<table>` or `<table>.<role>`). */
       readonly scopeTables: readonly string[]
-      /** Is this row admitted, given the reader's assignments per scope table? */
-      readonly admits: (
-        record: RecordRow,
-        assignments: ReadonlyMap<string, readonly string[]>
-      ) => boolean
+      /** Is this row admitted, given the reader's loaded context? */
+      readonly admits: (record: RecordRow, context: CurrentUserContext) => boolean
     }
 
 /** The minimal table shape the rule is read from. */
@@ -75,37 +74,21 @@ export interface RowRuleTable {
     ReadonlyArray<{ readonly name: string; readonly type?: string | undefined }> | undefined
 }
 
-/** Extract `tableSlug` from the typed `{ kind: 'currentUser', path: ... }` form. */
-function scopeFromTypedValue(value: unknown): string | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
-  const obj = value as {
-    readonly kind?: string
-    readonly path?: { readonly kind?: string; readonly tableSlug?: string }
-  }
-  if (obj.kind !== 'currentUser' || obj.path?.kind !== 'assignment') return undefined
-  return typeof obj.path.tableSlug === 'string' ? obj.path.tableSlug : undefined
-}
-
-/** Extract `tableSlug` from the string-template form `$currentUser.assignments.<slug>`. */
-function scopeFromTemplateValue(value: unknown): string | undefined {
-  const prefix = '$currentUser.assignments.'
-  if (typeof value !== 'string' || !value.startsWith(prefix)) return undefined
-  const slug = value.slice(prefix.length)
-  return slug.length > 0 ? slug : undefined
+/**
+ * The `$currentUser.assignments.<table>` scopes a rule reads, in both the typed
+ * and the string-template spelling, across every condition of a group — each as
+ * its assignments key (`assignmentScopeKey`: `<table>` or `<table>.<role>`).
+ */
+export function scopeTablesOfRule(predicate: RowLevelWhen): readonly string[] {
+  return assignmentScopeKeysOfRule(predicate)
 }
 
 /**
- * The `$currentUser.assignments.<table>` scope tables a rule reads, in both the
- * typed and the string-template spelling, across every condition of a group.
+ * The context a reader is evaluated against, her assignments loaded and no
+ * lookup leaf answered — so a `contains` or relationship leaf admits no row.
+ * For a door that cannot load the full context; one that can loads it instead.
  */
-export function scopeTablesOfRule(predicate: RowLevelWhen): readonly string[] {
-  if (isPredicateGroup(predicate)) return predicate.conditions.flatMap(scopeTablesOfRule)
-  const scope = scopeFromTemplateValue(predicate.value) ?? scopeFromTypedValue(predicate.value)
-  return scope === undefined ? [] : [scope]
-}
-
-/** The context a reader is evaluated against, her assignments loaded. */
-function contextOf(
+export function readerContextOf(
   reader: RowRuleReader | undefined,
   assignments: ReadonlyMap<string, readonly string[]>
 ): CurrentUserContext {
@@ -136,12 +119,8 @@ export function visitorRowRule(
     scopeTables: reader === undefined ? [] : [...new Set(scopeTablesOfRule(predicate))],
     // Judged as the records API reads the row: a SQLite `1`/`0` boolean is
     // `true`/`false` before the rule sees it.
-    admits: (record, assignments) =>
-      evaluateRecordAgainstPredicate(
-        readStoredValues(table, record),
-        predicate,
-        contextOf(reader, assignments)
-      ),
+    admits: (record, context) =>
+      evaluateRecordAgainstPredicate(readStoredValues(table, record), predicate, context),
   }
 }
 

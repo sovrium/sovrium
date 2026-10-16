@@ -9,7 +9,12 @@ import {
   substituteRecordVars,
   withDisplayLabels,
 } from '@/domain/models/app/pages/substitute-record-vars'
+import {
+  recordTitleOf,
+  type TitleCandidateField,
+} from '@/domain/models/app/tables/record-title-service'
 import type { DrawerContentProps } from './record-drawer-content'
+import type { RecordDrawerField } from './record-drawer-field'
 import type { RawRecord } from './record-drawer-record-read'
 import type { ReactElement } from 'react'
 
@@ -44,4 +49,50 @@ export function optionalBodyProps(
  */
 export function recordTitle(title: string, record: RawRecord): string {
   return substituteRecordVars(title, withDisplayLabels(record))
+}
+
+/** What names the sheet: its record , a new record's label, or the declared title. */
+export interface SheetTitleInputs {
+  /** The declared title, or — for an untitled table sheet — the server's best name. */
+  readonly title: string
+  /** The sheet declares no title: its record names it. */
+  readonly fromRecord: boolean
+  readonly creating: boolean
+  /** "New quote", for a sheet opened to create a record. */
+  readonly newLabel: string | undefined
+  readonly fields: ReadonlyArray<TitleCandidateField>
+}
+
+/**
+ * The sheet's name for what it holds. A new record goes by "New <label>"; an
+ * untitled table sheet by its record's first text field holding a value, else
+ * its id (`recordTitleOf`) — and, until the record lands, by the name the
+ * server read for an address that opened it; a declared title is resolved
+ * against the record as it always was.
+ */
+export function sheetTitle(inputs: SheetTitleInputs, record: RawRecord): string {
+  if (inputs.creating && inputs.newLabel !== undefined) return inputs.newLabel
+  if (!inputs.fromRecord) return recordTitle(inputs.title, record)
+  const named = recordTitleOf(inputs.fields, record)
+  return named === '' ? inputs.title : named
+}
+
+/**
+ * A new record's entries: the ones its reader writes, a required one's label
+ * marked `*` — its refusal still worded with the label as declared.
+ */
+export function createModeFields(
+  fields: ReadonlyArray<RecordDrawerField>
+): ReadonlyArray<RecordDrawerField> {
+  return fields
+    .filter((field) => field.readOnly !== true && field.presence === undefined && !field.button)
+    .map((field) => {
+      if (field.required !== true) return field
+      const label = field.label ?? field.name
+      return {
+        ...field,
+        label: `${label} *`,
+        requiredMessage: field.requiredMessage ?? `${label} is required`,
+      }
+    })
 }

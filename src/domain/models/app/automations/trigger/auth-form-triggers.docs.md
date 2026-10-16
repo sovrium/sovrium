@@ -74,6 +74,22 @@ It is a form **name**, not a page path. A form reachable from several pages ther
 
 Submitted values arrive at `{{trigger.data.<field>}}`, keyed by form field name.
 
+When the person who submits is signed in, the run knows who asked: `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}`, the same shape a record trigger and a session webhook hand their runs, whether the form writes a table or only stores its submissions (`submitTo: { storeSubmission: true }`). A visitor who has not signed in has no `trigger.user`: each of the four reads empty. The submitted values cannot set it — a field named `user` lands under `{{trigger.data.*}}`.
+
+```yaml
+automations:
+  - name: route-access-request
+    trigger: { type: form, form: request-access }
+    actions:
+      - name: tellTheTeam
+        type: email
+        operator: send
+        props:
+          to: ops@atelier-marceau.fr
+          subject: 'Access request from {{trigger.user.name}}'
+          body: '{{trigger.user.name}} ({{trigger.user.email}}) asks for access: {{trigger.data.reason}}'
+```
+
 ### Which half of the submission to use
 
 A form trigger runs the automation **independently** of the submission's reply. Work that must finish before the submitter sees a response belongs in the form's own success handling instead; work whose latency the submitter should not pay for belongs here.

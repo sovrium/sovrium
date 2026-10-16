@@ -18,7 +18,7 @@ The same binding a `matrix` takes, for the same reason: a graph is two collectio
 
 ### Reading from the app's tables
 
-A graph can also read its nodes and edges from the app's own tables, with the same `nodes` and `edges` lists a `matrix` takes: each node entry names a table or one of its views, the `kind` its rows carry and the field that labels them, with optional `groupField`, `stateField` and a `stateMap` translating that field's values into the states the drawing knows; each edge entry is a link table or a relationship field written `<table>.<field>`. A relationship that points back at its own table — a task that depends on another task — draws as edges between nodes of one kind. Node ids, access and views follow the matrix's rules: an id is `<table>:<row id>` unless `idField` names another, a node from a table the visitor may not read is not drawn (and neither is any edge to it), and a view whose filters hold an `or` group, `startsWith` or `endsWith` makes the graph unavailable.
+A graph can also read its nodes and edges from the app's own tables, with the same `nodes` and `edges` lists a `matrix` takes: each node entry names a table or one of its views, the `kind` its rows carry and the field that labels them, with optional `groupField`, `stateField` and a `stateMap` translating that field's values into the states the drawing knows, and an optional `flagField` whose value reaches each node as `flag`; each edge entry is a link table or a relationship field written `<table>.<field>`. A relationship that points back at its own table — a task that depends on another task — draws as edges between nodes of one kind. Node ids, access and views follow the matrix's rules: an id is `<table>:<row id>` unless `idField` names another, a node from a table the visitor may not read is not drawn (and neither is any edge to it), and a view whose filters hold an `or` group, `startsWith` or `endsWith` makes the graph unavailable.
 
 ## How a node is drawn
 
@@ -31,6 +31,10 @@ Shape carries the **kind**. Shapes are assigned per drawing, in the order the ki
 Weight carries the **state**. A node your endpoint reports as `paused` is drawn dashed, one reported `disabled` is drawn at half opacity, and anything else is drawn at rest. Colour is part of neither — kind is shape, state is weight, and colour stays with your theme's own tokens. `paused` and `disabled` are your **endpoint's** words, exactly as the values in `kinds` are, and a state Sovrium does not recognise is drawn at rest rather than being an error.
 
 **A node reporting no state is not a node reporting `active`.** An endpoint that can report state emits `active` explicitly, and omits the key entirely when the source it would have read was unavailable. A node drawn at rest therefore means _this read could not tell_, which is not the same as _this thing is running_.
+
+### Marking nodes
+
+`flag` marks the nodes a reader should look at. `field` names a boolean field of the bound graph's nodes and `label` the word for it, and both are required: a node whose field is true carries one caution mark, in either layout, and is named in words — its row in the accessible twin says `label`, and the drawn node carries it as its `title` — so the mark is never colour alone. A node whose field is false or absent is drawn unmarked. The mark sits beside the state and never replaces it, and it carries no severity. A graph read from tables marks the rows whose `flagField` holds true with `flag: { field: flag, label: Deprecated }`.
 
 ## The columns
 

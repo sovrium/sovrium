@@ -26,6 +26,26 @@ Each entry in the `tables` array accepts the following properties.
 
 The top-level `unique` array is sugar rather than a distinct mechanism: a single-field entry folds into that field's own `unique`, and a multi-field entry becomes a unique index. Single-column foreign keys are likewise not declared here — they are created for you from every `relationship` field. `foreignKeys` exists only for a reference spanning several columns at once.
 
+## Naming a table for people
+
+`name` is an identifier: it names the database table, the `/api/tables/{name}` path and every reference in your config, so it stays short and stable. `label` and `labelPlural` are what a person reads instead.
+
+```yaml
+tables:
+  - name: invoice_lines
+    label: Ligne de facture
+    labelPlural: Lignes de facture
+    fields:
+      - { id: 1, name: description, type: single-line-text }
+```
+
+- `labelPlural` names the table as a collection: its row in the operator console sidebar and table directory, the record grid's accessible name, and the command palette's "Create new record in …" action.
+- `label` names one record's table: the accessible name of a generated edit form, "Edit Ligne de facture".
+- When `labelPlural` is unset, `label` is used, then `name`. When `label` is unset, `name` is used. The singular is never guessed from the plural.
+- Either may be a `$t:<key>` translation key, resolved against the active language like a field's `label`.
+
+Exported files keep the `name` in their file name (`invoice_lines-2026-10-14.csv`): a file name is something you script against, not prose.
+
 ## Soft delete is the default
 
 Deleting a record sets `deleted_at` and `deleted_by` and leaves the row recoverable. Irreversible erasure is a separate operation on the records API — `?permanent=true`, admin-only on every table, or `?purge=true`, which also removes the record's attached files. **Records: Soft Delete and Restore** has both.

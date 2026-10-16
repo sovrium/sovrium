@@ -38,7 +38,9 @@ your own records:
 
 The **Blocks** pages (`/kit/navigation`, `/kit/feedback`, `/kit/data`, a client page and two
 application frames) show every other application block of the library in its stock copy —
-bracketed words are the ones you replace. Keep the ones you need, delete the rest.
+bracketed words are the ones you replace. The empty state and the top bar's primary action
+were pointed at this app: their "New project" opens the Worklist instead of a page the app
+does not have. Keep the ones you need, delete the rest.
 
 Every page is made of blocks from the Sovrium library, installed with
 `sovrium library add` — each file under [`library/block/`](./library/block) starts with

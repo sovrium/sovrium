@@ -25,6 +25,8 @@ interface CheckboxIslandProps {
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
+  /** The author's `aria-label`, naming a box that carries no visible label. */
+  readonly ariaLabel?: string
 }
 
 /** lucide's `minus`, the mark of an indeterminate box. */
@@ -108,6 +110,11 @@ const CHECKBOX_LABEL = 'inline-flex items-center gap-2 text-sm leading-none font
  * An indeterminate checkbox carries neither `data-checked` nor `data-unchecked`
  * — Base UI emits `data-indeterminate` instead of either — so the dash is not
  * caught by this and keeps painting.
+ *
+ * The author's `id` goes to `Checkbox.Root`, which hands it to the control Base
+ * UI treats as labelable, so a page `label` whose `for` names that id names the
+ * box. The wrapper is a `<label>` only when it has a caption, for the same
+ * reason as the switch: an empty wrapping label would name the box with nothing.
  */
 export default function CheckboxIsland({
   checked,
@@ -119,18 +126,21 @@ export default function CheckboxIsland({
   className,
   id,
   'data-testid': testId,
+  ariaLabel,
 }: CheckboxIslandProps): ReactElement {
+  const Wrapper = label ? 'label' : 'span'
   return (
-    <label
+    <Wrapper
       className={resolveClasses(
         cn(CHECKBOX_LABEL, disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'),
         className
       )}
-      id={id}
       data-testid={testId}
-      data-slot="label"
+      data-slot={label ? 'label' : undefined}
     >
       <Checkbox.Root
+        id={id}
+        aria-label={ariaLabel}
         defaultChecked={checked}
         indeterminate={indeterminate}
         disabled={disabled}
@@ -148,6 +158,6 @@ export default function CheckboxIsland({
         </Checkbox.Indicator>
       </Checkbox.Root>
       {label && <span>{label}</span>}
-    </label>
+    </Wrapper>
   )
 }

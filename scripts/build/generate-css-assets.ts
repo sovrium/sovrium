@@ -13,15 +13,30 @@
  * compiled binary (`bun build --compile`).
  *
  * Why this exists (issue #19):
- *   1. BUILTIN_CSS_CANDIDATES — the compiled binary runs from a virtual
- *      filesystem with no working directory to scan, so the native
- *      `@tailwindcss/oxide` scanner cannot discover which utility classes the
- *      app uses. We run that scanner HERE, on the build machine, and embed the
- *      result. Critically this captures classes from client-side islands,
- *      which never appear in server-rendered HTML.
- *   2. TAILWIND_INDEX_CSS / TW_ANIMATE_CSS — the binary has no node_modules, so
- *      the stylesheets that `@import 'tailwindcss'` / `@import 'tw-animate-css'`
- *      resolve to must be inlined.
+ *   1. The candidate sets — the compiled binary runs from a virtual filesystem
+ *      with no working directory to scan, so the native `@tailwindcss/oxide`
+ *      scanner cannot discover which utility classes the app uses. We run that
+ *      scanner HERE, on the build machine, and embed the result. Critically
+ *      this captures classes from client-side islands, which never appear in
+ *      server-rendered HTML.
+ *   2. TAILWIND_INDEX_CSS / TW_ANIMATE_CSS / SHADCN_TAILWIND_CSS — the binary
+ *      has no node_modules, so the stylesheets the three `@import`s resolve to
+ *      must be inlined.
+ *
+ * Why the candidates are ATTRIBUTED (issue #199): one flat set meant every app
+ * downloaded the stylesheet of every component type the engine ships. The scan
+ * is now split by `[internal ref]` into CORE (every page),
+ * CONSOLE (the operator console alone) and per-type-signature GROUPS, and the
+ * runtime compiles CORE plus the groups an app's declared types intersect.
+ * `BUILTIN_CSS_CANDIDATES` stays the sorted union of the three — the operator
+ * console, an undecidable config and the test fleet's generic file keep using
+ * it, and so does `appAddsCandidatesBeyondBuiltin`.
+ *
+ * The scan is also FILTERED: oxide deliberately over-extracts (57k tokens, of
+ * which ~3.4k are utilities any design can parse). The dropped tokens produced
+ * no CSS, and this script PROVES that on every run — the stylesheet compiled
+ * from the kept set is byte-equal to the one compiled from the raw scan, under
+ * the default design and under every template's design.
  *
  * Runs automatically from `scripts/build/build-binary.ts` before `bun build
  * --compile`, or standalone via `bun run build:css-assets`.
@@ -32,153 +47,19 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { Scanner } from '@tailwindcss/oxide'
 import { generateArbitraryVarSafelist } from '../../src/infrastructure/css/arbitrary-var-safelist'
-
-const PROJECT_ROOT = join(import.meta.dir, '..', '..')
-
-/**
- * Source globs whose Tailwind class usage must be reflected in the binary's CSS.
- *
- * The whole of `src` is scanned (not just `src/presentation`) so any class
- * emitted anywhere in the application — components, the client-side islands,
- * page/error renderers — is covered. Islands are the critical case: they
- * hydrate client-side, so their utility classes never appear in server-rendered
- * HTML and cannot be recovered by the binary's runtime config scan.
- *
- * The operator console USED to need its own entry here, and no longer does:
- * `src/admin/config/**` is inside `src`. That is the whole substance of the
- * entry that stood here — the console is compiled INTO the binary
- * ((../../docs/architecture/decisions/033-apps-admin-first-class-embedded-app.md),
- * relocated by(../../docs/architecture/decisions/035-documentation-co-located-with-code.md)
- * D3), so a class it authors renders on every user's instance and must reach
- * the builtin candidate set exactly like any class under `src`. The move made
- * that true by construction instead of by a list entry, which is the better
- * version of the same guarantee.
- *
- * `apps/` is not scanned at all now, and that is right rather than a loss:
- * `apps/website` and `apps/partner` are Sovrium's own deployed surfaces. Nobody
- * else runs them, their CSS is compiled at runtime from their own theme, and
- * folding their classes into the binary would ship an operator CSS for pages
- * that operator will never serve.
- *
- * Scanning the console's SOURCE is not redundant with the generated preset
- * (`src/infrastructure/assets/embedded-admin-preset.generated.ts`), which the
- * scan already picks up incidentally as a `src` file. The preset is the
- * RESOLVED config: a conditional like `verdict === 'do' ? 'text-foreground-subtle'
- * : 'text-error'` serialises only the branch each fixture item actually took, so
- * a class on an untaken branch exists in the source and in no generated artifact.
- * The source scan sees both branches; the preset scan cannot.
- *
- * That hole is why the console's source is scanned at all, and the coverage is
- * PREVENTIVE — measured on the day the `apps/admin` entry landed, it recovered
- * three rules, all three harvested from doc comments rather than live class
- * usage, for 165 bytes of default stylesheet. Do not read it as having fixed a
- * rendering bug; read it as closing the gap between "a product path compiled
- * into the binary" and "a product path the corpus reads directly". See [internal ref]'s
- * note on this.
- *
- * `[internal ref]` and `[internal ref]` are intentionally excluded: they are not application
- * code, and the classes mentioned there are not part of any rendered page.
- * Co-located unit-test files (`*.test.ts`/`*.test.tsx`) live INSIDE `src` but
- * are excluded for the same reason — see `TEST_FILE_GLOBS` below.
- */
-const SCAN_SOURCES = ['src', 'templates'] as const
-
-/**
- * Co-located unit-test files live under `src` but are NOT application code:
- * the utility classes they mention (often sentinel/arbitrary tokens used only
- * to assert behaviour) never reach a rendered page, so they must not widen the
- * binary's builtin candidate set. Excluding them keeps the candidate set to
- * real application classes and keeps `appAddsCandidatesBeyondBuiltin` honest
- * (a test-only token must read as "beyond builtin").
- */
-const TEST_FILE_GLOBS = ['**/*.test.ts', '**/*.test.tsx'] as const
-
-/**
- * The generator writes its output to
- * `src/infrastructure/css/generated-css-assets.ts`, which lives INSIDE the `src`
- * scan root. Scanning it re-extracts every class-shaped token from the previous
- * (already huge) output and folds it back into the next run — a self-amplifying
- * loop that grew the file to 404 MB and OOM'd both the runtime Tailwind scan and
- * the lint/typecheck steps. This negated source breaks the loop; restricting the
- * pattern to `*.{ts,tsx}` further keeps non-code artifacts out of the candidate
- * set.
- */
-const GENERATED_OUTPUT_REL = 'infrastructure/css/generated-css-assets.ts'
-
-/**
- * The embedded config-types payload
- * (`scripts/build/generate-embedded-config-types.ts`) also lives inside the
- * `src` scan root, and is likewise not application code: it is ~184 KB of
- * TypeScript DECLARATION TEXT held in a string literal — the ambient
- * `declare module 'sovrium'` block `sovrium types` writes into an author's
- * directory. It renders nothing.
- *
- * Scanning it is actively harmful in two ways. It folds every class-shaped
- * token in the declaration (property names, `readonly`, type names, JSDoc
- * words) into the builtin candidate set, which is the same class of pollution
- * `GENERATED_OUTPUT_REL` above exists to prevent. And because the declaration is
- * re-derived from the schema on every binary build, the candidate corpus would
- * churn — and `Generated Assets Drift` would fail — on schema changes that touch
- * no CSS whatsoever.
- */
-const EMBEDDED_CONFIG_TYPES_REL = 'infrastructure/assets/embedded-config-types.generated.ts'
-
-/**
- * The default design system's FLAT VIEW
- * (`scripts/build/generate-default-design.ts`) is the third file in the scan
- * root that is derived data rather than application code: every `--sv-*` token
- * and its resolved literal, plus the author-key role map, re-stated in a shape
- * a gate can read.
- *
- * It is negated because it adds NOTHING the corpus does not already have — the
- * same values reach the scan through `default-theme-layer.generated.ts` (which
- * REPLACES a scanned file and therefore stays scanned) — while contributing a
- * second copy of every token name plus its own identifiers. That is the corpus
- * rule applied literally: negate a generated file only when it adds candidates
- * its hand-written predecessor did not, and this one has no predecessor.
- *
- * The other three outputs of that generator stay scanned: each replaces a file
- * the corpus was already built from, so negating them would REMOVE candidates
- * the binary needs.
- */
-const DEFAULT_DESIGN_FLAT_REL = 'domain/models/app/design/default-design.generated.ts'
-
-/**
- * The `sovrium library` catalogue (`src/library/`, [internal ref] A1) is DATA the
- * binary ships, not markup it renders: blocks, connections and recipes that
- * `sovrium library add` COPIES into an author's config. Nothing renders an
- * entry from here — only the `library` commands and the docs renderer import
- * it, and neither produces a page.
- *
- * Scanning it would put every catalogue block's classes into the builtin
- * stylesheet that EVERY app is served, whether or not it installed a single
- * block. Measured 2026-09-24 when the first blocks landed: ~9 KB on the
- * island-free default render, which took `[internal ref]`
- * and `[internal ref]` over their ceilings. An installed
- * block loses nothing by the exclusion: its classes now live in the app's own
- * config, where `collectAppCandidates` finds them and
- * `appAddsCandidatesBeyondBuiltin` routes the app to a per-app compile.
- */
-const LIBRARY_CATALOGUE_REL = 'library/**'
-
-/**
- * A booted app's data directory. `bun run app:admin` (and `app:template`) write
- * gitignored runtime state beside the config they serve, including
- * `src/admin/.sovrium/history/*.ts` — config SNAPSHOTS, i.e. `.ts` files full of
- * class strings from whatever the config held when it was saved. None of it is
- * source, and a corpus built from a worktree that had booted a preview would
- * differ from one that had not.
- *
- * oxide honours `.gitignore` (which lists both names), so on a normal checkout
- * this negation changes nothing — measured 2026-09-25: a probe file under
- * `src/admin/.sovrium/history/` moved the candidate count by 0 with and without
- * it. It is here so the exclusion does not DEPEND on ignore-file discovery: in a
- * scratch tree with no `.gitignore`, the same scanner call harvested the probe
- * without the negation and dropped it with it.
- */
-const PREVIEW_DATA_DIR_GLOBS = ['**/.sovrium/**', '**/.sovrium-wt/**'] as const
+import {
+  attributeCorpus,
+  compileCandidates,
+  loadDesignSystem,
+  loadTemplateApps,
+  makeJunkFilter,
+  REPO_ROOT,
+  scanCorpus,
+  sourceCssFor,
+  type Attribution,
+} from '../lib/css-attribution'
+import type { App } from '../../src/domain/models/app'
 
 const COPYRIGHT_HEADER = `/**
  * Copyright (c) 2025-2026 ESSENTIAL SERVICES
@@ -187,70 +68,29 @@ const COPYRIGHT_HEADER = `/**
  * found in the LICENSE.md file in the root directory of this source tree.
  */`
 
-function scanCandidates(): readonly string[] {
-  const scanner = new Scanner({
-    sources: [
-      ...SCAN_SOURCES.map((dir) => ({
-        base: join(PROJECT_ROOT, dir),
-        pattern: '**/*.{ts,tsx}',
-        negated: false,
-      })),
-      // Break the self-amplifying feedback loop: never scan our own output.
-      {
-        base: join(PROJECT_ROOT, 'src'),
-        pattern: GENERATED_OUTPUT_REL,
-        negated: true,
-      },
-      // Same reasoning, different generator: the embedded `declare module
-      // 'sovrium'` payload is declaration TEXT in a string literal, not
-      // application code — see EMBEDDED_CONFIG_TYPES_REL.
-      {
-        base: join(PROJECT_ROOT, 'src'),
-        pattern: EMBEDDED_CONFIG_TYPES_REL,
-        negated: true,
-      },
-      // The default design's flat view — derived data, and a duplicate of what
-      // the generated theme layer already contributes. See DEFAULT_DESIGN_FLAT_REL.
-      {
-        base: join(PROJECT_ROOT, 'src'),
-        pattern: DEFAULT_DESIGN_FLAT_REL,
-        negated: true,
-      },
-      // The library catalogue is copied into an author's config, never rendered
-      // from here — see LIBRARY_CATALOGUE_REL.
-      {
-        base: join(PROJECT_ROOT, 'src'),
-        pattern: LIBRARY_CATALOGUE_REL,
-        negated: true,
-      },
-      // A booted preview's data dir, in every scan root — see PREVIEW_DATA_DIR_GLOBS.
-      ...SCAN_SOURCES.flatMap((dir) =>
-        PREVIEW_DATA_DIR_GLOBS.map((pattern) => ({
-          base: join(PROJECT_ROOT, dir),
-          pattern,
-          negated: true,
-        }))
-      ),
-      // Exclude co-located unit-test files from the candidate scan: their
-      // sentinel/arbitrary classes are not part of any rendered page.
-      ...TEST_FILE_GLOBS.map((pattern) => ({
-        base: join(PROJECT_ROOT, 'src'),
-        pattern,
-        negated: true,
-      })),
-    ],
-  })
-  // oxide deliberately over-extracts: it returns every class-shaped token.
-  // Tailwind's build() emits CSS only for entries that are valid utilities,
-  // so dead candidates cost nothing. Dedupe + sort for a diff-stable file.
-  return [...new Set(scanner.scan())].toSorted()
+/**
+ * Floors on the measurement itself. A walk that resolved nothing would produce
+ * a small, plausible-looking map and a binary whose pages render unstyled; the
+ * floors make that a build failure. Each sits well under the value measured
+ * the day it was set (1,705 presentation files, 998 type-reached, 86 groups),
+ * so ordinary growth or a refactor never trips one — only a broken walk does.
+ */
+const FLOORS = {
+  presentationFiles: 1500,
+  typeReachedFiles: 600,
+  groups: 60,
+  coreClasses: 500,
+  consoleClasses: 100,
+} as const
+
+const fail = (message: string): never => {
+  throw new Error(message)
 }
 
-function readStylesheet(relPath: string): string {
-  return readFileSync(join(PROJECT_ROOT, 'node_modules', relPath), 'utf-8')
-}
+const readStylesheet = (relPath: string): string =>
+  readFileSync(join(REPO_ROOT, 'node_modules', relPath), 'utf-8')
 
-function formatKb(...strings: readonly string[]): string {
+const formatKb = (...strings: readonly string[]): string => {
   const bytes = strings.reduce((sum, s) => sum + s.length, 0)
   return `${(bytes / 1000).toFixed(1)} KB`
 }
@@ -260,8 +100,8 @@ function formatKb(...strings: readonly string[]): string {
  * `bg-[${v('sv-X', T.Y)}]` in the `*-default-classes.ts` recipes) are invisible
  * to the oxide source scan — it sees the `${…}` template placeholder, not the
  * resolved literal — so those classes would ship with no CSS in the binary.
- * Fold the resolved safelist into the frozen candidate set, and guard loudly on
- * two independent proofs so neither half can silently drop out again:
+ * Fold the resolved safelist into CORE (it has no file provenance, and radius
+ * is read by every recipe tree), and guard loudly on two independent proofs:
  *
  * - SAFELIST_SENTINEL: the shared `RADIUS_MD` read, which every recipe tree
  *   keeps (radius has no plain-utility replacement). Its presence proves the
@@ -269,50 +109,156 @@ function formatKb(...strings: readonly string[]): string {
  * alias token: those are being
  *   retired, and a sentinel naming one would fail the build on success.
  * - POPUP_SURFACE_CANDIDATE: the shadcn `bg-popover` utility the shared
- *   `POPUP_SURFACE` recipe (menu/select/dialog popups) now reads. It is a plain
- *   literal, so the ordinary scan must harvest it; without it every overlay
- *   would render transparent in the binary.
+ *   `POPUP_SURFACE` recipe (menu/select/dialog popups) reads. It is a plain
+ *   literal, so the ordinary scan must harvest it AND the junk filter must keep
+ *   it; without it every overlay would render transparent in the binary.
  */
-const arbitraryVarSafelist = generateArbitraryVarSafelist()
-if (arbitraryVarSafelist.length === 0) {
-  throw new Error(
-    'generateArbitraryVarSafelist() returned empty — the recipe scan broke; the binary CSS would drop every runtime-composed recipe class.'
-  )
-}
 const SAFELIST_SENTINEL = 'rounded-[var(--radius-md,'
-if (!arbitraryVarSafelist.some((cls) => cls.startsWith(SAFELIST_SENTINEL))) {
-  throw new Error(
-    `Arbitrary-var safelist is missing the shared radius class (${SAFELIST_SENTINEL}…) — the recipe scan no longer reaches the *-default-classes.ts recipes.`
-  )
-}
-
-const candidates = [...new Set([...scanCandidates(), ...arbitraryVarSafelist])].toSorted()
 const POPUP_SURFACE_CANDIDATE = 'bg-popover'
-if (!candidates.includes(POPUP_SURFACE_CANDIDATE)) {
-  throw new Error(
-    `Candidate scan is missing the popup surface class (${POPUP_SURFACE_CANDIDATE}) — overlays would render transparent in the binary.`
-  )
-}
-const tailwindIndexCss = readStylesheet('tailwindcss/index.css')
-const twAnimateCss = readStylesheet('tw-animate-css/dist/tw-animate.css')
-// shadcn's `@import "shadcn/tailwind.css"`: its custom variants,
-// accordion keyframes and scroll-fade/shimmer utilities. Read from the installed
-// package, like the two above, and held byte-equal to the pinned registry
-// snapshot: the binary must embed exactly the stylesheet the snapshot's sha256
-// names, so a `shadcn` bump without a re-pull fails here instead of shipping.
-const shadcnTailwindCss = readStylesheet('shadcn/dist/tailwind.css')
-const SHADCN_SNAPSHOT_CSS = 'scripts/baselines/shadcn-registry/tailwind.css'
-if (shadcnTailwindCss !== readFileSync(join(PROJECT_ROOT, SHADCN_SNAPSHOT_CSS), 'utf-8')) {
-  throw new Error(
-    `node_modules/shadcn/dist/tailwind.css differs from ${SHADCN_SNAPSHOT_CSS}. ` +
-      'The installed shadcn and the registry snapshot disagree: run `bun install`, or re-pull ' +
-      'the snapshot (`bun run pull:shadcn-registry`) in the commit that bumps shadcn.'
-  )
+
+const readSafelist = (): readonly string[] => {
+  const safelist = generateArbitraryVarSafelist()
+  if (safelist.length === 0) {
+    fail(
+      'generateArbitraryVarSafelist() returned empty — the recipe scan broke; the binary CSS would drop every runtime-composed recipe class.'
+    )
+  }
+  if (!safelist.some((cls) => cls.startsWith(SAFELIST_SENTINEL))) {
+    fail(
+      `Arbitrary-var safelist is missing the shared radius class (${SAFELIST_SENTINEL}…) — the recipe scan no longer reaches the *-default-classes.ts recipes.`
+    )
+  }
+  return safelist
 }
 
-const outPath = join(PROJECT_ROOT, 'src/infrastructure/css/generated-css-assets.ts')
+interface Design {
+  readonly slug: string
+  readonly design: App['design'] | undefined
+}
 
-const fileContent = `// @ts-nocheck -- generated file: huge embedded string literals, never type-checked
+/** The default design plus every template's — the designs the proof runs under. */
+const designsToProve = async (): Promise<readonly Design[]> => {
+  const templates = await loadTemplateApps()
+  const withDesign = templates.filter((template) => template.app.design !== undefined)
+  if (withDesign.length < 10) {
+    fail(`only ${withDesign.length} templates declare a design — the template loader broke`)
+  }
+  return [
+    { slug: 'default', design: undefined },
+    ...withDesign.map(({ slug, app }) => ({ slug, design: app.design })),
+  ]
+}
+
+const sameSet = (a: readonly string[], b: readonly string[]): boolean => {
+  const set = new Set(a)
+  return set.size === new Set(b).size && b.every((item) => set.has(item))
+}
+
+const assertInvariants = (
+  attribution: Attribution,
+  builtin: readonly string[],
+  kept: readonly string[]
+): void => {
+  const { stats } = attribution
+  if (!sameSet(builtin, kept)) {
+    const missing = kept.filter((c) => !builtin.includes(c)).slice(0, 5)
+    const extra = builtin.filter((c) => !kept.includes(c)).slice(0, 5)
+    fail(
+      `CORE ∪ CONSOLE ∪ groups ≠ kept scan ∪ safelist (${builtin.length} vs ${kept.length}); ` +
+        `missing: ${missing.join(', ')}; extra: ${extra.join(', ')}`
+    )
+  }
+  if (!builtin.includes(POPUP_SURFACE_CANDIDATE)) {
+    fail(
+      `Candidate set is missing the popup surface class (${POPUP_SURFACE_CANDIDATE}) — overlays would render transparent in the binary.`
+    )
+  }
+  const floors: readonly [string, number, number][] = [
+    ['presentation files in the corpus', stats.presentationFiles, FLOORS.presentationFiles],
+    ['files reached by a type walk', stats.typeReachedFiles, FLOORS.typeReachedFiles],
+    ['file-signature groups', attribution.groups.length, FLOORS.groups],
+    ['CORE classes', attribution.core.length, FLOORS.coreClasses],
+    ['console-only classes', attribution.console.length, FLOORS.consoleClasses],
+  ]
+  for (const [name, actual, min] of floors) {
+    if (actual < min) {
+      fail(`counted ${actual} ${name}, below the floor of ${min} — the attribution walk broke`)
+    }
+  }
+}
+
+const firstDifference = (a: string, b: string): string => {
+  const at = [...a].findIndex((char, index) => char !== b[index])
+  const offset = at === -1 ? Math.min(a.length, b.length) : at
+  return `offset ${offset}: …${a.slice(Math.max(0, offset - 60), offset + 120)}…`
+}
+
+const main = async (): Promise<void> => {
+  const safelist = readSafelist()
+  const corpus = scanCorpus()
+  const designs = await designsToProve()
+  const sources = new Map<string, string>()
+  for (const { slug, design } of designs) sources.set(slug, await sourceCssFor(design))
+  const designSystems = []
+  for (const source of sources.values()) designSystems.push(await loadDesignSystem(source))
+  const keep = makeJunkFilter(designSystems)
+
+  const attribution = attributeCorpus(corpus, keep, safelist)
+  const builtin = [
+    ...new Set([
+      ...attribution.core,
+      ...attribution.console,
+      ...attribution.groups.flatMap((group) => group.classes),
+    ]),
+  ].toSorted()
+  const all = [...new Set(corpus.flatMap((file) => file.candidates))]
+  const kept = [...new Set([...all.filter(keep), ...safelist])]
+  assertInvariants(attribution, builtin, kept)
+
+  // The proof that the junk filter dropped nothing the engine would have
+  // emitted: byte-equal output from the raw scan and from the kept set, under
+  // every design, each with a FRESH compiler (`build()` is incremental).
+  const raw = [...new Set([...all, ...safelist])]
+  for (const [slug, source] of sources) {
+    const fromRaw = await compileCandidates(source, raw)
+    const fromKept = await compileCandidates(source, builtin)
+    if (fromRaw !== fromKept) {
+      fail(
+        `Under the ${slug} design the kept candidate set compiles differently from the raw scan ` +
+          `(${fromKept.length} vs ${fromRaw.length} bytes) — the junk filter dropped a live class. ` +
+          firstDifference(fromRaw, fromKept)
+      )
+    }
+  }
+
+  const tailwindIndexCss = readStylesheet('tailwindcss/index.css')
+  const twAnimateCss = readStylesheet('tw-animate-css/dist/tw-animate.css')
+  // shadcn's `@import "shadcn/tailwind.css"`: its custom variants,
+  // accordion keyframes and scroll-fade/shimmer utilities. Read from the
+  // installed package, like the two above, and held byte-equal to the pinned
+  // registry snapshot: the binary must embed exactly the stylesheet the
+  // snapshot's sha256 names, so a `shadcn` bump without a re-pull fails here
+  // instead of shipping.
+  const shadcnTailwindCss = readStylesheet('shadcn/dist/tailwind.css')
+  const SHADCN_SNAPSHOT_CSS = 'scripts/baselines/shadcn-registry/tailwind.css'
+  if (shadcnTailwindCss !== readFileSync(join(REPO_ROOT, SHADCN_SNAPSHOT_CSS), 'utf-8')) {
+    fail(
+      `node_modules/shadcn/dist/tailwind.css differs from ${SHADCN_SNAPSHOT_CSS}. ` +
+        'The installed shadcn and the registry snapshot disagree: run `bun install`, or re-pull ' +
+        'the snapshot (`bun run pull:shadcn-registry`) in the commit that bumps shadcn.'
+    )
+  }
+
+  const lines = (classes: readonly string[]): string =>
+    `${JSON.stringify(classes.join('\n'))}.split('\\n')`
+  const groupsSource = attribution.groups
+    .map(
+      (group) => `  { types: ${JSON.stringify(group.types)}, classes: ${lines(group.classes)} },`
+    )
+    .join('\n')
+
+  const outPath = join(REPO_ROOT, 'src/infrastructure/css/generated-css-assets.ts')
+  const fileContent = `// @ts-nocheck -- generated file: huge embedded string literals, never type-checked
 /* eslint-disable -- generated file: never linted (see eslint/base.config.ts) */
 ${COPYRIGHT_HEADER}
 
@@ -322,17 +268,46 @@ ${COPYRIGHT_HEADER}
  *
  * Embedded inputs for the native-free CSS compiler used inside the compiled
  * standalone binary, where neither node_modules nor a scannable working
- * directory exists. See scripts/build/generate-css-assets.ts and issue #19.
+ * directory exists. See scripts/build/generate-css-assets.ts (issue #19) and
+ * scripts/lib/css-attribution.ts (issue #199).
+ *
+ * Candidate sets are stored newline-joined to keep this file small for
+ * tooling, and split back into arrays at import time.
  */
 
 /**
- * Tailwind utility candidates discovered by the native @tailwindcss/oxide
- * scanner across ${SCAN_SOURCES.join(', ')}. Stored newline-joined to keep this
- * generated file small for tooling; split back into an array at import time.
+ * Classes every page needs whatever components it declares: the page shell,
+ * the toast/dialog runtime, standalone forms, markdown pages, the synthesized
+ * command palette, the pages the engine draws itself (home, not found, error),
+ * and every class reached by no component type.
  */
-export const BUILTIN_CSS_CANDIDATES: readonly string[] = ${JSON.stringify(
-  candidates.join('\n')
-)}.split('\\n')
+export const CORE_CSS_CANDIDATES: readonly string[] = ${lines(attribution.core)}
+
+/** Classes only the operator console authors; served to the console alone. */
+export const CONSOLE_CSS_CANDIDATES: readonly string[] = ${lines(attribution.console)}
+
+/**
+ * Every other class, keyed by the exact set of component types whose renderer
+ * or island reaches the file holding it. An app's stylesheet is CORE plus the
+ * groups whose \`types\` intersect the types it declares.
+ */
+export const COMPONENT_CSS_GROUPS: ReadonlyArray<{
+  readonly types: readonly string[]
+  readonly classes: readonly string[]
+}> = [
+${groupsSource}
+]
+
+/** Every COMPONENT_REGISTRY key; a declared type outside this list carries no group. */
+export const CSS_ATTRIBUTED_TYPES: readonly string[] = ${JSON.stringify(attribution.attributedTypes)}
+
+/**
+ * The sorted union of CORE, CONSOLE and every group: the whole built-in set.
+ * Served to the operator console, to a config whose types cannot be read, and
+ * as the test fleet's generic pre-compiled file; the reference for
+ * \`appAddsCandidatesBeyondBuiltin\`.
+ */
+export const BUILTIN_CSS_CANDIDATES: readonly string[] = ${lines(builtin)}
 
 /** Upstream \`@import 'tailwindcss'\` stylesheet (tailwindcss/index.css). */
 export const TAILWIND_INDEX_CSS: string = ${JSON.stringify(tailwindIndexCss)}
@@ -344,9 +319,17 @@ export const TW_ANIMATE_CSS: string = ${JSON.stringify(twAnimateCss)}
 export const SHADCN_TAILWIND_CSS: string = ${JSON.stringify(shadcnTailwindCss)}
 `
 
-writeFileSync(outPath, fileContent)
+  writeFileSync(outPath, fileContent)
 
-console.log(
-  `generated-css-assets.ts — ${candidates.length} candidates, ` +
-    `${formatKb(tailwindIndexCss, twAnimateCss, shadcnTailwindCss)} embedded stylesheets`
-)
+  const { stats } = attribution
+  console.log(
+    `generated-css-assets.ts — ${builtin.length} candidates kept of ${all.length} scanned ` +
+      `(${stats.droppedCandidates} tokens produced no CSS under ${designs.length} designs); ` +
+      `CORE ${attribution.core.length}, console-only ${attribution.console.length}, ` +
+      `${attribution.groups.length} type groups over ${stats.typeReachedFiles} of ` +
+      `${stats.presentationFiles} presentation files; ` +
+      `${formatKb(tailwindIndexCss, twAnimateCss, shadcnTailwindCss)} embedded stylesheets`
+  )
+}
+
+await main()

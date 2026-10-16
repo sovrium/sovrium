@@ -36,6 +36,10 @@ import {
   formatCurrencyValue,
   type CurrencyDisplayOptions,
 } from '../../../kernel/format/currency-format'
+import {
+  formatElapsedDuration,
+  type DurationInputUnit,
+} from '../../../kernel/format/duration-format'
 import { usableLocale } from '../../../kernel/format/usable-locale'
 import { relativeOffset } from '../../../kernel/time/relative-offset'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
@@ -247,6 +251,11 @@ export interface CellFormatOptions {
    * (`SOVRIUM_DEV_CLOCK`) decides the year there too; a browser's clock is its own.
    */
   readonly now?: Readonly<Date>
+  /**
+   * The unit a `duration` format reads a NUMBER in: `seconds` when the value is
+   * bound to a `duration` field (its stored unit), milliseconds otherwise.
+   */
+  readonly durationUnit?: DurationInputUnit
 }
 
 /**
@@ -254,11 +263,11 @@ export interface CellFormatOptions {
  *
  * `locale` is the active page locale. Every format that writes a word or a
  * date follows it — the three date formats, `relative-date`, `relative-time`,
- * `compact` and `yes-no` — so a French page reads « 15 mars 2026 », « Oui » and
- * « 13 k ». The purely symbolic ones (`percentage`, `check-cross`, `bytes`,
- * `truncate`) do not need it. `currency` follows the field's own declared
- * treatment, and groups in the page language when the field declares no
- * separator.
+ * `compact`, `bytes`, `duration` and `yes-no` — so a French page reads
+ * « 15 mars 2026 », « Oui », « 13 k », « 1,5 ko » and « 1,4 s ». The purely
+ * symbolic ones (`percentage`, `check-cross`, `truncate`) do not need it.
+ * `currency` follows the field's own declared treatment, and groups in the
+ * page language when the field declares no separator.
  *
  * `options.currency` carries the bound field's declared currency treatment. It
  * used to be unreachable: this formatter hard-coded `$` and `en-US` while the
@@ -286,7 +295,7 @@ export function formatCellValue(
   locale: string,
   options: CellFormatOptions = {}
 ): string {
-  const { currency: currencyOptions, timeZone, now } = options
+  const { currency: currencyOptions, timeZone, now, durationUnit } = options
   if (value === undefined || value === null) return ''
   const str = String(value)
   const tag = usableLocale(locale)
@@ -310,8 +319,9 @@ export function formatCellValue(
     // is worse than no figure at all.
     bytes: () => {
       const num = Number(value)
-      return Number.isNaN(num) ? str : formatByteCount(num)
+      return Number.isNaN(num) ? str : formatByteCount(num, tag)
     },
+    duration: () => formatElapsedDuration(value, tag, durationUnit) ?? str,
     'relative-date': () => formatRelativeDate(value, tag),
     // Signed counterpart to the past-only `relative-date`, in the largest
     // whole unit: "5 min. ago", "in 3 hr.", « dans 5 j ».

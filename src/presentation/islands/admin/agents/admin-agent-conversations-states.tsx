@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useAgentConversationString as useWord } from './admin-agent-conversations-strings'
 import type { ReactElement } from 'react'
 
 /**
@@ -40,7 +41,9 @@ function ListStateCard({
 export function ListLoading(): ReactElement {
   return (
     <div
-      aria-label="Loading conversations"
+      role="status"
+      data-loading-status=""
+      aria-label={useWord('loading', 'Loading conversations')}
       aria-busy="true"
       className="flex flex-col gap-2"
     >
@@ -58,16 +61,16 @@ export function ListLoading(): ReactElement {
 export function ListErrorState({ onRetry }: { readonly onRetry: () => void }): ReactElement {
   return (
     <ListStateCard
-      label="Couldn’t load"
-      title="Couldn’t load conversations"
-      body="The list could not be loaded. Try again."
+      label={useWord('loadFailedLabel', 'Couldn’t load')}
+      title={useWord('loadFailed', 'Couldn’t load conversations')}
+      body={useWord('loadFailedBody', 'The list could not be loaded. Try again.')}
     >
       <button
         type="button"
         onClick={onRetry}
         className="text-muted-foreground hover:text-muted-foreground/80 mt-1 text-sm font-medium"
       >
-        Retry
+        {useWord('retry', 'Retry')}
       </button>
     </ListStateCard>
   )
@@ -82,11 +85,12 @@ export function ListErrorState({ onRetry }: { readonly onRetry: () => void }): R
  * happened anywhere. The `region` label is unchanged: it is the locked selector.
  */
 export function ListEmptyState(): ReactElement {
+  const empty = useWord('empty', 'No conversations yet')
   return (
     <ListStateCard
-      label="No conversations yet"
-      title="No conversations yet"
-      body="Conversations appear here once a user talks to this agent."
+      label={empty}
+      title={empty}
+      body={useWord('emptyBody', 'Conversations appear here once a user talks to this agent.')}
     />
   )
 }
@@ -101,20 +105,23 @@ export function ListNoMatchState({
 }): ReactElement {
   return (
     <ListStateCard
-      label="No results"
-      title="No conversation matches"
+      label={useWord('noMatchLabel', 'No results')}
+      title={useWord('noMatch', 'No conversation matches')}
       // Name the term, as the users and files grids do
       // (`No user matches “{query}”`). Echoing what was searched is what tells
       // the operator the search ran and this is the answer — rather than
       // leaving them to wonder whether the box did anything.
-      body={`No conversation matches “${query}”.`}
+      body={useWord('noMatchBody', 'No conversation matches “{query}”.').replace(
+        '{query}',
+        () => query
+      )}
     >
       <button
         type="button"
         onClick={onResetSearch}
         className="text-muted-foreground hover:text-muted-foreground/80 mt-1 text-sm font-medium"
       >
-        Reset
+        {useWord('reset', 'Reset')}
       </button>
     </ListStateCard>
   )

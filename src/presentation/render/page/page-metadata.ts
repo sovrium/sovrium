@@ -7,6 +7,7 @@
 
 import { resolveForLanguage } from '@/domain/models/app/languages/locale-lookup-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { resolveFrontmatterReferences } from '@/domain/models/app/pages/frontmatter-reference-service'
 import type { Design } from '@/domain/models/app/design'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
@@ -85,26 +86,6 @@ function buildBodyStyle(design: Design | undefined): PageMetadata['bodyStyle'] {
   }
 }
 
-/**
- * Resolve a `$frontmatter.<key>` reference against the rendered markdown's
- * frontmatter (a flat Record). When the value is not a `$frontmatter.*`
- * reference, or the page has no markdown frontmatter, the input passes through
- * unchanged so `$t:`/literal handling downstream is unaffected. A missing key
- * resolves to an empty string (the reference is consumed, not leaked).
- *
- * Runs BEFORE `$t:` resolution so a frontmatter value that itself contains a
- * `$t:` token still localises.
- */
-function resolveFrontmatterPattern(
-  value: string,
-  frontmatter: Readonly<Record<string, string>> | undefined
-): string {
-  const prefix = '$frontmatter.'
-  if (!value.startsWith(prefix)) return value
-  const key = value.slice(prefix.length)
-  return frontmatter?.[key] ?? ''
-}
-
 /** The two fields an author may translate per language in `meta.i18n`. */
 type AuthoredMetaEntry = {
   readonly title?: string | undefined
@@ -134,8 +115,15 @@ function authoredMetaFor(page: Page, lang: string): AuthoredMetaEntry | undefine
 }
 
 /**
- * Determine page title with frontmatter + translation resolution
- * Priority: meta.i18n[lang].title > meta.title ($frontmatter.* then $t:) > page.name > page.path
+ * Determine page title with frontmatter + translation resolution.
+ *
+ * Priority: meta.i18n[lang].title > meta.title ($frontmatter.* then $t:) > the
+ * article's own frontmatter `title` > page.name > page.path.
+ *
+ * A markdown page is one route per file, so the article's `title` names the
+ * document better than the page definition's name does. And a `meta.title`
+ * whose references all resolve to nothing falls back the same way: a document
+ * must never ship an empty `<title>` (RGAA 8.5, WCAG 2.4.2).
  */
 function determineTitle(
   page: Page,
@@ -149,11 +137,11 @@ function determineTitle(
     return authoredTitle
   }
 
-  // Fall back to base title with $frontmatter.* then $t: pattern resolution
-  const rawTitle = resolveFrontmatterPattern(
-    page.meta?.title || page.name || page.path,
-    frontmatter
-  )
+  const fallback = frontmatter?.['title'] || page.name || page.path
+  const declared = page.meta?.title
+    ? resolveFrontmatterReferences(page.meta.title, frontmatter)
+    : ''
+  const rawTitle = declared.trim() === '' ? fallback : declared
   return resolveTranslationPattern(rawTitle, lang, languages)
 }
 
@@ -174,7 +162,7 @@ function determineDescription(
   }
 
   // Fall back to base description with $frontmatter.* then $t: pattern resolution
-  const rawDescription = resolveFrontmatterPattern(page.meta?.description || '', frontmatter)
+  const rawDescription = resolveFrontmatterReferences(page.meta?.description || '', frontmatter)
   return resolveTranslationPattern(rawDescription, lang, languages)
 }
 
@@ -192,7 +180,7 @@ function determineKeywords(
     return undefined
   }
 
-  const rawKeywords = resolveFrontmatterPattern(page.meta.keywords, frontmatter)
+  const rawKeywords = resolveFrontmatterReferences(page.meta.keywords, frontmatter)
   return resolveTranslationPattern(rawKeywords, lang, languages)
 }
 

@@ -155,7 +155,7 @@ export function rejectNonKeyRecordId(appOrResolver: App | (() => App)) {
     const app = typeof appOrResolver === 'function' ? appOrResolver() : appOrResolver
     const tableId = c.req.param('tableId')
     const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
-    if (table !== undefined && !isRecordKeyShaped(recordId, table)) {
+    if (table !== undefined && !isRecordKeyShaped(recordId, table, app.auth?.scopeTables)) {
       return notFound(c)
     }
     await next()

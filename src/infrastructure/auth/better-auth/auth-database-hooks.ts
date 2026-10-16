@@ -70,6 +70,8 @@ export interface AuthHookContext {
 
 export type AppMetaForOrg = {
   readonly name?: string
+  /** The name people read, when declared — the two-factor issuer prints it. */
+  readonly displayName?: string
   readonly automations?: App['automations']
   /**
    * The app's declared languages, read by the write-door guard on

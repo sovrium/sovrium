@@ -6,8 +6,12 @@
  */
 
 import { useId, type CSSProperties, type ReactElement, type ReactNode } from 'react'
+import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
+import { OverlayCloseGlyph } from '@/presentation/design/overlay-close-glyph'
 import {
   computeSidebarDrawerBodyClasses,
+  computeSidebarDrawerContentClasses,
+  computeSidebarDrawerHeaderClasses,
   computeSidebarDrawerPanelClasses,
   computeSidebarDrawerTriggerClasses,
   type SidebarRailBreakpoint,
@@ -31,6 +35,8 @@ interface SidebarDrawerFrameProps {
   readonly below: SidebarRailBreakpoint
   /** Accessible name of the menu button, already translated. */
   readonly label: string
+  /** Accessible name of the drawer's close button (`sidebar.drawerClose`), already translated. */
+  readonly closeLabel: string
   /** The navigation itself — rendered once, inline, and lifted into the panel on open. */
   readonly children: ReactNode
   /** The author's classes for the menu button, after its recipe (the docs `menuButton` part). */
@@ -49,6 +55,13 @@ interface SidebarDrawerFrameProps {
  * second server-rendered copy for the drawer would double every island it holds
  * (a fetched group would fetch twice), repeat every id a disclosure derives, and
  * put two identically named landmarks in the document.
+ *
+ * ─── A WAY OUT THAT IS NOT A GESTURE ──────────────────────────────────────
+ *
+ * The dialog carries its own header with a close button, as shadcn/ui's sheet
+ * does, above the navigation the island lifts in: Escape and a tap on the
+ * backdrop are not discoverable to every reader. The navigation moves into the
+ * dialog's content node and back, so the header stays put.
  *
  * ─── WHY THE BUTTON STARTS DISABLED ────────────────────────────────────────
  *
@@ -74,9 +87,52 @@ interface SidebarDrawerFrameProps {
 const NO_SCRIPT_FALLBACK_CSS =
   '[data-sidebar-drawer-body]{display:contents}[data-sidebar-drawer-trigger]{display:none}'
 
+/**
+ * The `<dialog>` the navigation is lifted into: a header holding its close
+ * button, then the empty node the island moves the navigation into and back.
+ */
+function DrawerPanel({
+  id,
+  label,
+  closeLabel,
+}: {
+  readonly id: string
+  readonly label: string
+  readonly closeLabel: string
+}): ReactElement {
+  return (
+    <dialog
+      id={id}
+      aria-label={label}
+      data-sidebar-drawer-panel=""
+      className={computeSidebarDrawerPanelClasses()}
+    >
+      <div
+        data-slot="sheet-header"
+        className={computeSidebarDrawerHeaderClasses()}
+      >
+        <button
+          type="button"
+          data-slot="button"
+          data-sidebar-drawer-close=""
+          aria-label={closeLabel}
+          className={computePartButtonClasses({ variant: 'ghost', size: 'icon-sm' })}
+        >
+          <OverlayCloseGlyph />
+        </button>
+      </div>
+      <div
+        data-sidebar-drawer-content=""
+        className={computeSidebarDrawerContentClasses()}
+      />
+    </dialog>
+  )
+}
+
 export function SidebarDrawerFrame({
   below,
   label,
+  closeLabel,
   children,
   triggerClassName,
   triggerStyle,
@@ -115,11 +171,10 @@ export function SidebarDrawerFrame({
         )}
         <span>{label}</span>
       </button>
-      <dialog
+      <DrawerPanel
         id={id}
-        aria-label={label}
-        data-sidebar-drawer-panel=""
-        className={computeSidebarDrawerPanelClasses()}
+        label={label}
+        closeLabel={closeLabel}
       />
       <div
         data-sidebar-drawer-body=""

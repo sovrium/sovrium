@@ -8,8 +8,7 @@
 /**
  * Component-level visibility filtering for the page renderer.
  *
- * Extracted from `render-page.tsx` so the entry file stays under the
- * line cap. EVERY gate excludes — none of them hides with CSS:
+ * EVERY gate excludes — none of them hides with CSS:
  *   - `capability` — fully exclude the component AND its subtree from the SSR
  *     output, based on what the CALLER may do (see
  *     {@link applyCallerCapabilityGate}). The same pass gates a data-table
@@ -17,9 +16,8 @@
  *     under `visibility` (see {@link gateColumns}).
  *   - `condition` / `when` / `roles` — fully exclude the component AND its
  *     subtree from the SSR output, at any depth (see
- *     {@link applyVisibilityToComponents}). These are access controls: a
- *     reader they exclude must not receive the gated text at all, and a
- *     `display: none` node still ships it in the bytes.
+ *     {@link applyVisibilityToComponents}).
+ *   - every gate above also judges a `command`'s authored groups and items.
  *
  * Visibility config is read off `component.visibility` OR
  * `component.props.visibility`. The SESSION half — `when`, `roles`, the
@@ -36,10 +34,19 @@ import {
   visibilityOf,
   type SessionVisibility,
 } from '@/domain/models/app/pages/component-session-visibility-service'
-import { isCapabilityMet } from '@/domain/models/app/pages/page-requires'
 import { matchesConditionOperators } from '@/domain/models/app/tables/condition-operators'
+import { gateCommandRows } from '@/presentation/render/resolve/command-row-gate'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
+import {
+  gateDeclaredActions,
+  hostDeclarationMet,
+} from '@/presentation/render/resolve/declared-actions'
+import {
+  gateMountedWrites,
+  pruneFooterSlot,
+} from '@/presentation/render/resolve/mounted-write-gate'
 import { collectOverlayTargets, overlayIdOf } from '@/presentation/render/resolve/overlay-triggers'
+import { isOpenImportAdmitted, stampOpenImportFields } from './open-import-gate'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
@@ -58,6 +65,7 @@ interface VisibilityConfig extends SessionVisibility {
   readonly declares?: PageCapability
   /** Rendered only when the HOST app does NOT declare this capability. */
   readonly unlessDeclares?: PageCapability
+  readonly unlessCapability?: CallerCapability
   /**
    * Rendered only when the capability can actually RUN here — the host app
    * declares it AND the environment can serve it. Resolved once per request by
@@ -137,24 +145,19 @@ function pruneNodes(nodes: readonly unknown[], rule: PruneRule): readonly unknow
 }
 
 /**
- * Walk a SURVIVING node: reshape it, then prune its `children` and every
- * `responsive` breakpoint's `children`.
- *
- * A component REFERENCE is returned untouched — references are inlined before
- * the page passes run (`component-reference-expansion.ts`), so one still here
- * names a template that does not exist and has no subtree to walk. A string
- * child (inline text) is returned as-is.
- *
- * Both child positions are walked because both are RENDERED server-side:
- * `responsive.<bp>.children` is drawn into the HTML for every breakpoint and
- * shown or hidden by a media-query class, so a gated node there that this walk
- * skipped would ship to every reader — the exact leak exclusion exists to stop.
+ * Walk a SURVIVING node: reshape it, then prune its `children`, every
+ * `responsive` breakpoint's `children` and a sidebar's `footer`. A component
+ * REFERENCE (inlined before these passes, so one still here has no subtree) and
+ * a string child are returned as-is. Every position is walked because every one
+ * is RENDERED server-side: a gated node a walk skipped would ship to every
+ * reader — the exact leak exclusion exists to stop.
  */
 function pruneNode(node: unknown, rule: PruneRule): unknown {
   if (typeof node !== 'object' || node === null) return node
   if (isComponentReferenceNode(node as Page['components'][number])) return node
   const reshaped = rule.reshape === undefined ? node : rule.reshape(node)
-  return pruneResponsiveChildren(pruneChildren(reshaped, rule), rule)
+  const walked = pruneResponsiveChildren(pruneChildren(reshaped, rule), rule)
+  return pruneFooterSlot(walked, (nodes) => pruneNodes(nodes, rule))
 }
 
 /**
@@ -225,8 +228,10 @@ export function applyVisibilityToComponents(
   app: App
 ): Page['components'] {
   if (!components) return components
+  const keep = (node: unknown) => isNodeVisibleForSession(node, session, app)
   return pruneNodes(components, {
-    keep: (node) => isNodeVisibleForSession(node, session, app),
+    keep,
+    reshape: (node) => gateCommandRows(node, keep),
   }) as Page['components']
 }
 
@@ -313,11 +318,10 @@ function holdsCapability(ctx: GateContext, capability: CallerCapability): boolea
  *
  * ─── WHY A SEPARATE PASS, AND WHY IT EXCLUDES ──────────────────────────────
  *
- * A power gate must never leave markup in the response: a CSS-hidden
- * action column still ships every row action's endpoint to a caller forbidden
- * to call it (rule S1/S4), and a greyed-out control advertises a power the
- * admin-route middleware answers with 404. So an unmet capability removes the
- * node entirely — the strategy `condition` already uses.
+ * A power gate must never leave markup in the response: a CSS-hidden action
+ * column still ships every row action's endpoint to a caller forbidden to call
+ * it (rule S1/S4), and a greyed-out control advertises a power the admin-route
+ * middleware answers with 404. So an unmet capability removes the node.
  *
  * ─── WHY IT RECURSES ───────────────────────────────────────────────────────
  *
@@ -327,9 +331,8 @@ function holdsCapability(ctx: GateContext, capability: CallerCapability): boolea
  * "validates and does nothing" failure the root/props widening above fixes.
  * A node carrying no `capability` is returned by reference.
  *
- * Composition with `when` / `roles` / `condition` is AND, and it is ordered:
- * this pass runs first, so a component whose capability IS met still goes on to
- * be excluded by the other three exactly as before.
+ * Composition with `when` / `roles` / `condition` is AND: this pass runs
+ * first, and a node it keeps can still be excluded by the other three.
  *
  * ─── THE SECOND QUESTION THIS PASS ANSWERS ─────────────────────────────────
  *
@@ -361,8 +364,18 @@ export function applyCallerCapabilityGate(
     ...(queryValues !== undefined ? { queryValues } : {}),
   }
   return pruneNodes(components, {
-    keep: (node) => isCallerGateMet(node, ctx),
-    reshape: (node) => gateColumns(node, ctx),
+    keep: (node) => isCallerGateMet(node, ctx) && isOpenImportAdmitted(node, ctx),
+    reshape: (node) =>
+      gateMountedWrites(
+        gateDeclaredActions(
+          stampOpenImportFields(
+            gateCommandRows(gateColumns(node, ctx), (row) => isCallerGateMet(row, ctx)),
+            app
+          ),
+          ctx.hostApp
+        ),
+        ctx.granted
+      ),
   }) as Page['components']
 }
 
@@ -439,11 +452,12 @@ interface GateContext {
 function isCallerGateMet(node: unknown, ctx: GateContext): boolean {
   const visibility = extractVisibility(node)
   if (visibility === undefined) return true
-  const { capability } = visibility
+  const { capability, unlessCapability } = visibility
   if (capability !== undefined && !holdsCapability(ctx, capability)) return false
+  if (unlessCapability !== undefined && holdsCapability(ctx, unlessCapability)) return false
   if (!queryGateMet(visibility, ctx.queryValues)) return false
   if (!runtimeGateMet(visibility, ctx.runnable)) return false
-  return hostDeclarationMet(visibility, ctx.hostApp)
+  return hostDeclarationMet(visibility, ctx.hostApp, node)
 }
 
 /**
@@ -452,12 +466,9 @@ function isCallerGateMet(node: unknown, ctx: GateContext): boolean {
  * ─── WHY THIS EXCLUDES RATHER THAN HIDES ───────────────────────────────────
  *
  * The one case this key exists for is two alternative bodies under two chips of
- * one page. Shipping both and hiding one with CSS would put both in the bytes:
- * find-in-page finds the unselected one, a reader selecting the page copies it,
- * and anything that does not honour the stylesheet reads them as one document.
- * "Only one of these applies" would then be false to everything that reads
- * HTML. So the node and its subtree leave the response entirely, which is why
- * this rides the `capability` pass rather than the `when` / `roles` one.
+ * one page. Shipping both and hiding one with CSS would put both in the bytes,
+ * so the node and its subtree leave the response entirely — which is why this
+ * rides the `capability` pass rather than the `when` / `roles` one.
  *
  * ─── WHY THE VALUE IS ALREADY CLAMPED ──────────────────────────────────────
  *
@@ -527,15 +538,11 @@ function queryGateMet(
  *
  * ─── WHY EXCLUSION ─────────────────────────────────────────────────────────
  *
- * Same reason as `declares`, plus one of its own. A CSS-hidden composer tells a
- * reader-of-source the instance can run AI when it cannot; and the real
- * composer is an ISLAND, so hiding it still ships the mount and its
- * `data-island-props` payload to a host that can never serve it.
+ * Same reason as `declares`, plus one of its own: the composer is an ISLAND, so
+ * hiding it still ships its `data-island-props` to a host that cannot serve it.
  *
  * An ABSENT `runnable` leaves the gate inert, matching `queryGateMet` and
- * `holdsCapability`: a caller with no runtime context — a unit test, a static
- * build — has no way to answer the question, and excluding every gated block
- * there would silently empty pages whose author declared nothing wrong.
+ * `holdsCapability`: a caller with no runtime context cannot answer it.
  */
 function runtimeGateMet(
   visibility: VisibilityConfig,
@@ -546,13 +553,6 @@ function runtimeGateMet(
   if (runnable === undefined) return true
   if (runtime !== undefined && !runnable.has(runtime)) return false
   if (unlessRuntime !== undefined && runnable.has(unlessRuntime)) return false
-  return true
-}
-
-function hostDeclarationMet(visibility: VisibilityConfig, hostApp: App): boolean {
-  const { declares, unlessDeclares } = visibility
-  if (declares !== undefined && !isCapabilityMet(hostApp, declares)) return false
-  if (unlessDeclares !== undefined && isCapabilityMet(hostApp, unlessDeclares)) return false
   return true
 }
 

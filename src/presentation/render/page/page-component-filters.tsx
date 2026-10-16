@@ -51,6 +51,7 @@ import {
   buildCommandPaletteComponent,
   hasAuthoredPalette,
   withNavigablePages,
+  withSearchTableLabels,
 } from './page-command-palette'
 import {
   applyCrudCreatePermissions,
@@ -245,14 +246,24 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   // `RELATED_GUEST_CALLER_KEY`.
   // Likewise its fields: what the reader may read and write needs the whole
   // `app`, which the drawer's renderer does not hold.
-  const withDrawerDispatches = markDrawerFieldAccess(
-    markRelatedGuestCaller(
-      resolveOpenDrawerDispatches(withToc ?? []),
-      app.auth === undefined ? 'open' : session === undefined ? 'guest' : undefined
+  const hostApp = input.hostApp ?? app
+  const withDrawerDispatches = withSearchTableLabels(
+    markDrawerFieldAccess(
+      markRelatedGuestCaller(
+        resolveOpenDrawerDispatches(withToc ?? []),
+        app.auth === undefined ? 'open' : session === undefined ? 'guest' : undefined
+      ),
+      app,
+      session,
+      { capabilities: input.callerCapabilities, hostApp }
     ),
-    app,
-    session
-  )
+    {
+      hostApp,
+      session,
+      mounted: input.hostApp !== undefined && input.hostApp !== app,
+      lang: activeLang,
+    }
+  ) as ReturnType<typeof markDrawerFieldAccess>
   // The platform Cmd+K command palette is appended to every page by default.
   // An app may opt out via `palette: { enabled: false }` — e.g. when it
   // ships its own search overlay also bound to Cmd+K, so both would otherwise

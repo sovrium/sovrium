@@ -7,9 +7,8 @@
 
 // Submissions — what your forms received, one inbox per form.
 //
-//   `/forms`        the bare collection, which 302s to the first form; it
-//                   renders only for an app that declares none.
-//   `/forms/:form`  that form's metrics, toolbar, inbox and detail drawer.
+//   `/submissions`        the bare collection, which 302s to the first form.
+//   `/submissions/:form`  that form's metrics, toolbar, inbox and detail drawer.
 //
 // ─── THE ONE THING THAT NEEDED SOLVING: LINKING OUT OF THE CONSOLE ─────────
 //
@@ -37,15 +36,20 @@
 
 import { sectionCard } from '../../components/dashboard-blocks'
 import {
+  consolePage,
+  emptyState,
   fillHost,
-  pageHeading,
-  tabQuery,
   tabbedBody,
   tabPanel,
+  tabQuery,
   toolbarRow,
 } from '../../components/data-page'
-import { dataTable, recordSheet, STATUS_BADGE } from '../../components/data-table-blocks'
-import { withShell } from '../../components/shell'
+import {
+  dataTable,
+  recordSheet,
+  STATUS_BADGE,
+  toolbarSearch,
+} from '../../components/data-table-blocks'
 import { FORMS_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -56,7 +60,7 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 const DETAIL_DRAWER_ID = 'form-submission-detail'
 
 /** The Submissions crumb label, shared by both pages of the surface. */
-const BREADCRUMB = { forms: '$t:admin.crumb.forms' } as const
+const BREADCRUMB = { submissions: '$t:admin.crumb.submissions' } as const
 
 /** Outline toolbar-button chrome, shared by the export button and the form link. */
 const TOOLBAR_BTN =
@@ -109,24 +113,40 @@ const FORM_ANALYTICS_ENDPOINT = '/api/admin/forms/$param.form/analytics'
  * re-served page 1 verbatim. The rows stay capped at the fetch's 25 either way —
  * the block never controlled that — so the cap is STATED beneath the grid.
  */
+/** The channel the submissions' search box publishes on and its grid listens to. */
+const SUBMISSIONS_CHANNEL = 'submissions-filter'
+
 const submissionsGrid = (): PageComponent =>
   dataTable({
     props: { 'aria-label': '$t:admin.forms.submissions.region' },
-    dataSource: { system: { endpoint: SUBMISSIONS_ENDPOINT, rowsKey: 'items', idKey: 'id' } },
+    dataSource: {
+      system: {
+        endpoint: SUBMISSIONS_ENDPOINT,
+        rowsKey: 'items',
+        idKey: 'id',
+        bindTo: SUBMISSIONS_CHANNEL,
+        sharedFilter: {},
+        // Every submission the filters match, not the rows this page holds.
+        totalKey: 'total',
+      },
+    },
+    // One column per question of the form the address names, after the
+    // envelope's two. They fill only when the list carries the answers — an
+    // admin turned Reveal answers on, on an instance that allows it — and
+    // otherwise there is no answer column at all.
+    columnsFrom: { form: '$param.form' },
     columns: [
       {
         field: 'status',
-        label: 'Status',
+        label: '$t:admin.common.status',
         valueLabels: STATUS_LABELS,
         cellStyle: Object.keys(STATUS_LABELS).map((value) => ({
           when: { eq: value },
-          className: value === 'failed' ? STATUS_BADGE.destructive : STATUS_BADGE.neutral,
+          className: value === 'failed' ? STATUS_BADGE.loud : STATUS_BADGE.quiet.neutral,
         })),
       },
-      { field: 'submittedAt', label: 'Received', format: 'datetime' },
+      { field: 'submittedAt', label: '$t:admin.forms.received', format: 'datetime' },
     ],
-    search: { enabled: true, placeholder: 'Search submissions' },
-    toolbar: { search: true },
     // The grid owns the scroll on this surface. There is no pager to keep on
     // screen (the note above says why), so what fill buys here is the pinned
     // column header — twenty-five rows of status and timestamp are unreadable
@@ -156,8 +176,8 @@ const submissionsGrid = (): PageComponent =>
     // measured rather than assumed: ticking a checkbox leaves the drawer shut
     // (0 dialogs), and a click anywhere else on the row still opens it.
     selection: { mode: 'multiple' },
-    emptyMessage: 'No submissions yet',
-    noMatchMessage: 'No submission matches “{query}”',
+    emptyMessage: '$t:admin.forms.noneYet',
+    noMatchMessage: '$t:admin.forms.noMatch',
     onRowClick: { action: 'openSheet', component: DETAIL_DRAWER_ID },
   }) as PageComponent
 
@@ -184,15 +204,42 @@ const detailDrawer = (): PageComponent =>
   }) as PageComponent
 
 /**
- * The toolbar: out to the live form, then the CSV export.
+ * The toolbar: the search box, out to the live form, then the CSV export.
  *
  * The export `filename` carries `$param.form` too. The reference grammar ends at
  * the first character that cannot continue an identifier, so
  * `$param.form-submissions.csv` resolves to `contact-submissions.csv` rather
  * than swallowing the suffix.
  */
+/**
+ * Reveal answers: the one way the inbox shows what people wrote.
+ *
+ * Off by default, so opening the inbox is never a reveal. While on it
+ * publishes `reveal=true` on the grid's channel and the list read carries the
+ * answers — which the instance answers only to an admin, only where it allows
+ * capturing them, and records in the audit log. A role that could never see
+ * them is not offered the switch at all.
+ */
+const revealSwitch = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    visibility: { capability: 'administer-accounts' },
+    props: { className: 'flex items-center gap-2' },
+    children: [
+      {
+        type: 'switch',
+        props: { id: 'submissions-reveal', 'aria-label': '$t:admin.forms.reveal' },
+        publishes: { bindTo: SUBMISSIONS_CHANNEL, param: 'reveal' },
+      },
+      { type: 'label', for: 'submissions-reveal', text: '$t:admin.forms.reveal' },
+    ],
+  }) as PageComponent
+
 const toolbar = (): PageComponent =>
   toolbarRow([
+    toolbarSearch(SUBMISSIONS_CHANNEL, '$t:admin.forms.search'),
+    revealSwitch(),
     {
       type: 'link',
       content: '$t:admin.forms.openForm',
@@ -206,7 +253,10 @@ const toolbar = (): PageComponent =>
     } as PageComponent,
     {
       type: 'button',
-      label: 'Export to CSV',
+      label: '$t:admin.forms.exportCsv',
+      // Outline, like the link beside it: the default fill is the primary
+      // colour, which the toolbar's muted text cannot be read against.
+      variant: 'outline',
       props: { 'aria-label': '$t:admin.forms.export.region', className: TOOLBAR_BTN },
       action: {
         type: 'fetch',
@@ -224,7 +274,11 @@ const toolbar = (): PageComponent =>
  * for the four it does not, and why they are words rather than tiles.
  */
 const submissionsKpi = (): PageComponent =>
-  sectionCard({ label: 'Submissions', endpoint: FORM_ANALYTICS_ENDPOINT, valuePath: 'totalCount' })
+  sectionCard({
+    label: '$t:admin.forms.submissions',
+    endpoint: FORM_ANALYTICS_ENDPOINT,
+    valuePath: 'totalCount',
+  })
 
 /**
  * The read-window statement, directly beneath the grid.
@@ -245,35 +299,11 @@ const readWindowNote = (): PageComponent =>
 
 /** The whole-page empty state for an app that declares no forms. */
 const noFormsState = (): PageComponent =>
-  ({
-    type: 'container',
-    element: 'section',
-    props: {
-      'aria-label': '$t:admin.forms.empty.heading',
-      className:
-        'border-border bg-card flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center',
-    },
-    children: [
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-foreground text-md font-medium' },
-        content: '$t:admin.forms.empty.heading',
-      },
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-muted-foreground max-w-md text-md leading-relaxed' },
-        content: '$t:admin.forms.empty.body',
-      },
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-foreground-subtle mt-1 max-w-md text-md italic' },
-        content: '$t:admin.forms.empty.hint',
-      },
-    ],
-  }) as PageComponent
+  emptyState(
+    '$t:admin.forms.empty.heading',
+    '$t:admin.forms.empty.body',
+    '$t:admin.forms.empty.hint'
+  )
 
 /**
  * The form list `redirectToFirst` reads its first row from.
@@ -288,26 +318,23 @@ const formDirectory = (): PageComponent =>
     dataSource: { system: { endpoint: FORMS_ENDPOINT, rowsKey: 'items' } },
     listDisplay: {
       itemTemplate: { title: '{name}' },
-      emptyMessage: 'No forms',
+      emptyMessage: '$t:admin.forms.none',
     },
   }) as PageComponent
 
-/** `/forms` — the bare collection. */
-const directoryPage: PageConfig = withShell(
-  {
-    id: 'dashboard-data-forms',
-    name: 'dashboard-data-forms',
-    path: '/forms',
-    meta: { title: '$t:admin.meta.forms', lang: 'en-US' },
-    redirectToFirst: { hrefTemplate: '/forms/{name}' },
-    components: [
-      pageHeading('$t:admin.forms.heading', '$t:admin.forms.blurb'),
-      noFormsState(),
-      formDirectory(),
-    ],
-  } as PageConfig,
-  { breadcrumb: BREADCRUMB }
-)
+/** `/submissions` — the bare collection. */
+const directoryPage: PageConfig = consolePage({
+  id: 'dashboard-data-forms',
+  path: '/submissions',
+  title: '$t:admin.meta.forms',
+  heading: ['$t:admin.forms.heading', '$t:admin.forms.blurb'],
+  page: {
+    requires: ['forms'],
+    redirectToFirst: { hrefTemplate: '/submissions/{name}' },
+  },
+  shell: { breadcrumb: BREADCRUMB },
+  body: [noFormsState(), formDirectory()],
+})
 
 /**
  * The two halves of this route, and the `?tab=` value that addresses each.
@@ -317,59 +344,39 @@ const directoryPage: PageConfig = withShell(
  * which is the wrong trade for a figure most readings do not need.
  */
 const TABS = [
-  { id: 'inbox', label: 'Inbox' },
-  { id: 'insights', label: 'Insights' },
+  { id: 'inbox', label: '$t:admin.forms.inbox' },
+  { id: 'insights', label: '$t:admin.forms.insights' },
 ] as const
 
 /**
- * A card stating that one figure is NOT MEASURED, and why.
+ * Drop-off, answered for what the form IS.
  *
- * ─── WHY THESE ARE NOT KPI TILES READING ZERO ──────────────────────────────
- *
- * `/api/admin/forms/:formName/analytics` returns six figures and only three of
- * them are measured. `averageCompletionTime` is a literal `0` in the handler,
- * `attachmentCount` is a deliberate placeholder the source itself comments as
- * "intentionally zero — we don't fetch `data` for the aggregate query", and
- * `dropOffByStep` returns one entry per declared step with `droppedCount: 0` on
- * every one. A tile rendering any of those prints a NUMBER, and a number is a
- * claim: "the average form takes zero seconds" and "no attachment was ever
- * uploaded" are both false, and neither is distinguishable from a true zero.
- *
- * This is the footprint page's own rule applied one surface over — a blank cell
- * beside a named instrument means nobody measured it; a `0` beside one means it
- * was measured and found empty. So the unmeasured three are named in words with
- * no figure at all, next to the two that are real.
- *
- * They are kept on the page rather than deleted because their absence is itself
- * operational information: an operator asking "how long does my form take?" gets
- * "that is not measured yet" instead of concluding the console has no answer
- * because they missed it.
+ * A single-page form has no step to drop off at, so the figure is not
+ * applicable — the read returns no steps, and the list's empty line says so.
+ * A multi-step form lists its steps. Per-step abandonment itself is not
+ * measured yet, and an unmeasured figure is not drawn: a `0` beside a step
+ * would claim nobody left there.
  */
-const gapCard = (heading: string, why: string): PageComponent =>
+const dropOffSection = (): PageComponent =>
   ({
     type: 'container',
-    element: 'div',
-    props: {
-      className: 'border-border bg-card flex flex-col gap-1 rounded-lg border p-4',
-    },
+    element: 'section',
+    props: { 'aria-label': '$t:admin.forms.dropOff.heading', className: 'flex flex-col gap-2' },
     children: [
       {
         type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground-subtle text-sm font-medium tracking-wide uppercase' },
-        content: heading,
+        element: 'h3',
+        props: { className: 'text-foreground text-md font-medium' },
+        content: '$t:admin.forms.dropOff.heading',
       },
       {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-muted-foreground text-md' },
-        content: '$t:admin.forms.metric.unmeasured',
-      },
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground-subtle text-md italic' },
-        content: why,
+        type: 'list',
+        props: { className: 'text-muted-foreground flex flex-col gap-1 text-sm' },
+        dataSource: { system: { endpoint: FORM_ANALYTICS_ENDPOINT, rowsKey: 'dropOffByStep' } },
+        listDisplay: {
+          itemTemplate: { title: '{stepName}' },
+          emptyMessage: '$t:admin.forms.dropOff.singlePage',
+        },
       },
     ],
   }) as PageComponent
@@ -387,7 +394,7 @@ const gapCard = (heading: string, why: string): PageComponent =>
  */
 const completionKpi = (): PageComponent =>
   sectionCard({
-    label: 'Completion rate',
+    label: '$t:admin.forms.completion',
     endpoint: FORM_ANALYTICS_ENDPOINT,
     valuePath: 'completionRate',
     kpiFormat: { type: 'percentage', options: { scale: '100' } },
@@ -409,8 +416,12 @@ const submissionsChart = (): PageComponent =>
     dataSource: { system: { endpoint: FORM_ANALYTICS_ENDPOINT, rowsKey: 'submissionsPerDay' } },
     chartType: 'area',
     xAxis: { field: 'date', format: 'date' },
-    series: [{ field: 'count', label: 'Submissions' }],
-    emptyState: { role: 'region', name: 'No data', title: 'No submissions in this period' },
+    series: [{ field: 'count', label: '$t:admin.forms.submissions' }],
+    emptyState: {
+      role: 'region',
+      name: '$t:admin.common.noData',
+      title: '$t:admin.forms.noPeriod',
+    },
   }) as PageComponent
 
 /** The Inbox panel: the controls, the feed, its read window, and the drawer. */
@@ -420,10 +431,9 @@ const inboxPanel = (): PageComponent =>
 /**
  * The Insights panel: what the analytics endpoint measures, and what it does not.
  *
- * Two real figures and a real series, then the four gaps — conversion (no view
- * counter exists to divide by), completion time, attachments, and per-step
- * drop-off. Reading the panel top to bottom tells an operator exactly how much
- * of this form's behaviour is instrumented.
+ * The two figures the endpoint measures and their series, then drop-off for
+ * what the form is. Nothing the endpoint does not measure is on the page —
+ * not as a tile reading zero, and not as a word either.
  */
 const insightsPanel = (): PageComponent =>
   tabPanel(
@@ -441,57 +451,32 @@ const insightsPanel = (): PageComponent =>
           submissionsChart(),
         ],
       } as PageComponent,
-      {
-        type: 'container',
-        element: 'section',
-        props: {
-          'aria-label': '$t:admin.forms.gaps.region',
-          className: 'flex flex-col gap-4',
-        },
-        children: [
-          {
-            type: 'text',
-            element: 'h3',
-            props: { className: 'text-foreground text-md font-medium' },
-            content: '$t:admin.forms.gaps.heading',
-          },
-          {
-            type: 'container',
-            props: { className: 'grid grid-cols-1 gap-4 sm:grid-cols-2' },
-            children: [
-              gapCard('$t:admin.forms.conversion.heading', '$t:admin.forms.conversion.why'),
-              gapCard('$t:admin.forms.duration.heading', '$t:admin.forms.duration.why'),
-              gapCard('$t:admin.forms.attachments.heading', '$t:admin.forms.attachments.why'),
-              gapCard('$t:admin.forms.dropOff.heading', '$t:admin.forms.dropOff.why'),
-            ],
-          } as PageComponent,
-        ],
-      } as PageComponent,
+      dropOffSection(),
     ],
     { scroll: true }
   )
 
-/** `/forms/:form` — one form's inbox, with what is measured about it beside. */
-const inboxPage: PageConfig = withShell(
-  {
-    id: 'dashboard-data-forms-form',
-    name: 'dashboard-data-forms-form',
-    path: '/forms/:form',
-    meta: { title: '$t:admin.meta.forms', lang: 'en-US' },
+/** `/submissions/:form` — one form's inbox, with what is measured about it beside. */
+const inboxPage: PageConfig = consolePage({
+  id: 'dashboard-data-forms-form',
+  path: '/submissions/:form',
+  title: '$t:admin.meta.forms',
+  heading: ['$t:admin.forms.heading', '$t:admin.forms.blurb'],
+  page: {
+    requires: ['forms'],
     // `?tab=` is the address of each half. Without this block `$query.tab` is
     // left verbatim and the strip silently opens on Inbox for every link.
     query: tabQuery(TABS),
-    components: [
-      pageHeading('$t:admin.forms.heading', '$t:admin.forms.blurb'),
-      fillHost([
-        tabbedBody('$t:admin.forms.tabs.region', TABS, [inboxPanel(), insightsPanel()], {
-          fill: true,
-        }),
-      ]),
-    ],
-  } as PageConfig,
-  { breadcrumb: BREADCRUMB, fill: true }
-)
+  },
+  shell: { breadcrumb: BREADCRUMB, fill: true },
+  body: [
+    fillHost([
+      tabbedBody('$t:admin.forms.tabs.region', TABS, [inboxPanel(), insightsPanel()], {
+        fill: true,
+      }),
+    ]),
+  ],
+})
 
 /** Both pages, directory first — see `tables.ts` for why the order is written down. */
 export default [directoryPage, inboxPage] satisfies readonly PageConfig[]

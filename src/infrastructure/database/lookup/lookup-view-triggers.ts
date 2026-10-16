@@ -149,11 +149,23 @@ export const getInsertValueExpressions = (table: Table): readonly string[] =>
     })
 
 /**
+ * The transaction-local setting a view's `INSTEAD OF INSERT` trigger leaves the
+ * id of the base row it inserted in (PostgreSQL), for the create path to read
+ * back (`resolveViewBackedInsertRow`).
+ */
+export const INSERTED_ID_SETTING = 'sovrium.inserted_id'
+
+/**
  * Generate INSTEAD OF INSERT trigger for a VIEW (PostgreSQL dialect).
  *
  * Wraps the redirect in a PL/pgSQL trigger function — required because
  * PostgreSQL's `INSTEAD OF` trigger fires a function reference, not an
  * inline statement body.
+ *
+ * The view's `RETURNING` row is the trigger's `NEW`, whose id is never the one
+ * the base table generated, so the function records that id in a
+ * transaction-local setting ({@link INSERTED_ID_SETTING}). `lastval()` served a
+ * serial key only: a text or uuid key — a scope table's — advances no sequence.
  */
 export const generateInsertTrigger = (
   viewName: string,
@@ -171,9 +183,13 @@ export const generateInsertTrigger = (
   return [
     `CREATE OR REPLACE FUNCTION ${insertTriggerFunction}()
 RETURNS TRIGGER AS $$
+DECLARE
+  inserted_id text;
 BEGIN
   INSERT INTO ${baseTableName} (${insertFieldsList})
-  VALUES (${insertValuesList});
+  VALUES (${insertValuesList})
+  RETURNING id::text INTO inserted_id;
+  PERFORM set_config('${INSERTED_ID_SETTING}', inserted_id, true);
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql`,

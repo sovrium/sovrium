@@ -16,11 +16,10 @@ import {
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { db } from '@/infrastructure/database'
-import { ADMIN_SEARCH_CONTENT_TABLE } from '@/infrastructure/database/lookup/admin-search-fts-ddl'
 import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
-import { searchAdminIndex } from './admin-search-query'
+import { adminSearchContentTableRef, pruneAdminIndex, searchAdminIndex } from './admin-search-query'
 import { recordIndexKey } from './admin-search-record-key'
 
 /**
@@ -55,17 +54,6 @@ const systemTableRef = (logical: string): SQL =>
   // sql-literal: identifier -- `logical` is one of this module's own system table names
   isSqliteRuntime() ? sql.raw(`system_${logical}`) : sql.raw(`system."${logical}"`)
 
-/**
- * The admin-search content table reference for the active dialect.
- *
- * Exported so the boot-time purge (`admin-search-index-purge.ts`) names the
- * SAME relation this repository writes — the dialect branch must not be
- * restated in a second place.
- */
-export const adminSearchContentTableRef = (): SQL =>
-  // sql-literal: identifier -- a module constant naming the search content table
-  isSqliteRuntime() ? sql.raw(ADMIN_SEARCH_CONTENT_TABLE) : sql.raw('system."_admin_search_index"')
-
 /** Coerce an upsert row's `updatedAt` to the column's native form. */
 const updatedAtValue = (date: Date): number | Date => (isSqliteRuntime() ? date.getTime() : date)
 
@@ -97,7 +85,7 @@ const readTableRecords = (
         entityId: recordIndexKey(displayName, String(row['entity_id'])),
         title: typeof row['title'] === 'string' ? row['title'] : String(row['entity_id']),
         body: '',
-        href: `/_admin/tables/${displayName}?record=${encodeURIComponent(String(row['entity_id']))}`,
+        href: `/_admin/records/${displayName}?record=${encodeURIComponent(String(row['entity_id']))}`,
         updatedAt: new Date(),
       }))
     )
@@ -154,7 +142,7 @@ const readSubmissions = (): Promise<readonly AdminSearchUpsertRow[]> =>
           // Metadata only — the id, so an operator holding one can still find
           // the row. NEVER the submitted payload; see the note above.
           body: entityId,
-          href: `/_admin/forms/${formName}`,
+          href: `/_admin/submissions/${formName}`,
           updatedAt: new Date(),
         }
       })
@@ -182,7 +170,7 @@ const readRuns = (): Promise<readonly AdminSearchUpsertRow[]> =>
           entityId: String(row['entity_id']),
           title: `Exécution · ${name}`,
           body: `${status} ${typeof row['error'] === 'string' ? row['error'] : ''}`.trim(),
-          href: '/_admin/automations',
+          href: '/_admin/runs',
           updatedAt: new Date(),
         }
       })
@@ -227,7 +215,7 @@ const readFiles = (): Promise<readonly AdminSearchUpsertRow[]> =>
           entityId: String(row['entity_id']),
           title: filename,
           body: '',
-          href: '/_admin/buckets',
+          href: '/_admin/files',
           updatedAt: new Date(),
         }
       })
@@ -253,7 +241,7 @@ const readConversations = (): Promise<readonly AdminSearchUpsertRow[]> =>
           entityId: String(row['entity_id']),
           title,
           body: typeof row['agent_name'] === 'string' ? row['agent_name'] : '',
-          href: '/_admin/agents',
+          href: '/_admin/conversations',
           updatedAt: new Date(),
         }
       })
@@ -386,8 +374,6 @@ const upsertAllRows = (rows: readonly AdminSearchUpsertRow[]) =>
     concurrency: SHARED_POOL_FANOUT_CONCURRENCY,
   }).pipe(Effect.asVoid)
 
-// ─── FTS query helpers ────────────────────────────────────────────────────────
-
 /**
  * Admin Global Search Repository Live layer.
  */
@@ -413,7 +399,7 @@ export const AdminSearchRepositoryLive = Layer.succeed(AdminSearchRepository, {
   // Three sequential stages, each a fan-out with a stated ceiling — see the
   // "Bounded rebuild fan-outs" section above. They run one after another, so the
   // rebuild's peak pool usage is the widest single stage, not their sum.
-  rebuildIndex: ({ tables, extraRows }) =>
+  rebuildIndex: ({ tables, extraRows, producedKinds, configKinds }) =>
     Effect.gen(function* () {
       const perTable = yield* readAllTableRecords(tables)
       const [submissions, runs, users, files, conversations] = yield* readFixedSources()
@@ -426,8 +412,9 @@ export const AdminSearchRepositoryLive = Layer.succeed(AdminSearchRepository, {
         ...conversations,
         ...extraRows,
       ]
-      // On SQLite each INSERT additionally fires the FTS5 sync triggers.
+      // On SQLite each INSERT/DELETE additionally fires the FTS5 sync triggers.
       yield* upsertAllRows(allRows)
+      yield* wrap(() => pruneAdminIndex({ producedKinds, configKinds, configRows: extraRows }))
     }),
 
   search: (query) => wrap(() => searchAdminIndex(query)),

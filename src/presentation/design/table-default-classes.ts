@@ -34,9 +34,10 @@
  *
  * ## Where the parts are
  *   - `table-shell-default-classes.ts`    frame, `<table>`, `<thead>`, `<th>`
+ *   - `table-sort-default-classes.ts`     a sortable header's button and glyph
  *   - `table-body-default-classes.ts`     `<tbody>`, rows, cells, cursor, selection
  *   - `table-group-default-classes.ts`    groups, summary, empty, skeleton, add row
- *   - `table-toolbar-default-classes.ts`  toolbar, search
+ *   - `table-toolbar-default-classes.ts`  toolbar buttons, search hit
  *   - `table-pager-default-classes.ts`    pager, bulk bar
  *   - `table-panel-default-classes.ts`    panel, save status, chip, row actions
  *   - `table-overlay-default-classes.ts`  everything the grid opens IN FRONT of itself
@@ -52,12 +53,18 @@ export {
   computeTableElementClasses,
   computeTableHeaderRowClasses,
   computeTableHeaderCellClasses,
-  computeTableSortGlyphClasses,
   computeTableResizeHandleClasses,
   computeTableFillShellClasses,
   computeTableFillScrollClasses,
   computeTableStickyHeaderClasses,
+  computeTableScrollFrameClasses,
+  computeTableScrollEdgeClasses,
 } from './table-shell-default-classes'
+
+export {
+  computeTableSortGlyphClasses,
+  computeTableSortButtonClasses,
+} from './table-sort-default-classes'
 
 export {
   computeTableBodyClasses,
@@ -78,6 +85,7 @@ export {
   TABLE_GROUP_INDENT_PX,
   computeTableGroupRowClasses,
   computeTableGroupCellClasses,
+  computeTableGroupToggleClasses,
   computeTableGroupSummaryCellClasses,
   computeTableSummaryRowClasses,
   computeTableSummaryCellClasses,
@@ -89,11 +97,8 @@ export {
 } from './table-group-default-classes'
 
 export {
-  computeTableToolbarClasses,
   computeTableToolbarButtonClasses,
   computeTableToolbarPrimaryButtonClasses,
-  computeTableToolbarCountClasses,
-  computeTableSearchClasses,
   computeTableSearchHitClasses,
   TABLE_TOOLBAR_BUTTON_PART,
   TABLE_TOOLBAR_PRIMARY_BUTTON_PART,

@@ -97,11 +97,13 @@ export class DataSourceRepository extends Context.Service<
      * Returns an empty array when the user has no rows or when the
      * `user_access` table does not exist (graceful degradation).
      *
-     * Used by the Z-1 `$currentUser.assignments.<tableSlug>` resolver.
+     * Used by the Z-1 `$currentUser.assignments.<tableSlug>` resolver. With
+     * `role`, only the rows granted under that role count.
      */
     readonly fetchUserAssignments: (
       userId: string,
-      tableSlug: string
+      tableSlug: string,
+      role?: string
     ) => Effect.Effect<readonly string[], DataSourceDatabaseError>
 
     /**
@@ -127,7 +129,8 @@ export class DataSourceRepository extends Context.Service<
      */
     readonly fetchUsersAssignments: (
       userIds: readonly string[],
-      tableSlug: string
+      tableSlug: string,
+      role?: string
     ) => Effect.Effect<ReadonlyMap<string, readonly string[]>, DataSourceDatabaseError>
 
     /**
@@ -139,5 +142,29 @@ export class DataSourceRepository extends Context.Service<
     readonly fetchUsersAccessRoles: (
       userIds: readonly string[]
     ) => Effect.Effect<ReadonlyMap<string, readonly string[]>, DataSourceDatabaseError>
+
+    /**
+     * The ids of the rows of `table` whose many-to-many relationship to
+     * `relatedTable` links at least one of `relatedIds` — a `contains` row
+     * rule's membership test, read from the link table with every value bound.
+     * An empty `relatedIds` answers an empty list without a query.
+     */
+    readonly fetchManyToManyHolders: (input: {
+      readonly table: string
+      readonly relatedTable: string
+      readonly relatedIds: readonly string[]
+    }) => Effect.Effect<readonly unknown[], DataSourceDatabaseError>
+
+    /**
+     * The ids of the rows of `table` whose list of people `column` (a `user`
+     * field with `allowMultiple`) holds at least one of `userIds` — a
+     * `contains` row rule's membership test, with every id bound. An empty
+     * `userIds` answers an empty list without a query.
+     */
+    readonly fetchUserListHolders: (input: {
+      readonly table: string
+      readonly column: string
+      readonly userIds: readonly string[]
+    }) => Effect.Effect<readonly unknown[], DataSourceDatabaseError>
   }
 >()('DataSourceRepository') {}

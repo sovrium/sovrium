@@ -25,6 +25,8 @@
  * - `errorId` is the id of the field's inline-error region, unique per form so
  *   two forms on one page never share one.
  * - `labelKey` names the catalogue key a built-in default label is worded by.
+ * - `rule` is the password rule a field that SETS a password states under it
+ *   ("At least 8 characters"), worded by the server in the page language.
  */
 export interface AuthFormField {
   readonly name: string
@@ -41,6 +43,8 @@ export interface AuthFormField {
    * the key, so it never reaches the island.
    */
   readonly labelKey?: string
+  /** The rule under a new-password field, already in the page language. */
+  readonly rule?: string
 }
 
 /** What an auth form's browser hints depend on. */

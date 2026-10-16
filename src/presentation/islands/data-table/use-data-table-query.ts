@@ -12,7 +12,6 @@ import { retryUnlessRateLimited } from '../runtime/read-failure'
 import { buildFilterParam, buildDataSourceSortParam, runDataTableFetch } from './data-table-fetch'
 import { groupPathKey } from './group-order'
 import type { DataTableFetchResult, GroupCount, ResolvedQuery } from './data-table-fetch'
-import type { ServerFilterGroup } from './island/island-setup-helpers'
 import type { SummaryAggregations } from './summary-aggregate'
 import type {
   DataTableSummaryItem,
@@ -115,11 +114,6 @@ interface UseDataTableQueryParams {
    * (a record inserted before them) can step past exactly those rows.
    */
   readonly offset?: number
-  /**
-   * The filter-builder's rows, sent with the request rather than applied to
-   * the loaded page — set only for a load-more grid (see `toServerFilterGroup`).
-   */
-  readonly runtimeFilter?: ServerFilterGroup
   /** Optional schema-driven default filter (server-side, applied via ?filter= JSON) */
   readonly dataSourceFilter?: readonly DataFilter[]
   /** Optional schema-driven default sort (server-side, used when user has no sort applied) */
@@ -246,7 +240,7 @@ function resolveQuery(params: UseDataTableQueryParams): ResolvedQuery {
     pagination: params.pagination,
     sortParam: userSortParam ?? buildDataSourceSortParam(dataSourceSort),
     globalFilter: params.globalFilter,
-    filterParam: buildFilterParam(params.dataSourceFilter, params.runtimeFilter),
+    filterParam: buildFilterParam(params.dataSourceFilter),
     aggregateParam: params.aggregateParam,
     summary: params.summary,
     groupByParam: params.groupByParam,

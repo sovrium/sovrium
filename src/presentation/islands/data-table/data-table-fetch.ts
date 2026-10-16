@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { createRecordsClient, createViewRecordsClient } from '@/presentation/api/client'
+import {
+  createRecordsClient,
+  createViewRecordsClient,
+} from '@/presentation/islands/runtime/rpc-client'
 import {
   buildSystemQueryString,
   fetchSystemEndpoint,
@@ -13,7 +16,6 @@ import {
 } from '../hooks/use-system-source-fetch'
 import { withSharedFilter } from '../runtime/shared-filter-param'
 import { computeRowAggregations } from './summary-aggregate'
-import type { ServerFilterGroup } from './island/island-setup-helpers'
 import type { SummaryAggregations } from './summary-aggregate'
 import type { FetchResult, SystemFetchQuery } from '../hooks/use-system-source-fetch'
 import type { TableRecord } from '../runtime/types'
@@ -96,17 +98,13 @@ const DOMAIN_TO_API_OPERATOR: Record<string, string> = {
   isNotEmpty: 'isNotEmpty',
 }
 
-export function buildFilterParam(
-  filters: readonly DataFilter[] | undefined,
-  runtimeFilter?: ServerFilterGroup
-): string | undefined {
+export function buildFilterParam(filters: readonly DataFilter[] | undefined): string | undefined {
   const conditions = (filters ?? []).map((f) => ({
     field: f.field,
     operator: DOMAIN_TO_API_OPERATOR[f.operator] ?? f.operator,
     ...(f.value !== undefined && { value: f.value }),
   }))
-  const nodes = runtimeFilter === undefined ? conditions : [...conditions, runtimeFilter]
-  return nodes.length === 0 ? undefined : JSON.stringify({ and: nodes })
+  return conditions.length === 0 ? undefined : JSON.stringify({ and: conditions })
 }
 
 export function buildDataSourceSortParam(
@@ -209,11 +207,10 @@ function requestRecordsPage(fetchQuery: FetchQuery) {
 async function fetchTableRecords(fetchQuery: FetchQuery): Promise<DataTableFetchResult> {
   const res = await requestRecordsPage(fetchQuery)
 
+  // The status travels on `cause` and chooses what the grid says; the body is
+  // never read, because nothing in it is for the reader (it names internals).
   if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Failed to fetch records: ${res.status} ${body}`, {
-      cause: { status: res.status },
-    })
+    throw new Error(`Failed to fetch records: ${res.status}`, { cause: { status: res.status } })
   }
 
   const json = (await res.json()) as {

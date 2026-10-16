@@ -216,14 +216,14 @@
     return lang
   }
 
-  /**
-   * Updates all elements with translation keys
-   * Reads pre-resolved translations from data-translations attribute and updates text
-   *
-   * NOTE: Translation resolution logic has been moved to server-side to eliminate duplication.
-   * Server pre-resolves all translations for all languages and injects them via data-translations.
-   * Client only needs to lookup the appropriate translation, not re-implement fallback logic.
-   */
+  // Replace an element's words, keeping the visually hidden new-tab notice it carries.
+  function setWords(element, words) {
+    const notice = element.querySelector(':scope>[data-new-tab-notice]')
+    element.textContent = words
+    if (notice) element.append(' ', notice)
+  }
+
+  // Updates every element with a translation key from its server-resolved data-translations.
   function updateTranslations() {
     const translatedElements = document.querySelectorAll('[data-translation-key]')
     translatedElements.forEach((element) => {
@@ -253,11 +253,11 @@
           }
 
           // Use translation or key as final fallback
-          element.textContent = translation || key
+          setWords(element, translation || key)
         } catch (error) {
           console.error('Failed to parse translations for key:', key, error)
           // Fallback to key if JSON parsing fails
-          element.textContent = key
+          setWords(element, key)
         }
       }
     })
@@ -298,7 +298,7 @@
 
         // Update element text content if translation found
         if (content) {
-          element.textContent = content
+          setWords(element, content)
         }
       } catch (error) {
         console.error('Failed to parse i18n content data:', error)

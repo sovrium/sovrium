@@ -17,7 +17,9 @@
  * the server's write-once rule is the one that holds.
  */
 
+import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { cn } from '@/presentation/design/class-merge'
 import {
   computeItemClasses,
@@ -31,6 +33,7 @@ import {
   type SignedItemClasses,
 } from '@/presentation/design/signature-signed-item'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Tables } from '@/domain/models/app/tables'
 import type { ReactElement } from 'react'
 
@@ -62,10 +65,13 @@ function safeParse(text: string): unknown {
   }
 }
 
+/** One of the pad's own words (`signaturePad.*`), in the page language. */
+type PadWord = (key: string) => string
+
 /** The day a signature was given, in the page's language. */
-function signedOn(signedAt: string | undefined, lang: string | undefined): string {
+function signedOn(signedAt: string | undefined, lang: string | undefined, word: PadWord): string {
   const instant = signedAt === undefined ? Number.NaN : Date.parse(signedAt)
-  if (Number.isNaN(instant)) return 'an unknown date'
+  if (Number.isNaN(instant)) return word('signaturePad.unknownDate')
   return new Intl.DateTimeFormat(lang ?? 'en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(
     instant
   )
@@ -89,11 +95,18 @@ const signedItemClasses = (className?: string): SignedItemClasses => ({
 /** The reading of a signature already given: one outlined item. */
 function signedReading(
   signature: StoredSignature,
-  ctx: { readonly lang: string | undefined; readonly className: string | undefined }
+  ctx: {
+    readonly lang: string | undefined
+    readonly className: string | undefined
+    readonly word: PadWord
+  }
 ): ReactElement {
   return (
     <SignatureSignedItem
-      title={`Signed by ${signature.signerName ?? 'an unknown signer'} on ${signedOn(signature.signedAt, ctx.lang)}`}
+      title={fillPlaceholders(ctx.word('signaturePad.signedBy'), {
+        name: signature.signerName ?? ctx.word('signaturePad.unknownSigner'),
+        date: signedOn(signature.signedAt, ctx.lang, ctx.word),
+      })}
       statement={signature.statement}
       classes={signedItemClasses(ctx.className)}
       attributes={{
@@ -113,6 +126,24 @@ function bucketOf(tables: Tables | undefined, table: unknown, field: string | un
   return column?.bucket ?? SYSTEM_BUCKET_NAME
 }
 
+/** The words the pad island draws, in the page language: all of them (it carries no English). */
+const PAD_ISLAND_WORDS = [
+  'well',
+  'fullName',
+  'clear',
+  'typeInstead',
+  'drawInstead',
+  'sign',
+  'signing',
+  'saveFailed',
+  'signedBy',
+].map((key) => `signaturePad.${key}`)
+
+const padWords = (lang: string | undefined, languages: Languages | undefined) =>
+  Object.fromEntries(
+    PAD_ISLAND_WORDS.map((key) => [key, resolveInterpreterString(key, lang, languages)])
+  )
+
 /** What the pad island needs to sign this record's field. */
 function padIslandProps(ctx: {
   readonly root: PadRoot
@@ -121,6 +152,7 @@ function padIslandProps(ctx: {
   readonly signerName: string | undefined
   readonly label: unknown
   readonly lang: string | undefined
+  readonly languages: Languages | undefined
 }): Readonly<Record<string, unknown>> {
   const { root, rawProps } = ctx
   const table = rawProps?.['_recordTable']
@@ -134,9 +166,13 @@ function padIslandProps(ctx: {
     height: root.height ?? 160,
     penWidth: root.penWidth ?? 2,
     allowTyped: root.allowTyped !== false,
-    label: typeof ctx.label === 'string' ? ctx.label : 'Signature',
+    label:
+      typeof ctx.label === 'string'
+        ? ctx.label
+        : resolveInterpreterString('signaturePad.label', ctx.lang, ctx.languages),
     lang: ctx.lang,
     signedClasses: signedItemClasses(),
+    uiStrings: padWords(ctx.lang, ctx.languages),
   }
 }
 
@@ -147,11 +183,15 @@ export const signaturePadComponent: ComponentRenderer = ({
   tables,
   session,
   currentLang,
+  languages,
 }) => {
   const root = (component ?? {}) as PadRoot
   const className = elementProps['className'] as string | undefined
   const signature = storedSignature(rawProps?.['_recordValue'])
-  if (signature !== undefined) return signedReading(signature, { lang: currentLang, className })
+  const word: PadWord = (key) => resolveInterpreterString(key, currentLang, languages)
+  if (signature !== undefined) {
+    return signedReading(signature, { lang: currentLang, className, word })
+  }
   const islandProps = padIslandProps({
     root,
     rawProps,
@@ -159,6 +199,7 @@ export const signaturePadComponent: ComponentRenderer = ({
     signerName: session?.name,
     label: elementProps['aria-label'],
     lang: currentLang,
+    languages,
   })
   return (
     <div

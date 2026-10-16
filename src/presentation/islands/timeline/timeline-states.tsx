@@ -20,12 +20,16 @@ import type { ReactElement } from 'react'
  * timeline that happens to be empty.
  */
 
-export function TimelineLoading(): ReactElement {
+/** The timeline's own words in the page language (`timeline.*`, `component.*`), where they differ from English. */
+export type TimelineStrings = Readonly<Record<string, string>> | undefined
+
+export function TimelineLoading({ strings }: { readonly strings: TimelineStrings }): ReactElement {
   return (
     <div
       data-timeline-state="loading"
       role="status"
-      aria-label="Loading timeline..."
+      data-loading-status=""
+      aria-label={strings?.['timeline.loading'] ?? 'Loading timeline...'}
     >
       <div className="bg-muted mb-3 h-4 w-40 animate-pulse rounded" />
       <div className="space-y-2">
@@ -37,7 +41,13 @@ export function TimelineLoading(): ReactElement {
   )
 }
 
-export function TimelineError({ error }: { readonly error: unknown }): ReactElement {
+export function TimelineError({
+  error,
+  strings,
+}: {
+  readonly error: unknown
+  readonly strings: TimelineStrings
+}): ReactElement {
   return (
     <div
       className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
@@ -45,48 +55,74 @@ export function TimelineError({ error }: { readonly error: unknown }): ReactElem
       role="alert"
     >
       <p>
-        Failed to load timeline records: {error instanceof Error ? error.message : String(error)}
+        {(strings?.['timeline.loadFailed'] ?? 'Failed to load timeline records: {error}').replace(
+          '{error}',
+          () => (error instanceof Error ? error.message : String(error))
+        )}
       </p>
-      <p className="mt-1 opacity-80">Refresh the page to try again.</p>
+      <p className="mt-1 opacity-80">
+        {strings?.['component.refreshToRetry'] ?? 'Refresh the page to try again.'}
+      </p>
     </div>
   )
 }
 
-export function TimelineMissingTable(): ReactElement {
+export function TimelineMissingTable({
+  strings,
+}: {
+  readonly strings: TimelineStrings
+}): ReactElement {
   return (
     <div
       className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
       data-timeline-state="missing-table"
       role="alert"
     >
-      data-timeline is missing a dataSource.table binding.
+      {strings?.['timeline.missingTable'] ?? 'data-timeline is missing a dataSource.table binding.'}
     </div>
   )
 }
 
-export function TimelineMissingStartField(): ReactElement {
+export function TimelineMissingStartField({
+  strings,
+}: {
+  readonly strings: TimelineStrings
+}): ReactElement {
+  const [before, after] = (
+    strings?.['timeline.missingStartField'] ??
+    'data-timeline is missing a required {setting} binding.'
+  ).split('{setting}')
   return (
     <div
       className="border-warning-border bg-warning-bg text-warning-fg text-md rounded border p-3"
       data-timeline-state="missing-start-field"
       role="alert"
     >
-      data-timeline is missing a required <code>startField</code> binding.
+      {before}
+      <code>startField</code>
+      {after}
     </div>
   )
 }
 
-export function TimelineEmpty({ message }: { readonly message?: string }): ReactElement {
+export function TimelineEmpty({
+  message,
+  strings,
+}: {
+  readonly message?: string
+  readonly strings: TimelineStrings
+}): ReactElement {
   return (
     <div
       className="border-border bg-muted text-muted-foreground text-md rounded border p-6 text-center"
       data-timeline-state="empty"
       role="status"
     >
-      <p>{message ?? 'No records on the timeline yet.'}</p>
+      <p>{message ?? strings?.['timeline.empty'] ?? 'No records on the timeline yet.'}</p>
       {message === undefined && (
         <p className="mt-1 opacity-80">
-          Records with a value in the configured date field will appear here.
+          {strings?.['timeline.emptyHint'] ??
+            'Records with a value in the configured date field will appear here.'}
         </p>
       )}
     </div>

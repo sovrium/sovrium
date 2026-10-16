@@ -61,7 +61,7 @@
 import { sql } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
-import { adminSearchContentTableRef } from './repositories/admin-search-repository-live'
+import { adminSearchContentTableRef } from './repositories/admin-search-query'
 import { executeRaw } from './sql/dialect-execute'
 
 /**

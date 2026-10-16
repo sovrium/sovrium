@@ -119,9 +119,11 @@ function MatchItem({
 /** The page matches, then one group per table of record matches. */
 function ContentMatches({
   matches,
+  pagesHeading,
   onActivate,
 }: {
   readonly matches: readonly CommandMatch[]
+  readonly pagesHeading: string
   readonly onActivate: ActivateItem
 }): ReactElement {
   const pages = matches.filter((match) => match.entityType === 'page')
@@ -132,7 +134,7 @@ function ContentMatches({
   return (
     <>
       {pages.length > 0 && (
-        <CommandGroup heading="Pages">
+        <CommandGroup heading={pagesHeading}>
           {pages.map((match) => (
             <MatchItem
               key={`page:${match.detailPath ?? match.label}`}
@@ -184,11 +186,12 @@ export function BuiltInActions({
       {needle.length >= MIN_QUERY_LENGTH && matches !== undefined && (
         <ContentMatches
           matches={matches}
+          pagesHeading={config.strings['pages'] ?? 'Pages'}
           onActivate={onActivate}
         />
       )}
       {actions.length > 0 && (
-        <CommandGroup heading="Quick actions">
+        <CommandGroup heading={config.strings['quickActions'] ?? 'Quick actions'}>
           {actions.map((action) => (
             <ActionItem
               key={`${action.action}|${action.href ?? ''}|${action.label}`}

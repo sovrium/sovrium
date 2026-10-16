@@ -49,8 +49,7 @@
 
 import { CARD_CLASS } from '../../components/card'
 import { factsCardFrom } from '../../components/card-blocks'
-import { emptyState, pageHeading, tabQuery, tabbedBody, tabPanel } from '../../components/data-page'
-import { withShell } from '../../components/shell'
+import { consolePage, emptyState, tabPanel } from '../../components/data-page'
 import { lineTabs } from '../../components/tabs-line'
 import { INSTANCE_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
@@ -63,8 +62,8 @@ import type { Page as PageConfig } from '@/domain/models/app'
  * account surface; the strip is what makes them two answers to one question.
  */
 const TABS = [
-  { id: 'reference', label: 'Reference' },
-  { id: 'keys', label: 'Keys' },
+  { id: 'reference', label: '$t:admin.common.reference' },
+  { id: 'keys', label: '$t:admin.api.tab.keys' },
 ] as const
 
 /** One node of a page's component tree, as the config type expresses it. */
@@ -385,33 +384,31 @@ const keysPanel = (): PageComponent =>
     } as PageComponent,
   ])
 
-export default withShell(
-  {
-    id: 'dashboard-api-docs',
-    name: 'dashboard-api-docs',
-    path: '/api',
-    meta: { title: '$t:admin.meta.api', lang: 'en-US' },
-    // `?tab=` is the address of each half. Without this block `$query.tab` is
-    // left verbatim and the strip silently opens on Reference for every link.
-    query: tabQuery(TABS),
+export default consolePage({
+  id: 'dashboard-api-docs',
+  path: '/api',
+  title: '$t:admin.meta.api',
+  heading: ['$t:admin.api.heading', '$t:admin.api.blurb'],
+  page: {
     // The page's own record. `SystemDetailSourceSchema.param` is optional, so a
     // page with no route segment can bind a facts endpoint as its record — which
     // is what makes `$record.origin` reach every block below.
     dataSource: { system: { endpoint: INSTANCE_ENDPOINT } },
-    components: [
-      pageHeading('$t:admin.api.heading', '$t:admin.api.blurb'),
-      tabbedBody('$t:admin.api.tabs.region', TABS, [
-        tabPanel([
-          {
-            type: 'container',
-            element: 'div',
-            props: { className: 'flex max-w-3xl flex-col gap-6' },
-            children: [accessCard(), examplesCard(), createUserCard(), scalarCard()],
-          } as PageComponent,
-        ]),
-        keysPanel(),
+  },
+  shell: { breadcrumb: { api: '$t:admin.crumb.api' } },
+  tabs: {
+    label: '$t:admin.api.tabs.region',
+    specs: TABS,
+    panels: [
+      tabPanel([
+        {
+          type: 'container',
+          element: 'div',
+          props: { className: 'flex max-w-3xl flex-col gap-6' },
+          children: [accessCard(), examplesCard(), createUserCard(), scalarCard()],
+        } as PageComponent,
       ]),
+      keysPanel(),
     ],
-  } as PageConfig,
-  { breadcrumb: { api: '$t:admin.crumb.api' } }
-) satisfies PageConfig
+  },
+}) satisfies PageConfig

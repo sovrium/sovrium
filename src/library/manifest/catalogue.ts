@@ -81,6 +81,7 @@ const LOADERS: ReadonlyArray<() => Promise<LibraryEntry>> = [
   async () => import('../block/dashboard-overview').then(({ entry }) => entry),
   async () => import('../block/dashboard-worklist').then(({ entry }) => entry),
   async () => import('../block/data-table').then(({ entry }) => entry),
+  async () => import('../block/data-table-toolbar').then(({ entry }) => entry),
   async () => import('../block/dl-rows').then(({ entry }) => entry),
   async () => import('../block/dl-stacked').then(({ entry }) => entry),
   async () => import('../block/drawer-form').then(({ entry }) => entry),

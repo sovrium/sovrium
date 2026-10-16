@@ -74,15 +74,11 @@ The `unless…` keys are the negations of their siblings — `unlessDeclares` re
 
 Binds a component to rows. Either a database table or a system read endpoint — the full option list, the filter and sort vocabulary and the reference families live in Data Binding.
 
-The two data-bound extras that ride with it are documented here, because no other page owns them.
+The data-bound extra that rides with it is documented here, because no other page owns it. A data component draws no search box of its own: a `search-input` on the page with `publishes: { bindTo, param: q }` narrows every component subscribed to its channel with `dataSource.bindTo` and `sharedFilter: {}`, and a `search` key on a data component is refused at load, naming that replacement.
 
 ### `autoSave`
 
 <!-- sovrium:options AutoSaveConfigSchema -->
-
-### `search`
-
-<!-- sovrium:options ComponentSearchSchema -->
 
 ## `responsive`, `interactions` and `action`
 

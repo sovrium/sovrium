@@ -46,9 +46,9 @@
 // row template" seam irrelevant here: the empty state is a sibling gated on a
 // number, not a slot on the binding.
 
+import { CARD_LIST_CLASS, CARD_SURFACE } from '../../components/card'
 import { factsCardFrom } from '../../components/card-blocks'
-import { emptyState, pageHeading, tabQuery, tabbedBody, tabPanel } from '../../components/data-page'
-import { withShell } from '../../components/shell'
+import { consolePage, emptyState, tabPanel } from '../../components/data-page'
 import { INSTANCE_ENDPOINT, MCP_TOOLS_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -78,8 +78,8 @@ const card = (children: readonly PageComponent[]): PageComponent => factsCardFro
  * nothing — see {@link clientsPanel}.
  */
 const TABS = [
-  { id: 'reference', label: 'Reference' },
-  { id: 'clients', label: 'Clients' },
+  { id: 'reference', label: '$t:admin.common.reference' },
+  { id: 'clients', label: '$t:admin.mcp.tab.clients' },
 ] as const
 
 /**
@@ -230,8 +230,7 @@ const categoryGroup = (category: string, label: string, countField: string): Pag
         // `listDisplay.itemTemplate`.
         type: 'list',
         props: {
-          className:
-            'border-border divide-border bg-card divide-y overflow-hidden rounded-lg border',
+          className: `${CARD_LIST_CLASS}`,
         },
         dataSource: {
           system: {
@@ -259,7 +258,7 @@ const noToolsState = (): PageComponent =>
     type: 'container',
     element: 'div',
     props: {
-      className: 'border-border bg-card flex flex-col items-start gap-2 rounded-lg border p-5',
+      className: `${CARD_SURFACE} flex flex-col items-start gap-2 p-5`,
     },
     visibility: { record: { field: 'mcpToolCount', eq: 0 } },
     children: [
@@ -298,30 +297,28 @@ const toolsSection = (): PageComponent =>
     ],
   }) as PageComponent
 
-export default withShell(
-  {
-    id: 'dashboard-mcp-docs',
-    name: 'dashboard-mcp-docs',
-    path: '/mcp',
-    meta: { title: '$t:admin.meta.mcp', lang: 'en-US' },
+export default consolePage({
+  id: 'dashboard-mcp-docs',
+  path: '/mcp',
+  title: '$t:admin.meta.mcp',
+  heading: ['$t:admin.mcp.heading', '$t:admin.mcp.blurb'],
+  page: {
     dataSource: { system: { endpoint: INSTANCE_ENDPOINT } },
-    // `?tab=` is the address of each half. Without this block `$query.tab` is
-    // left verbatim and the strip silently opens on Reference for every link.
-    query: tabQuery(TABS),
-    components: [
-      pageHeading('$t:admin.mcp.heading', '$t:admin.mcp.blurb'),
-      tabbedBody('$t:admin.mcp.tabs.region', TABS, [
-        tabPanel([
-          {
-            type: 'container',
-            element: 'div',
-            props: { className: 'flex max-w-3xl flex-col gap-8' },
-            children: [endpointCard(), registerCard(), referenceConfigCard(), toolsSection()],
-          } as PageComponent,
-        ]),
-        clientsPanel(),
+  },
+  shell: { breadcrumb: { mcp: '$t:admin.crumb.mcp' } },
+  tabs: {
+    label: '$t:admin.mcp.tabs.region',
+    specs: TABS,
+    panels: [
+      tabPanel([
+        {
+          type: 'container',
+          element: 'div',
+          props: { className: 'flex max-w-3xl flex-col gap-8' },
+          children: [endpointCard(), registerCard(), referenceConfigCard(), toolsSection()],
+        } as PageComponent,
       ]),
+      clientsPanel(),
     ],
-  } as PageConfig,
-  { breadcrumb: { mcp: '$t:admin.crumb.mcp' } }
-) satisfies PageConfig
+  },
+}) satisfies PageConfig

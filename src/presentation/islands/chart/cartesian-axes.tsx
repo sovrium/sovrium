@@ -21,6 +21,7 @@ import {
   CHART_AXIS_LABEL_FONT_SIZE,
   CHART_AXIS_LABEL_FONT_WEIGHT,
   CHART_AXIS_STROKE,
+  CHART_AXIS_TICK_FILL,
 } from '@/presentation/design/chart-default-classes'
 import type { ValueAxis } from './value-axis'
 import type { ReactElement } from 'react'
@@ -76,6 +77,7 @@ function categoryTick(labelOf: (key: string) => string): (props: TickProps) => R
         x={x}
         y={y}
         dy="0.71em"
+        fill={CHART_AXIS_TICK_FILL}
         textAnchor="middle"
       >
         {labelOf(String(payload.value))}
@@ -91,6 +93,7 @@ function valueTick(format: (value: number) => string): (props: TickProps) => Rea
       <text
         x={x}
         y={y}
+        fill={CHART_AXIS_TICK_FILL}
         textAnchor="end"
         dominantBaseline="central"
       >

@@ -88,3 +88,28 @@ export function checkEndpointFormRules(form: HTMLFormElement): boolean {
   refused[0]?.control.focus()
   return refused.length === 0
 }
+
+/** The field a Better Auth error code is about, by the autofill hint it carries. */
+const REFUSED_FIELD_HINTS: ReadonlyMap<unknown, string> = new Map([
+  ['INVALID_PASSWORD', 'current-password'],
+  ['PASSWORD_TOO_SHORT', 'new-password'],
+])
+
+/**
+ * Mark the field a refusal is about, the way a broken rule is marked, and move
+ * the focus to it. Only a control the server gave the reason to
+ * (`data-refused-message`, drawn under `responseEnvelope: 'better-auth'`) can
+ * be marked; any other refusal — or a form with no such field — marks none, and
+ * the `onError` toast alone says what happened.
+ */
+export function markRefusedField(form: HTMLFormElement, body: unknown): void {
+  const code = (body as { readonly code?: unknown } | null | undefined)?.code
+  const hint = REFUSED_FIELD_HINTS.get(code)
+  const control =
+    hint === undefined
+      ? null
+      : form.querySelector<RuledControl>(`[autocomplete="${hint}"][data-refused-message]`)
+  if (control === null) return
+  showFieldError(form, control, control.getAttribute('data-refused-message') ?? '')
+  control.focus()
+}

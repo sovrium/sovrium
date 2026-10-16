@@ -30,6 +30,7 @@ import {
   generateJunctionTableName,
   junctionKeyColumns,
 } from '../sql/sql-junction-tables'
+import { buildTablePrimaryKeyTypesMap } from '../table-operations/column-generators'
 import type { Table } from '@/domain/models/app/tables'
 
 /** A link table's two ends, as CONFIG names, source first. */
@@ -52,6 +53,7 @@ interface LinkMove {
   readonly ends: LinkEnds
   readonly columns: readonly [KeyColumn, KeyColumn]
   readonly tableUsesView: ReadonlyMap<string, boolean>
+  readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
 }
 
 /**
@@ -100,8 +102,15 @@ const renameInPlace = ({ from, to, columns }: LinkMove): readonly string[] => [
  * renamed table's stale trigger body. The new table references the parents by
  * their new names; with foreign keys off it may be created before they exist.
  */
-const rebuild = ({ from, to, ends, columns, tableUsesView }: LinkMove): readonly string[] => [
-  generateJunctionTableDDL(ends[0], ends[1], tableUsesView),
+const rebuild = ({
+  from,
+  to,
+  ends,
+  columns,
+  tableUsesView,
+  tablePrimaryKeyTypes,
+}: LinkMove): readonly string[] => [
+  generateJunctionTableDDL(ends[0], ends[1], tableUsesView, tablePrimaryKeyTypes),
   `INSERT INTO ${quoted(to)} (${columns.map(([, after]) => quoted(after)).join(', ')}) ` +
     `SELECT ${columns.map(([before]) => quoted(before)).join(', ')} FROM ${quoted(from)}`,
   `DROP TABLE ${quoted(from)}`,
@@ -112,7 +121,7 @@ const planOne = (
   ends: LinkEnds,
   previousName: (configName: string) => string,
   existing: ReadonlySet<string>,
-  tableUsesView: ReadonlyMap<string, boolean>
+  views: Pick<LinkMove, 'tableUsesView' | 'tablePrimaryKeyTypes'>
 ): readonly LinkTableRename[] => {
   const [source, related] = ends
   const before: LinkEnds = [previousName(source), previousName(related)]
@@ -131,7 +140,7 @@ const planOne = (
       [sourceBefore, sourceAfter],
       [relatedBefore, relatedAfter],
     ],
-    tableUsesView,
+    ...views,
   }
   return [{ from, to, statements: isSqliteRuntime() ? rebuild(move) : renameInPlace(move) }]
 }
@@ -150,10 +159,11 @@ export const planLinkTableRenames = (
   if (renames.size === 0) return []
   const previousByNew = new Map([...renames].map(([oldName, newName]) => [newName, oldName]))
   const previousName = (configName: string): string => previousByNew.get(configName) ?? configName
-  const tableUsesView = new Map(tables.map((table) => [table.name, shouldUseView(table)]))
-  const planned = linkEndsOf(tables).flatMap((ends) =>
-    planOne(ends, previousName, existing, tableUsesView)
-  )
+  const views = {
+    tableUsesView: new Map(tables.map((table) => [table.name, shouldUseView(table)])),
+    tablePrimaryKeyTypes: buildTablePrimaryKeyTypesMap(tables),
+  }
+  const planned = linkEndsOf(tables).flatMap((ends) => planOne(ends, previousName, existing, views))
   // Two fields between the same pair of tables share one link table.
   return planned.filter(
     (link, index) => planned.findIndex((other) => other.from === link.from) === index

@@ -6,13 +6,16 @@
  */
 
 import { twoFactor } from 'better-auth/plugins'
-import { titleCaseAppName } from '@/domain/models/app/pages/app-vars'
+import { appLabelOf } from '@/domain/models/app/pages/app-vars'
 import { buildTwoFactorDestinationPlugin } from '../two-factor-destination'
 import type { Auth } from '@/domain/models/app/auth'
 
 /** The configured issuer, else the app's display name; `undefined` with neither. */
-const issuerOf = (configured: string | undefined, appName: string | undefined) =>
-  configured ?? (appName === undefined ? undefined : titleCaseAppName(appName))
+const issuerOf = (
+  configured: string | undefined,
+  appName: string | undefined,
+  displayName: string | undefined
+) => configured ?? (appName === undefined ? undefined : appLabelOf({ name: appName, displayName }))
 
 /**
  * Build two-factor plugin if enabled in auth configuration
@@ -24,10 +27,14 @@ const issuerOf = (configured: string | undefined, appName: string | undefined) =
  * NOTE: modelName option removed - drizzleSchema in auth.ts uses standard model names
  * and Drizzle pgTable() definitions specify actual database table names
  */
-export const buildTwoFactorPlugin = (authConfig?: Auth, appName?: string) => {
+export const buildTwoFactorPlugin = (
+  authConfig?: Auth,
+  appName?: string,
+  appDisplayName?: string
+) => {
   if (!authConfig?.twoFactor) return []
   const config = typeof authConfig.twoFactor === 'boolean' ? {} : authConfig.twoFactor
-  const issuer = issuerOf(config.issuer, appName)
+  const issuer = issuerOf(config.issuer, appName, appDisplayName)
   return [
     twoFactor({
       ...(issuer === undefined ? {} : { issuer }),

@@ -144,6 +144,8 @@ export interface AdminReadRequest {
   readonly actorUserId: string
   /** The canal the audit event records. */
   readonly transport: AuditTransport
+  /** The browser's remembered `sovrium_language` preference, raw (HTTP only). */
+  readonly preferredLanguage?: string
 }
 
 /** The tool's JSON Schema input shape, as advertised over MCP `tools/list`. */
@@ -368,10 +370,7 @@ export const decodeAdminReadQuery = <A, I>(
     : { _tag: 'InvalidInput', reason: 'validation', schemaError: decoded.failure }
 }
 
-/**
- * Validate an assembled body against its response wire schema: `Ok` with the
- * decoded body, or `ValidationFailed` carrying the schema error.
- */
+/** Validate an assembled body against its response wire schema (`Ok`, or `ValidationFailed`). */
 export const answerWithSchema = <S extends Schema.Top>(
   schema: S,
   body: unknown

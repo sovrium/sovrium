@@ -9,13 +9,16 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
 import {
   resolveInterpreterString,
+  resolveInterpreterStringOverrides,
   resolveTranslationTokensDeep,
 } from '@/domain/models/app/languages/translation-resolver'
+import { liftActionConfirms } from '@/presentation/render/props/action-confirm-lift'
 import { callerTableOf, updatableFieldsOf } from '@/presentation/render/props/caller-table-inputs'
 import { recordTextFieldsOf } from '@/presentation/render/props/record-value-format'
 import {
   applyDrawerFieldAccess,
   readDrawerFieldAccess,
+  readDrawerHostFacts,
   type DrawerFieldAccess,
 } from '@/presentation/render/props/resolve-record-drawer-access'
 import {
@@ -23,11 +26,16 @@ import {
   type DrawerFieldLocale,
 } from '@/presentation/render/props/resolve-record-drawer-fields'
 import {
+  resolveGenericSheet,
+  type GenericSheet,
+} from '@/presentation/render/props/resolve-record-drawer-generic'
+import {
   relatedCallerModeOf,
   resolveRelatedSections,
   type RelatedCaller,
 } from '@/presentation/render/props/resolve-record-drawer-related'
 import { RELATED_CALLER_TABLES_KEY } from '@/presentation/render/resolve/caller-table-stamp'
+import { RECORD_TITLE_KEY } from '@/presentation/render/resolve/drawer-record-title-resolver'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { CallerTableView } from '@/application/ports/services/page-renderer'
 import type { Languages } from '@/domain/models/app/languages'
@@ -84,18 +92,32 @@ function authorClassName(
 function drawerControlLabels(
   currentLang: string | undefined,
   languages: Languages | undefined
-): Readonly<Record<string, string>> {
+): Readonly<Record<string, unknown>> {
   const resolve = (key: string) => resolveInterpreterString(key, currentLang, languages)
   return {
     saveLabel: resolve('recordDrawer.save'),
     savingLabel: resolve('form.saving'),
-    runningLabel: resolve('action.running'),
+    actionStrings: resolveInterpreterStringOverrides(['action.'], currentLang, languages),
     closeLabel: resolve('recordDrawer.close'),
     newRecordLabel: resolve('datatable.newRecord'),
     cancelLabel: resolve('datatable.cancel'),
     createFailedLabel: resolve('recordDrawer.relatedCreateFailed'),
     saveFailedLabel: resolve('form.operationFailed'),
     notFoundLabel: resolve('recordDrawer.notFound'),
+    // The words the island draws on its own: a footer question's Cancel, the
+    // navigation, the refusal banner's name and a refused footer write's toast.
+    builtInLabels: {
+      cancel: resolve('confirmGate.cancel'),
+      previous: resolve('recordDrawer.previous'),
+      next: resolve('recordDrawer.next'),
+      fullPage: resolve('recordDrawer.openFullPage'),
+      navigation: resolve('recordDrawer.navigation'),
+      validationError: resolve('recordDrawer.validationError'),
+      writeRefusal: {
+        'rateLimit.retryIn': resolve('rateLimit.retryIn'),
+        'form.operationFailed': resolve('form.operationFailed'),
+      },
+    },
   }
 }
 
@@ -224,6 +246,51 @@ const drawerRecordText = (
 ) => recordTextFieldsOf(tables, table, { locale: currentLang ?? 'en-US', languages })
 
 /**
+ * A generic sheet's tabs, menu, footer and "Linked from", resolved
+ * for this reader — absent, so the payload is unchanged, for any other sheet.
+ */
+function genericSheetProp(
+  context: Pick<
+    Parameters<ComponentRenderer>[0],
+    'rawProps' | 'component' | 'tables' | 'languages' | 'currentLang' | 'session' | 'design'
+  >
+): { readonly generic?: GenericSheet } {
+  const { rawProps, component, tables, languages, currentLang, session, design } = context
+  const generic = resolveGenericSheet({
+    component,
+    tables,
+    session,
+    host: readDrawerHostFacts(rawProps),
+    locale: { languages, currentLang, ...badgeFormOf(design) },
+  })
+  return generic === undefined ? {} : { generic }
+}
+
+/**
+ * The sheet's accessible NAME (CAP-2): `props.title` when declared; otherwise,
+ * for a table-bound sheet, its record names it — the first text field
+ * holding a value, else its id — which the page pass read for a sheet its
+ * address opens (`_recordTitle`), the island taking over once a record loads.
+ * The interpreter's default (English default, French built-in, author override
+ * wins) stands in until then, and for a system-bound sheet.
+ */
+function drawerTitle(
+  rawProps: Readonly<Record<string, unknown>> | undefined,
+  dataSource: { readonly table?: string } | undefined,
+  currentLang: string | undefined,
+  languages: Languages | undefined
+): { readonly title: string; readonly titleFromRecord: boolean } {
+  const declared = rawProps?.['title'] as string | undefined
+  const titleFromRecord = declared === undefined && typeof dataSource?.table === 'string'
+  const fromRecord = titleFromRecord
+    ? (rawProps?.[RECORD_TITLE_KEY] as string | undefined)
+    : undefined
+  const title =
+    declared ?? fromRecord ?? resolveInterpreterString('recordDrawer.title', currentLang, languages)
+  return { title, titleFromRecord }
+}
+
+/**
  * A `drawer` carrying a `dataSource` — the record-detail/edit surface.
  *
  * `id`, `dataSource`, `recordFields`, `actions`, `role` and `canEdit` are
@@ -248,20 +315,13 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
   design,
 }) => {
   const comp = (component ?? {}) as Record<string, unknown>
-  // CAP-2: `props.title` supplies the surface's accessible NAME; the default
-  // is an INTERPRETER string resolved against the active language (English
-  // default, French built-in, author override wins) rather than a French
-  // literal served to apps of every language. `role` selects `dialog`
-  // (default) | `region`.
-  const title =
-    (rawProps?.['title'] as string | undefined) ??
-    resolveInterpreterString('recordDrawer.title', currentLang, languages)
   const role = comp['role'] === 'region' ? 'region' : 'dialog'
   // `dataSource` is discriminated: `{ table }` (DB-table fetch + PATCH) OR
   // `{ system }` (CAP-2 system DETAIL-endpoint binding — READ-ONLY). The island
   // branches on which key is present; a system source forces `canEdit` off.
   const dataSource = comp['dataSource'] as
     { readonly table?: string; readonly system?: unknown } | undefined
+  const { title, titleFromRecord } = drawerTitle(rawProps, dataSource, currentLang, languages)
   const recordFields = localizedRecordFields(comp['recordFields'], component, tables, {
     languages,
     currentLang,
@@ -271,6 +331,8 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
   const props = {
     id: comp['id'] as string | undefined,
     title,
+    ...(titleFromRecord ? { titleFromRecord: true } : {}),
+    ...genericSheetProp({ rawProps, component, tables, languages, currentLang, session, design }),
     role,
     table: dataSource?.table,
     system: dataSource?.system,
@@ -284,7 +346,7 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
     // island only ever prints text.
     recordFields,
     // CAP-1: footer actions fire against the loaded record at click time.
-    actions: comp['actions'],
+    actions: liftActionConfirms(comp['actions'], { currentLang, languages }),
     // CAP-5: the composed-content slot. The island places it after the record
     // and before the footer, and resolves the `$record.*` tokens it carries once
     // the record lands — they cannot be resolved here, because at SSR the drawer

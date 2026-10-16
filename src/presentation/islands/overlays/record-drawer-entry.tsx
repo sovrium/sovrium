@@ -84,12 +84,15 @@ export function FieldInput({
   value,
   disabled,
   onChange,
+  error,
 }: {
   readonly field: RecordDrawerField
   readonly value: string
   /** The record has not loaded yet — the control is inert until it has. */
   readonly disabled: boolean
   readonly onChange: (name: string, value: string) => void
+  /** Why the value was refused, when it was. */
+  readonly error?: string | undefined
 }): ReactElement {
   if (isLinkField(field)) {
     return (
@@ -124,6 +127,7 @@ export function FieldInput({
       value={value}
       disabled={disabled}
       onChange={onChange}
+      error={error}
     >
       <EntryDescription field={field} />
     </TypedField>
@@ -204,14 +208,14 @@ export function FieldButton({
   config,
   record,
   table,
-  pendingLabel,
+  strings,
 }: {
   readonly field: RecordDrawerField
   readonly config: RecordButtonConfig
   readonly record: RawRecord
   readonly table?: string
-  /** The in-flight word in the page language (`action.running`), from the host. */
-  readonly pendingLabel?: string
+  /** The `action.*` words in the page language, where they differ from English. */
+  readonly strings?: Readonly<Record<string, string>>
 }): ReactElement {
   return (
     <RecordButton
@@ -219,7 +223,7 @@ export function FieldButton({
       fieldName={field.name}
       record={record}
       {...(table === undefined ? {} : { table })}
-      {...(pendingLabel === undefined ? {} : { pendingLabel })}
+      {...(strings === undefined ? {} : { strings })}
       {...(record['id'] === undefined ? {} : { recordId: String(record['id']) })}
     />
   ) as ReactElement
@@ -298,5 +302,51 @@ export function ReadOnlyDetail({
         field={field}
       />
     </>
+  )
+}
+
+/**
+ * The visible mark beside a value an AI field wrote. Text, not an image: the
+ * AI refinement status beside it is the `role="img"` badge, and the two say
+ * different things — who wrote the value, and how its refinement went.
+ */
+function AiValueMark({ type }: { readonly type: string }): ReactElement | undefined {
+  if (!type.startsWith('ai-')) return undefined
+  return (
+    <span
+      data-ai-value=""
+      className="border-border text-muted-foreground rounded border px-1 text-xs font-medium"
+    >
+      AI
+    </span>
+  )
+}
+
+/**
+ * An editable drawer's entry for a field the reader does not write — one her
+ * role may not write, or a computed, AI or stamped one: its heading, then its
+ * value as a read-only drawer draws it, never an input.
+ */
+export function ReadValueEntry({
+  field,
+  record,
+  table,
+}: {
+  readonly field: RecordDrawerField
+  readonly record: RawRecord
+  readonly table?: string
+}): ReactElement {
+  return (
+    <div className="text-md flex flex-col gap-1">
+      <span className="text-muted-foreground flex items-center gap-2">
+        {entryLabel(field)}
+        <AiValueMark type={field.type} />
+      </span>
+      <ReadOnlyDetail
+        field={field}
+        record={record}
+        {...(table === undefined ? {} : { table })}
+      />
+    </div>
   )
 }

@@ -6,8 +6,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { buildFilterExpression } from '@/presentation/design/filter-expression'
-import { useSharedFilterPublisher } from '../hooks/use-shared-filter-publisher'
+import {
+  buildFilterExpression,
+  parseFilterExpression,
+} from '@/presentation/design/filter-expression'
+import {
+  usePublishedValueInAddress,
+  useSharedFilterPublisher,
+} from '../hooks/use-shared-filter-publisher'
 import type { FilterBarCondition, FilterBarField } from '@/presentation/design/filter-expression'
 import type { KeyboardEvent } from 'react'
 
@@ -19,20 +25,30 @@ import type { KeyboardEvent } from 'react'
  * handler, so the opening conditions are published on mount by the same path
  * that publishes an edit — one channel with one code path, instead of a mount
  * case that can drift from the edit case.
+ *
+ * With `url` the expression is also mirrored in the page address, as
+ * `?<channel>.filter=`, and a page opened on such an address starts from the
+ * conditions it carries rather than from the declared opening ones.
  */
 export function useFilterBarState({
   bindTo,
+  url,
   fields,
   combinator,
   initialConditions,
 }: {
   readonly bindTo: string
+  readonly url: boolean
   readonly fields: readonly FilterBarField[]
   readonly combinator: 'and' | 'or'
   readonly initialConditions: readonly FilterBarCondition[] | undefined
 }) {
-  const [conditions, setConditions] = useState<readonly FilterBarCondition[]>(
-    initialConditions ?? []
+  const publishes = { bindTo, param: 'filter', url }
+  const restored = usePublishedValueInAddress(publishes)
+  const [conditions, setConditions] = useState<readonly FilterBarCondition[]>(() =>
+    typeof restored === 'string' && restored !== ''
+      ? parseFilterExpression(restored)
+      : (initialConditions ?? [])
   )
   const [open, setOpen] = useState(false)
 
@@ -43,7 +59,7 @@ export function useFilterBarState({
 
   // A fresh object literal per render is deliberate and free: the hook memoizes
   // on `bindTo` / `param` (both primitives), not on the object's identity.
-  const publish = useSharedFilterPublisher({ bindTo, param: 'filter' })
+  const publish = useSharedFilterPublisher(publishes)
   useEffect(() => {
     publish(expression)
   }, [publish, expression])

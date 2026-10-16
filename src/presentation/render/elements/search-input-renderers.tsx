@@ -56,6 +56,27 @@ export interface RenderSearchInputConfig {
   readonly minQueryLength?: number
   /** The placeholder when the author declares none, in the page language. */
   readonly defaultPlaceholder?: string
+  /** The accessible name when the author declares no placeholder, in the page language. */
+  readonly defaultLabel?: string
+  /** The schema's top-level `placeholder`, read after `props.placeholder`. */
+  readonly placeholder?: string
+  /**
+   * The shared-filter channel the box publishes on (`publishes`), with the
+   * subscriber ids the page stamped as `controls`.
+   */
+  readonly publishes?: unknown
+}
+
+/** `publishes` as the `<input>` attributes the vanilla publisher and late subscribers read. */
+function publisherAttributes(publishes: unknown): Record<string, string | undefined> {
+  if (typeof publishes !== 'object' || publishes === null) return {}
+  const { bindTo, param, controls } = publishes as Record<string, unknown>
+  if (typeof bindTo !== 'string' || typeof param !== 'string') return {}
+  return {
+    'data-publishes-bind-to': bindTo,
+    'data-publishes-param': param,
+    'aria-controls': typeof controls === 'string' && controls !== '' ? controls : undefined,
+  }
 }
 
 /**
@@ -67,24 +88,29 @@ export interface RenderSearchInputConfig {
  *
  * The container is the search box's root (`data-slot="search-input"`) and
  * holds one shadcn/ui input group: the magnifier in an addon at its start and
- * the input as the group's control, so the bare
- * `{ type: 'search-input', scope: 'subscribers' }` schema renders as a peer of
- * the other input groups without the author spelling any Tailwind classes. The
+ * the input as the group's control, so a bare publishing box renders as a peer
+ * of the other input groups without the author spelling any Tailwind classes. The
  * author's className is merged onto the root through `resolveClasses`, so it
  * beats the recipe on any same-property conflict.
  *
  * `debounceMs` / `minQueryLength` are stamped onto the INNER `<input>` as
- * `data-search-debounce` / `data-search-min-length` — subscribers resolve
- * `#<id> input`, so the attributes must sit where the subscriber looks, not on
- * the container. Each attribute is emitted ONLY when the author declared the
+ * `data-search-debounce` / `data-search-min-length`, beside the channel it
+ * publishes on — the subscriber reads all of them off the input it hears. Each attribute is emitted ONLY when the author declared the
  * field: an absent attribute means "0", and the reading subscriber owns that
  * default. Stamping a phantom fallback here would make the markup claim a
  * behaviour the config never asked for.
  */
 export function renderSearchInput(config: RenderSearchInputConfig): ReactElement {
-  const { props, debounceMs, minQueryLength, defaultPlaceholder = 'Search...' } = config
+  const {
+    props,
+    debounceMs,
+    minQueryLength,
+    defaultPlaceholder = 'Search...',
+    defaultLabel = 'Search',
+  } = config
   const id = props.id as string | undefined
-  const placeholder = props.placeholder as string | undefined
+  const placeholder = (props.placeholder as string | undefined) ?? config.placeholder
+  const ariaLabel = props['aria-label'] as string | undefined
   const className = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
 
@@ -99,9 +125,10 @@ export function renderSearchInput(config: RenderSearchInputConfig): ReactElement
         <input
           type="search"
           placeholder={placeholder ?? defaultPlaceholder}
-          aria-label={placeholder ?? defaultPlaceholder}
+          aria-label={ariaLabel ?? placeholder ?? defaultLabel}
           data-slot="input-group-control"
           className={computeInputGroupFieldClasses()}
+          {...publisherAttributes(config.publishes)}
           data-search-debounce={debounceMs === undefined ? undefined : String(debounceMs)}
           data-search-min-length={minQueryLength === undefined ? undefined : String(minQueryLength)}
         />

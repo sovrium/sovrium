@@ -16,13 +16,10 @@ import { buildSyntheticSession } from '../build-guest-session'
 import { asRecord, resolvedProps, type BatchProps, type GateRequirements } from './record-batch'
 import { CALLER_REFUSAL, callerMayWrite, deletesOf, writerActorOf } from './record-caller-gate'
 import { deleteAndAnnounce, recordEventLoopRefusal } from './record-events'
-import {
-  declaredFieldNames,
-  errorMessageOf,
-  extractIdFromFilter,
-  resolveIdsByFilter,
-} from './record-filters'
+import { declaredFilterFields, extractIdFromFilter } from './record-filter-shape'
+import { errorMessageOf, resolveIdsByFilter } from './record-filters'
 import { actionAttributes, numberProp, stringProp } from './shared'
+import type { DeclaredFilterFields } from './record-filter-shape'
 import type { ActionHandler, ActionRunContext } from './shared'
 import type { DatabaseError, UnknownFilterFieldError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
@@ -43,12 +40,12 @@ import type { App } from '@/domain/models/app'
 const resolveTargetIds = (
   tableName: string,
   filter: unknown,
-  declaredFields: ReadonlySet<string> | undefined
+  declared: DeclaredFilterFields
 ): Effect.Effect<readonly string[], DatabaseError | UnknownFilterFieldError, GateRequirements> => {
   const fastPath = extractIdFromFilter(filter)
   return fastPath
     ? Effect.succeed([fastPath] as const)
-    : resolveIdsByFilter(tableName, filter, declaredFields)
+    : resolveIdsByFilter(tableName, filter, declared)
 }
 
 /**
@@ -187,7 +184,7 @@ export const handleRecordBatchDelete: ActionHandler = (action, app, automation, 
 
     const { filter } = props
     const lookup = yield* Effect.result(
-      resolveTargetIds(tableName, filter, declaredFieldNames(app, tableName))
+      resolveTargetIds(tableName, filter, declaredFilterFields(app, tableName))
     )
     if (lookup._tag === 'Failure') {
       return {

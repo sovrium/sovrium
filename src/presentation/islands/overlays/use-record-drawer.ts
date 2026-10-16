@@ -5,29 +5,23 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from 'react'
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   withRecordTextFields,
   type RecordTextFields,
 } from '@/domain/models/app/tables/record-text-service'
-import { subscribe } from '@/presentation/islands/runtime/event-bus'
 import { resolvePageLocale } from '@/presentation/islands/runtime/page-locale'
 import { useRecordQuery } from '../hooks/use-record-query'
-import { addressedRecordId, clearDrawerAddress, writeDrawerAddress } from './record-drawer-address'
+import { clearDrawerAddress, NEW_RECORD_ADDRESS, writeDrawerAddress } from './record-drawer-address'
 import {
   EMPTY_RECORD,
-  toFormValue,
   useTableRecordRead,
   type RawRecord,
   type Values,
 } from './record-drawer-record-read'
+import { useCreateTrigger } from './use-record-drawer-create'
+import { useDeepLinkOpen, useOpenDrawerEvent } from './use-record-drawer-open'
+import type { ValueEntry } from './record-drawer-values'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
 
 /**
@@ -35,66 +29,81 @@ import type { SystemDetailSource } from '@/domain/models/app/pages/components/sy
  * loaded, and the open, close and save handlers its body is wired to.
  */
 
+/** An entry a new record starts from: its name and the default it declares. */
+export type DrawerEntry = ValueEntry & { readonly defaultValue?: string }
+
+/** The values a new record starts with: each entry's declared default. */
+const defaultValues = (entries: ReadonlyArray<DrawerEntry>): Values =>
+  Object.fromEntries(
+    entries.flatMap((entry) =>
+      entry.defaultValue === undefined ? [] : [[entry.name, entry.defaultValue] as const]
+    )
+  )
+
+/** What the drawer is: its id, its binding, whether a bare address opens it, its entries. */
+export interface RecordDrawerBinding {
+  readonly id: string | undefined
+  readonly table: string | undefined
+  readonly system: SystemDetailSource | undefined
+  readonly deepLink: boolean
+  readonly entries: ReadonlyArray<DrawerEntry>
+}
+
 /** The drawer's open lifecycle + DB-table record fetch, keyed to the dispatched id. */
-export function useRecordDrawer(
-  id: string | undefined,
-  table: string | undefined,
-  system: SystemDetailSource | undefined,
-  deepLink: boolean
-) {
+export function useRecordDrawer(binding: RecordDrawerBinding) {
+  const { id, table, system, entries } = binding
   const [open, setOpen] = useState(false)
   const [recordId, setRecordId] = useState<string | undefined>()
+  const [creating, setCreating] = useState(false)
   const [values, setValues] = useState<Values>({})
+  const openRef = useRef(false)
+  openRef.current = open
 
-  useEffect(() => {
-    if (!id) return undefined
-    return subscribe('sovrium:open-drawer', (detail) => {
-      if (detail.id !== id) return
-      const opened = toFormValue(detail.record['id']) || undefined
-      setRecordId(opened)
+  // A record id, or — opened with no record — a new one starting from the
+  // declared defaults. Only a table-bound sheet creates: a system detail has
+  // nothing to post to.
+  const openOn = useCallback(
+    (target: string) => {
+      const create = target === NEW_RECORD_ADDRESS
+      if (create && !table) return
+      setRecordId(create ? undefined : target)
+      setCreating(create)
+      if (create) setValues(defaultValues(entries))
       setOpen(true)
-      // Whatever opened it — a row, a card, an event, another drawer's footer —
-      // the address now names this drawer and this record.
-      if (opened !== undefined && (table || system)) writeDrawerAddress(id, opened)
-    })
-  }, [id, table, system])
+      if (create && id) writeDrawerAddress(id, NEW_RECORD_ADDRESS)
+    },
+    [id, table, entries]
+  )
+  const startCreate = useCallback(() => openOn(NEW_RECORD_ADDRESS), [openOn])
+  useOpenDrawerEvent(id, { table: Boolean(table), system: Boolean(system) }, openOn)
+  useCreateTrigger(id, table, startCreate)
+  useDeepLinkOpen(
+    { id, bound: Boolean(table || system), deepLink: binding.deepLink },
+    openRef,
+    openOn
+  )
 
-  // `?record={id}` deep-link self-open: when
-  // the surface is reached with a `?record=` param AND this drawer is record-bound
-  // (a DB-table OR a system DETAIL endpoint), open itself for that record. Reading
-  // the URL HERE — on the drawer's own mount — is race-free with respect to a
-  // sibling island dispatching `sovrium:open-drawer` (cross-root `useEffect`
-  // ordering is not guaranteed after an SPA content swap). The read is RETRIED
-  // on a short schedule because the SPA nav module mounts this island BEFORE it
-  // calls `history.pushState(url)`, so the very first read can still see the
-  // pre-navigation URL; re-reading over ~400ms catches the pushState'd `?record=`.
-  // A generic page that uses the drawer without `?record=` is unaffected.
-  useEffect(() => {
-    if ((!table && !system) || typeof window === 'undefined') return undefined
-    const tryOpen = (): boolean => {
-      // `?drawer=` names the drawer; a bare `?record=` opens only the first
-      // record-bound drawer the page declares (see `record-drawer-address.ts`).
-      const deepLinkId = addressedRecordId(id, deepLink)
-      if (!deepLinkId) return false
-      setRecordId(deepLinkId)
-      setOpen(true)
-      return true
-    }
-    if (tryOpen()) return undefined
-    const timers = [0, 100, 250, 450].map((delay) => setTimeout(tryOpen, delay))
-    return () => timers.forEach((timer) => clearTimeout(timer))
-  }, [id, table, system, deepLink])
-
-  const { record, loading, notFound } = useTableRecordRead(open, table, recordId, setValues)
+  const read = useTableRecordRead({ open: open && !creating, table, recordId, setValues, entries })
   const close = useCallback(
     (next: boolean) => {
       setOpen(next)
+      if (!next) setCreating(false)
       if (!next && id) clearDrawerAddress(id)
     },
     [id]
   )
 
-  return { open, setOpen: close, recordId, record, values, setValues, loading, notFound }
+  return {
+    open,
+    setOpen: close,
+    recordId,
+    creating,
+    record: read.record,
+    values,
+    setValues,
+    loading: read.loading,
+    notFound: read.notFound,
+  }
 }
 
 /**
@@ -124,24 +133,39 @@ export function useDrawerRecord(
   )
 }
 
-/** The inline error, plus the field-edit + close handlers (a field edit clears the error). */
+/**
+ * The inline error and the per-field ones, plus the field-edit + close handlers
+ * (an edit clears the banner and that field's own message).
+ */
 export function useDrawerHandlers(
   setValues: Dispatch<SetStateAction<Values>>,
   setOpen: (open: boolean) => void
 ): {
   readonly error: string | undefined
   readonly setError: (error: string | undefined) => void
+  readonly fieldErrors: Readonly<Record<string, string>>
+  readonly setFieldErrors: (errors: Readonly<Record<string, string>>) => void
   readonly onChange: (name: string, value: string) => void
   readonly onClose: () => void
 } {
   const [error, setError] = useState<string | undefined>()
+  const [fieldErrors, setFieldErrors] = useState<Readonly<Record<string, string>>>({})
   const onChange = useCallback(
     (name: string, value: string) => {
       setError(undefined)
+      setFieldErrors((prev) => {
+        if (prev[name] === undefined) return prev
+        const { [name]: _cleared, ...rest } = prev
+        return rest
+      })
       setValues((prev) => ({ ...prev, [name]: value }))
     },
     [setValues, setError]
   )
-  const onClose = useCallback(() => setOpen(false), [setOpen])
-  return { error, setError, onChange, onClose }
+  const onClose = useCallback(() => {
+    setError(undefined)
+    setFieldErrors({})
+    setOpen(false)
+  }, [setOpen])
+  return { error, setError, fieldErrors, setFieldErrors, onChange, onClose }
 }

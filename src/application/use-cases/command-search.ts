@@ -13,6 +13,7 @@ import {
 } from '@/application/ports/repositories/command-search-repository'
 import { loadReadablePageDocuments } from '@/application/use-cases/page-search-corpus'
 import { loadCurrentUserContext } from '@/application/use-cases/tables/permissions/row-level-enforcement'
+import { rowRuleScopeOf } from '@/application/use-cases/tables/permissions/row-rule-chain-matches'
 import { tableEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
@@ -182,12 +183,11 @@ export interface RecordReader {
  * PAGE results are declared static pages and `contentDir` markdown, filtered by
  * the page-access check the router applies — so an anonymous reader searching a
  * public documentation site is a legitimate, load-bearing use, and a gated page
- * answers only a reader who may open it. RECORD results are table rows, and the result `label` is a raw
- * value from whichever text column matched.
+ * answers only a reader who may open it. RECORD results are table rows, whose
+ * `label` is a raw value from whichever text column matched.
  *
- * Collapsing the two into one gate is what made the endpoint an anonymous read
- * primitive over the whole database — and gating the whole endpoint on a
- * session would break the public docs search. Hence three states, not two.
+ * One gate for both made the endpoint an anonymous read primitive over the whole
+ * database; gating it on a session would break the public docs search. Hence three.
  */
 export type RecordSearchScope =
   /** The app configures no `auth`: the full-access model, as everywhere else. */
@@ -204,9 +204,8 @@ interface TableScan {
 }
 
 /**
- * The reader's row-level context for a table, resolved only when its read rule
- * needs one — the same lookup, and the same admin-equivalent bypass, the records
- * route performs before it projects the rule.
+ * The reader's row-level context for a table, only when its read rule needs one:
+ * the records route's own lookup, scope and admin-equivalent bypass.
  */
 const rowContextFor = (
   app: App,
@@ -222,7 +221,8 @@ const rowContextFor = (
         role: reader.role,
         isUnrestricted: isAdminEquivalent(reader.role, app),
       },
-      rlp
+      rlp,
+      rowRuleScopeOf(table, app.tables)
     )
   })
 

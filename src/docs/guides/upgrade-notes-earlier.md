@@ -4,6 +4,51 @@
 
 [Upgrade and roll back](/en/docs/upgrade-rollback) carries the procedure and the notes for the most recent releases. When you skip versions, read every section between the version you run and the one you move to, newest first, and run `sovrium validate` with the new version before you restart. `sovrium changelog --since <the version you run>` lists the breaking changes of the whole span.
 
+## Upgrading from 0.32 to 0.33
+
+Two automation operators, and three delay lengths, are refused on 0.33 without a release in which they first warned. This is a named exception to the one release of notice a removal otherwise gets: one operator never did what its documentation promised, the other only changes family, and 0.32 silently cut each of those delays to one minute. Run `sovrium validate` with 0.33 before you restart, and rewrite each step it refuses with the `Removed | Replace with` tables below.
+
+### Two file operators move to the `document` family
+
+`file/generatePdf` is removed and `file/generateXlsx` moves to `document/generateXlsx`, with no alias and no warning release; `sovrium validate` and startup refuse either, naming the replacement. `filename` and `destination` become `output.filename` and `output.key`. A generated file is attached to a record or temporary: a `bucket` without `attachTo` is refused, naming the step (add `attachTo`, or drop `bucket`); without `attachTo` the file stays temporary and its `key` is written under `tmp/automations/` (`exports/latest.xlsx` becomes `tmp/automations/exports/latest.xlsx`); and `ifExists: overwrite` or `skip` only takes a file the same automation generated, failing the step on any other. `document/generatePdf` renders the HTML (`file/generatePdf` printed its text on one page), so it needs the document renderer (`RENDERER_*`):
+
+| Removed             | Replace with                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `file/generatePdf`  | `document/generatePdf`: `template: { inline }` (or `{ asset }`, `{ key, bucket }`) and `data`, written with `output: { filename, bucket?, key?, attachTo? }` |
+| `file/generateXlsx` | `document/generateXlsx`, with the same `data`, `sheets`, `columns` and `sheetName`, written with `output: { filename, key?, bucket?, attachTo? }`            |
+
+### Delays longer than the engine keeps are refused
+
+On 0.32 every delay was cut to one minute, without a word: a `24h` wait ran its next step a minute later. On 0.33 a `delay/wait` or a `delay/webhook` longer than one minute parks its run and resumes it from the database, for up to 90 days; a `delay/queue` still spaces its actions inside the running process. A length beyond what each can keep is refused, naming the automation, the step and the limit:
+
+| Removed                                          | Replace with                                             |
+| ------------------------------------------------ | -------------------------------------------------------- |
+| `delay/wait` with a `duration` over 90 days      | Use a `cron` trigger that reads the records that are due |
+| `delay/webhook` with a `timeout` over 90 days    | Use a `cron` trigger that reads the records that are due |
+| `delay/queue` with an `interval` over one minute | Use a `cron` trigger that reads the records that are due |
+
+### Behaviour that changes without a config change
+
+Every config that validated on 0.32 and uses none of the operators or delays above still validates. Five behaviours change at runtime, and the output of two record steps changes shape (see the next section):
+
+- **A wait longer than one minute parks its run instead of being cut short.** A `delay/wait`, or a `delay/webhook` `timeout`, longer than a minute now runs for its full length: the run reads `waiting-delay` and resumes within about a minute after its time, and a webhook that triggered it is answered at once with the run's id and that status rather than with what the later steps produced. See [Approval & Delay Actions](/en/docs/automation-approval-delay).
+- **A required checkbox on a form must be ticked.** Every checkbox column a form binds now stores `true` or `false`, and a box left out of the post is stored as `false`. A checkbox marked required is treated as a consent: submitting it unticked is refused with 400 naming the box, and nothing is stored. Drop `required` from any checkbox that is not a consent.
+- **A page's `access.redirectTo` sends only a visitor who has not signed in.** A signed-in person who lacks the required role is answered 404, as for a page that does not exist, rather than redirected. A page that relied on the redirect to send signed-in members elsewhere now needs a link to that place instead.
+- **A port chosen on purpose is refused when it is busy.** With `PORT` set, `SOVRIUM_STRICT_PORT=1`, or under a systemd unit, `sovrium start` exits with status 1, naming the port and, when the system can tell, the process holding it, instead of quietly moving to another port the proxy in front never learns about. Stop the old server before you start the new one, as in the commands above.
+- **Every write of a record fires the table's webhooks and record automations.** Records written by forms, the assistant, CSV imports, upserts, batch calls and automation steps now fire them, once per record, as a write through the records API always did. Review the record automations and webhooks that should not run when a file is imported, or set `import: { fireEvents: false }` on the table to make its imports silent. A webhook's payload is now the whole record whoever wrote it, narrowed only by the webhook's `includeFields` or `excludeFields`. Restoring a record from the trash fires a new `restore` event, which only a webhook or record trigger listing it receives. `sovrium seed` still fires nothing.
+
+### A `user` field read by `record/list` or `record/read` is the person
+
+On 0.32 a `user` field on a record a `record/list` or `record/read` step returned was the bare account id. It is now the person, as a record trigger already hands it over: `{ id, name, email }`, at the top level of the record and under `fields`.
+
+| Where the step's output is read                                                             | On 0.32          | Now                                 |
+| ------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- |
+| `{{<step>.record.<userField>}}` in a template                                               | The account id   | The account id, unchanged           |
+| `{{<step>.record.<userField>.email}}`, `.name`                                              | Empty            | The person's email address and name |
+| The whole output, handed to a `code` step's `inputData` or answered by a `webhook/response` | `"<account id>"` | `{ "id", "name", "email" }`         |
+
+A template that renders the field keeps rendering the id. Before you restart, look for a `code` step or a webhook answer that treats a listed record's user field as a string, and read its `id`.
+
 ## Upgrading from 0.30 to 0.31
 
 The view and form removals below are refused on 0.31 without a release in which they first warned: they were decided before Sovrium started giving one release of notice for a removal. From the next release on, a user-facing key that is going away first keeps validating for one release — `sovrium validate` and `sovrium start` print a warning naming its replacement and the release that will refuse it — and is refused only after that. For these two, run `sovrium validate` with 0.31 before you restart, and rewrite each key it refuses with the `Removed | Replace with` tables of the two sections below.

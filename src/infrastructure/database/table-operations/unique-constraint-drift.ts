@@ -39,6 +39,7 @@ import {
 } from '../sql/sql-key-constraints'
 import { readUniqueShapeDrift } from './live-unique-shape'
 import { sqliteCheckClausesStale } from './sqlite-check-drift'
+import { sqliteForeignKeyTargetsStale } from './sqlite-foreign-key-target-drift'
 import type { Table } from '@/domain/models/app/tables'
 
 type Field = Table['fields'][number]
@@ -247,8 +248,10 @@ export const uniquePlanLines = (params: {
 /**
  * Whether an existing SQLite table must be rebuilt for its definition to hold:
  * its CHECK clauses differ from the declared ones, it still holds a table-level
- * `UNIQUE` a live-rows index replaces, or its unique primary key is not
- * enforced. Always `false` on PostgreSQL, which syncs both in place.
+ * `UNIQUE` a live-rows index replaces, its unique primary key is not enforced,
+ * or a foreign key names a relation that no longer holds the referenced rows
+ * (`sqliteForeignKeyTargetsStale`). Always `false` on PostgreSQL, which syncs
+ * them in place.
  */
 export const sqliteConstraintsStale = (
   tx: TransactionLike,
@@ -257,6 +260,7 @@ export const sqliteConstraintsStale = (
   Effect.gen(function* () {
     if (!isSqliteRuntime()) return false
     if (yield* sqliteCheckClausesStale(tx, table)) return true
+    if (yield* sqliteForeignKeyTargetsStale(tx, table)) return true
     const drift = yield* readUniqueShapeDrift(tx, table)
     return drift.legacy.length > 0 || drift.missingKeyed.length > 0
   })

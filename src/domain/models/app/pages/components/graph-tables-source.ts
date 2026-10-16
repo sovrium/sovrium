@@ -80,6 +80,12 @@ export const GraphTablesNodeSchema = Schema.Struct({
         'Maps a value of `stateField` to the state word the drawing knows (for example `{ Live: ok, Down: failed }`). Values with no entry are drawn as they are.',
     })
   ),
+  flagField: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Boolean field marking a node: its value reaches the node as `flag`, which a graph `flag.field: flag` draws as a caution mark',
+    })
+  ),
 }).annotate({
   identifier: 'GraphTablesNode',
   title: 'Graph Tables Node',

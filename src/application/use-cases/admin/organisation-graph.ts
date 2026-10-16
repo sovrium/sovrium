@@ -73,10 +73,14 @@ import { AutomationPauseRepository } from '@/application/ports/repositories/auto
 import { UsersDirectoryRepository } from '@/application/ports/repositories/tables/users-directory-repository'
 import {
   withEndpointLabels,
+  withFindingMembership,
   withPrincipalFigures,
 } from '@/application/use-cases/admin/organisation-graph-denormalisation'
 import { deriveExceptions } from '@/application/use-cases/admin/organisation-graph-exceptions'
-import { deriveFindings } from '@/application/use-cases/admin/organisation-graph-findings'
+import {
+  countFindings,
+  deriveFindings,
+} from '@/application/use-cases/admin/organisation-graph-findings'
 import { narrowToNode } from '@/application/use-cases/admin/organisation-graph-narrowing'
 import {
   agentEdges,
@@ -310,10 +314,12 @@ const assembleGraph = (app: App, sources: GraphSources): AdminOrganisationGraphR
     ),
   ]
 
+  const findings = deriveFindings(targets, principals, memberships)
   return {
-    nodes: withPrincipalFigures(nodes, edges),
+    nodes: withFindingMembership(withPrincipalFigures(nodes, edges), findings),
     edges: withEndpointLabels(edges, nodes),
-    findings: deriveFindings(targets, principals, memberships),
+    findings,
+    ...countFindings(findings),
     exceptions: deriveExceptions(app),
     degraded: collectDegraded(sources),
     generatedAt: new Date().toISOString(),

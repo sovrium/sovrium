@@ -17,6 +17,7 @@ import { firstMatchingTrigger } from '@/domain/models/app/automations/trigger-en
 import { logError } from '@/infrastructure/logging/logger'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
+import { identifyFormSubmitter } from './requester-identity'
 import { isTerminalFailureStatus } from './run/types'
 import type { TriggerData } from './resolve-trigger-data'
 import type { ExecuteAutomationRunRequirements, RunAutomationResult } from './run-automation'
@@ -210,7 +211,10 @@ const runFormAutomationsThenSettle = (
 ): Effect.Effect<void, never, ExecuteAutomationRunRequirements | FormSubmissionRepository> =>
   Effect.gen(function* () {
     const { app, processEnv, userId, submissionId } = input
-    const triggerData = buildFormTriggerData(input)
+    // The signed-in submitter is `{{trigger.user}}`, lifted out of reach of the submitted values.
+    const requester = yield* identifyFormSubmitter(userId, app)
+    const envelope = buildFormTriggerData(input)
+    const triggerData = requester === undefined ? envelope : { ...envelope, requester }
     const results = yield* Effect.forEach(
       matching,
       ({ automation, trigger }) =>

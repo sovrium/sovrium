@@ -6,7 +6,7 @@
  */
 
 /**
- * Static SSR search-shell dispatcher for `search-input`, in both scopes.
+ * Static SSR search-shell dispatcher for `search-input`, in both roles.
  *
  * Both render a plain server-side `<input type="search">` rather than an
  * island, and both read TOP-LEVEL schema fields — siblings of `props`, not
@@ -16,9 +16,6 @@
  *
  * Split out of `interactive-components.ts` to keep that registry under its
  * size ceiling; spread back into it so the dispatch table stays single-source.
- *
- * NOT to be confused with `component-search-bar.tsx`, which renders the
- * (currently non-functional) search bar for data-bound calendar / kanban.
  */
 
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
@@ -31,20 +28,18 @@ export const searchShellComponents: Partial<Record<DispatchableComponentType, Co
     // `searchInput` + `pageSearch` are now one `search-input` type whose `scope`
     // names the mechanism.
     //
-    // `scope: 'subscribers'` publishes its value to bound subscribers.
-    // `debounceMs` and `minQueryLength` govern how those SUBSCRIBERS consume the
-    // query; the renderer stamps them onto the inner `<input>` where the
-    // subscribing island reads them back (see
-    // `islands/search/search-query-binding.ts`).
+    // A box that declares `publishes: { bindTo, param }` instead (no scope)
+    // takes the same shell; the renderer stamps the channel on its `<input>`,
+    // where the vanilla runtime (`search-input-publisher.ts`) sends each
+    // debounced query on the channel.
     //
     // `scope: 'page'` is the static-public-pages search shell. `placeholder` and
     // `maxResults` are serialized into the `data-island-props` JSON so the React
     // island can pick them up after hydration.
     //
-    // `scope` is REQUIRED by the schema, so a component reaching here without
-    // one never decoded. The fallback is the subscriber shell rather than a
-    // throw: a renderer is not a validation seam, and drawing the lighter of the
-    // two is the failure that loses least.
+    // A box declares `scope: page` or `publishes` (one of the two, at load).
+    // The fallback is the publishing box rather than a throw: a renderer is not
+    // a validation seam, and drawing the lighter of the two loses least.
     'search-input': ({ elementProps, component, currentLang, languages }) => {
       const c = (component ?? {}) as Record<string, unknown>
       const defaultPlaceholder = resolveInterpreterString(
@@ -73,6 +68,9 @@ export const searchShellComponents: Partial<Record<DispatchableComponentType, Co
         debounceMs,
         minQueryLength,
         defaultPlaceholder,
+        defaultLabel: resolveInterpreterString('search.label', currentLang, languages),
+        placeholder: c['placeholder'] as string | undefined,
+        publishes: c['publishes'],
       })
     },
   }

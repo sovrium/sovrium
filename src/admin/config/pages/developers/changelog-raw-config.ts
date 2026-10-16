@@ -37,7 +37,7 @@ const exportConfigButton = (): PageComponent =>
     // rather than resolved on the translation path, so a `$t:` token here
     // reaches the DOM as its own text — measured at 375, the control printed
     // `$t:admin.schema.raw.export`. Same trap as `kpi.label` and a tab caption.
-    label: 'Export JSON',
+    label: '$t:admin.common.exportJson',
     variant: 'secondary',
     props: { type: 'button', 'data-testid': 'config-schema-export' },
     action: {

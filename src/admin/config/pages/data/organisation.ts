@@ -68,15 +68,15 @@
 // The message is the DATA and the severity is its LABEL, so the label is never
 // the heavier of the two (`BRAND.md` §4).
 
+import { CARD_LIST_CLASS } from '../../components/card'
 import {
+  consolePage,
   emptyState,
   fullWidth,
-  pageHeading,
+  tabbedBody,
   tabPanel,
   tabQuery,
-  tabbedBody,
 } from '../../components/data-page'
-import { withShell } from '../../components/shell'
 import { ORGANISATION_GRAPH_ENDPOINT } from '../../system-sources'
 import { mapSection, matrixSection, processesSection, text } from './organisation-lenses'
 import { REACH_TAB, reachSection } from './organisation-reach'
@@ -139,7 +139,6 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
  * here is declared, so the strip is addressable in both languages.
  */
 const TABS = [
-  { id: 'findings', label: '$t:admin.organisation.tabs.findings' },
   { id: 'matrix', label: '$t:admin.organisation.tabs.matrix' },
   { id: 'map', label: '$t:admin.organisation.tabs.map' },
   // Reach — the same graph as TEXT, and the only lens that shows all five
@@ -249,15 +248,20 @@ const findingRow = (): PageComponent =>
           //
           // `src/admin/config/pages/design-system/brand.ts` reaches for the
           // dead spelling too; that is a live defect there, not a precedent.
-          gatedText('span', 'text-error-fg text-sm font-medium', 'Critical', {
+          gatedText('span', 'text-error-fg text-sm font-medium', '$t:admin.organisation.critical', {
             field: 'severity',
             eq: 'critical',
           }),
-          gatedText('span', 'text-foreground text-sm font-medium', 'Warning', {
-            field: 'severity',
-            eq: 'warning',
-          }),
-          gatedText('span', 'text-foreground-subtle text-sm', 'Notice', {
+          gatedText(
+            'span',
+            'text-foreground text-sm font-medium',
+            '$t:admin.organisation.warning',
+            {
+              field: 'severity',
+              eq: 'warning',
+            }
+          ),
+          gatedText('span', 'text-foreground-subtle text-sm', '$t:admin.organisation.notice', {
             field: 'severity',
             eq: 'notice',
           }),
@@ -279,14 +283,19 @@ const findingRow = (): PageComponent =>
           // `"unbounded"` is not a bigger number, it is the absence of one —
           // nothing counts the people who have not signed up yet — so it reads
           // as a sentence rather than as a quantity.
-          gatedText('span', 'text-foreground-subtle text-sm', 'Reachable without signing in', {
+          gatedText('span', 'text-foreground-subtle text-sm', '$t:admin.organisation.anonymous', {
             field: 'blastRadius',
             eq: 'unbounded',
           }),
-          gatedText('span', 'text-foreground-subtle text-sm', '1 principal', {
-            field: 'blastRadius',
-            eq: 1,
-          }),
+          gatedText(
+            'span',
+            'text-foreground-subtle text-sm',
+            '$t:admin.organisation.onePrincipal',
+            {
+              field: 'blastRadius',
+              eq: 1,
+            }
+          ),
           gatedText('span', 'text-foreground-subtle text-sm', '$record.blastRadius principals', {
             field: 'blastRadius',
             notIn: ['unbounded', 1],
@@ -320,8 +329,7 @@ const findingsList = (): PageComponent =>
         // renderer already handles a data-bound child template.
         type: 'list',
         props: {
-          className:
-            'border-border divide-border bg-card divide-y overflow-hidden rounded-lg border',
+          className: `${CARD_LIST_CLASS}`,
         },
         dataSource: {
           system: { endpoint: ORGANISATION_GRAPH_ENDPOINT, rowsKey: 'findings', idKey: 'id' },
@@ -346,9 +354,9 @@ const noFindings = (): PageComponent =>
     visibility: { record: { field: 'findings', isEmpty: true } },
     children: [
       emptyState(
-        'No findings.',
-        'No write path reachable without signing in, no resource readable by everyone, and no single person bridging two otherwise separate parts of the app.',
-        'Three structural checks, not a security audit.'
+        '$t:admin.organisation.noFindings',
+        '$t:admin.organisation.noFindingsBody',
+        '$t:admin.organisation.scope'
       ),
     ],
   }) as PageComponent
@@ -393,7 +401,9 @@ const findingsSection = (): PageComponent =>
       // sentence in a 1150px box reads as a box someone forgot to fill. The
       // blurb above takes the same cap, so the region is one column rather than
       // a narrow paragraph over a wide table.
-      className: 'flex max-w-3xl flex-col gap-3',
+      // The amber rule marks the layer as conclusions drawn OVER the lens
+      // below it, not part of the drawing.
+      className: 'flex max-w-3xl flex-col gap-3 border-l-2 border-amber-500/60 pl-4',
     },
     children: [
       text('p', 'text-foreground-subtle text-sm', '$t:admin.organisation.findings.blurb'),
@@ -403,15 +413,16 @@ const findingsSection = (): PageComponent =>
     ],
   }) as PageComponent
 
-export default withShell(
-  {
-    id: 'dashboard-organisation',
-    name: 'dashboard-organisation',
-    path: '/organisation',
-    meta: { title: '$t:admin.meta.organisation', lang: 'en-US' },
+export default consolePage({
+  id: 'dashboard-organisation',
+  path: '/organisation',
+  title: '$t:admin.meta.organisation',
+  heading: ['$t:admin.organisation.heading', '$t:admin.organisation.blurb'],
+  page: {
+    requires: ['auth', 'data'],
     // `?tab=` is the address of each lens. Without this block `$query.tab` is
     // left verbatim, `defaultTab` selects a tab literally called `$query.tab`,
-    // and the strip opens on Findings for every link with no error anywhere.
+    // and the strip opens on the Matrix for every link with no error anywhere.
     query: tabQuery(TABS),
     // The page's own record: the whole graph body. It is what the two
     // empty-or-not gates test, and reading it here costs no extra fetch — the
@@ -422,22 +433,44 @@ export default withShell(
     // teams still has roles, tables and forms worth checking — and this
     // instance is the proof: it declares no groups and reports three findings.
     dataSource: { system: { endpoint: ORGANISATION_GRAPH_ENDPOINT } },
-    components: [
-      pageHeading('$t:admin.organisation.heading', '$t:admin.organisation.blurb'),
-      // `fullWidth` rather than a bare strip: its `min-w-0` is what lets the
-      // grid fill the content column instead of overflowing it. The findings
-      // panel does not need it and is not harmed by it — the section inside
-      // keeps its own reading measure.
-      fullWidth(
-        tabbedBody('$t:admin.organisation.tabs.region', TABS, [
-          tabPanel([findingsSection()]),
-          tabPanel([matrixSection()]),
-          tabPanel([mapSection()]),
-          tabPanel([reachSection()]),
-          tabPanel([processesSection()]),
-        ])
-      ),
-    ],
   },
-  { breadcrumb: { organisation: '$t:admin.crumb.organisation' } }
-)
+  shell: {
+    breadcrumb: { organisation: '$t:admin.crumb.organisation' },
+    // How many findings the read returns, above whichever lens is open.
+    topbarFact: {
+      type: 'container',
+      element: 'div',
+      props: {
+        className: 'shrink-0 text-sm text-muted-foreground',
+        'data-testid': 'organisation-findings-count',
+      },
+      children: [
+        { type: 'text', element: 'span', content: '$record.findingsCount' },
+        { type: 'text', element: 'span', content: ' ' },
+        { type: 'text', element: 'span', content: '$t:admin.organisation.findingsFact' },
+      ],
+    } as PageComponent,
+  },
+  body: [
+    // `fullWidth` rather than a bare strip: its `min-w-0` is what lets the
+    // grid fill the content column instead of overflowing it. The findings
+    // panel does not need it and is not harmed by it — the section inside
+    // keeps its own reading measure.
+    fullWidth(
+      tabbedBody('$t:admin.organisation.tabs.region', TABS, [
+        // The findings are a LAYER of every lens rather than a lens of
+        // their own: the conclusions sit above whichever drawing the reader
+        // opened, so crossing a finding with the grid or the chain never
+        // costs a tab switch. A `?tab=findings` written before this clamps
+        // to the first lens, whose layer is what that address showed.
+        //
+        // The count of findings is the top bar's fact, read from the
+        // graph's `findingsCount`.
+        tabPanel([findingsSection(), matrixSection()]),
+        tabPanel([findingsSection(), mapSection()]),
+        tabPanel([findingsSection(), reachSection()]),
+        tabPanel([findingsSection(), processesSection()]),
+      ])
+    ),
+  ],
+})

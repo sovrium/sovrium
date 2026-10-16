@@ -11,9 +11,15 @@
  * answers. Pure apart from {@link readPaletteConfig} and {@link fetchCommandMatches}.
  */
 
-/** One table the create dialog can add a record to, with its text columns. */
+/**
+ * One table the create dialog can add a record to, with its text columns.
+ * `label` (one record) and `labelPlural` (the collection) are the person's
+ * words, resolved server-side; `name` is the address.
+ */
 export interface PaletteTable {
   readonly name: string
+  readonly label?: string
+  readonly labelPlural?: string
   readonly fields: ReadonlyArray<{ readonly name: string; readonly label?: string }>
 }
 
@@ -75,17 +81,20 @@ export function readPaletteConfig(): PaletteConfig {
 
 /** One "create" per table, one "go to" per page, and the dark-mode toggle. */
 export function quickActions(config: PaletteConfig): readonly QuickAction[] {
+  const { strings } = config
+  const createIn = strings['createIn'] ?? 'Create new record in {table}'
+  const goTo = strings['goTo'] ?? 'Go to {page}'
   return [
     ...config.tables.map((table) => ({
-      label: `Create new record in ${table.name}`,
+      label: createIn.split('{table}').join(table.labelPlural ?? table.name),
       action: `create-record:${table.name}`,
     })),
     ...config.pages.map((page) => ({
-      label: `Go to ${page.title.length > 0 ? page.title : page.name}`,
+      label: goTo.split('{page}').join(page.title.length > 0 ? page.title : page.name),
       action: 'navigate',
       href: page.path,
     })),
-    { label: 'Toggle dark mode', action: 'toggle-dark-mode' },
+    { label: strings['toggleDarkMode'] ?? 'Toggle dark mode', action: 'toggle-dark-mode' },
   ]
 }
 
@@ -112,9 +121,10 @@ export function groupRecordMatches(
   }))
 }
 
-/** The create dialog's title for a table, in the page language. */
+/** The create dialog's title for a table, in the page language, by its singular label. */
 export function createTitle(config: PaletteConfig, table: string): string {
-  return (config.strings['createTitle'] ?? 'New {table} record').split('{table}').join(table)
+  const named = config.tables.find((candidate) => candidate.name === table)?.label ?? table
+  return (config.strings['createTitle'] ?? 'New {table} record').split('{table}').join(named)
 }
 
 /**

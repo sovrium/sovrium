@@ -16,6 +16,7 @@ import { isSearchPalette } from '@/presentation/render/registry/search-palette-m
 import { isSourcedSidebar } from '@/presentation/render/registry/sourced-sidebar-mode'
 import { isRecordFieldSystemMode } from '@/presentation/render/registry/system-detail-mode'
 import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
+import { openImportTable } from '@/presentation/render/resolve/open-import-gate'
 import type { Components } from '@/domain/models/app/components'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -70,10 +71,12 @@ function hasDataIslandProp(item: Component): boolean {
  *  - CAP-2 a record-field self-bound to a system detail endpoint →
  *    `record-field-system`;
  *  - P2 a sidebar with a FETCHED group → `sidebar-groups`;
- *  - W a `command-palette` in SEARCH mode → `command-palette`.
+ *  - W a `command-palette` in SEARCH mode → `command-palette`;
+ *  - a button whose action is `openImport` → `open-import`.
  */
 export function bindsToIsland(item: Component): boolean {
   return (
+    openImportTable(item) !== undefined ||
     isListIslandMode(item) ||
     isRecordFieldSystemMode(item) ||
     isSourcedSidebar(item) ||

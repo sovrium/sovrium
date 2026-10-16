@@ -133,6 +133,49 @@ export const runTriggerOf = (
   return { triggerType, triggerName: recorded ?? triggerType }
 }
 
+/** The record a run was started about: both null when it concerns none. */
+export interface RunRecordRef {
+  readonly recordTable: string | null
+  readonly recordId: string | null
+}
+
+// eslint-disable-next-line unicorn/no-null -- the run wire spells "concerns no record" as two nulls, never absent keys
+const NO_RECORD: RunRecordRef = { recordTable: null, recordId: null }
+
+const fieldOf = (value: unknown, key: string): unknown =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Readonly<Record<string, unknown>>)[key]
+    : undefined
+
+/** A record id as the records API spells it: a string on every engine. */
+const recordIdText = (id: unknown): string | undefined => {
+  if (typeof id === 'number' && Number.isFinite(id)) return String(id)
+  return typeof id === 'string' && id !== '' ? id : undefined
+}
+
+/**
+ * The record a run concerns, read from the run's own trigger payload and its
+ * trigger's declared table. The entry is resolved as {@link runTriggerOf}
+ * resolves it (by recorded name, else the first); only a `record` or `comment`
+ * entry names a record, through `triggerData.record.id`. Every other trigger, a
+ * payload with no record id, and an automation no longer declared read null —
+ * never a failure.
+ */
+export const runRecordRefOf = (
+  automation: WithTriggers | undefined,
+  recordedName: string | null | undefined,
+  triggerData: unknown
+): RunRecordRef => {
+  const named =
+    recordedName === null || recordedName === undefined
+      ? undefined
+      : automation?.triggers.find((trigger) => triggerEntryName(trigger) === recordedName)
+  const entry = named ?? automation?.triggers[0]
+  if (entry === undefined || (entry.type !== 'record' && entry.type !== 'comment')) return NO_RECORD
+  const recordId = recordIdText(fieldOf(fieldOf(triggerData, 'record'), 'id'))
+  return recordId === undefined ? NO_RECORD : { recordTable: entry.table, recordId }
+}
+
 /** A run-history filter on the name of the trigger that started each run. */
 export interface TriggerNameFilter {
   readonly name: string

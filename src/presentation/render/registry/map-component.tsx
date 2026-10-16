@@ -22,9 +22,11 @@
  * are exactly the rows that API answers the reader.
  */
 
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { parseMapTilesEnvConfig } from '@/domain/models/process-env/map-tiles'
 import { cn } from '@/presentation/design/class-merge'
 import { localizeChildLabel } from './island-child-label'
+import { islandUiStrings } from './island-loading-label'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Tables } from '@/domain/models/app/tables'
 
@@ -34,6 +36,7 @@ interface MapRoot {
   readonly labelField?: string
   readonly colorField?: string
   readonly onPinClick?: unknown
+  readonly publishes?: unknown
   readonly cluster?: boolean
   readonly center?: unknown
   readonly zoom?: number
@@ -77,6 +80,7 @@ export const mapComponent: ComponentRenderer = ({
     colorField: root.colorField,
     colors: optionColors(tables, root.dataSource?.table, root.colorField),
     onPinClick: root.onPinClick,
+    publishes: root.publishes,
     cluster: root.cluster,
     center: root.center,
     zoom: root.zoom,
@@ -85,13 +89,18 @@ export const mapComponent: ComponentRenderer = ({
       emptyMessage: localizeChildLabel(root.emptyMessage, currentLang, languages),
     }),
     tiles,
+    uiStrings: islandUiStrings('map', currentLang, languages),
   }
   const authoredLabel = elementProps['aria-label']
   return (
     <section
       id={elementProps['id'] as string | undefined}
       data-testid={elementProps['data-testid'] as string | undefined}
-      aria-label={typeof authoredLabel === 'string' ? authoredLabel : 'Map'}
+      aria-label={
+        typeof authoredLabel === 'string'
+          ? authoredLabel
+          : resolveInterpreterString('map.label', currentLang, languages)
+      }
       data-component-type="map"
       data-island="map"
       data-island-props={JSON.stringify(islandProps)}

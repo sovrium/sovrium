@@ -28,6 +28,10 @@
  * read — and an address filled from a reference (`$response.url`) is left to
  * the check that runs when it is followed.
  *
+ * A record sheet's footer acts on the record the sheet shows, so a footer
+ * `crud` action with `operation: create` — no form to fill, no record to make —
+ * is refused too, pointing to a form instead.
+ *
  * Called from `collectPageBindingViolations` and from nowhere else, and shares
  * its contract: pure, no I/O, human-readable messages, empty when the page is
  * well-formed. The walk is structural — every object reachable from the page's
@@ -194,6 +198,30 @@ function offSiteNavigateViolations(
   )
 }
 
+/** The footer actions of a record sheet: a `sheet` bound to a `dataSource`. */
+function sheetFooterActions(node: Readonly<Record<string, unknown>>): readonly unknown[] {
+  const isRecordSheet = node['type'] === 'sheet' && node['dataSource'] !== undefined
+  return isRecordSheet && Array.isArray(node['actions']) ? node['actions'] : []
+}
+
+/** Every record sheet footer action that would create a record. */
+function sheetFooterCreateViolations(
+  nodes: readonly Record<string, unknown>[],
+  label: string
+): readonly string[] {
+  return nodes.flatMap((node) =>
+    sheetFooterActions(node).flatMap((entry) => {
+      if (!isRecord(entry) || !isRecord(entry['action'])) return []
+      const { action } = entry
+      if (action['type'] !== 'crud' || action['operation'] !== 'create') return []
+      const named = typeof entry['label'] === 'string' ? ` '${entry['label']}'` : ''
+      return [
+        `${label}: the footer action${named} of sheet '${String(node['id'] ?? '')}' declares a crud action with operation: create, but a sheet footer acts on the record the sheet shows and has no form to fill. Use operation: update or delete here, or put a form with a crud create action in a dialog.`,
+      ]
+    })
+  )
+}
+
 /**
  * The placement refusals of one page. `nodes` is every object the page's
  * component tree holds (the caller's structural walk); `label` names the page.
@@ -214,5 +242,10 @@ export function actionPlacementViolations(
       ? []
       : [...roleLandingViolations(action, label), ...onErrorViolations(action, label)]
   })
-  return [...placed, ...everywhere, ...offSiteNavigateViolations(nodes, label)]
+  return [
+    ...placed,
+    ...everywhere,
+    ...offSiteNavigateViolations(nodes, label),
+    ...sheetFooterCreateViolations(nodes, label),
+  ]
 }

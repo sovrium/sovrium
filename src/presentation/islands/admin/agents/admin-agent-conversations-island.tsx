@@ -32,7 +32,9 @@ import {
   useAgentConversations,
   type AgentConversationsController,
 } from './admin-agent-conversations-state'
+import { AgentConversationStringsContext } from './admin-agent-conversations-strings'
 import { ConversationThread } from './admin-agent-conversations-thread'
+import type { SharedFilterBindingConfig } from '../../hooks/use-shared-filter'
 
 /** @public Stub consumer (shadcn parity plan §9.1): a lazy edge to @shadcn/react until the conversation port. */
 // eslint-disable-next-line react-refresh/only-export-components -- a lazy loader, not a component
@@ -41,9 +43,19 @@ export const loadMessageScrollerPrimitives = () => import('../../parts/message-s
 interface AdminAgentConversationsIslandProps {
   /** The operator's agent names — the conversations are merged across all of them. */
   readonly agentNames?: ReadonlyArray<string>
+  /**
+   * The page binding the data components take: `bindTo` names the channel the
+   * page's composed controls publish on, `sharedFilter.params` the keys read
+   * from it (`userId`, `q`). Inert without both.
+   */
+  readonly dataSource?: SharedFilterBindingConfig
+  /** The viewer's words in the console language, where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
 }
 
 const EMPTY_NAMES: ReadonlyArray<string> = []
+const UNBOUND: SharedFilterBindingConfig = {}
+const ENGLISH: Readonly<Record<string, string>> = {}
 
 /**
  * The thread column body: the "New conversation" composer when the compose
@@ -73,32 +85,38 @@ function ThreadColumn({ ctl }: { readonly ctl: AgentConversationsController }): 
 /** The agent conversation-viewer surface region (two columns: list + thread). */
 export default function AdminAgentConversationsIsland({
   agentNames = EMPTY_NAMES,
+  dataSource = UNBOUND,
+  uiStrings = ENGLISH,
 }: AdminAgentConversationsIslandProps): ReactElement {
-  const ctl = useAgentConversations(agentNames)
+  const ctl = useAgentConversations(agentNames, dataSource)
+  // Below `md` the two panes stack, the list first: side by side, the thread
+  // was squeezed into whatever a phone had left beside a 288 px list.
   return (
-    <div className="flex flex-wrap gap-6">
-      <ConversationList
-        state={ctl.list}
-        visibleConversations={ctl.visibleConversations}
-        selectedId={ctl.selectedId}
-        search={ctl.search}
-        onSearch={ctl.setSearch}
-        onSelect={ctl.onSelect}
-        onRetry={ctl.reloadList}
-        onResetSearch={ctl.onResetSearch}
-        agent={ctl.agent}
-        onAgent={ctl.setAgent}
-        agentNames={agentNames}
-        newConversation={ctl.newConversation}
-        onStartNewConversation={ctl.onStartNewConversation}
-        onPickNewAgent={ctl.onPickNewAgent}
-      />
-      <section
-        aria-label="Conversation"
-        className="min-w-0 flex-1"
-      >
-        <ThreadColumn ctl={ctl} />
-      </section>
-    </div>
+    <AgentConversationStringsContext.Provider value={uiStrings}>
+      <div className="flex flex-col gap-6 md:flex-row">
+        <ConversationList
+          state={ctl.list}
+          visibleConversations={ctl.visibleConversations}
+          selectedId={ctl.selectedId}
+          search={ctl.search}
+          onSearch={ctl.setSearch}
+          onSelect={ctl.onSelect}
+          onRetry={ctl.reloadList}
+          onResetSearch={ctl.onResetSearch}
+          agent={ctl.agent}
+          onAgent={ctl.setAgent}
+          agentNames={agentNames}
+          newConversation={ctl.newConversation}
+          onStartNewConversation={ctl.onStartNewConversation}
+          onPickNewAgent={ctl.onPickNewAgent}
+        />
+        <section
+          aria-label="Conversation"
+          className="w-full min-w-0 md:flex-1"
+        >
+          <ThreadColumn ctl={ctl} />
+        </section>
+      </div>
+    </AgentConversationStringsContext.Provider>
   )
 }

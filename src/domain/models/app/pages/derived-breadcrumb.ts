@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { decodeSegment } from '@/domain/kernel/matching/route-matcher'
+
 /**
  * How a derived trail is built beyond its segments.
  *
@@ -62,7 +64,8 @@ const nonEmpty = (label: string | undefined): string | undefined => {
  *
  * `labels` relabels a segment, because a URL segment is a slug and
  * `data-tables` reads badly in page chrome. A segment with no entry falls back
- * to ITSELF, verbatim — deliberately not title-cased. That keeps the map
+ * to ITSELF, percent-decoded (`enduser%40example.com` reads `enduser@example.com`)
+ * and otherwise verbatim — deliberately not title-cased. That keeps the map
  * optional rather than exhaustive, and keeps a dynamic segment (an operator's
  * own table name) showing exactly what the operator named it, which a casing
  * rule would silently corrupt.
@@ -110,7 +113,9 @@ export function buildDerivedCrumbs(
   })
   // `labels` and `unlinked` name STATIC segments: a captured one is data (an
   // asset's own file name), shown verbatim.
-  const derived = hasCapture ? [...staticCrumbs, { label: current ?? captured }] : staticCrumbs
+  const derived = hasCapture
+    ? [...staticCrumbs, { label: current ?? decodeSegment(captured) }]
+    : staticCrumbs
   return withHome(derived, options.home, base)
 }
 
@@ -144,7 +149,8 @@ const buildStaticCrumbs = (
 ): readonly DerivedCrumb[] =>
   segments.map((segment, index) => {
     const isLast = context.lastIsCurrent && index === segments.length - 1
-    const label = (isLast ? context.current : undefined) ?? labels?.[segment] ?? segment
+    const label =
+      (isLast ? context.current : undefined) ?? labels?.[segment] ?? decodeSegment(segment)
     // The prefix is rebuilt from the ORIGINAL segments, not the labelled ones —
     // a relabelled crumb must still link to the path it came from.
     // An unlinked segment is matched on the URL segment too, so the name in

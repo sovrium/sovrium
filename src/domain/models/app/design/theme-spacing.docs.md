@@ -43,7 +43,7 @@ The two names Sovrium's own recipes read are `base` and `md`, so declaring those
 
 ## `elevation`
 
-Named `box-shadow` values. Each becomes a `shadow-{name}` utility.
+Named `box-shadow` values. Each becomes a `shadow-{name}` utility. A value of `none` — `sm: none` on a flat design — draws no shadow and leaves a control's keyboard focus ring drawn.
 
 ```yaml
 design:

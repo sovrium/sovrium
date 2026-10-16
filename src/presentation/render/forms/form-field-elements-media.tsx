@@ -114,7 +114,7 @@ export const FileInput = ({
         data-testid={`dropzone-${field.name}`}
         data-form-dropzone={field.name}
       >
-        <span>Drop files here or click to browse</span>
+        <span>{field.dropZoneLabel ?? 'Drop files here or click to browse'}</span>
       </div>
     )}
     <input

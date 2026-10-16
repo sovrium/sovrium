@@ -24,6 +24,7 @@
 import { hostname } from 'node:os'
 import { HTTPException } from 'hono/http-exception'
 import { classifyDriverFailure } from '@/domain/errors/driver-failure'
+import { transactionConflictOf } from '@/domain/errors/transaction-conflict-error'
 import { isErrorReportingEnabled } from '@/domain/models/process-env/telemetry/telemetry'
 import { isInIngestScope } from '@/infrastructure/logging/ingest-request-scope'
 import { writeStderrText } from '@/infrastructure/logging/log-format'
@@ -149,6 +150,9 @@ export const isOperatorActionable = (cause: unknown): boolean => {
   if (cause instanceof HTTPException) {
     return cause.status >= 500
   }
+  // Aborted on a conflict with a concurrent transaction: answered 409, and the
+  // same write may succeed when sent again. Two writes meeting is not a fault.
+  if (transactionConflictOf(cause) !== undefined) return false
   const failure = classifyDriverFailure(cause)
   switch (failure.origin) {
     // `check` / `foreign-key` / `not-null` answer 400 and `unique` answers 409.

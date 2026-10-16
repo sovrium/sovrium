@@ -16,10 +16,11 @@ import {
 } from '@/presentation/design/dialog-default-classes'
 import { LucideGlyph } from '@/presentation/design/lucide-glyph'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { DialogActions } from './dialog-actions'
+import { DialogActions, type TypedConfirmPrompt } from './dialog-actions'
 import { dispatchConfirmAction, type DialogConfirmAction } from './dialog-confirm-action'
 import { useDialogOpenState, useDismissalGuard, useHostControls } from './dialog-open-state'
 import { DialogChildren, DialogHeading } from './dialog-parts'
+import { wrapTabWithin } from './focus-wrap'
 import { useOverlayPending } from './overlay-pending'
 import type { MouseEvent, ReactElement } from 'react'
 
@@ -32,6 +33,7 @@ interface DialogIslandProps {
   readonly confirmLabel?: string
   /** Text to type before confirm enables (`alert-dialog.confirmText`), resolved on the server. */
   readonly confirmText?: string
+  readonly confirmPrompt?: TypedConfirmPrompt // the field's label, in the page language
   readonly variant?: 'default' | 'destructive'
   readonly className?: string
   readonly id?: string
@@ -120,6 +122,7 @@ interface DialogPopupBodyProps {
   readonly cancelLabel: string
   readonly confirmLabel?: string
   readonly confirmText?: string
+  readonly confirmPrompt?: TypedConfirmPrompt
   readonly variant: 'default' | 'destructive'
   readonly className?: string
   readonly id?: string
@@ -142,6 +145,7 @@ function DialogPopupBody({
   cancelLabel,
   confirmLabel,
   confirmText,
+  confirmPrompt,
   variant,
   className,
   id,
@@ -165,6 +169,7 @@ function DialogPopupBody({
       className={resolveClasses(computeDialogContentClasses(kind), className)}
       id={id}
       data-testid={testId}
+      onKeyDown={wrapTabWithin}
     >
       <DialogHeading
         kind={kind}
@@ -185,6 +190,7 @@ function DialogPopupBody({
         cancelLabel={cancelLabel}
         confirmLabel={confirmLabel}
         confirmText={confirmText}
+        confirmPrompt={confirmPrompt}
         variant={variant}
         onConfirm={onConfirm}
       />

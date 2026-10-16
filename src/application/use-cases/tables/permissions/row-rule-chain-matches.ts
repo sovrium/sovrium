@@ -6,7 +6,10 @@
  */
 
 /**
- * The related rows a reader's `<relationship>.<column>` row rules admit.
+ * The rows a reader's lookup leaves admit: the related rows of a
+ * `<relationship>.<column>` chain, and the rows whose many-to-many field holds
+ * the value of a `contains` (read from the link table, on the ruled table or
+ * one relationship away).
  *
  * A row rule may read one many-to-one relationship deep (see
  * `row-rule-chain-service.ts`). Each such leaf is answered here once per
@@ -21,16 +24,21 @@
  */
 
 import { Effect } from 'effect'
-import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import {
+  DataSourceRepository,
+  type DataSourceDatabaseError,
+} from '@/application/ports/repositories/tables/data-source-repository'
 import {
   resolvePredicateValue,
   type CurrentUserContext,
 } from '@/domain/models/app/tables/row-level-evaluator-service'
 import {
   chainLeafKey,
-  chainLeavesOf,
+  isRowRuleChain,
+  lookupLeavesOf,
   resolveRowRuleChain,
 } from '@/domain/models/app/tables/row-rule-chain-service'
+import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
 import { logError } from '@/infrastructure/logging'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 import type { RowLevelPermissions, RowLevelPredicate } from '@/domain/models/app/tables/permissions'
@@ -45,42 +53,101 @@ export interface RowRuleScope {
 }
 
 /**
- * The scope a door judges a table's rules in, or `undefined` when the table it
- * holds is not a full declaration (a rule chain then admits no row).
+ * The scope a door judges a table's rules in, or `undefined` when it holds no
+ * table or not a full declaration (a rule chain then admits no row).
  */
 export const rowRuleScopeOf = (
-  table: object,
+  table: object | undefined,
   tables: ReadonlyArray<object> | undefined
 ): RowRuleScope | undefined =>
-  'name' in table && 'fields' in table && Array.isArray(table.fields)
+  table !== undefined && 'name' in table && 'fields' in table && Array.isArray(table.fields)
     ? {
         table: table as ScopeTable,
         tables: (tables ?? []) as ReadonlyArray<ScopeTable>,
       }
     : undefined
 
-/** The ids of the related rows one chain leaf admits, or `undefined` when it admits none knowably. */
+/** The table and column a lookup leaf reads: the related table of a chain, or the ruled table. */
+const holderOf = (
+  leaf: RowLevelPredicate,
+  scope: RowRuleScope
+): { readonly table: string; readonly column: string } | undefined => {
+  if (!isRowRuleChain(leaf.field)) return { table: scope.table.name, column: leaf.field }
+  const chain = resolveRowRuleChain(scope.table, scope.tables, leaf.field)
+  return 'refusal' in chain ? undefined : { table: chain.relatedTable, column: chain.column }
+}
+
+/**
+ * The ids of the rows of `holder.table` whose `holder.column` holds one of
+ * `value` — a `contains` leaf's membership test: a many-to-many relationship
+ * read from its link table, or a `user` field with `allowMultiple` read from
+ * its own list column. `undefined` for any other field, so the leaf admits no
+ * row.
+ */
+const membershipIds = (
+  holder: { readonly table: string; readonly column: string },
+  value: NonNullable<ReturnType<typeof resolvePredicateValue>>,
+  scope: RowRuleScope
+): Effect.Effect<readonly unknown[] | undefined, DataSourceDatabaseError, DataSourceRepository> =>
+  Effect.gen(function* () {
+    const field = [scope.table, ...scope.tables]
+      .find((table) => table.name === holder.table)
+      ?.fields.find((candidate) => candidate.name === holder.column)
+    const values: readonly unknown[] = Array.isArray(value) ? value : [value]
+    const repo = yield* DataSourceRepository
+    if (isUserListField(field)) {
+      return yield* repo.fetchUserListHolders({
+        table: holder.table,
+        column: holder.column,
+        userIds: values.map(String),
+      })
+    }
+    if (field?.relationType !== 'many-to-many' || field.relatedTable === undefined) {
+      return undefined
+    }
+    return yield* repo.fetchManyToManyHolders({
+      table: holder.table,
+      relatedTable: field.relatedTable,
+      relatedIds: values.map(String),
+    })
+  })
+
+/** The ids of the rows a column leaf of a chain admits: the related rows whose column satisfies it. */
+const columnIds = (
+  leaf: RowLevelPredicate,
+  holder: { readonly table: string; readonly column: string },
+  value: NonNullable<ReturnType<typeof resolvePredicateValue>>
+): Effect.Effect<readonly unknown[], DataSourceDatabaseError, DataSourceRepository> =>
+  Effect.gen(function* () {
+    const filter = {
+      field: holder.column,
+      operator: leaf.operator,
+      value: leaf.operator === 'in' && !Array.isArray(value) ? [value] : value,
+    } as DataFilter
+    const repo = yield* DataSourceRepository
+    const rows = yield* repo.fetchRecords(holder.table, { fields: ['id'], filter: [filter] })
+    return rows.map((row) => row['id'])
+  })
+
+/** The ids one lookup leaf admits, or `undefined` when it admits none knowably. */
 const admittedIds = (
   leaf: RowLevelPredicate,
   ctx: CurrentUserContext,
   scope: RowRuleScope
 ): Effect.Effect<readonly unknown[] | undefined, never, DataSourceRepository> =>
   Effect.gen(function* () {
-    const chain = resolveRowRuleChain(scope.table, scope.tables, leaf.field)
+    const holder = holderOf(leaf, scope)
     const value = resolvePredicateValue(leaf.value, ctx)
-    if ('refusal' in chain || value === undefined) return undefined
-    const filter = {
-      field: chain.column,
-      operator: leaf.operator,
-      value: leaf.operator === 'in' && !Array.isArray(value) ? [value] : value,
-    } as DataFilter
-    const repo = yield* DataSourceRepository
-    return yield* repo.fetchRecords(chain.relatedTable, { fields: ['id'], filter: [filter] }).pipe(
-      Effect.map((rows) => rows.map((row) => row['id'])),
+    if (holder === undefined || value === undefined) return undefined
+    const lookup =
+      leaf.operator === 'contains'
+        ? membershipIds(holder, value, scope)
+        : columnIds(leaf, holder, value)
+    return yield* lookup.pipe(
       Effect.tapCause((cause) =>
         Effect.sync(() =>
-          logError('[PERMISSIONS] Row rule chain lookup failed; the rule admits no row', cause, {
-            chain: leaf.field,
+          logError('[PERMISSIONS] Row rule lookup failed; the rule admits no row', cause, {
+            field: leaf.field,
           })
         )
       ),
@@ -103,7 +170,7 @@ export const withChainMatches = (
   scope: RowRuleScope | undefined
 ): Effect.Effect<CurrentUserContext, never, DataSourceRepository> =>
   Effect.gen(function* () {
-    const leaves = ruleWhens(rlp).flatMap((when) => chainLeavesOf(when))
+    const leaves = ruleWhens(rlp).flatMap((when) => lookupLeavesOf(when))
     if (leaves.length === 0 || scope === undefined) return ctx
     const unique = [...new Map(leaves.map((leaf) => [chainLeafKey(leaf), leaf])).values()]
     const entries = yield* Effect.forEach(unique, (leaf) =>

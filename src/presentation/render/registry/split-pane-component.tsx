@@ -19,6 +19,7 @@
  * mounted roots.
  */
 
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { renderHTMLElement } from '../elements'
@@ -65,13 +66,16 @@ interface SplitPaneViewModel {
 function buildViewModel(
   rawProps: Record<string, unknown> | undefined,
   elementProps: Record<string, unknown>,
-  renderedChildren: readonly ReactElement[]
+  renderedChildren: readonly ReactElement[],
+  page: Pick<Parameters<ComponentRenderer>[0], 'currentLang' | 'languages'>
 ): SplitPaneViewModel {
+  const word = (key: string) => resolveInterpreterString(key, page.currentLang, page.languages)
   const hostId = resolveHostId(elementProps, 'sv-split-pane')
   const orientation = resolveOrientation(rawProps)
   const ratio = resolveRatio(rawProps)
-  const ariaLabel = (rawProps?.['aria-label'] as string | undefined) ?? 'Split pane'
-  const separatorLabel = (rawProps?.['separatorLabel'] as string | undefined) ?? 'Resize panels'
+  const ariaLabel = (rawProps?.['aria-label'] as string | undefined) ?? word('splitPane.label')
+  const separatorLabel =
+    (rawProps?.['separatorLabel'] as string | undefined) ?? word('splitPane.resize')
   const islandProps = {
     hostId,
     orientation,
@@ -118,8 +122,9 @@ export const splitPaneComponent: ComponentRenderer = ({
   rawProps,
   elementProps,
   renderedChildren,
+  ...page
 }) => {
-  const vm = buildViewModel(rawProps, elementProps, renderedChildren)
+  const vm = buildViewModel(rawProps, elementProps, renderedChildren, page)
   const flexDirection = vm.orientation === 'horizontal' ? 'flex-row' : 'flex-col'
   const dividerCursor = vm.orientation === 'horizontal' ? 'cursor-col-resize' : 'cursor-row-resize'
   const dividerSize = vm.orientation === 'horizontal' ? 'w-1.5 self-stretch' : 'h-1.5 w-full'

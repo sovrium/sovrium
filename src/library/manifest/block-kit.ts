@@ -7,18 +7,14 @@
 
 /**
  * The shared recipes every block entry composes from — section rhythm, the
- * heading ladder, link-shaped buttons, image placeholders.
- *
- * WHY A KIT: seventy blocks written by hand would drift from each other in
- * spacing and type within a week. Each helper returns a plain component node
- * built only from existing component types and theme-token utilities
- * (`text-foreground`, `bg-card`, `border-border`, `bg-primary` …),
+ * heading ladder, link-shaped buttons, image placeholders. WHY A KIT: seventy
+ * blocks written by hand would drift from each other in spacing and type within
+ * a week. Each helper returns a plain component node built only from existing
+ * component types and theme-token utilities (`text-foreground`, `bg-card` …),
  * so a block follows whatever `design` the operator declares and the fragment
- * it writes is the exact config an operator would type by hand. Nothing here
- * runs at install time beyond building that data.
- *
- * Buttons that GO somewhere are `link` components drawn as buttons: a `button`
- * has no DOM `href`, and a call to action has to be a real anchor.
+ * it writes is the exact config an operator would type by hand. Buttons that GO
+ * somewhere are `link` components drawn as buttons: a call to action has to be
+ * a real anchor, and a `button` has no DOM `href`.
  */
 
 import type { LibraryFragmentByKey } from './define'
@@ -115,6 +111,10 @@ export const h3 = (content: string, extra = ''): BlockNode =>
 
 export const h4 = (content: string, extra = ''): BlockNode =>
   text('h4', content, `text-md font-semibold text-foreground ${extra}`.trim())
+
+/** An item's title under a section `h2`: an `h4`'s size, one level down (RGAA 9.1). */
+export const itemTitle = (content: string, extra = ''): BlockNode =>
+  text('h3', content, `text-md font-semibold text-foreground ${extra}`.trim())
 
 /** The sentence under a headline. */
 export const lead = (content: string, extra = ''): BlockNode =>
@@ -321,7 +321,7 @@ export const checkList = (items: readonly string[]): BlockNode =>
 /** An icon, a short title and one or two lines — the feature-grid cell. */
 export const featureItem = (iconName: string, title: string, description: string): BlockNode =>
   stack(
-    [icon(iconName, 'text-foreground', 22), h4(title, 'mt-2 text-lg'), body(description)],
+    [icon(iconName, 'text-foreground', 22), itemTitle(title, 'mt-2 text-lg'), body(description)],
     'gap-2'
   )
 
@@ -369,10 +369,10 @@ export const figure = (value: string, extra = ''): BlockNode => ({
 // ─── Data-bound parts (appended with the data-bound blocks) ───────────────
 
 /** The heading group above an application panel: a title and an optional line. */
-export const panelHead = (title: string, description = ''): BlockNode =>
+export const panelHead = (title: string, description = '', element = 'h3'): BlockNode =>
   stack(
     [
-      h3(title, 'text-lg'),
+      text(element, title, 'text-xl font-semibold text-foreground text-lg'),
       ...when(description, {
         type: 'text',
         element: 'p',
@@ -441,13 +441,13 @@ export interface EndpointField {
   readonly control: 'text' | 'email' | 'textarea' | 'tel' | 'url'
   readonly label: string
   readonly placeholder?: string
+  readonly autocomplete?: string // the autofill hint of the visitor's own data
 }
 
 /**
  * A static `form` that POSTs its fields as JSON to a URL and raises a toast —
  * no table, so a block carrying it installs into any app.
- */
-/**
+ *
  * The form recipe draws its submit button shorter than its text fields. Beside
  * a field — the inline newsletter row — the mismatch reads as a mistake, so the
  * block forms lift the button to the field's height through the form's

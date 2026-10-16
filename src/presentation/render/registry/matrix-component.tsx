@@ -41,6 +41,8 @@
  * @see ./matrix-twin.tsx — the accessible twin, which is never optional
  */
 
+import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { MatrixGrid, MatrixNotice } from '@/presentation/render/registry/matrix-grid'
 import { MatrixTwin } from '@/presentation/render/registry/matrix-twin'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -49,11 +51,8 @@ import type { MatrixResolvedComponent } from '@/presentation/render/resolve/matr
 import type { MatrixView } from '@/presentation/render/resolve/matrix-projection'
 import type { ReactElement } from 'react'
 
-/** What the grid says when no `emptyMessage` was declared. */
-const DEFAULT_EMPTY_MESSAGE = 'Nothing to show.'
-
-/** What the notice says when the read did not succeed for this caller. */
-const UNAVAILABLE_MESSAGE = 'This grid could not be read.'
+/** One of the matrix's own words (`matrix.*`), in the page language. */
+type MatrixWord = (key: string) => string
 
 /** The declaration this renderer reads off the component, beside its drawing. */
 type MatrixComponent = Component &
@@ -68,17 +67,19 @@ type MatrixComponent = Component &
  * `unavailable` has no sources to name — that is the point of it — so it speaks
  * for itself rather than printing an empty list.
  */
-const noticeMessage = (view: MatrixView): string | undefined => {
-  if (view.kind === 'unavailable') return UNAVAILABLE_MESSAGE
+const noticeMessage = (view: MatrixView, word: MatrixWord): string | undefined => {
+  if (view.kind === 'unavailable') return word('matrix.unavailable')
   if (view.degraded.length === 0) return undefined
-  return `Some sources could not be read: ${view.degraded.join(', ')}`
+  return fillPlaceholders(word('matrix.degraded'), { sources: view.degraded.join(', ') })
 }
 
 export const matrixComponent: ComponentRenderer = (config): ReactElement => {
   const component = config.component as MatrixComponent | undefined
   const view: MatrixView = component?.matrixView ?? { kind: 'unavailable' }
   const elementProps = config.elementPropsWithSpacing
-  const notice = noticeMessage(view)
+  const word: MatrixWord = (key) =>
+    resolveInterpreterString(key, config.currentLang, config.languages)
+  const notice = noticeMessage(view, word)
   return (
     <div
       data-component-type="matrix"
@@ -92,7 +93,7 @@ export const matrixComponent: ComponentRenderer = (config): ReactElement => {
           data-matrix-empty=""
           className="text-muted-foreground text-sm"
         >
-          {component?.emptyMessage ?? DEFAULT_EMPTY_MESSAGE}
+          {component?.emptyMessage ?? word('matrix.empty')}
         </p>
       ) : undefined}
       {view.kind !== 'grid' ? undefined : (
@@ -106,10 +107,18 @@ export const matrixComponent: ComponentRenderer = (config): ReactElement => {
               data-matrix-truncated=""
               className="text-muted-foreground mt-3 text-xs"
             >
-              This grid is larger than the renderer draws whole; some rows or columns are not shown.
+              {word('matrix.truncated')}
             </p>
           ) : undefined}
-          <MatrixTwin rows={view.twinRows} />
+          <MatrixTwin
+            rows={view.twinRows}
+            headings={[
+              word('matrix.resource'),
+              word('matrix.grantSource'),
+              word('matrix.operations'),
+              word('matrix.note'),
+            ]}
+          />
         </div>
       )}
     </div>

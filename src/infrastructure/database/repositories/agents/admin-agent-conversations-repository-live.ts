@@ -17,7 +17,10 @@ import {
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { isSystemAgentName } from '@/domain/models/app/agents/agent-identity'
 import { db } from '@/infrastructure/database'
-import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  authUsersTable,
+  resolveDialectSchema,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   aiConversations as aiConversationsPg,
   aiMessages as aiMessagesPg,
@@ -40,6 +43,7 @@ const wrap = makeDbWrap((cause) => new AdminAgentConversationsDatabaseError({ ca
  */
 const aiConversations = resolveDialectSchema(aiConversationsPg, aiConversationsSqlite)
 const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
+const users = authUsersTable()
 
 /**
  * Build the agent-scope predicate for a conversation-source name.
@@ -101,6 +105,14 @@ const buildSearchConditions = (filters: AdminAgentConversationsListFilters): Rea
   searchAnyColumn(filters.q, aiConversations.title, aiConversations.sessionId)
 
 /**
+ * The optional `?userId=` narrowing: an exact match on the account that held
+ * the conversation, ANDed with every other knob. An id no row carries simply
+ * matches nothing.
+ */
+const buildOwnerConditions = (filters: AdminAgentConversationsListFilters): ReadonlyArray<SQL> =>
+  filters.userId === undefined ? [] : [eq(aiConversations.userId, filters.userId)]
+
+/**
  * Build the deterministic newest-first cursor-seek predicate for the
  * `(updatedAt, id)` tuple. A row is strictly "after" the cursor (i.e. older, in
  * descending order) when `updatedAt < value OR (updatedAt = value AND id < id)`.
@@ -131,6 +143,8 @@ const conversationSelect = {
   id: aiConversations.id,
   title: aiConversations.title,
   sessionId: aiConversations.sessionId,
+  userId: aiConversations.userId,
+  userName: users.name,
   messageCount: count(aiMessages.id),
   updatedAt: aiConversations.updatedAt,
   createdAt: aiConversations.createdAt,
@@ -140,6 +154,8 @@ const conversationGroupBy = [
   aiConversations.id,
   aiConversations.title,
   aiConversations.sessionId,
+  aiConversations.userId,
+  users.name,
   aiConversations.updatedAt,
   aiConversations.createdAt,
 ]
@@ -149,6 +165,8 @@ const toConversationRow = (row: {
   readonly id: string
   readonly title: string | null
   readonly sessionId: string | null
+  readonly userId: string
+  readonly userName: string | null
   readonly messageCount: number
   readonly updatedAt: Date | string
   readonly createdAt: Date | string
@@ -156,6 +174,9 @@ const toConversationRow = (row: {
   id: row.id,
   title: row.title,
   sessionId: row.sessionId,
+  userId: row.userId,
+  // The account's display name; its email is never read here.
+  userName: row.userName ?? '',
   messageCount: toFiniteCount(row.messageCount),
   updatedAt: row.updatedAt,
   createdAt: row.createdAt,
@@ -178,6 +199,7 @@ const listConversationsImpl = async (
     agentScopeCondition(filters.agentName),
     ...buildDateWindowConditions(filters),
     ...buildSearchConditions(filters),
+    ...buildOwnerConditions(filters),
     ...buildCursorConditions(filters),
   ]
 
@@ -187,6 +209,7 @@ const listConversationsImpl = async (
   const rows = await db
     .select(conversationSelect)
     .from(aiConversations)
+    .leftJoin(users, eq(users.id, aiConversations.userId))
     .leftJoin(aiMessages, eq(aiMessages.conversationId, aiConversations.id))
     .where(and(...conditions))
     .groupBy(...conversationGroupBy)
@@ -215,6 +238,7 @@ const getConversationImpl = async (
   const rows = await db
     .select(conversationSelect)
     .from(aiConversations)
+    .leftJoin(users, eq(users.id, aiConversations.userId))
     .leftJoin(aiMessages, eq(aiMessages.conversationId, aiConversations.id))
     .where(and(agentScopeCondition(agentName), eq(aiConversations.id, conversationId)))
     .groupBy(...conversationGroupBy)

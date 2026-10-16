@@ -194,7 +194,7 @@ export const FORM_RUNTIME_SCRIPT = `(function () {
   // absent where they read as the English written here.
   var S = config.strings || {}
   var FAILED = S['form.submissionFailed'] || 'Submission failed.'
-  var onSuccess = config.onSuccess || { type: 'toast', message: 'Submitted.' }
+  var SENT = S['form.submitted'] || 'Submitted.', onSuccess = config.onSuccess || { type: 'toast', message: SENT }
   var onError = config.onError || { type: 'toast', message: FAILED }
   var stepIds = Array.isArray(config.stepIds) ? config.stepIds : []
   var isMultiStep = config.multiStep === true && stepIds.length > 0
@@ -397,13 +397,13 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}${FORM_RUNTIM
         attr: 'data-form-success-message',
         role: 'status',
         className: 'form-success-banner',
-        message: interpolate(onSuccess.message || 'Submitted.', response),
+        message: interpolate(onSuccess.message || SENT, response),
       })
       return
     }
     // Default: toast
     renderToast(
-      interpolate(onSuccess.message || 'Submitted.', response),
+      interpolate(onSuccess.message || SENT, response),
       onSuccess.variant || 'success'
     )
   }

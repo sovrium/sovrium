@@ -42,6 +42,8 @@ export interface GraphNodeView {
   readonly state?: string
   /** One short line, carried to a pointer as a `<title>`; the twin prints it. */
   readonly detail?: string
+  /** The graph's `flag.label`, present only on a node its `flag.field` marks. */
+  readonly flag?: string
 }
 
 /** One band of a column. `value` absent is the ungrouped band. */

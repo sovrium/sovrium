@@ -13,3 +13,8 @@ import type { GalleryPartClasses } from '@/presentation/design/gallery-part-clas
  * (`galleryClasses` in the payload). Absent, each piece draws its recipe.
  */
 export const GalleryClassesContext = createContext<GalleryPartClasses | undefined>(undefined)
+
+/** Publishes the card a reader selects, on a gallery that declares `publishes`. */
+export const GallerySelectionContext = createContext<((recordId: unknown) => void) | undefined>(
+  undefined
+)

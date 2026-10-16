@@ -57,6 +57,8 @@ Every action resolves the `$env.NAME` references written in its properties, incl
 
 An env value is used as it is stored. A token or a password that contains `{{` or `}}` reaches the action unchanged: it is never read as a template.
 
+The operator console's environment page, read from `GET /api/admin/env`, lists for each variable where the configuration references it, in `usedBy`: one entry per place, in the order the configuration declares them, worded as `sovrium validate` words a reference — for example `Connection 'crm' props.clientSecret` or `Table 'orders' webhook 'billing' auth.token`. A variable nothing references has an empty `usedBy`: it is declared but unused, and safe to remove. The list names places only, never a value.
+
 Inside a `{{…}}` expression, `$env.NAME` is read as a value, quoted or not: `{{uppercase $env.REGION}}` passes the value to the helper as a string, `{{lookup trigger.data $env.FIELD}}` reads the trigger field the value names, and `{{$env.NAME}}` alone renders it. The value never becomes part of the expression, so an expression kept as written (an unknown helper, a syntax error, or a `regex` whose pattern is not a quoted string) shows `$env.NAME`, never the value. A reference cannot be spliced into a path: `{{trigger.data.$env.FIELD}}` reads a key named `$env`, not the field; use `lookup`.
 
 ## Secrets never reach a log

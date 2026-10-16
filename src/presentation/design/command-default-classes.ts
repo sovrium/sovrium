@@ -41,9 +41,15 @@ export const COMMAND_INPUT_GROUP_CLASSES =
 export const COMMAND_INPUT_ADDON_CLASSES =
   'order-first flex items-center pl-2 text-muted-foreground'
 
-/** `command-input`. */
+/**
+ * `command-input`, with the box resets base-nova's `InputGroupInput` carries
+ * (`rounded-none border-0 shadow-none ring-0 focus-visible:ring-0`). The group
+ * draws the one field: without them the base layer's bare-input rule paints a
+ * second bordered, ringed box inside it, and the icon reads as sitting in a box
+ * of its own beside a field.
+ */
 export const COMMAND_INPUT_CLASSES =
-  'w-full bg-transparent px-2 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50'
+  'h-full py-0 w-full flex-1 rounded-none border-0 bg-transparent px-2 text-sm shadow-none ring-0 ring-offset-0 outline-hidden focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50'
 
 /** `command-list`. */
 export const COMMAND_LIST_CLASSES =
@@ -75,3 +81,15 @@ export const COMMAND_ITEM_CLASSES = [
 /** `command-shortcut`. */
 export const COMMAND_SHORTCUT_CLASSES =
   'ml-auto text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground'
+
+/**
+ * The keyboard-hint footer under the list: the keys that drive the command,
+ * each as a keycap beside what it does. Sovrium's addition to the anatomy (the
+ * registry's command dialog draws none), set apart from the list by its edge.
+ */
+export const COMMAND_HINTS_CLASSES =
+  'flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground'
+
+/** One keycap in the hint footer: shadcn/ui's `Kbd`. */
+export const COMMAND_KBD_CLASSES =
+  'pointer-events-none inline-flex h-5 w-fit min-w-5 items-center justify-center gap-1 rounded-sm bg-muted px-1 font-sans text-xs font-medium text-muted-foreground select-none'

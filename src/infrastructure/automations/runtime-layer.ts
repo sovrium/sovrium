@@ -10,6 +10,7 @@ import { AiServiceLive } from '@/infrastructure/ai/ai-service-live'
 import { SpeechServiceLive } from '@/infrastructure/ai/speech/speech-service-live'
 import { SvgRasterizerLive } from '@/infrastructure/assets/svg-rasterizer-live'
 import { ConfigAccountProvisionerLive } from '@/infrastructure/auth/better-auth/config-account-provisioner-live'
+import { ConfigInvitationIssuerLive } from '@/infrastructure/auth/better-auth/config-invitation-issuer-live'
 import { OAuthClientRegistrarLive } from '@/infrastructure/auth/better-auth/oauth-client-registrar-live'
 import { BrowserDriverLive } from '@/infrastructure/browser/browser-driver-live'
 import { OAuthTokenClientLive } from '@/infrastructure/connections/oauth-token-client-live'
@@ -20,6 +21,7 @@ import { AiEmbeddingRepositoryActive } from '@/infrastructure/database/repositor
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth/auth-repository-live'
 import { OrganizationTeamRepositoryLive } from '@/infrastructure/database/repositories/auth/organization-team-repository-live'
+import { UserAccessRepositoryLive } from '@/infrastructure/database/repositories/auth/user-access-repository-live'
 import { AutomationApprovalRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-approval-repository-live'
 import { AutomationDigestRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-digest-repository-live'
 import { AutomationPauseRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-pause-repository-live'
@@ -133,6 +135,9 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // steps write the group membership through the same team store the console's
   // account-groups route writes.
   OrganizationTeamRepositoryLive,
+  // `UserAccessRepository` — the `auth/*Access` and `auth/listGrantees` steps
+  // write and read grants through the store the access-grant routes use.
+  UserAccessRepositoryLive,
   AutomationStateRepositoryLive,
   AutomationDigestRepositoryLive,
   ConnectionRepositoryLive,
@@ -153,6 +158,9 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // `ConfigAccountProvisioner` — the `auth/createUser` step; loads the auth
   // engine lazily, so a deployment without `auth:` never pays for it.
   ConfigAccountProvisionerLive,
+  // `ConfigInvitationIssuer` — the `auth/inviteUser` step; the same lazy engine,
+  // plus the app's own invitation mailer.
+  ConfigInvitationIssuerLive,
   // `OAuthClientRegistrar` — the sign-in client steps (`auth/*OAuthClient*`),
   // over the app's own OAuth provider; loads the engine lazily like the above.
   OAuthClientRegistrarLive,

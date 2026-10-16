@@ -26,17 +26,18 @@ export interface PasskeyFormProps {
   readonly mode: PasskeyMode
   /** The button's label in the page language, resolved server-side. */
   readonly label?: string
+  /** Every word the control reports (`passkey.*`), in the page language, resolved server-side. */
+  readonly uiStrings?: Readonly<Record<string, string>>
   readonly callbackUrl?: string
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
 }
 
-const UNSUPPORTED = 'This browser cannot use passkeys.'
-
+/** The catalogue key of each mode's failure. */
 const FAILED: Record<PasskeyMode, string> = {
-  register: 'The passkey was not added. Please try again.',
-  'sign-in': 'Sign in with a passkey failed. Please try again.',
+  register: 'passkey.addFailed',
+  'sign-in': 'passkey.signInFailed',
 }
 
 const getJson = async (path: string): Promise<unknown> => {
@@ -88,24 +89,33 @@ async function signInWithPasskey(): Promise<void> {
   })
 }
 
+const NO_WORDS: Readonly<Record<string, string>> = {}
+
 interface Outcome {
   readonly error?: string
   readonly success?: string
 }
 
-/** Run the mode's ceremony; resolves with what to show, or navigates away on sign-in. */
-async function runCeremony(mode: PasskeyMode, callbackUrl?: string): Promise<Outcome> {
-  if (!supportsJsonCodecs()) return { error: UNSUPPORTED }
+/**
+ * Run the mode's ceremony; resolves with what to show, or navigates away on
+ * sign-in. Its words are the server's: the island carries no English of its own.
+ */
+async function runCeremony(
+  mode: PasskeyMode,
+  words: Readonly<Record<string, string>>,
+  callbackUrl?: string
+): Promise<Outcome> {
+  if (!supportsJsonCodecs()) return { error: words['passkey.unsupported'] }
   try {
     if (mode === 'register') {
       await registerPasskey()
       // A grid or list of the reader's passkeys on this page re-reads.
       dispatchIslandEvent('sovrium:refetch', { id: '/api/account/lists/passkeys' })
-      return { success: 'Passkey added' }
+      return { success: words['passkey.added'] }
     }
     await signInWithPasskey()
   } catch {
-    return { error: FAILED[mode] }
+    return { error: words[FAILED[mode]] }
   }
   const target = toSafeRedirectPath(callbackUrl ?? '/')
   if (target !== undefined) window.location.assign(target)
@@ -143,6 +153,7 @@ function PasskeyFeedback({ outcome }: { readonly outcome: Outcome }) {
  */
 export function PasskeyForm(props: PasskeyFormProps): React.ReactElement {
   const { mode, callbackUrl } = props
+  const words = props.uiStrings ?? NO_WORDS
   const [isPending, setIsPending] = useState(false)
   const [outcome, setOutcome] = useState<Outcome>({})
 
@@ -152,12 +163,12 @@ export function PasskeyForm(props: PasskeyFormProps): React.ReactElement {
       event.preventDefault()
       setIsPending(true)
       setOutcome({})
-      void runCeremony(mode, callbackUrl).then((next) => {
+      void runCeremony(mode, words, callbackUrl).then((next) => {
         setOutcome(next)
         if (next.error !== undefined || next.success !== undefined) setIsPending(false)
       })
     },
-    [mode, callbackUrl]
+    [mode, words, callbackUrl]
   )
 
   const variant = mode === 'register' ? 'default' : 'secondary'
@@ -174,7 +185,7 @@ export function PasskeyForm(props: PasskeyFormProps): React.ReactElement {
         {...pendingControlProps(isPending)}
         className={`${computeButtonDefaultClasses({ variant })} w-full`}
       >
-        {props.label ?? (mode === 'register' ? 'Add a passkey' : 'Sign in with a passkey')}
+        {props.label ?? words[mode === 'register' ? 'passkey.add' : 'passkey.signIn']}
       </button>
     </form>
   )

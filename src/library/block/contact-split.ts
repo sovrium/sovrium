@@ -33,8 +33,8 @@ const messageForm = (p: (key: string) => string): BlockNode =>
     successMessage: p('successMessage'),
     errorMessage: 'The message could not be sent. Try again.',
     fields: [
-      { field: 'name', control: 'text', label: 'Name' },
-      { field: 'email', control: 'email', label: 'Email' },
+      { field: 'name', control: 'text', label: 'Name', autocomplete: 'name' },
+      { field: 'email', control: 'email', label: 'Email', autocomplete: 'email' },
       { field: 'message', control: 'textarea', label: 'Message', placeholder: 'What do you need?' },
     ],
   })

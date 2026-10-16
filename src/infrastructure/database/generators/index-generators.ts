@@ -16,7 +16,7 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 import {
   isLiveUniqueField,
   isRelationshipField,
-  isUserField,
+  isSingleUser,
   LIVE_ROWS_PREDICATE,
   liveUniqueIndexName,
   relationshipFieldCreatesForeignKey,
@@ -253,7 +253,7 @@ const generateForeignKeyIndexes = (table: Table): readonly string[] => {
     .filter(relationshipFieldCreatesForeignKey)
     .map((field) => fkIndexSql(field.name))
 
-  const userFieldIndexes = table.fields.filter(isUserField).map((field) => fkIndexSql(field.name))
+  const userFieldIndexes = table.fields.filter(isSingleUser).map((field) => fkIndexSql(field.name))
 
   return [...relationshipIndexes, ...userFieldIndexes]
 }

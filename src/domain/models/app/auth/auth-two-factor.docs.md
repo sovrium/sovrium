@@ -30,7 +30,7 @@ The object form takes control of the issuer name, backup codes and code format.
 
 <!-- sovrium:options TwoFactorConfigSchema -->
 
-`issuer` is the name shown in the user's authenticator app, which is what tells them which account an entry belongs to when they have thirty of them. Left out, it is the app's display name — its `name` title-cased, as `$app.label` prints it, so `atelier-marceau` enrols as **Atelier Marceau**. `digits` accepts **6 or 8 and nothing else**, and defaults to 6; `period` is any positive number of seconds and defaults to 30.
+`issuer` is the name shown in the user's authenticator app, which is what tells them which account an entry belongs to when they have thirty of them. Left out, it is the app's display name as `$app.label` prints it — `displayName` when declared, else its `name` title-cased, so `atelier-marceau` enrols as **Atelier Marceau**. `digits` accepts **6 or 8 and nothing else**, and defaults to 6; `period` is any positive number of seconds and defaults to 30.
 
 That list is closed deliberately. Authenticator apps implement the two standard lengths, so a 5 or a 7 would decode happily and then produce codes no app generates — refusing them at validation is the only place a configuration author finds out.
 

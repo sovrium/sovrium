@@ -24,7 +24,7 @@
  */
 
 /**
- * Parse the RECORDS-GRID sub-path — `/tables/{table}` — or `undefined`.
+ * Parse the RECORDS-GRID sub-path — `/records/{table}` — or `undefined`.
  *
  * ─── WHY THIS IS ALL THAT IS LEFT OF THE DATA PARSER ───────────────────────
  *
@@ -45,16 +45,20 @@
  * ─── WHAT IS PRESERVED FROM THE GENERAL PARSER ─────────────────────────────
  *
  * Exactly two segments. Three or more answered `undefined` before and must here
- * too: `/tables/a/b` names no table, and returning `a` for it would merge an
+ * too: `/records/a/b` names no table, and returning `a` for it would merge an
  * operator table into a request that is about to 404 anyway.
  *
- *  - `/tables/contacts` → `'contacts'`
- *  - `/tables`          → undefined (the directory; no table to merge)
- *  - `/tables/a/b`      → undefined
- *  - `/forms/contact`   → undefined (not the records grid)
+ * Only the `records` segment. The section's former `/tables/…` addresses are
+ * answered 301 by the console's `redirects` before any page resolves, so a
+ * request reaching the mount under `tables` is about to 404 and needs no merge.
+ *
+ *  - `/records/contacts`     → `'contacts'`
+ *  - `/records`              → undefined (the directory; no table to merge)
+ *  - `/records/a/b`          → undefined
+ *  - `/submissions/contact`  → undefined (not the records grid)
  */
 export function parseRecordsGridRoute(dashboardPath: string): string | undefined {
   const segments = dashboardPath.split('/').filter((segment) => segment.length > 0)
-  if (segments.length !== 2 || segments[0] !== 'tables') return undefined
+  if (segments.length !== 2 || segments[0] !== 'records') return undefined
   return segments[1]
 }

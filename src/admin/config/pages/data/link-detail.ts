@@ -7,9 +7,9 @@
 
 // One link's deep-dive (`/links/:slug`), split out of `links.ts`.
 
-import { pageHeading } from '../../components/data-page'
+import { CARD_SURFACE } from '../../components/card'
+import { consolePage } from '../../components/data-page'
 import { dataTable, recordSheet } from '../../components/data-table-blocks'
-import { withShell } from '../../components/shell'
 import {
   ANALYTICS_CAMPAIGNS_ENDPOINT,
   ANALYTICS_DEVICES_ENDPOINT,
@@ -64,14 +64,21 @@ const definitionPanel = (): PageComponent =>
     // what the drawer's detail endpoint wants in its `:slug` slot.
     onRowClick: { action: 'openSheet', component: DEFINITION_DRAWER_ID },
     columns: [
-      { field: 'shortUrl', label: 'Short link' },
-      { field: 'destination', label: 'Destination' },
-      { field: 'source', label: 'Source', valueLabels: { config: 'Config', db: 'Console' } },
-      { field: 'state', label: 'State' },
-      { field: 'validFrom', label: 'Starts', format: 'datetime' },
-      { field: 'validUntil', label: 'Expires', format: 'datetime' },
+      { field: 'shortUrl', label: '$t:admin.links.shortLink' },
+      { field: 'destination', label: '$t:admin.links.destination' },
+      {
+        field: 'source',
+        label: '$t:admin.common.source',
+        valueLabels: {
+          config: '$t:admin.links.source.config',
+          db: '$t:admin.links.source.console',
+        },
+      },
+      { field: 'state', label: '$t:admin.common.state' },
+      { field: 'validFrom', label: '$t:admin.links.starts', format: 'datetime' },
+      { field: 'validUntil', label: '$t:admin.common.expires', format: 'datetime' },
     ],
-    emptyMessage: 'This link is no longer declared',
+    emptyMessage: '$t:admin.links.undeclared',
   }) as PageComponent
 
 /**
@@ -104,21 +111,21 @@ const definitionDrawer = (): PageComponent =>
     // `data-island-props` verbatim and the island is not on the translation
     // path, so a token here reaches the DOM as its own text — the same trap the
     // tab-label count badges hit one component over.
-    props: { title: 'Full definition' },
+    props: { title: '$t:admin.links.definition' },
     dataSource: { system: { endpoint: LINK_DETAIL_ENDPOINT, param: 'slug', recordKey: 'link' } },
     canEdit: false,
     recordFields: [
-      { name: 'shortUrl', type: 'single-line-text', label: 'Short link' },
-      { name: 'targets', type: 'json', label: 'Targets', renderAs: 'list' },
-      { name: 'utm', type: 'json', label: 'Campaign parameters', renderAs: 'key-value' },
+      { name: 'shortUrl', type: 'single-line-text', label: '$t:admin.links.shortLink' },
+      { name: 'targets', type: 'json', label: '$t:admin.links.targets', renderAs: 'list' },
+      { name: 'utm', type: 'json', label: '$t:admin.links.utm', renderAs: 'key-value' },
       // No `renderAs`: a string array's default `String(value)` coercion is the
       // comma-separated reading an operator wants, and an EMPTY one becomes an
       // empty line. `renderAs: 'json'` printed a literal `[]` for a link with no
       // tags, which reads as a value rather than as an absence.
-      { name: 'tags', type: 'single-line-text', label: 'Tags' },
-      { name: 'notes', type: 'long-text', label: 'Notes' },
-      { name: 'maxClicks', type: 'single-line-text', label: 'Click cap' },
-      { name: 'expiredTo', type: 'single-line-text', label: 'When expired' },
+      { name: 'tags', type: 'single-line-text', label: '$t:admin.links.tags' },
+      { name: 'notes', type: 'long-text', label: '$t:admin.links.notes' },
+      { name: 'maxClicks', type: 'single-line-text', label: '$t:admin.links.clickCap' },
+      { name: 'expiredTo', type: 'single-line-text', label: '$t:admin.links.whenExpired' },
     ],
   }) as PageComponent
 
@@ -162,15 +169,14 @@ const qrRegion = (): PageComponent =>
     element: 'section',
     props: {
       'aria-label': '$t:admin.links.qr.region',
-      className:
-        'border-border bg-card flex w-fit flex-col items-center gap-3 rounded-lg border p-4',
+      className: `${CARD_SURFACE} flex w-fit flex-col items-center gap-3 p-4`,
     },
     children: [
       {
         type: 'qr-code',
         link: '$param.slug',
         props: {
-          'aria-label': 'QR code for /l/$param.slug',
+          'aria-label': '$t:admin.links.qrFor /l/$param.slug',
           className: 'h-40 w-40',
         },
       },
@@ -248,20 +254,20 @@ const repointForm = (): PageComponent =>
     endpoint: {
       url: `${LINKS_ENDPOINT}/$param.slug`,
       method: 'PATCH',
-      submitLabel: 'Re-point link',
+      submitLabel: '$t:admin.links.repoint.submit',
       onSuccess: {
         type: 'toast',
         variant: 'success',
-        message: 'Destination updated',
+        message: '$t:admin.links.repoint.done',
         refetch: 'admin-link-definition',
       },
       onError: {
         type: 'toast',
         variant: 'destructive',
-        message: 'The destination was not changed. It must be a non-empty URL or path.',
+        message: '$t:admin.links.repoint.failed',
       },
     },
-    fields: [{ field: 'destination', control: 'url', label: 'New destination' }],
+    fields: [{ field: 'destination', control: 'url', label: '$t:admin.links.newDestination' }],
   }) as PageComponent
 
 /**
@@ -298,7 +304,7 @@ const stateButton = (config: {
             message: config.message,
             refetch: 'admin-link-definition',
           },
-          onError: { type: 'toast', variant: 'destructive', message: 'The link did not change.' },
+          onError: { type: 'toast', variant: 'destructive', message: '$t:admin.links.unchanged' },
         },
       },
     ],
@@ -312,7 +318,7 @@ const manageSection = (): PageComponent =>
     visibility: { record: { field: 'source', eq: 'db' }, capability: 'edit-operations' },
     props: {
       'aria-label': '$t:admin.links.manage.region',
-      className: 'border-border flex flex-col gap-4 rounded-lg border p-4',
+      className: `${CARD_SURFACE} flex flex-col gap-4 p-4`,
     },
     children: [
       {
@@ -328,36 +334,34 @@ const manageSection = (): PageComponent =>
         props: { className: 'flex flex-wrap items-center gap-2' },
         children: [
           stateButton({
-            label: 'Disable',
+            label: '$t:admin.links.disable',
             state: 'active',
             path: 'disable',
-            message: 'Link disabled',
+            message: '$t:admin.links.disabled',
             confirm: {
-              title: 'Disable this link?',
-              message:
-                'Anyone who follows /l/$param.slug stops arriving immediately. Enable puts it back; nothing is lost.',
+              title: '$t:admin.links.disableConfirm',
+              message: '$t:admin.links.disableMessage',
               role: 'alertdialog',
-              confirmLabel: 'Disable link',
-              cancelLabel: 'Cancel',
+              confirmLabel: '$t:admin.links.disableLink',
+              cancelLabel: '$t:admin.common.cancel',
             },
           }),
           stateButton({
-            label: 'Enable',
+            label: '$t:admin.links.enable',
             state: 'disabled',
             path: 'enable',
-            message: 'Link enabled',
+            message: '$t:admin.links.enabled',
           }),
           {
             type: 'button',
-            label: 'Delete',
+            label: '$t:admin.common.delete',
             variant: 'destructive',
             confirm: {
-              title: 'Delete this link?',
-              message:
-                'Anyone who follows /l/$param.slug from here on gets a 410. Its click history is kept, and the slug becomes free to mint again.',
+              title: '$t:admin.links.deleteConfirm',
+              message: '$t:admin.links.deleteMessage',
               role: 'alertdialog',
-              confirmLabel: 'Delete link',
-              cancelLabel: 'Cancel',
+              confirmLabel: '$t:admin.links.delete',
+              cancelLabel: '$t:admin.common.cancel',
             },
             action: {
               type: 'fetch',
@@ -365,11 +369,11 @@ const manageSection = (): PageComponent =>
               url: `${LINKS_ENDPOINT}/$param.slug`,
               // Back to the directory: the page this button is on stops having a
               // subject the moment it succeeds.
-              onSuccess: { type: 'toast', message: 'Link deleted' },
+              onSuccess: { type: 'toast', message: '$t:admin.links.deleted' },
               onError: {
                 type: 'toast',
                 variant: 'destructive',
-                message: 'The link was not deleted.',
+                message: '$t:admin.links.notDeleted',
               },
             },
           },
@@ -393,7 +397,7 @@ const configSourceNote = (): PageComponent =>
     visibility: { record: { field: 'source', eq: 'config' } },
     props: {
       'aria-label': '$t:admin.links.manage.region',
-      className: 'border-border bg-card flex flex-col gap-2 rounded-lg border p-4',
+      className: `${CARD_SURFACE} flex flex-col gap-2 p-4`,
     },
     children: [
       {
@@ -413,12 +417,12 @@ const configSourceNote = (): PageComponent =>
 
 /** Visits and share, the shape every breakdown reader returns. */
 const BREAKDOWN_COLUMNS = [
-  { field: 'name', label: 'Name' },
-  { field: 'count', label: 'Clicks', align: 'right' },
+  { field: 'name', label: '$t:admin.common.name' },
+  { field: 'count', label: '$t:admin.analytics.clicks', align: 'right' },
   // The endpoint already returns a scaled percentage (33.33, not 0.3333) and
   // there is no formatter that leaves an already-scaled number alone — so the
   // unit lives in the header rather than being applied twice to the cell.
-  { field: 'percentage', label: 'Share %', align: 'right' },
+  { field: 'percentage', label: '$t:admin.analytics.share', align: 'right' },
 ]
 
 /** The three breakdowns, each from a reader that already existed. */
@@ -429,11 +433,11 @@ const breakdowns = (): ReadonlyArray<PageComponent> => [
     rowsKey: 'referrers',
     idKey: 'domain',
     columns: [
-      { field: 'domain', label: 'Referrer' },
-      { field: 'pageViews', label: 'Clicks', align: 'right' },
-      { field: 'uniqueVisitors', label: 'Visitors', align: 'right' },
+      { field: 'domain', label: '$t:admin.analytics.referrer' },
+      { field: 'pageViews', label: '$t:admin.analytics.clicks', align: 'right' },
+      { field: 'uniqueVisitors', label: '$t:admin.analytics.visitors', align: 'right' },
     ],
-    emptyMessage: 'No referrers in this period',
+    emptyMessage: '$t:admin.analytics.noReferrers',
     query: ONE_LINK_QUERY,
   }),
   systemGrid({
@@ -442,7 +446,7 @@ const breakdowns = (): ReadonlyArray<PageComponent> => [
     rowsKey: 'deviceTypes',
     idKey: 'name',
     columns: BREAKDOWN_COLUMNS,
-    emptyMessage: 'No devices recorded in this period',
+    emptyMessage: '$t:admin.links.noDevices',
     query: ONE_LINK_QUERY,
   }),
   systemGrid({
@@ -451,12 +455,12 @@ const breakdowns = (): ReadonlyArray<PageComponent> => [
     rowsKey: 'campaigns',
     idKey: 'campaign',
     columns: [
-      { field: 'campaign', label: 'Campaign' },
-      { field: 'source', label: 'Source' },
-      { field: 'medium', label: 'Medium' },
-      { field: 'pageViews', label: 'Clicks', align: 'right' },
+      { field: 'campaign', label: '$t:admin.analytics.campaign' },
+      { field: 'source', label: '$t:admin.common.source' },
+      { field: 'medium', label: '$t:admin.analytics.medium' },
+      { field: 'pageViews', label: '$t:admin.analytics.clicks', align: 'right' },
     ],
-    emptyMessage: 'No tagged campaigns in this period',
+    emptyMessage: '$t:admin.analytics.noCampaigns',
     query: ONE_LINK_QUERY,
   }),
 ]
@@ -476,11 +480,11 @@ const clickLog = (): PageComponent =>
     rowsKey: 'events',
     idKey: 'id',
     columns: [
-      { field: 'timestamp', label: 'Recorded', format: 'datetime' },
-      { field: 'event_type', label: 'Type' },
-      { field: 'session_hash', label: 'Session' },
+      { field: 'timestamp', label: '$t:admin.analytics.recorded', format: 'datetime' },
+      { field: 'event_type', label: '$t:admin.common.type' },
+      { field: 'session_hash', label: '$t:admin.analytics.session' },
     ],
-    emptyMessage: 'No clicks in this period',
+    emptyMessage: '$t:admin.links.noClicks',
     query: ONE_LINK_QUERY,
   })
 
@@ -510,7 +514,12 @@ const detailAnalytics = (): PageComponent =>
             type: 'container',
             props: { className: 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4' },
             children: [
-              kpiTile('Clicks', ANALYTICS_OVERVIEW_ENDPOINT, 'summary.pageViews', ONE_LINK_QUERY),
+              kpiTile(
+                '$t:admin.analytics.clicks',
+                ANALYTICS_OVERVIEW_ENDPOINT,
+                'summary.pageViews',
+                ONE_LINK_QUERY
+              ),
               // Scans sits immediately beside Clicks because the pair only
               // means anything read together: either alone understates the
               // link. Same `kpiFormat` as its neighbour, so nothing about the
@@ -520,18 +529,23 @@ const detailAnalytics = (): PageComponent =>
               // scanned, which is the honest claim. See `ONE_LINK_SCAN_QUERY`
               // for why this is two figures and not one sum.
               kpiTile(
-                'Scans',
+                '$t:admin.analytics.scans',
                 ANALYTICS_OVERVIEW_ENDPOINT,
                 'summary.pageViews',
                 ONE_LINK_SCAN_QUERY
               ),
               kpiTile(
-                'Unique visitors',
+                '$t:admin.analytics.uniqueVisitors',
                 ANALYTICS_OVERVIEW_ENDPOINT,
                 'summary.uniqueVisitors',
                 ONE_LINK_QUERY
               ),
-              kpiTile('Sessions', ANALYTICS_OVERVIEW_ENDPOINT, 'summary.sessions', ONE_LINK_QUERY),
+              kpiTile(
+                '$t:admin.analytics.sessions',
+                ANALYTICS_OVERVIEW_ENDPOINT,
+                'summary.sessions',
+                ONE_LINK_QUERY
+              ),
             ],
           },
         ],
@@ -572,54 +586,41 @@ const detailAnalytics = (): PageComponent =>
  * rather than cosmetic: masking in the UI would still ship the value to the
  * browser, the proxy and the error tracker.
  */
-export const detail = withShell(
-  {
-    id: 'dashboard-data-link-detail',
-    name: 'dashboard-data-link-detail',
-    path: '/links/:slug',
-    // The SAME key the catalog page uses. `meta.title` is resolved before any
-    // record is fetched, so a `$record.` token here is not substituted — it
-    // shipped verbatim, and every tab and bookmark of a link read
-    // "Sovrium — Data · Links · $record.slug". Every other detail page in the
-    // console reuses its list page's key for exactly this reason; the slug is
-    // carried by the page heading, which IS on the record path.
-    meta: { title: '$t:admin.meta.links', lang: 'en-US' },
+export const detail = consolePage({
+  id: 'dashboard-data-link-detail',
+  path: '/links/:slug',
+  title: '$t:admin.meta.links',
+  heading: [
+    '$record.title|$record.slug', // "clicks and scans", not "clicks": the figures below are now two, and
+    // a blurb naming one of them tells a reader the page is about half of
+    // what it shows — the half that happens to exclude everyone who
+    // arrived through the printed code.
+    '$t:admin.links.detailBlurb',
+  ],
+  page: {
+    requires: ['links'],
     window: WINDOW,
     dataSource: { system: { endpoint: LINK_DETAIL_ENDPOINT, param: 'slug', recordKey: 'link' } },
-    components: [
-      // The heading is the FALLBACK CHAIN, and it is the whole reason this page
-      // could not ship a fortnight ago. `AdminLink.title` is nullable, so a
-      // console-minted link headed by `$record.title` alone put the literal word
-      // `null` at the top of the page; making null render as empty replaced that
-      // with an untitled document, which is a different wrong answer. The chain
-      // resolves to the first non-empty candidate.
-      pageHeading(
-        '$record.title|$record.slug',
-        // "clicks and scans", not "clicks": the figures below are now two, and
-        // a blurb naming one of them tells a reader the page is about half of
-        // what it shows — the half that happens to exclude everyone who
-        // arrived through the printed code.
-        'How /l/$record.slug is being used: the clicks and scans it received, where they came from, and what they were browsing with. Its definition and QR code are below.'
-      ),
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-col gap-6 pt-2' },
-        children: [
-          panelSection('$t:admin.links.definition.heading', [
-            definitionPanel(),
-            qrRegion(),
-            definitionDrawer(),
-          ]),
-          manageSection(),
-          configSourceNote(),
-          detailAnalytics(),
-        ],
-      } as PageComponent,
-    ],
-  } as PageConfig,
-  { breadcrumb: { links: '$t:admin.crumb.links' } }
-) satisfies PageConfig
+  },
+  shell: { breadcrumb: { links: '$t:admin.crumb.links' } },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex flex-col gap-6 pt-2' },
+      children: [
+        panelSection('$t:admin.links.definition.heading', [
+          definitionPanel(),
+          qrRegion(),
+          definitionDrawer(),
+        ]),
+        manageSection(),
+        configSourceNote(),
+        detailAnalytics(),
+      ],
+    } as PageComponent,
+  ],
+}) satisfies PageConfig
 
 /**
  * Both pages, directory first.

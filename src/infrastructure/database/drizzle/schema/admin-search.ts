@@ -50,7 +50,7 @@ import { systemSchema } from './migration-audit'
  *                   summary, a conversation's first-message snippet). Also
  *                   secret-free. The FTS document is `title || ' ' || body`.
  *   - `href`        the deep-link the UI navigates to when the result is
- *                   selected (e.g. `/_admin/tables/{name}?record={id}`,
+ *                   selected (e.g. `/_admin/records/{name}?record={id}`,
  *                   `/_admin/connections`). Stored, never recomputed client-side.
  *   - `updated_at`  the source entity's last-touch time, surfaced for ordering
  *                   (most-recent first within a type group) and freshness.

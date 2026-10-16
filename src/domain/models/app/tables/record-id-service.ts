@@ -78,9 +78,42 @@ const UUID_SPELLING = /^\{?[0-9a-f]{4}(?:-?[0-9a-f]{4}){7}\}?$/i
 
 /** A table's primary key, as far as the shape of its record ids depends on it. */
 export type RecordKeyShape = {
+  readonly name?: string
   readonly primaryKey?: { readonly type?: string }
   readonly fields?: readonly { readonly name?: string }[]
 }
+
+/** The key the engine gives a scope table that declares none: generated text in an `id` column. */
+const SCOPE_TABLE_KEY = { type: 'text', field: 'id' } as const
+
+/**
+ * The primary-key type a table is created with, given the app's `auth.scopeTables`.
+ *
+ * A table that declares a key keeps it. A table listed in `auth.scopeTables`
+ * that declares none is keyed by generated text, so the record ids an access
+ * grant stores are portable strings. Any other table takes the default serial
+ * key (`undefined` here). Every surface that reads the shape of a record id
+ * — the schema the migration writes, the records routes, the MCP tools —
+ * reads it through this one rule.
+ */
+export const effectiveKeyType = (
+  table: RecordKeyShape,
+  scopeTables: readonly string[] | undefined
+): string | undefined => {
+  if (table.primaryKey !== undefined) return table.primaryKey.type
+  return table.name !== undefined && scopeTables?.includes(table.name) === true
+    ? SCOPE_TABLE_KEY.type
+    : undefined
+}
+
+/** `table` with the primary key {@link effectiveKeyType} gives it written out. */
+export const withEffectivePrimaryKey = <T extends RecordKeyShape>(
+  table: T,
+  scopeTables: readonly string[] | undefined
+): T =>
+  table.primaryKey === undefined && effectiveKeyType(table, scopeTables) !== undefined
+    ? ({ ...table, primaryKey: SCOPE_TABLE_KEY } as T)
+    : table
 
 /**
  * Whether `recordId`, taken from a URL, could name a record of `table` at all.
@@ -92,12 +125,18 @@ export type RecordKeyShape = {
  *
  * Only the keys the engine generates are checked: the default serial key and
  * `bigserial` take a plain non-negative integer in range, `uuid` takes a UUID.
- * A `text` key takes any string, and a composite key — or a table declaring its
- * own `id` field — is left to the query, which knows its type.
+ * A `text` key — including the one a scope table gets (see
+ * {@link effectiveKeyType}), a 32-hex string on SQLite and a hyphenated UUID on
+ * PostgreSQL — takes any string, and a composite key, or a table declaring its
+ * own `id` field, is left to the query, which knows its type.
  */
-export const isRecordKeyShaped = (recordId: string, table: RecordKeyShape): boolean => {
+export const isRecordKeyShaped = (
+  recordId: string,
+  table: RecordKeyShape,
+  scopeTables: readonly string[] | undefined
+): boolean => {
   if (table.fields?.some((field) => field.name === 'id')) return true
-  const keyType = table.primaryKey?.type
+  const keyType = effectiveKeyType(table, scopeTables)
   if (keyType === 'uuid') return UUID_SPELLING.test(recordId)
   if (keyType === 'text' || keyType === 'composite') return true
   if (!/^\d{1,19}$/.test(recordId)) return false

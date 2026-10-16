@@ -18,19 +18,41 @@ import {
 } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
 import { labelOf } from '@/library/manifest/field-labels'
+import { composedToolbar } from './data-table-toolbar'
 
 type P = (key: string) => string
 
+/** The channel the toolbar publishes on and the grid listens to. */
+const channelOf = (p: P): string => `${p('table')}-filter`
+
 /**
- * The grid: a toolbar (search, filters, export), labelled columns that sort
- * from their header and read by field type, row selection with a bulk delete,
- * and a pager whose page size the reader can change.
+ * The toolbar above the grid — the `data-table-toolbar` block's row: a search
+ * box, a facet on the status field, a filter bar, then Export CSV and Import
+ * CSV. Its controls sit OUTSIDE the table and publish on the grid's channel.
+ */
+const toolbarOf = (p: P): Readonly<Record<string, unknown>> =>
+  composedToolbar({
+    table: p('table'),
+    channel: channelOf(p),
+    facetField: p('statusField'),
+    facetLabel: labelOf(p, 'statusLabel', 'statusField'),
+  })
+
+/**
+ * The grid: labelled columns that sort from their header and read by field
+ * type, row selection with a bulk delete, and a pager whose page size the
+ * reader can change. It listens on the toolbar's channel.
  */
 const dataTable = (p: P): Readonly<Record<string, unknown>> => {
   const table = p('table')
   return {
     type: 'table',
-    dataSource: { table, sort: [{ field: p('dateField'), direction: 'desc' }] },
+    dataSource: {
+      table,
+      bindTo: channelOf(p),
+      sharedFilter: {},
+      sort: [{ field: p('dateField'), direction: 'desc' }],
+    },
     columns: [
       { field: p('referenceField'), label: labelOf(p, 'referenceLabel', 'referenceField') },
       { field: p('clientField'), label: labelOf(p, 'clientLabel', 'clientField') },
@@ -38,7 +60,6 @@ const dataTable = (p: P): Readonly<Record<string, unknown>> => {
       { field: p('amountField'), label: labelOf(p, 'amountLabel', 'amountField') },
       { field: p('dateField'), label: labelOf(p, 'dateLabel', 'dateField') },
     ],
-    toolbar: { search: true, filters: true, export: true },
     selection: { mode: 'multiple' },
     bulkActions: [
       {
@@ -66,9 +87,10 @@ export const entry = defineLibraryEntry({
   shadcnBlock: null,
   tags: ['table', 'grid', 'records', 'search', 'filter', 'selection', 'pagination'],
   description:
-    'A data grid over one of your tables: a toolbar with search, filters and export, labelled columns that sort from their header, checkboxes with a bulk delete, and a pager with a page-size choice.',
+    'A data grid over one of your tables under its toolbar — a search box, a status facet, a filter bar, Export CSV and Import CSV — with labelled columns that sort from their header, checkboxes with a bulk delete, and a pager with a page-size choice.',
   notes: [
-    'No shadcn counterpart: shadcn/ui documents its data table as a guide rather than a block, so this block composes the same parts — toolbar, column headers, selection, pagination — as one `table`.',
+    'No shadcn counterpart: shadcn/ui documents its data table as a guide rather than a block, so this block composes the same parts — toolbar, column headers, selection, pagination — as a toolbar row above one `table`.',
+    'The toolbar is the `data-table-toolbar` block’s row, on the channel `<table>-filter`: its controls publish there and the grid listens. Install `data-table-toolbar` alone to put the same row above a board or a calendar too.',
     PLACE_NOTE,
     DATA_NOTE,
     'Each column is headed by its field name in words — `due_date` reads "Due date" — until you set its label parameter: `--set amountLabel=Budget`.',
@@ -140,7 +162,10 @@ export const entry = defineLibraryEntry({
     return asComponent(
       name,
       panel([
-        stack([...(p('headline') === '' ? [] : [panelHead(p('headline'))]), dataTable(p)], 'gap-4'),
+        stack(
+          [...(p('headline') === '' ? [] : [panelHead(p('headline'))]), toolbarOf(p), dataTable(p)],
+          'gap-4'
+        ),
       ])
     )
   },

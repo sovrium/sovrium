@@ -18,4 +18,7 @@ components:
         children:
           - type: form
             formRef: rate-answer
+            # The form is the whole page, so its title is the page heading.
+            props:
+              headingLevel: h1
       - $ref: ./_site-footer.yaml

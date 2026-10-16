@@ -144,11 +144,15 @@ export const readOperationFile = (
     Effect.withSpan('automations.connection-file-read')
   )
 
+/** The parameter types whose value is a structure, not text: an attachment, an object, a list. */
+const STRUCTURED_PARAM_TYPES: ReadonlySet<string> = new Set(['file', 'object', 'array'])
+
 /**
- * A call's `params`, each `file` parameter re-read whole from the authored
- * props. The run loop renders every prop to a string, which turns an
- * attachment OBJECT into `"[object Object]"`; a whole `{{path}}` is re-read so
- * the attachment value arrives intact, as `ai/transcribe` reads its `source`.
+ * A call's `params`, each `file`, `object` or `array` parameter re-read whole
+ * from the authored props. The run loop renders every prop to a string, which
+ * turns an attachment or a step's object into `"[object Object]"` and a list
+ * into its text; a whole `{{path}}` is re-read so the value arrives intact, as
+ * `ai/transcribe` reads its `source` and the `record` actions read their fields.
  */
 export const withWholeFileParams = (
   params: Readonly<Record<string, unknown>>,
@@ -160,7 +164,9 @@ export const withWholeFileParams = (
     Record<string, unknown>
   >
   return Object.entries(operation.params ?? {})
-    .filter(([name, param]) => param.type === 'file' && authored[name] !== undefined)
+    .filter(
+      ([name, param]) => STRUCTURED_PARAM_TYPES.has(param.type) && authored[name] !== undefined
+    )
     .reduce<Readonly<Record<string, unknown>>>((resolved, [name]) => {
       const whole = resolveOwnProp(runContext, authored[name])
       return typeof whole === 'object' && whole !== null ? { ...resolved, [name]: whole } : resolved

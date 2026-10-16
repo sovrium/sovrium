@@ -143,7 +143,7 @@ function KpiTableTile({
     sparkline: sparkline !== undefined,
   })
 
-  if (isLoading) return <KpiLoading />
+  if (isLoading) return <KpiLoading label={uiStrings?.['kpi.loading']} />
   if (isError && isRateLimitedRead(error))
     return (
       <KpiRateLimited
@@ -157,6 +157,7 @@ function KpiTableTile({
       <KpiError
         error={error}
         label={card.label}
+        strings={uiStrings}
       />
     )
 
@@ -243,5 +244,5 @@ export default function KpiIsland({
     )
   }
 
-  return <KpiMissingTable />
+  return <KpiMissingTable strings={uiStrings} />
 }

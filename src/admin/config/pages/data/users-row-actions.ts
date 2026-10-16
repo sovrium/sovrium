@@ -62,11 +62,11 @@ export const GROUP_OPTIONS_SOURCE = {
  */
 export const changeGroupsAction = (refetch: string) =>
   ({
-    label: 'Change groups',
+    label: '$t:admin.users.changeGroups',
     editSelect: {
       field: 'groups',
-      label: 'Groups',
-      saveLabel: 'Save',
+      label: '$t:admin.common.groups',
+      saveLabel: '$t:admin.common.save',
       multiple: true,
       optionsSource: GROUP_OPTIONS_SOURCE,
     },
@@ -76,7 +76,7 @@ export const changeGroupsAction = (refetch: string) =>
       method: 'PUT',
       // `$record.groups` resolves to the PICKED list, sent as an array.
       body: { groups: '$record.groups' },
-      onSuccess: { type: 'toast', message: 'Groups updated', refetch },
+      onSuccess: { type: 'toast', message: '$t:admin.users.groupsUpdated', refetch },
     },
   }) as const
 
@@ -86,11 +86,11 @@ export const changeGroupsAction = (refetch: string) =>
  */
 export const changeRoleAction = (refetch: string) =>
   ({
-    label: 'Change role',
+    label: '$t:admin.users.changeRole',
     editSelect: {
       field: 'role',
-      label: 'Role',
-      saveLabel: 'Save',
+      label: '$t:admin.common.role',
+      saveLabel: '$t:admin.common.save',
       optionsSource: ROLE_OPTIONS_SOURCE,
     },
     action: {
@@ -103,25 +103,25 @@ export const changeRoleAction = (refetch: string) =>
       // The Better-Auth admin plugin answers 200 on failure too (an
       // enumeration-safe envelope), so success is read from the body.
       responseEnvelope: 'better-auth',
-      onSuccess: { type: 'toast', message: 'Role updated', refetch },
+      onSuccess: { type: 'toast', message: '$t:admin.users.roleUpdated', refetch },
     },
   }) as const
 
 /** Ban an account — the one row gesture that takes access away, so it confirms. */
 export const banAction = (refetch: string) =>
   ({
-    label: 'Ban',
+    label: '$t:admin.users.ban',
     variant: 'destructive',
     visibleWhen: { field: 'banned', eq: false },
     confirm: {
-      title: 'Confirm ban',
-      message: 'This account loses access immediately. You can lift the ban later.',
+      title: '$t:admin.users.confirmBan',
+      message: '$t:admin.users.banMessage',
       role: 'alertdialog',
       // Both labels EXPLICIT: the confirm-gate runtime defaults its buttons
       // to French, which would drop two French words into an otherwise
       // English console.
-      confirmLabel: 'Confirm ban',
-      cancelLabel: 'Cancel',
+      confirmLabel: '$t:admin.users.confirmBan',
+      cancelLabel: '$t:admin.common.cancel',
     },
     action: {
       type: 'fetch',
@@ -129,7 +129,7 @@ export const banAction = (refetch: string) =>
       method: 'POST',
       body: { userId: '$record.id' },
       responseEnvelope: 'better-auth',
-      onSuccess: { type: 'toast', message: 'Account banned', refetch },
+      onSuccess: { type: 'toast', message: '$t:admin.users.banned', refetch },
     },
   }) as const
 
@@ -138,7 +138,7 @@ export const liftBanAction = (refetch: string) =>
   ({
     // No confirm: lifting a ban is the reversal of a reversible action.
     // Confirmation is reserved for the direction that removes access.
-    label: 'Lift ban',
+    label: '$t:admin.common.liftBan',
     visibleWhen: { field: 'banned', eq: true },
     action: {
       type: 'fetch',
@@ -146,6 +146,6 @@ export const liftBanAction = (refetch: string) =>
       method: 'POST',
       body: { userId: '$record.id' },
       responseEnvelope: 'better-auth',
-      onSuccess: { type: 'toast', message: 'Ban lifted', refetch },
+      onSuccess: { type: 'toast', message: '$t:admin.users.unbanned', refetch },
     },
   }) as const

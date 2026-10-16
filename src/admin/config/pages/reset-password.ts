@@ -145,7 +145,7 @@ export const resetPasswordCopy = {
                         onSuccess: {
                           navigate: '/login',
                           toast: {
-                            message: 'Password updated. You can sign in.',
+                            message: '$t:admin.resetPassword.done',
                             variant: 'success',
                           },
                         },

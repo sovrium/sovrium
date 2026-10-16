@@ -153,5 +153,15 @@ export class AdminAutomationsRepository extends Context.Service<
     readonly findAdminRunById: (
       runId: string
     ) => Effect.Effect<AdminAutomationRunRow | undefined, AdminAutomationsDatabaseError>
+
+    /**
+     * How many steps each of `runIds` ran — its recorded step rows, minus the
+     * ones recorded as `skipped`, which never ran — as ONE grouped count: a
+     * page of runs costs one query, not one per run. A run with no such row
+     * has no entry.
+     */
+    readonly countStepsByRunIds: (
+      runIds: readonly string[]
+    ) => Effect.Effect<ReadonlyMap<string, number>, AdminAutomationsDatabaseError>
   }
 >()('AdminAutomationsRepository') {}

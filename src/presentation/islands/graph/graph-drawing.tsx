@@ -35,15 +35,18 @@
  */
 
 import { useGraphClipIds } from '@/presentation/islands/graph/graph-clip-ids'
+import { GraphFlagDot } from '@/presentation/islands/graph/graph-flag-dot'
 import { COLUMN_WIDTH, HEADER_HEIGHT, NODE_HEIGHT } from '@/presentation/islands/graph/graph-layout'
 import {
   DIMMED_OPACITY,
   GRAPH_EDGE_CLASS,
   GRAPH_LABEL_CLASS,
   edgeWidthOf,
+  flagMark,
   nodeBoxClassOf,
   nodeClassOf,
   nodeOpacityOf,
+  nodeTitleOf,
   stateMark,
   useNodeInteraction,
 } from '@/presentation/islands/graph/graph-node-interaction'
@@ -133,7 +136,12 @@ function NodeBody({
       >
         {node.label}
       </text>
-      <title>{node.detail === undefined ? node.label : `${node.label} — ${node.detail}`}</title>
+      <GraphFlagDot
+        flag={node.flag}
+        x={node.x + COLUMN_WIDTH - 9}
+        y={node.y + 9}
+      />
+      <title>{nodeTitleOf(node)}</title>
     </>
   )
 }
@@ -163,6 +171,7 @@ function GraphNode({
       data-graph-node={node.id}
       data-graph-node-kind={node.kind}
       {...stateMark(node.state)}
+      {...flagMark(node.flag)}
       {...marks}
       {...interaction}
       className={nodeClassOf(selectable)}

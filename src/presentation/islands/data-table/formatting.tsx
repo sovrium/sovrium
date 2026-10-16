@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveDisplayLabel } from '@/presentation/design/field-display'
+import { resolveColumnLabel } from '@/presentation/design/field-display'
 import { listEditedFields } from './cell-plain'
 import { typePlacementOf } from './cells/type-placement'
 import { buildFieldCellRenderer } from './cells/value-cell'
-import { columnPresentationMeta } from './column-presentation'
+import { columnPresentationMeta, columnSortable } from './column-presentation'
 import {
   DEFAULT_SAVE_LABEL,
   DEFAULT_CANCEL_LABEL,
@@ -73,9 +73,9 @@ export function mapColumnsToColumnDefs(
       return {
         accessorKey: col.field,
         // The column's own `label` override, then the bound field's declared
-        // `label`, then the RAW field name — the same order every surface uses.
-        header: resolveDisplayLabel(col.label, options.fieldMeta?.[col.field]?.label, col.field),
-        enableSorting: col.sortable !== false,
+        // `label`, then the field name made readable.
+        header: resolveColumnLabel(col.label, options.fieldMeta?.[col.field]?.label, col.field),
+        enableSorting: columnSortable(col, options.fieldMeta),
         enableColumnFilter: col.filterable !== false,
         ...(col.width && { size: col.width }),
         ...(col.minWidth && { minSize: col.minWidth }),
