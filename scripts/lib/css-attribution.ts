@@ -52,7 +52,7 @@
  */
 
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { basename, extname, join, relative } from 'node:path'
+import { basename, extname, posix } from 'node:path'
 import { Scanner } from '@tailwindcss/oxide'
 import ts from 'typescript'
 import { fail, REPO_ROOT, type ComponentCssGroup } from './css-attribution-compile'
@@ -66,6 +66,7 @@ import {
   STOP_SET,
   SYNTHESIZED_TYPES_FILE,
 } from './css-attribution-tables'
+import { toPosixPath } from './posix-path'
 import {
   findConstInitializer,
   parseModule,
@@ -82,12 +83,32 @@ export {
 } from './css-attribution-tables'
 export * from './css-attribution-compile'
 
-const SRC = join(REPO_ROOT, 'src')
-const PRESENTATION = join(SRC, 'presentation')
-const REGISTRY_DIR = join(PRESENTATION, 'render', 'registry')
-const ISLANDS_DIR = join(PRESENTATION, 'islands')
+// -----------------------------------------------------------------------------
+// Path keys — POSIX separators, always
+// -----------------------------------------------------------------------------
+//
+// Every path this module compares — the walk's visited set, the stop set, the
+// boundary, the registry's leaf modules, the island targets, the console
+// prefixes — is a key, and a key has ONE spelling: forward slashes. On Windows
+// `node:path` joins and resolves with `\` while TypeScript's `sf.fileName`
+// and the tables in `css-attribution-tables.ts` carry `/`, so a mixed key set
+// misses every lookup: `isPresentationModule` matched nothing, the walk reached
+// nothing, and the stale-entry guard on `CORE_WALK_BOUNDARY` fired (the 0.39.0
+// Windows binary build). So the root is normalised once, every join is
+// `posix.join` over it, and the two producers outside this module's control
+// (the import resolver and oxide's file list) are normalised where they enter.
+// Windows' file APIs accept forward slashes, so the keys are also valid paths.
 
-const rel = (path: string): string => relative(REPO_ROOT, path)
+const ROOT = toPosixPath(REPO_ROOT)
+/** A repo-relative POSIX path (`src/presentation/...`) to its absolute POSIX key. */
+export const repoKey = (relPath: string): string => posix.join(ROOT, toPosixPath(relPath))
+
+const SRC = repoKey('src')
+const PRESENTATION = posix.join(SRC, 'presentation')
+const REGISTRY_DIR = posix.join(PRESENTATION, 'render', 'registry')
+const ISLANDS_DIR = posix.join(PRESENTATION, 'islands')
+
+const rel = (path: string): string => posix.relative(ROOT, toPosixPath(path))
 
 // =============================================================================
 // Corpus — the per-file candidate scan
@@ -143,7 +164,7 @@ export const scanCorpus = (): readonly CorpusFile[] => {
   // holds it (`src/admin/**` sorts first, which once put `rounded-md` and
   // `text-md` in the console-only set and served a text-only page no rule for
   // its skip link). The union is identical either way; the PROVENANCE is not.
-  const files = [...globbed.files].toSorted()
+  const files = [...globbed.files].map(toPosixPath).toSorted()
   return files.map((path) => ({
     path,
     candidates: new Scanner({ sources: [] }).scanFiles([
@@ -164,8 +185,15 @@ export interface RegistryKey {
 
 const isFile = (path: string): boolean => existsSync(path) && statSync(path).isFile()
 
+/** {@link resolveImportSpecifier} with its result as a POSIX key (it resolves with `node:path`). */
+const resolveImport = (fromFile: string, specifier: string): string | undefined => {
+  const target = resolveImportSpecifier(fromFile, specifier, isFile)
+  return target === undefined ? undefined : toPosixPath(target)
+}
+
 const sourceFileCache = new Map<string, ts.SourceFile>()
-const parseFile = (path: string): ts.SourceFile => {
+const parseFile = (rawPath: string): ts.SourceFile => {
+  const path = toPosixPath(rawPath)
   const cached = sourceFileCache.get(path)
   if (cached) return cached
   const sf = parseModule(path, readFileSync(path, 'utf8'))
@@ -180,7 +208,7 @@ const importedBindings = (sf: ts.SourceFile): ReadonlyMap<string, string> => {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteralLike(statement.moduleSpecifier)) {
       continue
     }
-    const target = resolveImportSpecifier(sf.fileName, statement.moduleSpecifier.text, isFile)
+    const target = resolveImport(sf.fileName, statement.moduleSpecifier.text)
     if (target === undefined) continue
     const clause = statement.importClause
     if (clause === undefined || clause.isTypeOnly) continue
@@ -255,7 +283,7 @@ const spreadModules = new Set<string>()
 
 /** Every `COMPONENT_REGISTRY` key with the module its renderer is attributed to. */
 export const readRegistry = (): Registry => {
-  const registry = join(REGISTRY_DIR, 'component-registry.ts')
+  const registry = posix.join(REGISTRY_DIR, 'component-registry.ts')
   const sf = parseFile(registry)
   spreadModules.clear()
   // Object-spread semantics: a key declared twice (`accordion` is in the
@@ -275,7 +303,7 @@ export const readRegistry = (): Registry => {
 
 /** The `SYNTHESIZED_COMPONENT_TYPES` set, read from its source. */
 export const readSynthesizedTypes = (): ReadonlySet<string> => {
-  const sf = parseFile(join(REPO_ROOT, SYNTHESIZED_TYPES_FILE))
+  const sf = parseFile(repoKey(SYNTHESIZED_TYPES_FILE))
   const initializer = findConstInitializer(sf, 'SYNTHESIZED_COMPONENT_TYPES')
   if (initializer === undefined) return fail('SYNTHESIZED_COMPONENT_TYPES not found')
   const call = unwrapExpression(initializer)
@@ -294,7 +322,7 @@ export const readSynthesizedTypes = (): ReadonlySet<string> => {
  * in {@link ENGINE_PAGES_FILE}, across every function in it.
  */
 export const readEnginePageTypes = (registryKeys?: ReadonlySet<string>): ReadonlySet<string> => {
-  const sf = parseFile(join(REPO_ROOT, ENGINE_PAGES_FILE))
+  const sf = parseFile(repoKey(ENGINE_PAGES_FILE))
   const types = new Set<string>()
   const visit = (node: ts.Node): void => {
     if (
@@ -335,7 +363,7 @@ const dynamicImportTarget = (node: ts.Node, from: string): string | undefined =>
   }
   const [specifier] = body.arguments
   if (specifier === undefined || !ts.isStringLiteralLike(specifier)) return undefined
-  return resolveImportSpecifier(from, specifier.text, isFile)
+  return resolveImport(from, specifier.text)
 }
 
 /** `const loadX = () => import('…')` and `export const XLazy = lazy(() => import('…'))`. */
@@ -369,7 +397,7 @@ const loaderConstsOf = (sf: ts.SourceFile): ReadonlyMap<string, string> => {
  * island that touches `document` at module scope.
  */
 export const readIslandLoaders = (): readonly IslandLoader[] => {
-  const registryPath = join(ISLANDS_DIR, 'island-registry.ts')
+  const registryPath = posix.join(ISLANDS_DIR, 'island-registry.ts')
   const sf = parseFile(registryPath)
   const localLoaders = loaderConstsOf(sf)
   const bindings = importedBindings(sf)
@@ -440,7 +468,7 @@ const namedLoaderTargets = (importer: string, hub: string): readonly string[] =>
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteralLike(statement.moduleSpecifier)) {
       continue
     }
-    if (resolveImportSpecifier(importer, statement.moduleSpecifier.text, isFile) !== hub) continue
+    if (resolveImport(importer, statement.moduleSpecifier.text) !== hub) continue
     const named = statement.importClause?.namedBindings
     if (named === undefined || !ts.isNamedImports(named)) continue
     for (const element of named.elements) {
@@ -456,9 +484,9 @@ export const importsOf = (path: string): readonly string[] => {
   const cached = importsCache.get(path)
   if (cached) return cached
   const loader = path.endsWith('.tsx') ? transpilers.tsx : transpilers.ts
-  const hubs = new Set(LOADER_HUBS.map((hub) => join(REPO_ROOT, hub)))
+  const hubs = new Set(LOADER_HUBS.map((path) => repoKey(path)))
   const resolved = loader.scanImports(readFileSync(path, 'utf8')).flatMap(({ path: specifier }) => {
-    const target = resolveImportSpecifier(path, specifier, isFile)
+    const target = resolveImport(path, specifier)
     if (target === undefined) return []
     return hubs.has(target) ? [target, ...namedLoaderTargets(path, target)] : [target]
   })
@@ -480,7 +508,9 @@ export const walkPresentation = (
   stop: ReadonlySet<string>
 ): ReadonlySet<string> => {
   const reached = new Set<string>()
-  const queue = roots.filter((root) => isPresentationModule(root) && !stop.has(root))
+  const queue = roots
+    .map(toPosixPath)
+    .filter((root) => isPresentationModule(root) && !stop.has(root))
   for (const next of queue) reached.add(next)
   while (queue.length > 0) {
     const current = queue.pop() as string
@@ -571,7 +601,7 @@ export const attributeCorpus = (
   const loaders = readIslandLoaders()
   assertIslandTablesPartition(loaders, registryKeys)
   const islandTarget = new Map(loaders.map((loader) => [loader.key, loader.target] as const))
-  const stop = new Set([...STOP_SET.map((path) => join(REPO_ROOT, path)), ...containerModules])
+  const stop = new Set([...STOP_SET.map((path) => repoKey(path)), ...containerModules])
 
   const marks = new Map<string, Set<string>>()
   const mark = (files: Iterable<string>, label: string): void => {
@@ -600,7 +630,7 @@ export const attributeCorpus = (
   // 3. Everything else reached by no type is a CORE root: the page shell, the
   //    resolvers, the API routes — and what they import is CORE too, even when
   //    a type also reaches it (a shared recipe the shell uses must always ship).
-  const boundary = CORE_WALK_BOUNDARY.map((path) => join(REPO_ROOT, path))
+  const boundary = CORE_WALK_BOUNDARY.map((path) => repoKey(path))
   for (const path of boundary) {
     const labels = marks.get(path)
     if (labels === undefined || ![...labels].some((label) => label !== CORE && label !== CONSOLE)) {

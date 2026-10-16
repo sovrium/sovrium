@@ -3,6 +3,12 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.39.1",
+      "date": "2026-10-16",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.39.0...v0.39.1",
+      "sections": []
+    },
+    {
       "version": "0.39.0",
       "date": "2026-10-16",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.38.0...v0.39.0",
